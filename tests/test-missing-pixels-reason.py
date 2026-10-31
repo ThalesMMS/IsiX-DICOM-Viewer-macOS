@@ -130,12 +130,15 @@ assert 'reasonForUnreadableFrame' in unreadable, 'an unreadable frame is not nam
 
 # And the viewer draws it, in the stack that already carries the other things
 # worth saying about what is on screen.
+# The notices under the top orientation letter are centred, one a line
+# (AnnotationOverlayLayout.orientationCommands).
 drawn = view[view.index('VOI LUT Applied'):]
-drawn = drawn[:drawn.index('//Bottom')]
-assert 'private let kMissingPixelsReasonGetter = #selector(getter: DCMPix.missingPixelsReason)' in view
-assert 'self.drawNSStringGL(objcProperty(self.curDCM, kMissingPixelsReasonGetter)' in drawn, (
+drawn = drawn[:drawn.index('// Determine Anterior, Posterior')]
+assert 'if let missing = self.curDCM?.missingPixelsReason, !missing.isEmpty {\n            notices.append(missing)' in drawn, (
     'the reason is recorded but never drawn')
-assert 'DCMViewTextAlignCenter' in drawn
+assert 'notices: notices)' in view
+layout = (root / 'Modules/IsiXImaging/Sources/Annotations/AnnotationOverlayLayout.swift').read_text()
+assert 'for notice in notices {' in layout and 'alignment: .center))' in layout[layout.index('for notice in notices {'):]
 
 with tempfile.TemporaryDirectory(prefix='horos-missing-pixels-') as tmp:
     p = Path(tmp)

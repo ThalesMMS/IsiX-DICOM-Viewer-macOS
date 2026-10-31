@@ -35,7 +35,7 @@ sys.path.insert(0, str(root / 'tests'))
 from sources import is_swift, source_text  # noqa: E402
 
 failures = []
-scan = (root / 'Horos/Sources/DicomDatabase+Scan.swift').read_text(encoding='utf-8')
+scan = (root / 'Horos/Sources/MediaVolumeScan.swift').read_text(encoding='utf-8')
 # NSFileManager (N2) is Swift; the checks below name both spellings.
 manager = source_text('NSFileManager+N2')
 swift = is_swift('NSFileManager+N2')
@@ -60,14 +60,13 @@ else:
     if 'tmpFilePathInDir' in branch:
         failures.append('the archive is still expanded into a path made for a file, and making a '
                         'directory there raises')
-    # DicomDatabase (Scan) is Swift (DicomDatabase+Scan.swift).
     if 'tmpDirectoryPath(inDir:' not in branch:
         failures.append('the archive is not expanded into a temporary directory')
-    if 'HorosObjCException.perform' not in branch or '} catch {' not in branch:
+    if 'HorosObjCException.caught' not in branch:
         failures.append('an archive that raises still takes the whole medium with it')
     if 'the rest of the medium is still read' not in scan:
         failures.append('nothing says the medium carried on after an archive it could not expand')
-    if 'unzipFile' not in branch or 'self.scan(atPath: tempPath' not in branch:
+    if 'unzipFile' not in branch or 'MediaVolumeScan(database: self.database, path: tempPath' not in branch:
         failures.append('the archive is no longer expanded and scanned')
 
 live = re.sub(r'//[^\n]*', '', manager)

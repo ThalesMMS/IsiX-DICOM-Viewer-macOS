@@ -10,6 +10,7 @@
 
 import Foundation
 import IsiXDICOMNetwork
+import IsiXPreferences
 
 /// What the listener of the DCMTK adapter asks the application, on the threads
 /// of its connections and associations: the database of each association,
@@ -34,13 +35,13 @@ final class ListenerHost: NSObject, IsiXDCMTKListenerHost, @unchecked Sendable {
     }
 
     func answersCommand(_ command: IsiXDCMTKListenerCommand) -> Bool {
-        let defaults = UserDefaults.standard
-        return ListenerAcceptance.answers(Self.command(command), findEnabled: defaults.bool(forKey: "activateCFINDSCP"),
-                                          getEnabled: defaults.bool(forKey: "activateCGETSCP"))
+        let preferences = PreferencesSource.process.preferences
+        return ListenerAcceptance.answers(Self.command(command), findEnabled: preferences[NetworkPreferences.activateCFINDSCP],
+                                          getEnabled: preferences[NetworkPreferences.activateCGETSCP])
     }
 
     var maximumConcurrentAssociations: UInt {
-        UInt(ListenerLimits.maximumAssociations(configured: UserDefaults.standard.integer(forKey: "maximumNumberOfConcurrentDICOMAssociations")))
+        UInt(ListenerLimits.maximumAssociations(configured: PreferencesSource.process.preferences[NetworkPreferences.maximumNumberOfConcurrentDICOMAssociations]))
     }
 
     func isListenerAETitle(_ calledAETitle: Data) -> Bool {
@@ -74,7 +75,7 @@ final class ListenerHost: NSObject, IsiXDCMTKListenerHost, @unchecked Sendable {
     }
 
     func associationDidEnd() {
-        DicomDatabase.activeLocal()?.initiateImportFilesFromIncomingDirUnlessAlreadyImporting()
+        DatabaseIngest.process.requestImport()
     }
 
     private static func command(_ command: IsiXDCMTKListenerCommand) -> ListenerCommand {

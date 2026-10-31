@@ -52,9 +52,6 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/// The local file of an image of the Bonjour shared database, copied here, or nil.
-FOUNDATION_EXPORT NSString * _Nullable HorosDCMPixLocalPathForBonjourImage(NSManagedObjectID * _Nullable imageID);
-
 /// The volume rendering of `count` images from `source` through the window, by
 /// the controller: its RGBA picture.
 FOUNDATION_EXPORT unsigned char * _Nullable HorosDCMPixRenderThickSlab(ThickSlabController * _Nullable slab, float * _Nullable source,

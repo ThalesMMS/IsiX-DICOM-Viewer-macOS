@@ -64,59 +64,60 @@ enum DCMPixParsedFileCache {
     /// The parsed object of `key`, taken by `pix`: the cached one, counted; or
     /// `parsed`, cached for the others. nil when neither is there.
     static func take(_ key: String?, parsed: DCMObject?, for pix: DCMPix) -> DCMObject? {
-        var object: DCMObject?
         PapyrusLock?.lock()
-        if let exception = HorosObjCException.caught({
-            let group = key.flatMap { parsedFiles.object(forKey: $0 as NSString) } as? NSMutableDictionary
-            if let group {
-                object = group.object(forKey: "dcmObject") as? DCMObject
-                if pix.horos_retainedCacheGroup != nil {
-                    NSLog("******** DCMPix : retainedCacheGroup 3 != nil ! %@", (pix.srcFile ?? "(null)") as NSString)
-                }
-                group.setValue(NSNumber(value: ((group.object(forKey: "count") as? NSNumber)?.int32Value ?? 0) + 1), forKey: "count")
-                pix.horos_retainedCacheGroup = group
-                pix.horos_cachedFileKey = key as NSString?
-            } else if let parsed {
-                object = parsed
-                let group = NSMutableDictionary()
-                group.setValue(parsed, forKey: "dcmObject")
-                if pix.horos_retainedCacheGroup != nil {
-                    NSLog("******** DCMPix : retainedCacheGroup 4 != nil ! %@", (pix.srcFile ?? "(null)") as NSString)
-                }
-                group.setValue(NSNumber(value: Int32(1)), forKey: "count")
-                pix.horos_retainedCacheGroup = group
-                pix.horos_cachedFileKey = key as NSString?
-                // [dictionary setObject:forKey:] raised for a nil key.
-                parsedFiles.setObject(group, forKey: key! as NSString)
+        defer { PapyrusLock?.unlock() }
+        let group = key.flatMap { parsedFiles.object(forKey: $0 as NSString) } as? NSMutableDictionary
+        if let group {
+            let object = group.object(forKey: "dcmObject") as? DCMObject
+            if pix.horos_retainedCacheGroup != nil {
+                NSLog("******** DCMPix : retainedCacheGroup 3 != nil ! %@", (pix.srcFile ?? "(null)") as NSString)
             }
-        }) {
-            NSLog("******** loadDICOMWithDCMTK exception : %@", exception)
-            object = nil
+            group.setValue(NSNumber(value: ((group.object(forKey: "count") as? NSNumber)?.int32Value ?? 0) + 1), forKey: "count")
+            pix.horos_retainedCacheGroup = ObjectIdentifier(group)
+            pix.horos_cachedFileKey = key as NSString?
+            return object
         }
-        PapyrusLock?.unlock()
-        return object
+        guard let parsed else { return nil }
+        let created = NSMutableDictionary()
+        created.setValue(parsed, forKey: "dcmObject")
+        if pix.horos_retainedCacheGroup != nil {
+            NSLog("******** DCMPix : retainedCacheGroup 4 != nil ! %@", (pix.srcFile ?? "(null)") as NSString)
+        }
+        created.setValue(NSNumber(value: Int32(1)), forKey: "count")
+        pix.horos_retainedCacheGroup = ObjectIdentifier(created)
+        pix.horos_cachedFileKey = key as NSString?
+        // The key is the file's: a load starts only with a source file, and
+        // parsedFileCacheKey() falls back to its path.
+        parsedFiles.setObject(created, forKey: key! as NSString)
+        return parsed
     }
 
     /// What `pix` took of the cache, given back: the last image of a file removes it.
     static func release(_ pix: DCMPix) {
         PapyrusLock?.lock()
-        if let exception = HorosObjCException.caught({
-            // What a load retained, not whether pixels remain: deinit frees an
-            // owned fImage before it gets here, and the parsed file stayed cached.
-            guard let retained = pix.horos_retainedCacheGroup else { return }
-            let key = (pix.horos_cachedFileKey as String?) ?? pix.srcFile
-            let group = key.flatMap { parsedFiles.object(forKey: $0 as NSString) } as? NSMutableDictionary
-            if let group, retained === group {
-                let count = ((group.object(forKey: "count") as? NSNumber)?.int32Value ?? 0) - 1
-                group.setValue(NSNumber(value: count), forKey: "count")
-                pix.horos_retainedCacheGroup = nil
-                if count <= 0 { parsedFiles.removeObject(forKey: key! as NSString) }
-            }
-            pix.horos_cachedFileKey = nil
-        }) {
-            _N2LogExceptionImpl(exception, true, "-[DCMPix releaseParsedFile]")
+        defer { PapyrusLock?.unlock() }
+        // What a load retained, not whether pixels remain: deinit frees an
+        // owned fImage before it gets here, and the parsed file stayed cached.
+        guard let retained = pix.horos_retainedCacheGroup else { return }
+        let key = (pix.horos_cachedFileKey as String?) ?? pix.srcFile
+        let group = key.flatMap { parsedFiles.object(forKey: $0 as NSString) } as? NSMutableDictionary
+        if let group, retained == ObjectIdentifier(group) {
+            let count = ((group.object(forKey: "count") as? NSNumber)?.int32Value ?? 0) - 1
+            group.setValue(NSNumber(value: count), forKey: "count")
+            pix.horos_retainedCacheGroup = nil
+            if count <= 0 { parsedFiles.removeObject(forKey: key! as NSString) }
         }
-        PapyrusLock?.unlock()
+        pix.horos_cachedFileKey = nil
+    }
+
+    /// The group `pix` took, while the cache still holds it.
+    static func group(of pix: DCMPix) -> AnyObject? {
+        PapyrusLock?.lock()
+        defer { PapyrusLock?.unlock() }
+        guard let retained = pix.horos_retainedCacheGroup, let key = (pix.horos_cachedFileKey as String?) ?? pix.srcFile,
+              let group = parsedFiles.object(forKey: key as NSString) as AnyObject?,
+              retained == ObjectIdentifier(group) else { return nil }
+        return group
     }
 
     /// The DCMTK file format `pix` holds, given back.
@@ -143,12 +144,8 @@ enum DCMPixParsedFileCache {
             return
         }
         PapyrusLock?.lock()
-        if let exception = HorosObjCException.caught({
-            parsedFiles.removeAllObjects()
-            H264StreamDecoder.purgeCache()
-        }) {
-            NSLog("***** exception in %s: %@", "+[DCMPix purgeCachedDictionaries]", exception)
-        }
+        parsedFiles.removeAllObjects()
+        H264StreamDecoder.purgeCache()
         PapyrusLock?.unlock()
         loads.unlock()
     }
@@ -170,9 +167,9 @@ extension DCMPix {
         if srcFile == nil { return }
 
         if horos_isBonjour {
-            // The file of the Bonjour shared database, copied here.
+            // The file of the shared database, copied here.
             srcFile = nil
-            srcFile = HorosDCMPixLocalPathForBonjourImage(horos_imageObjectID)
+            srcFile = localFileOfSharedImage()
             if srcFile == nil { return }
         }
 
@@ -360,32 +357,28 @@ extension DCMPix {
     final func revertLoading(reloadingAnnotations reloadAnnotations: Bool) {
         guard horos_fImage != nil else { return }
         horos_checking?.lock()
-        if let exception = HorosObjCException.caught({
-            self.horos_SUVConverted = false
-            self.horos_fullww = 0
-            self.horos_fullwl = 0
-            self.kill8bitsImage()
-            self.horos_acquisitionTime = nil
-            self.horos_acquisitionDate = nil
-            self.horos_rescaleType = nil
-            self.horos_radiopharmaceuticalStartTime = nil
-            self.horos_repetitiontime = nil
-            self.horos_echotime = nil
-            self.horos_flipAngle = nil
-            self.horos_laterality = nil
-            self.horos_viewPosition = nil
-            self.horos_patientPosition = nil
-            self.horos_units = nil
-            self.horos_decayCorrection = nil
-            if reloadAnnotations { self.reloadAnnotations() }
-            self.releaseParsedFile()
-            self.horos_loadedFileRevision = nil
-            if self.horos_fExternalOwnedImage == nil, let image = self.horos_fImage { free(image) }
-            self.horos_fImage = nil
-            self.horos_needToCompute8bitRepresentation = true
-        }) {
-            _N2LogExceptionImpl(exception, true, "-[DCMPix revert:]")
-        }
+        self.horos_SUVConverted = false
+        self.horos_fullww = 0
+        self.horos_fullwl = 0
+        self.kill8bitsImage()
+        self.horos_acquisitionTime = nil
+        self.horos_acquisitionDate = nil
+        self.horos_rescaleType = nil
+        self.horos_radiopharmaceuticalStartTime = nil
+        self.horos_repetitiontime = nil
+        self.horos_echotime = nil
+        self.horos_flipAngle = nil
+        self.horos_laterality = nil
+        self.horos_viewPosition = nil
+        self.horos_patientPosition = nil
+        self.horos_units = nil
+        self.horos_decayCorrection = nil
+        if reloadAnnotations { self.reloadAnnotations() }
+        self.releaseParsedFile()
+        self.horos_loadedFileRevision = nil
+        if self.horos_fExternalOwnedImage == nil, let image = self.horos_fImage { free(image) }
+        self.horos_fImage = nil
+        self.horos_needToCompute8bitRepresentation = true
         horos_checking?.unlock()
     }
 }

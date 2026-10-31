@@ -109,8 +109,10 @@ def swift_method(text, signature):
 # -sync: in DCMView+WindowLevel.swift.
 tracking = source_text('DCMView+MouseTracking')
 windowLevel = source_text('DCMView+WindowLevel')
-# The dictionary keys are file constants there; the checks below name the keys.
-keys = dict(re.findall(r'private let (kSync\w+): NSString = "([^"]*)"', windowLevel))
+# The message's values and keys are ViewerSyncMessage's (IsiXImaging); the
+# dictionary of the notification is made and read in DCMView+WindowLevel.swift.
+syncMessage = (root / 'Modules/IsiXImaging/Sources/ViewerNavigation/ViewerSyncMessage.swift').read_text()
+keys = dict(re.findall(r'public static let (\w+) = "([^"]*)"', syncMessage))
 
 sender = swift_method(tracking, '@objc(sync3DPosition)')
 if not sender:
@@ -121,8 +123,10 @@ else:
         failures.append('sync3DPosition must ask HorosThickSlabRange for the far end of the slab')
     if re.search(r'stack\s*-\s*1\)', text):
         failures.append('sync3DPosition still computes the slab end itself')
-    if 'DCMPix2' not in text:
+    if 'farEndImage: thickDCM' not in text:
         failures.append('sync3DPosition no longer sends the far end at all')
+    if not re.search(r'patientPoint: ViewerSyncMessage\.PatientPoint\(x: location\[0\], y: location\[1\], z: location\[2\]\)', text):
+        failures.append('sync3DPosition no longer sends the point in patient coordinates')
 
 message = swift_method(windowLevel, '@objc(syncMessage:)')
 if message is None:
@@ -133,8 +137,7 @@ else:
     # stack -1), in Swift also through the optional chain: stack ?? 0) - 1).
     if re.search(r'stack(?:\s*\?\?\s*0\s*\))?\s*-\s*1\)', message):
         failures.append('syncMessage: still computes the slab end itself')
-    if not any(re.search(r'forKey:\s*%s\b' % name, message)
-               for name, value in keys.items() if value == 'DCMPix2'):
+    if 'farEndImage: thickDCM' not in message or keys.get('farEndImage') != 'DCMPix2':
         failures.append('syncMessage: no longer sends the far end at all')
 
 # The receiver has to consume patient coordinates, and only inside the same-world
@@ -144,16 +147,20 @@ if receiver is None:
     failures.append('-[DCMView sync:] is gone')
 else:
     text = receiver
+    # The receiver reads the point through ViewerSyncMessage, which reads the three keys.
+    reader = syncMessage[syncMessage.index('public init(entry:'):]
+    reader = reader[:reader.index('\n    }\n')]
     for key in ('point3DX', 'point3DY', 'point3DZ'):
-        if not any(re.search(r'kvcValue\(instructions,\s*%s\)' % name, text)
-                   for name, value in keys.items() if value == key):
+        if not any('Key.%s' % name in reader for name, value in keys.items() if value == key):
             failures.append('sync: no longer reads %s' % key)
+    if 'ReceivedSync(note)' not in text or 'message.patientPoint' not in text:
+        failures.append('sync: no longer reads the patient point of the message')
     if 'findPlaneAndPoint(' not in text:
         failures.append('sync: no longer finds the plane for the patient point')
     if 'convertDICOMCoords(' not in text:
         failures.append('sync: no longer converts the patient point into its own slice')
     world = text.find('if same3DReferenceWorld || registeredViewer {')
-    point = text.find('if point3D {')
+    point = text.find('if let patientPoint = message.patientPoint {')
     if world < 0 or point < 0 or not world < point:
         failures.append('the patient-coordinate crosshair must stay inside the same-world guard')
 

@@ -14,6 +14,7 @@ import AppKit
 import Security
 import Darwin
 import IsiXInstallation
+import IsiXPreferences
 
 struct HorosInstallContext {
     let source: URL
@@ -58,7 +59,7 @@ enum HorosInstallError: LocalizedError {
 
 @MainActor @objc(HorosApplicationInstaller)
 final class HorosApplicationInstaller: NSObject {
-    static let suppressKey = "moveToApplicationsFolderAlertSuppress"
+    static let suppressKey = ApplicationPreferences.moveToApplicationsFolderAlertSuppressed
     private static var inProgress = false
 
     /// The Applications folder to move to: IsiXInstallation's rule, with
@@ -75,12 +76,12 @@ final class HorosApplicationInstaller: NSObject {
         ApplicationLocation.isInstalled(source.path, applicationDirectories: directories.map(\.path))
     }
 
-    static func run(_ context: HorosInstallContext, defaults: UserDefaults,
+    static func run(_ context: HorosInstallContext, defaults: any PreferenceStore,
                     operations: any HorosInstallOperations) -> HorosInstallResult {
-        if defaults.bool(forKey: suppressKey) { return .skipped }
+        if defaults[suppressKey] { return .skipped }
         switch operations.consent(context) {
         case .decline(let suppress):
-            if suppress { defaults.set(true, forKey: suppressKey) }
+            if suppress { defaults.set(true, for: suppressKey) }
             return .declined
         case .install: break
         }
@@ -123,7 +124,7 @@ final class HorosApplicationInstaller: NSObject {
         let directories = manager.urls(for: .applicationDirectory, in: .allDomainsMask)
         let original = ApplicationLocation.isTranslocated(running.path) ? originalURL(ofTranslocated: running) : nil
         let decision = MoveOffer.decide(isAppStore: DistributionChannel.isAppStore,
-                                        suppressed: UserDefaults.standard.bool(forKey: suppressKey),
+                                        suppressed: PreferencesSource.process.preferences[suppressKey],
                                         inProgress: inProgress, runningPath: running.path, originalPath: original?.path,
                                         applicationDirectories: directories.map(\.path))
         guard case .offer(let sourcePath) = decision else { return }
@@ -140,7 +141,7 @@ final class HorosApplicationInstaller: NSObject {
                 || (manager.fileExists(atPath: destination.path) && !manager.isWritableFile(atPath: destination.path)))
         inProgress = true
         defer { inProgress = false }
-        let result = run(context, defaults: .standard, operations: HorosNativeInstallOperations())
+        let result = run(context, defaults: PreferencesSource.process.preferences, operations: HorosNativeInstallOperations())
         switch result {
         case .activatedExisting, .installed:
             exit(0)

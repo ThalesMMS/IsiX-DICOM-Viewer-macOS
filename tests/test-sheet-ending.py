@@ -13,8 +13,9 @@ Two checks:
 
   * the sources: no method orders a window out (or closes it) and then ends it
     through its sheetParent, in any source folder, whatever lies between them;
-  * compiled: -endBlendingType:, taken from ViewerController+Blending.swift
-    into a stand-in ViewerController with the NSWindow helpers, ends a real
+  * compiled: -endBlendingType:, taken from ViewerFusion.swift (from
+    ViewerController+Blending.swift in a revision before it) into a stand-in
+    fusion of a stand-in ViewerController with the NSWindow helpers, ends a real
     sheet begun as -[ViewerController completeDragOperation:] begins it, and
     the handler receives the blending type of the button, also for the
     segmented RGB control.
@@ -36,6 +37,7 @@ import tempfile  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 BEFORE_FIX = "b327fec23"
 BLENDING = "Horos/Sources/ViewerController+Blending.swift"
+FUSION = "Horos/Sources/ViewerFusion.swift"
 WINDOW = "Nitrogen/Sources/NSWindow+N2.swift"
 # Sheets that ended through their sheetParent after being ordered out, by key
 # (file, method, window) as found at BEFORE_FIX. The control has to find at
@@ -193,7 +195,13 @@ final class ViewerController: NSObject {
     }
 }
 
-extension ViewerController {
+// The fusion of a viewer, which the selector reaches.
+final class ViewerFusion {
+    let viewer: ViewerController
+    init(viewer: ViewerController) { self.viewer = viewer }
+}
+
+extension %(extended)s {
 %(end)s
 }
 
@@ -217,7 +225,7 @@ func check(_ sender: NSControl, expect: Int32, _ label: String) {
         ran.fulfilled = true
     }
     pump { parent.attachedSheet === sheet }
-    viewer.endBlendingType(sender)
+    %(call)s
     pump { ran.fulfilled && parent.attachedSheet == nil }
     if viewer.received != [expect] { failures.append("\(label): the handler received \(viewer.received), not [\(expect)]") }
     if parent.attachedSheet != nil { failures.append("\(label): the parent keeps an attached sheet") }
@@ -248,14 +256,19 @@ if failures.isEmpty { print("ok") } else { failures.forEach { print("FAIL: \($0)
 def compiled_problems(revision):
     if shutil.which("xcrun") is None:
         return None
-    blending = source(BLENDING, revision)
+    try:
+        blending, fused = source(FUSION, revision), True
+    except (LookupError, FileNotFoundError):
+        blending, fused = source(BLENDING, revision), False
     window = source(WINDOW, revision)
     window = window[window.index("public extension NSWindow"):]
     helpers = top_level(blending, "fileprivate func objcImplementation(") + "\n" + \
         top_level(blending, "fileprivate func objcSendInteger(")
-    end = member(blending, "    @objc(endBlendingType:)")
+    end = member(blending, "    func endBlendingType(" if fused else "    @objc(endBlendingType:)")
     folder = Path(tempfile.mkdtemp())
-    (folder / "main.swift").write_text(HARNESS % {"window": window, "helpers": helpers, "end": end})
+    (folder / "main.swift").write_text(HARNESS % {
+        "window": window, "helpers": helpers, "end": end, "extended": "ViewerFusion" if fused else "ViewerController",
+        "call": "ViewerFusion(viewer: viewer).endBlendingType(sender)" if fused else "viewer.endBlendingType(sender)"})
     build = subprocess.run(["xcrun", "swiftc", "-swift-version", "5", "-o", str(folder / "harness"), str(folder / "main.swift")],
                            capture_output=True, text=True, timeout=300)
     if build.returncode:

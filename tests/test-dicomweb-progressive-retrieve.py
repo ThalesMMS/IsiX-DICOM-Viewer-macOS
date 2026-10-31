@@ -359,21 +359,26 @@ failures = []
 # retrieve is in DCMTKQueryNode+DICOMweb.swift, and reads each file through its
 # DCMTK adapter.
 retrieve = (root / 'Horos/Sources/DCMTKQueryNode+DICOMweb.swift').read_text()
-start = retrieve.index('func take(_ request: DICOMwebRetrieveRequest) -> NSError?')
+start = retrieve.index('func take(_ request: DICOMwebRetrieveRequest) -> DICOMwebRequestFailure?')
 body = retrieve[start:retrieve.index('\n    }\n', start)]
-handler = body[body.index('let queue: (String) -> String? = {'):body.index('var requestError: NSError?')]
-move = handler.index('FileManager.default.moveItem(atPath: file')
+handler = body[body.index('let handler: (String) -> String? = {'):body.index('let requestFailure = queue.perform(')]
+move = handler.index('ingest.publish(fileAt: file')
 for what, needle in [('study', 'utf8Value(.studyInstanceUID)'), ('series', 'utf8Value(.seriesInstanceUID)'),
                      ('SOP instance', 'utf8Value(.sopInstanceUID)'),
-                     ('expected UID', 'request.uid == objectUID'), ('duplicate', '!unique.contains(objectUID ?? "")'),
+                     ('identifiers asked for and not repeated', 'DICOMwebRetrieveQueue.belongs(study: study, series: series, request: request'),
                      ('transfer syntax', 'client.accepts(retrievedTransferSyntax:')]:
     if needle not in handler or handler.index(needle) > move:
+        failures.append(f'retrieveDICOMweb checks the {what} before queueing an object')
+# What an object must be is the module queue's rule.
+queue = (root / 'Modules/IsiXDICOMNetwork/Sources/DICOMwebRetrieveQueue.swift').read_text()
+for what, needle in [('expected UID', 'request.uid == objectUID'), ('duplicate', '!seen.contains(objectUID)')]:
+    if needle not in queue:
         failures.append(f'retrieveDICOMweb checks the {what} before queueing an object')
 if handler.index('inventory.record(uid: objectUID') < move:
     failures.append('the inventory records an object once it is queued')
 if 'RetrieveViewing.shared.importNudgeWanted(studyUID: study' not in handler or handler.index('importNudgeWanted') < move:
     failures.append('a queued object nudges the importer while a viewer waits for the study')
-if 'objectHandler: queue' not in body:
+if 'queue.perform(request, with: client, stagingDirectory: staging, handler: handler)' not in body:
     failures.append('retrieveDICOMweb hands the handler to the client')
 dataset = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKDataset.mm').read_text()
 if 'IsiXDCMTKDataset.dataset(ofFileAtPath: file, transferSyntax: &syntax)' not in handler \

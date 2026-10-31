@@ -19,8 +19,9 @@ preferências era desnecessário. O par da pasta de preferências é independent
 
 O adapter do host (`Adapters/DCMTK/IsiXDCMTKModifyCLI.mm`, antes `HorosDICOMCLI.mm`) usa `OFCommandLine`, `DcmPath`,
 `DcmFileFormat`, `DcmItem`, o dicionário e o gerador de UID do DCMTK. Nenhum arquivo
-`dcmdata/apps` é copiado ou compilado no app. A origem da biblioteca é o gitlink
-DCMTK, revisão pública `414cbd77b01d6f0138ea58a7eca34b2c19157c78`; seu `COPYRIGHT`
+`dcmdata/apps` é copiado ou compilado no app. A origem da biblioteca é o archive
+original do DCMTK declarado em `Horos/Scripts/external-sources.json`, revisão
+pública `414cbd77b01d6f0138ea58a7eca34b2c19157c78`; seu `COPYRIGHT`
 e os notices entregues pelo catálogo de licenças permanecem. Os arquivos mdf*
 antigos eram de Michael Onken/OFFIS (2003–2005), adaptados pelo host; sua remoção
 não atribui esse código ao autor do novo adapter.

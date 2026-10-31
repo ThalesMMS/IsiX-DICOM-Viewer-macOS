@@ -39,9 +39,9 @@ helper = body('@objc(discardROIStartedByFirstClickOf:)')
 for needle in ('if event.clickCount != 2 || self.horos_curROI == nil || self.horos_drawingROI == false || self.is2DViewer() == false { return false }',
                '"dbl-click + cmd"', '"dbl-click + alt"', '"dbl-click"',
                'if DCMView.horos_static__hotKeyDictionary?.object(forKey: key as NSString) == nil { return false }',
-               'let points = (started.points ?? NSMutableArray())',
+               'let points = ViewROIEditing.points(started.points)',
                'if !ViewInput.allPoints(points, within: tolerance, of: point) { return false }',
-               'inputPost(.OsirixRemoveROI, object: started)',
+               'ROIEventEmitter.willRemove(started)',
                'self.removeROI(fromSliceOrVolume: started)',
                'inputMessages(self.windowController())?.inputRemoveLastItemFromUndoQueue()'):
     if needle not in helper:

@@ -7,6 +7,9 @@ compiled here as it is, with its malloc and free counted by the probe
 allocator (the probes are never written), its @try through the real
 HorosObjCException, and the thread operation counted.
 """
+import sys
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+import objc_exception_guards
 from pathlib import Path
 import subprocess, tempfile, sys, os
 root = Path(__file__).resolve().parents[1]
@@ -17,9 +20,7 @@ estimator = loader[a:loader.index('\n    }\n', a) + len('\n    }\n')]
 estimator = estimator.replace('malloc(', 'probeMalloc(').replace('free($0)', 'probeFree($0)')
 a = loader.index('nonisolated func memoryImage(')
 reader = loader[a:loader.index('\n}\n', a) + 3]
-support = (sources / 'BrowserController+DatabaseSupport.swift').read_text()
-a = support.index('    static func attempt(')
-attempt = support[a:support.index('\n    }\n', a) + len('\n    }\n')]
+attempt = objc_exception_guards.between('BrowserObjC')
 bridge = r'''
 #import <Foundation/Foundation.h>
 #import "HorosObjCException.h"
@@ -78,7 +79,13 @@ check(!enough([[image(512, 512, 1)]], &m) && live == 0, "first probe fails")
 calls = 0; failAt = 3
 check(!enough([[image(512, 512, 1)], [image(512, 512, 1)], [image(512, 512, 1)]], &m) && live == 0, "third probe fails")
 failAt = 0
-let raised = BrowserObjC.attempt { _ = enough([[image(512, 512, 1)], [NSObject()]], &m) }
+// A local inout: an exception unwinding through the estimator leaves no open
+// access to a global behind, which the runtime's exclusivity checks would trip on.
+func raisedByUnreadableImage() -> NSException? {
+    var required: UInt = 0
+    return HorosObjCException.caught { _ = enough([[image(512, 512, 1)], [NSObject()]], &required) }
+}
+let raised = raisedByUnreadableImage()
 check(raised != nil, "an unreadable image did not raise")
 check(live == 0 && operations == 0, "exception cleanup: live \(live) operations \(operations)")
 print("PASS: 1001 series, float-byte estimates, wide dimensions, overflow/invalid metadata, failed probes and exception cleanup")

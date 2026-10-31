@@ -47,9 +47,10 @@ import Cocoa
 // (DCMView.swift).
 //
 // A message to nil returned nil, NO or 0: it is an optional chain with that
-// default. An @try is HorosObjCException.perform. The Carbon Pasteboard and the
-// URL it copies are Core Foundation objects Swift manages, so the former
-// CFRelease calls are the releases Swift makes when they go out of scope.
+// default. An @try is HorosObjCException.caughtWithoutAllocation. The Carbon
+// Pasteboard and the URL it copies are Core Foundation objects Swift manages,
+// so the former CFRelease calls are the releases Swift makes when they go out
+// of scope.
 
 /// The pasteboard type under which the modifier flags of the drag are looked
 /// for when the promised file is written.
@@ -59,8 +60,7 @@ extension DCMView: NSDraggingSource, NSPasteboardItemDataProvider {
 
     @objc(startDrag:)
     public dynamic func startDrag(_ theTimer: Timer!) {
-        do {
-            try HorosObjCException.perform {
+        if let localException = HorosObjCException.caughtWithoutAllocation({
                 let event = theTimer?.userInfo as? NSEvent
 
                 let image = self.nsimage((event?.modifierFlags.rawValue ?? 0) & NSEvent.ModifierFlags.shift.rawValue != 0)
@@ -82,7 +82,7 @@ extension DCMView: NSDraggingSource, NSPasteboardItemDataProvider {
                                                   series: description)
 
                 let pbi = NSPasteboardItem()
-                for case let pasteboardType as NSString in (DCMView.pasteboardTypes() ?? NSArray()) {
+                for case let pasteboardType as NSString in (DCMView.pasteboardTypes() as? [Any] ?? []) {
                     if pasteboardType.contains(".") {
                         // The address of the view, as the former [NSData dataWithBytes:&self length:sizeof(DCMView *)].
                         var viewAddress = Unmanaged.passUnretained(self).toOpaque()
@@ -103,10 +103,8 @@ extension DCMView: NSDraggingSource, NSPasteboardItemDataProvider {
                 // The timer of -mouseDown: always carries its event.
                 let session = self.beginDraggingSession(with: [fileItem, horosItem], event: event!, source: self)
                 session.animatesToStartingPositionsOnCancelOrFail = true
-            }
-        } catch {
-            let localException = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-            NSLog("Exception while dragging: %@", localException?.description ?? "(null)")
+        }) {
+            NSLog("Exception while dragging: %@", localException.description)
             self.horos__dragInProgress = false
         }
     }

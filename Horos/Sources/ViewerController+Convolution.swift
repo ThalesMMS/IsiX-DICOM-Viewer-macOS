@@ -38,685 +38,85 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
-import Accelerate
 
-// The "convolution" block of ViewerController is implemented in Swift:
-// a Swift extension of ViewerController, which stays Objective-C, with
-// the same selectors. The instance variables it uses are read through
-// ViewerController (SwiftIvars); the alert sheet that asks before deleting a
-// filter (NSBeginAlertSheet, variadic) is ViewerController (SwiftBridges).
-//
-// The worker threads keep the NSConditionLock protocol of the former code:
-// the main thread sets the condition to the number of workers, each worker
-// decrements it when done, and the main thread waits for 0. The Z pass hands
-// the workers a kernel that stays allocated until they are done, as the stack
-// array of the former code did. A message to nil answered nil, 0 or NO: the
-// optional chains below answer the same. An @try is HorosObjCException.perform
-// (objcTry). Messages the former code sent to an `id` (the sender's tag,
-// title, selectedCell; longValue and floatValue of a defaults value) are sent
-// as Objective-C sent them (objcSend…).
-
-/// Runs `body` as an @try block: the NSException it raises is returned.
-@inline(__always)
-fileprivate func objcTry(_ body: () -> Void) -> NSException? {
-    do {
-        try HorosObjCException.perform(body)
-    } catch {
-        return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    return nil
-}
-
-/// `[a isEqualToString: b]`, NO when either is nil.
-fileprivate func objcIsEqualToString(_ a: String?, _ b: String?) -> Bool {
-    guard let a, let b else { return false }
-    return (a as NSString).isEqual(to: b)
-}
-
-/// The implementation of `selectorName` for `target`, as objc_msgSend finds it:
-/// a target that does not implement the method raises when it is called
-/// (through the forwarding machinery).
-fileprivate func objcImplementation(_ target: AnyObject, _ selectorName: String) -> (IMP, Selector)? {
-    let selector = NSSelectorFromString(selectorName)
-    guard let targetClass: AnyClass = object_getClass(target),
-          let implementation = class_getMethodImplementation(targetClass, selector) else { return nil }
-    return (implementation, selector)
-}
-
-/// `[target selector]` of a method returning `long`/`NSInteger`; 0 for nil.
-fileprivate func objcSendInteger(_ target: Any?, _ selectorName: String) -> Int {
-    guard let target, let (implementation, selector) = objcImplementation(target as AnyObject, selectorName) else { return 0 }
-    typealias Send = @convention(c) (AnyObject, Selector) -> Int
-    return unsafeBitCast(implementation, to: Send.self)(target as AnyObject, selector)
-}
-
-/// `[target selector]` of a method returning `float`; 0 for nil.
-fileprivate func objcSendFloat(_ target: Any?, _ selectorName: String) -> Float {
-    guard let target, let (implementation, selector) = objcImplementation(target as AnyObject, selectorName) else { return 0 }
-    typealias Send = @convention(c) (AnyObject, Selector) -> Float
-    return unsafeBitCast(implementation, to: Send.self)(target as AnyObject, selector)
-}
-
-/// `[target selector]` of a method returning an object; nil for nil.
-fileprivate func objcSendObject(_ target: Any?, _ selectorName: String) -> AnyObject? {
-    guard let target, let (implementation, selector) = objcImplementation(target as AnyObject, selectorName) else { return nil }
-    typealias Send = @convention(c) (AnyObject, Selector) -> Unmanaged<AnyObject>?
-    return unsafeBitCast(implementation, to: Send.self)(target as AnyObject, selector)?.takeUnretainedValue()
-}
-
-/// `[target selector: argument]` of a method returning void, with an object
-/// argument that may be nil; nothing for a nil target.
-fileprivate func objcSendVoid(_ target: Any?, _ selectorName: String, _ argument: AnyObject?) {
-    guard let target, let (implementation, selector) = objcImplementation(target as AnyObject, selectorName) else { return }
-    typealias Send = @convention(c) (AnyObject, Selector, AnyObject?) -> Void
-    unsafeBitCast(implementation, to: Send.self)(target as AnyObject, selector, argument)
-}
-
-/// `[target selector: argument]` of a method returning an object, with an
-/// object argument that may be nil; nil for a nil target.
-fileprivate func objcSendObject(_ target: Any?, _ selectorName: String, _ argument: AnyObject?) -> AnyObject? {
-    guard let target, let (implementation, selector) = objcImplementation(target as AnyObject, selectorName) else { return nil }
-    typealias Send = @convention(c) (AnyObject, Selector, AnyObject?) -> Unmanaged<AnyObject>?
-    return unsafeBitCast(implementation, to: Send.self)(target as AnyObject, selector, argument)?.takeUnretainedValue()
-}
-
-/// volumeData[index] as the NSData object itself: the accessor is typed
-/// NSObject, so that Swift does not bridge it to a Data value, which would not
-/// keep the object whose bytes the DCMPix point into.
-@MainActor fileprivate func objcVolumeData(_ viewer: ViewerController, _ index: Int) -> NSData? {
-    return viewer.horos_volumeData(at: index) as? NSData
-}
-
-/// `[[dict objectForKey: key] intValue]` of the worker dictionaries.
-fileprivate func objcIntValue(_ dict: Any?, _ key: String) -> Int32 {
-    return ((dict as? NSDictionary)?.object(forKey: key) as? NSNumber)?.int32Value ?? 0
-}
-
-/// What a worker thread reads of the viewer, put in its dictionary by the main
-/// thread: the workers must not call ViewerController, which Swift isolates to
-/// the main actor and checks at run time. The main thread waits on the lock
-/// while they run, so these values do not change under them.
-fileprivate let workerPixListsKey = "pixLists", workerVolumesKey = "volumes", workerLockKey = "lock"
-
-/// pixList[0…maxMovieIndex−1] and volumeData[…] of the viewer, NSNull for nil.
-@MainActor fileprivate func workerDictionary(_ viewer: ViewerController) -> NSMutableDictionary {
-    let movies = 0..<Int(viewer.horos_maxMovieIndex)
-    let dict = NSMutableDictionary()
-    dict.setObject(movies.map { viewer.horos_pixList(at: $0) ?? NSNull() } as NSArray, forKey: workerPixListsKey as NSString)
-    dict.setObject(movies.map { objcVolumeData(viewer, $0) ?? NSNull() } as NSArray, forKey: workerVolumesKey as NSString)
-    if let lock = viewer.horos_convThread { dict.setObject(lock, forKey: workerLockKey as NSString) }
-    return dict
-}
-
-/// The worker dictionary's `key` entry at `index`; nil for NSNull or out of range.
-fileprivate func workerEntry<T>(_ dict: Any?, _ key: String, _ index: Int) -> T? {
-    guard let entries = (dict as? NSDictionary)?.object(forKey: key) as? NSArray, index < entries.count else { return nil }
-    return entries.object(at: index) as? T
-}
-
-/// The number of movie frames of the worker dictionary.
-fileprivate func workerMovieCount(_ dict: Any?) -> Int32 {
-    return Int32(((dict as? NSDictionary)?.object(forKey: workerPixListsKey) as? NSArray)?.count ?? 0)
-}
-
-/// A worker is done: the condition goes down by one.
-fileprivate func workerDone(_ dict: Any?) {
-    let convThread = (dict as? NSDictionary)?.object(forKey: workerLockKey) as? NSConditionLock
-    convThread?.lock()
-    convThread?.unlock(withCondition: (convThread?.condition ?? 0) &- 1)
-}
+// The "convolution" block of ViewerController: the convolution filters of the
+// 2D viewer, their menu, their editor and "apply on source". The work is the
+// viewer's ViewerColourTables, with the stored filters and the editor's cells
+// read through IsiXImaging's ConvolutionKernelBook and the filter applied to a
+// whole series by its SeriesConvolution; these are the selectors of the former
+// Objective-C methods, which the nibs, the menus and the former plugins send.
 
 public extension ViewerController {
 
     // MARK: - convolution
 
-    // Nonisolated: run on worker threads; they read only their dictionary.
-    @objc(applyConvolutionXYThread:)
-    nonisolated func applyConvolutionXYThread(_ dict: Any!) {
-        autoreleasepool {
-            if let exception = objcTry({
-                var x: Int32 = 0
-                while x < workerMovieCount(dict) {
-                    let from = objcIntValue(dict, "from")
-                    let to = objcIntValue(dict, "to")
-                    // NSMakeRange takes NSUInteger: a negative length raises in -subarrayWithRange:, as before.
-                    let range = NSRange(location: Int(from), length: Int(to &- from))
-                    let pixList: NSArray? = workerEntry(dict, workerPixListsKey, Int(x))
-                    for case let p as DCMPix in pixList?.subarray(with: range) ?? [] {
-                        p.applyConvolutionOnSourceImage()
-                    }
-                    x += 1
-                }
-            }) {
-                _N2LogExceptionImpl(exception, false, "-[ViewerController applyConvolutionXYThread:]")
-            }
-
-            workerDone(dict)
-        }
-    }
-
-    @objc(applyConvolutionZThread:)
-    nonisolated func applyConvolutionZThread(_ dict: Any!) {
-        autoreleasepool {
-            if let exception = objcTry({
-                var x: Int32 = 0
-                while x < workerMovieCount(dict) {
-                    let pixList: NSArray? = workerEntry(dict, workerPixListsKey, Int(x))
-                    let pix = pixList?.object(at: 0) as? DCMPix
-
-                    var dstf = vImage_Buffer(), srcf = vImage_Buffer()
-
-                    let pwidth = pix?.pwidth ?? 0
-                    let pheight = pix?.pheight ?? 0
-
-                    srcf.height = vImagePixelCount(UInt(pixList?.count ?? 0))
-                    srcf.width = vImagePixelCount(UInt(bitPattern: pwidth))
-                    srcf.rowBytes = pwidth &* pheight &* MemoryLayout<Float>.size
-
-                    let t = malloc(Int(bitPattern: UInt(srcf.height &* srcf.width &* UInt(MemoryLayout<Float>.size))))
-                    if let t {
-                        dstf.height = vImagePixelCount(UInt(pixList?.count ?? 0))
-                        dstf.width = vImagePixelCount(UInt(bitPattern: pwidth))
-                        dstf.rowBytes = pwidth &* MemoryLayout<Float>.size
-                        dstf.data = t
-
-                        let from = objcIntValue(dict, "from")
-                        let to = objcIntValue(dict, "to")
-                        let fkernel = ((dict as? NSDictionary)?.object(forKey: "kernel") as? NSValue)?.pointerValue?.assumingMemoryBound(to: Float.self)
-
-                        var y = from
-                        while y < to {
-                            // (void*) [volumeData[ x] bytes] + y*pix.pwidth*sizeof(float), NULL + 0 staying NULL.
-                            let volume: NSData? = workerEntry(dict, workerVolumesKey, Int(x))
-                            let bytes: Int = volume.map { Int(bitPattern: $0.bytes) } ?? 0
-                            srcf.data = UnsafeMutableRawPointer(bitPattern: bytes &+ Int(y) &* pwidth &* MemoryLayout<Float>.size)
-
-                            if srcf.data != nil {
-                                let kernelsize = UInt32(truncatingIfNeeded: Int32(pix?.kernelsize() ?? 0))
-                                if vImageConvolve_PlanarF(&srcf, &dstf, nil, 0, 0, fkernel, kernelsize, kernelsize, 0, vImage_Flags(kvImageDoNotTile + kvImageEdgeExtend)) != 0 {
-                                    NSLog("Error applyConvolutionOnImage")
-                                } else {
-                                    var s = srcf.data!, d = dstf.data!
-
-                                    var y: vImagePixelCount = 0
-                                    while y < dstf.height {
-                                        memcpy(s, d, dstf.rowBytes)
-
-                                        s += srcf.rowBytes
-                                        d += dstf.rowBytes
-                                        y += 1
-                                    }
-                                }
-                            }
-                            y += 1
-                        }
-
-                        free(t)
-                    }
-                    x += 1
-                }
-            }) {
-                _N2LogExceptionImpl(exception, false, "-[ViewerController applyConvolutionZThread:]")
-            }
-
-            workerDone(dict)
-        }
-    }
-
+    /// Applies the current filter to the pixels themselves and takes it off.
     @objc(applyConvolutionOnSource:)
     func applyConvolutionOnSource(_ sender: Any!) {
-        if objcIsEqualToString(self.horos_curConvMenu, NSLocalizedString("No Filter", comment: "")) == false {
-            let mpprocessors = Int32(truncatingIfNeeded: ProcessInfo.processInfo.processorCount)
-
-            if self.horos_convThread == nil {
-                self.horos_convThread = NSConditionLock(condition: 0)
-            }
-
-            self.horos_convThread?.lock(whenCondition: 0)
-            self.horos_convThread?.unlock(withCondition: Int(mpprocessors))
-
-            var baseDict = workerDictionary(self)
-            let no = Int32(truncatingIfNeeded: self.horos_pixList(at: 0)?.count ?? 0)
-
-            var i: Int32 = 0
-            while i < mpprocessors {
-                let d = NSMutableDictionary(dictionary: baseDict)
-
-                let from = (i &* no) / mpprocessors
-                let to = ((i &+ 1) &* no) / mpprocessors
-
-                d.setObject(NSNumber(value: from), forKey: "from" as NSString)
-                d.setObject(NSNumber(value: to), forKey: "to" as NSString)
-
-                Thread.detachNewThreadSelector(#selector(ViewerController.applyConvolutionXYThread(_:)), toTarget: self, with: d)
-                i += 1
-            }
-
-            self.horos_convThread?.lock(whenCondition: 0)
-            self.horos_convThread?.unlock()
-
-            if self.isDataVolumicIn4D(true) {
-                // The kernel the Z workers read: it stays allocated until they are done
-                // (the former code used a stack array of the loop).
-                let fkernel = UnsafeMutablePointer<Float>.allocate(capacity: 25)
-                fkernel.initialize(repeating: 0, count: 25)
-                defer { fkernel.deallocate() }
-
-                // Apply the convolution in the Z direction
-                var x: Int32 = 0
-                while x < Int32(self.horos_maxMovieIndex) {
-                    let pix: DCMPix! = self.horos_pixList(at: Int(x))?.object(at: 0) as? DCMPix
-                    let m: Float = pix.fImage.pointee
-
-                    // A colour series has no Z pass. The condition is set to the
-                    // number of workers only when they are started: a colour
-                    // series used to take one off a condition set to all of them
-                    // and wait for 0 forever on a Mac with more than one core.
-                    if pix.isRGB == false {
-                        self.horos_convThread?.lock(whenCondition: 0)
-                        self.horos_convThread?.unlock(withCondition: Int(mpprocessors))
-
-                        if pix.normalization() != 0 {
-                            for i in 0..<25 { fkernel[i] = Float(pix.kernel()[i]) / Float(pix.normalization()) }
-                        } else {
-                            for i in 0..<25 { fkernel[i] = Float(pix.kernel()[i]) }
-                        }
-
-                        baseDict = workerDictionary(self)
-                        let no = Int32(truncatingIfNeeded: pix.pheight)
-
-                        baseDict.setObject(NSValue(pointer: UnsafeRawPointer(fkernel)), forKey: "kernel" as NSString)
-
-                        var i: Int32 = 0
-                        while i < mpprocessors {
-                            let d = NSMutableDictionary(dictionary: baseDict)
-
-                            let from = (i &* no) / mpprocessors
-                            let to = ((i &+ 1) &* no) / mpprocessors
-
-                            d.setObject(NSNumber(value: from), forKey: "from" as NSString)
-                            d.setObject(NSNumber(value: to), forKey: "to" as NSString)
-
-                            Thread.detachNewThreadSelector(#selector(ViewerController.applyConvolutionZThread(_:)), toTarget: self, with: d)
-                            i += 1
-                        }
-
-                        self.horos_convThread?.lock(whenCondition: 0)
-                        self.horos_convThread?.unlock()
-                    }
-
-                    // check the first line to avoid nan value....
-                    for case let p as DCMPix in self.horos_pixList(at: Int(x)) ?? NSMutableArray() {
-                        if p.isRGB == false {
-                            // The pointer is only dereferenced when there is a pixel to write, as in C.
-                            let ptr = p.fImage
-                            var x = Int32(truncatingIfNeeded: p.pwidth)
-                            var i = 0
-                            while x > 0 {
-                                x -= 1
-                                ptr![i] = m
-                                i += 1
-                            }
-                        }
-                    }
-                    x += 1
-                }
-            }
-
-            self.applyConvString(NSLocalizedString("No Filter", comment: ""))
-
-            NotificationCenter.default.post(name: .OsirixUpdateVolumeData, object: self.horos_pixList(at: Int(self.horos_curMovieIndex)), userInfo: nil)
-        } else {
-            HorosAlertPanel.run(title: NSLocalizedString("Convolution", comment: ""),
-                                message: NSLocalizedString("First, apply a convolution filter...", comment: ""),
-                                defaultButton: nil, alternateButton: nil, otherButton: nil)
-        }
-
-        // [convThread release]; convThread = nil;
-        self.horos_convThread = nil
+        sessionGraph.colourTables.applyFilterToPixels(in: self)
     }
 
+    /// The "Sum" button of the filter editor.
     @objc(computeSum:)
     func computeSum(_ sender: Any!) {
-        var sum: Float = 0
-
-        for i in 0..<25 {
-            let theCell = self.horos_convMatrix?.cell(withTag: i)
-
-            sum += (theCell?.stringValue as NSString?)?.floatValue ?? 0
-        }
-
-        self.horos_matrixNorm?.floatValue = sum
-
-        self.convMatrixAction(self)
+        sessionGraph.colourTables.sumEditorWeights(in: self)
     }
 
+    /// The size matrix of the filter editor: 3 × 3 or 5 × 5.
     @objc(changeMatrixSize:)
     func changeMatrixSize(_ sender: Any!) {
-        let theCell = objcSendObject(sender, "selectedCell")
-
-        switch objcSendInteger(theCell, "tag") {
-        case 3: //3x3
-            for x in 0..<5 {
-                for y in 0..<5 {
-                    let theCell = self.horos_convMatrix?.cell(atRow: y, column: x)
-
-                    if x < 1 || x > 3 || y < 1 || y > 3 {
-                        theCell?.isEnabled = false
-                        theCell?.stringValue = ""
-                    } else {
-                        theCell?.isEnabled = true
-                        if objcIsEqualToString(theCell?.stringValue, "") {
-                            theCell?.stringValue = "0"
-                        }
-                    }
-
-                    theCell?.alignment = .center
-                }
-            }
-
-        case 5: //5x5
-            for x in 0..<5 {
-                for y in 0..<5 {
-                    let theCell = self.horos_convMatrix?.cell(atRow: y, column: x)
-
-                    theCell?.isEnabled = true
-                    if objcIsEqualToString(theCell?.stringValue, "") {
-                        theCell?.stringValue = "0"
-                    }
-
-                    theCell?.alignment = .center
-                }
-            }
-
-        default:
-            break
-        }
-
-        self.convMatrixAction(self)
+        sessionGraph.colourTables.editorSizeChanged(sender, in: self)
     }
 
+    /// The end of the alert that asks before deleting a filter: `contextInfo`
+    /// is the filter's name.
     @objc(deleteConv:returnCode:contextInfo:)
     func deleteConv(_ sheet: NSWindow!, returnCode: Int32, contextInfo: UnsafeMutableRawPointer!) {
-        if returnCode == 1 {
-            let convDict = (UserDefaults.standard.object(forKey: "Convolution") as? NSDictionary)?.mutableCopy() as? NSMutableDictionary
-
-            // contextInfo is the filter's name (the menu item's title), not retained by the sheet.
-            if let contextInfo {
-                convDict?.removeObject(forKey: Unmanaged<AnyObject>.fromOpaque(contextInfo).takeUnretainedValue())
-            }
-            UserDefaults.standard.set(convDict, forKey: "Convolution")
-
-            NotificationCenter.default.post(name: .OsirixUpdateConvolutionMenu, object: self.horos_curConvMenu, userInfo: [:])
-        }
+        guard returnCode == 1, let contextInfo else { return }
+        sessionGraph.colourTables.deleteFilter(Unmanaged<NSString>.fromOpaque(contextInfo).takeUnretainedValue() as String, in: self)
     }
 
-    /// The sheet of the Shift branch of -ApplyConv:, which asks whether to
-    /// delete the filter named [sender title]; that title is also the
-    /// contextInfo -deleteConv:returnCode:contextInfo: reads, kept alive by
-    /// the completion handler.
-    func horos_beginDeleteConvolutionSheetForSender(_ sender: Any!) {
-        let title = (objcSendObject(sender, "title") as? NSString).map { $0 as String }
-        guard let window = self.window else { return }
-        HorosAlertPanel.begin(withTitle: NSLocalizedString("Remove a Convolution Filter", comment: ""),
-                              message: String(format: NSLocalizedString("Are you sure you want to delete this convolution filter : '%@'", comment: ""), viewerFormatArgument(title)),
-                              defaultButton: NSLocalizedString("Delete", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil,
-                              modalFor: window) { returnCode in
-            // The sheet ends on the main thread.
-            MainActor.assumeIsolated {
-                let context = title.map { $0 as NSString }
-                withExtendedLifetime(context) {
-                    self.deleteConv(nil, returnCode: Int32(truncatingIfNeeded: returnCode), contextInfo: context.map { Unmanaged.passUnretained($0).toOpaque() })
-                }
-            }
-        }
-    }
-
+    /// Hands the filter `m`, `s` × `s` weights divided by `norm`, to every
+    /// slice; nil takes it off.
     @objc(setConv:::)
     func setConv(_ m: UnsafeMutablePointer<Float>!, _ s: Int16, _ norm: Float) {
-        // The former code also copied m into a local kernel[25] that it never read; the copy is left out.
-        let kernelsize: Int16 = s
-
-        var x = 0
-        while x < Int(self.horos_maxMovieIndex) {
-            var i = 0
-            while i < (self.horos_pixList(at: x)?.count ?? 0) {
-                (self.horos_pixList(at: x)?.object(at: i) as? DCMPix)?.setConvolutionKernel(m, kernelsize, norm)
-                i += 1
-            }
-            x += 1
-        }
+        sessionGraph.colourTables.setFilter(m, size: s, normalization: norm, in: self)
     }
 
+    /// Applies the filter `str`: "No Filter" or a stored filter.
     @objc(ApplyConvString:)
     func applyConvString(_ str: String!) {
-        if objcIsEqualToString(str, NSLocalizedString("No Filter", comment: "")) {
-            self.setConv(nil, 0, 0)
-            if let imageView = self.horos_imageView { imageView.setIndex(imageView.curImage) }
-
-            // if( str != curConvMenu) { [curConvMenu release]; curConvMenu = [str retain]; }
-            self.horos_curConvMenu = str
-        } else {
-            let aConv = objcSendObject(UserDefaults.standard.object(forKey: "Convolution") as? NSDictionary, "objectForKey:", str as NSString?)
-
-            if aConv == nil {
-                HorosAlertPanel.run(title: NSLocalizedString("Error", comment: ""),
-                                    message: NSLocalizedString("This convolution filter cannot be loaded.", comment: ""),
-                                    defaultButton: nil, alternateButton: nil, otherButton: nil)
-            } else {
-                // The filter editor saves the normalization and the coefficients as
-                // float: they are read with floatValue (longValue took 0.5 to 0).
-                let nomalization = objcSendFloat(objcSendObject(aConv, "objectForKey:", "Normalization" as NSString), "floatValue")
-                let size = objcSendInteger(objcSendObject(aConv, "objectForKey:", "Size" as NSString), "longValue")
-                let array = objcSendObject(aConv, "objectForKey:", "Matrix" as NSString)
-
-                // float matrix[25]; a larger size overflowed it in the former code.
-                var matrix = [Float](repeating: 0, count: max(25, size &* size))
-                var i = 0
-                while i < size &* size {
-                    matrix[i] = objcSendFloat((array as? NSArray)?.object(at: i), "floatValue")
-                    i += 1
-                }
-
-                matrix.withUnsafeMutableBufferPointer {
-                    self.setConv($0.baseAddress, Int16(truncatingIfNeeded: size), nomalization)
-                }
-                if let imageView = self.horos_imageView { imageView.setIndex(imageView.curImage) }
-                // if( str != curConvMenu) { [curConvMenu release]; curConvMenu = [str retain]; }
-                self.horos_curConvMenu = str
-
-                NotificationCenter.default.post(name: .OsirixUpdateConvolutionMenu, object: self.horos_curConvMenu, userInfo: nil)
-            }
-        }
-
-        objcSendVoid(self.horos_convPopup?.menu?.item(at: 0), "setTitle:", str as NSString?)
+        sessionGraph.colourTables.applyFilter(str, in: self)
     }
 
+    /// A filter menu item: applies it; with Shift deletes it, with Option
+    /// opens it in the filter editor.
     @objc(ApplyConv:)
     func applyConv(_ sender: Any!) {
-        if (NSApplication.shared.currentEvent?.modifierFlags ?? []).contains(.shift) {
-            // NSBeginAlertSheet(… [sender title] as contextInfo …): variadic, sent by the Objective-C bridge.
-            self.horos_beginDeleteConvolutionSheetForSender(sender)
-
-            NotificationCenter.default.post(name: .OsirixUpdateConvolutionMenu, object: self.horos_curConvMenu, userInfo: [:])
-        } else if (NSApplication.shared.currentEvent?.modifierFlags ?? []).contains(.option) {
-            let title = objcSendObject(sender, "title")
-            let aConv = objcSendObject(UserDefaults.standard.object(forKey: "Convolution") as? NSDictionary, "objectForKey:", title)
-            // A float normalization, as the filter editor saves it.
-            let nomalization = objcSendFloat(objcSendObject(aConv, "objectForKey:", "Normalization" as NSString), "floatValue")
-            let size = objcSendInteger(objcSendObject(aConv, "objectForKey:", "Size" as NSString), "longValue")
-            let array = objcSendObject(aConv, "objectForKey:", "Matrix" as NSString) as? NSArray
-
-            objcSendVoid(self.horos_matrixName, "setStringValue:", title)
-            self.horos_matrixNorm?.floatValue = nomalization
-
-            var inc = 0
-            switch size {
-            case 3:
-                self.horos_sizeMatrix?.selectCell(withTag: 3)
-                for x in 0..<5 {
-                    for y in 0..<5 {
-                        let theCell = self.horos_convMatrix?.cell(atRow: y, column: x)
-
-                        if x < 1 || x > 3 || y < 1 || y > 3 {
-                            theCell?.isEnabled = false
-                            theCell?.stringValue = ""
-                        } else {
-                            theCell?.isEnabled = true
-                            if objcIsEqualToString(theCell?.stringValue, "") {
-                                theCell?.stringValue = "0"
-                            }
-
-                            theCell?.alignment = .center
-                            let value = objcSendFloat(array?.object(at: inc), "floatValue")
-                            inc += 1
-                            self.horos_convMatrix?.cell(atRow: x, column: y)?.floatValue = value
-                        }
-                    }
-                }
-
-            case 5:
-                self.horos_sizeMatrix?.selectCell(withTag: 5)
-                for x in 0..<5 {
-                    for y in 0..<5 {
-                        let theCell = self.horos_convMatrix?.cell(atRow: y, column: x)
-
-                        theCell?.isEnabled = true
-                        if objcIsEqualToString(theCell?.stringValue, "") {
-                            theCell?.stringValue = "0"
-                        }
-
-                        theCell?.alignment = .center
-                        let value = objcSendFloat(array?.object(at: inc), "floatValue")
-                        inc += 1
-                        self.horos_convMatrix?.cell(atRow: x, column: y)?.floatValue = value
-                    }
-                }
-
-            default:
-                break
-            }
-
-            if let addConvWindow = self.horos_addConvWindow, let window = self.window {
-                window.beginSheet(addConvWindow, completionHandler: nil)
-            }
-        } else {
-            self.applyConvString(objcSendObject(sender, "title") as? String)
-        }
+        sessionGraph.colourTables.filterChosen(sender, in: self)
     }
 
+    /// The weights of the filter editor for a filter of `size`, as numbers.
     @objc(getMatrix:)
     func getMatrix(_ size: Int16) -> NSMutableArray! {
-        let valArray = NSMutableArray()
-
-        switch size {
-        case 3:
-            for x in 0..<5 {
-                for y in 0..<5 {
-                    let theCell = self.horos_convMatrix?.cell(atRow: y, column: x)
-
-                    if x < 1 || x > 3 || y < 1 || y > 3 {
-
-                    } else {
-                        valArray.add(NSNumber(value: theCell?.floatValue ?? 0))
-                    }
-                }
-            }
-
-        case 5:
-            for x in 0..<5 {
-                for y in 0..<5 {
-                    let theCell = self.horos_convMatrix?.cell(atRow: y, column: x)
-
-                    valArray.add(NSNumber(value: theCell?.floatValue ?? 0))
-                }
-            }
-
-        default:
-            break
-        }
-
-        return valArray
+        NSMutableArray(array: sessionGraph.colourTables.editorWeights(size: Int(size), in: self).map { NSNumber(value: $0) })
     }
 
+    /// The end of the filter editor: OK stores its filter under its name.
     @objc(endConv:)
     func endConv(_ sender: Any!) {
-        NSLog("endConv")
-
-        for x in 0..<5 {
-            for y in 0..<5 {
-                let theCell = self.horos_convMatrix?.cell(atRow: y, column: x)
-                theCell?.isEnabled = true
-            }
-        }
-
-        if objcSendInteger(sender, "tag") != 0 {  //User clicks OK Button
-            let aConvFilter = NSMutableDictionary()
-            let convDict = (UserDefaults.standard.object(forKey: "Convolution") as? NSDictionary)?.mutableCopy() as? NSMutableDictionary
-
-            aConvFilter.setObject(NSNumber(value: self.horos_sizeMatrix?.selectedCell()?.tag ?? 0), forKey: "Size" as NSString)
-            aConvFilter.setObject(NSNumber(value: self.horos_matrixNorm?.floatValue ?? 0), forKey: "Normalization" as NSString)
-
-            let valArray = self.getMatrix(Int16(truncatingIfNeeded: self.horos_sizeMatrix?.selectedCell()?.tag ?? 0))
-
-            aConvFilter.setObject(valArray as Any, forKey: "Matrix" as NSString)
-            if let name = self.horos_matrixName?.stringValue {
-                convDict?.setObject(aConvFilter, forKey: name as NSString)
-            }
-            UserDefaults.standard.set(convDict, forKey: "Convolution")
-
-            // Apply it!
-
-            // if( curConvMenu != [matrixName stringValue]) { [curConvMenu release]; curConvMenu = [[matrixName stringValue] retain]; }
-            self.horos_curConvMenu = self.horos_matrixName?.stringValue
-
-            NotificationCenter.default.post(name: .OsirixUpdateConvolutionMenu, object: self.horos_curConvMenu, userInfo: [:])
-        }
-
-        self.horos_addConvWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: objcSendInteger(sender, "tag")))
-
-        self.applyConvString(self.horos_curConvMenu)
+        sessionGraph.colourTables.endFilterEditor(sender, in: self)
     }
 
+    /// The filter editor changed: its filter is shown at once.
     @objc(convMatrixAction:)
     func convMatrixAction(_ sender: Any!) {
-        let size = self.horos_sizeMatrix?.selectedCell()?.tag ?? 0
-
-        let array = self.getMatrix(Int16(truncatingIfNeeded: size))
-        // float matrix[25]; a larger size overflowed it in the former code.
-        var matrix = [Float](repeating: 0, count: max(25, size &* size))
-        var i = 0
-        while i < size &* size {
-            matrix[i] = objcSendFloat(array?.object(at: i), "floatValue")
-            i += 1
-        }
-
-        matrix.withUnsafeMutableBufferPointer {
-            self.setConv($0.baseAddress, Int16(truncatingIfNeeded: self.horos_sizeMatrix?.selectedCell()?.tag ?? 0), self.horos_matrixNorm?.floatValue ?? 0)
-        }
-        if let imageView = self.horos_imageView { imageView.setIndex(imageView.curImage) }
+        sessionGraph.colourTables.editorChanged(in: self)
     }
 
+    /// Opens the filter editor on a new filter.
     @objc(AddConv:)
     func addConv(_ sender: Any!) {
-        for x in 0..<5 {
-            for y in 0..<5 {
-                let theCell = self.horos_convMatrix?.cell(atRow: y, column: x)
-
-                theCell?.isEnabled = true
-                if objcIsEqualToString(theCell?.stringValue, "") {
-                    theCell?.stringValue = "0"
-                }
-
-                theCell?.alignment = .center
-            }
-        }
-
-        self.convMatrixAction(self)
-        self.horos_matrixName?.stringValue = NSLocalizedString("Unnamed", comment: "")
-
-        if let addConvWindow = self.horos_addConvWindow, let window = self.window {
-            window.beginSheet(addConvWindow, completionHandler: nil)
-        }
+        sessionGraph.colourTables.addFilter(in: self)
     }
 }

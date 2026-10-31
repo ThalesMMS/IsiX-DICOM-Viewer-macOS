@@ -97,11 +97,11 @@ disable = run_body.find('dcmDisableGethostbyaddr.set(OFTrue);')
 if disable < 0 or disable > run_body.index('ASC_initializeNetwork('):
     failures.append('the listener does not turn off the reverse lookup of the peer before it listens')
 # The browser asks for the computer's host off the main thread (-awakeFromNib
-# runs before the listener starts).
-sources = (root / 'Horos/Sources/BrowserController+Sources.swift').read_text()
-remote = sources[sources.index('if context == RemoteBrowserSourcesContext.pointer {'):]
-remote = remote[:remote.index('if context == DicomBrowserSourcesContext.pointer {')]
-background = remote.find('Thread.performBlock(inBackground:')
+# runs before the listener starts): the Sources list asks on a thread of its own.
+sources = (root / 'Horos/Sources/SourceList.swift').read_text()
+remote = sources[sources.index('private func reloadSharedDatabases() {'):]
+remote = remote[:remote.index('private func listSharedDatabase(')]
+background = remote.find('await ActivityThread.runUnlisted(')
 calls = [m.start() for m in re.finditer(r'DefaultPreferences\.currentHost\(\)', remote)]
 if background < 0 or not calls or any(c < background for c in calls):
     failures.append('the remote sources ask for the current host on the main thread')

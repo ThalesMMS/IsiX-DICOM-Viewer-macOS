@@ -30,8 +30,17 @@ host = source_text('ViewerController+T2FitMap')
 if 't2FitMapProcessCurrentSeries' not in host:
     print('FAIL: viewer category does not process the current multi-echo series', file=sys.stderr)
     sys.exit(1)
-if 'T2FitMapEngine' not in host:
-    print('FAIL: viewer category must fit through T2FitMapEngine', file=sys.stderr)
+# The echo groups and the layout of the maps are IsiXImaging's T2FitMapping;
+# each slice is fitted by T2FitMap.fitSeries.
+mapping = root / 'Modules/IsiXImaging/Sources/BufferOperations/T2FitMapping.swift'
+if not mapping.is_file() or 'public enum T2FitMapping' not in mapping.read_text(encoding='utf-8'):
+    print('FAIL: T2FitMapping is missing from IsiXImaging', file=sys.stderr)
+    sys.exit(1)
+if 'T2FitMapping.map(' not in host or 'T2FitMapping.groups(' not in host:
+    print('FAIL: viewer category must group and lay out the maps through T2FitMapping', file=sys.stderr)
+    sys.exit(1)
+if 'T2FitMap.fitSeries(' not in host:
+    print('FAIL: viewer category must fit each slice through T2FitMap.fitSeries', file=sys.stderr)
     sys.exit(1)
 if 'newWindow' not in host:
     print('FAIL: a successful fit must open the T2 map in a new 2D viewer', file=sys.stderr)

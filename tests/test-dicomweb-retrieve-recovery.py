@@ -79,40 +79,48 @@ def block(text, start, end='\n    }\n'):
 # requests and recovers their failures, are in DCMTKQueryNode+DICOMweb.swift.
 node = (ROOT / 'Horos/Sources/DCMTKQueryNode+DICOMweb.swift').read_text()
 retrieve = block(node, 'func retrieveDICOMweb() -> Bool')
-recover = block(node, 'func recover(_ request: DICOMwebRetrieveRequest, error: NSError)')
-check('DICOMwebRetrieveRecovery.action(for: error, attempts: made)' in recover,
+# How a failed request recovers is the module's queue: the session waits for a
+# retry and hands the action back to it.
+queue = (ROOT / 'Modules/IsiXDICOMNetwork/Sources/DICOMwebRetrieveQueue.swift').read_text()
+recovery = block(queue, 'public func recovery(of request: DICOMwebRetrieveRequest, failure: DICOMwebRequestFailure)')
+apply = block(queue, 'public func apply(_ action: DICOMwebRecovery.Action, to request: DICOMwebRetrieveRequest')
+recover = block(node, 'func recover(_ request: DICOMwebRetrieveRequest, failure: DICOMwebRequestFailure)')
+check('DICOMwebRecovery.action(for: failure, attempts: request.attempts + 1)' in recovery
+      and 'guard let action = queue.recovery(of: request, failure: failure) else { return }' in recover,
       'a failed request recovers as the policy says')
-check('if action == .skip && request.uid == nil { action = .stop }' in recover,
+check('if action == .skip && request.uid == nil { action = .stop }' in recovery,
       'a study or series request left missing ends the retrieve')
-check(re.search(r'case \.retry:.*?DICOMwebRetrieveRecovery\.delay\(beforeAttempt: made \+ 1.*?Thread\.sleep.*?\$0\.pending\.append\(again\)', recover, re.S)
-      is not None, 'asked again after the policy\'s wait, which cancellation cuts short')
-check(re.search(r'case \.resume:.*?\$0\.interrupted\.append\(again\)', recover, re.S) is not None,
+check(re.search(r'if action == \.retry \{.*?DICOMwebRecovery\.delay\(beforeAttempt: made \+ 1.*?Thread\.sleep.*?queue\.apply\(action, to: request, failure: failure\)',
+                recover, re.S) is not None and re.search(r'case \.retry:\s*state\.pending\.append\(again\)', apply) is not None,
+      'asked again after the policy\'s wait, which cancellation cuts short')
+check(re.search(r'case \.resume:.*?state\.interrupted\.append\(again\)', apply, re.S) is not None,
       'a cut study or series is kept to be resumed')
-check(re.search(r'case \.skip:.*?if \$0\.unresolved == nil \{ \$0\.unresolved = error \}', recover, re.S) is not None,
+check(re.search(r'case \.skip:.*?if state\.unresolved == nil \{ state\.unresolved = failure \}', apply, re.S) is not None,
       'what is left missing is reported once the others have ended')
-check(re.search(r'case \.stop:.*?if \$0\.firstError == nil \{ \$0\.firstError = error \}', recover, re.S) is not None,
+check(re.search(r'case \.stop:.*?if state\.firstFailure == nil \{ state\.firstFailure = failure \}', apply, re.S) is not None,
       'only a failure no request can get past stops the others')
-check('} else if let requestError {\n                        recover(request, error: requestError)' in node,
+check('} else if let failure {\n                        recover(request, failure: failure)' in node,
       'the workers hand every failure to the policy')
-check(node.count('$0.firstError = error') == 1, 'nothing else stops the retrieve')
-take = block(node, 'func take(_ request: DICOMwebRetrieveRequest) -> NSError?')
-check('let known = taken.read { $0.contains(objectUID) } || localUIDs.contains(objectUID)' in take
-      and 'taken.modify { $0.insert(objectUID) }' in take,
+check(queue.count('state.firstFailure = failure') == 1 and 'firstFailure' not in node, 'nothing else stops the retrieve')
+take = block(node, 'func take(_ request: DICOMwebRetrieveRequest) -> DICOMwebRequestFailure?')
+check('if queue.isTaken(objectUID) || localUIDs.contains(objectUID) {' in take
+      and 'queue.take(objectUID)' in take,
       'an object another request brought, or that is here, is dropped')
-known = take.index('if known {')
-check(take.index('return "WADO-RS returned invalid') < known < take.index('let destination = (incoming as NSString)'),
+known = take.index('if queue.isTaken(objectUID) || localUIDs.contains(objectUID) {')
+check(take.index('return "WADO-RS returned invalid') < known < take.index('ingest.publish(fileAt: file'),
       'only once its identifiers are checked, and before it is queued')
-resume = retrieve[retrieve.index('        while true {\n            let resumed: [DICOMwebRetrieveRequest]'):]
+resume = retrieve[retrieve.index('        while true {\n            let resumed = session.queue.takeInterrupted()'):]
 resume = resume[:resume.index('\n        }\n')]
-check('if resumed.isEmpty || succeeded || session.failed || thread.isCancelled { break }' in resume and 'session.queue(again)' in resume
+check('if resumed.isEmpty || succeeded || session.failed || thread.isCancelled { break }' in resume
+      and 'for request in resumed { session.queue(request) }' in resume
       and 'session.drain()' in resume, 'without a listing, a cut request is asked for again until it is not cut')
 second = retrieve.index('for (seriesUID, uids) in inventory.unreceivedSeries {')
-check(second < retrieve.index('while true {\n            let resumed: [DICOMwebRetrieveRequest]'), 'that comes after the pass for what the listing names')
+check(second < retrieve.index('while true {\n            let resumed = session.queue.takeInterrupted()'), 'that comes after the pass for what the listing names')
 short = retrieve[retrieve.index('var listedInSeries: [String: Int] = [:]'):]
 short = short[:short.index('session.drain()')]
 check('if count.intValue > listedCount && !(plan?.isExcluded(series: seriesUID) ?? false)\n                        && !done.contains(base) && !done.contains(path) {' in short
       and 'session.enqueue(path, series: seriesUID)' in short, 'a series listed short is asked for whole, unless it already arrived whole')
-check('error = session.pool.read { $0.firstError ?? $0.unresolved }' in retrieve,
+check('error = session.queue.failure?.error' in retrieve and 'state.withLock { $0.firstFailure ?? $0.unresolved }' in queue,
       'the retrieve reports the failure nothing made up for')
 check('!session.failed && !unresolvedFailure && !thread.isCancelled' in retrieve, 'a node without a listing is not excused when something stayed missing')
 move_source = (ROOT / 'Horos/Sources/DCMTKQueryNode+Retrieve.swift').read_text()
@@ -337,7 +345,7 @@ with tempfile.TemporaryDirectory(prefix='horos-dicomweb-recovery-') as folder:
     (work / 'check.swift').write_text(DRIVER)
     sources = [str(ROOT / 'Horos/Sources' / name) for name in
                ('DICOMwebClient.swift', 'DICOMwebNode.swift', 'DICOMwebCredentials.swift', 'DICOMwebMultipart.swift',
-                'NonInteractiveKeychainRead.swift', 'DICOMwebRetrieveRecovery.swift')]
+                'NonInteractiveKeychainRead.swift', 'DICOMwebRetrieveRecovery.swift', 'DICOMwebClient+Retrieving.swift')]
     executable = work / 'check'
     build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-suppress-warnings', '-module-cache-path', str(work / 'cache'),
                             *sources, *flags, str(work / 'check.swift'), '-o', str(executable)],

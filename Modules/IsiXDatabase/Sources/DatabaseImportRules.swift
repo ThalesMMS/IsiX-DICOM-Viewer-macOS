@@ -9,11 +9,12 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXContracts
 
 // The rules of the database's import that need no database: where a file goes
 // when its name is taken, when the volume is too full to take more, what the
-// scan of the incoming folder does with a name, which conversion queue a file
-// joins, how a WADO-RS multipart body is cut into DICOM files, which incoming
+// scan of the incoming folder does with a name, which conversion a file
+// gets, how a WADO-RS multipart body is cut into DICOM files, which incoming
 // file may be a report from the cloud, how the compression work is shared out,
 // and what an incomplete copy from a medium says. The application's
 // DicomDatabase applies them to its folders and its index.
@@ -111,18 +112,39 @@ public enum IncomingScanRules {
         return isDICOM || (readableOtherwise() && !destinationTaken())
     }
 
-    /// The queue the scan's compressed files join.
-    public enum ConversionQueue: Equatable, Sendable {
-        case decompress, compress, none
+    /// How long one scan goes on taking files, in seconds: nobody waits more than
+    /// three check intervals for what it already took.
+    public static func scanDuration(checkInterval: Int) -> TimeInterval {
+        TimeInterval(checkInterval * 3)
     }
 
-    /// Decompressed when the listener decompresses (1) or leaves files as they
-    /// are (0, so that archives are expanded), compressed when it compresses (2).
-    public static func queue(forListenerCompressionSettings settings: Int) -> ConversionQueue {
+    /// Why a DICOM file stays out of the database, or nil when the triage lets it
+    /// in. An IVUS/US object answers for itself; a file the IVUS gate does not
+    /// apply to keeps the answer of the Enhanced one.
+    public static func triageRefusal(stackMayMerge: Bool, stackError: String?, ivusApplies: Bool, ivusMayMerge: Bool, ivusError: String?) -> String? {
+        if ivusApplies {
+            return ivusMayMerge ? nil : nonEmpty(ivusError) ?? "the thumbnail stack cannot load this IVUS/US object"
+        }
+        return stackMayMerge ? nil : nonEmpty(stackError) ?? "the pixel/thumbnail stack cannot load this object"
+    }
+
+    private static func nonEmpty(_ text: String?) -> String? {
+        text?.isEmpty == false ? text : nil
+    }
+
+    /// An archive the decompression helper could not expand comes back under this extension.
+    public static func isUnexpandedArchive(named lastPathComponent: String) -> Bool {
+        (lastPathComponent as NSString).pathExtension == "horos-unexpanded"
+    }
+
+    /// What is done to the scan's compressed files: decompressed when the listener
+    /// decompresses (1) or leaves files as they are (0, so that archives are
+    /// expanded), compressed when it compresses (2), nothing otherwise.
+    public static func conversion(forListenerCompressionSettings settings: Int) -> FileConversionMode? {
         switch settings {
         case 0, 1: return .decompress
         case 2: return .compress
-        default: return .none
+        default: return nil
         }
     }
 }
@@ -185,6 +207,35 @@ public enum WADORSMultipart {
             lastBoundary = next
         }
         return (parts, false)
+    }
+
+    /// What became of a file that announces DICOM parts.
+    public enum Unpacking: Equatable, Sendable {
+        /// No part came out of it: the scan takes it as any other file.
+        case notSplit
+        /// Its parts are written and it has no further use.
+        case split
+        /// It is cut short, or a part could not be written: kept aside, with
+        /// the parts it gave written.
+        case keptAside
+        /// It could not be kept aside. A file cut short had no part written, or
+        /// each scan that finds it there would write them again.
+        case stays
+    }
+
+    /// Writes the parts of a whole body with `write`. A body cut short is first
+    /// kept aside by `keepAside`, which leaves the incoming folder without it and
+    /// says whether it did, and only then gives the parts before the cut, so they
+    /// are written once.
+    public static func unpack(_ data: Data, keepAside: () -> Bool, write: (Data) -> Bool) -> Unpacking {
+        let cut = dicomParts(in: data)
+        if cut.malformed && !keepAside() { return .stays }
+        var written = 0
+        for part in cut.parts where write(data.subdata(in: part)) { written += 1 }
+        if cut.malformed { return .keptAside }
+        if written == 0 { return .notSplit }
+        // A part that was not written exists only in this file.
+        return written == cut.parts.count ? .split : keepAside() ? .keptAside : .stays
     }
 
     private static func find<Bytes: RandomAccessCollection>(_ needle: Data, in haystack: Bytes, from: Int, length: Int) -> Int?
@@ -250,6 +301,20 @@ public enum ConversionBatches {
     }
 }
 
+/// What counts as a study arriving, for the date its study and series were added.
+public enum ImportArrival {
+    /// Whether a file read for an image brings it to the database. The date feeds
+    /// the albums of what was just added and the grace of the automatic cleanup,
+    /// so a study sent again counts: its file comes in under a new name, or from
+    /// outside the data folder, and a reread is asked for. The file the index
+    /// already names, inside the data folder, is not an arrival: it is what a
+    /// rebuild that keeps the index reads, and it brought nothing.
+    public static func isArrival(storedPath: String?, file: String?, insideDataFolder: Bool, rereading: Bool) -> Bool {
+        guard insideDataFolder, !rereading, let storedPath, let file else { return true }
+        return storedPath != (file as NSString).lastPathComponent
+    }
+}
+
 /// What an import that took less than it was given says about itself.
 public enum ImportShortfall {
     /// Whether the copy from a medium logs its counts: a file could not be
@@ -287,5 +352,86 @@ public enum ImportShortfall {
     /// index, and the total at the last one.
     public static func progressDone(index: Int, total: Int) -> Int {
         return index + 1 == total ? total : index
+    }
+}
+
+/// How an import matches a described file to the studies already in the
+/// database, and what a study keeps of the files that join it, decided on
+/// values. The indexer reads the values from the file's dictionary and the
+/// study, and writes what these say.
+///
+/// A study is found by its Study Instance UID and its patient. A series is the
+/// one of the same Series Instance UID, as stored: a series that Reparse split
+/// keeps the UID of the original with RP-1, RP-2… after it, so a file of the
+/// original series read again makes a series of its own beside them.
+public enum ImportMatching {
+    /// Whether a file belongs to the patient of a study: the patient UIDs
+    /// compare equal ignoring case, diacritics and width. A file without a
+    /// patient UID belongs to any study, and a study without one to no file
+    /// that has one, as the message to nil answered in the Objective-C.
+    public static func isSamePatient(file: String?, study: String?) -> Bool {
+        guard let file else { return true }
+        guard let study else { return false }
+        return (file as NSString).compare(study, options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive]) == .orderedSame
+    }
+
+    /// Whether a study holds nothing but the "No Autodeletion" series, the
+    /// marker the albums file (loadAlbums) leaves for a study of an album whose
+    /// images are gone: the first file of that study that arrives makes it new
+    /// again, with the file's patient and the date it arrived.
+    public static func isAlbumMarkerOnly(seriesCount: Int, onlySeriesName: String?, onlySeriesID: Int32) -> Bool {
+        seriesCount == 1 && SelectionImages.isNoAutodeletionSeries(name: onlySeriesName, id: onlySeriesID)
+    }
+
+    /// Whether the modality of a study gives way to that of the file that
+    /// joins it: a study known so far only by a report (SR) or another object
+    /// (OT) takes the modality of its images.
+    public static func studyTakesFileModality(study: String?) -> Bool {
+        same(study, "SR") || same(study, "OT")
+    }
+
+    /// Whether a new series gives its study the modality of its file: a study
+    /// of secondary captures or other objects (SC, OT) takes a true modality.
+    public static func seriesGivesStudyModality(study: String?, file: String?) -> Bool {
+        (same(study, "OT") || same(study, "SC")) && !(same(file, "OT") || same(file, "SC"))
+    }
+
+    /// Whether a study takes the date of an arriving file: the earliest real
+    /// date wins, and `undefined`, the date of a file without one, never does.
+    public static func takesStudyDate(_ arriving: Date?, over existing: Date?, undefined: Date) -> Bool {
+        guard let arriving, arriving != undefined else { return false }
+        guard let existing, existing != undefined else { return true }
+        return existing.timeIntervalSince(arriving) >= 0
+    }
+
+    /// Whether a study name says nothing, empty or "unnamed", so that the
+    /// description of the study, or else of the series, takes its place.
+    public static func isMissingStudyName(_ name: String?) -> Bool {
+        ((name as NSString?)?.length ?? 0) == 0 || same(name, "unnamed")
+    }
+
+    /// Whether a report or a PDF read again writes a value of its file over
+    /// the study's: only a value that says something, which a report made
+    /// from the study's own fields may not repeat.
+    public static func rereadReportWrites(_ value: String?, isDescription: Bool = false) -> Bool {
+        ((value as NSString?)?.length ?? 0) != 0 && !(isDescription && same(value, "unnamed"))
+    }
+
+    /// The series whose rows a file read into `series` may already have:
+    /// that series first and, for a series of the app's own SRs, every other
+    /// series of the study with the same id. Each kind of the app's SRs gives
+    /// all its files one series id, its name, so a study can hold several such
+    /// series (two studies merged leave one each), and the lookup of a series
+    /// by id answers only one of them: a file of another one, read again by a
+    /// rebuild, would be indexed a second time.
+    public static func seriesHoldingRows<Series: AnyObject>(of series: Series, ownSR: Bool, studySeries: [Series],
+                                                            id: (Series) -> String?) -> [Series] {
+        guard ownSR, let wanted = id(series) else { return [series] }
+        return [series] + studySeries.filter { $0 !== series && id($0) == wanted }
+    }
+
+    /// `[string isEqualToString:other]`, NO for nil.
+    private static func same(_ string: String?, _ other: String) -> Bool {
+        (string as NSString?)?.isEqual(to: other) ?? false
     }
 }

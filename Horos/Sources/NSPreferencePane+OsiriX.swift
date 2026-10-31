@@ -37,6 +37,7 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
+import IsiXPreferences
 import PreferencePanes
 import SecurityInterface
 
@@ -50,7 +51,7 @@ public extension NSPreferencePane {
     @objc func isUnlocked() -> Bool {
         // mainView is declared nonnull but is nil until the pane has a view.
         let window = (value(forKey: "mainView") as? NSView)?.window
-        return !UserDefaults.standard.bool(forKey: "AUTHENTICATION")
+        return !PreferencesSource.process.preferences[ApplicationPreferences.authentication]
             || (window?.windowController as? PreferencesWindowController)?.authView?.authorizationState() == SFAuthorizationViewUnlockedState
     }
 

@@ -91,7 +91,10 @@
 @end
 
 // The legacy C functions accept a format string and retain their historical responses.
-NSInteger HorosRunAlertPanel(NSString *title, NSString *format, NSString *defaultButton, NSString *alternateButton, NSString *otherButton, ...)
+// The application calls none of them; plugins built against the former SDK do. used
+// keeps dead stripping, which removes unreferenced functions from the executable in a
+// Release build, from leaving them out.
+__attribute__((used)) NSInteger HorosRunAlertPanel(NSString *title, NSString *format, NSString *defaultButton, NSString *alternateButton, NSString *otherButton, ...)
 {
     va_list arguments;
     va_start(arguments, otherButton);
@@ -100,7 +103,7 @@ NSInteger HorosRunAlertPanel(NSString *title, NSString *format, NSString *defaul
     return [HorosAlertPanel runWithTitle:title message:message defaultButton:defaultButton alternateButton:alternateButton otherButton:otherButton];
 }
 
-NSInteger HorosRunInformationalAlertPanel(NSString *title, NSString *format, NSString *defaultButton, NSString *alternateButton, NSString *otherButton, ...)
+__attribute__((used)) NSInteger HorosRunInformationalAlertPanel(NSString *title, NSString *format, NSString *defaultButton, NSString *alternateButton, NSString *otherButton, ...)
 {
     va_list arguments;
     va_start(arguments, otherButton);
@@ -109,7 +112,7 @@ NSInteger HorosRunInformationalAlertPanel(NSString *title, NSString *format, NSS
     return [HorosAlertPanel runInformationalWithTitle:title message:message defaultButton:defaultButton alternateButton:alternateButton otherButton:otherButton];
 }
 
-NSInteger HorosRunCriticalAlertPanel(NSString *title, NSString *format, NSString *defaultButton, NSString *alternateButton, NSString *otherButton, ...)
+__attribute__((used)) NSInteger HorosRunCriticalAlertPanel(NSString *title, NSString *format, NSString *defaultButton, NSString *alternateButton, NSString *otherButton, ...)
 {
     va_list arguments;
     va_start(arguments, otherButton);

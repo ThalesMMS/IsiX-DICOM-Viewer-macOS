@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXContracts
 import IsiXDICOMDataset
 import IsiXDICOMFile
 import IsiXROI
@@ -160,13 +161,14 @@ extension CalciumScoringWindowController {
         set([DICOMCalendarDate.dicomDate(with: Date()) as Any], "SeriesDate")
         set([DICOMCalendarDate.dicomTime(with: Date()) as Any], "SeriesTime")
 
-        // get Incoming Folder Path;
-        let destination = String(format: "%@/CalciumScore%d%d.dcm",
-                                 (BrowserController.currentBrowser()?.database?.incomingDirPath() ?? "") as NSString, Int32(1), Int32(1))
+        let ingest = DatabaseIngest.process
+        let draft = IngestDraft(folder: ingest.admissionFolder(of: OSIWindowController.browserWindowGraph(serving: viewer)?.database),
+                                name: String(format: "CalciumScore%d%d.dcm", Int32(1), Int32(1)))
 
-        if dcmObject.write(toFile: destination, with: DCMTransferSyntax.explicitVRLittleEndianTransferSyntax() as DCMTransferSyntax?,
-                           quality: DCMCompressionQuality.lossless.rawValue, atomically: true) {
-            NSLog("Wrote Calcium Score to %@", destination as NSString)
+        if dcmObject.write(toFile: draft.path, with: DCMTransferSyntax.explicitVRLittleEndianTransferSyntax() as DCMTransferSyntax?,
+                           quality: DCMCompressionQuality.lossless.rawValue, atomically: true),
+           ingest.publish(draft, preset: .incoming).succeeded {
+            NSLog("Wrote Calcium Score to %@", draft.folder.path(named: draft.name) as NSString)
         }
     }
 }

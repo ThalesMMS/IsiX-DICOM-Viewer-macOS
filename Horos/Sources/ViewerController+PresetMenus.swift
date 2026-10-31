@@ -38,171 +38,45 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
-import IsiXImaging
 
 // The presets menus of the 2D viewer's popups (window level and width,
-// convolution filters, opacity tables), rebuilt from the preferences when the
-// presets change, the sheet that names the current window level as a preset,
-// and the refresh of the four popups. The selectors are those of the former
-// Objective-C methods. The menus are shared by every viewer, as the
-// file-scope statics of ViewerController.m were: each viewer's popup gets a
-// copy. A message to nil answered nil, 0 or NO: the optional chains below
-// answer the same.
-
-/// The window level presets menu shared by every viewer.
-@MainActor fileprivate var wlwwPresetsMenu: NSMenu? = nil
-/// The convolution presets menu shared by every viewer.
-@MainActor fileprivate var convolutionPresetsMenu: NSMenu? = nil
-/// The opacity presets menu shared by every viewer.
-@MainActor fileprivate var opacityPresetsMenu: NSMenu? = nil
-
-/// [popup setTitle: title], nil included.
-@MainActor fileprivate func horosSetPopupTitle(_ popup: NSPopUpButton?, _ title: String?) {
-    guard let popup else { return }
-    if let title {
-        popup.setTitle(title)
-    } else {
-        _ = popup.perform(#selector(NSPopUpButton.setTitle(_:)), with: nil)
-    }
-}
-
-/// The names of the presets saved under `key`, in menu order.
-fileprivate func horosPresetNames(_ key: String) -> [String] {
-    let presets = UserDefaults.standard.object(forKey: key) as? NSDictionary
-    return ViewerPresetMenus.sortedNames(presets?.allKeys ?? [])
-}
+// convolution filters, opacity tables), the sheet that names the current
+// window level as a preset, and the refresh of the four popups. The menus are
+// the process's PresetMenuCache and the work is the viewer's
+// ViewerWindowLevel; these are the selectors of the former Objective-C
+// methods, which the nibs, the notifications and the former plugins send.
 
 public extension ViewerController {
 
     /// Tells the menus the current presets and shows them in the popups.
     @objc(refreshMenus)
     func refreshMenus() {
-        let center = NotificationCenter.default
-        center.post(name: .OsirixUpdateWLWWMenu, object: horos_curWLWWMenu, userInfo: nil)
-        center.post(name: .OsirixUpdateCLUTMenu, object: horos_curCLUTMenu, userInfo: nil)
-        center.post(name: .OsirixUpdateConvolutionMenu, object: horos_curConvMenu, userInfo: nil)
-        center.post(name: .OsirixUpdateOpacityMenu, object: horos_curOpacityMenu, userInfo: nil)
-
-        horosSetPopupTitle(horos_clutPopup, horos_curCLUTMenu)
-        horosSetPopupTitle(horos_convPopup, horos_curConvMenu)
-        horosSetPopupTitle(horos_wlwwPopup, horos_curWLWWMenu)
-        horosSetPopupTitle(horos_OpacityPopup, horos_curOpacityMenu)
+        sessionGraph.windowLevel.refreshMenus(in: self)
     }
 
-    /// Rebuilds the convolution presets menu when there is none yet or the
-    /// presets changed (a notification with a user info), and gives the popup
-    /// its copy.
+    /// The convolution presets changed (a notification with a user info), or
+    /// the popup needs its menu.
     @objc(UpdateConvolutionMenu:)
     func updateConvolutionMenu(_ note: Notification!) {
-        if horos_windowWillClose { return }
-
-        if convolutionPresetsMenu == nil || note?.userInfo != nil {
-            let menu = NSMenu()
-            convolutionPresetsMenu = menu
-
-            menu.addItem(withTitle: NSLocalizedString("No Filter", comment: ""), action: nil, keyEquivalent: "")
-            menu.addItem(withTitle: NSLocalizedString("No Filter", comment: ""), action: Selector(("ApplyConv:")), keyEquivalent: "")
-            menu.addItem(NSMenuItem.separator())
-            for name in horosPresetNames("Convolution") {
-                menu.addItem(withTitle: name, action: Selector(("ApplyConv:")), keyEquivalent: "")
-            }
-            menu.addItem(NSMenuItem.separator())
-            menu.addItem(withTitle: NSLocalizedString("Add a Filter", comment: ""), action: Selector(("AddConv:")), keyEquivalent: "")
-            horos_convPopup?.menu = menu.copy() as? NSMenu
-            horos_convPopupSet = true
-        } else if !horos_convPopupSet {
-            horos_convPopup?.menu = convolutionPresetsMenu?.copy() as? NSMenu
-            horos_convPopupSet = true
-        }
-
-        horosSetPopupTitle(horos_convPopup, horos_curConvMenu)
+        sessionGraph.windowLevel.updatePresetMenu(.convolution, presetsChanged: note?.userInfo != nil, in: self)
     }
 
-    /// Rebuilds the window level presets menu when there is none yet or the
-    /// presets changed, gives the popup its copy and drops the contextual menu,
-    /// which copies it and is rebuilt when next needed.
+    /// The window level presets changed, or the popup needs its menu.
     @objc(UpdateWLWWMenu:)
     func updateWLWWMenu(_ note: Notification!) {
-        if horos_windowWillClose { return }
-
-        if wlwwPresetsMenu == nil || note?.userInfo != nil {
-            let menu = NSMenu()
-            wlwwPresetsMenu = menu
-
-            menu.addItem(withTitle: NSLocalizedString("Default WL & WW", comment: ""), action: nil, keyEquivalent: "")
-            menu.addItem(withTitle: NSLocalizedString("Other", comment: ""), action: #selector(ViewerController.applyWLWW(_:)), keyEquivalent: "")
-            menu.addItem(withTitle: NSLocalizedString("Default WL & WW", comment: ""), action: #selector(ViewerController.applyWLWW(_:)), keyEquivalent: "")
-            menu.addItem(withTitle: NSLocalizedString("Full dynamic", comment: ""), action: #selector(ViewerController.applyWLWW(_:)), keyEquivalent: "")
-            menu.addItem(NSMenuItem.separator())
-            for (i, name) in horosPresetNames("WLWW3").enumerated() {
-                menu.addItem(withTitle: ViewerPresetMenus.wlwwPresetTitle(index: i, name: name), action: #selector(ViewerController.applyWLWW(_:)), keyEquivalent: "")
-            }
-            menu.addItem(NSMenuItem.separator())
-            menu.addItem(withTitle: NSLocalizedString("Add Current WL/WW", comment: ""), action: #selector(ViewerController.AddCurrentWLWW(_:)), keyEquivalent: "")
-            menu.addItem(withTitle: NSLocalizedString("Set WL/WW Manually", comment: ""), action: #selector(ViewerController.setWLWW(_:)), keyEquivalent: "")
-
-            horos_wlwwPopup?.menu = menu.copy() as? NSMenu
-
-            dropViewerContextualMenu()
-            horos_imageView?.menu = nil // Will force recomputing, when needed
-            horos_wlwwPopupSet = true
-        } else if !horos_wlwwPopupSet {
-            horos_wlwwPopup?.menu = wlwwPresetsMenu?.copy() as? NSMenu
-            horos_wlwwPopupSet = true
-        }
-        horosSetPopupTitle(horos_wlwwPopup, horos_curWLWWMenu)
+        sessionGraph.windowLevel.updatePresetMenu(.windowLevel, presetsChanged: note?.userInfo != nil, in: self)
     }
 
     /// Opens the sheet that names the current window level and width as a preset.
     @objc(AddCurrentWLWW:)
     func AddCurrentWLWW(_ sender: Any!) {
-        horosLoadViewerPanels()
-
-        var cwl: Float = 0, cww: Float = 0
-        horos_imageView?.getWLWW(&cwl, &cww)
-
-        horos_wl?.stringValue = WindowLevelText.string(for: Double(cwl))
-        horos_ww?.stringValue = WindowLevelText.string(for: Double(cww))
-
-        horos_newName?.stringValue = NSLocalizedString("Unnamed", comment: "")
-
-        if let sheet = horos_addWLWWWindow {
-            window?.beginSheet(sheet, completionHandler: nil)
-        }
+        sessionGraph.windowLevel.openPresetNamingSheet()
     }
 
-    /// Closes the naming sheet; with OK (a tag), saves the preset, makes it
-    /// the current one and applies it.
+    /// Closes the naming sheet; with OK, saves and applies the preset.
     @objc(endNameWLWW:)
     func endNameWLWW(_ sender: Any!) {
-        NSLog("endNameWLWW")
-
-        // A window may be narrower than one unit. Reading these back as integers
-        // rounded the fraction away and then the zero guard turned it into 1, so
-        // saving a preset changed the window it was supposed to record.
-        let iwl = Float(WindowLevelText.value(from: horos_wl?.stringValue ?? "", fallback: 0))
-        let iww = Float(WindowLevelText.width(from: horos_ww?.stringValue ?? "", fallback: 1))
-
-        let tag = ViewerSender.tag(sender)
-        horos_addWLWWWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(tag))
-
-        if tag != 0 { // User clicks OK Button
-            let defaults = UserDefaults.standard
-            // Without presets there is nothing to add to: the preference is
-            // removed, as setting the copy of none did.
-            let presets = (defaults.object(forKey: "WLWW3") as? NSDictionary)?.mutableCopy() as? NSMutableDictionary
-            let name = horos_newName?.stringValue
-            if let name {
-                presets?.setObject([NSNumber(value: iwl), NSNumber(value: iww)] as NSArray, forKey: name as NSString)
-            }
-            defaults.set(presets, forKey: "WLWW3")
-
-            horos_curWLWWMenu = name
-
-            NotificationCenter.default.post(name: .OsirixUpdateWLWWMenu, object: horos_curWLWWMenu, userInfo: [:])
-
-            horos_imageView?.setWLWW(iwl, iww)
-        }
+        sessionGraph.windowLevel.endPresetNamingSheet(sender)
     }
 
     @objc(renderButton:)
@@ -210,31 +84,9 @@ public extension ViewerController {
         NSLog("render Button")
     }
 
-    /// Rebuilds the opacity presets menu when there is none yet or the presets
-    /// changed, and gives the popup its copy.
+    /// The opacity presets changed, or the popup needs its menu.
     @objc(UpdateOpacityMenu:)
     func updateOpacityMenu(_ note: Notification!) {
-        if horos_windowWillClose { return }
-
-        if opacityPresetsMenu == nil || note?.userInfo != nil {
-            let menu = NSMenu()
-            opacityPresetsMenu = menu
-
-            menu.addItem(withTitle: NSLocalizedString("Linear Table", comment: ""), action: #selector(ViewerController.applyOpacity(_:)), keyEquivalent: "")
-            menu.addItem(withTitle: NSLocalizedString("Linear Table", comment: ""), action: #selector(ViewerController.applyOpacity(_:)), keyEquivalent: "")
-            for name in horosPresetNames("OPACITY") {
-                menu.addItem(withTitle: name, action: #selector(ViewerController.applyOpacity(_:)), keyEquivalent: "")
-            }
-            menu.addItem(NSMenuItem.separator())
-            menu.addItem(withTitle: NSLocalizedString("Add an Opacity Table", comment: ""), action: Selector(("AddOpacity:")), keyEquivalent: "")
-
-            horos_OpacityPopup?.menu = menu.copy() as? NSMenu
-            horos_OpacityPopupSet = true
-        } else if !horos_OpacityPopupSet {
-            horos_OpacityPopup?.menu = opacityPresetsMenu?.copy() as? NSMenu
-            horos_OpacityPopupSet = true
-        }
-
-        horosSetPopupTitle(horos_OpacityPopup, horos_curOpacityMenu)
+        sessionGraph.windowLevel.updatePresetMenu(.opacity, presetsChanged: note?.userInfo != nil, in: self)
     }
 }

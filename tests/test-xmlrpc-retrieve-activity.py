@@ -52,13 +52,13 @@ for selector, function in (('_PACSOnDemandRetrieve:', 'pacsOnDemandRetrieve'), (
         failures.append(f'{selector} is no longer the selector of {function}')
     if re.search(r'detachNewThread(Selector)?\([^\n]*%s' % function, code):
         failures.append(f'{selector} still runs on a detached thread')
-    started = len(re.findall(r'startRetrieveThread\(\s*#selector\(\s*(self\.)?%s\(_:\)\s*\)' % function, code))
+    started = len(re.findall(r'startRetrieveThread\(count: [^)]*\) \{ \w+\.interface\.%s\(' % function, code))
     if started != 1:
         failures.append(f'{selector} is started {started} times through startRetrieveThread, not 1')
 
 # PACS On-Demand: both DisplayStudy and FindObject go through the one start.
 on_demand = body('private func retrieveOnDemand(')
-if 'startRetrieveThread(#selector(pacsOnDemandRetrieve(_:))' not in on_demand:
+if 'startRetrieveThread(count: studies.count) { order.interface.pacsOnDemandRetrieve(order.value) }' not in on_demand:
     failures.append('PACS On-Demand does not start its retrieve through startRetrieveThread')
 for function in ('private func findStudies(', 'private func findObjects('):
     if 'retrieveOnDemand(' not in body(function):
@@ -70,11 +70,12 @@ for function in ('public func retrieve(_ paramDict', 'public func cMove('):
 
 helper = body('func startRetrieveThread(')
 if not helper:
-    failures.append('startRetrieveThread(_:with:count:) is missing')
+    failures.append('startRetrieveThread(count:_:) is missing')
 else:
-    for needed in ('Thread(target: self, selector: selector, object: object)',
-                   'thread.name = NSLocalizedString("Retrieving images...", comment: "")',
-                   'thread.supportsCancel = true', 'ThreadsManager.default()?.addThreadAndStart(thread)'):
+    # ActivityThread.startListed names the thread, gives it a Stop button and
+    # starts it through ThreadsManager, which lists it in Activity.
+    for needed in ('ActivityThread.startListed(name: NSLocalizedString("Retrieving images...", comment: "")',
+                   'thread.status = status'):
         if needed not in helper:
             failures.append(f'the helper does not do: {needed}')
 

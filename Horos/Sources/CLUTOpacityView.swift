@@ -1979,7 +1979,7 @@ public final class CLUTOpacityView: NSView {
         clut.setObject(convertCurvesForPlist(), forKey: "curves" as NSString)
         clut.setObject(convertPointColorsForPlist(), forKey: "colors" as NSString)
 
-        if var path = BrowserController.currentBrowser()?.database?.clutsDirPath() {
+        if var path = OSIWindowController.browserWindowGraph(serving: vrView)?.database?.clutsDirPath() {
             var isDir: ObjCBool = true
             if !FileManager.default.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue {
                 try? FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true, attributes: nil)
@@ -1996,7 +1996,7 @@ public final class CLUTOpacityView: NSView {
 
     @objc(presetFromFileWithName:)
     public class func presetFromFile(withName name: String) -> NSDictionary? {
-        guard let CLUTsPath = BrowserController.currentBrowser()?.database?.clutsDirPath() else { return nil }
+        guard let CLUTsPath = BrowserDatabaseSource.process.browserDatabase?.clutsDirPath() else { return nil }
         var path = (CLUTsPath as NSString).appendingPathComponent(name)
 
         if FileManager.default.fileExists(atPath: path) {

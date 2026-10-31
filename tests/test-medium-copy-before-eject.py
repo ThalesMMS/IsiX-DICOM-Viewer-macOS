@@ -45,7 +45,8 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-scan = (root / 'Horos/Sources/DicomDatabase+Scan.swift').read_text(encoding='utf-8')
+scan = (root / 'Horos/Sources/MediaVolumeScan.swift').read_text(encoding='utf-8')
+rules = (root / 'Modules/IsiXDatabase/Sources/MediaScanRules.swift').read_text(encoding='utf-8')
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import default_preferences  # noqa: E402
 defaults = default_preferences.registered()
@@ -86,39 +87,39 @@ for pane in root.glob('Preference Panes/OSIGeneralPreferencePane/*.lproj/'
         failures.append('%s still offers a checkbox bound to it' % pane.parent.name)
 
 # --- the wait -----------------------------------------------------------------
-at = code.find('copyFilesThread')
+# The copy runs on the scan's thread: what follows it runs when it has ended,
+# and no thread can be left to wait for, or given up on.
+at = code.find('let copy = copying(paths)')
 if at < 0:
-    failures.append('the copy no longer runs on its own thread')
+    failures.append('the copy is no longer waited for where it is started')
 else:
-    if 'threadHung' in code:
-        failures.append('the wait still gives up one second after finding the thread not yet '
-                        'executing, and the disc is ejected after it')
-    if 'while !copyFilesThread.isFinished {' not in code:
-        failures.append('the wait no longer waits for the copy to finish')
-    if 'waitedForStart' not in code:
-        failures.append('nothing bounds how long the copy may take to start')
-    eject = code.find('CDDVDEjectAfterAutoCopy')
+    if '.run()' not in code[code.find('func copying('):code.find('func eject(')]:
+        failures.append('the copy does not run on the thread of the scan')
+    if 'Thread.performBlock(' in code or 'Thread {' in code or 'Thread(target' in code:
+        failures.append('the copy runs on another thread, and the scan can go on before it ends')
+    eject = code.find('DatabasePreferences.ejectsMediaAfterAutoCopy')
     if eject < 0:
         failures.append('the eject is gone')
     elif eject < at:
         failures.append('the medium is ejected before the copy is started')
     else:
         condition = code[eject - 200:eject + 300]
-        if 'isFinished' not in condition:
-            failures.append('the medium is ejected without checking that the copy finished')
-        if 'isCancelled' not in condition:
+        if 'copyStopped: copy.stopped' not in condition or 'MediaScanRules.ejectsAfterCopy(' not in condition:
             failures.append('a cancelled copy would still eject the medium')
+    if 'isVolume && ejectPreference && !copyStopped' not in rules:
+        failures.append('the rule of the eject no longer looks at the copy having ended')
 
 # --- reading past the index ---------------------------------------------------
-if 'ScanDiskBeyondDICOMDIR' not in code:
+if 'DatabasePreferences.scanDiskBeyondDICOMDIR' not in code:
     failures.append('a DICOMDIR that names part of the medium is still taken as naming all of it')
 else:
     at = code.find('let doScan')
     window = code[at:at + 600] if at >= 0 else ''
-    if 'usedDicomdir' not in window or 'scanBeyondDicomdir' not in window:
+    rule = rules[rules.find('func readsMedium('):rules.find('func trustsParseOverEntries(')]
+    if 'readBeyondIndex: preferences[DatabasePreferences.scanDiskBeyondDICOMDIR]' not in window or 'namedByIndex != 0 && readBeyondIndex' not in rule:
         failures.append('the decision to read the medium does not consider the index being '
                         'incomplete')
-    if 'ScanDiskIfDICOMDIRZero' not in window:
+    if 'DatabasePreferences.scanDiskIfDICOMDIRZero' not in window or 'namedByIndex == 0 && readIfIndexIsEmpty' not in rule:
         failures.append('the case of an index that names nothing is no longer handled')
     if 'indexedPaths' not in code:
         failures.append('the files the index already named are not skipped, so they would be '

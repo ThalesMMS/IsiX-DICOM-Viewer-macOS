@@ -40,6 +40,7 @@
 import Foundation
 import IsiXDICOMNetwork
 import IsiXKeychain
+import IsiXPreferences
 
 /// The association of one send: its parameters and TLS files, the request,
 /// its end, and the exception each failure gives -[DCMTKStoreSCU run:].
@@ -60,8 +61,8 @@ final class StoreAssociation {
     /// Makes the association for files of the storage SOP classes `classes`
     /// and asks the node for it.
     func open(classes: [String], network: StoreNetworkSyntax) throws -> IsiXDCMTKAssociation {
-        let defaults = UserDefaults.standard
-        let timeout = Int32(truncatingIfNeeded: max(defaults.integer(forKey: "DICOMTimeout"), 2))
+        let preferences = PreferencesSource.process.preferences
+        let timeout = Int32(truncatingIfNeeded: max(preferences[NetworkPreferences.dicomTimeout], 2))
         let parameters = IsiXDCMTKAssociationParameters()
         parameters.callingAETitle = store.callingAET ?? "STORESCU"
         parameters.calledAETitle = store.calledAET ?? "ANY-SCP"
@@ -69,7 +70,7 @@ final class StoreAssociation {
         parameters.peerPort = store.port
         parameters.acseTimeout = timeout
         parameters.dimseTimeout = timeout
-        parameters.connectionTimeout = Int(Int32(truncatingIfNeeded: defaults.integer(forKey: "DICOMConnectionTimeout")))
+        parameters.connectionTimeout = Int(Int32(truncatingIfNeeded: preferences[NetworkPreferences.dicomConnectionTimeout]))
         parameters.reportsFailures = true
         parameters.consoleApplication = "storescu"
 

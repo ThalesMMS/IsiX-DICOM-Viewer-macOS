@@ -253,21 +253,25 @@ def before(region, names, write):
     return at >= 0 and count_begins(region[:at], names) > 0
 
 
-# The 2D viewer.
-viewer = source('Horos/Sources/ViewerController+Export.swift')
+# The 2D viewer: its exports are ViewerImageExporter's; each branch of the
+# sheet writes through the closure `write`, which begins nothing.
+viewer = source('Horos/Sources/ViewerImageExporter.swift')
 names = begin_calls(viewer)
-sheet = swift_method(viewer, 'func endExportDICOMFileSettings(')
+sheet = swift_method(viewer, 'func endDICOMSheet(')
 check('setSeriesNumber' not in sheet, '2D viewer: the DICOM sheet still sends -setSeriesNumber:')
-current = sheet[:sheet.index('// 4th Dimension')]
-fourth = sheet[sheet.index('// 4th Dimension'):sheet.index('var from: Int32')]
-series = sheet[sheet.index('var from: Int32'):]
-check(before(current, names, 'self.exportDICOMFileInt('), '2D viewer: the current image begins its series')
-check(before(fourth, names, 'while i <') and count_begins(fourth[fourth.index('while i <'):], names) == 0,
+preamble = sheet[:sheet.index('switch ViewerExportRange.DICOMSelection(')]
+current = sheet[sheet.index('case .currentImage:'):sheet.index('case .frames4D:')]
+fourth = sheet[sheet.index('case .frames4D:'):sheet.index('case .range, .keyImagesAndROIs, nil:')]
+series = sheet[sheet.index('case .range, .keyImagesAndROIs, nil:'):]
+check('self.viewer.exportDICOMFileInt(' in preamble and count_begins(preamble, names) == 0,
+      '2D viewer: the write of the sheet begins no series of its own')
+check(before(current, names, 'write()'), '2D viewer: the current image begins its series')
+check(before(fourth, names, 'for frame in') and count_begins(fourth[fourth.index('for frame in'):], names) == 0,
       '2D viewer: the 4D export begins one series before its frames')
-check(before(series, names, 'while i < to') and count_begins(series[series.index('while i < to'):], names) == 0,
+check(before(series, names, 'for i in range.indices') and count_begins(series[series.index('for i in range.indices'):], names) == 0,
       '2D viewer: the series export begins one series before its images')
 all_images = swift_method(viewer, 'func exportAllImages(')
-check('setSeriesNumber' not in all_images and before(all_images, names, 'while Int(i)'),
+check('setSeriesNumber' not in all_images and before(all_images, names, 'for i in 0..<count'),
       '2D viewer: -exportAllImages: begins its series')
 
 # The orthogonal MPR viewer.
@@ -290,7 +294,7 @@ names = begin_calls(petct)
 sheet = swift_method(petct, 'func endExportDICOMFileSettings(')
 check('setSeriesNumber' not in sheet, 'PET-CT: the DICOM sheet still sends -setSeriesNumber:')
 current = sheet[:sheet.index('// all images of the series')]
-one = current[current.index('"export3modalities") == false {'):current.index('} else {')]
+one = current[current.index('ReconstructionPreferences.petCTExportsThreeModalities] == false {'):current.index('} else {')]
 three = current[current.index('} else {'):]
 check(before(one, names, 'self.exportDICOMFileInt('), 'PET-CT: the current image begins its series')
 for view in ('originalView', 'xReslicedView', 'yReslicedView'):
@@ -300,8 +304,8 @@ for view in ('originalView', 'xReslicedView', 'yReslicedView'):
     check(len(writes) == 3 and all(count_begins(branch[a:b], names) == 1 for a, b in zip(starts, writes)),
           f'PET-CT: each of the three current images of the {view} begins its series')
 series = sheet[sheet.index('// all images of the series'):]
-single = series[series.index('"export3modalities") == false {'):series.index('} else {', series.index('"export3modalities") == false {'))]
-check(before(series, names, '"export3modalities") == false {') and count_begins(single, names) == 0,
+single = series[series.index('ReconstructionPreferences.petCTExportsThreeModalities] == false {'):series.index('} else {', series.index('ReconstructionPreferences.petCTExportsThreeModalities] == false {'))]
+check(before(series, names, 'ReconstructionPreferences.petCTExportsThreeModalities] == false {') and count_begins(single, names) == 0,
       'PET-CT: the series export begins one series before its images')
 modalities = series[series.index('for (seriesNumber, seriesView) in'):]
 loop = modalities[:modalities.index('for index in indices')]

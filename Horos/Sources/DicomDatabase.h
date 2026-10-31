@@ -111,7 +111,8 @@ extern NSString* const DicomDatabaseLogEntryEntityName;
 
 @end
 
-/// Adding files to the index: DicomDatabase+Import.swift.
+/// Adding files to the index: DicomFileIndexer.swift, whose type the
+/// selectors forward to.
 @interface DicomDatabase (Import)
 
 #pragma mark Add files
@@ -129,7 +130,7 @@ extern NSString* const DicomDatabaseLogEntryEntityName;
 @end
 
 /// The incoming folder the DICOM listener fills, and its scan:
-/// DicomDatabase+IncomingImport.swift.
+/// IncomingAdmission.swift.
 @interface DicomDatabase (IncomingImport)
 
 #pragma mark Incoming
@@ -146,7 +147,7 @@ extern NSString* const DicomDatabaseLogEntryEntityName;
 @end
 
 /// What an import tells the user: the files it refused, a volume too full to
-/// import into, and the notifications of new images: DicomDatabase+ImportAlerts.swift.
+/// import into, and the notifications of new images: ImportFeedback.swift.
 @interface DicomDatabase (ImportAlerts)
 
 @property(readonly) BOOL incomingImportWaitingForSpace;
@@ -160,7 +161,7 @@ extern NSString* const DicomDatabaseLogEntryEntityName;
 @end
 
 /// Compressing and decompressing DICOM files, and the queue of the incoming
-/// files waiting for it: DicomDatabase+Compression.swift.
+/// files waiting for it: DatabaseFileConversion.swift.
 @interface DicomDatabase (Compression)
 
 #pragma mark Compress/decompress
@@ -181,7 +182,7 @@ extern NSString* const DicomDatabaseLogEntryEntityName;
 @end
 
 /// Copying the files of a folder or a medium into the database and indexing
-/// them: DicomDatabase+MediaCopy.swift.
+/// them: MediaImportJob.swift.
 @interface DicomDatabase (MediaCopy)
 
 -(void)copyFilesThread:(NSDictionary*)dict;

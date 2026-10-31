@@ -57,7 +57,7 @@ check('generation cancelled; markings kept' in swift, 'cancel keeps the red-poin
 check('CPRStraightenedGeneration.swift in Sources' in pbx, 'the helper must be in the Horos target')
 check('class CurvedMPRPathSession' in path, 'the Curved MPR drawing session stays')
 
-send = body(view, 'private dynamic func _sendNewRequest()')
+send = body(view, 'private func _sendNewRequest()')
 check('CPRStraightenedSession' in send or 'horosStraightenedSession()' in send,
       '_sendNewRequest must consult the Swift generation gate')
 check('beginGeneration(pixelsWide:' in send, '_sendNewRequest must begin through Swift')

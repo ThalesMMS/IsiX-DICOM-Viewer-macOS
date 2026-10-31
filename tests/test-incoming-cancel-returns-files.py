@@ -21,9 +21,9 @@ What must stay true:
   what it moved for decompression and starts no decompression;
 - the move back itself is compiled and run.
 
-DicomDatabase is Swift: the scan is DicomDatabase+IncomingImport.swift, the
-import DicomDatabase+Import.swift, and the move back a member of
-DicomDatabase+ImportCleanup.swift that finds a free name with IsiXDatabase's
+DicomDatabase is Swift: the scan is IncomingAdmission.swift, the
+import DicomFileIndexer.swift, and the move back a member of
+ImportDisposal.swift that finds a free name with IsiXDatabase's
 AvailablePath. A checkout with DicomDatabase.mm is read as before.
 """
 from pathlib import Path
@@ -52,7 +52,7 @@ def method(source, signature):
     return source[at:source.index('\n}\n', at) + 3]
 
 
-SWIFT = (root / 'Horos/Sources/DicomDatabase+IncomingImport.swift').exists()
+SWIFT = (root / 'Horos/Sources/IncomingAdmission.swift').exists()
 
 
 def member(source, signature):
@@ -70,31 +70,33 @@ def member(source, signature):
 
 
 if SWIFT:
-    incoming_source = (root / 'Horos/Sources/DicomDatabase+IncomingImport.swift').read_text()
-    import_source = (root / 'Horos/Sources/DicomDatabase+Import.swift').read_text()
-    cleanup_source = (root / 'Horos/Sources/DicomDatabase+ImportCleanup.swift').read_text()
+    incoming_source = (root / 'Horos/Sources/IncomingAdmission.swift').read_text()
+    import_source = (root / 'Horos/Sources/DicomFileIndexer.swift').read_text()
+    cleanup_source = (root / 'Horos/Sources/ImportDisposal.swift').read_text()
     instance_source = (root / 'Horos/Sources/DicomDatabase+Instance.swift').read_text()
 
-    scan = member(incoming_source, 'private final func importAdmittedFilesFromIncomingDir(')
+    scan = member(incoming_source, 'private func importAdmittedFilesFromIncomingDir(')
     check(scan, 'importAdmittedFilesFromIncomingDir: not found')
     check(re.search(r'if thread\.isCancelled \{\s*break\s*\}', scan) and not re.search(r'if thread\.isCancelled \{\s*return 0\s*\}', scan),
           'the scan still returns on cancellation with the files it moved left behind')
-    check('unindexedPaths: unindexedFiles)' in scan, 'the pass does not ask -addFilesAtPaths: what it left unindexed')
-    check(re.search(r'if addedFiles == nil \{[^\n]*\n\s*self\.returnFilesToIncomingDir\(\(filesArray as\? \[String\]\) \?\? \[\]\)\s*'
-                    r'\} else if unindexedFiles\.count != 0 \{[^\n]*\n\s*self\.returnFilesToIncomingDir\(\(unindexedFiles as\? \[String\]\) \?\? \[\]\)', scan),
+    ingest_source = (root / 'Horos/Sources/DatabaseIngest.swift').read_text()
+    check('(addedFiles, unindexedFiles) = ingest.indexReturningIDs(' in scan and 'unindexedPaths: unindexed)' in ingest_source,
+          'the pass does not ask -addFilesAtPaths: what it left unindexed')
+    check(re.search(r'if addedFiles == nil \{[^\n]*\n\s*disposal\.returnFilesToIncomingDir\(\(filesArray as\? \[String\]\) \?\? \[\]\)\s*'
+                    r'\} else if unindexedFiles\.count != 0 \{[^\n]*\n\s*disposal\.returnFilesToIncomingDir\(unindexedFiles\)', scan),
           'the pass does not return what was not indexed')
     # The @finally of the Objective-C is the code after the attempt.
     tail = scan[scan.find('// @finally'):]
     cancelled = tail.find('if thread.isCancelled {')
-    check(-1 < cancelled < tail.find('self.queueForDecompression(deflatedPathArray)'),
+    check(-1 < cancelled < tail.find('conversion.convertScanned(deflatedPathArray, mode: .decompress)'),
           'a cancelled pass still starts the decompression')
-    window = tail[cancelled:tail.find('return addedFilesCount', cancelled)]
-    check('self.returnFilesToIncomingDir(deflatedPathArray)' in window and 'self.returnFilesToIncomingDir(compressedPathArray)' in window,
+    window = tail[cancelled:tail.find('return\n', cancelled)]
+    check('disposal.returnFilesToIncomingDir(deflatedPathArray)' in window and 'disposal.returnFilesToIncomingDir(compressedPathArray)' in window,
           'a cancelled pass leaves what it moved for decompression in the decompression folder')
     check('if plugins.count != 0 && thread.isCancelled == false {' in scan,
           'the preprocessing plugins still run on a cancelled pass')
 
-    add = member(import_source, 'final func addFiles(atPaths paths: NSArray?, postNotifications: Bool, dicomOnly: Bool, '
+    add = member(import_source, 'func addFiles(atPaths paths: NSArray?, postNotifications: Bool, dicomOnly: Bool, '
                                 'rereadExistingItems: Bool, generatedByOsiriX: Bool,')
     check(add, 'addFilesAtPaths:...unindexedPaths: not found')
     stop = add[add.find('if stopped {'):]
@@ -109,8 +111,8 @@ if SWIFT:
                                    'generatedByOsiriX: Bool, importedFiles: Bool, returnArray: Bool) -> [Any]! {')
     check('unindexedPaths: nil)' in former, 'the former entry point no longer forwards to the one that reports')
 
-    back = member(cleanup_source, 'final func returnFilesToIncomingDir(_ paths: [String]) {')
-    available = member(cleanup_source, 'final func availablePath(inDirectory directory: String?, name: String) -> String? {')
+    back = member(cleanup_source, 'func returnFilesToIncomingDir(_ paths: [String]) {')
+    available = member(cleanup_source, 'func availablePath(inDirectory directory: String?, name: String) -> String? {')
     arg = member(instance_source, 'static func arg(_ object: Any?) -> CVarArg {')
     check(back and available and arg, 'returnFilesToIncomingDir: not found')
 else:
@@ -242,6 +244,8 @@ enum HeaderImagePair {
 final class DicomDatabase {
     var incoming = ""
     func incomingDirPath() -> String! { incoming }
+    // ImportDisposal reaches its database's folder as `database`.
+    var database: DicomDatabase { self }
 AVAILABLE
 BACK
 }

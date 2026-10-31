@@ -21,7 +21,14 @@ second pix) and checks the entry, and the parsed object, after each pix goes:
   * an owned buffer, freed without -revert          (the leak);
   * an owned buffer, -revert, then freed            (the path that worked);
   * two owned pixes of one file, freed in turn      (the count);
-  * a buffer owned by a volume, freed               (the viewer's pixes).
+  * a buffer owned by a volume, freed               (the viewer's pixes);
+  * a purge of the cache, then the pix freed        (a disc that leaves).
+
+A purge empties the cache while pixes still name their groups, and a group is
+gone once the cache lets it go: taking a reference to it again, which reading
+it through an unretained property does, crashed the app on freed memory when a
+disc left with its preview on screen. The probe runs with MallocScribble, so
+that freed memory never looks like the object it was.
 
 Once DCMPix is Swift, the probe is linked with the class as the build compiled
 it, and reads the cache (DCMPixParsedFileCache.parsedFiles) where Swift keeps it.
@@ -70,6 +77,7 @@ PROBE = r'''
 #import "DCMPix.h"
 #include <cstdio>
 #include <cstdlib>
+#include <unistd.h>
 
 extern NSMutableDictionary *cachedParsedDICOMFiles;   // opened in the copy under test
 
@@ -116,7 +124,9 @@ static int failures = 0;
 static void expect( bool ok, const char *what) { if( !ok) { fprintf( stderr, "FAIL: %s\n", what); failures++; } }
 static int users( NSString *key) { return [[[cachedParsedDICOMFiles objectForKey: key] objectForKey: @"count"] intValue]; }
 
-int main() {
+int main( int argc, char *argv[]) {
+    if( getenv( "MallocScribble") == NULL) { setenv( "MallocScribble", "1", 1); execv( argv[0], argv); }
+
     @autoreleasepool { [[[DCMPix alloc] myinitEmpty] release]; }   // creates the cache, as the first pix does
     if( cachedParsedDICOMFiles == nil) { fprintf( stderr, "FAIL: no parsed-file cache\n"); return 1; }
 
@@ -158,10 +168,17 @@ int main() {
                 "a pix whose buffer belongs to a volume left its parsed file in the cache");
     }
 
-    expect( parsedFreed == 4, "not every parsed file was freed with its last pix");
+    @autoreleasepool {
+        ProbePix *pix = [[ProbePix alloc] init];
+        @autoreleasepool { [pix loadAs: @"purged" volume: NULL]; }
+        [cachedParsedDICOMFiles removeAllObjects];   // +purgeCachedDictionaries, with the pix alive
+        [pix release];
+    }
+
+    expect( parsedFreed == 5, "not every parsed file was freed with its last pix");
     expect( cachedParsedDICOMFiles.count == 0, "the cache still holds entries");
     if( failures) { fprintf( stderr, "FAIL: %d check%s\n", failures, failures == 1 ? "" : "s"); return 1; }
-    printf( "four pixes freed (owned without -revert, reverted, shared, volume-backed): the cache is empty "
+    printf( "five pixes freed (owned without -revert, reverted, shared, volume-backed, after a purge): the cache is empty "
             "and their parsed files are gone");
     return 0;
 }

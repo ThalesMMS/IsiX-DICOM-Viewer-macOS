@@ -89,15 +89,6 @@ enum
 
 @class PluginFilter;
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-    NSRect screenFrame(void);
-#ifdef __cplusplus
-}
-#endif
-
 /** \brief  NSApplication delegate
 *
 *  NSApplication delegate 
@@ -121,7 +112,6 @@ extern AppController* OsiriX NS_SWIFT_NONISOLATED_UNSAFE;
 #if defined(HOROS_BRIDGING_HEADER)
 // Swift is compiling the class itself: headers it imports may only name it.
 @class AppController;
-@class DCMTKQueryRetrieveSCP;
 
 // What AppController+CAPI.m keeps in Objective-C, declared for the Swift class
 // only: the globals the former AppController.m defined, and the functions
@@ -138,19 +128,13 @@ extern "C" {
 //   STORESCP and STORESCPTLS on the main thread before any other thread of the
 //   application starts; -applicationWillFinishLaunching: sets appController
 //   again to the same object. Nothing else writes them.
-// - nonisolated(unsafe), under a lock: the listener threads and the main
-//   thread set and read dcmtkQRSCP and dcmtkQRSCPTLS; the Swift class does so
-//   only under AppController.listenerLock. No Objective-C file of the
-//   application uses them.
 // - on the main actor: the others are state of the menus, the windows and the
 //   startup, read and written on the main thread.
 extern AppController *appController NS_SWIFT_NONISOLATED_UNSAFE;
 extern NSRecursiveLock *PapyrusLock NS_SWIFT_NONISOLATED_UNSAFE, *STORESCP NS_SWIFT_NONISOLATED_UNSAFE, *STORESCPTLS NS_SWIFT_NONISOLATED_UNSAFE;
-extern DCMTKQueryRetrieveSCP *dcmtkQRSCP NS_SWIFT_NONISOLATED_UNSAFE, *dcmtkQRSCPTLS NS_SWIFT_NONISOLATED_UNSAFE;
 extern NS_SWIFT_UI_ACTOR BOOL NEEDTOREBUILD, COMPLETEREBUILD, USETOOLBARPANEL, accumulateAnimations;
 extern NS_SWIFT_UI_ACTOR NSMutableArray *accumulateAnimationsArray, *recentStudies;
 extern NS_SWIFT_UI_ACTOR NSMutableDictionary *recentStudiesAlbums;
-extern NS_SWIFT_UI_ACTOR int delayedTileWindows;
 const char *GetPrivateIP(void);
 int GetAllPIDsForProcessName(const char* ProcessName, pid_t ArrayOfReturnedPIDs[], const unsigned int NumberOfPossiblePIDsInArray, unsigned int* NumberOfMatchesFound, int* SysctlError);
 void AppControllerCAPIOpenJPEGVersion(int *major, int *minor, int *build);

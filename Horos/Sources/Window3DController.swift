@@ -39,6 +39,7 @@
 
 import Cocoa
 import IsiXImaging
+import IsiXPreferences
 
 // The superclass of the 3D viewers' window controllers (VR, SR, MPR, CPR,
 // endoscopy, orthogonal MPR, PET-CT, ROI volume) is implemented here, in
@@ -94,6 +95,16 @@ import IsiXImaging
     final var fullScreenWindow: NSWindow?
     final var startingWindow: NSWindow?
     final var savedContentView: NSView?
+
+    /// The process's dependencies, made with the controller: the 3D windows
+    /// read their preferences from its store.
+    final let processGraph = PreferencesSource.process.processGraph
+
+    /// The graph of the 2D viewer that opened the window, kept by the
+    /// controllers that do not keep that viewer alive (MPR, CPR) from their
+    /// initializer; the others reach it through the viewer they keep
+    /// (`viewerGraph`, OSIWindowController.swift).
+    final var keptViewerGraph: ViewerSessionGraph?
 
     // MARK: - Life cycle
 
@@ -318,8 +329,8 @@ import IsiXImaging
     // MARK: - Printing and mail
 
     func print(_ sender: Any!) {
-        let defaults = UserDefaults.standard
-        let settings = NSMutableDictionary(dictionary: defaults.object(forKey: "previousPrintSettings") as? [AnyHashable: Any] ?? [:])
+        let previous = processGraph.preferences[VolumeRenderingPreferences.previousPrintSettings]
+        let settings = NSMutableDictionary(dictionary: previous?.mapValues(\.object) ?? [:])
 
         settings["columns"] = NSNumber(value: Int32(1))
         settings["rows"] = NSNumber(value: Int32(1))
@@ -369,13 +380,12 @@ import IsiXImaging
         let bitmapData = NSBitmapImageRep.representationOfImageReps(in: representations, using: .jpeg,
                                                                     properties: [.compressionFactor: NSDecimalNumber(value: Float(0.9))])
 
-        let path = ((BrowserController.currentBrowser()?.database?.tempDirPath() ?? "") as NSString).appendingPathComponent("IsiX DICOM Viewer.jpg")
+        let path = ((browserWindowGraph?.database?.tempDirPath() ?? "") as NSString).appendingPathComponent("IsiX DICOM Viewer.jpg")
         (bitmapData as NSData?)?.write(toFile: path, atomically: true)
 
         let email = Mailer()
 
-        _ = email.sendMail("--", to: "--", subject: "", isMIME: true, name: "--", sendNow: false,
-                           image: ((BrowserController.currentBrowser()?.database?.tempDirPath() ?? "") as NSString).appendingPathComponent("IsiX DICOM Viewer.jpg"))
+        _ = email.sendMail("--", to: "--", subject: "", isMIME: true, name: "--", sendNow: false, image: path)
     }
 }
 

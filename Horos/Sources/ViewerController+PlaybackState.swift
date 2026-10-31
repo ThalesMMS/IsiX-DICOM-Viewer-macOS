@@ -24,6 +24,12 @@ final class ViewerPlaybackState: @unchecked Sendable {
 }
 
 extension ViewerController {
+    /// The cine of this viewer, for one call: the players, their speeds and
+    /// their timers.
+    var cine: CinePlayback {
+        CinePlayback(viewer: self, preferences: sessionGraph.preferences)
+    }
+
     var horos_timer: Timer? {
         get { playbackState.timer }
         set { playbackState.timer = newValue }

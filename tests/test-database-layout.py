@@ -9,19 +9,25 @@ root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
 import harness_defaults  # the harness's preferences stay in its own process
+import process_graph_stand_in
 
-# NSSplitView (Defaults) is NSSplitViewSave.swift. -spaceEvenly: and
-# -restoreWindowState: are in the toolbar block of BrowserController, and
-# -drawerToggle: and -splitView:resizeSubviewsWithOldSize: in its
-# NSSplitViewDelegate block: Swift extensions
-# (BrowserController+Toolbar.swift, BrowserController+SplitView.swift). The
+# NSSplitView (Defaults) is NSSplitViewSave.swift. -restoreWindowState: hands
+# the work to the browser's toolbar, BrowserToolbar's restoreViews() and
+# spaceEvenly(_:) (BrowserToolbar.swift), and -drawerToggle: and
+# -splitView:resizeSubviewsWithOldSize: are in the NSSplitViewDelegate block of
+# BrowserController, a Swift extension (BrowserController+SplitView.swift). The
 # production methods are compiled with xcrun swiftc into a probe that owns the
-# same split views, as the Objective-C methods were with clang.
+# same split views and the preferences, as the Objective-C methods were with
+# clang; the toolbar's reads of the browser are the probe's own.
 split_save = sources.source_path('NSSplitViewSave')
-toolbar = sources.source_text('BrowserController+Toolbar')
+facade = sources.source_text('BrowserController+Toolbar')
+a = facade.index('    @objc(restoreWindowState:)')
+if 'browserToolbar.restoreViews()' not in facade[a:facade.index('\n    }\n', a)]:
+    sys.exit('FAIL: -restoreWindowState: no longer hands the work to BrowserToolbar; this test needs a new look')
+toolbar = sources.source_text('BrowserToolbar')
 split = sources.source_text('BrowserController+SplitView')
-a = toolbar.index('    @objc(spaceEvenly:)')
-layout = toolbar[a:toolbar.index('    @objc(toolbarDefaultItemIdentifiers:)', a)]
+a = toolbar.index('    // MARK: - Restore Views')
+layout = toolbar[a:toolbar.index('    // MARK: - Contextual menus', a)].replace('browser.', 'self.')
 a = split.index('    @objc(comparativeToggle:)')
 toggle = split[a:split.index('    @objc(splitView:constrainMinCoordinate:ofSubviewAt:)', a)]
 a = split.index('    @objc(splitView:resizeSubviewsWithOldSize:)\n    func splitView(_ sender: NSSplitView, resizeSubviewsWithOldSize oldSize: NSSize) {')
@@ -35,6 +41,7 @@ a = split.index('fileprivate func objcSubview(')
 subview = split[a:split.index('\n}\n', a) + 3]
 code = r"""
 import AppKit
+import IsiXPreferences
 SUBVIEW
 func check(_ c: Bool, _ what: String = "", line: Int = #line) { precondition(c, "failed at line \(line) \(what)") }
 enum BrowserController {
@@ -46,6 +53,7 @@ let MINIMUMSIZEFORCOMPARATIVEDRAWER_HORZ: CGFloat = 50
 @MainActor class BrowserProbe: NSObject, NSSplitViewDelegate {
  var horos_splitDrawer, horos_splitAlbums, horos_splitViewHorz, horos_splitComparative, horos_splitViewVert: NSSplitView?
  var horos_splitViewVertDividerRatio: CGFloat = 0
+ let preferences: any PreferenceStore = UserDefaults.standard
 LAYOUT
 TOGGLE
 RESIZE
@@ -82,7 +90,7 @@ MainActor.assumeIsolated { autoreleasepool {
   b.horos_splitViewVert = split(true, w - 192, 300, 2)
   defaults.set(true, forKey: "SplitDrawerHidden")
   defaults.set(true, forKey: "SplitComparativeHidden")
-  b.restoreWindowState(nil)
+  b.restoreViews()
   for v in [b.horos_splitDrawer!, b.horos_splitAlbums!, b.horos_splitViewHorz!, b.horos_splitComparative!, b.horos_splitViewVert!] { visible(v) }
   check(b.horos_splitDrawer!.subviews[0].frame.size.width == 192)
   check(!defaults.bool(forKey: "SplitDrawerHidden"))
@@ -161,7 +169,7 @@ MainActor.assumeIsolated { autoreleasepool {
  }
  defaults.set(310.0, forKey: historyKey)
  comparative = newHistory(1200)
- b.restoreWindowState(nil)
+ b.restoreViews()
  check(defaults.double(forKey: historyKey) == 192, "reset clears saved custom width")
  check(comparative.subviews[1].frame.width == 192)
  // Height changes in the horizontal History mode cannot change its vertical width.
@@ -171,7 +179,7 @@ MainActor.assumeIsolated { autoreleasepool {
  DatabaseBrowserLayout.prepareColumns(drawer: nil, comparative: horizontal)
  DatabaseBrowserLayout.restoreHistoryWidth(in: horizontal)
  b.splitViewDidResizeSubviews(Notification(name: NSSplitView.didResizeSubviewsNotification, object: horizontal))
- b.restoreWindowState(nil)
+ b.restoreViews()
  check(defaults.double(forKey: historyKey) == 192, "horizontal mode preserves width preference")
  BrowserController.horizontal = false
  // The divider limits leave the study list its room.
@@ -191,7 +199,7 @@ MainActor.assumeIsolated { autoreleasepool {
 with tempfile.TemporaryDirectory(prefix='horos-layout-') as tmp:
     p = Path(tmp)
     (p / 'main.swift').write_text(harness_defaults.SWIFT + code)
-    subprocess.run(['xcrun', 'swiftc', '-module-name', 'DatabaseLayoutProbe',
+    subprocess.run(['xcrun', 'swiftc', '-module-name', 'DatabaseLayoutProbe', *process_graph_stand_in.swift_flags(p / 'isix'),
                     str(root / 'Horos/Sources/DatabaseBrowserLayout.swift'), str(split_save),
                     str(p / 'main.swift'), '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test')], check=True)

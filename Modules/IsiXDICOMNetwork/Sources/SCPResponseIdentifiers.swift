@@ -10,11 +10,15 @@
 
 import Foundation
 
-/// A study, series or image of the database as a C-FIND response reads it.
-/// Values come through key-value coding, on the queue of the object's context.
+/// A study, series or image of the database as a C-FIND response reads it:
+/// the values it was read with, by the key paths and keys `keyPaths(level:keys:)`
+/// names, as the database gave them (strings, numbers, dates, and arrays for
+/// to-many key paths).
 public protocol SCPResponseRecord {
-    func value(forKeyPath keyPath: String) -> Any?
-    func primitiveValue(forKey key: String) -> Any?
+    /// The value at `keyPath`; nil when it has none.
+    func value(at keyPath: String) -> Any?
+    /// The stored value of `key`, read without its accessor; nil when it has none.
+    func primitiveValue(of key: String) -> Any?
     /// The DA and TM values of a date (DCM.framework's dateString and timeString).
     func dicomDate(_ date: Any) -> String?
     func dicomTime(_ date: Any) -> String?
@@ -68,9 +72,30 @@ public enum SCPResponseIdentifier {
         let table = rules[level] ?? [:]
         return keys.map { key in
             guard let rule = table[key] else { return .empty(key) }
-            if let condition = rule.condition, record.value(forKeyPath: condition) == nil { return .empty(key) }
+            if let condition = rule.condition, record.value(at: condition) == nil { return .empty(key) }
             return entry(rule.source, tag: rule.target ?? key, record: record)
         }
+    }
+
+    /// What a record must hold to answer `keys` at `level`: the key paths and
+    /// the stored keys that `entries(level:keys:record:)` reads.
+    public static func keyPaths(level: SCPQueryLevel, keys: [DICOMTag]) -> (keyPaths: Set<String>, primitiveKeys: Set<String>) {
+        let table = rules[level] ?? [:]
+        var paths = Set<String>(), primitive = Set<String>()
+        for key in keys {
+            guard let rule = table[key] else { continue }
+            if let condition = rule.condition { paths.insert(condition) }
+            switch rule.source {
+            case .encoded(let path), .encodedNumber(let path), .latin1(let path), .latin1Number(let path), .date(let path),
+                 .time(let path), .integer(let path), .count(let path), .modalities(let path), .sopClasses(let path):
+                paths.insert(path)
+            case .encodedPrimitive(let key): primitive.insert(key)
+            case .studyModalityAsSet: break
+            case .numberOfFrames: paths.formUnion(["series.seriesSOPClassUID", "numberOfFrames"])
+            case .imageComments: paths.formUnion(["series.comment", "series.study.comment"])
+            }
+        }
+        return (paths, primitive)
     }
 
     /// The Modalities in Study of a study's series modalities, `values` in the
@@ -131,37 +156,37 @@ public enum SCPResponseIdentifier {
         func string(_ value: Any?) -> String? { value as? String }
         func number(_ value: Any?) -> String? { (value as? NSNumber)?.stringValue ?? (value as? String) }
         switch source {
-        case .encoded(let path): return .put(tag, .encoded(string(record.value(forKeyPath: path))))
-        case .encodedPrimitive(let key): return .put(tag, .encoded(string(record.primitiveValue(forKey: key))))
-        case .encodedNumber(let path): return .put(tag, .encoded(number(record.value(forKeyPath: path))))
-        case .latin1(let path): return .put(tag, .latin1(string(record.value(forKeyPath: path))))
-        case .latin1Number(let path): return .put(tag, .latin1(number(record.value(forKeyPath: path))))
-        case .date(let path): return .put(tag, .latin1(record.value(forKeyPath: path).flatMap(record.dicomDate)))
-        case .time(let path): return .put(tag, .latin1(record.value(forKeyPath: path).flatMap(record.dicomTime)))
+        case .encoded(let path): return .put(tag, .encoded(string(record.value(at: path))))
+        case .encodedPrimitive(let key): return .put(tag, .encoded(string(record.primitiveValue(of: key))))
+        case .encodedNumber(let path): return .put(tag, .encoded(number(record.value(at: path))))
+        case .latin1(let path): return .put(tag, .latin1(string(record.value(at: path))))
+        case .latin1Number(let path): return .put(tag, .latin1(number(record.value(at: path))))
+        case .date(let path): return .put(tag, .latin1(record.value(at: path).flatMap(record.dicomDate)))
+        case .time(let path): return .put(tag, .latin1(record.value(at: path).flatMap(record.dicomTime)))
         case .integer(let path):
-            let value = record.value(forKeyPath: path) as? NSNumber
+            let value = record.value(at: path) as? NSNumber
             return .put(tag, .ascii(String(value?.int32Value ?? 0)))
         case .count(let path):
-            let value = record.value(forKeyPath: path)
+            let value = record.value(at: path)
             let count = (value as? NSSet)?.count ?? (value as? NSArray)?.count ?? (value as? NSOrderedSet)?.count ?? 0
             return .put(tag, .ascii(String(Int32(truncatingIfNeeded: count))))
         case .modalities(let path):
-            guard let modalities = modalitiesInStudy(allObjects(record.value(forKeyPath: path))) else {
+            guard let modalities = modalitiesInStudy(allObjects(record.value(at: path))) else {
                 return .omitted(tag, failure: "a series of the study has no modality")
             }
             return .put(tag, .latin1(modalities))
         case .studyModalityAsSet:
             return .omitted(tag, failure: "-[NSString allObjects]: the study's modality is a string, not a set")
         case .sopClasses(let path):
-            return .put(tag, .latin1((allObjects(record.value(forKeyPath: path)) as NSArray).componentsJoined(by: "\\")))
+            return .put(tag, .latin1((allObjects(record.value(at: path)) as NSArray).componentsJoined(by: "\\")))
         case .numberOfFrames:
-            guard record.isImageStorage(record.value(forKeyPath: "series.seriesSOPClassUID")) else {
+            guard record.isImageStorage(record.value(at: "series.seriesSOPClassUID")) else {
                 return .omitted(tag, failure: nil)
             }
-            return .put(tag, .latin1(number(record.value(forKeyPath: "numberOfFrames"))))
+            return .put(tag, .latin1(number(record.value(at: "numberOfFrames"))))
         case .imageComments:
-            if let comment = string(record.value(forKeyPath: "series.comment")), !comment.isEmpty { return .put(tag, .encoded(comment)) }
-            if let comment = string(record.value(forKeyPath: "series.study.comment")), !comment.isEmpty { return .put(tag, .encoded(comment)) }
+            if let comment = string(record.value(at: "series.comment")), !comment.isEmpty { return .put(tag, .encoded(comment)) }
+            if let comment = string(record.value(at: "series.study.comment")), !comment.isEmpty { return .put(tag, .encoded(comment)) }
             return .empty(tag)
         }
     }

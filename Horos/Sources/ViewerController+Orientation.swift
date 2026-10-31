@@ -38,7 +38,6 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
-import Accelerate
 import IsiXImaging
 
 // The orientation tool of the 2D viewer (axial, coronal, sagittal: the tags of
@@ -46,10 +45,9 @@ import IsiXImaging
 // implemented in Swift: a Swift extension of ViewerController, which stays
 // Objective-C, with the same selectors (-setOrientationTool:,
 // -setOrientation:, -computeOriginalOrientation). A change of orientation is
-// a reslice followed by the flips and rotations that bring the new slices
-// upright (ViewerController+Reslice.swift, +SeriesTransforms.swift); the
-// orientation of a stack is read by SliceStackSpacing of the IsiXImaging
-// module.
+// the reslice and the flips and turns SeriesReorientation of the IsiXImaging
+// module names (ViewerController+Reslice.swift, +SeriesTransforms.swift); the
+// orientation of a stack is read by SliceStackSpacing.
 
 public extension ViewerController {
 
@@ -85,7 +83,7 @@ public extension ViewerController {
         guard newOrientationTool != current else { return succeed }
 
         let firstPixSpacing = { () -> Double in
-            ((self.horos_pixList(at: Int(self.horos_curMovieIndex)) ?? NSMutableArray()).object(at: 0) as! DCMPix).pixelSpacingX
+            self.horos_pixArray(Int(self.horos_curMovieIndex)).first?.pixelSpacingX ?? 0
         }
         let previousZooming = Float(Double(horos_imageView?.scaleValue ?? 0) / firstPixSpacing())
 
@@ -131,32 +129,20 @@ public extension ViewerController {
         // resampled on them once they are flipped and rotated.
         let brushes = BrushReslice.capture(from: self)
 
-        // From the current orientation (rows) to the new one (columns): the
-        // reslice, then the flips and rotations that bring it upright.
-        switch (current, newOrientationTool) {
-        case (0, 1):
+        // From the current orientation to the new one: the reslice, then the
+        // flips and turns that bring it upright.
+        if let change = SeriesReorientation(from: Int(current), to: Int(newOrientationTool)) {
             checkEverythingLoaded()
-            succeed = processReslice(0, newViewer)
-        case (0, 2):
-            checkEverythingLoaded()
-            succeed = processReslice(1, newViewer)
-        case (1, 0):	// coronal
-            checkEverythingLoaded()
-            succeed = processReslice(0, newViewer)
-            if succeed { vertFlipDataSet(self) }
-        case (1, 2):
-            checkEverythingLoaded()
-            succeed = processReslice(1, newViewer)
-            if succeed { rotateDataSet(Int32(kRotate90DegreesClockwise)) }
-        case (2, 0), (2, 1):	// sagittal
-            checkEverythingLoaded()
-            succeed = processReslice(newOrientationTool == 0 ? 0 : 1, newViewer)
+            succeed = processReslice(change.resliceDirection, newViewer)
             if succeed {
-                rotateDataSet(Int32(kRotate90DegreesClockwise))
-                horzFlipDataSet(self)
+                for step in change.steps {
+                    switch step {
+                    case .flipVertically: vertFlipDataSet(self)
+                    case .flipHorizontally: horzFlipDataSet(self)
+                    case .rotateClockwise: rotateDataSet(SeriesReorientation.Step.quarterTurnConstant)
+                    }
+                }
             }
-        default:
-            break
         }
 
         if !succeed {
@@ -213,10 +199,10 @@ public extension ViewerController {
     /// when slices 1 and 2 do not have the same orientation, or have none.
     @objc(computeOriginalOrientation)
     func computeOriginalOrientation() -> Double {
-        let stack: NSArray = horos_pixList(at: Int(horos_curMovieIndex)) ?? NSMutableArray()
+        let stack = horos_pixArray(Int(horos_curMovieIndex))
         if stack.count <= 2 { return 0.0 }
 
-        let first = stack.object(at: 1) as! DCMPix, second = stack.object(at: 2) as! DCMPix
+        let first = stack[1], second = stack[2]
         var vectors = [Double](repeating: 0, count: 9), vectorsB = [Double](repeating: 0, count: 9)
         first.orientationDouble(&vectors)
         second.orientationDouble(&vectorsB)
@@ -226,7 +212,7 @@ public extension ViewerController {
                                               origin2: [second.originX, second.originY, second.originZ]) else { return 0 }
         if let stacked = spacing.orientation {
             horos_orientationVector = stacked.rawValue
-            horos_currentOrientationTool = stacked.orthogonalTag
+            horos_currentOrientationTool = stacked.tool.rawValue
         }
         if horos_originalOrientation == -1 {
             horos_originalOrientation = horos_currentOrientationTool

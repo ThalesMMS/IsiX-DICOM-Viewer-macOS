@@ -141,7 +141,10 @@ if migrated and sync:
         failures.append('sync: no longer logs why a line is absent with both Frame of Reference UIDs')
     if 'self.referenceLineAbsenceReason = DISPLAYCROSSREFERENCELINES != 0 ? relationshipReason : nil' not in sync:
         failures.append('sync: keeps a reason while the reference lines are turned off')
-    if 'self.horos_sliceFromTo[0] == Float.infinity && DISPLAYCROSSREFERENCELINES != 0' not in sync:
+    # The lines are SliceSynchronizer's ReferenceLines value (IsiXImaging), read
+    # from the view's arrays; a revision from before read the array itself.
+    if 'self.horos_sliceFromTo[0] == Float.infinity && DISPLAYCROSSREFERENCELINES != 0' not in sync \
+            and '!self.referenceLines.cut.isDrawn && DISPLAYCROSSREFERENCELINES != 0' not in sync:
         failures.append('sync: keeps the parallel-planes reason while the reference lines are turned off')
 
 if 'HorosCellSlider' not in xib or 'HorosCellSliderCell' not in xib:

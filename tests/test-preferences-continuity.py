@@ -38,6 +38,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import process_graph_stand_in  # the source reads the preferences through the process graph
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -151,7 +152,7 @@ else:
             (Path(directory) / 'main.swift').write_text(harness_defaults.DOMAINS + DRIVER)
             binary = Path(directory) / 'continuity'
             built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-o', str(binary),
-                                    str(source), str(root / 'Horos/Sources/DatabaseLocation.swift'),
+                                    *process_graph_stand_in.swift_flags(Path(directory) / 'isix'), str(source), str(root / 'Horos/Sources/DatabaseLocation.swift'),
                                     str(Path(directory) / 'main.swift')],
                                    capture_output=True, text=True)
             if built.returncode != 0:

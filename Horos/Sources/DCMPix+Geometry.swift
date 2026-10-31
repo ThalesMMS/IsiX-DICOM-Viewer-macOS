@@ -401,11 +401,7 @@ extension DCMPix {
         guard let o else { return nil }
         if o.isRGB { return nil }
         if isRGB { return nil }
-        var newPix: DCMPix?
-        if let exception = HorosObjCException.caught({ newPix = merged(with: o, offset: oo) }) {
-            _N2LogExceptionImpl(exception, true, "-[DCMPix mergeWithDCMPix:offset:]")
-        }
-        return newPix
+        return merged(with: o, offset: oo)
     }
 
     private func merged(with o: DCMPix, offset oo: NSPoint) -> DCMPix? {

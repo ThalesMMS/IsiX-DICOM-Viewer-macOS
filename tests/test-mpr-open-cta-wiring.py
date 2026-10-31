@@ -7,6 +7,7 @@ horosproject/horos#359 recovered after a clean profile. This test keeps
 that stack attached to the Swift geometry gate and refuses Universal Binary
 as a cause.
 """
+import re
 import sys
 from pathlib import Path
 
@@ -94,23 +95,36 @@ check('class CurvedMPRPathSession' in curved, 'CurvedMPRPath must stay')
 
 # The gathering moved out of -mprViewer: so the orthogonal MPR and the CPR could
 # ask the same question instead of drawing empty planes.
-checks = root / 'Horos/Sources/ViewerController+ReconstructionChecks.swift'
-doors = root / 'Horos/Sources/ViewerController+ThreeDViewers.swift'
+# They are ThreeDViewerLauncher's (the viewer's selectors are its façade): each
+# door runs the checks IsiXImaging's VolumeEligibility gives it, in its order.
+launcher = root / 'Horos/Sources/ThreeDViewerLauncher.swift'
+launcher_text = launcher.read_text(encoding='utf-8')
+eligibility = (root / 'Modules/IsiXImaging/Sources/ViewerReconstruction/VolumeEligibility.swift').read_text(encoding='utf-8')
 scan = (root / 'Modules/IsiXImaging/Sources/ViewerReconstruction/ReconstructionGeometryScan.swift').read_text(encoding='utf-8')
-decision = body(checks, 'func reconstructionOpeningDecision() -> MPROpenDecision!')
+decision = body(launcher, 'func reconstructionOpeningDecision() -> MPROpenDecision')
 check('MPROpenGeometry.opening(withSliceCount:' in decision, 'the shared decision must consult the Swift opening gate')
 check('mismatchedOrientations: scan.mismatchedOrientations' in decision, 'the shared decision must pass the IOP mismatch count')
 check('ReconstructionGeometryScan.scan(' in decision and 'static let orientationTolerance = 0.001' in scan,
       'IOP compare must use the same sensibility as isDataVolumicIn4D')
 
-for action in ('func mprViewer(_ sender: Any!)',
-               'func orthogonalMPRViewer(_ sender: Any!)',
-               'func cprViewer(_ sender: Any!)'):
-    opened = body(doors, action)
-    check('reconstructionOpeningDecision()' in opened,
+# The geometry checks ask the shared decision and name its diagnosis.
+refusal = body(launcher, 'private func refusal(of check: VolumeEligibility.Check) -> VolumeEligibility.Refusal?')
+for case in ('case .geometry:', 'case .calibratedGeometry:'):
+    start = refusal.find(case)
+    branch = refusal[start:refusal.find('case .', start + len(case))] if start >= 0 else ''
+    check('reconstructionOpeningDecision()' in branch and 'diagnosis: geometry.diagnosis' in branch,
+          'the %s check must ask the shared geometry decision and keep its diagnosis' % case[5:-1])
+passes = body(launcher, 'private func passesChecks(_ reconstruction: VolumeEligibility.Reconstruction, sender: Any?) -> Bool')
+check('case .geometry(let diagnosis), .fourDFrames(let diagnosis):' in passes and 'alert(Self.title(of: reconstruction), diagnosis)' in passes,
+      'a refused geometry must surface the named geometry diagnosis, not an empty plane')
+
+for action, door, kind in (('func openObliqueMPR(_ sender: Any?)', '.obliqueMPR', '.calibratedGeometry'),
+                           ('func openOrthogonalMPR(_ sender: Any?)', '.orthogonalMPR', '.geometry'),
+                           ('func openCurvedMPR(_ sender: Any?)', '.curvedMPR', '.geometry')):
+    opened = body(launcher, action)
+    listed = re.search(r'case %s:\s*return (\[[^\]]*\])' % re.escape(door), eligibility)
+    check('passesChecks(%s, sender: sender)' % door in opened and listed is not None and kind in listed.group(1),
           '%s must ask the shared geometry decision' % action)
-    check('geometry?.diagnosis' in opened,
-          '%s must surface the named geometry diagnosis, not an empty plane' % action)
 
 draw = body(mpr, 'public override dynamic func subDraw(_ r: NSRect)')
 check('MPROpenGeometry.canConvertSliceCoords(' in draw, 'subDrawRect must consult the overlay gate')

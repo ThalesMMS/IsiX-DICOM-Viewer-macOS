@@ -40,6 +40,7 @@
 import Cocoa
 import IsiXROI
 import IsiXVolumeRendering
+import IsiXPreferences
 
 /// A volume made from the stack of ROIs of one name, and the 3D object that
 /// shows it in the volume rendering and surface views.
@@ -48,7 +49,11 @@ import IsiXVolumeRendering
 /// the former class. The object is a VTK actor of the adapter
 /// (IsiXVTKActor); -roiVolumeActor hands its vtkActor * to the volume
 /// rendering view, as before.
-@objc(ROIVolume) @MainActor
+/// @usableFromInline because plugins built against the former SDK look up its
+/// Objective-C class: without it, the class symbol of an internal Swift class is
+/// private external, which a Release build, having no testability, leaves
+/// unexported. The attribute gives it public linkage and changes nothing else.
+@objc(ROIVolume) @MainActor @usableFromInline
 final class ROIVolume: NSObject {
     private let roiList = NSMutableArray()
     private var actor: IsiXVTKActor?
@@ -59,6 +64,9 @@ final class ROIVolume: NSObject {
     private var visibleValue = false, textured = true
     private var nameValue: NSString = ""
     private let viewer: ViewerController?
+    /// The process's dependencies, made with the volume: the surface's
+    /// placement and texture come from their preferences.
+    private let processGraph = PreferencesSource.process.processGraph
     private let propertiesValue: NSMutableDictionary
 
     /// The scale of the object: patient millimetres to the view's units.
@@ -116,14 +124,14 @@ final class ROIVolume: NSObject {
         splash?.showWindow(self)
         defer { splash?.close() }
 
-        let made = ROIVolumeView.generateActor(for: roiList.lastObject as? ROI, viewerController: viewer,
+        let made = ROIVolumeView.generateActor(for: roiList.lastObject as? ROI, viewerController: viewer, processGraph: processGraph,
                                                factor: factor, statistics: nil)
         // Without a surface the object stays empty, as before: the views add it all the same.
         actor = made ?? (try? IsiXVTKActor.empty())
         guard let made else { return }
         made.setCulling(front: true, back: true)
 
-        if UserDefaults.standard.integer(forKey: "UseDelaunayFor3DRoi") == 0, let o = viewer?.pixList()?.firstObject as? DCMPix {
+        if processGraph.preferences[VolumeRenderingPreferences.useDelaunayFor3DRoi] == 0, let o = viewer?.pixList()?.firstObject as? DCMPix {
             var cosines = [Float](repeating: 0, count: 9)
             o.orientation(&cosines)
             let matrix = SurfacePlacement.userMatrix(cosines: cosines)
@@ -133,7 +141,7 @@ final class ROIVolume: NSObject {
         }
 
         // The texture.
-        var location = UserDefaults.standard.string(forKey: "textureLocation") ?? ""
+        var location = processGraph.preferences[VolumeRenderingPreferences.textureLocation] ?? ""
         if location.isEmpty {
             location = ((Bundle.main.resourcePath ?? "") as NSString).appendingPathComponent("texture.tif")
         }

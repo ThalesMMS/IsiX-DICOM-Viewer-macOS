@@ -27,7 +27,7 @@ public extension ViewerController {
 
     /// The ROIs the command would act on, or nil when it does not apply.
     private func horosROIsForAllImagesOfSeries() -> [ROI]? {
-        let rois = (self.selectedROIs() as NSArray? ?? NSArray()).compactMap { $0 as? ROI }
+        let rois = (self.selectedROIs() as? [Any] ?? []).compactMap { $0 as? ROI }
         let described = rois.map { roi in
             (type: Int(roi.type.rawValue), aliased: roi.isAliased, betweenSlices: roi is HorosVolumeLengthROI)
         }
@@ -54,31 +54,30 @@ public extension ViewerController {
 
         let movie = Int(self.horos_curMovieIndex)
         let current = Int(imageView.curImage)
-        guard let slices = self.horos_roiList(at: movie), current >= 0, current < slices.count else { return }
-        let files = self.horos_fileList(at: movie)
+        guard let slices = ViewerROISlices(self, movie: movie), current >= 0, current < slices.count else { return }
+        let images = (self.horos_fileList(at: movie) as? [Any] ?? []).map { $0 as? DicomImage }
 
         // One undo step brings back the ROIs as they were, on this image alone.
         self.add(toUndoQueue: "roi")
 
         // The images of another series, which a viewer can hold, are left out:
         // -loadROI: puts an alias back on the images of its own series only.
-        let series = (files?.object(at: current) as? NSObject)?.value(forKey: "series") as AnyObject?
+        let series = current < images.count ? images[current]?.series : nil
 
         for roi in rois {
             roi.originalIndexForAlias = Int32(current)
             roi.isAliased = true
 
             for index in 0..<slices.count where index != current {
-                if index < (files?.count ?? 0),
-                   ((files?.object(at: index) as? NSObject)?.value(forKey: "series") as AnyObject?) !== series {
+                if index < images.count, images[index]?.series !== series {
                     continue
                 }
-                guard let slice = slices.object(at: index) as? NSMutableArray else { continue }
+                guard let slice = slices.list(at: index) else { continue }
                 if slice.indexOfObjectIdentical(to: roi) == NSNotFound {
                     slice.add(roi)
                 }
             }
-            NotificationCenter.default.post(name: NSNotification.Name.OsirixROIChange, object: roi, userInfo: nil)
+            ViewerROIEdits.post(.OsirixROIChange, roi)
         }
 
         imageView.setIndex(imageView.curImage)

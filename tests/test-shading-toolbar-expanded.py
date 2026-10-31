@@ -86,8 +86,9 @@ if style < 0:
     failures.append('VR no longer keeps its toolbar in a row of its own')
 elif attach < 0 or style > attach:
     failures.append('VR sets the Expanded style after it attaches its toolbar')
-browser = code(read(str(sources.source_path('BrowserController+Toolbar').relative_to(root))))
-if 'self.window?.toolbarStyle = .expanded' not in browser:
+# The browser's toolbar is made by BrowserToolbar.
+browser = code(read(str(sources.source_path('BrowserToolbar').relative_to(root))))
+if 'browser.window?.toolbarStyle = .expanded' not in browser:
     failures.append('the browser puts its toolbar back in the title bar')
 policy = code(read(str(sources.source_path('ToolbarPolicy').relative_to(root))))
 if 'toolbarStyle' in policy:

@@ -31,7 +31,7 @@ dicomfile = legacy.read_bytes().decode('latin1') if legacy.exists() else \
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_text, class_text  # noqa: E402
 database = class_text('DicomDatabase')
-repair = source_text('DicomDatabase+Other')
+repair = source_text('DatabaseStartupRepairs')
 
 DRIVER = '''
 import Foundation
@@ -131,10 +131,10 @@ if 'PatientIdentity.difference(betweenUID:' not in database:
                     'the reader to work out which tag produced the difference')
 
 # --- and the invented dates already stored have to go ------------------------
-if 'repairFabricatedPatientIdentifiersInContext' not in repair:
+if 'func repairFabricatedPatientIdentifiers(in context' not in repair:
     failures.append('studies whose stored identifier carries an invented date are left alone, so '
                     'every instance of that patient arriving from now on lands in a third study')
-at = repair.find('@objc(repairFabricatedPatientIdentifiersInContext:)')
+at = repair.find('func repairFabricatedPatientIdentifiers(in context')
 window = repair[at:at + 1800] if at >= 0 else ''
 if window and 'dateOfBirth == nil' not in window:
     failures.append('the repair does not restrict itself to studies that have no date of birth, '

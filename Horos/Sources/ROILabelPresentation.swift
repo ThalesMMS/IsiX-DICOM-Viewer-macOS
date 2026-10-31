@@ -13,6 +13,7 @@
 import Foundation
 import CoreGraphics
 import AppKit
+import IsiXPreferences
 
 @objc(HorosROILabelPresentation)
 public final class ROILabelPresentation: NSObject {
@@ -187,15 +188,15 @@ public final class ROILabelPresentation: NSObject {
 
     @objc(defaultsKeyForStatistic:)
     public static func defaultsKey(forStatistic kind: String) -> String {
-        "ROILabelShow" + kind
+        ViewerPreferences.roiLabelShows(statistic: kind)?.name ?? "ROILabelShow" + kind
     }
 
-    /// The statistics whose check is off.
+    /// The statistics whose check is off: a check that holds no value is on.
     @objc public static func hiddenStatistics() -> Set<String> {
-        let defaults = UserDefaults.standard
+        let preferences = PreferencesSource.process.preferences
         return Set(statisticKinds.filter { kind in
-            let key = defaultsKey(forStatistic: kind)
-            return defaults.object(forKey: key) != nil && !defaults.bool(forKey: key)
+            guard let key = ViewerPreferences.roiLabelShows(statistic: kind) else { return false }
+            return preferences[key.reading(as: PropertyListValue?.self)] != nil && !preferences[key]
         })
     }
 

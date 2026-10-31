@@ -31,7 +31,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import history_reference  # noqa: E402
-from dcmtk_build import BUILD, ROOT, dcmtk_flags  # noqa: E402
+from dcmtk_build import BUILD, INSTALL, ROOT, dcmtk_flags  # noqa: E402
 from isix_modules import build_module, dicom_file_flags  # noqa: E402
 
 parser = argparse.ArgumentParser()
@@ -61,9 +61,11 @@ ADAPTERS = ROOT / 'Horos/Sources/Adapters/DCMTK'
 # with every header of the framework beside them.
 FORMER = ['DCMTransferSyntax', 'DCMCalendarDate', 'DCMCharacterSet']
 
-header = (ROOT / 'DCMTK/dcmdata/include/dcmtk/dcmdata/dcxfer.h').read_text(errors='replace')
+# The public headers the services compile against: the DCMTK installation.
+DCMDATA = INSTALL / 'include/dcmtk/dcmdata'
+header = (DCMDATA / 'dcxfer.h').read_text(errors='replace')
 syntaxes = sorted(set(re.findall(r'"(1\.2\.840\.10008\.1\.2[0-9.]*)"',
-                                 (ROOT / 'DCMTK/dcmdata/include/dcmtk/dcmdata/dcuid.h').read_text(errors='replace'))))
+                                 (DCMDATA / 'dcuid.h').read_text(errors='replace'))))
 syntaxes += ['1.2.3.4', '1.2.840.10008.1.2.4.9999']
 
 DATES = ['20260926', '2026.09.26', '19000101', '20261345', '20260230', '202609', '2026', '0', '20260926 ']
@@ -246,7 +248,7 @@ for code, dcmtk in sorted(host['texts'].items()):
 sop_classes = (ROOT / 'Modules/IsiXDICOMFile/Sources/DICOMSOPClass.swift').read_text(encoding='utf-8')
 named = dict(re.findall(r'static let\s+(\w+)\s*=\s*"([0-9.]+)"', sop_classes))
 known = set(re.findall(r'#define\s+UID_\w+\s+"([0-9.]+)"',
-                       (ROOT / 'DCMTK/dcmdata/include/dcmtk/dcmdata/dcuid.h').read_text(errors='replace')))
+                       (DCMDATA / 'dcuid.h').read_text(errors='replace')))
 for name, uid in sorted(named.items()):
     if not re.fullmatch(r'[1-9][0-9]*(\.(0|[1-9][0-9]*))+', uid):
         failures.append('UID %s (%s) is not a well-formed UID' % (name, uid))

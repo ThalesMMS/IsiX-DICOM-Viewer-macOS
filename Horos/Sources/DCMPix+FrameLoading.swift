@@ -40,6 +40,7 @@
 import Cocoa
 import IsiXDICOMDataset
 import IsiXImaging
+import IsiXPreferences
 
 /// A frame of the Pixel Data into the image's buffer. Turning the frame a
 /// decoder produced into the buffer - photometric interpretation, sign
@@ -58,8 +59,9 @@ extension DCMPix {
         load.planarConfiguration = horos_fPlanarConf
         load.inverts = horos_inverseVal
         load.externalImage = horos_fExternalOwnedImage
-        load.keepsNuclearMedicinePolarity = UserDefaults.standard.bool(forKey: "OpacityTableNM")
-        load.thirtyTwoBitPixelsAreIntegers = UserDefaults.standard.bool(forKey: "32bitDICOMAreAlwaysIntegers")
+        let preferences = PreferencesSource.process.preferences
+        load.keepsNuclearMedicinePolarity = preferences[ViewerPreferences.opacityTableNM]
+        load.thirtyTwoBitPixelsAreIntegers = preferences[ViewerPreferences.thirtyTwoBitImagesAreIntegers]
         if DCMPixSettings.displayDICOMOverlays {
             let arrays = horos_arrays
             for i in 0..<DCMPixArrays.overlays where arrays.overlayOn[i] {
@@ -198,8 +200,7 @@ extension DCMPix {
             horos_savedWW = Float(lut.windowWidth)
             horos_fIsSigned = false
         } else {
-            DCMPixSettings.useVOILUT = false
-            UserDefaults.standard.set(false, forKey: "UseVOILUT")
+            DCMPixSettings.turnOffVOILUT()
             NSLog("***** VOI LUT seems corrupted ! -> It will be turned OFF")
         }
     }

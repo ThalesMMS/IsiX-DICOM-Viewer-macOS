@@ -44,9 +44,9 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 refusals = root / 'Horos/Sources/ImportRefusals.swift'
-# DicomDatabase is Swift: -addFilesAtPaths:... is DicomDatabase+Import.swift.
-database = (root / 'Horos/Sources/DicomDatabase+Import.swift').read_text()
-scan = (root / 'Horos/Sources/DicomDatabase+Scan.swift').read_text(encoding='utf-8')
+# DicomDatabase is Swift: -addFilesAtPaths:... is DicomFileIndexer.swift.
+database = (root / 'Horos/Sources/DicomFileIndexer.swift').read_text()
+scan = (root / 'Horos/Sources/MediaVolumeScan.swift').read_text(encoding='utf-8')
 
 DRIVER = '''
 import Foundation
@@ -149,7 +149,7 @@ if results:
             failures.append('%s: expected %r, got %r' % (key, want, results.get(key)))
 
 # --- the import uses it -------------------------------------------------------
-start = database.find('final func addFiles(atPaths paths: NSArray?, postNotifications: Bool, '
+start = database.find('func addFiles(atPaths paths: NSArray?, postNotifications: Bool, '
                       'dicomOnly: Bool, rereadExistingItems: Bool, generatedByOsiriX: Bool,')
 if start < 0:
     failures.append('-addFilesAtPaths:... is gone')
@@ -167,7 +167,6 @@ else:
         failures.append('an import that refused nothing still logs a line')
 
 # --- the scan uses it too, which is where a damaged medium loses its files ----
-# DicomDatabase (Scan) is Swift (DicomDatabase+Scan.swift).
 code = re.sub(r'//[^\n]*', '', scan)
 if 'ImportRefusals(considered:' not in code:
     failures.append('a file the scan itself would not take is dropped without a word, and that is '
@@ -195,15 +194,16 @@ else:
     if 'thread.progress' not in window:
         failures.append('reading the medium shows no progress')
 
-wait = code.find('while !copyFilesThread.isFinished {')
-if wait < 0:
-    failures.append('the wait for the copy is gone')
-else:
-    window = code[wait:code.find('thread.supportsCancel = false', wait)]
-    if 'thread.isCancelled' not in window or 'copyFilesThread.cancel()' not in window:
-        failures.append('a copy from a slow medium cannot be cancelled while it runs')
-    if 'thread.progress = copyFilesThread.progress' not in window:
-        failures.append('the copy\'s progress is not passed on, so a slow copy looks stalled')
+# The copy runs on the scan's thread: cancelling that thread stops it, and the
+# progress it writes is that thread's.
+job = re.sub(r'//[^\n]*', '', (root / 'Horos/Sources/MediaImportJob.swift').read_text(encoding='utf-8'))
+copying = job[job.find('private func importing() -> MediaImportOutcome'):job.find('lane.finishAndWait()')]
+if 'let copy = copying(paths)' not in code or '.run()' not in code[code.find('func copying('):code.find('func eject(')]:
+    failures.append('the copy no longer runs on the thread of the scan')
+if 'Thread.current.isCancelled' not in copying:
+    failures.append('a copy from a slow medium cannot be cancelled while it runs')
+if 'Thread.current.progress =' not in copying:
+    failures.append('the copy\'s progress is not shown, so a slow copy looks stalled')
 
 adding = re.sub(r'//[^\n]*', '', database)
 if not re.search(r'stopped = thread\.isCancelled\n.*?if stopped \{.*?dicomFilesArray\.removeAllObjects\(\)\s*break\n', adding, re.S):

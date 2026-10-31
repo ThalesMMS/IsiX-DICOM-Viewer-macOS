@@ -15,12 +15,9 @@ subprocess.run([sys.executable, str(tool), '--check'], check=True)
 listed = subprocess.check_output([sys.executable, str(tool)], text=True).splitlines()
 sources = dict(line.split('\t', 1) for line in listed if line)
 titles = set(sources)
-# "Export ROIs as JSON..." was the Objective-C witness until its category moved
-# to Swift, then "8-bit CLUT Editor" until the toolbar block of
-# ViewerController moved to Swift, then "Image Tiling" until its contextual
-# menu did, then "Comparatives" until the series list did; the volume
-# rendering window, Objective-C++, still builds this one.
-assert sources.get('16-bit CLUT Editor', '').endswith(('.m', '.mm')), 'Objective-C menu titles are not being collected'
+# No Objective-C source builds a menu title any more: the volume rendering
+# window was the last, and it moved to Swift with its colour tables.
+assert sources.get('16-bit CLUT Editor', '').endswith('.swift'), 'the CLUT menu title of the volume rendering window is not being collected'
 assert sources.get('Comparatives', '').endswith('.swift'), 'the series list titles of the viewer are not being collected'
 assert sources.get('Image Tiling', '').endswith('.swift'), 'the contextual menu titles of the viewer are not being collected'
 assert sources.get('8-bit CLUT Editor', '').endswith('.swift'), 'the CLUT menu title of the viewer toolbar is not being collected'

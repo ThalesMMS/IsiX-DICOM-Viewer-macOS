@@ -16,6 +16,9 @@ So every case below asserts two things: that each ROI lands where its physical
 position says, **and** that the bindings are not all the same target.
 """
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402  - ROIInterchange.swift writes IsiXROI's ROIInterchangeDocument
 import subprocess
 import tempfile
 
@@ -166,7 +169,7 @@ func describe(_ plan: ROIAssociationPlan) -> String {
 with tempfile.TemporaryDirectory(prefix='horos-roi-copy-') as folder:
     path = Path(folder)
     (path / 'Check.swift').write_text(DRIVER)
-    build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library',
+    build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *isix_modules.module_flags('IsiXROI', path / 'modules'),
                             str(root / 'Horos/Sources/ROIIntersliceGeometry.swift'),
                             str(root / 'Horos/Sources/ROIInterchange.swift'),
                             str(root / 'Horos/Sources/ROIArchiveFormat.swift'),

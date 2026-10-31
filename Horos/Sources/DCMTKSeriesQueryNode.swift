@@ -40,11 +40,16 @@
 import Foundation
 import IsiXDICOMNetwork
 import IsiXDICOMFile
+import IsiXPreferences
 
 /// A series of a node's study. Its children are its images. It answers the
 /// messages a DicomSeries answers, so that the browser and the viewer show it
 /// among the local series.
-@objc(DCMTKSeriesQueryNode)
+/// @usableFromInline because plugins built against the former SDK look up its
+/// Objective-C class: without it, the class symbol of an internal Swift class is
+/// private external, which a Release build, having no testability, leaves
+/// unexported. The attribute gives it public linkage and changes nothing else.
+@objc(DCMTKSeriesQueryNode) @usableFromInline
 final class DCMTKSeriesQueryNode: DCMTKQueryNode, @unchecked Sendable {
     var studyInstanceUIDValue: String?
     /// The study it was listed in, not retained.
@@ -71,7 +76,7 @@ final class DCMTKSeriesQueryNode: DCMTKQueryNode, @unchecked Sendable {
     /// When a series is opened: its images.
     override func queryPrototype() -> DICOMQueryIdentifier? {
         QueryIdentifiers.images(ofSeries: uidValue, study: studyInstanceUIDValue, options: QueryReturnKeyOptions(
-            commentsAndStatus: UserDefaults.standard.bool(forKey: "CFINDCommentsAndStatusSupport")))
+            commentsAndStatus: PreferencesSource.process.preferences[NetworkPreferences.cfindCommentsAndStatusSupport]))
     }
 
     override func moveIdentifier() -> DICOMQueryIdentifier? {

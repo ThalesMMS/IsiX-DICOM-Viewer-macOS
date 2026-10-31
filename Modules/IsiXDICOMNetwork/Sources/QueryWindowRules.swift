@@ -9,6 +9,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXPreferences
 
 // The rules the Query window applies to what the user typed and chose before a
 // C-FIND: which attribute each search field fills and how, what a date choice
@@ -145,6 +146,39 @@ public enum QueryDateFilter {
         }
     }
 
+    /// The StudyDate filter as the query manager receives it: a range already
+    /// written as text, a day, a day to itself, or from a day to `now` (open
+    /// at its end with `allowFutureQuery`); nil for none. Days are written as
+    /// `criteria` writes them.
+    public static func studyDateValue(_ date: StudyDate, now: Date, allowFutureQuery: Bool, timeZone: TimeZone) -> String? {
+        let calendar = gregorian(timeZone)
+        switch date.value {
+        case .none:
+            return nil
+        case .text(let text):
+            return text
+        case .date(let instant):
+            let day = format(instant, "yyyyMMdd", calendar)
+            switch date.match {
+            case .exactMatch: return day
+            case .exactDate: return day + "-" + day
+            case .after: return allowFutureQuery ? day + "-" : day + "-" + format(now, "yyyyMMdd", calendar)
+            }
+        }
+    }
+
+    /// The PatientBirthDate filter of the choice `tag` for `date`, in the
+    /// formats of `birthDateFormat`; nil for a choice without one.
+    public static func birthDateValue(forTag tag: Int, date: Date, timeZone: TimeZone) -> String? {
+        let day = format(date, "yyyyMMdd", gregorian(timeZone))
+        switch tag {
+        case 0: return day
+        case -1: return "-" + day
+        case 1: return day + "-"
+        default: return nil
+        }
+    }
+
     private static func gregorian(_ timeZone: TimeZone) -> Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
@@ -211,19 +245,22 @@ public enum QueryWindowField: Int, CaseIterable, Sendable {
         }
     }
 
+    /// The key of the preference that lets the field be queried.
+    public var preference: String { preferenceKey.name }
+
     /// The preference that lets the field be queried.
-    public var preference: String {
+    public var preferenceKey: PreferenceKey<Bool> {
         switch self {
-        case .patientName: return "allow_qr_name"
-        case .patientID: return "allow_qr_id"
-        case .accessionNumber: return "allow_qr_accession_number"
-        case .patientBirthDate: return "allow_qr_birthdate"
-        case .studyDescription: return "allow_qr_description"
-        case .referringPhysician: return "allow_qr_referring_physician"
-        case .studyComments: return "allow_qr_comments"
-        case .institutionName: return "allow_qr_institution"
-        case .customField: return "allow_qr_custom_dicom_field"
-        case .interpretationStatus: return "allow_qr_status"
+        case .patientName: return NetworkPreferences.allowsQueryByName
+        case .patientID: return NetworkPreferences.allowsQueryByID
+        case .accessionNumber: return NetworkPreferences.allowsQueryByAccessionNumber
+        case .patientBirthDate: return NetworkPreferences.allowsQueryByBirthDate
+        case .studyDescription: return NetworkPreferences.allowsQueryByDescription
+        case .referringPhysician: return NetworkPreferences.allowsQueryByReferringPhysician
+        case .studyComments: return NetworkPreferences.allowsQueryByComments
+        case .institutionName: return NetworkPreferences.allowsQueryByInstitution
+        case .customField: return NetworkPreferences.allowsQueryByCustomField
+        case .interpretationStatus: return NetworkPreferences.allowsQueryByStatus
         }
     }
 
@@ -287,16 +324,16 @@ public enum QueryStudyFilters {
         }
 
         /// The preferences as stored in `defaults`.
-        public init(defaults: UserDefaults) {
-            self.init(accessionNumber: defaults.bool(forKey: "allow_qr_accession_number"),
-                      description: defaults.bool(forKey: "allow_qr_description"),
-                      comments: defaults.bool(forKey: "allow_qr_comments"),
-                      identifiers: defaults.bool(forKey: "allow_qr_id"),
-                      name: defaults.bool(forKey: "allow_qr_name"),
-                      birthDate: defaults.bool(forKey: "allow_qr_birthdate"),
-                      studyDate: defaults.bool(forKey: "allow_qr_study_date"),
-                      modality: defaults.bool(forKey: "allow_qr_modality"),
-                      modalitiesInStudy: defaults.bool(forKey: "SupportQRModalitiesinStudy"))
+        public init(defaults: any PreferenceStore) {
+            self.init(accessionNumber: defaults[NetworkPreferences.allowsQueryByAccessionNumber],
+                      description: defaults[NetworkPreferences.allowsQueryByDescription],
+                      comments: defaults[NetworkPreferences.allowsQueryByComments],
+                      identifiers: defaults[NetworkPreferences.allowsQueryByID],
+                      name: defaults[NetworkPreferences.allowsQueryByName],
+                      birthDate: defaults[NetworkPreferences.allowsQueryByBirthDate],
+                      studyDate: defaults[NetworkPreferences.allowsQueryByStudyDate],
+                      modality: defaults[NetworkPreferences.allowsQueryByModality],
+                      modalitiesInStudy: defaults[NetworkPreferences.supportsQRModalitiesInStudy])
         }
     }
 

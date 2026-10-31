@@ -10,7 +10,7 @@ leaves the zoom to the views.
 
 Read from the sources: the tiling no longer touches the scale or the offsets,
 and -reshape still scales the image, the origin and the other images' zoom
-with the view's size.
+(written by ImagePresentationStore) with the view's size.
 """
 from pathlib import Path
 import sys
@@ -33,9 +33,15 @@ geometry = (Path(__file__).resolve().parents[1] / 'Horos/Sources/DCMView+Geometr
 reshape = geometry[geometry.index('public dynamic func horosReshape()'):]
 reshape = reshape[:reshape.index('\n    }\n')]
 for needle in ['self.scaleValue = self.horos_scaleValue * yChanged', 'origin.x *= CGFloat(yChanged)',
-               'image?.setValue(NSNumber(value: s * yChanged), forKey: "scale")']:
+               'ImagePresentationStore(series: nil, image: pix.imageObj()).storeResized(by: yChanged)']:
     if needle not in reshape:
         failures.append(f'-[DCMView reshape] no longer scales with the view: {needle}')
+# The other images' own zoom is written by ImagePresentationStore (ImagePresentationStore.swift).
+store = (Path(__file__).resolve().parents[1] / 'Horos/Sources/ImagePresentationStore.swift').read_text()
+resized = store[store.index('func storeResized(by factor: Float) {'):]
+resized = resized[:resized.index('\n    }\n')]
+if 'image?.scale = scale != 0 ? NSNumber(value: scale * factor) : nil' not in resized:
+    failures.append('-[DCMView reshape] no longer scales the other images\' own zoom with the view')
 view = source_text('DCMView')
 stub = view[view.index('    @objc(reshape)\n    public dynamic func reshape() {'):]
 if 'self.horosReshape()' not in stub[:stub.index('\n    }\n')]:

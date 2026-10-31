@@ -7,8 +7,8 @@ every slice. It now hands the selected ROI objects to -[DCMView deleteROIs:],
 which removes them as the Delete key removes selected ROIs: one undo step,
 locked ROIs kept, a grouped ROI's group removed with it.
 
-The production -deleteROIs: and -deleteROIGroupID: (DCMView+ROIEditing.swift)
-run here against stand-ins for ROI and for the DCMView state they touch. The
+The production -deleteROIs: and -deleteROIGroupID: (DCMView+ROIEditing.swift,
+with ROIEventEmitter) run here against stand-ins for ROI and for the DCMView state they touch. The
 Manager's action is checked to call it and no longer to delete by name.
 """
 from pathlib import Path
@@ -26,6 +26,9 @@ def method(start_text):
 
 methods = method('    @objc(deleteROIs:)\n') + method('    @objc(deleteROIGroupID:)\n') + \
     method('    /// Sends `selector` with `argument` to the window controller')
+# The notifications go through ROIEventEmitter, compiled as it is, without the
+# main actor of the view it serves.
+emitter = (root / 'Horos/Sources/ROIEventEmitter.swift').read_text().replace('@MainActor\n', '')
 
 code = r"""
 import Cocoa
@@ -33,7 +36,25 @@ let ROI_sleep = 0, ROI_selected = 2
 extension NSNotification.Name {
     static let OsirixRemoveROI = NSNotification.Name("OsirixRemoveROINotification")
     static let OsirixROIRemovedFromArray = NSNotification.Name("OsirixROIRemovedFromArrayNotification")
+    static let OsirixROISelected = NSNotification.Name("OsirixROISelectedNotification")
+    static let OsirixAddROI = NSNotification.Name("OsirixAddROINotification")
+    static let OsirixROIChange = NSNotification.Name("OsirixROIChangeNotification")
 }
+// The guards of HorosObjCException+Guards.swift, running each body.
+enum HorosObjCException {
+    @discardableResult
+    static func caught(_ body: () -> Void) -> NSException? { body(); return nil }
+    static func caught(_ body: () -> Void, catch handler: (NSException) -> Void) { body() }
+    static func caughtWithoutAllocation(_ body: () -> Void) -> NSException? { body(); return nil }
+    @discardableResult
+    static func logged(_ function: String, stack: Bool = false, _ body: () -> Void) -> Bool { body(); return false }
+    @discardableResult
+    static func synchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T { body() }
+    @discardableResult
+    static func raisingToCaller<T>(_ body: () -> T) -> T { body() }
+    static func throwing<T, Failure: Error>(_ failure: (NSException) -> Failure, _ body: () throws -> T) throws -> T { try body() }
+}
+
 func roiEditingTry(_ body: () -> Void) -> NSException? { body(); return nil }
 func logROIEditingException(_ exception: NSException, _ function: StaticString, stack: Bool = true) { print(exception) }
 final class ROI: NSObject {
@@ -102,8 +123,9 @@ print("PASS: only the given ROIs, same-named ROIs kept, one undo step, locked ke
 with tempfile.TemporaryDirectory(prefix='horos-roi-manager-delete-') as folder:
     p = Path(folder)
     (p / 'main.swift').write_text(code)
+    (p / 'emitter.swift').write_text(emitter)
     subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-module-cache-path', str(p / 'modules'),
-                    str(p / 'main.swift'), '-o', str(p / 'test')], check=True)
+                    str(p / 'main.swift'), str(p / 'emitter.swift'), '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test')], check=True)
 
 manager = (root / 'Horos/Sources/ROIManagerController.swift').read_text()

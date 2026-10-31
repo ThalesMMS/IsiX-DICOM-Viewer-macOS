@@ -234,6 +234,7 @@ else:
     table_host = 'NSData *hostTable4096(NSArray *pointsArray) ' + table_body
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import default_preferences  # noqa: E402
+import process_graph_stand_in  # noqa: E402  - the Metal sources read their development switches through PreferencesSource
 # The registered opacity tables, as an Objective-C literal.
 presets = '    NSDictionary *opacityValues = @{' + ', '.join(
     '@"%s": @{@"Points": @[%s]}' % (name, ', '.join('@"%s"' % point for point in table['Points']))
@@ -534,6 +535,7 @@ with tempfile.TemporaryDirectory(prefix='horos-planar-transfer-') as directory:
                     '-o', str(work / 'Host.o')], check=True)
     build = subprocess.run(['xcrun', 'swiftc', '-O', '-parse-as-library', '-suppress-warnings',
                             *[str(path) for path in sources.values()], str(work / 'Host.o'), *module,
+                            *process_graph_stand_in.swift_flags(work / 'modules'),
                             '-import-objc-header', str(work / 'Host.h'), '-framework', 'Accelerate',
                             str(work / 'Check.swift'), '-o', str(work / 'check')])
     if build.returncode != 0:

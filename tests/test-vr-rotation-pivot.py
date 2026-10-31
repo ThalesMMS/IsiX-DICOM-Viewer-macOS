@@ -40,8 +40,12 @@ mouse = (root / 'Horos/Sources/VRView+Mouse.swift').read_text(encoding='utf-8')
 assert re.search(r'get3DPixelUnder2DPositionX\(Float\(mouseLoc\.x\), y: Float\(mouseLoc\.y\), pixel: &pix, position: &surface, value: &value\) \{'
                  r'\s*let factor = horos_factor\s*let pivot = \[Double\(surface\[0\] \* factor\)', mouse), \
     'VRView no longer takes the surface under the pointer as the pivot'
-assert re.search(r'!keep3DRotateCentered && UserDefaults\.standard\.bool\(forKey: "rotate3DAroundPointUnderMouse"\)\s*&& get3DPixelUnder2DPositionX\(', mouse), \
+assert re.search(r'!keep3DRotateCentered && processGraph\.preferences\[VolumeRenderingPreferences\.rotate3DAroundPointUnderMouse\]'
+                 r'\s*&& get3DPixelUnder2DPositionX\(', mouse), \
     'the pivot under the pointer no longer depends on its preference'
+catalog = (root / 'Modules/IsiXPreferences/Sources/VolumeRenderingPreferences.swift').read_text(encoding='utf-8')
+assert 'rotate3DAroundPointUnderMouse = PreferenceKey<Bool>("rotate3DAroundPointUnderMouse"' in catalog, \
+    'the catalog no longer reads the rotation pivot as a switch under its key'
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import default_preferences  # noqa: E402
 assert default_preferences.registered().get('rotate3DAroundPointUnderMouse') == '0', \

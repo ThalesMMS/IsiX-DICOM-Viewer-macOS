@@ -94,13 +94,11 @@ extension ROI {
 
     /// A copy of `width` × `height` bytes with `margin` empty pixels around
     /// them, allocated with calloc.
-    @objc(addMargin:buffer:width:height:)
     public class func addMargin(_ margin: Int32, buffer: UnsafeMutablePointer<UInt8>!, width: Int32, height: Int32) -> UnsafeMutablePointer<UInt8>! {
         ROIBrushMask.addingMargin(margin, to: buffer, width: width, height: height)
     }
 
     /// Paints a disc of `val` the size of the `width` × `width` buffer.
-    @objc(fillCircle:::)
     public class func fillCircle(_ buf: UnsafeMutablePointer<UInt8>!, _ width: Int32, _ val: UInt8) {
         guard let buf else { return }
         ROIBrushMask.fillCircle(buf, width: width, value: val)

@@ -300,7 +300,7 @@ results = {}
 fixture_dir = None
 with tempfile.TemporaryDirectory(prefix='horos-cloud-report-') as directory:
     # Exercise the gate before it faults every study's SOPs: the importer's own
-    # incomingLooksLikeCloudReport (DicomDatabase+Import.swift) over IsiXDatabase's
+    # incomingLooksLikeCloudReport (DicomFileIndexer.swift) over IsiXDatabase's
     # CloudReportCandidate, which says no for nil and empty metadata as the
     # Objective-C did for a message to nil.
     gate = database[database.index('private func incomingLooksLikeCloudReport('):]

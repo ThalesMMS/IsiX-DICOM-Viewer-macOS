@@ -164,8 +164,10 @@ private func raiseInvalidValue(_ className: String) -> Never {
 }
 
 /// "values." and the key: the key path of a preference through
-/// NSUserDefaultsController's values proxy.
-@_cdecl("valuesKeyPath") @implementation
+/// NSUserDefaultsController's values proxy. @usableFromInline because the
+/// former plugin SDK published it: a Release build, which has no testability,
+/// leaves an internal Swift symbol unexported (see N3Geometry.swift).
+@_cdecl("valuesKeyPath") @implementation @usableFromInline
 func valuesKeyPath(_ key: String!) -> String! {
     "values." + (key ?? "")
 }

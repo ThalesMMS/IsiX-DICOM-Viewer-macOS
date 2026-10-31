@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 
 // The transfer functions of VRView: the window and level, the colour table and
 // the opacity curve of the volume, and those of the fused series with its share
@@ -52,8 +53,8 @@ import AppKit
 
 /// Whether the screen shows inverted colours (the Accessibility setting), which
 /// the colour tables follow.
-@MainActor func vrDisplayUsesInvertedPolarity() -> Bool {
-    let value = UserDefaults.standard.persistentDomain(forName: "com.apple.CoreGraphics")?["DisplayUseInvertedPolarity"]
+@MainActor func vrDisplayUsesInvertedPolarity(_ preferences: UserDefaults) -> Bool {
+    let value = preferences.persistentDomain(forName: "com.apple.CoreGraphics")?["DisplayUseInvertedPolarity"]
     if let number = value as? NSNumber { return number.boolValue }
     if let string = value as? NSString { return string.boolValue }
     return false
@@ -64,7 +65,6 @@ nonisolated(unsafe) private var linearOpacityTable: UnsafeMutablePointer<UInt16>
 
 extension VRView {
 
-    @objc(linearOpacity)
     static func linearOpacity() -> UnsafeMutablePointer<UInt16>! {
         if linearOpacityTable == nil {
             let table = malloc(32767 * MemoryLayout<UInt16>.size)!.assumingMemoryBound(to: UInt16.self)
@@ -277,7 +277,7 @@ extension VRView {
         defer { inverted.deallocate() }
         let rr = inverted, rg = inverted + 256, rb = inverted + 512
 
-        if vrDisplayUsesInvertedPolarity() {
+        if vrDisplayUsesInvertedPolarity(processGraph.preferences) {
             if let red = r, let green = g, let blue = b {
                 for i in 0..<256 {
                     rr[i] = 255 &- red[i]
@@ -319,7 +319,7 @@ extension VRView {
                 vtk.buildColour(fromTable: table, start: Double(valueFactor * (offset + wl - ww / 2)),
                                 end: Double(valueFactor * (offset + wl + ww / 2)))
             } else {
-                if vrDisplayUsesInvertedPolarity() {
+                if vrDisplayUsesInvertedPolarity(processGraph.preferences) {
                     for i in 0..<256 {
                         table[(255 - i) * 3 + 0] = Double(i) / 255.0
                         table[(255 - i) * 3 + 1] = Double(i) / 255.0
@@ -385,7 +385,7 @@ extension VRView {
 
         let modality = horos_controller?.viewer2D()?.modality()
         let text: String
-        if modality == "PT" || (UserDefaults.standard.bool(forKey: "mouseWindowingNM") && modality == "NM") {
+        if modality == "PT" || (processGraph.preferences[VolumeRenderingPreferences.mouseWindowingNM] && modality == "NM") {
             if ww < 50 {
                 text = String(format: "From: %0.4f   To: %0.4f ", Double(wl - ww / 2), Double(wl + ww / 2))
             } else {

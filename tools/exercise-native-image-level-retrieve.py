@@ -77,6 +77,14 @@ def free_port():
         return s.getsockname()[1]
 
 
+def servers_argument(servers) -> str:
+    """The node list for a -SERVERS argument of the launch: the launch's own list, never
+    written to the preferences. XML, because an old-style list would turn the numbers
+    (the port, the retrieve mode) into strings."""
+    body = plistlib.dumps(servers, fmt=plistlib.FMT_XML).decode()
+    return body[body.index("<array>"):body.rindex("</array>") + len("</array>")]
+
+
 def records(path: Path):
     lines = []
     if path.exists():
@@ -155,7 +163,9 @@ def run_scenario(app: Path, folder: Path, dylib: Path, scenario: str) -> dict:
                             "-hideListenerError", "NO" if scenario == "unsendable" or recovery else "YES",
                             "-syncDICOMNodes", "NO", "-publishDICOMBonjour", "NO", "-searchDICOMBonjour", "NO",
                             "-AETITLE", "HOROSDEV", "-AEPORT", str(destination_port), "-DICOMTimeout", "8",
-                            "-DICOMConnectionTimeout", "5", "-TryIMAGELevelDICOMRetrieveIfLocalImages", "YES"]
+                            "-DICOMConnectionTimeout", "5", "-TryIMAGELevelDICOMRetrieveIfLocalImages", "YES",
+                            # The query window the probe opens needs one node, or it raises a modal panel.
+                            "-SERVERS", servers_argument(json.loads(servers.read_text()))]
         if recovery:
             launch_arguments += ["-MultipleAssociationsRetrieve", "NO"]
         native_app.stop_all(app)

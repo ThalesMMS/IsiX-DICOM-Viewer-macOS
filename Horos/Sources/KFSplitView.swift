@@ -57,6 +57,7 @@
 // for this fork under LGPLv3; it does not translate the former layout engine.
 
 import AppKit
+import IsiXPreferences
 
 @objc private protocol SplitDividerCallbacks {
     @objc(splitView:didDoubleClickInDivider:)
@@ -350,17 +351,18 @@ public final class KFSplitView: NSSplitView {
 
     @objc(removePositionUsingName:)
     public class func removePosition(usingName name: String) {
-        UserDefaults.standard.removeObject(forKey: "KFSplitView Position " + name)
+        PreferencesSource.process.preferences.remove(ViewerPreferences.splitViewPosition(named: name))
     }
 
     @objc(savePositionUsingName:)
     public func savePosition(usingName name: String) {
-        UserDefaults.standard.set(plistObjectWithSavedPosition(), forKey: "KFSplitView Position " + name)
+        // The position is a property list of the split view's own making, stored as it is.
+        PreferencesSource.process.preferences.set(plistObjectWithSavedPosition(), forKey: ViewerPreferences.splitViewPosition(named: name).name)
     }
 
     @objc(setPositionUsingName:)
     @discardableResult public func setPosition(usingName name: String) -> Bool {
-        guard let state = UserDefaults.standard.object(forKey: "KFSplitView Position " + name),
+        guard let state = PreferencesSource.process.preferences.object(forKey: ViewerPreferences.splitViewPosition(named: name).name),
               validState(state) != nil else { return false }
         setPosition(fromPlistObject: state)
         return true

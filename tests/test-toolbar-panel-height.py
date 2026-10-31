@@ -21,7 +21,7 @@ the tiling subtracts what the panel actually reserves instead of 78.
 
 ToolbarPanelController is Swift (ToolbarPanel.swift): the checks read
 its Swift spelling, where the floor is `fixedHeightFloor` because `fixedHeight`
-names the method. AppController is Swift: the tiling is read there.
+names the method. The tiling's area is ViewerWindowArranger's, read there.
 """
 from pathlib import Path
 import re
@@ -96,7 +96,8 @@ if '@objc(toolbarDidChange:)' not in panel or 'func toolbarDidChange(_ aNotifica
     failures.append('customizing the toolbar does not remasure the panel')
 
 # And the tiling takes its number from the panel rather than from 78.
-useful = method(application, 'class func usefullRect(for screen: NSScreen!, showFloatingWindows: Bool) -> NSRect')
+useful = method((Path(__file__).resolve().parents[1] / 'Horos/Sources/ViewerWindowArranger.swift').read_text(),
+                'static func usefulRect(for screen: NSScreen?, showFloatingWindows: Bool) -> NSRect')
 if not useful:
     failures.append('usefullRectForScreen:showFloatingWindows: is gone')
 else:

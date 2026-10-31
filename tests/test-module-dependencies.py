@@ -11,6 +11,25 @@ Checked on the package as it is, and on two mutations of a copy that must be
 refused: a module that imports the app target, and one that depends on a
 module listed after it.
 
+tests/module-map.json is the module map, one entry per line with its keys
+sorted. Listed after it in Package.swift is necessary but not enough: a module
+depends only on the modules its entry in `modules` lets it depend on
+(`may_depend_on`), and its tests only on it and on those. Every module of the
+package has an entry, and a module not created yet is in `planned_modules`,
+placed after the module it will be listed after, until the change that creates
+it moves it to `modules`. A module allowed to depend on another must come after
+it in that order, and the lists follow it. No module imports a framework of
+`app_frameworks` (AppKit): windows, nibs and bindings stay in the app target.
+`areas` gives the modules of each area and what stays in the app target;
+`ports` names the capability ports over the database, each with the module
+that declares it, its stage, and its consumers: files of Horos/Sources, which
+must exist, and modules, which must be allowed to depend on the port's module.
+Checked on the map as it is, and on mutations that must be refused: a
+dependency the map does not allow, a module the map does not list, a module
+that imports AppKit, a module allowed to depend on one listed after it, a
+consumer file that does not exist, and a consuming module that may not depend
+on the port's module.
+
 The app reaches DCMTK, VTK and ITK only through adapters: small Objective-C++
 files under Horos/Sources/Adapters/<Library>/ whose headers carry no C++ type,
 and which turn every C++ exception into an NSError. A Swift module built with
@@ -58,6 +77,7 @@ libraries, and a name for the conversion of Nitrogen and Decompress:
 - xpc: Decompress as an XPC service and the HTML report printing.
 """
 from pathlib import Path
+from copy import deepcopy
 import json
 import re
 import shutil
@@ -84,6 +104,101 @@ INCLUDED = re.compile(r'^\s*[<"]([^">]+)[">]')
 SOURCE_SUFFIXES = ('.m', '.mm', '.c', '.cpp', '.cc', '.cxx')
 REGISTERED_FOLDERS = ('Horos/Sources', 'Nitrogen/Sources', 'Decompress', 'DICOMPrint/Helper')
 STAGE_NAMES = {'network', 'smtp', 'geometry', 'database', 'helpers', 'xpc'}
+MAP_PATH = root / 'tests/module-map.json'
+MAP_TEXT = MAP_PATH.read_text()
+MODULE_MAP = json.loads(MAP_TEXT)
+MAP_SECTIONS = {'app_frameworks', 'areas', 'modules', 'planned_modules', 'ports'}
+CAPABILITIES = {'studies', 'series', 'metadata', 'rois', 'import', 'maintenance', 'remote-query', 'retrieve', 'send'}
+
+
+def render_map(sections):
+    """The map's canonical text: sections and entries sorted, one entry per line."""
+    lines = ['{']
+    names = sorted(sections)
+    for i, name in enumerate(names):
+        entries = sections[name]
+        lines.append(f' {json.dumps(name)}: {{')
+        keys = sorted(entries)
+        for j, key in enumerate(keys):
+            lines.append(f'  {json.dumps(key)}: {json.dumps(entries[key], sort_keys=True)}' + (',' if j < len(keys) - 1 else ''))
+        lines.append(' }' + (',' if i < len(names) - 1 else ''))
+    lines.append('}')
+    return '\n'.join(lines) + '\n'
+
+
+def map_order(module_map, existing):
+    """Every module of the map, created or planned, in the order of Package.swift.
+
+    `existing` is the package's modules in their order; a planned module goes
+    right after the module it will be listed after.
+    """
+    order = list(existing)
+    planned = dict(module_map['planned_modules'])
+    while planned:
+        placed = [name for name, entry in planned.items() if entry.get('listed_after') in order]
+        if not placed:
+            break
+        for name in sorted(placed):
+            order.insert(order.index(planned.pop(name)['listed_after']) + 1, name)
+    return order, sorted(planned)
+
+
+def map_problems(module_map, existing):
+    """What is wrong in the map itself, against the modules `existing` of the package, in order."""
+    found = []
+    if set(module_map) != MAP_SECTIONS:
+        return [f'the module map has the sections {sorted(module_map)}, not {sorted(MAP_SECTIONS)}']
+    modules, planned = module_map['modules'], module_map['planned_modules']
+    for name in existing:
+        if name not in modules:
+            found.append(f'{name} is not in the module map (tests/module-map.json)' +
+                         (': move it from planned_modules to modules' if name in planned else ''))
+    for name in sorted(modules):
+        if name not in existing:
+            found.append(f'{name} is in the modules of the map but not in Package.swift: '
+                         'put it in planned_modules or remove it')
+    order, unplaced = map_order(module_map, existing)
+    for name in unplaced:
+        found.append(f'{name}: the planned module is not listed_after a module of the map')
+    entries = {**planned, **modules}
+    position = {name: index for index, name in enumerate(order)}
+    for name, entry in sorted(entries.items()):
+        allowed = entry.get('may_depend_on')
+        if not isinstance(allowed, list):
+            found.append(f'{name}: its entry needs the list may_depend_on')
+            continue
+        for dependency in allowed:
+            if dependency not in entries:
+                found.append(f'{name} may depend on {dependency}, which is not in the module map')
+            elif name in position and position.get(dependency, len(order)) >= position[name]:
+                found.append(f'{name} may depend on {dependency}, which is not listed before it')
+        if allowed != sorted(allowed, key=lambda dependency: position.get(dependency, len(order))):
+            found.append(f'{name}: may_depend_on does not follow the order of Package.swift')
+    for area, entry in sorted(module_map['areas'].items()):
+        if not entry.get('modules') or not entry.get('stays_in_app'):
+            found.append(f'area {area}: it needs its modules and what stays in the app target')
+        for module in entry.get('modules', []):
+            if module not in entries:
+                found.append(f'area {area}: {module} is not in the module map')
+    for port, entry in sorted(module_map['ports'].items()):
+        module = entry.get('module')
+        if module not in entries:
+            found.append(f'port {port}: its module {module} is not in the module map')
+        if entry.get('capability') not in CAPABILITIES:
+            found.append(f'port {port}: its capability {entry.get("capability")!r} is not one of {sorted(CAPABILITIES)}')
+        if not isinstance(entry.get('stage'), int) or isinstance(entry.get('stage'), bool):
+            found.append(f'port {port}: its stage is not a stage number')
+        if not entry.get('app_consumers') and not entry.get('module_consumers'):
+            found.append(f'port {port}: it names no consumer')
+        for consumer in entry.get('app_consumers', []):
+            if not consumer.startswith('Horos/Sources/') or not (root / consumer).is_file():
+                found.append(f'port {port}: its consumer {consumer} does not exist in Horos/Sources')
+        for consumer in entry.get('module_consumers', []):
+            if consumer not in entries:
+                found.append(f'port {port}: its consumer {consumer} is not in the module map')
+            elif consumer != module and module not in entries[consumer]['may_depend_on']:
+                found.append(f'port {port}: its consumer {consumer} may not depend on {module}')
+    return found
 
 
 def includes(text):
@@ -206,17 +321,31 @@ def sources_problems(base, extra=()):
     return found
 
 
-def problems(package):
-    """What breaks the rule in the package at `package`."""
+def dump_package(package):
+    """The manifest of the package at `package`, or the reason it does not load."""
     if shutil.which('swift') is None:
         sys.stderr.write('needs swift (Xcode command line tools)\n')
         sys.exit(2)
     dumped = subprocess.run(['swift', 'package', '--package-path', str(package), 'dump-package'],
                             capture_output=True, text=True)
     if dumped.returncode != 0:
-        return ['Package.swift does not load: ' + dumped.stderr.strip()[-500:]]
-    manifest = json.loads(dumped.stdout)
-    found = []
+        return None, 'Package.swift does not load: ' + dumped.stderr.strip()[-500:]
+    return json.loads(dumped.stdout), None
+
+
+def package_modules(manifest):
+    """The modules of a manifest, without their tests, in the order of Package.swift."""
+    return [target['name'] for target in manifest['targets'] if target['type'] != 'test']
+
+
+def problems(package, module_map=MODULE_MAP):
+    """What breaks the rule in the package at `package`, with the module map `module_map`."""
+    manifest, failure = dump_package(package)
+    if failure:
+        return [failure]
+    found = map_problems(module_map, package_modules(manifest))
+    entries = {**module_map['planned_modules'], **module_map['modules']}
+    app_frameworks = module_map['app_frameworks']
     targets = manifest['targets']
     order = {target['name']: index for index, target in enumerate(targets)}
     for index, target in enumerate(targets):
@@ -226,6 +355,9 @@ def problems(package):
             found.append(f'{name}: internal modules are named IsiX<Area>')
         if path != f'{module}/{"Tests" if target["type"] == "test" else "Sources"}':
             found.append(f'{name}: its path is {path!r}, not its own folder {module}/Sources or {module}/Tests')
+        allowed = set(entries.get(module, {}).get('may_depend_on', []))
+        if target['type'] == 'test':
+            allowed.add(module)
         declared = set()
         for dependency in target.get('dependencies', []):
             kind, = dependency.keys()
@@ -233,6 +365,9 @@ def problems(package):
             declared.add(dependency_name)
             if dependency_name in order and target['type'] != 'test' and order[dependency_name] >= index:
                 found.append(f'{name} depends on {dependency_name}, which is not listed before it')
+            if dependency_name in order and module in entries and dependency_name not in allowed:
+                found.append(f'{name} depends on {dependency_name}, which the module map does not allow '
+                             f'(tests/module-map.json)')
         sources = sorted((package / path).rglob('*')) if path else []
         for source in sources:
             if source.suffix not in ('.swift', '.h', '.m', '.mm', '.c', '.cpp'):
@@ -242,6 +377,9 @@ def problems(package):
             for imported in IMPORT.findall(text):
                 if imported in APP_MODULES:
                     found.append(f'{relative} imports the app target {imported}')
+                elif imported in app_frameworks:
+                    found.append(f'{relative} imports {imported}, which stays in the app target: '
+                                 f'{app_frameworks[imported]}')
                 elif imported in order and imported not in declared and imported != module:
                     found.append(f'{relative} imports {imported} without declaring it as a dependency of {name}')
             if APP_HEADER.search(text):
@@ -250,28 +388,83 @@ def problems(package):
 
 
 failures = problems(root / 'Modules')
+if MAP_TEXT != render_map(MODULE_MAP):
+    failures.append('tests/module-map.json is not one entry per line with its keys sorted')
 for failure in failures:
     print('FAIL:', failure)
 
+
+def add_import(copy, imported):
+    source = next((copy / 'IsiXStorage' / 'Sources').glob('*.swift'))
+    source.write_text(source.read_text().replace('import Foundation\n', f'import Foundation\nimport {imported}\n', 1))
+
+
+def add_later_module(copy, depending_on_it=None):
+    (copy / 'IsiXLater' / 'Sources').mkdir(parents=True)
+    (copy / 'IsiXLater' / 'Sources' / 'Later.swift').write_text('public enum Later {}\n')
+    manifest = (copy / 'Package.swift').read_text()
+    if depending_on_it:
+        manifest = manifest.replace(f'.target(name: "{depending_on_it}", path:',
+                                    f'.target(name: "{depending_on_it}", dependencies: ["IsiXLater"], path:', 1)
+    manifest = manifest.replace('    ],\n    swiftLanguageModes',
+                                '        .target(name: "IsiXLater", path: "IsiXLater/Sources"),\n    ],\n    swiftLanguageModes', 1)
+    (copy / 'Package.swift').write_text(manifest)
+
+
+def add_dependency(copy, module, dependency):
+    manifest = (copy / 'Package.swift').read_text()
+    plain = f'.target(name: "{module}", path:'
+    listed = f'.target(name: "{module}", dependencies: ['
+    if plain in manifest:
+        manifest = manifest.replace(plain, f'.target(name: "{module}", dependencies: ["{dependency}"], path:', 1)
+    else:
+        manifest = manifest.replace(listed, f'{listed}"{dependency}", ', 1)
+    (copy / 'Package.swift').write_text(manifest)
+
+
+# Each mutation of a copy of the package, and the refusal it must meet.
+package_mutations = {
+    'import Horos': (lambda copy: add_import(copy, 'Horos'), 'imports the app target Horos'),
+    'dependency on a later module': (lambda copy: add_later_module(copy, 'IsiXStorage'), 'which is not listed before it'),
+    'a dependency the module map does not allow': (lambda copy: add_dependency(copy, 'IsiXDICOMNetwork', 'IsiXDatabase'),
+                                                   'IsiXDICOMNetwork depends on IsiXDatabase, which the module map does not allow'),
+    'a module the module map does not list': (add_later_module, 'IsiXLater is not in the module map'),
+    'a module that imports AppKit': (lambda copy: add_import(copy, 'AppKit'), 'imports AppKit, which stays in the app target'),
+}
 with tempfile.TemporaryDirectory(prefix='horos-module-rule-') as folder:
-    for mutation in ('import Horos', 'dependency on a later module'):
+    for mutation, (mutate, refusal) in package_mutations.items():
         copy = Path(folder) / mutation.replace(' ', '-')
         shutil.copytree(root / 'Modules', copy, ignore=shutil.ignore_patterns('.build', '.swiftpm'))
-        if mutation == 'import Horos':
-            source = next((copy / 'IsiXStorage' / 'Sources').glob('*.swift'))
-            source.write_text(source.read_text().replace('import Foundation\n', 'import Foundation\nimport Horos\n', 1))
-        else:
-            (copy / 'IsiXLater' / 'Sources').mkdir(parents=True)
-            (copy / 'IsiXLater' / 'Sources' / 'Later.swift').write_text('public enum Later {}\n')
-            manifest = (copy / 'Package.swift').read_text()
-            manifest = manifest.replace('.target(name: "IsiXStorage", path:',
-                                        '.target(name: "IsiXStorage", dependencies: ["IsiXLater"], path:', 1)
-            manifest = manifest.replace('    ],\n    swiftLanguageModes',
-                                        '        .target(name: "IsiXLater", path: "IsiXLater/Sources"),\n    ],\n    swiftLanguageModes', 1)
-            (copy / 'Package.swift').write_text(manifest)
-        if not problems(copy):
+        mutate(copy)
+        if not any(refusal in failure for failure in problems(copy)):
             failures.append(f'the rule accepts a mutation: {mutation}')
             print(f'FAIL: the rule accepts a mutation: {mutation}')
+
+ROOT_MODULES = package_modules(dump_package(root / 'Modules')[0])
+
+
+def mutated_map(change):
+    module_map = deepcopy(MODULE_MAP)
+    change(module_map)
+    return module_map
+
+
+# Each mutation of the map, and the refusal it must meet.
+map_mutations = {
+    'a module allowed to depend on one listed after it':
+        (lambda module_map: module_map['modules']['IsiXLogging']['may_depend_on'].append('IsiXCrashReporting'),
+         'IsiXLogging may depend on IsiXCrashReporting, which is not listed before it'),
+    'a consumer file that does not exist':
+        (lambda module_map: module_map['ports']['LocalStudyReading']['app_consumers'].append('Horos/Sources/MissingConsumer.swift'),
+         'Horos/Sources/MissingConsumer.swift does not exist'),
+    "a consuming module that may not depend on the port's module":
+        (lambda module_map: module_map['ports']['LocalStudyReading']['module_consumers'].append('IsiXROI'),
+         'its consumer IsiXROI may not depend on'),
+}
+for mutation, (change, refusal) in map_mutations.items():
+    if not any(refusal in failure for failure in map_problems(mutated_map(change), ROOT_MODULES)):
+        failures.append(f'the module map accepts a mutation: {mutation}')
+        print(f'FAIL: the module map accepts a mutation: {mutation}')
 
 boundary = boundary_problems(root) + sources_problems(root)
 for failure in boundary:
@@ -309,3 +502,7 @@ print(f'PASS: {len(REGISTRY["sources_pending"])} Objective-C, Objective-C++ and 
       'each listed; a new file in any of them is refused')
 print('PASS: every internal module is IsiX<Area> in its own folder, depends only on modules listed before it, '
       'and imports nothing of the app; importing Horos or depending on a later module is refused')
+print(f'PASS: the module map lists the {len(MODULE_MAP["modules"])} modules and '
+      f'{len(MODULE_MAP["planned_modules"])} planned, {len(MODULE_MAP["areas"])} areas and '
+      f'{len(MODULE_MAP["ports"])} ports with existing consumers; a dependency it does not allow, '
+      'an unlisted module and an AppKit import are refused')

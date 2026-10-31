@@ -64,18 +64,32 @@ if 'HorosLocalQueryReader.studyIndex(of: database)' not in compute:
 if 'independentContext' in compute or 'managedObjectContext' in compute:
     failures.append('the study index still picks a context by thread')
 count = method(query, 'nonisolated func localFileCount(forItem item: Any?) -> Int')
-if 'HorosLocalQueryReader.fileCount(ofStudy:' not in count:
-    failures.append('the local file count is not read through the private-queue reader')
-for signature in ('nonisolated func addStudyIfNotAvailable(', 'nonisolated func autoRetrieveThread(',
-                  'private nonisolated func autoRetrieve(',
-                  'func retrieve(_ sender: Any?, onlyIfNotAvailable: Bool, forViewing: Bool, items: [Any]!, showGUI: Bool)'):
+series_adapter = (root / 'Horos/Sources/LocalDatabaseStudyReader+Series.swift').read_text(encoding='utf-8')
+if 'localSeries.fileCount(ofStudy:' not in count or 'HorosLocalQueryReader.fileCount(ofStudyAt:' not in series_adapter:
+    failures.append('the local file count is not read through LocalSeriesReading and the private-queue reader')
+for signature in ('func retrieve(_ sender: Any?, onlyIfNotAvailable: Bool, forViewing: Bool, items: [Any]!, showGUI: Bool)',):
     body = method(query, signature)
     if not body:
         failures.append('%s is gone' % signature)
     elif 'independentContext' in body or 'rawNoFiles' in body:
         failures.append('%s still reads objects of a thread-chosen context' % signature)
-    elif 'autoRetrieve' not in signature and 'localFileCount(forItem:' not in body:
+    elif 'localFileCount(forItem:' not in body:
         failures.append('%s does not decide on the private-queue count' % signature)
+# The automatic retrieve decides in IsiXDICOMNetwork on what LocalStudyReading
+# reports, which the app reads through the reader.
+adapter = (root / 'Horos/Sources/LocalDatabaseStudyReader.swift').read_text(encoding='utf-8')
+ports = (root / 'Horos/Sources/QueryWindowAutoQueryPorts.swift').read_text(encoding='utf-8')
+if 'HorosLocalQueryReader.studySnapshots(ofStudyInstanceUIDs:' not in adapter:
+    failures.append('the automatic retrieve does not count the local files through the private-queue reader')
+# The process graph makes the reader, over the active local database.
+graph_source = (root / 'Horos/Sources/ProcessGraph.swift').read_text(encoding='utf-8')
+if 'localStudyReader(reading: .activeLocal)' not in query or 'LocalDatabaseStudyReader {' not in graph_source:
+    failures.append('the automatic query does not read what is here through LocalDatabaseStudyReader')
+if 'independentContext' in ports + adapter or 'rawNoFiles' in ports + adapter:
+    failures.append('the automatic retrieve still reads objects of a thread-chosen context')
+snapshots = method(read(sources['reader']), 'static func studySnapshots(')
+if 'database.performPrivateRead' not in snapshots:
+    failures.append('the study snapshots are not read on the private-queue context')
 if 'independentContext' in query:
     failures.append('QueryController still creates independent contexts')
 for signature in ('func wadoRetrieve(study: DCMTKQueryNode?, listing:', 'func refreshRetrieveInventory() -> Bool',
@@ -85,8 +99,14 @@ for signature in ('func wadoRetrieve(study: DCMTKQueryNode?, listing:', 'func re
         failures.append('DCMTKQueryNode %s is gone' % signature)
     elif 'independentContext' in body or 'executeFetchRequest' in body or '.fetch(' in body:
         failures.append('DCMTKQueryNode %s still fetches on a thread-chosen context' % signature)
-if node.count('HorosLocalQueryReader.sopInstanceUIDs(ofStudyInstanceUID:') < 2:
-    failures.append('DCMTKQueryNode does not read the local instances through the reader')
+# The node reads what is here through LocalSeriesReading: the inventory's
+# refresh, and the instances an IMAGE level retrieve leaves out.
+if 'inventory.refreshImported(from: Self.localSeries)' not in method(node, 'func refreshRetrieveInventory() -> Bool') \
+        or 'Self.localSeries.sopInstanceUIDs(ofStudyInstanceUID:' not in method(node, 'func localSOPInstanceUIDs(ofStudy') \
+        or 'HorosLocalQueryReader.seriesSnapshots(ofStudyInstanceUID:' not in series_adapter:
+    failures.append('DCMTKQueryNode does not read the local instances through LocalSeriesReading and the reader')
+if 'database.performPrivateRead' not in method(read(sources['reader']), 'static func seriesSnapshots('):
+    failures.append('the series snapshots are not read on the private-queue context')
 
 factory = method(read(sources['managed']), 'func privateQueueContext() -> N2ManagedObjectContext!')
 if 'queue: .privateQueue' not in factory:
@@ -97,6 +117,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import n2_database_harness as harness  # noqa: E402
 
 DRIVER = r'''
+import IsiXContracts
 let path = CommandLine.arguments[1]
 let database = TestDatabase(path: path)!
 let main = database.managedObjectContext!
@@ -122,10 +143,20 @@ func run(_ label: String) {
         emit(label + ".count.series", "\(try HorosLocalQueryReader.fileCount(ofStudy: firstID, seriesInstanceUID: "1.2.3.1", in: database))")
         emit(label + ".count.noseries", "\(try HorosLocalQueryReader.fileCount(ofStudy: firstID, seriesInstanceUID: "7", in: database))")
         emit(label + ".count.gone", "\(try HorosLocalQueryReader.fileCount(ofStudy: goneID, seriesInstanceUID: nil, in: database))")
-        emit(label + ".sop.study", "\(try HorosLocalQueryReader.sopInstanceUIDs(ofStudyInstanceUID: "1.2.3", seriesInstanceUID: nil, in: database).sorted())")
-        emit(label + ".sop.series", "\(try HorosLocalQueryReader.sopInstanceUIDs(ofStudyInstanceUID: "1.2.3", seriesInstanceUID: "1.2.3.0", in: database).sorted())")
-        emit(label + ".sop.emptyseries", "\(try HorosLocalQueryReader.sopInstanceUIDs(ofStudyInstanceUID: "1.2.3", seriesInstanceUID: "", in: database).count)")
-        emit(label + ".sop.none", "\(try HorosLocalQueryReader.sopInstanceUIDs(ofStudyInstanceUID: "4.5", seriesInstanceUID: nil, in: database).count)")
+        // What LocalSeriesReading answers, through the app's adapter.
+        let series = LocalDatabaseStudyReader { database }
+        emit(label + ".sop.study", "\(try series.sopInstanceUIDs(ofStudyInstanceUID: "1.2.3", seriesInstanceUID: nil).sorted())")
+        emit(label + ".sop.series", "\(try series.sopInstanceUIDs(ofStudyInstanceUID: "1.2.3", seriesInstanceUID: "1.2.3.0").sorted())")
+        emit(label + ".sop.emptyseries", "\(try series.sopInstanceUIDs(ofStudyInstanceUID: "1.2.3", seriesInstanceUID: "").count)")
+        emit(label + ".sop.none", "\(try series.sopInstanceUIDs(ofStudyInstanceUID: "4.5", seriesInstanceUID: nil).count)")
+        emit(label + ".port.count.study", "\(try series.fileCount(ofStudy: LocalRecordIdentifier(uri: firstID.uriRepresentation()), seriesInstanceUID: nil))")
+        emit(label + ".port.count.series", "\(try series.fileCount(ofStudy: LocalRecordIdentifier(uri: firstID.uriRepresentation()), seriesInstanceUID: "1.2.3.1"))")
+        emit(label + ".port.count.gone", "\(try series.fileCount(ofStudy: LocalRecordIdentifier(uri: goneID.uriRepresentation()), seriesInstanceUID: nil))")
+        // What LocalStudyReading answers: the studies here among those UIDs,
+        // with their files and the URI of their object ID.
+        let snapshots = try HorosLocalQueryReader.studySnapshots(ofStudyInstanceUIDs: ["1.2.3", "9.9", "4.5", ""], in: database)
+        emit(label + ".snapshots", snapshots.map { "\($0.studyInstanceUID)=\($0.fileCount)" }.joined(separator: ","))
+        emit(label + ".snapshot.record", snapshots.first?.identifier.uri == firstID.uriRepresentation() ? "yes" : "no")
     } catch {
         emit(label + ".error", "\(error)")
     }
@@ -183,13 +214,20 @@ for label in ('main', 'background'):
         label + '.sop.series': str(['1.2.3.0.%d' % i for i in range(3)]).replace("'", '"'),
         label + '.sop.emptyseries': '6',
         label + '.sop.none': '0',
+        label + '.port.count.study': '6',
+        label + '.port.count.series': '3',
+        label + '.port.count.gone': '0',
+        label + '.snapshots': '1.2.3=6',
+        label + '.snapshot.record': 'yes',
     })
 
 missing = [name for name, path in sources.items() if not path.exists()]
 if missing:
     failures.append('missing sources: %s' % ', '.join(missing))
 else:
-    binary, work, error = harness.build(DRIVER, ['Horos/Sources/HorosLocalQueryReader.swift'])
+    binary, work, error = harness.build(DRIVER, ['Horos/Sources/HorosLocalQueryReader.swift',
+                                                 'Horos/Sources/LocalDatabaseStudyReader.swift',
+                                                 'Horos/Sources/LocalDatabaseStudyReader+Series.swift'])
     try:
         if error:
             failures.append(error)
@@ -209,4 +247,4 @@ if failures:
     for failure in failures:
         print(' -', failure)
     sys.exit(1)
-print('ok: the study index, file counts and local instances are read on a private queue, from any thread')
+print('ok: the study index, file counts and local instances are read on a private queue, from any thread, and through LocalSeriesReading')

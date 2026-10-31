@@ -2,8 +2,8 @@
 """A study that was deleted does not come back, and a deletion that could not be
 recorded says so.
 
-`-[BrowserController proceedDeleteObjects:tree:]` (now Swift,
-BrowserController+Deletion.swift) ended with
+`-[BrowserController proceedDeleteObjects:tree:]` (now Swift, the deletion
+without questions of StudyDeletionJob.swift) ended with
 
     [database save];
 
@@ -24,9 +24,9 @@ sys.path.insert(0, str(root / 'tests'))
 from sources import source_text  # noqa: E402
 
 failures = []
-deletion = (root / 'Horos/Sources/BrowserController+Deletion.swift').read_text()
-# DicomDatabase (Clean) is Swift.
-clean = source_text('DicomDatabase+Clean')
+deletion = (root / 'Horos/Sources/StudyDeletionJob.swift').read_text()
+# The automatic cleanup is DatabaseCleanupService.
+clean = source_text('DatabaseCleanupService')
 
 
 def body(signature, source):
@@ -47,7 +47,7 @@ def body(signature, source):
 
 
 # --- the manual deletion has to look at whether it was recorded --------------
-proceed = body('func proceedDelete(_ objectsToDelete: [Any]!, tree treeObjs: NSSet!)', deletion)
+proceed = body('func proceedDelete(_ objectsToDelete: [Any]?, tree treeObjs: NSSet?)', deletion)
 if not proceed:
     failures.append('-proceedDeleteObjects:tree: is gone')
 else:

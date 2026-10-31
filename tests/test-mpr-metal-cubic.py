@@ -26,6 +26,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+import process_graph_stand_in  # the Metal sources read their development switches through PreferencesSource
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources as source_files
@@ -204,7 +205,7 @@ with tempfile.TemporaryDirectory(prefix='horos-mpr-cubic-') as folder:
     sources = ['VolumeAllocation.swift', 'VolumeSession.swift', 'MPRMetalReslicer.swift', 'MetalPerformanceTrace.swift',
                'MetalComputePipelineCache.swift', 'Metal4ComputeSubmitter.swift']
     built = subprocess.run(['xcrun', 'swiftc', '-O', '-parse-as-library', '-suppress-warnings',
-                            *[str(root / 'Horos/Sources' / name) for name in sources], str(work / 'Check.swift'),
+                            *[str(root / 'Horos/Sources' / name) for name in sources], *process_graph_stand_in.swift_flags(work / 'isix'), str(work / 'Check.swift'),
                             '-o', str(work / 'check')], capture_output=True, text=True)
     if built.returncode != 0:
         print('FAIL: the driver does not compile:\n' + built.stderr[-3000:])
@@ -334,8 +335,8 @@ if 'computefImageForDisplay' in source_files.class_text('ROI') or 'computefImage
     failures.append('a measurement or storage path reads the display plane')
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import default_preferences  # noqa: E402
-if 'UserDefaults.standard.bool(forKey: MPRCubicDisplayObserver.preferenceKey)' not in source('MPRController+MetalHost.swift') \
-        or 'static let preferenceKey = "HorosMPRCubicDisplay"' not in source('MPRController+MetalHost.swift') \
+if 'preferenceStore[ReconstructionPreferences.mprCubicDisplay]' not in source('MPRController+MetalHost.swift') \
+        or 'PreferenceKey<Bool>("HorosMPRCubicDisplay")' not in (root / 'Modules/IsiXPreferences/Sources/ReconstructionPreferences.swift').read_text() \
         or 'HorosMPRCubicDisplay' in default_preferences.registered():
     failures.append('the cubic display is not an unregistered preference, off unless set')
 for pane in ('Base', 'ja-JP'):

@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 import ObjectiveC
 
 /// Shows a ROI drawn in one 2D viewer on the other series propagated with it,
@@ -31,8 +32,7 @@ import ObjectiveC
 @objc(HorosROISeriesPropagation)
 public final class ROISeriesPropagation: NSObject {
 
-    @objc public static let defaultsKey = "PropagateROIsBetweenSeries"
-    private static let propagateKey = "COPYSETTINGS"
+    @objc public static let defaultsKey = ViewerPreferences.propagateROIsBetweenSeries.name
     private static let shared = ROISeriesPropagation()
     private static var copyMarker: UInt8 = 0
 
@@ -70,8 +70,8 @@ public final class ROISeriesPropagation: NSObject {
     }
 
     private var isOn: Bool {
-        let defaults = UserDefaults.standard
-        return defaults.bool(forKey: Self.defaultsKey) && defaults.bool(forKey: Self.propagateKey)
+        let preferences = PreferencesSource.process.preferences
+        return preferences[ViewerPreferences.propagateROIsBetweenSeries] && preferences[ViewerPreferences.copySettings]
     }
 
     private static func isCopy(_ roi: ROI) -> Bool {

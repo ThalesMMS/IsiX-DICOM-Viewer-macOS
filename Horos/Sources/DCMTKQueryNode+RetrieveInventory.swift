@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXContracts
 import IsiXDICOMNetwork
 import Synchronization
 
@@ -49,6 +50,22 @@ extension DCMTKQueryNode {
     /// without one tried the disk each time, under the lock the retrieve
     /// threads record with.
     private static let missGeneration = Atomic<UInt>(1)
+
+    /// The retrieve inventories of the process. The stores the listener
+    /// completes reach those that receive, and every change of a database
+    /// has them read what is here again on their next refresh.
+    static let retrieveInventories: RetrieveInventoryStore = {
+        let store = RetrieveInventoryStore()
+        store.observe(.default, storesCompleted: Notification.Name("HorosDICOMStoreCompleted"),
+                      databaseChanges: [.NSManagedObjectContextDidSave, .NSManagedObjectContextObjectsDidChange])
+        return store
+    }()
+
+    /// What a retrieve finds already here: the series of the active local
+    /// database, read on its private queue from any thread. A node of a query
+    /// tree is made by nibs and plugins, which the graph does not reach: it
+    /// takes the graph of the single entry, as its imports do.
+    static let localSeries: any LocalSeriesReading = DatabaseIngest.process.processGraph.localStudyReader(reading: .activeLocal)
 
     /// The inventory this retrieve began, without loading one.
     @objc func currentRetrieveInventory() -> RetrieveInventory? {
@@ -85,8 +102,8 @@ extension DCMTKQueryNode {
     @objc var retrieveInventory: RetrieveInventory? {
         if let inventory = currentRetrieveInventory() { return inventory }
         guard let study = inventoryStudyUID, !study.isEmpty else { return nil }
-        guard let loaded = RetrieveInventory.load(study: study, series: inventorySeriesUID, endpoint: inventoryEndpoint(),
-                                                  database: DicomDatabase.activeLocal()?.dataBaseDirPath ?? "") else { return nil }
+        guard let loaded = Self.retrieveInventories.load(study: study, series: inventorySeriesUID, endpoint: inventoryEndpoint(),
+                                                         database: DicomDatabase.activeLocal()?.dataBaseDirPath ?? "") else { return nil }
         // Another thread may have loaded or begun one while this one read the disk.
         return retrieveInventoryStorage.modify { current in
             if current == nil { current = loaded }
@@ -114,30 +131,23 @@ extension DCMTKQueryNode {
     @objc @discardableResult
     func refreshRetrieveInventory() -> Bool {
         guard let inventory = retrieveInventory, inventory.beginImportRefresh() else { return false }
-        let database = DicomDatabase.activeLocal()
-        var uids: [String]?
-        var failure: Error?
-        if let database, let study = inventoryStudyUID {
-            do { uids = try HorosLocalQueryReader.sopInstanceUIDs(ofStudyInstanceUID: study, seriesInstanceUID: inventorySeriesUID, in: database) }
-            catch { failure = error }
-        }
-        guard let uids else {
+        do {
+            return try inventory.refreshImported(from: Self.localSeries)
+        } catch {
             NSLog("---- retrieve inventory: the local instances of %@ could not be read: %@", inventoryStudyUID ?? "(null)",
-                  failure?.localizedDescription ?? "no local database")
+                  error.localizedDescription)
             inventory.invalidateImportRefresh()
             return false
         }
-        return inventory.updateImportedUIDs(uids)
     }
 
     /// The SOP Instance UIDs of a study already in the active local database,
     /// read on a private queue from any thread. A read that fails is logged and
     /// gives nothing, so the retrieve asks for every instance.
     func localSOPInstanceUIDs(ofStudy studyInstanceUID: String?, series seriesInstanceUID: String?) -> [String] {
-        guard let studyInstanceUID, !studyInstanceUID.isEmpty, let database = DicomDatabase.activeLocal() else { return [] }
+        guard let studyInstanceUID, !studyInstanceUID.isEmpty, DicomDatabase.activeLocal() != nil else { return [] }
         do {
-            return try HorosLocalQueryReader.sopInstanceUIDs(ofStudyInstanceUID: studyInstanceUID, seriesInstanceUID: seriesInstanceUID,
-                                                             in: database)
+            return try Self.localSeries.sopInstanceUIDs(ofStudyInstanceUID: studyInstanceUID, seriesInstanceUID: seriesInstanceUID)
         } catch {
             let failure = error as NSError
             if dontCatchExceptions, failure.domain == HorosObjCExceptionErrorDomain,
@@ -195,17 +205,17 @@ extension DCMTKQueryNode {
         // any other, such as a Siemens CT MR Volume, cannot arrive, and is an
         // expected absence from the start.
         let offered = cget ? Self.storageClassesOfferedByCGET : nil
-        var instances: [[String: String]] = []
+        var instances: [RetrieveListedInstance] = []
         for object in collector.children() ?? [] {
             guard let image = object as? DCMTKImageQueryNode, let uid = image.uid(), !uid.isEmpty,
                   let series = image.seriesInstanceUID(), !series.isEmpty else {
                 confirmed = false
                 continue
             }
-            var instance = ["uid": uid, "series": series]
+            var instance = RetrieveListedInstance(sopInstanceUID: uid, seriesInstanceUID: series)
             if let sopClass = image.sopClassUID(), !sopClass.isEmpty {
-                instance["sopClass"] = sopClass
-                if let offered, !offered.contains(sopClass) { instance["offered"] = "NO" }
+                instance.sopClassUID = sopClass
+                if let offered, !offered.contains(sopClass) { instance.offered = false }
             }
             instances.append(instance)
         }
@@ -217,10 +227,10 @@ extension DCMTKQueryNode {
         let seriesCounts: [String: NSNumber] = !inventorySeriesUID.isEmpty
             ? (numberImagesValue.map { [inventorySeriesUID: $0] } ?? [:])
             : collector.seriesInstanceCounts as? [String: NSNumber] ?? [:]
-        replaceRetrieveInventory(RetrieveInventory.begin(study: study, series: inventorySeriesUID, endpoint: inventoryEndpoint(),
-                                                         database: DicomDatabase.activeLocal()?.dataBaseDirPath ?? "",
-                                                         instances: instances, confirmed: confirmed && !Thread.current.isCancelled,
-                                                         reported: numberImagesValue?.intValue ?? 0, seriesReported: seriesCounts))
+        replaceRetrieveInventory(Self.retrieveInventories.begin(study: study, series: inventorySeriesUID, endpoint: inventoryEndpoint(),
+                                                                database: DicomDatabase.activeLocal()?.dataBaseDirPath ?? "",
+                                                                instances: instances, confirmed: confirmed && !Thread.current.isCancelled,
+                                                                reported: numberImagesValue?.intValue ?? 0, seriesReported: seriesCounts.mapValues { $0.intValue }))
         seriesNumbersStorage = NSMutableDictionary(dictionary: collector.seriesNumbers)
         seriesDescriptionsStorage = NSMutableDictionary(dictionary: collector.seriesDescriptions)
         // A forced retrieve asks again for what the peer said it cannot send.

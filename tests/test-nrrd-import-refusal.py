@@ -20,16 +20,16 @@ def require(condition, message):
         failures.append(message)
 
 
-# DicomDatabase is Swift: the incoming scan is DicomDatabase+IncomingImport.swift,
+# DicomDatabase is Swift: the incoming scan is IncomingAdmission.swift,
 # where each file is examined in a method that returns to go on to the next.
-database = (root / 'Horos/Sources/DicomDatabase+IncomingImport.swift').read_text()
+database = (root / 'Horos/Sources/IncomingAdmission.swift').read_text()
 refusal = database.find('if isDicomFile == false && DicomFile.isNRRDFile(srcPath) {')
 door = database.find('let takesFile = IncomingScanRules.takesFile(')
 require(refusal != -1 and door != -1 and refusal < door, 'NRRD is not refused before the door of the incoming folder')
 if refusal != -1 and door != -1:
     branch = database[refusal:database.index('return\n', refusal)]
     require('addImportRefusalSummary(' in branch, 'the refusal of an NRRD file is not reported')
-    require('availablePath(inDirectory: self.errorsDirPath(), name: lastPathComponent)' in branch and 'moveItem(srcPath, kept)' in branch,
+    require('availablePath(inDirectory: database.errorsDirPath(), name: lastPathComponent)' in branch and 'moveItem(srcPath, kept)' in branch,
             'a refused NRRD file is not kept in the folder of unreadable files')
     require('removeItem(' not in branch and 'DELETEFILELISTENER' not in branch.split('NSLog')[0].replace('whatever DELETEFILELISTENER says', ''),
             'a refused NRRD file can be deleted')

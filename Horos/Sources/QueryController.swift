@@ -39,8 +39,10 @@
 
 import AppKit
 import SecurityInterface
+import Synchronization
 import IsiXDICOMNetwork
 import IsiXDICOMFile
+import IsiXPreferences
 
 /// The window of DICOM Query/Retrieve, and of the automatic query.
 ///
@@ -53,24 +55,31 @@ import IsiXDICOMFile
 /// and what of it is here; +Retrieve the retrieves; +AutoQuery the automatic
 /// query and the refresh of the results.
 ///
-/// Queries and retrieves run on worker threads, as they did. What a worker
-/// needs of the window is copied on the main thread (`windowState`), and the
-/// state the workers share with the window is `nonisolated(unsafe)`, as the
-/// former instance variables were; `@synchronized` became objc_sync on the
-/// same objects.
+/// The window's state is the main actor's. Queries and retrieves run on
+/// worker threads, as they did: each receives what it needs of the window as
+/// values copied on the main thread (QueryWindowRun and QueryWindowState of
+/// IsiXDICOMNetwork), and what they genuinely share with the window (the query
+/// manager, the answers shown while a C-FIND runs, whether one runs) is in
+/// QueryWindowWorkerState, under its lock. `@synchronized` became objc_sync on
+/// the same objects.
 ///
-/// As before, a controller keeps itself alive: the one-second timer of the
-/// automatic refresh retains it, and +currentQueryController answers it.
+/// The automatic query, and the automatic refresh of the Query/Retrieve
+/// window, run in the AutoQueryScheduler actor of IsiXDICOMNetwork; the
+/// window only makes it, hands it the instances and shows what comes back.
+///
+/// As before, a controller keeps itself alive: the countdown of its scheduler
+/// keeps the scheduler's ports, which keep the window, as the one-second timer
+/// did, and +currentQueryController answers it.
 @objc(QueryController)
 public final class QueryController: NSWindowController, NSWindowDelegate, NSOutlineViewDelegate, NSMenuItemValidation,
-                                    NSSplitViewDelegate {
+                                    NSSplitViewDelegate, AutoQueryCountdownDisplay {
     /// The most automatic queries the window keeps.
-    nonisolated static let maximumInstances = 40
+    nonisolated static let maximumInstances = AutoQueryScheduler.maximumInstances
 
     // MARK: Outlets of Query.xib
 
     @IBOutlet @objc public var outlineView: QueryOutlineView!
-    @IBOutlet nonisolated(unsafe) var progressIndicator: NSProgressIndicator!
+    @IBOutlet var progressIndicator: NSProgressIndicator!
     @IBOutlet var searchFieldName: NSSearchField!
     @IBOutlet var searchFieldRefPhysician: NSSearchField!
     @IBOutlet var searchFieldID: NSSearchField!
@@ -110,54 +119,71 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
     // MARK: State
 
     /// The attributes of the DICOM dictionary, for the custom field's menu.
-    nonisolated(unsafe) var dicomFields: [CIADICOMField] = []
+    var dicomFields: [CIADICOMField] = []
     /// The DICOM nodes of the window, bound to the sources table.
-    @objc nonisolated(unsafe) public var sourcesArray = NSMutableArray()
-    /// The seconds before each automatic query is run again.
-    nonisolated(unsafe) var autoQueryRemainingSecs = [Int](repeating: 0, count: QueryController.maximumInstances)
-    @objc nonisolated(unsafe) public var DatabaseIsEdited = false
+    @objc public var sourcesArray = NSMutableArray()
+    @objc public var DatabaseIsEdited = false
     let pressedKeys = NSMutableString()
+    /// What the window does after a pause: forget the typed letters, read
+    /// what of the results is here, refresh once the database is quiet, open
+    /// a retrieved item once it has arrived.
+    let deferredCalls = DeferredCalls()
     /// The studies shown, in the order of the outline.
-    nonisolated(unsafe) var resultArray = NSMutableArray()
-    /// The key of the last field queried.
-    nonisolated(unsafe) var currentQueryKey: String?
-    nonisolated(unsafe) var queryArrayPrefs = "SavedQueryArray"
-    nonisolated(unsafe) var checkAndViewTry: Int32 = 0
-    nonisolated(unsafe) var queryTimer: Timer?
-    /// Reachable by KVC as queryManager, as the former instance variable was.
-    @objc nonisolated(unsafe) var queryManager: QueryArrayController?
-    nonisolated(unsafe) var autoQueryValue = false
+    var resultArray = NSMutableArray()
+    var queryArrayPrefs = NetworkPreferences.querySources.name
+    var checkAndViewTry: Int32 = 0
+    /// The query manager of the last query asked, kept for the threads that
+    /// run it. Reachable by KVC as queryManager, as the former instance
+    /// variable was.
+    @objc nonisolated var queryManager: QueryArrayController? {
+        get { workers.queryManager }
+        set { workers.queryManager = newValue }
+    }
+    var autoQueryValue = false
     /// Whether the window observes the preferences: only a controller that
     /// loaded its window adds the observers, and removing one that was never
     /// added raises.
     var observesPreferences = false
-    nonisolated(unsafe) var queryButtonPressed = false
-    nonisolated(unsafe) var performingCFind = false
+    var queryButtonPressed = false
     var designedMinimumSize = NSSize.zero
     @objc nonisolated public let autoQueryLock = NSRecursiveLock()
-    nonisolated(unsafe) var numberOfRunningRetrieve = 0
-    nonisolated(unsafe) var lastTemporaryCFindResultUpdate: TimeInterval = 0
-    nonisolated(unsafe) var temporaryCFindResultArray: NSMutableArray?
-    nonisolated(unsafe) var firstServerRealtimeResults = false
-    nonisolated(unsafe) var downloadedStudies: NSMutableArray?
-    /// The automatic queries, each a preset with its name and last results.
-    nonisolated(unsafe) var autoQRInstances: NSMutableArray?
-    nonisolated(unsafe) var currentAutoQRValue: Int32 = 0
-    /// The threads running a query of this window.
-    nonisolated(unsafe) var performingQueryThreads = NSMutableSet()
+    /// The retrieves of this window under way, which its automatic retrieve
+    /// counts before starting another.
+    nonisolated let retrieves = RetrieveMoveQueue()
+    /// What the window shares with the threads that query and retrieve for it.
+    nonisolated let workers = QueryWindowWorkerState()
+    /// The automatic queries, each a preset with its name; the scheduler
+    /// receives them after each change.
+    var autoQRInstances: [AutoQueryInstance] = [] {
+        didSet { autoQueryInstancesDidChange() }
+    }
+    /// The answers of each instance's last query, shown with it.
+    var autoQRAnswers: [UUID: [Any]] = [:]
+    /// When each automatic query runs; also the automatic refresh of the
+    /// Query/Retrieve window, whose filters are its one instance.
+    var autoQueryScheduler: AutoQueryScheduler?
+    /// The commands handed to the scheduler, run in the order they were given.
+    var autoQuerySchedulerCommands: Task<Void, Never>?
+    /// The instance of the Query/Retrieve window's automatic refresh.
+    let windowRefreshID = UUID()
+    /// What the whole process shares, handed over by the window's factory.
+    var processGraph: ProcessGraph! {
+        didSet { graphForWorkers.withLock { $0 = processGraph } }
+    }
+    /// The same graph, for the query and retrieve threads.
+    private nonisolated let graphForWorkers = Mutex<ProcessGraph?>(nil)
+    nonisolated var workerGraph: ProcessGraph? { graphForWorkers.withLock { $0 } }
+    var currentAutoQRValue: Int32 = 0
     /// The local side of the results, read off the main thread; repaints read
     /// only this. The generation drops a read that a newer one overtook.
-    nonisolated(unsafe) var localSnapshot: HorosLocalQuerySnapshot?
+    nonisolated var localSnapshot: HorosLocalQuerySnapshot? { workers.localSnapshot }
     var localSnapshotGeneration = 0
     /// What the workers read of the window, copied on the main thread.
-    nonisolated(unsafe) var windowState = QueryWindowState()
-    /// The study each series of a retrieve was listed under, for its WADO
-    /// retrieve at series level, kept for the worker that runs it.
-    nonisolated(unsafe) let studiesOfRetrievedSeries = NSMapTable<AnyObject, AnyObject>.weakToStrongObjects()
+    nonisolated var windowState: QueryWindowState { workers.windowState }
 
     // The current windows, kept by their own timer.
-    nonisolated(unsafe) private static weak var currentWindow: QueryController?
-    nonisolated(unsafe) private static weak var currentAutomaticWindow: QueryController?
+    private static weak var currentWindow: QueryController?
+    private static weak var currentAutomaticWindow: QueryController?
 
     // MARK: Making the window
 
@@ -173,14 +199,22 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
     /// The Query/Retrieve window (`autoQR` NO) or the automatic query's (YES).
     @objc(initAutoQuery:)
     public convenience init!(autoQuery autoQR: Bool) {
+        // The factory of the window: what follows, the nib included, uses the
+        // graph it hands over.
         self.init(windowNibName: "Query")
+        processGraph = ProcessGraph.process
+        // A property observer does not run when the class's own initializer
+        // sets the property, so the worker threads' copy is handed over here;
+        // without it every retrieve thread saw no database and did nothing.
+        graphForWorkers.withLock { $0 = processGraph }
 
-        if DICOMNodeService.nodes(sendOnly: false, queryRetrieveOnly: false).isEmpty && DICOMwebSources.queryRetrieveServers().isEmpty {
-            // On the next turn of the run loop, for the reason given below where
-            // the listener is warned about: this window is built during
+        if DICOMNodeService.dicomNodes(sendOnly: false, queryRetrieveOnly: false).isEmpty && DICOMwebSources.queryRetrieveServers().isEmpty {
+            // On the next turn of the main run loop, for the reasons given below
+            // where the listener is warned about: this window is built during
             // -applicationDidFinishLaunching:, and a modal panel raised from
-            // inside it stops the launch.
-            DispatchQueue.main.async {
+            // inside it stops the launch; raised from the main queue, it would
+            // stop that queue.
+            onMainRunLoop {
                 _ = HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM Query & Retrieve", comment: ""),
                                                 message: NSLocalizedString("No DICOM locations available. See Preferences to add DICOM locations.", comment: ""),
                                                 defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
@@ -196,11 +230,10 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
         center.addObserver(self, selector: #selector(observeActiveDatabaseChange(_:)),
                            name: .OsirixActiveLocalDatabaseDidChange, object: nil)
 
-        currentQueryKey = nil
         autoQueryValue = autoQR
-        queryArrayPrefs = autoQR ? "SavedQueryArrayAuto" : "SavedQueryArray"
+        queryArrayPrefs = (autoQR ? NetworkPreferences.autoQuerySources : NetworkPreferences.querySources).name
 
-        if let saved = UserDefaults.standard.object(forKey: queryArrayPrefs) as? NSArray {
+        if let saved = preferences.object(forKey: queryArrayPrefs) as? NSArray {
             sourcesArray = saved.mutableCopy() as? NSMutableArray ?? NSMutableArray()
         }
 
@@ -212,7 +245,7 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
         if !autoQR {
             window?.toolbar = nil
 
-            _ = dateFilterMatrix.selectCell(withTag: UserDefaults.standard.integer(forKey: "QRLastDateFilterValue"))
+            _ = dateFilterMatrix.selectCell(withTag: preferences[NetworkPreferences.queryLastDateFilter])
             setDateQuery(dateFilterMatrix)
 
             QueryController.currentWindow = self
@@ -221,8 +254,8 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
             // Only the nodes that retrieve with C-MOVE are affected; a WADO node
             // works with the listener off, and used to be warned about anyway.
             //
-            // The panel is raised on the next turn of the run loop rather than
-            // here. -applicationDidFinishLaunching: builds this window when the
+            // The panel is raised on the next turn of the main run loop rather
+            // than here. -applicationDidFinishLaunching: builds this window when the
             // Q&R window was open at quit, and a modal panel raised from inside
             // it stops the launch: sampling the main thread eleven seconds in
             // found it still at
@@ -230,10 +263,13 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
             //        -> HorosRunCriticalAlertPanel -> runModalForWindow:
             // with no window on screen to explain it. Deferring lets the launch
             // finish first, and the panel then appears over a running
-            // application.
-            if AppController.shared()?.isStoreSCPRunning() == false &&
-                RetrieveListenerRequirement.listenerRequired(forServers: UserDefaults.standard.object(forKey: "SERVERS") as? [[String: Any]]) {
-                DispatchQueue.main.async {
+            // application. The launch runs outside any turn of the run loop, so
+            // the panel waits for it to return. Not the main queue: a modal
+            // inside one of its blocks serves neither the queue nor what waits
+            // for it, and with nobody to answer the panel an import stops there.
+            if processGraph.appController?.isStoreSCPRunning() == false &&
+                RetrieveListenerRequirement.listenerRequired(forServers: preferences[NetworkPreferences.dicomNodes].flatMap { $0.map(\.object) as? [[String: Any]] }) {
+                onMainRunLoop {
                     _ = HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM Query & Retrieve", comment: ""),
                                                     message: NSLocalizedString("Retrieve from a node set to C-MOVE cannot work if the DICOM Listener is not activated. See Preferences - Listener. Nodes set to C-GET or WADO are not affected.", comment: ""),
                                                     defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
@@ -244,13 +280,13 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
                 // Declare the window as its own full-screen primary: the nib does
                 // not, so the Format - Fullscreen command used to do nothing here.
                 FullScreenWindowSupport.enablePrimaryFullScreen(window)
-                FullScreenWindowSupport.applyLevel(window, keepOnTop: UserDefaults.standard.bool(forKey: "KeepQRWindowOnTop"))
+                FullScreenWindowSupport.applyLevel(window, keepOnTop: preferences[NetworkPreferences.keepsQueryWindowOnTop])
             }
 
             let defaults = NSUserDefaultsController.shared
-            defaults.addObserver(self, forKeyPath: "values.KeepQRWindowOnTop", options: .initial, context: nil)
-            defaults.addObserver(self, forKeyPath: "values.SERVERS", options: .initial, context: nil)
-            defaults.addObserver(self, forKeyPath: "values.DICOMWEB_SERVERS", options: [], context: nil)
+            defaults.addObserver(self, forKeyPath: NetworkPreferences.controllerKeyPath(NetworkPreferences.keepsQueryWindowOnTop), options: .initial, context: nil)
+            defaults.addObserver(self, forKeyPath: NetworkPreferences.controllerKeyPath(NetworkPreferences.dicomNodes), options: .initial, context: nil)
+            defaults.addObserver(self, forKeyPath: NetworkPreferences.controllerKeyPath(NetworkPreferences.dicomwebNodes), options: [], context: nil)
             observesPreferences = true
         } else {
             if let content = window?.contentView {
@@ -263,27 +299,17 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
 
             willChangeValue(forKey: "instancesMenuList")
 
-            autoQRInstances = (UserDefaults.standard.object(forKey: "savedAutoDICOMQuerySettingsArray") as? NSArray)?.mutableCopy() as? NSMutableArray
-            if autoQRInstances == nil {
-                autoQRInstances = NSMutableArray()
-            }
-
-            // retro compatibility
-            if let d = (UserDefaults.standard.object(forKey: "savedAutoDICOMQuerySettings") as? NSDictionary)?.mutableCopy() as? NSMutableDictionary {
-                UserDefaults.standard.removeObject(forKey: "savedAutoDICOMQuerySettings")
-                d.setObject(NSLocalizedString("Default Instance", comment: ""), forKey: "instanceName" as NSString)
-                autoQRInstances?.add(d)
-                UserDefaults.standard.set(autoQRInstances, forKey: "savedAutoDICOMQuerySettingsArray")
-            }
+            // With the single instance of former versions moved into the list.
+            // Each instance starts counting from its own interval.
+            autoQRInstances = AutoQueryInstanceStore.load(from: NodePreferences(processGraph: processGraph),
+                                                          defaultName: NSLocalizedString("Default Instance", comment: ""))
+            // An initializer does not run the property's observers: the
+            // scheduler, made when the nib loaded, receives them here.
+            autoQueryInstancesDidChange()
 
             currentAutoQRValue = -1
             currentAutoQR = 0
 
-            let instances = autoQRInstances ?? NSMutableArray()
-            for i in 0..<min(instances.count, QueryController.maximumInstances) {
-                let refresh = Int(QueryController.int32((instances[i] as AnyObject).value(forKey: "autoRefreshQueryResults")))
-                autoQueryRemainingSecs[i] = refresh >= 0 ? 60 * refresh /* minutes */ : -refresh /* seconds */
-            }
             didChangeValue(forKey: "instancesMenuList")
         }
 
@@ -309,27 +335,25 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
     isolated deinit {
         let defaults = NSUserDefaultsController.shared
         if observesPreferences {
-            defaults.removeObserver(self, forKeyPath: "values.SERVERS")
-            defaults.removeObserver(self, forKeyPath: "values.DICOMWEB_SERVERS")
-            defaults.removeObserver(self, forKeyPath: "values.KeepQRWindowOnTop")
+            defaults.removeObserver(self, forKeyPath: NetworkPreferences.controllerKeyPath(NetworkPreferences.dicomNodes))
+            defaults.removeObserver(self, forKeyPath: NetworkPreferences.controllerKeyPath(NetworkPreferences.dicomwebNodes))
+            defaults.removeObserver(self, forKeyPath: NetworkPreferences.controllerKeyPath(NetworkPreferences.keepsQueryWindowOnTop))
         }
 
         NotificationCenter.default.removeObserver(self)
-        NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(readLocalSnapshot), object: nil)
-        localSnapshot = nil
+        deferredCalls.cancelAll()
+        workers.localSnapshot = nil
 
         NSLog("dealloc QueryController")
-
-        NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(executeRefresh(_:)), object: nil)
-        NSObject.cancelPreviousPerformRequests(withTarget: pressedKeys)
 
         autoQueryLock.lock()
         autoQueryLock.unlock()
 
-        UserDefaults.standard.set(sourcesArray, forKey: queryArrayPrefs)
+        preferences.set(sourcesArray, forKey: queryArrayPrefs)
         fromDate?.dateValue = QueryController.startOfToday()
-        queryTimer?.invalidate()
-        queryTimer = nil
+        if let scheduler = autoQueryScheduler {
+            Task { await scheduler.stop() }
+        }
 
         if autoQueryValue {
             if QueryController.currentAutomaticWindow === self { QueryController.currentAutomaticWindow = nil }
@@ -341,12 +365,12 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
     // MARK: The current windows
 
     @objc(currentQueryController)
-    public nonisolated class func current() -> QueryController? {
+    public class func current() -> QueryController? {
         return currentWindow
     }
 
     @objc(currentAutoQueryController)
-    public nonisolated class func currentAuto() -> QueryController? {
+    public class func currentAuto() -> QueryController? {
         return currentAutomaticWindow
     }
 
@@ -358,14 +382,20 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
     }
 
     /// The minutes (or, negative, the seconds) between automatic refreshes,
-    /// kept in the preferences. Bound in Query.xib.
-    @objc public nonisolated dynamic var autoRefreshQueryResults: Int {
+    /// kept in the preferences, within one day either way: a corrupted value
+    /// would not fit the countdown. Bound in Query.xib.
+    @objc public dynamic var autoRefreshQueryResults: Int {
         get {
-            UserDefaults.standard.integer(forKey: autoQueryValue ? "autoRefreshQueryResultsAutoQR" : "autoRefreshQueryResults")
+            QueryRefreshSetting.clamped(preferences[autoQueryValue ? NetworkPreferences.autoQueryRefreshSetting : NetworkPreferences.queryRefreshSetting])
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: autoQueryValue ? "autoRefreshQueryResultsAutoQR" : "autoRefreshQueryResults")
+            preferences.set(newValue, for: autoQueryValue ? NetworkPreferences.autoQueryRefreshSetting : NetworkPreferences.queryRefreshSetting)
         }
+    }
+
+    /// The preferences, as the process graph hands them to any thread.
+    nonisolated var preferences: UserDefaults {
+        workerGraph?.preferences ?? PreferencesSource.process.preferences
     }
 
     /// The automatic query shown. Setting it saves the one shown and shows the
@@ -397,7 +427,7 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
             refreshGroup.frame = frame
         }
 
-        PatientModeMatrix.selectTabViewItem(at: UserDefaults.standard.integer(forKey: autoQueryValue ? "AutoQRPatientModeMatrixIndex" : "QRPatientModeMatrixIndex"))
+        PatientModeMatrix.selectTabViewItem(at: preferences[autoQueryValue ? NetworkPreferences.autoQueryPatientModeIndex : NetworkPreferences.queryPatientModeIndex])
 
         for identifier in ["stateText", "serverStateText"] {
             let buttonCell = NSPopUpButtonCell(textCell: "", pullsDown: false)
@@ -427,7 +457,7 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
 
         refreshSources()
 
-        for i in 0..<sourcesArray.count where QueryController.bool((sourcesArray[i] as AnyObject).value(forKey: "activated")) {
+        for (i, source) in currentSources().enumerated() where source.activated {
             sourcesTable.selectRowIndexes(IndexSet(integer: i), byExtendingSelection: false)
             sourcesTable.scrollRowToVisible(i)
             break
@@ -499,9 +529,6 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
         menu.addItem(delete)
         outlineView.menu = menu
 
-        // set up Query Keys
-        currentQueryKey = QueryWindowField.patientName.key
-
         NotificationCenter.default.addObserver(self, selector: #selector(servicesDidChange(_:)), name: NSNotification.Name("DCMNetServicesDidChange"), object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(realtimeCFindResults(_:)), name: NSNotification.Name("realtimeCFindResults"), object: nil)
 
@@ -527,13 +554,13 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
 
     public func windowDidExitFullScreen(_ notification: Notification) {
         if let window {
-            FullScreenWindowSupport.applyLevel(window, keepOnTop: UserDefaults.standard.bool(forKey: "KeepQRWindowOnTop"))
+            FullScreenWindowSupport.applyLevel(window, keepOnTop: preferences[NetworkPreferences.keepsQueryWindowOnTop])
         }
     }
 
     public func windowDidBecomeKey(_ notification: Notification) {
         captureWindowState()
-        if performingCFind {
+        if workers.isPerformingCFind {
             return
         }
         outlineView.reloadData()
@@ -545,13 +572,13 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
         window?.acceptsMouseMovedEvents = false
 
         if autoQueryValue {
-            UserDefaults.standard.set(PatientModeMatrix.indexOfTabViewItem(PatientModeMatrix.selectedTabViewItem!), forKey: "AutoQRPatientModeMatrixIndex")
+            preferences.set(PatientModeMatrix.indexOfTabViewItem(PatientModeMatrix.selectedTabViewItem!), for: NetworkPreferences.autoQueryPatientModeIndex)
         } else {
-            UserDefaults.standard.set(dateFilterMatrix.selectedTag(), forKey: "QRLastDateFilterValue")
-            UserDefaults.standard.set(PatientModeMatrix.indexOfTabViewItem(PatientModeMatrix.selectedTabViewItem!), forKey: "QRPatientModeMatrixIndex")
+            preferences.set(dateFilterMatrix.selectedTag(), for: NetworkPreferences.queryLastDateFilter)
+            preferences.set(PatientModeMatrix.indexOfTabViewItem(PatientModeMatrix.selectedTabViewItem!), for: NetworkPreferences.queryPatientModeIndex)
         }
 
-        UserDefaults.standard.set(sourcesArray, forKey: queryArrayPrefs)
+        preferences.set(sourcesArray, forKey: queryArrayPrefs)
 
         saveSettings()
 
@@ -561,14 +588,41 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
 
     /// Copies what the workers read of the window; main thread.
     func captureWindowState() {
+        workers.windowState = currentWindowState()
+    }
+
+    /// What the workers read of the window, as it is now.
+    func currentWindowState() -> QueryWindowState {
         var state = QueryWindowState()
-        state.sortDescriptors = outlineView?.sortDescriptors ?? []
+        state.sortKeys = (outlineView?.sortDescriptors ?? []).map(QueryController.sortKey)
         state.visible = window?.isVisible ?? false
         state.sendToIndex = sendToPopup?.indexOfSelectedItem ?? 0
         state.selectedSourceRow = sourcesTable?.selectedRow ?? -1
         state.fromDate = fromDate?.dateValue ?? Date()
         state.toDate = toDate?.dateValue ?? Date()
-        windowState = state
+        state.sources = currentSources()
+        return state
+    }
+
+    /// The rows of the sources table, as values.
+    func currentSources() -> [QueryWindowSource] {
+        return sourcesArray.map { row in
+            let source = row as? [String: Any] ?? [:]
+            return QueryWindowSource(addressAndPort: source["AddressAndPort"] as? String, aeTitle: source["AETitle"] as? String,
+                                     activated: QueryController.bool(source["activated"]),
+                                     server: source["server"].flatMap { DICOMNode(propertyList: $0) })
+        }
+    }
+
+    /// A sort descriptor of the results list, by its parts.
+    nonisolated static func sortKey(_ descriptor: NSSortDescriptor) -> QueryWindowState.SortKey {
+        return QueryWindowState.SortKey(key: descriptor.key, ascending: descriptor.ascending,
+                                        selector: descriptor.selector.map(NSStringFromSelector))
+    }
+
+    /// The sort descriptor of `key`, made again on the thread that sorts.
+    nonisolated static func sortDescriptor(_ key: QueryWindowState.SortKey) -> NSSortDescriptor {
+        return NSSortDescriptor(key: key.key, ascending: key.ascending, selector: key.selector.map(NSSelectorFromString))
     }
 
     public override nonisolated func observeValue(forKeyPath keyPath: String?, of object: Any?,
@@ -579,10 +633,10 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
         let controller = self
         let keyPath = keyPath ?? ""
         onMainActor {
-            if keyPath == "values.KeepQRWindowOnTop", let window = controller.window {
-                FullScreenWindowSupport.applyLevel(window, keepOnTop: UserDefaults.standard.bool(forKey: "KeepQRWindowOnTop"))
+            if keyPath == NetworkPreferences.controllerKeyPath(NetworkPreferences.keepsQueryWindowOnTop), let window = controller.window {
+                FullScreenWindowSupport.applyLevel(window, keepOnTop: controller.preferences[NetworkPreferences.keepsQueryWindowOnTop])
             }
-            if keyPath == "values.SERVERS" || keyPath == "values.DICOMWEB_SERVERS" {
+            if keyPath == NetworkPreferences.controllerKeyPath(NetworkPreferences.dicomNodes) || keyPath == NetworkPreferences.controllerKeyPath(NetworkPreferences.dicomwebNodes) {
                 controller.refreshSources()
             }
         }
@@ -621,8 +675,8 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
 
             let resultFilter = resultArray.filtered(using: NSPredicate(format: "name BEGINSWITH[cd] %@", pressedKeys))
 
-            NSObject.cancelPreviousPerformRequests(withTarget: pressedKeys, selector: #selector(NSMutableString.setString(_:)), object: "")
-            pressedKeys.perform(#selector(NSMutableString.setString(_:)), with: "", afterDelay: 0.5)
+            deferredCalls.cancel("forgetPressedKeys")
+            deferredCalls.perform("forgetPressedKeys", after: 0.5) { [pressedKeys] in pressedKeys.setString("") }
 
             if let first = resultFilter.first {
                 outlineView.selectRowIndexes(IndexSet(integer: outlineView.row(forItem: first)), byExtendingSelection: false)
@@ -651,8 +705,8 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
     public func validateMenuItem(_ item: NSMenuItem) -> Bool {
         guard item.action == #selector(deleteSelection(_:)) else { return true }
 
-        BrowserController.currentBrowser()?.database = DicomDatabase.activeLocal()
-        BrowserController.currentBrowser()?.showEntireDatabase()
+        processGraph.currentBrowser?.database = DicomDatabase.activeLocal()
+        processGraph.currentBrowser?.showEntireDatabase()
 
         var valid = false
         for row in outlineView.selectedRowIndexes where (localStudy(outlineView.item(atRow: row), context: nil)?.count ?? 0) > 0 {
@@ -675,7 +729,7 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
             return
         }
 
-        guard let browser = BrowserController.currentBrowser() else { return }
+        guard let browser = processGraph.currentBrowser else { return }
         browser.database = DicomDatabase.activeLocal()
         browser.showEntireDatabase()
 
@@ -854,16 +908,4 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
         return String(format: "%@ %@", NumberFormatter.localizedString(from: NSNumber(value: count), number: .decimal),
                       count == 1 ? singular : plural)
     }
-}
-
-/// The values of the Query window a worker thread needs: copied on the main
-/// thread when the window changes them, before a worker starts, and every
-/// second by the refresh timer.
-struct QueryWindowState {
-    var sortDescriptors: [NSSortDescriptor] = []
-    var visible = false
-    var sendToIndex = 0
-    var selectedSourceRow = -1
-    var fromDate = Date()
-    var toDate = Date()
 }

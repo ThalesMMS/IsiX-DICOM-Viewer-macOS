@@ -39,6 +39,7 @@
 
 import Cocoa
 import IsiXDICOMFile
+import IsiXPreferences
 
 // WebPortalResponse, WebPortalProxy, WebPortalProxyObjectTransformer and its
 // subclasses, and NSMutableDictionary (WebPortalProxy) are implemented in Swift.
@@ -94,7 +95,7 @@ private func append(_ string: NSString?, to ret: NSMutableString) {
     if let string {
         ret.append(string as String)
     } else {
-        ret.perform(#selector(NSMutableString.append(_:)), with: nil)
+        NSException(name: .invalidArgumentException, reason: "*** -[NSMutableString appendString:]: nil argument", userInfo: nil).raise()
     }
 }
 
@@ -839,7 +840,7 @@ public final class InfoTransformer: WebPortalProxyObjectTransformer {
             return NSNumber(value: (user == nil || (user?.downloadZIP?.boolValue ?? false)) && !requestIsIOS)
         }
         if matches("proposeDelete") {
-            return NSNumber(value: UserDefaults.standard.bool(forKey: "webPortalAdminCanDeleteStudies") && (user?.isAdmin?.boolValue ?? false))
+            return NSNumber(value: PreferencesSource.process.preferences[WebPortalPreferences.adminCanDeleteStudies] && (user?.isAdmin?.boolValue ?? false))
         }
         if matches("federatedSources") {
             return BrowserController.federatedSourceCatalog() as NSArray?
@@ -1082,13 +1083,21 @@ public final class DicomStudyTransformer: WebPortalProxyObjectTransformer {
 
     /// Made once, not lazily by the first connection thread that needed it,
     /// where two threads could each make one.
-    // nonisolated(unsafe): every use synchronizes on the dictionary itself
-    // (objc_sync_enter/objc_sync_exit), as the former @synchronized did.
-    nonisolated(unsafe) private static let otherStudiesForThisPatientCache = NSMutableDictionary()
+    private static let otherStudiesForThisPatientCache = PatientStudiesCache()
+
+    /// The comparative studies of each patient, for a while.
+    ///
+    /// `@unchecked Sendable`: every use synchronizes on the dictionary itself
+    /// (objc_sync_enter/objc_sync_exit), as the former @synchronized did. That
+    /// lock is recursive, and must be: the fetch under it may post the change
+    /// of objects whose observer empties the cache on the same thread.
+    private final class PatientStudiesCache: @unchecked Sendable {
+        let studies = NSMutableDictionary()
+    }
     private static let CACHETIMEOUT: TimeInterval = -30
 
     @objc public class func clearOtherStudiesForThisPatientCache() {
-        let cache = otherStudiesForThisPatientCache
+        let cache = otherStudiesForThisPatientCache.studies
         objc_sync_enter(cache)
         cache.removeAllObjects()
         objc_sync_exit(cache)
@@ -1099,7 +1108,8 @@ public final class DicomStudyTransformer: WebPortalProxyObjectTransformer {
     }
 
     private static var pacsOnDemand: Bool {
-        UserDefaults.standard.bool(forKey: "searchForComparativeStudiesOnDICOMNodes") && UserDefaults.standard.bool(forKey: "ActivatePACSOnDemandForWebPortalOtherStudies")
+        let preferences = PreferencesSource.process.preferences
+        return preferences[NetworkPreferences.searchesComparativeStudiesOnDICOMNodes] && preferences[WebPortalPreferences.pacsOnDemandForOtherStudies]
     }
 
     @objc(valueForKey:object:context:)
@@ -1167,7 +1177,7 @@ public final class DicomStudyTransformer: WebPortalProxyObjectTransformer {
 
         // Cache system for comparative studies, if PACS On Demand is activated
         if DicomStudyTransformer.pacsOnDemand {
-            let cache = DicomStudyTransformer.otherStudiesForThisPatientCache
+            let cache = DicomStudyTransformer.otherStudiesForThisPatientCache.studies
             var failure: Error?
             objc_sync_enter(cache)
             do {
@@ -1210,12 +1220,13 @@ public final class DicomStudyTransformer: WebPortalProxyObjectTransformer {
 
                     // PACS On Demand
                     if DicomStudyTransformer.pacsOnDemand {
-                        let usePatientID = UserDefaults.standard.bool(forKey: "UsePatientIDForUID")
-                        let usePatientBirthDate = UserDefaults.standard.bool(forKey: "UsePatientBirthDateForUID")
-                        let usePatientName = UserDefaults.standard.bool(forKey: "UsePatientNameForUID")
+                        let preferences = PreferencesSource.process.preferences
+                        let usePatientID = preferences[DatabasePreferences.usePatientIDForUID]
+                        let usePatientBirthDate = preferences[DatabasePreferences.usePatientBirthDateForUID]
+                        let usePatientName = preferences[DatabasePreferences.usePatientNameForUID]
 
                         // Servers
-                        let servers = BrowserController.comparativeServers() as NSArray?
+                        let servers = PreferencesSource.process.processGraph.pacsOnDemand.nodes.comparativeServers() as NSArray?
 
                         if (servers?.count ?? 0) != 0 {
                             // Distant studies
@@ -1228,7 +1239,7 @@ public final class DicomStudyTransformer: WebPortalProxyObjectTransformer {
                                 let studyInstanceUIDs = otherStudies?.value(forKey: "studyInstanceUID") as? NSArray
                                 if !(studyInstanceUID.map { studyInstanceUIDs?.contains($0) == true } ?? false) && (distantStudy.noFiles()?.intValue ?? 0) > 0 {
                                     otherStudies?.add(distantStudyObject)
-                                } else if UserDefaults.standard.bool(forKey: "preferStudyWithMoreImages"), let otherStudies {
+                                } else if preferences[WebPortalPreferences.prefersStudyWithMoreImages], let otherStudies {
                                     let index = studyInstanceUID.map { (otherStudies.value(forKey: "studyInstanceUID") as! NSArray).index(of: $0) } ?? NSNotFound
 
                                     if index != NSNotFound
@@ -1250,7 +1261,7 @@ public final class DicomStudyTransformer: WebPortalProxyObjectTransformer {
         }
         // Cache system for comparative studies, if PACS On Demand is activated
         if DicomStudyTransformer.pacsOnDemand {
-            let cache = DicomStudyTransformer.otherStudiesForThisPatientCache
+            let cache = DicomStudyTransformer.otherStudiesForThisPatientCache.studies
             var failure: Error?
             objc_sync_enter(cache)
             do {
@@ -1397,6 +1408,6 @@ private func objcAdd(_ object: NSString?, to array: NSMutableArray) {
     if let object {
         array.add(object)
     } else {
-        array.perform(#selector(NSMutableArray.add(_:)), with: nil)
+        NSException(name: .invalidArgumentException, reason: "*** -[__NSArrayM insertObject:atIndex:]: object cannot be nil", userInfo: nil).raise()
     }
 }

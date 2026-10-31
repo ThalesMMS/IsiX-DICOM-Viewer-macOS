@@ -12,8 +12,9 @@ option off.
 
 The production -[DCMView planePointsOfROI:onImage:] and
 -joinFinishedContourToAdjacentObject (DCMView+ROIEditing.swift, with
-IsiXROI's ROIEditing) run here against stand-ins for DCMPix, ROI and MyPoint,
-with the real HorosROIObjectJoin and HorosROIName. The
+IsiXROI's ROIEditing and ROIEditingSession, the ROIs read as ViewROIEditing
+reads them, and ROIEventEmitter) run here against stand-ins for DCMPix, ROI and
+MyPoint, with the real HorosROIObjectJoin and HorosROIName. The
 production creation block of a click (DCMView+Mouse.swift) also runs, including
 naming and join eligibility. The defaults, the hooks in -mouseDown:/-mouseUp:,
 the ROI Manager's rename and the check box bound in every localization of the
@@ -22,6 +23,11 @@ Viewer pane are checked in the sources.
 from pathlib import Path
 import subprocess
 import tempfile
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import process_graph_stand_in  # noqa: E402  - the 2D viewer's sources read the catalog's keys through PreferencesSource
+import isix_modules  # noqa: E402
 import xml.etree.ElementTree as ET
 
 root = Path(__file__).resolve().parents[1]
@@ -38,6 +44,13 @@ def swift_method(selector):
 
 
 methods = swift_method('planePointsOfROI:onImage:') + swift_method('joinFinishedContourToAdjacentObject')
+
+# The ROIs as ViewROIEditing reads them, and ROIEventEmitter, without the main
+# actor of the view they serve.
+view_editing = (root / 'Horos/Sources/ViewROIEditing.swift').read_text()
+rois_reader = view_editing[view_editing.index('    static func rois('):]
+rois_reader = 'enum ViewROIEditing {\n' + rois_reader[:rois_reader.index('\n    }\n') + 7] + '}\n'
+emitter = (root / 'Horos/Sources/ROIEventEmitter.swift').read_text().replace('@MainActor\n', '')
 
 creation = mouse[mouse.index('                    var roiName: String? = ROI.defaultName()'):]
 creation = creation[:creation.index('                    // Shift is the lens')]
@@ -77,7 +90,15 @@ enum { ROI_sleep = 0, ROI_drawing = 1, ROI_selected = 2 };
 
 EXTENSION = r'''
 import Foundation
-extension NSNotification.Name { static let OsirixROIChange = NSNotification.Name("OsirixROIChangeNotification") }
+import IsiXPreferences
+extension NSNotification.Name {
+    static let OsirixROIChange = NSNotification.Name("OsirixROIChangeNotification")
+    static let OsirixROISelected = NSNotification.Name("OsirixROISelectedNotification")
+    static let OsirixRemoveROI = NSNotification.Name("OsirixRemoveROINotification")
+    static let OsirixROIRemovedFromArray = NSNotification.Name("OsirixROIRemovedFromArrayNotification")
+    static let OsirixAddROI = NSNotification.Name("OsirixAddROINotification")
+}
+READER
 extension DCMView {
 METHODS
     /// The naming and the join eligibility of a ROI a click creates, as -mouseDown: does.
@@ -86,7 +107,7 @@ CREATION
     }
 NAMING
 }
-'''.replace('METHODS', methods).replace('CREATION', creation).replace('NAMING', naming)
+'''.replace('READER', rois_reader).replace('METHODS', methods).replace('CREATION', creation).replace('NAMING', naming)
 
 code = r'''
 #import "Harness.h"
@@ -288,15 +309,18 @@ with tempfile.TemporaryDirectory(prefix='horos-roi-object-join-') as folder:
     p = Path(folder)
     (p / 'Harness.h').write_text(HEADER)
     (p / 'join.swift').write_text(EXTENSION)
+    (p / 'emitter.swift').write_text(emitter)
     (p / 'test.m').write_text(code)
     subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library', '-wmo', '-emit-object',
                     '-module-cache-path', str(p / 'modules'), '-module-name', 'Join', '-import-objc-header', str(p / 'Harness.h'),
-                    str(p / 'join.swift'), str(root / 'Horos/Sources/ROIObjectJoin.swift'), str(root / 'Horos/Sources/ROIName.swift'),
-                    str(root / 'Modules/IsiXROI/Sources/ROIEditing.swift'),
+                    str(p / 'join.swift'), str(p / 'emitter.swift'), str(root / 'Horos/Sources/ROIObjectJoin.swift'), str(root / 'Horos/Sources/ROIName.swift'),
+                    str(root / 'Modules/IsiXROI/Sources/ROIEditing.swift'), str(root / 'Modules/IsiXROI/Sources/ROIEditingSession.swift'),
+                    str(root / 'Modules/IsiXROI/Sources/ROISelection.swift'), *process_graph_stand_in.swift_flags(p / 'isix'),
                     '-emit-objc-header-path', str(p / 'Join-Swift.h'), '-o', str(p / 'join.o')], check=True)
     subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-fobjc-arc-exceptions', '-I', folder,
                     str(p / 'test.m'), '-o', str(p / 'test.o')], check=True)
-    subprocess.run(['xcrun', 'swiftc', str(p / 'join.o'), str(p / 'test.o'), '-framework', 'Cocoa', '-o', str(p / 'test')], check=True)
+    subprocess.run(['xcrun', 'swiftc', str(p / 'join.o'), str(p / 'test.o'), *isix_modules.module_flags('IsiXPreferences', p / 'isix'),
+                    '-framework', 'Cocoa', '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test')], check=True)
 
 # A numbered contour of a 2D viewer is remembered when it is created, and

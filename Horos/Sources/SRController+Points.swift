@@ -39,6 +39,7 @@
 
 import Cocoa
 import UniformTypeIdentifiers
+import IsiXPreferences
 
 /// ToolsMenuIconSize, a macro of ViewerController.h that Swift does not import.
 private let ToolsMenuIconSize = NSMakeSize(28.0, 28.0)
@@ -113,7 +114,7 @@ extension SRController {
         record2DPoint(roi, slice: viewer2DStorage?.imageView()?.curImage ?? 0, location)
     }
 
-    @objc func refresh3DPoints() {
+    func refresh3DPoints() {
         let roiList = (viewer2DStorage?.roiList() as? [NSArray]) ?? []
         // First remove all non-available points
         let roisToBeRemoved = roi2DPointsArray.filter { r in !roiList.contains { $0.contains(r) } }
@@ -258,7 +259,7 @@ extension SRController {
     }
 
     @IBAction func export2iPhoto(_ sender: Any?) {
-        let path = ((BrowserController.currentBrowser()?.database?.tempDirPath() ?? "") as NSString)
+        let path = ((browserWindowGraph?.database?.tempDirPath() ?? "") as NSString)
             .appendingPathComponent("IsiX DICOM Viewer.jpg")
         (jpegData() as NSData?)?.write(toFile: path, atomically: true)
 
@@ -276,7 +277,7 @@ extension SRController {
         panel.begin { result in
             guard result == .OK, let url = panel.url else { return }
             (self.jpegData() as NSData?)?.write(toFile: url.path, atomically: true)
-            if UserDefaults.standard.bool(forKey: "OPENVIEWER") {
+            if self.processGraph.preferences[ReconstructionPreferences.opensViewer] {
                 NSWorkspace.shared.open(url)
             }
         }
@@ -293,7 +294,7 @@ extension SRController {
         panel.begin { result in
             guard result == .OK, let url = panel.url else { return }
             (self.srView?.nsimage(false).tiffRepresentation as NSData?)?.write(toFile: url.path, atomically: false)
-            if UserDefaults.standard.bool(forKey: "OPENVIEWER") {
+            if self.processGraph.preferences[ReconstructionPreferences.opensViewer] {
                 NSWorkspace.shared.open(url)
             }
         }

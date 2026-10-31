@@ -43,6 +43,9 @@ import IsiXGeometry
 // The functions of N3BezierCoreAdditions.h, with their C names (@_cdecl
 // and @implementation: Swift checks each one against the header's declaration and
 // leaves it out of the generated header), over IsiXGeometry's BezierCore.
+// The ones the former plugin SDK published (tests/legacy-plugin-abi.json) are
+// @usableFromInline, so that a Release build, which has no testability,
+// exports them and dead stripping keeps them: see N3Geometry.swift.
 
 private func vectors(_ pointer: UnsafeMutablePointer<N3Vector>?, _ count: CFIndex) -> [Vector3] {
     (0..<max(count, 0)).map { pointer![$0].vector3 }
@@ -64,32 +67,32 @@ func N3BezierCoreCreateCurveWithNodes(_ nodes: N3VectorArray?, _ numVectors: CFI
     retainedHandle(BezierCore.curve(through: vectors(nodes, numVectors), style: style(nodeStyle)))
 }
 
-@_cdecl("N3BezierCoreCreateMutableCurveWithNodes") @implementation
+@_cdecl("N3BezierCoreCreateMutableCurveWithNodes") @implementation @usableFromInline
 func N3BezierCoreCreateMutableCurveWithNodes(_ nodes: N3VectorArray?, _ numVectors: CFIndex, _ nodeStyle: N3BezierNodeStyle) -> OpaquePointer? {
     retainedHandle(BezierCore.curve(through: vectors(nodes, numVectors), style: style(nodeStyle)))
 }
 
-@_cdecl("N3BezierCoreVectorAtStart") @implementation
+@_cdecl("N3BezierCoreVectorAtStart") @implementation @usableFromInline
 func N3BezierCoreVectorAtStart(_ handle: OpaquePointer?) -> N3Vector {
     N3Vector(bezierCore(handle).vectorAtStart)
 }
 
-@_cdecl("N3BezierCoreVectorAtEnd") @implementation
+@_cdecl("N3BezierCoreVectorAtEnd") @implementation @usableFromInline
 func N3BezierCoreVectorAtEnd(_ handle: OpaquePointer?) -> N3Vector {
     N3Vector(bezierCore(handle).vectorAtEnd)
 }
 
-@_cdecl("N3BezierCoreTangentAtStart") @implementation
+@_cdecl("N3BezierCoreTangentAtStart") @implementation @usableFromInline
 func N3BezierCoreTangentAtStart(_ handle: OpaquePointer?) -> N3Vector {
     N3Vector(bezierCore(handle).tangentAtStart)
 }
 
-@_cdecl("N3BezierCoreTangentAtEnd") @implementation
+@_cdecl("N3BezierCoreTangentAtEnd") @implementation @usableFromInline
 func N3BezierCoreTangentAtEnd(_ handle: OpaquePointer?) -> N3Vector {
     N3Vector(bezierCore(handle).tangentAtEnd)
 }
 
-@_cdecl("N3BezierCoreNormalAtEndWithInitialNormal") @implementation
+@_cdecl("N3BezierCoreNormalAtEndWithInitialNormal") @implementation @usableFromInline
 func N3BezierCoreNormalAtEndWithInitialNormal(_ handle: OpaquePointer?, _ initialNormal: N3Vector) -> N3Vector {
     N3Vector(bezierCore(handle).normalAtEnd(initialNormal: initialNormal.vector3))
 }
@@ -103,19 +106,19 @@ private func write(_ closest: BezierClosestPoint?, _ closestVector: UnsafeMutabl
     return closest.relativePosition
 }
 
-@_cdecl("N3BezierCoreRelativePositionClosestToVector") @implementation
+@_cdecl("N3BezierCoreRelativePositionClosestToVector") @implementation @usableFromInline
 func N3BezierCoreRelativePositionClosestToVector(_ handle: OpaquePointer?, _ vector: N3Vector, _ closestVector: UnsafeMutablePointer<N3Vector>?,
                                                  _ distance: UnsafeMutablePointer<CGFloat>?) -> CGFloat {
     write(bezierCore(handle).closestPoint(to: vector.vector3), closestVector, distance)
 }
 
-@_cdecl("N3BezierCoreRelativePositionClosestToLine") @implementation
+@_cdecl("N3BezierCoreRelativePositionClosestToLine") @implementation @usableFromInline
 func N3BezierCoreRelativePositionClosestToLine(_ handle: OpaquePointer?, _ line: N3Line, _ closestVector: UnsafeMutablePointer<N3Vector>?,
                                                _ distance: UnsafeMutablePointer<CGFloat>?) -> CGFloat {
     write(bezierCore(handle).closestPoint(to: line.line3), closestVector, distance)
 }
 
-@_cdecl("N3BezierCoreGetVectorInfo") @implementation
+@_cdecl("N3BezierCoreGetVectorInfo") @implementation @usableFromInline
 func N3BezierCoreGetVectorInfo(_ handle: OpaquePointer?, _ spacing: CGFloat, _ startingDistance: CGFloat, _ initialNormal: N3Vector,
                                _ vectors: UnsafeMutablePointer<N3Vector>?, _ tangents: UnsafeMutablePointer<N3Vector>?,
                                _ normals: UnsafeMutablePointer<N3Vector>?, _ numVectors: CFIndex) -> CFIndex {
@@ -127,7 +130,7 @@ func N3BezierCoreGetVectorInfo(_ handle: OpaquePointer?, _ spacing: CGFloat, _ s
     return samples.count
 }
 
-@_cdecl("N3BezierCoreGetProjectedVectorInfo") @implementation
+@_cdecl("N3BezierCoreGetProjectedVectorInfo") @implementation @usableFromInline
 func N3BezierCoreGetProjectedVectorInfo(_ handle: OpaquePointer?, _ spacing: CGFloat, _ startingDistance: CGFloat, _ projectionDirection: N3Vector,
                                         _ vectors: UnsafeMutablePointer<N3Vector>?, _ tangents: UnsafeMutablePointer<N3Vector>?,
                                         _ normals: UnsafeMutablePointer<N3Vector>?, _ relativePositions: UnsafeMutablePointer<CGFloat>?,
@@ -147,27 +150,27 @@ func N3BezierCoreGetProjectedVectorInfo(_ handle: OpaquePointer?, _ spacing: CGF
     return samples.count
 }
 
-@_cdecl("N3BezierCoreCreateOutline") @implementation
+@_cdecl("N3BezierCoreCreateOutline") @implementation @usableFromInline
 func N3BezierCoreCreateOutline(_ handle: OpaquePointer?, _ distance: CGFloat, _ spacing: CGFloat, _ initialNormal: N3Vector) -> OpaquePointer? {
     bezierCore(handle).outline(distance: distance, spacing: spacing, initialNormal: initialNormal.vector3).map(retainedHandle)
 }
 
-@_cdecl("N3BezierCoreCreateMutableOutline") @implementation
+@_cdecl("N3BezierCoreCreateMutableOutline") @implementation @usableFromInline
 func N3BezierCoreCreateMutableOutline(_ handle: OpaquePointer?, _ distance: CGFloat, _ spacing: CGFloat, _ initialNormal: N3Vector) -> OpaquePointer? {
     bezierCore(handle).outline(distance: distance, spacing: spacing, initialNormal: initialNormal.vector3).map(retainedHandle)
 }
 
-@_cdecl("N3BezierCoreCreateOutlineWithNormal") @implementation
+@_cdecl("N3BezierCoreCreateOutlineWithNormal") @implementation @usableFromInline
 func N3BezierCoreCreateOutlineWithNormal(_ handle: OpaquePointer?, _ distance: CGFloat, _ spacing: CGFloat, _ projectionNormal: N3Vector) -> OpaquePointer? {
     bezierCore(handle).outline(distance: distance, spacing: spacing, projectionNormal: projectionNormal.vector3).map(retainedHandle)
 }
 
-@_cdecl("N3BezierCoreCreateMutableOutlineWithNormal") @implementation
+@_cdecl("N3BezierCoreCreateMutableOutlineWithNormal") @implementation @usableFromInline
 func N3BezierCoreCreateMutableOutlineWithNormal(_ handle: OpaquePointer?, _ distance: CGFloat, _ spacing: CGFloat, _ projectionNormal: N3Vector) -> OpaquePointer? {
     bezierCore(handle).outline(distance: distance, spacing: spacing, projectionNormal: projectionNormal.vector3).map(retainedHandle)
 }
 
-@_cdecl("N3BezierCoreLengthToSegmentAtIndex") @implementation
+@_cdecl("N3BezierCoreLengthToSegmentAtIndex") @implementation @usableFromInline
 func N3BezierCoreLengthToSegmentAtIndex(_ handle: OpaquePointer?, _ index: CFIndex, _ flatness: CGFloat) -> CGFloat {
     bezierCore(handle).length(throughSegmentAt: index, flatness: flatness)
 }
@@ -181,12 +184,12 @@ func N3BezierCoreSegmentLengths(_ handle: OpaquePointer?, _ lengths: UnsafeMutab
     return segmentLengths.count
 }
 
-@_cdecl("N3BezierCoreCountIntersectionsWithPlane") @implementation
+@_cdecl("N3BezierCoreCountIntersectionsWithPlane") @implementation @usableFromInline
 func N3BezierCoreCountIntersectionsWithPlane(_ handle: OpaquePointer?, _ plane: N3Plane) -> CFIndex {
     bezierCore(handle).intersectionCount(with: plane.plane3)
 }
 
-@_cdecl("N3BezierCoreIntersectionsWithPlane") @implementation
+@_cdecl("N3BezierCoreIntersectionsWithPlane") @implementation @usableFromInline
 func N3BezierCoreIntersectionsWithPlane(_ handle: OpaquePointer?, _ plane: N3Plane, _ intersections: UnsafeMutablePointer<N3Vector>?,
                                         _ relativePositions: UnsafeMutablePointer<CGFloat>?, _ numVectors: CFIndex) -> CFIndex {
     let found = bezierCore(handle).intersections(with: plane.plane3, count: numVectors)
@@ -197,39 +200,39 @@ func N3BezierCoreIntersectionsWithPlane(_ handle: OpaquePointer?, _ plane: N3Pla
     return found.count
 }
 
-@_cdecl("N3BezierCoreCreateMutableCopyWithEndpointsAtPlaneIntersections") @implementation
+@_cdecl("N3BezierCoreCreateMutableCopyWithEndpointsAtPlaneIntersections") @implementation @usableFromInline
 func N3BezierCoreCreateMutableCopyWithEndpointsAtPlaneIntersections(_ handle: OpaquePointer?, _ plane: N3Plane) -> OpaquePointer? {
     retainedHandle(bezierCore(handle).addingEndpoints(atIntersectionsWith: plane.plane3))
 }
 
-@_cdecl("N3BezierCoreCreateCopyProjectedToPlane") @implementation
+@_cdecl("N3BezierCoreCreateCopyProjectedToPlane") @implementation @usableFromInline
 func N3BezierCoreCreateCopyProjectedToPlane(_ handle: OpaquePointer?, _ plane: N3Plane) -> OpaquePointer? {
     retainedHandle(bezierCore(handle).projected(onto: plane.plane3))
 }
 
-@_cdecl("N3BezierCoreCreateMutableCopyProjectedToPlane") @implementation
+@_cdecl("N3BezierCoreCreateMutableCopyProjectedToPlane") @implementation @usableFromInline
 func N3BezierCoreCreateMutableCopyProjectedToPlane(_ handle: OpaquePointer?, _ plane: N3Plane) -> OpaquePointer? {
     retainedHandle(bezierCore(handle).projected(onto: plane.plane3))
 }
 
-@_cdecl("N3BezierCoreLeastSquaresPlane") @implementation
+@_cdecl("N3BezierCoreLeastSquaresPlane") @implementation @usableFromInline
 func N3BezierCoreLeastSquaresPlane(_ handle: OpaquePointer?) -> N3Plane {
     N3Plane(bezierCore(handle).leastSquaresPlane)
 }
 
-@_cdecl("N3BezierCoreMeanDistanceToPlane") @implementation
+@_cdecl("N3BezierCoreMeanDistanceToPlane") @implementation @usableFromInline
 func N3BezierCoreMeanDistanceToPlane(_ handle: OpaquePointer?, _ plane: N3Plane) -> CGFloat {
     bezierCore(handle).meanDistance(to: plane.plane3)
 }
 
-@_cdecl("N3BezierCoreIsPlanar") @implementation
+@_cdecl("N3BezierCoreIsPlanar") @implementation @usableFromInline
 func N3BezierCoreIsPlanar(_ handle: OpaquePointer?, _ bezierCorePlane: UnsafeMutablePointer<N3Plane>?) -> Bool {
     guard let plane = bezierCore(handle).plane else { return false }
     bezierCorePlane?.pointee = N3Plane(plane)
     return true
 }
 
-@_cdecl("N3BezierCoreGetBoundingPlanesForNormal") @implementation
+@_cdecl("N3BezierCoreGetBoundingPlanesForNormal") @implementation @usableFromInline
 func N3BezierCoreGetBoundingPlanesForNormal(_ handle: OpaquePointer?, _ normal: N3Vector, _ topPlane: UnsafeMutablePointer<N3Plane>?,
                                             _ bottomPlane: UnsafeMutablePointer<N3Plane>?) -> Bool {
     let planes = bezierCore(handle).boundingPlanes(normal: normal.vector3)
@@ -238,18 +241,18 @@ func N3BezierCoreGetBoundingPlanesForNormal(_ handle: OpaquePointer?, _ normal: 
     return true
 }
 
-@_cdecl("N3BezierCoreCreateCopyByReversing") @implementation
+@_cdecl("N3BezierCoreCreateCopyByReversing") @implementation @usableFromInline
 func N3BezierCoreCreateCopyByReversing(_ handle: OpaquePointer?) -> OpaquePointer? {
     retainedHandle(bezierCore(handle).reversed())
 }
 
-@_cdecl("N3BezierCoreCreateMutableCopyByReversing") @implementation
+@_cdecl("N3BezierCoreCreateMutableCopyByReversing") @implementation @usableFromInline
 func N3BezierCoreCreateMutableCopyByReversing(_ handle: OpaquePointer?) -> OpaquePointer? {
     retainedHandle(bezierCore(handle).reversed())
 }
 
 /// A CFArray of N3BezierCoreRefs, which it retains.
-@_cdecl("N3BezierCoreCopySubpaths") @implementation
+@_cdecl("N3BezierCoreCopySubpaths") @implementation @usableFromInline
 func N3BezierCoreCopySubpaths(_ handle: OpaquePointer?) -> Unmanaged<CFArray>? {
     var callBacks = CFArrayCallBacks(
         version: 0,
@@ -266,17 +269,17 @@ func N3BezierCoreCopySubpaths(_ handle: OpaquePointer?) -> Unmanaged<CFArray>? {
     return Unmanaged.passRetained(subpaths)
 }
 
-@_cdecl("N3BezierCoreCreateCopyByClipping") @implementation
+@_cdecl("N3BezierCoreCreateCopyByClipping") @implementation @usableFromInline
 func N3BezierCoreCreateCopyByClipping(_ handle: OpaquePointer?, _ startRelativePosition: CGFloat, _ endRelativePosition: CGFloat) -> OpaquePointer? {
     retainedHandle(bezierCore(handle).clipped(from: startRelativePosition, to: endRelativePosition))
 }
 
-@_cdecl("N3BezierCoreCreateMutableCopyByClipping") @implementation
+@_cdecl("N3BezierCoreCreateMutableCopyByClipping") @implementation @usableFromInline
 func N3BezierCoreCreateMutableCopyByClipping(_ handle: OpaquePointer?, _ startRelativePosition: CGFloat, _ endRelativePosition: CGFloat) -> OpaquePointer? {
     retainedHandle(bezierCore(handle).clipped(from: startRelativePosition, to: endRelativePosition))
 }
 
-@_cdecl("N3BezierCoreSignedAreaUsingNormal") @implementation
+@_cdecl("N3BezierCoreSignedAreaUsingNormal") @implementation @usableFromInline
 func N3BezierCoreSignedAreaUsingNormal(_ handle: OpaquePointer?, _ normal: N3Vector) -> CGFloat {
     bezierCore(handle).signedArea(normal: normal.vector3)
 }

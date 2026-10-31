@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 
 /// Manages the placement of the viewers, mainly through the hanging protocols
 /// stored under HANGINGPROTOCOLS in the user defaults. It is a shared class.
@@ -284,7 +285,7 @@ public final class WindowLayoutManager: NSObject {
     /// The keys of HANGINGPROTOCOLS, in the dictionary's order; none when nothing
     /// is stored. Property-list dictionary keys are strings.
     private static func storedModalities() -> [String] {
-        guard let stored = UserDefaults.standard.object(forKey: "HANGINGPROTOCOLS") else {
+        guard let stored = storedHangingProtocols() else {
             return []
         }
         return unsafeBitCast(stored as AnyObject, to: NSDictionary.self).allKeys.map { $0 as! String }
@@ -293,10 +294,16 @@ public final class WindowLayoutManager: NSObject {
     /// `[[defaults objectForKey:@"HANGINGPROTOCOLS"] objectForKey:modality]`, read
     /// again from the defaults as the former code did.
     private static func storedProtocols(forModality modality: String) -> AnyObject? {
-        guard let stored = UserDefaults.standard.object(forKey: "HANGINGPROTOCOLS") else {
+        guard let stored = storedHangingProtocols() else {
             return nil
         }
         return objectForKey(modality, in: stored as AnyObject)
+    }
+
+    /// HANGINGPROTOCOLS as stored: its keys keep the dictionary's order, and a
+    /// value of another kind raises where the former messages raised.
+    private static func storedHangingProtocols() -> Any? {
+        PreferencesSource.process.preferences.object(forKey: ViewerPreferences.hangingProtocols.name)
     }
 
     private static func objectForKey(_ key: String, in dictionary: AnyObject) -> AnyObject? {

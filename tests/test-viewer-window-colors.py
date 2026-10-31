@@ -153,6 +153,24 @@ if '- (void) buildMatrixPreview: (BOOL) showSelected' in controller:
     framings = matrix.count('HorosSetThumbnailFrame(')
     popup = between(controller, '- (void) buildSeriesPopup', '- (void) loadSelectedSeries:')
     menu_framed = 'seriesWindowColors objectForKey: curSeries' in popup
+elif (root / 'Horos/Sources/SeriesListPresenter.swift').is_file():
+    # The list is built by SeriesListPresenter.swift, the menu by
+    # ViewerController+SeriesPopup.swift.
+    presenter = (root / 'Horos/Sources/SeriesListPresenter.swift').read_text()
+    matrix = presenter[presenter.index('// MARK: - Building the list'):]
+    # The Comparatives button keeps its own yellow; the cells are filled after it.
+    cells = matrix[matrix.index('private func fillCells('):]
+    framings = matrix.count('setFrame(')
+    menu = (root / 'Horos/Sources/ViewerController+SeriesPopup.swift').read_text()
+    if 'private func fill(_ menu: NSMenu?, from model: SeriesMenuModel' in menu:
+        # SeriesMenuPresenter: a series another window shows takes that
+        # window's colour in the menu.
+        popup = between(menu, 'private func fill(_ menu: NSMenu?, from model: SeriesMenuModel', 'private func newItem()')
+        menu_framed = ('case .windowColour:' in popup and 'horosSeriesWindowColors()?.object(forKey: curSeries)' in popup
+                       and 'hasWindowColour: seriesWindowColors?.object(forKey: series) is NSColor' in menu)
+    else:
+        popup = between(menu, 'func buildSeriesPopup()', 'func loadSelectedSeries(')
+        menu_framed = 'seriesWindowColors?.object(forKey: curSeries)' in popup
 else:
     # The list and the menu are Swift (ViewerController+SeriesThumbnails.swift,
     # +SeriesPopup.swift).
@@ -173,11 +191,11 @@ if '- (void)windowWillClose:(NSNotification *)notification' in controller:
     load = between(controller, '- (void)windowDidLoad', '\n}\n')
     released, taken = 'releaseViewer: self', 'colorForViewer: self'
 else:
-    # The window's life is Swift since ViewerController+WindowLifecycle.swift.
-    lifecycle = (root / 'Horos/Sources/ViewerController+WindowLifecycle.swift').read_text()
-    close = between(lifecycle, '    func windowWillClose(_ notification: Notification) {', '\n    }\n')
-    load = between(lifecycle, '    override func windowDidLoad() {', '\n    }\n')
-    released, taken = 'ViewerWindowColors.release(self)', 'ViewerWindowColors.color(for: self)'
+    # The window's life is Swift: the viewer's graph runs it (ViewerSessionGraph+WindowLife.swift).
+    lifecycle = (root / 'Horos/Sources/ViewerSessionGraph+WindowLife.swift').read_text()
+    close = between(lifecycle, '    func closeWindow() {', '\n    }\n')
+    load = between(lifecycle, '    func windowDidLoad() {', '\n    }\n')
+    released, taken = 'ViewerWindowColors.release(viewer)', 'ViewerWindowColors.color(for: viewer)'
 if released not in close:
     fail('a closing window keeps its colour')
 if taken not in load:

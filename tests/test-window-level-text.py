@@ -67,9 +67,8 @@ sources = {
     'Horos/Sources/Window3DController.m': [
         'endNameWLWW', 'SetWLWW', 'endSetWLWW', 'updateSetWLWW'],
 }
-# The 2D viewer's preset-naming sheet is Swift now (ViewerController+PresetMenus.swift),
+# The 2D viewer's preset-naming sheet is Swift now (ViewerWindowLevel.swift),
 # checked with the other Swift sheets below.
-presets_swift = root / 'Horos/Sources/ViewerController+PresetMenus.swift'
 if not re.search(r'^-\s*\(void\)\s*AddCurrentWLWW:', (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1'), re.M):
     del sources['Horos/Sources/ViewerController.m']
 # The 3D windows' sheets are Swift (Window3DController+WindowLevel.swift),
@@ -91,12 +90,16 @@ for path, methods in sources.items():
             assert rounded not in body, f'{path} {method} prints a window rounded ({rounded})'
         assert 'HorosWindowLevelText' in body, f'{path} {method} does not use the shared field text'
 
-# The 2D viewer's "Set WL/WW" sheet is Swift (ViewerController+WindowLevel.swift),
-# and so is its preset-naming sheet (ViewerController+PresetMenus.swift).
-swift_methods = [((root / 'Horos/Sources/ViewerController+WindowLevel.swift').read_text(), method)
-                 for method in ('SetWLWW', 'endSetWLWW', 'updateSetWLWW')]
+# The 2D viewer's "Set WL/WW" sheet and its preset-naming sheet are Swift, in
+# ViewerWindowLevel.swift, behind the viewer's selectors: each method is found
+# by its declaration there.
+VIEWER_WINDOW_LEVEL = {'SetWLWW': 'func openSetWindowSheet(', 'endSetWLWW': 'func endSetWindowSheet(',
+                       'updateSetWLWW': 'func updateSetWindowSheet(', 'AddCurrentWLWW': 'func openPresetNamingSheet(',
+                       'endNameWLWW': 'func endPresetNamingSheet('}
+viewer_window_level = (root / 'Horos/Sources/ViewerWindowLevel.swift').read_text()
+swift_methods = [(viewer_window_level, method) for method in ('SetWLWW', 'endSetWLWW', 'updateSetWLWW')]
 if 'Horos/Sources/ViewerController.m' not in sources:
-    swift_methods += [(presets_swift.read_text(), method) for method in ('AddCurrentWLWW', 'endNameWLWW')]
+    swift_methods += [(viewer_window_level, method) for method in ('AddCurrentWLWW', 'endNameWLWW')]
 if 'Horos/Sources/Window3DController.m' not in sources:
     swift_methods += [(window3d_swift.read_text(), method)
                       for method in ('endNameWLWW', 'SetWLWW', 'endSetWLWW', 'updateSetWLWW')]
@@ -104,7 +107,10 @@ if 'Horos/Sources/Window3DController.m' not in sources:
 # (MPR2DController.mm and VRControllerVPRO.mm had it too, and no target compiled them.)
 swift_methods.append(((root / 'Horos/Sources/VRController+ColourTables.swift').read_text(), 'AddCurrentWLWW'))
 for swift, method in swift_methods:
-    start = swift.index('    @objc(%s:)\n' % method)
+    if swift is viewer_window_level:
+        start = swift.index('    ' + VIEWER_WINDOW_LEVEL[method])
+    else:
+        start = swift.index('    @objc(%s:)\n' % method)
     body = swift[start:swift.index('\n    }\n', start)]
     assert 'intValue' not in body and 'Int(' not in body, f'ViewerController {method} reads a window as an integer'
     for rounded in ('%0.f', '%.0f', '%d'):
@@ -113,8 +119,10 @@ for swift, method in swift_methods:
 
 # The main menu's Set WL/WW manually opened the preset-naming sheet, so setting
 # a window without saving a preset was reachable only from the viewer's pop-up.
-# AppController is Swift; the menu item is read in its Swift spelling.
-menu = source_text('AppController')
+# The main menu is built in Swift by ApplicationMenus.swift (by AppController
+# before it); the menu item is read in its Swift spelling.
+application_menus = root / 'Horos/Sources/ApplicationMenus.swift'
+menu = application_menus.read_text(encoding='utf-8') if application_menus.exists() else source_text('AppController')
 item = menu.index('NSLocalizedString("Set WL/WW manually"')
 assert 'action: NSSelectorFromString("SetWLWW:")' in menu[item:item + 160], (
     'Set WL/WW manually must open the manual sheet, not the preset sheet')

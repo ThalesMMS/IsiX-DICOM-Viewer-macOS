@@ -39,9 +39,10 @@ def strip(text):
 
 
 # AppController is Swift: the tabbing policy is read in its Swift spelling.
-application = strip(source_text('AppController'))
-# databaseOpenStudy: is Swift.
+application = strip(class_text('AppController'))
+# databaseOpenStudy: is Swift: the browser hands it to its ViewerOpener.
 browser = strip(source_text('BrowserController+DatabaseDragExport'))
+opener = strip(source_text('ViewerOpener'))
 # The XML-RPC interface is Swift; the main-thread open is XMLRPCInterface+Opening.swift.
 rpc = strip(class_text('XMLRPCInterface'))
 
@@ -60,10 +61,12 @@ else:
 
 # --- opening a series makes a viewer rather than taking one ------------------
 at = browser.find('@objc(databaseOpenStudy:)\n    func databaseOpenStudy(_ item: NSManagedObject!)')
-opening = browser[at:at + 1400] if at >= 0 else ''
+facade = browser[at:at + 200] if at >= 0 else ''
+at = opener.find('func openStudy(_ item: NSManagedObject?) {')
+opening = opener[at:at + 1400] if at >= 0 and 'viewerOpener.openStudy(item)' in facade else ''
 if not opening:
     failures.append('databaseOpenStudy: is gone')
-elif not re.search(r'viewerDICOMInt\(\s*false\s*,\s*dcmFile:[^\n]*viewer:\s*nil\s*\)', opening):
+elif not re.search(r'open\([^\n]*,\s*movie:\s*false\s*,\s*viewer:\s*nil\s*\)', opening):
     failures.append('opening a series no longer asks for a new viewer, so the second series would '
                     'replace the first in the same window')
 
@@ -73,12 +76,13 @@ opener = rpc[at:at + 1200] if at >= 0 else ''
 if not opener:
     failures.append('the XML-RPC open entry point is gone')
 else:
-    closing = opener.find('closeAllWindows')
+    closing = opener.find('closeAllWindows()')
     if closing < 0:
         failures.append('the XML-RPC open path no longer offers to close the open viewers')
     else:
         guard = opener[:closing]
-        if 'CloseAllWindowsBeforeXMLRPCOpen' not in guard:
+        # The catalog's key of CloseAllWindowsBeforeXMLRPCOpen.
+        if 'NetworkPreferences.closeAllWindowsBeforeXMLRPCOpen' not in guard:
             failures.append('the XML-RPC open path closes every viewer without asking the '
                             'CloseAllWindowsBeforeXMLRPCOpen preference, so several series can no '
                             'longer be opened from a script')

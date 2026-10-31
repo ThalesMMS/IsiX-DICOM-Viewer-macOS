@@ -11,9 +11,10 @@ were invisible while the first copy was still there — and the routing timer
 drains that queue every ten seconds, after which the same images are queued again
 and sent again.
 
-The partition is Swift and is compiled and run here. The logging that names the
-trigger, the rule and the counts is checked in source. DicomDatabase (Routing) is
-Swift; the checks read it in Swift spelling.
+The partition is IsiXDICOMNetwork's (RoutingSchedule) and is compiled and run
+here. The logging that names the trigger, the rule and the counts is checked in
+source: the import (DicomDatabase), the browser's menu, the selection
+(RoutingSelection) and the queue (RoutingQueue).
 """
 from pathlib import Path
 import re
@@ -23,28 +24,31 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
+import isix_modules  # noqa: E402
+import sources as dicom_database_sources  # noqa: E402
 
 failures = []
-schedule = root / 'Horos/Sources/RoutingSchedule.swift'
-routing = source_text('DicomDatabase+Routing')
+MODULE = root / 'Modules/IsiXDICOMNetwork/Sources'
+routing = (root / 'Horos/Sources/DatabaseRouting.swift').read_text()
+selection = (MODULE / 'RoutingSelection.swift').read_text()
+queue_source = (MODULE / 'RoutingQueue.swift').read_text()
 # DicomDatabase is Swift (DicomDatabase.swift and its DicomDatabase+*.swift
 # extensions); the assertions read its Swift spelling.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import sources as dicom_database_sources  # noqa: E402
 database = dicom_database_sources.class_text('DicomDatabase')
-# The browser's manual routing is BrowserController+Autorouting.swift.
-browser = (root / 'Horos/Sources/BrowserController+Autorouting.swift').read_text()
+# The browser's manual routing (BrowserController+Autorouting.swift) is
+# SourceCopyJob's routing by hand.
+browser = (root / 'Horos/Sources/SourceCopyJob.swift').read_text()
 
 DRIVER = r'''
 import Foundation
 
 func emit(_ key: String, _ value: String) { print(key + "\t" + value) }
-func names(_ rules: [[String: Any]]) -> String {
-    return rules.map { $0["name"] as? String ?? "?" }.joined(separator: ",")
+func names(_ rules: [RoutingRule]) -> String {
+    return rules.map { $0.name ?? "?" }.joined(separator: ",")
 }
+func rule(_ entry: [String: Any]) -> RoutingRule { RoutingRule(propertyList: entry)! }
 
-let rules: [[String: Any]] = [
+let rules = RoutingRule.rules(fromPropertyList: [
     ["name": "plain"],                                        // no keys at all
     ["name": "off", "activated": false],
     ["name": "on", "activated": true, "scheduleType": 0],
@@ -56,17 +60,17 @@ let rules: [[String: Any]] = [
     // Something newer than this code knows about: run it rather than drop it.
     ["name": "unknown", "activated": true, "scheduleType": 9],
     ["name": "offString", "activated": "0"],
-]
+] as [Any])
 
 emit("immediate", names(RoutingSchedule.immediateRules(in: rules)))
 emit("scheduled", names(RoutingSchedule.scheduledRules(in: rules)))
 emit("counted", String(RoutingSchedule.immediateRules(in: rules).count
                        + RoutingSchedule.scheduledRules(in: rules).count))
-emit("activatedByDefault", RoutingSchedule.isActivated(["name": "plain"]) ? "yes" : "no")
-emit("activatedByString", RoutingSchedule.isActivated(["activated": "1"]) ? "yes" : "no")
-emit("deactivatedByString", RoutingSchedule.isActivated(["activated": "0"]) ? "yes" : "no")
-emit("typeMissing", String(RoutingSchedule.scheduleType(of: ["name": "plain"])))
-emit("typeNumber", String(RoutingSchedule.scheduleType(of: ["scheduleType": 2])))
+emit("activatedByDefault", rule(["name": "plain"]).isActivated ? "yes" : "no")
+emit("activatedByString", rule(["activated": "1"]).isActivated ? "yes" : "no")
+emit("deactivatedByString", rule(["activated": "0"]).isActivated ? "yes" : "no")
+emit("typeMissing", String(rule(["name": "plain"]).scheduleType))
+emit("typeNumber", String(rule(["scheduleType": 2]).scheduleType))
 '''
 
 # --- the partition, compiled and run -----------------------------------------
@@ -76,16 +80,12 @@ if swiftc.returncode != 0:
     failures.append('no swiftc here: %s' % (swiftc.stderr or '').strip())
 else:
     with tempfile.TemporaryDirectory(prefix='horos-schedule-') as directory:
-        # Top-level statements are only allowed in a file called main.swift.
-        (Path(directory) / 'main.swift').write_text(DRIVER)
-        binary = Path(directory) / 'schedule'
-        built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-o', str(binary),
-                                str(schedule), str(Path(directory) / 'main.swift')],
-                               capture_output=True, text=True)
-        if built.returncode != 0:
-            failures.append('the schedule does not compile:\n%s' % built.stderr[-1500:])
+        try:
+            binary = isix_modules.module_driver('IsiXDICOMNetwork', DRIVER, Path(directory) / 'schedule')
+        except subprocess.CalledProcessError as error:
+            failures.append('the schedule does not compile:\n%s' % (error.stderr or '')[-1500:])
         else:
-            run = subprocess.run([str(binary)], capture_output=True, text=True)
+            run = subprocess.run([str(binary)], capture_output=True, text=True, timeout=60)
             if run.returncode != 0:
                 failures.append('the schedule driver failed: %s' % run.stderr[-800:])
             for line in run.stdout.splitlines():
@@ -105,36 +105,45 @@ if results:
         if results.get(key) != value:
             failures.append('%s is %r, expected %r' % (key, results.get(key), value))
 
-# --- the loop that used to apply every rule once per rule --------------------
-at = routing.find('func applyRoutingRules(_ autoroutingRules: NSArray!, toImages')
-if at < 0:
-    failures.append('applyRoutingRules:toImages: is gone')
-else:
-    opening = routing.index('{', at)
-    depth, index, body = 0, opening, ''
-    while index < len(routing):
-        if routing[index] == '{':
+
+def body(text, signature):
+    """The braces of the declaration that starts with `signature`."""
+    at = text.find(signature)
+    if at < 0:
+        return None
+    opening = text.index('{', at)
+    depth, index = 0, opening
+    while index < len(text):
+        if text[index] == '{':
             depth += 1
-        elif routing[index] == '}':
+        elif text[index] == '}':
             depth -= 1
             if depth == 0:
-                body = routing[opening:index + 1]
-                break
+                return text[opening:index + 1]
         index += 1
-    applications = re.findall(r'__applyRoutingRules\(\s*(\w+)', body)
-    # A scheduled rule goes through scheduleRoutingRule, which applies
+    return None
+
+
+# --- the loop that used to apply every rule once per rule --------------------
+apply = body(routing, 'func apply(_ propertyLists: [Any]?, to images: [DicomImage], in database: DicomDatabase)')
+if apply is None:
+    failures.append('DatabaseRouting.apply(_:to:in:) is gone')
+else:
+    applications = re.findall(r'applyNow\(\s*(\w+)', apply)
+    # A scheduled rule goes through schedule(_:for:after:), which applies
     # that one rule, from its images' IDs, when its time comes.
-    applications += ['thisRule' for _ in re.findall(r'scheduleRoutingRule\(\s*thisRule\b', body)]
-    if 'autoroutingRules' in applications:
+    scheduling = re.findall(r'schedule\(\s*(\w+)\s*,', apply)
+    if 'rules' in applications or 'rules' in scheduling:
         failures.append('the whole rule list is applied again per rule')
-    if applications.count('thisRule') != 2:
-        failures.append('a scheduled rule does not apply only itself: %r' % applications)
-    if 'immediate' not in applications:
-        failures.append('the unscheduled rules are not applied together, once')
-    if 'RoutingSchedule.scheduledRules(in:' not in body:
-        failures.append('the scheduled rules are not partitioned by the schedule')
-    if 'RoutingSchedule.immediateRules(in:' not in body:
+    if scheduling != ['rule'] or not re.search(r'for rule in RoutingSchedule\.scheduledRules\(in:', apply):
+        failures.append('a scheduled rule does not apply only itself: %r' % scheduling)
+    if applications != ['immediate']:
+        failures.append('the unscheduled rules are not applied together, once: %r' % applications)
+    if 'RoutingSchedule.immediateRules(in:' not in apply:
         failures.append('the immediate rules are not partitioned by the schedule')
+scheduled = body(routing, 'private func schedule(_ rule: RoutingRule')
+if scheduled is None or 'self.applyNow([rule]' not in scheduled:
+    failures.append('a scheduled rule is not applied by itself when its time comes')
 
 # --- the log identifies the trigger ------------------------------------------
 if 'Autorouting trigger:' not in database:
@@ -143,14 +152,14 @@ if 're-read from disk' not in database:
     failures.append('an import does not distinguish a re-read from a new file')
 if browser.count('Autorouting trigger:') != 2:
     failures.append('applying a rule by hand does not say so')
-for expected, missing in (
-        ('Autorouting rule \\"%@\\" -> %@: %d of %d image(s) matched',
+for text, expected, missing in (
+        (selection, 'Autorouting rule \\"%@\\" -> %@: %d of %d image(s) matched',
          'the log does not say which rule matched which images'),
-        ('already queued for it, not queued again',
+        (queue_source, 'already queued for it, not queued again',
          'the log does not say when images were left out as already queued'),
-        ('list: rule \\"%@\\" -> %@, %d item(s)',
+        (queue_source, 'list: rule \\"%@\\" -> %@, %d item(s)',
          'the queue does not name the rule each list belongs to')):
-    if expected not in routing:
+    if expected not in text:
         failures.append(missing)
 
 for failure in failures:

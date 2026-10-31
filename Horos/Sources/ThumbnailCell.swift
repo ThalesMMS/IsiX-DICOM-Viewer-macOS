@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 
 fileprivate let FULLSIZEHEIGHT: Float = 120
 fileprivate let HALFSIZEHEIGHT: Float = 60
@@ -81,7 +82,7 @@ public final class ThumbnailCell: NSButtonCell {
     }
 
     @objc public class func thumbnailCellWidth() -> Float {
-        switch UserDefaults.standard.integer(forKey: "dbFontSize") {
+        switch PreferencesSource.process.preferences[ViewerPreferences.databaseFontSize] {
         case -1: return Float(SIZEWIDTH * 0.8)
         case 0: return Float(SIZEWIDTH)
         case 1: return Float(SIZEWIDTH * 1.3)
@@ -105,7 +106,7 @@ public final class ThumbnailCell: NSButtonCell {
         super.drawBezel(withFrame: frame, in: controlView)
 
         if !invertedSet {
-            invertedColors = objcBoolValue(UserDefaults.standard.persistentDomain(forName: "com.apple.CoreGraphics")?["DisplayUseInvertedPolarity"])
+            invertedColors = objcBoolValue(PreferencesSource.process.preferences.persistentDomain(forName: "com.apple.CoreGraphics")?["DisplayUseInvertedPolarity"])
         }
 
         if let backgroundColor = self.backgroundColor {
@@ -174,7 +175,7 @@ public final class ThumbnailCell: NSButtonCell {
             h = HALFSIZEHEIGHT
         }
 
-        switch UserDefaults.standard.integer(forKey: "dbFontSize") {
+        switch PreferencesSource.process.preferences[ViewerPreferences.databaseFontSize] {
         case -1: return NSMakeSize(CGFloat(ThumbnailCell.thumbnailCellWidth()), CGFloat(Double(h) * 0.8))
         case 0: return NSMakeSize(CGFloat(ThumbnailCell.thumbnailCellWidth()), CGFloat(h))
         case 1: return NSMakeSize(CGFloat(ThumbnailCell.thumbnailCellWidth()), CGFloat(Double(h) * 1.3))

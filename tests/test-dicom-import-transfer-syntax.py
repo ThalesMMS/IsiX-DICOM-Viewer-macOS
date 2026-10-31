@@ -173,12 +173,12 @@ with tempfile.TemporaryDirectory(prefix='horos-import-syntax-') as directory:
 # probe and the gates, whatever the listener's compression setting, and the
 # probe recognises one: a valid deflated file was moved aside as "not
 # DICOM" or, with DELETEFILELISTENER, deleted.
-database = (root/'Horos/Sources/DicomDatabase+IncomingImport.swift').read_text()
+database = (root/'Horos/Sources/IncomingAdmission.swift').read_text()
 rules = (root/'Modules/IsiXDatabase/Sources/DatabaseImportRules.swift').read_text()
 routed = database.find('} else if isDeflatedDICOM(srcPath) {')
 checked = database.find('let isDicomFile = DicomFile.isDICOMFile(srcPath, compressed:')
 assert 0 <= routed < checked, 'deflated files are not routed before the probe'
-assert 'self.queueForDecompression(deflatedPathArray)' in database, \
+assert 'conversion.convertScanned(deflatedPathArray, mode: .decompress)' in database, \
     'deflated files are not queued for decompression whatever the compression setting'
 # +isDICOMFile: was Objective-C++ in DicomFile.mm; it is Swift now
 # (DicomFile+Classification.swift), over the DCMTK adapter's probe
@@ -366,9 +366,9 @@ for path in ['Horos/Sources/Adapters/DCMTK/IsiXDCMTKCodecs.mm']:
         assert registration in source, f'{path} does not register {registration}'
 # Both consumers take their decision from it.
 viewer = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
-# +loadImageData: is Swift, in ViewerController+ImageLoading.swift, or in
-# ViewerController.m before.
-loading = root/'Horos/Sources/ViewerController+ImageLoading.swift'
+# The viewer's load decides between the in-order and the concurrent decode by
+# it: +loadImageData: in ViewerController.m before, SeriesImageLoader.swift now.
+loading = root/'Horos/Sources/SeriesImageLoader.swift'
 assert ('[DicomFile isDICOMFile: [firstPix srcFile] compressed: &compressed];' in viewer
         or (loading.is_file() and 'DicomFile.isDICOMFile(firstPix?.srcFile, compressed: &compressed)' in loading.read_text()))
 # The scan hands the probe's verdict to IsiXDatabase's rule, which decompresses

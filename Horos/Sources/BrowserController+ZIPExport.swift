@@ -40,45 +40,16 @@
 import AppKit
 import IsiXDatabase
 
-// ZIP archives of the exports, made with /usr/bin/zip: plain or encrypted
-// archives of files and folders, and the protected attachment of "Send by
-// e-mail".
+// The ZIP archives of the former SDK's names: plain or encrypted archives of
+// files and folders, and the protected attachment of "Send by e-mail", which
+// IsiXDatabase's ProtectedZipArchiver makes with /usr/bin/zip.
 
 extension BrowserController {
 
     /// The files, at the archive's root, in groups of a thousand.
     @objc(encryptFiles:inZIPFile:password:)
     nonisolated class func encryptFiles(_ srcFiles: [Any]!, inZIPFile destFile: String!, password: String!) {
-        if !AppController.hasMacOSXSnowLeopard() && Thread.isMainThread && ((password as NSString?)?.length ?? 0) > 0 {
-            MainActor.assumeIsolated { zipEncryptionUnsupportedAlert() }
-            return
-        }
-        if let destFile {
-            try? FileManager.default.removeItem(atPath: destFile)
-        }
-
-        nonisolated(unsafe) var wait: WaitRendering?
-        if Thread.isMainThread {
-            MainActor.assumeIsolated {
-                wait = WaitRendering(NSLocalizedString("Compressing the files...", comment: ""))
-                wait?.showWindow(self)
-            }
-        }
-        if let exception = BrowserObjC.attempt({
-            let files = (srcFiles ?? []).compactMap { $0 as? String }
-            for chunk in ZipCommand.chunks(count: files.count) {
-                let task = Process()
-                task.launchPath = "/usr/bin/zip"
-                task.arguments = ZipCommand.flatArguments(password: password, archive: destFile ?? "", files: Array(files[chunk]))
-                task.launch()
-                while task.isRunning { Thread.sleep(forTimeInterval: 0.01) }
-            }
-        }) {
-            BrowserObjC.log(exception, stack: true, "+[BrowserController encryptFiles:inZIPFile:password:]")
-        }
-        if wait != nil {
-            MainActor.assumeIsolated { wait?.close() }
-        }
+        DICOMFolderExport.archiveFlat((srcFiles ?? []).compactMap { $0 as? String }, to: destFile ?? "", password: password)
     }
 
     @objc(encryptFileOrFolder:inZIPFile:password:)
@@ -93,43 +64,22 @@ extension BrowserController {
 
     @objc(encryptFileOrFolder:inZIPFile:password:deleteSource:showGUI:)
     nonisolated class func encryptFileOrFolder(_ srcFolder: String!, inZIPFile destFile: String!, password: String!, deleteSource: Bool, showGUI: Bool) {
-        _ = BrowserController.encryptFileOrFolder(srcFolder, inZIPFile: destFile, password: password, deleteSource: deleteSource,
-                                                  showGUI: showGUI, error: nil)
+        try? BrowserController.zipFileOrFolder(srcFolder, inZIPFile: destFile, password: password, deleteSource: deleteSource,
+                                               showGUI: showGUI)
     }
 
-    /// ZIP encryption leaves entry names readable: the archive is wrapped in
-    /// a generic entry, Images.zip, so patient and study names are inside the
-    /// encrypted payload. A password is required.
+    /// The archive wrapped in a generic encrypted entry, Images.zip; a password is required.
     @objc(prepareProtectedEmailAttachment:destination:password:error:)
-    nonisolated class func prepareProtectedEmailAttachment(_ source: String!, destination: String!, password: String!,
-                                                           error: NSErrorPointer) -> Bool {
-        error?.pointee = nil
-        guard ((password as NSString?)?.length ?? 0) > 0 else {
-            error?.pointee = NSError(domain: NSCocoaErrorDomain, code: NSFileWriteUnknownError,
-                                     userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("A password is required for email attachments.", comment: "")])
-            return false
-        }
-        let files = FileManager.default
-        let temporary = (NSTemporaryDirectory() as NSString).appendingPathComponent("horos-email-" + UUID().uuidString)
-        defer { try? files.removeItem(atPath: temporary) }
-        do {
-            try files.createDirectory(atPath: temporary, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
-            let payload = (temporary as NSString).appendingPathComponent("Images.zip")
-            try files.copyItem(atPath: source, toPath: payload)
-            return BrowserController.encryptFileOrFolder(payload, inZIPFile: destination, password: password, deleteSource: false,
-                                                         showGUI: false, error: error)
-        } catch let failure {
-            error?.pointee = failure as NSError
-            return false
-        }
+    nonisolated class func prepareProtectedEmailAttachment(_ source: String!, destination: String!, password: String!) throws {
+        try ProtectedZipArchiver().protectedAttachment(from: source ?? "", to: destination ?? "", password: password)
     }
 
     @objc(encryptFileOrFolder:inZIPFile:password:deleteSource:showGUI:error:)
-    nonisolated class func encryptFileOrFolder(_ srcFolder: String!, inZIPFile destFile: String!, password: String!, deleteSource: Bool,
-                                               showGUI: Bool, error: NSErrorPointer) -> Bool {
+    nonisolated class func zipFileOrFolder(_ srcFolder: String!, inZIPFile destFile: String!, password: String!, deleteSource: Bool,
+                                           showGUI: Bool) throws {
         let items: [Any] = ((srcFolder as NSString?)?.length ?? 0) > 0 ? [srcFolder!] : []
-        return BrowserController.encryptFilesOrFolders(items, inZIPFile: destFile, password: password, deleteSource: deleteSource,
-                                                       showGUI: showGUI, error: error)
+        try BrowserController.encryptFilesOrFolders(items, inZIPFile: destFile, password: password, deleteSource: deleteSource,
+                                                    showGUI: showGUI)
     }
 
     /// The items, which must share one folder, each under its own name; the
@@ -137,79 +87,8 @@ extension BrowserController {
     /// removed if asked.
     @objc(encryptFilesOrFolders:inZIPFile:password:deleteSource:showGUI:error:)
     nonisolated class func encryptFilesOrFolders(_ srcItems: [Any]!, inZIPFile destFile: String!, password: String!, deleteSource: Bool,
-                                                 showGUI: Bool, error: NSErrorPointer) -> Bool {
-        error?.pointee = nil
-        let items = (srcItems ?? []).compactMap { $0 as? String }
-        guard let srcFolder = items.first, (srcFolder as NSString).length > 0, let destFile, (destFile as NSString).length > 0 else {
-            error?.pointee = NSError(domain: NSCocoaErrorDomain, code: NSFileWriteInvalidFileNameError,
-                                     userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("A source and destination are required for ZIP export.", comment: "")])
-            return false
-        }
-        if !AppController.hasMacOSXSnowLeopard() && Thread.isMainThread && ((password as NSString?)?.length ?? 0) > 0 {
-            MainActor.assumeIsolated { zipEncryptionUnsupportedAlert() }
-            error?.pointee = NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError, userInfo: nil)
-            return false
-        }
-
-        var succeeded = false
-        var archiveFailed = false
-        BrowserObjC.synchronized(destFile as NSString) {
-            let archive: ExportArchive
-            do {
-                archive = try ExportArchive(destinationPath: destFile)
-            } catch let failure {
-                error?.pointee = failure as NSError
-                archiveFailed = true
-                return
-            }
-            nonisolated(unsafe) var wait: WaitRendering?
-            if Thread.isMainThread && showGUI {
-                MainActor.assumeIsolated {
-                    wait = WaitRendering(NSLocalizedString("Compressing the files...", comment: ""))
-                    wait?.showWindow(self)
-                }
-            }
-            Thread.current.status = NSLocalizedString("Compressing the files...", comment: "")
-
-            if let exception = BrowserObjC.attempt({
-                guard let names = ZipCommand.entryNames(items, exists: { FileManager.default.fileExists(atPath: $0) }), !names.isEmpty else { return }
-                let task = Process()
-                task.launchPath = "/usr/bin/zip"
-                task.currentDirectoryPath = (srcFolder as NSString).deletingLastPathComponent
-                task.arguments = ZipCommand.recursiveArguments(password: password, archive: archive.archivePath, names: names)
-                task.launch()
-                while task.isRunning { Thread.sleep(forTimeInterval: 0.1) }
-                if task.terminationStatus == 0 {
-                    do {
-                        try archive.commit()
-                        succeeded = true
-                    } catch let failure {
-                        error?.pointee = failure as NSError
-                    }
-                }
-                if succeeded && deleteSource {
-                    for item in items { try? FileManager.default.removeItem(atPath: item) }
-                }
-            }) {
-                BrowserObjC.log(exception, stack: true, "+[BrowserController encryptFilesOrFolders:inZIPFile:password:deleteSource:showGUI:error:]")
-            }
-            if wait != nil {
-                MainActor.assumeIsolated { wait?.close() }
-            }
-        }
-        if archiveFailed { return false }
-        if !succeeded, let error, error.pointee == nil {
-            error.pointee = NSError(domain: NSCocoaErrorDomain, code: NSFileWriteUnknownError,
-                                    userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("ZIP export could not be completed. The uncompressed source files were kept.", comment: ""),
-                                               NSFilePathErrorKey: destFile])
-        }
-        return succeeded
-    }
-
-    /// Before MacOS 10.6 zip could not encrypt: the archive is not made.
-    @MainActor private static func zipEncryptionUnsupportedAlert() {
-        _ = HorosAlertPanel.runCritical(title: NSLocalizedString("ZIP Encryption", comment: ""),
-                                        message: NSLocalizedString("ZIP encryption requires MacOS 10.6 or higher. The ZIP file will be generated, but NOT encrypted with a password.", comment: ""),
-                                        defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                                                 showGUI: Bool) throws {
+        try DICOMFolderExport.archive((srcItems ?? []).compactMap { $0 as? String }, to: destFile ?? "", password: password,
+                                      deletingSources: deleteSource, showGUI: showGUI)
     }
 }

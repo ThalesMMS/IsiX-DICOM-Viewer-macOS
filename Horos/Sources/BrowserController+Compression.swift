@@ -38,157 +38,34 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
-import IsiXDatabase
+import IsiXContracts
+import IsiXPreferences
 
-// Compressing and decompressing the files of the database, the compression
-// the preferences give a modality (IsiXDatabase's CompressionChoice), and the
-// former entry points of the incoming folder.
-
-/// The JPEG threads running, against the number of processors.
-private nonisolated(unsafe) var numberOfThreadsForJPEG: Int32 = 0
+// Compressing and decompressing the files of the browser's selection, and the
+// compression the preferences give a modality: ArchiveImport (ArchiveImport.swift),
+// over the database's file conversion. The selectors stay here as forwarding
+// methods.
 
 extension BrowserController {
 
-    /// Takes a processor for a JPEG thread when one is free; true when none
-    /// was.
-    @objc(waitForAProcessor)
-    func waitForAProcessor() -> Bool {
-        let processors = max(Int32(ProcessInfo.processInfo.processorCount), 1)
-        horos_processorsLock?.lock(whenCondition: 1)
-        let result = numberOfThreadsForJPEG >= processors
-        if !result {
-            numberOfThreadsForJPEG += 1
-            horos_processorsLock?.unlock(withCondition: numberOfThreadsForJPEG >= processors ? 0 : 1)
-        } else {
-            NSLog("waitForAProcessor ?? We should not be here...")
-            horos_processorsLock?.unlock(withCondition: 0)
-        }
-        return result
-    }
-
     /// The compression of the Compression preferences for the modality, and
-    /// its quality. The Decompress service chooses through the same
-    /// CompressionChoice, with the settings the application sends it.
+    /// its quality.
     @objc(compressionForModality:quality:resolution:)
     nonisolated class func compression(forModality mod: String!, quality: UnsafeMutablePointer<Int32>!, resolution: Int32) -> Int32 {
-        let defaults = UserDefaults.standard
-        let choice = CompressionChoice.choice(forModality: mod, resolution: Int(resolution),
-                                              resolutionLimit: defaults.integer(forKey: "CompressionResolutionLimit"),
-                                              settings: defaults.array(forKey: "CompressionSettings"),
-                                              lowResolutionSettings: defaults.array(forKey: "CompressionSettingsLowRes"))
-        if let quality, let chosen = choice.quality {
-            quality.pointee = chosen
-        }
-        return Int32(truncatingIfNeeded: choice.compression)
+        return ArchiveImport.compression(forModality: mod, quality: quality, resolution: resolution, preferences: PreferencesSource.process.preferences)
     }
 
     #if !OSIRIX_LIGHT
 
-    @available(*, deprecated)
-    @objc(decompressDICOMJPEGinINCOMING:)
-    func decompressDICOMJPEGinINCOMING(_ array: [Any]!) {
-        _ = database?.decompressFiles(atPaths: array, intoDirAtPath: database?.incomingDirPath())
-    }
-
-    @available(*, deprecated)
-    @objc(decompressDICOMJPEG:)
-    func decompressDICOMJPEG(_ array: [Any]!) {
-        _ = database?.decompressFiles(atPaths: array, intoDirAtPath: nil)
-    }
-
-    @available(*, deprecated)
-    @objc(compressDICOMJPEGinINCOMING:)
-    func compressDICOMJPEGinINCOMING(_ array: [Any]!) {
-        _ = database?.compressFiles(atPaths: array, intoDirAtPath: database?.incomingDirPath())
-    }
-
-    @available(*, deprecated)
-    @objc(compressDICOMJPEG:)
-    func compressDICOMJPEG(_ array: [Any]!) {
-        _ = database?.compressFiles(atPaths: array)
-    }
-
-    /// 'C' compresses in place, 'X' into the import folder, 'D' and 'I' the
-    /// same for decompressing.
-    @available(*, deprecated)
-    @objc(decompressArrayOfFiles:work:)
-    func decompressArrayOfFiles(_ array: [Any]!, work: NSNumber!) {
-        guard let database else { return }
-        switch UInt8(bitPattern: work?.int8Value ?? 0) {
-        case UInt8(ascii: "C"): database.processFiles(atPaths: array, intoDirAtPath: nil, mode: Int32(Compress))
-        case UInt8(ascii: "X"): database.processFiles(atPaths: array, intoDirAtPath: database.incomingDirPath(), mode: Int32(Compress))
-        case UInt8(ascii: "D"): database.processFiles(atPaths: array, intoDirAtPath: nil, mode: Int32(Decompress))
-        case UInt8(ascii: "I"): database.processFiles(atPaths: array, intoDirAtPath: database.incomingDirPath(), mode: Int32(Decompress))
-        default: break
-        }
-    }
-
-    /// The DICOM files of the selection, each once: thumbnails when the menu
-    /// or the focus is theirs, else the list.
-    private func selectedDICOMFiles(_ sender: Any!) -> [Any] {
-        let objects = NSMutableArray()
-        let files: NSMutableArray?
-        if isThumbnailMenuItem(sender) || window?.firstResponder === horos_oMatrix {
-            files = self.files(forDatabaseMatrixSelection: objects)
-        } else {
-            files = self.files(forDatabaseOutlineSelection: objects)
-        }
-        guard let files else { return [] }
-        files.removeDuplicatedStrings(inSyncWithThisArray: objects)
-        var result: [Any] = []
-        for index in 0 ..< files.count where index < objects.count {
-            if ((objects[index] as AnyObject).value(forKey: "fileType") as? NSString)?.hasPrefix("DICOM") == true {
-                result.append(files[index])
-            }
-        }
-        return result
-    }
-
     @objc(compressSelectedFiles:)
     func compressSelectedFiles(_ sender: Any!) {
-        guard let database, database.isLocal() else {
-            _ = HorosAlertPanel.runInformational(title: NSLocalizedString("Non-Local Database", comment: ""),
-                                                 message: NSLocalizedString("Cannot compress images in a distant database.", comment: ""),
-                                                 defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-            return
-        }
-        let files = selectedDICOMFiles(sender)
-        DCMPix.purgeCachedDictionaries()
-        database.initiateCompressFiles(atPaths: files)
+        archiveImport.convertSelection(sender, mode: .compress)
     }
 
     @objc(decompressSelectedFiles:)
     func decompressSelectedFiles(_ sender: Any!) {
-        guard let database, database.isLocal() else {
-            _ = HorosAlertPanel.runInformational(title: NSLocalizedString("Non-Local Database", comment: ""),
-                                                 message: NSLocalizedString("Cannot decompress images in a distant database.", comment: ""),
-                                                 defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-            return
-        }
-        let files = selectedDICOMFiles(sender)
-        DCMPix.purgeCachedDictionaries()
-        database.initiateDecompressFiles(atPaths: files)
+        archiveImport.convertSelection(sender, mode: .decompress)
     }
 
     #endif
-
-    // MARK: Incoming folder (former entry points)
-
-    @available(*, deprecated)
-    @objc(checkIncomingThread:)
-    func checkIncomingThread(_ sender: Any!) {
-        DicomDatabase.activeLocal()?.importFilesFromIncomingDir()
-    }
-
-    @available(*, deprecated)
-    @objc(checkIncomingNow:)
-    func checkIncomingNow(_ sender: Any!) {
-        DicomDatabase.activeLocal()?.initiateImportFilesFromIncomingDirUnlessAlreadyImporting()
-    }
-
-    @available(*, deprecated)
-    @objc(checkIncoming:)
-    func checkIncoming(_ sender: Any!) {
-        DicomDatabase.activeLocal()?.initiateImportFilesFromIncomingDirUnlessAlreadyImporting()
-    }
 }

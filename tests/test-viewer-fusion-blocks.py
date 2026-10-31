@@ -21,10 +21,11 @@ by a guard of sentinel bytes, which must come out untouched; an image of
 another size must be left as the RGB conversion made it.
 
 -ActivateBlending: (with the body it runs under the guard) and the cases 4 to 6
-of -blendWithViewer:blendingType: are copied out of
-ViewerController+Blending.swift, with the file's own helpers, into Swift
-extensions of stand-in viewers and compiled with xcrun swiftc; malloc and free
-are the harness's own, which count the buffers.
+of -blendWithViewer:blendingType: are copied out of ViewerFusion.swift (the
+viewer keeps the selectors; before ViewerFusion they were in
+ViewerController+Blending.swift), with the file's own helpers, into Swift
+extensions of stand-in fusions and viewers and compiled with xcrun swiftc;
+malloc and free are the harness's own, which count the buffers.
 
 `<git revision>` as an optional argument reads the source from that revision,
 the negative control.
@@ -37,7 +38,8 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-PATH = 'Horos/Sources/ViewerController+Blending.swift'
+FUSION_PATH = 'Horos/Sources/ViewerFusion.swift'
+VIEWER_PATH = 'Horos/Sources/ViewerController+Blending.swift'
 
 
 def read(path):
@@ -47,9 +49,14 @@ def read(path):
     return (root / path).read_text(encoding='utf-8') if (root / path).is_file() else None
 
 
-source = read(PATH)
+# The fusion's own type, or the viewer's extension in a revision before it.
+source = read(FUSION_PATH)
+PATH = FUSION_PATH
+if source is None:
+    source, PATH = read(VIEWER_PATH), VIEWER_PATH
 if source is None:
     sys.exit('FAIL: %s is missing' % PATH)
+FUSION = PATH == FUSION_PATH
 
 
 def helpers(*names):
@@ -66,8 +73,12 @@ def helpers(*names):
     return found
 
 
-start = source.index('    @objc(ActivateBlending:)')
-activate = source[start:source.index('    // -blendedWindow, the getter', start)]
+if FUSION:
+    start = source.index('    func activateBlending(_ bC: ViewerController!) {')
+    activate = source[start:source.index('    func endBlendingType(', start)]
+else:
+    start = source.index('    @objc(ActivateBlending:)')
+    activate = source[start:source.index('    // -blendedWindow, the getter', start)]
 start = source.index('        case 4,')
 composition = source[start:source.index('        case 7:', start)]
 
@@ -79,7 +90,10 @@ func check(_ c: @autoclosure () -> Bool, _ message: String, line: Int = #line) {
     if !c() { fputs("FAIL: \(message) (line \(line))\n", stderr); exit(1) }
 }
 let HorosObjCExceptionKey = "HorosObjCException"
-enum HorosObjCException { static func perform(_ body: () -> Void) throws { body() } }
+enum HorosObjCException {
+    static func perform(_ body: () -> Void) throws { body() }
+    @discardableResult static func caught(_ body: () -> Void) -> NSException? { body(); return nil }
+}
 func _N2LogExceptionImpl(_ e: NSException, _ b: Bool, _ where: String) {}
 '''
 
@@ -99,6 +113,24 @@ final class UserDefaults {
     func bool(forKey key: String) -> Bool { return false }
     func string(forKey key: String) -> String? { return nil }
     func set(_ value: Bool, forKey key: String) {}
+}
+// The typed preferences ViewerFusion reads, with the values the defaults above answer.
+struct PreferenceKey<Value> { let name: String }
+enum ViewerPreferences {
+    static let parallelPlaneTolerance = PreferenceKey<Float>(name: "PARALLELPLANETOLERANCE")
+    static let copySettings = PreferenceKey<Bool>(name: "COPYSETTINGS")
+    static let petCLUTForNM = PreferenceKey<Bool>(name: "clutNM")
+    static let petCLUTMode = PreferenceKey<String?>(name: "PET Clut Mode")
+    static let petDefaultCLUT = PreferenceKey<String?>(name: "PET Default CLUT")
+    static let petBlendingCLUT = PreferenceKey<String?>(name: "PET Blending CLUT")
+    static let defaultPETFusion = PreferenceKey<Int>(name: "DEFAULTPETFUSION")
+}
+final class Preferences {
+    subscript(key: PreferenceKey<Float>) -> Float { return 0.01 }
+    subscript(key: PreferenceKey<Bool>) -> Bool { return false }
+    subscript(key: PreferenceKey<Int>) -> Int { return 0 }
+    subscript(key: PreferenceKey<String?>) -> String? { return nil }
+    func set(_ value: Bool, for key: PreferenceKey<Bool>) {}
 }
 final class DCMView { static func angleBetweenVector(_ a: UnsafeMutablePointer<Float>, andVector b: UnsafeMutablePointer<Float>) -> Float { return 0 } }
 final class Geometry { func orientation(_ out: UnsafeMutablePointer<Float>) { for i in 0..<9 { out[i] = 0 }; out[8] = 1 } }
@@ -131,6 +163,7 @@ final class ViewerController: NSObject {
     func horos_assignBlendingController(_ v: ViewerController?) { horos_blending = v }
     func blending() -> ViewerController? { return horos_blending }
     func fourDFusionRefusalReason(forOverlay v: ViewerController) -> String? { return nil }
+    func studyInstanceUID() -> String? { return nil }
     func fileList() -> NSMutableArray? { return nil }
     func pixList() -> NSMutableArray? { return nil }
     func imageView() -> ImageView? { return horos_imageView }
@@ -141,40 +174,52 @@ final class ViewerController: NSObject {
     func applyCLUTString(_ s: String?) { duringCLUT?() }
     func buildMatrixPreview(_ b: Bool) { previews += 1 }
     func refreshMenus() {}
+    var fusion: ViewerFusion { return ViewerFusion(viewer: self) }
+}
+final class ViewerFusion {
+    let viewer: ViewerController
+    let preferences = Preferences()
+    init(viewer: ViewerController) { self.viewer = viewer }
 }
 HELPERS
-extension ViewerController {
+extension EXTENDED {
 ACTIVATE
+}
+// The fusion of a viewer, as the selectors reach it.
+func fuse(_ v: ViewerController, _ other: ViewerController?) {
+    FUSE
 }
 
 // Cross fusion: B shows A; fusing B into A undoes B's fusion with A.
 let a = ViewerController("A"), b = ViewerController("B"), c = ViewerController("C")
-b.activateBlending(a)
+fuse(b, a)
 check(b.horos_blending === a, "B is not fused with A")
-a.activateBlending(b)
+fuse(a, b)
 check(a.horos_blending === b, "A is not fused with B")
 check(b.horos_blending == nil, "A and B are fused with each other")
 
 // A new fusion first undoes the previous one: A's teardown runs, then the new fusion.
 a.previews = 0
-a.activateBlending(c)
+fuse(a, c)
 check(a.horos_blending === c, "A is not fused with C")
 check(a.previews == 2, "A's previous fusion was not undone (\(a.previews) matrix previews, not 2)")
 
 // A call the body causes indirectly is still turned away.
 let d = ViewerController("D"), e = ViewerController("E")
-a.duringCLUT = { d.activateBlending(e) }
-a.activateBlending(nil)
+a.duringCLUT = { fuse(d, e) }
+fuse(a, nil)
 a.duringCLUT = nil
 check(a.horos_blending == nil, "A is still fused")
 check(d.horos_blending == nil, "a fusion started from inside -ActivateBlending: went through")
 
 // The guard is released.
-d.activateBlending(e)
+fuse(d, e)
 check(d.horos_blending === e, "the guard stays taken")
 print("ok")
-'''.replace('HELPERS', helpers('noActivateBlendingReentry', 'objcTry', 'objcIsEqualToString', 'normalsAngle', 'blendingPercentageString')) \
-   .replace('ACTIVATE', activate)
+'''.replace('HELPERS', helpers('noActivateBlendingReentry', 'objcIsEqualToString', 'normalsAngle', 'blendingPercentageString')) \
+   .replace('ACTIVATE', activate) \
+   .replace('EXTENDED', 'ViewerFusion' if FUSION else 'ViewerController') \
+   .replace('FUSE', 'v.fusion.activateBlending(other)' if FUSION else 'v.activateBlending(other)')
 
 COMPOSE = COMMON + r'''
 var live = 0
@@ -220,6 +265,9 @@ final class ViewerController: NSObject {
 HELPERS
 extension ViewerController {
     func compose(withViewer bc: ViewerController!, blendingType: Int32) {
+        // ViewerFusion's code names the viewer it works for.
+        let viewer = self
+        _ = viewer
         var i = 0
         switch blendingType {
 COMPOSITION

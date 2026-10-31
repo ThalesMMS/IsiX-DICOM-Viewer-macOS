@@ -22,6 +22,7 @@ from pathlib import Path
 import plistlib
 import subprocess
 import tempfile
+import process_graph_stand_in  # the 2D viewer's sources read the catalog's keys through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 
@@ -72,7 +73,8 @@ with tempfile.TemporaryDirectory() as folder:
     binary = Path(folder) / 'check'
     subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', '-module-cache-path', str(Path(folder) / 'modules'),
                     str(root / 'Horos/Sources/PreviousStudyMark.swift'), str(root / 'Horos/Sources/AnnotationOverlay.swift'),
-                    str(root / 'Horos/Sources/ROICanvas.swift'), str(main), '-o', str(binary)], check=True)
+                    str(root / 'Horos/Sources/ROICanvas.swift'), str(main),
+                    *process_graph_stand_in.swift_flags(Path(folder) / 'isix'), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
 
@@ -87,7 +89,7 @@ compute = geometry[geometry.index('    private func computeStudyColours() {'):]
 compute = compute[:compute.index('\n    }\n')]
 if 'PreviousStudyMark.previousIndices(' not in compute or 'PreviousStudyMark.setPrevious(' not in compute:
     fail('computeColor does not record the previous exams')
-if compute.index('PreviousStudyMark.previousIndices(') > compute.index('guard !studies.isEmpty else { return }'):
+if compute.index('PreviousStudyMark.previousIndices(') > compute.index('guard !colouredStudies.isEmpty else { return }'):
     fail('the mark is recorded only when there are studies to colour')
 if 'computeStudyColours()' not in geometry[geometry.index('    @objc(computeColor)'):geometry.index('    private func computeStudyColours() {')]:
     fail('computeColor does not compute the study colours')
@@ -109,13 +111,16 @@ import default_preferences  # noqa: E402
 if default_preferences.registered().get('ShowPreviousExamLabel') is not True:
     fail('ShowPreviousExamLabel is not on by default')
 mark = (root / 'Horos/Sources/PreviousStudyMark.swift').read_text()
-if 'defaultsKey = "ShowPreviousExamLabel"' not in mark:
+if 'defaultsKey = ViewerPreferences.showPreviousExamLabel.name' not in mark \
+        or 'PreferencesSource.process.preferences[ViewerPreferences.showPreviousExamLabel]' not in mark:
     fail('the mark does not read ShowPreviousExamLabel')
-app = (root / 'Horos/Sources/AppController.swift').read_text()
-check = app[app.index('@objc(runPreferencesUpdateCheck:)'):]
-check = check[check.index('PreviousStudyMark.defaultsKey'):]
-check = check[:check.index('\n                if ')]
-if 'needsDisplay = true' not in check or 'refreshViewer' in check:
+marks = (root / 'Modules/IsiXPreferences/Sources/PreferenceChange.swift').read_text()
+responder = (root / 'Horos/Sources/PreferenceChangeResponder.swift').read_text()
+redraw = responder[responder.index('if change.viewerRedraw {'):]
+redraw = redraw[:redraw.index('\n        if ')]
+if 'viewerRedraw = compared.switchChanged(ViewerPreferences.showPreviousExamLabel)' not in marks \
+        or 'showPreviousExamLabel' in marks[marks.index('viewerRefresh = compared'):marks.index('viewerRedraw = compared')] \
+        or 'needsDisplay = true' not in redraw or 'needsDisplayUpdate' in redraw:
     fail('a change of the check does not redraw the viewers, or reloads their images')
 pane = (root / 'Preference Panes/OSIViewerPreferencePane/OSIViewerPreferencePanePref.swift').read_text()
 if 'addPreviousExamCheck()' not in pane[pane.index('private func finishInitOnMainActor()'):pane.index('self.mainViewDidLoad()')]:

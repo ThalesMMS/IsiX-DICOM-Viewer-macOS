@@ -7,21 +7,21 @@ decompression while the retrieved images are imported) and put the saved
 value back when done. A retrieval that began while another held the 0 saved
 that 0, and when it ended last it left the setting at 0 for good; one that
 ended first put the value back under the other's feet. The browser does the
-same, on the main thread, when it opens a study whose comparatives or
-hanging-protocol studies are on a DICOM node
-(-databaseOpenStudy:withProtocol: and -databaseOpenStudy:).
+same when restoring a saved workspace with remote studies. Hanging protocols
+use the shared comparative retrieval worker.
 
-The harness takes from BrowserController+AlbumsTableView.swift and
-BrowserController+DatabaseDragExport.swift, as they are, the statements of
-each of those three places that save, set and restore the setting (whatever
+The harness takes from PatientHistoryList.swift (the retrieve that
+-comparativeRetrieve: forwards to, DistantStudyRetrieves.retrieveNow) and
+ViewerOpener.swift (the opening of the browser's studies), as they are, the statements of
+each of those places that save, set and restore the setting (whatever
 they are: the inline save and restore, or ListenerCompressionSuspension
-since the fix), and compiles them into three functions around a piece of
+since the fix), and compiles them into functions around a piece of
 work, with ListenerCompressionSuspension.swift when the sources have it. The
 defaults are an in-memory subclass of UserDefaults in place of the standard
 ones, so nothing is written to disk.
 
 - concurrent: with the setting at 3, eight threads run 150 retrievals each
-  through the three places (five of them the comparative one), each waiting
+  through those places (five of them the comparative one), each waiting
   a few hundred microseconds. During each retrieval the setting must be 0,
   and after the last one it must be 3 again.
 - sequential: one retrieval at a time, through each place in turn, leaves the
@@ -62,18 +62,18 @@ if shutil.which('xcrun') is None:
     sys.exit(SKIPPED)
 
 HELPER = 'Horos/Sources/ListenerCompressionSuspension.swift'
-ALBUMS = 'Horos/Sources/BrowserController+AlbumsTableView.swift'
-DRAG = 'Horos/Sources/BrowserController+DatabaseDragExport.swift'
+HISTORY = 'Horos/Sources/PatientHistoryList.swift'
+OPENER = 'Horos/Sources/ViewerOpener.swift'
 
 
-def method(text, selector):
-    """The text of the @objc method with that selector, up to the next one."""
-    start = text.find(f'@objc({selector})')
+def function(text, signature):
+    """The text of the Swift method with that signature, up to the next method."""
+    start = text.find(signature)
     if start < 0:
-        print(f'FAIL: @objc({selector}) not found')
+        print(f'FAIL: {signature} not found')
         sys.exit(1)
-    following = text.find('@objc(', start + 1)
-    return text[start:following if following > 0 else len(text)]
+    following = re.search(r'\n    (?:(?:private|nonisolated|static|@\w+) )*func ', text[start + len(signature):])
+    return text[start:start + len(signature) + following.start() if following else len(text)]
 
 
 def sites(text, where, count):
@@ -101,10 +101,18 @@ def harness_statements(statements):
                      .replace('ListenerCompressionSuspension.shared', 'suspension') for line in statements)
 
 
-comparative = sites(method(source(ALBUMS), 'comparativeRetrieve:'), 'comparativeRetrieve:', 1)
-drag = source(DRAG)
-opening = sites(method(drag, 'databaseOpenStudy:withProtocol:'), 'databaseOpenStudy:withProtocol:', 1) + \
-    sites(method(drag, 'databaseOpenStudy:'), 'databaseOpenStudy:', 1)
+history = source(HISTORY)
+at = history.find('func retrieveNow(')
+if at < 0:
+    print('FAIL: func retrieveNow( not found in %s' % HISTORY)
+    sys.exit(1)
+comparative = sites(history[at:history.find('// MARK:', at)], 'retrieveNow', 1)
+# The comparative studies a hanging protocol waits for, and a workspace's
+# study retrieved from a node.
+opener = source(OPENER)
+opening = sites(function(opener, 'private func retrieveIfMissing(studyUID:'), 'databaseOpenStudy:', 1)
+if 'private func comparativeStudies(of ' in opener:
+    opening = sites(function(opener, 'private func comparativeStudies(of '), 'databaseOpenStudy:withProtocol:', 1) + opening
 places = comparative + opening
 helper = exists(HELPER)
 
@@ -140,8 +148,8 @@ final class MemoryDefaults: UserDefaults {
 }
 let defaults: UserDefaults = MemoryDefaults(suiteName: "horos-listener-compression-849")!
 ''' + ('let suspension = ListenerCompressionSuspension(defaults: defaults)\n' if helper else '') + functions + r'''
-let places: [(() -> Void) -> Void] = [retrieval0, retrieval0, retrieval0, retrieval0, retrieval0,
-                                      retrieval1, retrieval2, retrieval1]
+let sites: [(() -> Void) -> Void] = [RETRIEVAL_SITES]
+let places = Array(repeating: sites[0], count: 5) + [sites[1], sites.last!, sites[1]]
 let lock = NSLock()
 var wrong = 0
 var wrongValue = 0
@@ -186,9 +194,7 @@ if which == "concurrent" {
     exit(finish(which))
 } else if which == "sequential" {
     for _ in 0..<5 {
-        retrieval0(work)
-        retrieval1(work)
-        retrieval2(work)
+        for site in sites { site(work) }
     }
     exit(finish(which))
 } else {
@@ -196,6 +202,8 @@ if which == "concurrent" {
     exit(64)
 }
 '''
+
+MAIN = MAIN.replace('RETRIEVAL_SITES', ', '.join(f'retrieval{i}' for i in range(len(places))))
 
 CASES = [
     ('concurrent', 'eight threads retrieving at once hold the setting at 0 and give it back its value'),

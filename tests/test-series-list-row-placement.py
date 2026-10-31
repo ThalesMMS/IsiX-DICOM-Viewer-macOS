@@ -30,6 +30,12 @@ def read(path):
     return ((root / path).read_bytes() if (root / path).exists() else b'').decode('latin1')
 
 
+def exists(path):
+    if revision:
+        return subprocess.run(['git', '-C', str(root), 'cat-file', '-e', revision + ':' + path], capture_output=True).returncode == 0
+    return (root / path).exists()
+
+
 def fail(message):
     print('FAIL: ' + message, file=sys.stderr)
     sys.exit(1)
@@ -199,6 +205,20 @@ if '- (void) buildMatrixPreview: (BOOL) showSelected' in viewer:
     update = viewer[viewer.index('- (void) updateSeriesListMode'):]
     update = update[:update.index('\n}\n')]
     if 'placement: placement floating: floating]' not in update:
+        fail('updateSeriesListMode lays the list out for the floating panel')
+elif exists('Horos/Sources/SeriesListPresenter.swift'):
+    # The list is built and placed by SeriesListPresenter.swift.
+    presenter = read('Horos/Sources/SeriesListPresenter.swift')
+    start = presenter.index('// MARK: - Building the list')
+    code = '\n'.join(line for line in presenter[start:].splitlines() if not line.lstrip().startswith('//'))
+    if re.search(r'\.cell\(atRow:', code) or re.search(r'scrollCellToVisible\(atRow:', code):
+        fail('buildMatrixPreview fills or scrolls to cells by row, which leaves a row of series empty')
+    if 'SeriesListLayout.cell(of: $0, at: index)' not in presenter or 'self.cell(at: index)' not in code:
+        fail('buildMatrixPreview fills the cells by their position in the list')
+    if not re.search(r'SeriesListLayout\.layOut\(matrix, count: build\.model\.cellCount, placement: placement, floating: isFloating\)', code):
+        fail('buildMatrixPreview lays the list out for the floating panel')
+    update = presenter[presenter.index('func updateMode()'):presenter.index('func setListVisible(')]
+    if 'placement: placement, floating: floating)' not in update:
         fail('updateSeriesListMode lays the list out for the floating panel')
 else:
     # The list is built by the Swift of ViewerController+SeriesThumbnails.swift

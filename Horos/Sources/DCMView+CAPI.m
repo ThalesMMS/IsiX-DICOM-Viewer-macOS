@@ -40,9 +40,9 @@
 // The part of DCMView that stays in Objective-C. The class is implemented in
 // Swift (DCMView.swift and its extensions). Here are:
 // - the globals the former DCMView.m defined, which other files and plugins
-//   read and write by name: syncro, gDontListenToSyncMessage, OVERFLOWLINES,
-//   CLUTBARS, MAXNUMBEROF32BITVIEWERS, SOFTWAREINTERPOLATION_MAX and
-//   DISPLAYCROSSREFERENCELINES, with their initial values;
+//   read and write by name: OVERFLOWLINES, CLUTBARS, MAXNUMBEROF32BITVIEWERS,
+//   SOFTWAREINTERPOLATION_MAX and DISPLAYCROSSREFERENCELINES, with their
+//   initial values;
 // - the pasteboard type names;
 // - the C functions of the plane and segment arithmetic, which keep their names
 //   and forward to Swift (DCMView+Geometry.swift and IsiXImaging);
@@ -68,8 +68,6 @@
 
 #pragma mark - Globals
 
-short syncro = syncroLOC;
-BOOL gDontListenToSyncMessage = NO;
 BOOL OVERFLOWLINES = NO;
 int CLUTBARS, MAXNUMBEROF32BITVIEWERS = 4, SOFTWAREINTERPOLATION_MAX, DISPLAYCROSSREFERENCELINES = YES;
 

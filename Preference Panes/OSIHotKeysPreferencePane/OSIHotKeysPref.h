@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// OSIHotKeysPref is implemented in Swift since #711
+// OSIHotKeysPref is implemented in Swift
 // (OSIHotKeysPreferencePane/OSIHotKeysPref.swift). This header keeps its name for the
 // Objective-C that imports it: it brings in the generated interface, which declares
 // the same class name and selectors.

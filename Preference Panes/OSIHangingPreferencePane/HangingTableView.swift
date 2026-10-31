@@ -42,7 +42,7 @@ import Cocoa
 /// The Protocols pane's table: Delete removes the selected protocol, except the
 /// default one.
 ///
-/// Implemented in Swift since #711. The class the application compiled was the
+/// Implemented in Swift. The class the application compiled was the
 /// one defined in OSIHangingPreferencePanePref.m, translated here;
 /// HangingTableView.m, which no target compiled, had an older copy without the
 /// alert for the default row.

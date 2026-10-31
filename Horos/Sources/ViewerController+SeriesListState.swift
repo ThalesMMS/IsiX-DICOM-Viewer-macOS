@@ -21,6 +21,8 @@ final class ViewerSeriesListState: @unchecked Sendable {
     var highLighted: Float = 0
     /// Retained when replaced, never released by the holder (as the instance variable was).
     @ManuallyRetained var highLightedTimer: Timer?
+    /// The pending scroll of the other viewers' lists after this one's scrolled.
+    var scrollSyncTimer: Timer?
 }
 
 extension ViewerController {
@@ -55,5 +57,9 @@ extension ViewerController {
     var horos_highLightedTimer: Timer? {
         get { seriesListState.highLightedTimer }
         set { seriesListState.highLightedTimer = newValue }
+    }
+    var horos_scrollSyncTimer: Timer? {
+        get { seriesListState.scrollSyncTimer }
+        set { seriesListState.scrollSyncTimer = newValue }
     }
 }

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Each send owns its state: options, temporary copies, TLS layer and report.
 
-Sends run in parallel (the Send sheet's operation queue, routing, Bonjour, the
-portal). What one send uses belongs to it alone: the network syntax and its
+Sends run in parallel (the send queue's activity threads, routing, Bonjour,
+the portal). What one send uses belongs to it alone: the network syntax and its
 quality, the timeouts, the folder of its converted copies (removed when the
 send ends, also when it raises), the TLS layer of its association and the
 report that names the original paths. Checked in DCMTKStoreSCU*.swift and in
@@ -26,9 +26,15 @@ assert statics == ['private static let secureTransportLock = NSLock()'], statics
 assert 'nonisolated(unsafe)' not in code
 
 send = sources['DCMTKStoreSCU.swift']
-run = send[send.index('public func run('):send.index('/// The send itself')]
-assert 'let files = StoreTemporaryFiles()' in run
-assert run.index('files.remove()') < run.index('.raise()'), 'the copies outlive a send that raises'
+# -run: raises what the send returns; the send removes its copies before it
+# returns, so they never outlive a send that raises or that fails.
+run = send[send.index('public func run('):send.index('func sendFiles(')]
+throwing = send[send.index('func sendFiles('):send.index('func sendReportingFailure(')]
+reporting = send[send.index('func sendReportingFailure('):send.index('/// The send itself')]
+assert run.index('try sendFiles(operation)') < run.index('.raise()'), 'the send must end before -run: raises'
+assert throwing.index('sendReportingFailure(operation)') < throwing.index('throw failure'), 'the send must end before it throws'
+assert 'let files = StoreTemporaryFiles()' in reporting
+assert reporting.index('files.remove()') < reporting.index('return failure'), 'the copies outlive a send that raises'
 assert 'let network = StoreSendSyntax.network(forSetting: Int(transferSyntax))' in send
 assert 'StoreFileSender(association: association, report: report, network: network, temporaryFiles: temporaryFiles)' in send
 
@@ -47,7 +53,7 @@ print('ok: each send keeps its options, copies, TLS files and layer, and report 
 
 # The folder of the copies, run: two sends at once, unique names, removal.
 folder_class = send[send.index('final class StoreTemporaryFiles {'):]
-driver = folder_class.replace('FileManager.default.tmpDirectoryPath(inDir: DicomDatabase.activeLocal()?.tempDirPath())',
+driver = folder_class.replace('FileManager.default.tmpDirectoryPath(inDir: BrowserDatabaseSource.process.activeLocalDatabase?.tempDirPath())',
                               'Self.make()') + r'''
 extension StoreTemporaryFiles {
     nonisolated(unsafe) static var root = ""

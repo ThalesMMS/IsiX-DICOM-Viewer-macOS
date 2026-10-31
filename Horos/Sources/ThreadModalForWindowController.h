@@ -37,12 +37,19 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 
 // ThreadModalForWindowController and NSThread (ModalForWindow) are implemented in
 // Swift (Horos/Sources/ThreadModalForWindowController.swift). This header
-// keeps <Horos/ThreadModalForWindowController.h>: it brings in the generated
-// interface, which declares the same class name and selectors.
+// keeps <Horos/ThreadModalForWindowController.h>: it declares
+// NSThreadModalForWindowControllerKey, defined in Notifications.m, and brings in
+// the generated interface, which declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 
 @class ThreadsManagerThreadInfo;
+
+/// The key of the thread dictionary entry that names the controller showing the
+/// thread. Plugins built for Horos or OsiriX read it by this exported name (to
+/// -invalidate the controller once they take the thread to the background), so
+/// it is an Objective-C constant, which the Swift class uses too.
+extern NSString* const NSThreadModalForWindowControllerKey;
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.

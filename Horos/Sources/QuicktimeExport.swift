@@ -41,6 +41,7 @@ import Cocoa
 import UniformTypeIdentifiers
 import CoreMedia
 import AVFoundation
+import IsiXPreferences
 
 /// C's conversion of a CGFloat to an integer type, without Swift's trap: the
 /// value is truncated toward zero, and out of range or NaN saturates as arm64
@@ -53,20 +54,28 @@ private func quicktimeExportInteger<T: FixedWidthInteger>(_ value: CGFloat) -> T
     return T(value)
 }
 
-/// N2LogStackTrace(message): a C variadic function, which Swift cannot call.
-/// It logs the message and the stack of an exception raised for the purpose,
-/// as the former call did.
-private func quicktimeExportLogStackTrace(_ message: String) {
-    var caught: NSException?
-    do {
-        try HorosObjCException.perform {
-            NSException(name: NSExceptionName(rawValue: message), reason: "", userInfo: nil).raise()
+/// Why the movie could not be written: an exception that AVFoundation, the
+/// viewer drawing the frames or another Objective-C callee raised, or a save
+/// with no file to write to, where +[NSURL fileURLWithPath:] raised. The movie
+/// is written and its failure caught on the main thread, and an exception is
+/// not changed once raised, hence the unchecked conformance.
+private enum MovieWriteFailure: Error, @unchecked Sendable {
+    case raised(NSException)
+    case noDestination
+
+    /// The exception logged, as the former @catch logged what it received.
+    var exception: NSException {
+        switch self {
+        case .raised(let exception):
+            return exception
+        case .noDestination:
+            return NSException(name: .invalidArgumentException, reason: "*** -[NSURL initFileURLWithPath:]: nil string parameter", userInfo: nil)
         }
-    } catch {
-        caught = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
     }
-    if let caught {
-        _N2LogExceptionImpl(caught, true, "")
+
+    /// The exception of a failure the movie's code threw, nil for another error.
+    static func exception(of error: Error) -> NSException? {
+        return (error as? MovieWriteFailure)?.exception
     }
 }
 
@@ -94,6 +103,9 @@ public final class QuicktimeExport: NSObject {
     @IBOutlet @objc var type: NSPopUpButton!
 
     private var tlos: NSArray?
+
+    /// Where the movie's codec and rate are read and kept: the preferences of the process.
+    private let preferences: any PreferenceStore = PreferencesSource.process.preferences
 
     /// The accessory's slider and label are bound to it.
     @objc dynamic var exportFrameRate: Int = 0
@@ -133,7 +145,8 @@ public final class QuicktimeExport: NSObject {
 
             panel?.allowedContentTypes = [UTType(filenameExtension: selected.value(forKey: "extension") as! String)!]
 
-            UserDefaults.standard.set(selected.value(forKey: "videoCodec"), forKey: "selectedMenuAVFoundationExport")
+            let codec = selected.value(forKey: "videoCodec") as? String
+            preferences.set(codec, for: ApplicationPreferences.selectedMenuAVFoundationExport)
         }
     }
 
@@ -187,7 +200,7 @@ public final class QuicktimeExport: NSObject {
     @objc(createMovieQTKit::::) @discardableResult
     public func createMovieQTKit(_ openIt: Bool, _ produceFiles: Bool, _ name: String!, _ framesPerSecond: Int) -> String! {
         var fps = framesPerSecond
-        let savedFPS = UserDefaults.standard.integer(forKey: "quicktimeExportRateValue")
+        let savedFPS = preferences[ApplicationPreferences.quicktimeExportRateValue]
         // Interactive exports reuse the last confirmed rate instead of the viewer's cine rate.
         if (!produceFiles || fps <= 0) && savedFPS > 0 {
             fps = savedFPS
@@ -206,19 +219,22 @@ public final class QuicktimeExport: NSObject {
         let panel = NSSavePanel()
         self.panel = panel
 
-        if let tempDirPath = BrowserController.currentBrowser()?.database?.tempDirPath() {
+        // The temporary folder of the database the browser shows, reached
+        // through the graph of the viewer whose window draws the frames.
+        let tempDirPath = OSIWindowController.browserWindowGraph(serving: object)?.database?.tempDirPath()
+        if let tempDirPath {
             try? FileManager.default.createDirectory(atPath: tempDirPath, withIntermediateDirectories: true, attributes: nil)
         }
 
         if produceFiles {
             result = NSApplication.ModalResponse.OK.rawValue
 
-            if let path = (BrowserController.currentBrowser()?.database?.tempDirPath() as NSString?)?.appendingPathComponent("Photos") {
+            if let path = (tempDirPath as NSString?)?.appendingPathComponent("Photos") {
                 try? FileManager.default.removeItem(atPath: path)
                 try? FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true, attributes: nil)
             }
 
-            fileName = (BrowserController.currentBrowser()?.database?.tempDirPath() as NSString?)?.appendingPathComponent("OsiriXMovie.mov")
+            fileName = (tempDirPath as NSString?)?.appendingPathComponent("OsiriXMovie.mov")
         } else {
             panel.canSelectHiddenExtension = true
             panel.accessoryView = view
@@ -232,7 +248,7 @@ public final class QuicktimeExport: NSObject {
 
             for d in exportTypes ?? NSArray() {
                 let codec = (d as? NSDictionary)?.object(forKey: "videoCodec") as? NSString
-                if let codec, let selected = UserDefaults.standard.object(forKey: "selectedMenuAVFoundationExport") as? String, codec.isEqual(to: selected) {
+                if let codec, let selected = preferences[ApplicationPreferences.selectedMenuAVFoundationExport], codec.isEqual(to: selected) {
                     index = exportTypes!.index(of: d)
                 }
             }
@@ -265,27 +281,26 @@ public final class QuicktimeExport: NSObject {
             }
         }
 
-        var returned: String? = nil
         do {
-            try HorosObjCException.perform {
-                returned = self.writeMovie(result: result, openIt: openIt, produceFiles: produceFiles, fileName: fileName)
+            return try HorosObjCException.throwing(MovieWriteFailure.raised) {
+                try self.writeMovie(result: result, openIt: openIt, produceFiles: produceFiles, fileName: fileName)
             }
         } catch {
-            if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
+            if let e = MovieWriteFailure.exception(of: error) {
                 _N2LogExceptionImpl(e, true, "-[QuicktimeExport createMovieQTKit::::]")
             }
+            return nil
         }
-
-        return returned
     }
 
     /// The body of the former @try: writes the frames and finalizes the movie.
-    /// An NSException it raises is caught by the caller, as the @catch did.
-    private func writeMovie(result: Int, openIt: Bool, produceFiles: Bool, fileName: String?) -> String? {
+    /// Its failure, and an NSException its callees raise, reach the caller,
+    /// which logs them as the @catch did.
+    private func writeMovie(result: Int, openIt: Bool, produceFiles: Bool, fileName: String?) throws -> String? {
         if result == NSApplication.ModalResponse.OK.rawValue {
             let fps = self.exportFrameRate
             if !produceFiles {
-                UserDefaults.standard.set(fps, forKey: "quicktimeExportRateValue")
+                preferences.set(fps, for: ApplicationPreferences.quicktimeExportRateValue)
             }
 
             // C's integer division on arm64: x / 0 is 0.
@@ -299,8 +314,7 @@ public final class QuicktimeExport: NSObject {
 
             // +[NSURL fileURLWithPath:] raised for a nil path.
             guard let fileName else {
-                NSException(name: .invalidArgumentException, reason: "*** -[NSURL initFileURLWithPath:]: nil string parameter", userInfo: nil).raise()
-                return nil
+                throw MovieWriteFailure.noDestination
             }
 
             var writer: AVAssetWriter? = nil
@@ -324,7 +338,7 @@ public final class QuicktimeExport: NSObject {
                 while Int(curSample) < numberOfFrames {
                     autoreleasepool {
                         do {
-                            try HorosObjCException.perform {
+                            try HorosObjCException.throwing(MovieWriteFailure.raised) {
                                 var buffer: CVPixelBuffer? = nil
 
                                 let im = (self.object as AnyObject?)?.perform(self.selector, with: NSNumber(value: Int(curSample)), with: NSNumber(value: self.numberOfFrames))?.takeUnretainedValue() as? NSImage
@@ -333,7 +347,7 @@ public final class QuicktimeExport: NSObject {
                                     if writerInput == nil {
                                         // Define video settings to be passed to the AVAssetWriterInput instance
 
-                                        let c = UserDefaults.standard.object(forKey: "selectedMenuAVFoundationExport") as? NSString
+                                        let c = self.preferences[ApplicationPreferences.selectedMenuAVFoundationExport] as NSString?
 
                                         var videoSettings: NSDictionary? = nil
 
@@ -349,7 +363,7 @@ public final class QuicktimeExport: NSObject {
                                                     AVVideoWidthKey: NSNumber(value: quicktimeExportInteger(im.size.width) as Int32),
                                                     AVVideoHeightKey: NSNumber(value: quicktimeExportInteger(im.size.height) as Int32)])
                                             } else {
-                                                quicktimeExportLogStackTrace("********** bitsPerSecond == 0")
+                                                N2LogStackTraceMessage("********** bitsPerSecond == 0")
                                                 NSLog("%@", MovieExportDiagnostics.logLine(phase: .encoder,
                                                                                             errorDescription: "bitsPerSecond == 0",
                                                                                             stackSymbols: Thread.callStackSymbols))
@@ -366,7 +380,7 @@ public final class QuicktimeExport: NSObject {
                                             writerInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings as? [String: Any])
 
                                             if writerInput == nil {
-                                                quicktimeExportLogStackTrace(NSString(format: "**** writerInput == nil : %@", videoSettings) as String)
+                                                N2LogStackTraceMessage(NSString(format: "**** writerInput == nil : %@", videoSettings) as String)
                                                 NSLog("%@", MovieExportDiagnostics.logLine(phase: .encoder,
                                                                                             errorDescription: videoSettings.description,
                                                                                             stackSymbols: Thread.callStackSymbols))
@@ -410,7 +424,7 @@ public final class QuicktimeExport: NSObject {
                                 }
                             }
                         } catch {
-                            let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
+                            let e = MovieWriteFailure.exception(of: error)
                             if let e {
                                 _N2LogExceptionImpl(e, true, "-[QuicktimeExport createMovieQTKit::::]")
                             }

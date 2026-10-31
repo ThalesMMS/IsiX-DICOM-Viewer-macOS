@@ -22,6 +22,21 @@ func check(_ condition: Bool, _ message: String) {
     if !condition { print("FAIL: \(message)"); exit(1) }
 }
 func dicomStudyOnQueue<T>(_ context: Any?, _ body: () -> T) -> T { body() }
+// The guards of HorosObjCException+Guards.swift, running each body.
+enum HorosObjCException {
+    @discardableResult
+    static func caught(_ body: () -> Void) -> NSException? { body(); return nil }
+    static func caught(_ body: () -> Void, catch handler: (NSException) -> Void) { body() }
+    static func caughtWithoutAllocation(_ body: () -> Void) -> NSException? { body(); return nil }
+    @discardableResult
+    static func logged(_ function: String, stack: Bool = false, _ body: () -> Void) -> Bool { body(); return false }
+    @discardableResult
+    static func synchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T { body() }
+    @discardableResult
+    static func raisingToCaller<T>(_ body: () -> T) -> T { body() }
+    static func throwing<T, Failure: Error>(_ failure: (NSException) -> Failure, _ body: () throws -> T) throws -> T { try body() }
+}
+
 func dicomStudyTry(_ label: String, _ body: () -> Void) { body() }
 func dicomStudyEnumerate(_ objects: NSSet?) -> [Any] { objects?.allObjects ?? [] }
 func dicomStudyValue(_ object: Any, _ key: String) -> Any? {

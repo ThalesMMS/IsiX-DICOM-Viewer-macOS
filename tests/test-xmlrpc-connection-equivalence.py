@@ -456,6 +456,8 @@ def build_after(work):
     include = [work, nitrogen, horos]
     objects = [compile_swift([nitrogen / 'N2XMLRPCConnection.swift', nitrogen / 'N2XMLRPC.swift',
                               horos / 'XMLRPCRequestContract.swift', work / 'ProbeConnection.swift',
+                              *([horos / 'HorosObjCException+Guards.swift']
+                                if (horos / 'HorosObjCException+Guards.swift').exists() else []),
                               # The module's NSLog and unifiedLogv, which the connection's DLog calls.
                               *([horos / 'UnifiedLogNSLog.swift']
                                 if 'unifiedLogv' in (nitrogen / 'N2XMLRPCConnection.swift').read_text() else [])],

@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 
 /// The panel of the browser's custom date interval (timeIntervalType 100).
 ///
@@ -62,10 +63,15 @@ public final class CustomIntervalPanel: NSWindowController, NSWindowDelegate {
 
     private static var shared: CustomIntervalPanel?
 
+    /// The process's dependencies, set by sharedCustomIntervalPanel() right
+    /// after it makes the panel, before the nib loads and the date setters run.
+    var processGraph: ProcessGraph!
+
     @objc(sharedCustomIntervalPanel)
     public class func sharedCustomIntervalPanel() -> CustomIntervalPanel! {
         if shared == nil {
             let panel = CustomIntervalPanel(windowNibName: "CustomIntervalPanel")
+            panel.processGraph = ProcessGraph.process
             shared = panel
 
             panel.fromDate = Date()
@@ -78,7 +84,7 @@ public final class CustomIntervalPanel: NSWindowController, NSWindowDelegate {
     }
 
     public func windowWillClose(_ notification: Notification) {
-        BrowserController.currentBrowser()?.timeIntervalType = 0
+        processGraph.currentBrowser?.timeIntervalType = 0
     }
 
     /// The designated initializer -initWithWindowNibName: goes through, as
@@ -93,12 +99,12 @@ public final class CustomIntervalPanel: NSWindowController, NSWindowDelegate {
         textualToPicker?.locale = Locale.current
 
         NSUserDefaultsController.shared.addObserver(self,
-                                                    forKeyPath: "values.customIntervalWithHoursAndMinutes",
+                                                    forKeyPath: NetworkPreferences.controllerKeyPath(NetworkPreferences.customIntervalWithHoursAndMinutes),
                                                     options: .new,
                                                     context: nil)
 
         NSUserDefaultsController.shared.addObserver(self,
-                                                    forKeyPath: "values.betweenDatesMode",
+                                                    forKeyPath: NetworkPreferences.controllerKeyPath(NetworkPreferences.betweenDatesMode),
                                                     options: .new,
                                                     context: nil)
         observesDefaults = true
@@ -115,7 +121,7 @@ public final class CustomIntervalPanel: NSWindowController, NSWindowDelegate {
         guard let window = window else { return }
         var frame = window.frame
 
-        if UserDefaults.standard.bool(forKey: "betweenDatesMode") {
+        if processGraph.preferences[NetworkPreferences.betweenDatesMode] {
             frame = NSMakeRect(frame.origin.x, frame.origin.y - (518 - frame.size.height), frame.size.width, 518)
         } else {
             frame = NSMakeRect(frame.origin.x, frame.origin.y - (297 - frame.size.height), frame.size.width, 297)
@@ -126,7 +132,7 @@ public final class CustomIntervalPanel: NSWindowController, NSWindowDelegate {
             minWidth = Float(matrix.frame.origin.x + matrix.frame.size.width + 10)
         }
 
-        if UserDefaults.standard.bool(forKey: "betweenDatesMode") && UserDefaults.standard.bool(forKey: "customIntervalWithHoursAndMinutes") {
+        if processGraph.preferences[NetworkPreferences.betweenDatesMode] && processGraph.preferences[NetworkPreferences.customIntervalWithHoursAndMinutes] {
             frame = NSMakeRect(frame.origin.x, frame.origin.y, CGFloat(max(minWidth, 288)), frame.size.height)
         } else {
             frame = NSMakeRect(frame.origin.x, frame.origin.y, CGFloat(max(minWidth, 154)), frame.size.height)
@@ -137,7 +143,7 @@ public final class CustomIntervalPanel: NSWindowController, NSWindowDelegate {
 
     @objc(setFormatAccordingToSettings)
     public func setFormatAccordingToSettings() {
-        if UserDefaults.standard.bool(forKey: "betweenDatesMode") && UserDefaults.standard.bool(forKey: "customIntervalWithHoursAndMinutes") {
+        if processGraph.preferences[NetworkPreferences.betweenDatesMode] && processGraph.preferences[NetworkPreferences.customIntervalWithHoursAndMinutes] {
             toPicker?.datePickerElements = [.yearMonthDay, .hourMinute]
             fromPicker?.datePickerElements = [.yearMonthDay, .hourMinute]
 
@@ -156,7 +162,7 @@ public final class CustomIntervalPanel: NSWindowController, NSWindowDelegate {
                                       change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
         // The defaults controller reports a default on the thread that wrote it.
         onMainActor {
-            if keyPath == "values.betweenDatesMode" || keyPath == "values.customIntervalWithHoursAndMinutes" {
+            if keyPath == NetworkPreferences.controllerKeyPath(NetworkPreferences.betweenDatesMode) || keyPath == NetworkPreferences.controllerKeyPath(NetworkPreferences.customIntervalWithHoursAndMinutes) {
                 self.setFormatAccordingToSettings()
 
                 self.sizeWindowAccordingToSettings()
@@ -180,7 +186,7 @@ public final class CustomIntervalPanel: NSWindowController, NSWindowDelegate {
             // [fromDate isEqualToDate: date] == NO
             guard !(fromDateValue != nil && date != nil && fromDateValue == date) else { return }
 
-            if UserDefaults.standard.bool(forKey: "customIntervalWithHoursAndMinutes") && UserDefaults.standard.bool(forKey: "betweenDatesMode") {
+            if processGraph.preferences[NetworkPreferences.customIntervalWithHoursAndMinutes] && processGraph.preferences[NetworkPreferences.betweenDatesMode] {
                 fromDateValue = date
             } else {
                 fromDateValue = date.flatMap { date -> Date? in
@@ -188,13 +194,13 @@ public final class CustomIntervalPanel: NSWindowController, NSWindowDelegate {
                     return Calendar.current.date(from: components)
                 }
 
-                if !UserDefaults.standard.bool(forKey: "betweenDatesMode") {
+                if !processGraph.preferences[NetworkPreferences.betweenDatesMode] {
                     self.toDate = date
                 }
             }
 
             if window?.isVisible == true {
-                BrowserController.currentBrowser()?.timeIntervalType = 100
+                processGraph.currentBrowser?.timeIntervalType = 100
             }
         }
     }
@@ -205,7 +211,7 @@ public final class CustomIntervalPanel: NSWindowController, NSWindowDelegate {
             // [toDate isEqualToDate: date] == NO
             guard !(toDateValue != nil && date != nil && toDateValue == date) else { return }
 
-            if UserDefaults.standard.bool(forKey: "customIntervalWithHoursAndMinutes") && UserDefaults.standard.bool(forKey: "betweenDatesMode") {
+            if processGraph.preferences[NetworkPreferences.customIntervalWithHoursAndMinutes] && processGraph.preferences[NetworkPreferences.betweenDatesMode] {
                 toDateValue = date
             } else {
                 toDateValue = date.flatMap { date -> Date? in
@@ -220,7 +226,7 @@ public final class CustomIntervalPanel: NSWindowController, NSWindowDelegate {
             }
 
             if window?.isVisible == true {
-                BrowserController.currentBrowser()?.timeIntervalType = 100
+                processGraph.currentBrowser?.timeIntervalType = 100
             }
         }
     }
@@ -237,7 +243,7 @@ public final class CustomIntervalPanel: NSWindowController, NSWindowDelegate {
 
     deinit {
         guard observesDefaults else { return }
-        NSUserDefaultsController.shared.removeObserver(self, forKeyPath: "values.customIntervalWithHoursAndMinutes")
-        NSUserDefaultsController.shared.removeObserver(self, forKeyPath: "values.betweenDatesMode")
+        NSUserDefaultsController.shared.removeObserver(self, forKeyPath: NetworkPreferences.controllerKeyPath(NetworkPreferences.customIntervalWithHoursAndMinutes))
+        NSUserDefaultsController.shared.removeObserver(self, forKeyPath: NetworkPreferences.controllerKeyPath(NetworkPreferences.betweenDatesMode))
     }
 }

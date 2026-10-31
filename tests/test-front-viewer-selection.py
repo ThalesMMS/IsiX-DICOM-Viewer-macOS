@@ -10,11 +10,14 @@ def read(path):
 s=read('Horos/Sources/ViewerController.m').decode('latin1')
 SWIFT='+ (ViewerController*) frontMostDisplayed2DViewerForScreen:' not in s
 if SWIFT:
- # The selection is Swift since ViewerController+ViewerRegistry.swift: the
- # same checks run on its functions, over stand-ins of the same names.
+ # The selection is Swift: the process's ViewerRegistry (ViewerRegistry.swift)
+ # chooses, and the class methods of ViewerController+ViewerRegistry.swift ask
+ # it; the same checks run on both, over stand-ins of the same names.
  r=read('Horos/Sources/ViewerController+ViewerRegistry.swift').decode()
  a=r.index('    @objc(frontMostDisplayed2DViewerForScreen:)');b=r.index('    /// Each displayed series',a)
- methods=r[a:b]
+ g=read('Horos/Sources/ViewerRegistry.swift').decode()
+ c=g.index('    /// The front visible viewer of `screen`');e=g.index('\n    }\n',g.index('    @MainActor func frontMostDisplayedViewer(on screen: NSScreen?)',c))+len('\n    }\n')
+ methods=r[a:b]+'}\nfinal class ViewerRegistry {\n'+g[c:e].replace('@MainActor func','func')+'}\nextension ViewerController {\n    nonisolated(unsafe) static let viewerRegistry = ViewerRegistry()\n'
 else:
  a=s.index('+ (ViewerController*) frontMostDisplayed2DViewerForScreen:');b=s.index('+ (NSMutableArray*) get2DViewers',a)
  methods=s[a:b].replace('static ViewerController *cachedFrontMostDisplayed2DViewer = nil;','')

@@ -217,7 +217,9 @@ public class HorosVolumeLengthROI: ROI {
 
     @discardableResult
     public override func click(inROI pt: NSPoint, _ offsetx: Float, _ offsety: Float, _ scale: Float, _ testDrawRect: Bool) -> Int {
-        if !self.selectable || self.hidden || testDrawRect { return ROI_sleep }
+        // The label is the base class's text box, laid out by prepareTextualData.
+        if testDrawRect { return super.click(inROI: pt, offsetx, offsety, scale, true) }
+        if !self.selectable || self.hidden { return ROI_sleep }
         guard let p = volumeProjection() else { return ROI_sleep }
         let ratio = view?.curDCM?.pixelRatio ?? 0
         let tolerance = 7.0 * Double(view?.roiWindow?.backingScaleFactor ?? 0) / fmax(Double(scale), 0.001)

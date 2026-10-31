@@ -46,25 +46,37 @@ extension DicomFile {
     static let importSettings = ImportSettingsStore()
 }
 
+/// Where the import settings are read: the preferences of the process graph.
+struct ImportSettingsSource {
+    let processGraph: ProcessGraph
+
+    init(processGraph: ProcessGraph) {
+        self.processGraph = processGraph
+    }
+
+    static let process = ImportSettingsSource(processGraph: ProcessGraph.process)
+
+    /// The settings, from the application's preferences once it registered its
+    /// defaults. The SAFEDBREBUILD shell tool registers none: it reads the
+    /// factory settings, with the user's own over them, in memory.
+    func read() -> ImportSettings {
+        let preferences = processGraph.preferences
+        if ImportSettings.defaultsAreRegistered(in: preferences) {
+            return ImportSettings(preferences: preferences)
+        }
+        let user = preferences.persistentDomain(forName: BUNDLE_IDENTIFIER) ?? [:]
+        let factory = DefaultPreferences.applicationDefaults() as? [String: Any] ?? [:]
+        return ImportSettings(preferences: MemoryPreferences(user, registered: factory))
+    }
+}
+
 /// The preferences the import reads, read once for every file until the
 /// preferences change (+resetDefaults). The DICOM reading asks for them at
 /// every file.
 @objc(ImportSettings) @implementation extension DicomFile {
 
     class func setDefaults() {
-        importSettings.load {
-            let defaults = UserDefaults.standard
-            if defaults.object(forKey: ImportSettings.registeredKey) != nil {
-                return ImportSettings(defaults: defaults)
-            }
-            // For the SAFEDBREBUILD shell tool: the factory settings, with the
-            // user's own over them.
-            let dictionary = DefaultPreferences.applicationDefaults()
-            if let user = defaults.persistentDomain(forName: BUNDLE_IDENTIFIER) {
-                dictionary.addEntries(from: user)
-            }
-            return ImportSettings(dictionary: dictionary)
-        }
+        importSettings.load { ImportSettingsSource.process.read() }
     }
 
     class func resetDefaults() {

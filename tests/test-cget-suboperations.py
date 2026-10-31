@@ -59,7 +59,7 @@ else:
     # The loop is the DCMTK adapter's: it calls the caller back, and the query
     # node asks the database to index what arrived.
     if loop.count('incoming(incomingData)') != 2 or \
-            'initiateImportFilesFromIncomingDirUnlessAlreadyImporting' not in body('private func getSCU(', node):
+            'DatabaseIngest.process.requestImport()' not in body('private func getSCU(', node):
         failures.append('nothing asks the database to index what arrived, so a retrieval that '
                         'finished can still show nothing')
     if 'DIMSE_C_GET_RSP' not in loop:

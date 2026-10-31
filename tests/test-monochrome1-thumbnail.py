@@ -22,6 +22,7 @@ import isix_modules
 from pathlib import Path
 import subprocess
 import tempfile
+import process_graph_stand_in  # the source reads the preferences through the process graph
 from sources import class_text
 
 root = Path(__file__).resolve().parents[1]
@@ -228,14 +229,15 @@ with tempfile.TemporaryDirectory(prefix='horos-monochrome1-thumbnail-') as folde
     (p / 'stub.swift').write_text(stub)
     (p / 'main.swift').write_text(harness_defaults.SWIFT + main)
     subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(p / 'modules'), '-module-name', 'Thumbs',
+                    *process_graph_stand_in.swift_flags(p / 'isix'),
                     str(root / 'Horos/Sources/Monochrome1Thumbnails.swift'), str(p / 'stub.swift'), str(p / 'main.swift'),
                     '-o', str(p / 'rebuild')], check=True)
     subprocess.run([str(p / 'rebuild')], check=True)
 
-# -setDatabase: hands the switch to BrowserController+DatabaseSwitching.swift.
-browser = (root / 'Horos/Sources/BrowserController+DatabaseSwitching.swift').read_text()
-opening = browser[browser.index('func horos_switchToDatabase(_ db: DicomDatabase?)'):]
-opening = opening[:opening.index('selectCurrentDatabaseSource()')]
+# -setDatabase: hands the switch (BrowserController+DatabaseSwitching.swift) to DatabaseOpener.
+browser = (root / 'Horos/Sources/DatabaseOpener.swift').read_text()
+opening = browser[browser.index('func switchTo(_ db: DicomDatabase?, closingViewers: () -> Void)'):]
+opening = opening[:opening.index('browser.sourceList.selectShownDatabase()')]
 assert 'Monochrome1Thumbnails.rebuildOnce(in: db)' in opening, 'the browser does not drop the stored thumbnails'
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 assert project.count('Monochrome1Thumbnails.swift in Sources') == 2, 'Monochrome1Thumbnails.swift is not built'

@@ -28,6 +28,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 
 /// Offers, at startup, to import the database of an OsiriX installation
 /// (~/Documents/OsiriX Data/DATABASE.noindex), and remembers the answer in
@@ -43,7 +44,12 @@ public final class O2HMigrationAssistant: NSWindowController {
     private static let migrationPostponed = 2
     private static let migrationAccepted = 3
 
-    private static let userActionKey = "O2H_MIGRATION_USER_ACTION"
+    /// Stores the answer as an integer number, at once.
+    private static func record(_ action: Int) {
+        let preferences = PreferencesSource.process.preferences
+        preferences.set(.integer(action), for: DatabasePreferences.o2hMigrationUserAction)
+        preferences.synchronize()
+    }
 
     /// `assign` in the former header. The browser outlives the assistant, which
     /// it opens and whose window is modal; weak rather than unowned(unsafe), so
@@ -69,13 +75,11 @@ public final class O2HMigrationAssistant: NSWindowController {
     @objc(performStartupO2HTasks:)
     public class func performStartupO2HTasks(_ browserController: BrowserController!) {
         //Check if user already said NO or YES before
-        let o2hMigrationUserAction = UserDefaults.standard.object(forKey: userActionKey) as? NSNumber
+        // Only a number is an answer, as it was read as an NSNumber.
+        let o2hMigrationUserAction = PreferencesSource.process.preferences[DatabasePreferences.o2hMigrationUserAction]
+            .flatMap { $0.isNumber ? $0.intValue : nil }
 
-        if let action = o2hMigrationUserAction, action.intValue == migrationDenied {
-            return
-        }
-
-        if let action = o2hMigrationUserAction, action.intValue == migrationAccepted {
+        if o2hMigrationUserAction == migrationDenied || o2hMigrationUserAction == migrationAccepted {
             return
         }
 
@@ -121,12 +125,9 @@ public final class O2HMigrationAssistant: NSWindowController {
     /// The window's delegate, connected in the nib.
     @objc(windowWillClose:)
     public func windowWillClose(_ notification: Notification!) {
-        let defaults = UserDefaults.standard
-        let o2hMigrationUserAction = defaults.object(forKey: O2HMigrationAssistant.userActionKey)
-
-        if o2hMigrationUserAction == nil {
-            defaults.set(NSNumber(value: O2HMigrationAssistant.migrationPostponed), forKey: O2HMigrationAssistant.userActionKey)
-            defaults.synchronize()
+        let defaults = PreferencesSource.process.preferences
+        if defaults[DatabasePreferences.o2hMigrationUserAction] == nil {
+            O2HMigrationAssistant.record(O2HMigrationAssistant.migrationPostponed)
         }
 
         if NSApp.isHidden {
@@ -142,42 +143,39 @@ public final class O2HMigrationAssistant: NSWindowController {
 
     @IBAction @objc(doNotMigrateFromOsiriX:)
     public func doNotMigrateFromOsiriX(_ sender: Any!) {
-        UserDefaults.standard.set(NSNumber(value: O2HMigrationAssistant.migrationDenied), forKey: O2HMigrationAssistant.userActionKey)
-        UserDefaults.standard.synchronize()
+        O2HMigrationAssistant.record(O2HMigrationAssistant.migrationDenied)
 
         window?.close()
     }
 
     @IBAction @objc(askMeLaterToMigrateFromOsiriX:)
     public func askMeLaterToMigrateFromOsiriX(_ sender: Any!) {
-        UserDefaults.standard.set(NSNumber(value: O2HMigrationAssistant.migrationPostponed), forKey: O2HMigrationAssistant.userActionKey)
-        UserDefaults.standard.synchronize()
+        O2HMigrationAssistant.record(O2HMigrationAssistant.migrationPostponed)
 
         window?.close()
     }
 
     @IBAction @objc(doMigrationFromOsiriX:)
     public func doMigrationFromOsiriX(_ sender: Any!) {
-        UserDefaults.standard.set(NSNumber(value: O2HMigrationAssistant.migrationAccepted), forKey: O2HMigrationAssistant.userActionKey)
-        UserDefaults.standard.synchronize()
+        O2HMigrationAssistant.record(O2HMigrationAssistant.migrationAccepted)
 
         DispatchQueue.main.async {
             let osirixPath = O2HMigrationAssistant.osirixDatabasePath
 
             var isDirectory: ObjCBool = false
             if FileManager.default.fileExists(atPath: osirixPath, isDirectory: &isDirectory) && isDirectory.boolValue {
-                let defaults = UserDefaults.standard
-                let COPYDATABASE = defaults.bool(forKey: "COPYDATABASE")
-                let COPYDATABASEMODE = Int32(truncatingIfNeeded: defaults.integer(forKey: "COPYDATABASEMODE")) // an int before
+                let defaults = PreferencesSource.process.preferences
+                let COPYDATABASE = defaults[DatabasePreferences.copyToDatabase]
+                let COPYDATABASEMODE = defaults[DatabasePreferences.copyToDatabaseMode] // an int before
 
-                defaults.set(NSNumber(value: true), forKey: "COPYDATABASE")
-                defaults.set(NSNumber(value: always), forKey: "COPYDATABASEMODE") // AppController.h: always = 0
+                defaults.set(true, for: DatabasePreferences.copyToDatabase)
+                defaults.set(Int(always), for: DatabasePreferences.copyToDatabaseMode) // AppController.h: always = 0
                 defaults.synchronize()
 
                 self.browserController?.subSelectFilesAndFolders(toAdd: [osirixPath])
 
-                defaults.set(NSNumber(value: COPYDATABASE), forKey: "COPYDATABASE")
-                defaults.set(NSNumber(value: Int(COPYDATABASEMODE)), forKey: "COPYDATABASEMODE")
+                defaults.set(COPYDATABASE, for: DatabasePreferences.copyToDatabase)
+                defaults.set(COPYDATABASEMODE, for: DatabasePreferences.copyToDatabaseMode)
                 defaults.synchronize()
             }
 

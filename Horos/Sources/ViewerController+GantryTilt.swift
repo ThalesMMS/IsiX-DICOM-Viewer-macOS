@@ -42,10 +42,70 @@ import IsiXImaging
 
 // The gantry tilt correction of the 2D viewer's series is implemented in
 // Swift: a Swift extension of ViewerController, which stays Objective-C, with
-// the same selector (+correctGangtryTilt:). Each slice is reoriented onto the
-// plane of the series' middle slice by ITKTransform, with the parameters
-// GantryTiltCorrection of the IsiXImaging module computes, and moved onto
-// that plane.
+// the same selector (+correctGangtryTilt:). GantryTiltSlices reorients each
+// slice onto the plane of the series' middle slice with ITKTransform, by the
+// parameters GantryTiltCorrection of the IsiXImaging module computes, and
+// moves it onto that plane.
+
+/// The slices of a tilted series, brought onto the plane of their middle one,
+/// on the main actor, where ITKTransform reorients them.
+@MainActor struct GantryTiltSlices {
+
+    let slices: [DCMPix]
+
+    /// Reorients every slice but the middle one onto its plane, calling
+    /// `progress` after each slice, then clears their intervals; false, with
+    /// nothing changed, when they do not all have the middle slice's
+    /// orientation. A slice that cannot be reoriented stops the correction.
+    func correct(progress: () -> Void) -> Bool {
+        guard !slices.isEmpty else { return false }
+        let model = slices[slices.count / 2]
+        var orientation = [Double](repeating: 0, count: 9)
+        model.orientationDouble(&orientation)
+        let origin = [model.originX, model.originY, model.originZ]
+
+        for p in slices {
+            var o = [Double](repeating: 0, count: 9)
+            p.orientationDouble(&o)
+            if !GantryTiltCorrection.hasModelOrientation(o, model: orientation) {
+                HorosAlertPanel.runInformational(title: NSLocalizedString("Error!", comment: ""),
+                                                 message: NSLocalizedString("These slices have not the same orientation. Gantry Tilt Correction cannot be applied to this dataset.", comment: ""),
+                                                 defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                return false
+            }
+        }
+
+        for p in slices {
+            if p !== model {
+                var vectorSensor = [Double](repeating: 0, count: 9), vectorModel = [Double](repeating: 0, count: 9)
+                p.orientationDouble(&vectorSensor)
+                model.orientationDouble(&vectorModel)
+                let offset = [p.originX - origin[0], p.originY - origin[1], p.originZ - origin[2]]
+
+                var matrix = GantryTiltCorrection.parameters(sensor: vectorSensor, model: vectorModel, offset: offset)
+                var size = 0
+                guard let resultBuff = ITKTransform.reorient2Dimage(&matrix, firstObject: model, firstObjectOriginal: p, length: &size) else {
+                    HorosAlertPanel.runInformational(title: NSLocalizedString("Error!", comment: ""), message: NSLocalizedString("Not Enough Memory", comment: ""),
+                                                     defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                    break
+                }
+                memcpy(p.fImage, resultBuff, size)
+                free(resultBuff)
+
+                // Project the 3D point on the plane : dot product of normal plane vector (vectorModel) and distance between point and plane origin
+                var outputOrigin = GantryTiltCorrection.projectedOrigin(modelOrigin: origin, model: vectorModel, offset: offset)
+                p.setOriginDouble(&outputOrigin)
+            }
+
+            progress()
+        }
+
+        for p in slices {
+            p.sliceInterval = 0
+        }
+        return true
+    }
+}
 
 public extension ViewerController {
 
@@ -54,61 +114,15 @@ public extension ViewerController {
     /// series was corrected by.
     @objc(correctGangtryTilt:)
     class func correctGangtryTilt(_ viewerController: ViewerController!) {
-        let pixList: NSArray = viewerController.pixList() ?? NSMutableArray()
-        let curPix = pixList.object(at: pixList.count / 2) as! DCMPix
+        let slices = GantryTiltSlices(slices: viewerController.pixList() as? [DCMPix] ?? [])
 
-        let w = viewerController.startWaitProgressWindow(NSLocalizedString("Gantry Tilt Correction", comment: ""), pixList.count)
+        let w = viewerController.startWaitProgressWindow(NSLocalizedString("Gantry Tilt Correction", comment: ""), slices.slices.count)
 
-        let exception = viewerObjCTry {
-            var ok = true
-            var orientation = [Double](repeating: 0, count: 9)
-            curPix.orientationDouble(&orientation)
-            let origin = [curPix.originX, curPix.originY, curPix.originZ]
-
-            for case let p as DCMPix in pixList {
-                var o = [Double](repeating: 0, count: 9)
-                p.orientationDouble(&o)
-                if !GantryTiltCorrection.hasModelOrientation(o, model: orientation) {
-                    HorosAlertPanel.runInformational(title: NSLocalizedString("Error!", comment: ""),
-                                                     message: NSLocalizedString("These slices have not the same orientation. Gantry Tilt Correction cannot be applied to this dataset.", comment: ""),
-                                                     defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-                    ok = false
-                    break
-                }
-            }
-            guard ok else { return }
-
-            for case let p as DCMPix in pixList {
-                if p !== curPix {
-                    var vectorSensor = [Double](repeating: 0, count: 9), vectorModel = [Double](repeating: 0, count: 9)
-                    p.orientationDouble(&vectorSensor)
-                    curPix.orientationDouble(&vectorModel)
-                    let offset = [p.originX - origin[0], p.originY - origin[1], p.originZ - origin[2]]
-
-                    var matrix = GantryTiltCorrection.parameters(sensor: vectorSensor, model: vectorModel, offset: offset)
-                    var size = 0
-                    guard let resultBuff = ITKTransform.reorient2Dimage(&matrix, firstObject: curPix, firstObjectOriginal: p, length: &size) else {
-                        HorosAlertPanel.runInformational(title: NSLocalizedString("Error!", comment: ""), message: NSLocalizedString("Not Enough Memory", comment: ""),
-                                                         defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-                        break
-                    }
-                    memcpy(p.fImage, resultBuff, size)
-                    free(resultBuff)
-
-                    // Project the 3D point on the plane : dot product of normal plane vector (vectorModel) and distance between point and plane origin
-                    var outputOrigin = GantryTiltCorrection.projectedOrigin(modelOrigin: origin, model: vectorModel, offset: offset)
-                    p.setOriginDouble(&outputOrigin)
-                }
-
-                viewerController.waitIncrement(by: w, 1)
-            }
-
-            for case let p as DCMPix in pixList {
-                p.sliceInterval = 0
-            }
-
+        let exception = HorosObjCException.caught {
             // The 3D views opened from this viewer say so.
-            GantryTiltPolicy.setCorrected(degrees: viewerController.horos_titledGantryDegrees, for: viewerController)
+            if slices.correct(progress: { viewerController.waitIncrement(by: w, 1) }) {
+                GantryTiltPolicy.setCorrected(degrees: viewerController.horos_titledGantryDegrees, for: viewerController)
+            }
         }
         if let exception {
             _N2LogExceptionImpl(exception, false, "+[ViewerController correctGangtryTilt:]")

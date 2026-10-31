@@ -11,6 +11,9 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import process_graph_stand_in  # noqa: E402
+
 root = Path(__file__).resolve().parents[1]
 relative = 'Horos/Sources/XMLRPCInterface+Opening.swift'
 source = (subprocess.check_output(['git', 'show', sys.argv[1] + ':' + relative]).decode('utf-8')
@@ -19,6 +22,7 @@ start = source.index('    @objc(_onMainThreadOpenObjectsWithIDs:)')
 method = source[start:source.index('    /// Selects the first of `objectIDs` in the browser', start)]
 driver = r'''
 import Foundation
+import IsiXPreferences
 
 func check(_ condition: Bool, _ what: String) {
     if !condition {
@@ -71,10 +75,14 @@ final class BrowserController {
 }
 final class XMLRPCInterface: NSObject {
     var database: Database?
+    /// The browser of the process graph's database window.
+    var browser: BrowserController? { BrowserController.shared }
     func study(for object: NSManagedObject?) -> DicomStudy? { object as? DicomStudy }
     func reportStudyNotOpened(_ study: DicomStudy?) { refusals += 1 }
 }
 extension XMLRPCInterface {
+    /// The opens that wait for a dialog, as XMLRPCInterface+Opening keeps them.
+    @MainActor static let openRetries = DeferredCalls()
 METHOD
 }
 
@@ -127,6 +135,9 @@ print("PASS: modal/default loops, no hidden UI side effects, retained IDs, one d
 with tempfile.TemporaryDirectory(prefix='horos-xmlrpc-modal-') as folder:
     folder = Path(folder)
     (folder / 'main.swift').write_text(driver)
-    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', str(folder / 'main.swift'), '-o', str(folder / 'test')],
+    # The method reads its preferences from PreferencesSource, over a stand-in of the process graph.
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', str(folder / 'main.swift'),
+                    str(root / 'Horos/Sources/DeferredCalls.swift'), *process_graph_stand_in.swift_flags(folder / 'graph'),
+                    '-o', str(folder / 'test')],
                    check=True)
     subprocess.run([str(folder / 'test')], check=True, timeout=60)

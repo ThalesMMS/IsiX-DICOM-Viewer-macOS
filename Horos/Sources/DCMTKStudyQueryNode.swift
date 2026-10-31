@@ -40,14 +40,20 @@
 import Foundation
 import IsiXDICOMNetwork
 import IsiXDICOMFile
+import IsiXPreferences
 
 /// A study of a node. Its children are its series, or the images an IMAGE
 /// level search of it lists. It answers the messages a DicomStudy answers, so
 /// that the browser shows it among the local studies.
-@objc(DCMTKStudyQueryNode)
+/// @usableFromInline because plugins built against the former SDK look up its
+/// Objective-C class: without it, the class symbol of an internal Swift class is
+/// private external, which a Release build, having no testability, leaves
+/// unexported. The attribute gives it public linkage and changes nothing else.
+@objc(DCMTKStudyQueryNode) @usableFromInline
 final class DCMTKStudyQueryNode: DCMTKQueryNode, @unchecked Sendable {
     /// Children are sorted when they are asked for, not after each one added.
     private var sortChildren = false
+    private(set) var comparativeIdentity: ComparativePatientIdentity?
 
     required init(dataset: IsiXDCMTKDataset?, callingAET: String?, calledAET: String?, hostname: String?, port: Int32,
                   transferSyntax: Int32, compression: Float, extraParameters: [AnyHashable: Any]?) {
@@ -67,6 +73,7 @@ final class DCMTKStudyQueryNode: DCMTKQueryNode, @unchecked Sendable {
         performingPhysicianValue = dataset.text(.performingPhysicianName, encodings: encodings)
         institutionNameValue = dataset.text(.institutionName, encodings: encodings)
         birthdateValue = dataset.latin1Value(.patientBirthDate).flatMap { DICOMCalendarDate.dicomDate($0) }
+        comparativeIdentity = dataset.comparativePatientIdentity(encodings: encodings, birthDate: birthdateValue as Date?)
         dateValue = dataset.latin1Value(.studyDate).flatMap { DICOMCalendarDate.dicomDate($0) }
         timeValue = dataset.latin1Value(.studyTime).flatMap { DICOMCalendarDate.dicomTime($0) }
         modalityValue = dataset.latin1Value(.modalitiesInStudy) ?? dataset.latin1Value(.modality)
@@ -75,10 +82,10 @@ final class DCMTKStudyQueryNode: DCMTKQueryNode, @unchecked Sendable {
 
     /// When a study is opened: its series.
     override func queryPrototype() -> DICOMQueryIdentifier? {
-        let defaults = UserDefaults.standard
+        let preferences = PreferencesSource.process.preferences
         return QueryIdentifiers.series(ofStudy: uidValue, options: QueryReturnKeyOptions(
-            bodyPartExamined: defaults.bool(forKey: "CFINDBodyPartExaminedSupport"),
-            commentsAndStatus: defaults.bool(forKey: "CFINDCommentsAndStatusSupport")))
+            bodyPartExamined: preferences[NetworkPreferences.cfindBodyPartExaminedSupport],
+            commentsAndStatus: preferences[NetworkPreferences.cfindCommentsAndStatusSupport]))
     }
 
     override func moveIdentifier() -> DICOMQueryIdentifier? { QueryIdentifiers.retrieve(study: uidValue) }
@@ -173,7 +180,7 @@ final class DCMTKStudyQueryNode: DCMTKQueryNode, @unchecked Sendable {
         }
         childrenLock.lock(); defer { childrenLock.unlock() }
         guard let children = childrenStorage else { return }
-        let duplicates = UserDefaults.standard.bool(forKey: "QRRemoveDuplicateEntries")
+        let duplicates = PreferencesSource.process.preferences[NetworkPreferences.qrRemoveDuplicateEntries]
         if level == Data("IMAGE".utf8) {
             let image = child(DCMTKImageQueryNode.self, from: response)
             let alreadyHere = duplicates && children.contains { object in

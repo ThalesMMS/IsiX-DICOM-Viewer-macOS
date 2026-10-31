@@ -41,7 +41,7 @@ import Cocoa
 
 /// The Hot Keys pane's key cell, formatted by HotKeyFormatter.
 ///
-/// Implemented in Swift since #711. No stored properties: a table copies
+/// Implemented in Swift. No stored properties: a table copies
 /// its cells with NSCopyObject.
 @objc(HotKeyTextFieldCell)
 public final class HotKeyTextFieldCell: NSTextFieldCell {

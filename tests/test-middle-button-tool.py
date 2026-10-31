@@ -96,7 +96,10 @@ mouse = without_comments(read('Horos/Sources/DCMView+Mouse.swift'))
 rules = without_comments(read('Modules/IsiXImaging/Sources/ViewInput/InputRules.swift'))
 getter = body(tools, 'public dynamic func horosCurrentToolMiddle()')
 setter = body(tools, 'public dynamic func horosSetMiddleTool(')
-if 'integer(forKey: "DEFAULTMIDDLETOOL")' not in getter or 'forKey: "DEFAULTMIDDLETOOL")' not in setter \
+# Through the typed key of DEFAULTMIDDLETOOL (ViewerPreferences.defaultMiddleTool), or the literal before.
+reads_middle = 'integer(forKey: "DEFAULTMIDDLETOOL")' in getter or 'preferences[ViewerPreferences.defaultMiddleTool]' in getter
+writes_middle = 'forKey: "DEFAULTMIDDLETOOL")' in setter or 'for: ViewerPreferences.defaultMiddleTool)' in setter
+if not reads_middle or not writes_middle \
         or not re.search(r'get \{ return self\.horosCurrentToolMiddle\(\) \}\s*@objc\(setMiddleTool:\) set \{ self\.horosSetMiddleTool\(newValue\) \}',
                          body(view, 'public dynamic var currentToolMiddle: ToolMode')):
     failures.append('currentToolMiddle is not read from and written to DEFAULTMIDDLETOOL')
@@ -106,7 +109,10 @@ rule = body(rules, 'public static func tool(button: Button')
 # The rule names the ToolMode values (1 is tTranslate) and tests the raw bits.
 middle = re.search(r'case \.other\(let number\): tool = number == 2 \? middle : 1 // translate', rule)
 if 'case .otherMouseDown?, .otherMouseDragged?: button = .other(buttonNumber: event.buttonNumber)' not in get_tool \
-        or 'self.currentToolMiddle' not in get_tool or 'ViewInput.tool(button: button' not in get_tool or not middle:
+        or 'self.currentToolMiddle' not in get_tool or not middle \
+        or ('ViewInput.tool(button: button' not in get_tool
+            and not ('ViewerToolBindings(' in get_tool and 'bindings.tool(button: button' in get_tool
+                     and 'ViewInput.tool(button: button' in without_comments(read('Modules/IsiXImaging/Sources/ViewInput/ViewerToolBindings.swift')))):
     failures.append('getTool: does not give the middle button its tool and the other buttons the move tool')
 else:
     modifiers = rule.find('if m & command != 0 { tool = 1 }')
@@ -127,30 +133,36 @@ notifications = read('Horos/Sources/Notifications.m')
 if 'OsirixDefaultMiddleToolModifiedNotification = @"defaultMiddleToolModified"' not in notifications \
         or 'OsirixDefaultMiddleToolModifiedNotification;' not in read('Horos/Sources/Notifications.h'):
     failures.append('OsirixDefaultMiddleToolModifiedNotification is not declared')
-# Registered in ViewerController.m, or in ViewerController+Lifecycle.swift
-# since the class is Swift.
+# Registered in ViewerController.m, or, since the class is Swift, by the
+# viewer's graph as it sets the window up (ViewerSessionGraph+ViewerLife.swift).
 if '@selector(defaultMiddleToolModified:) name:OsirixDefaultMiddleToolModifiedNotification' \
         not in read('Horos/Sources/ViewerController.m') \
-        and '#selector(defaultMiddleToolModified(_:)), name: .OsirixDefaultMiddleToolModified' \
-        not in read('Horos/Sources/ViewerController+Lifecycle.swift'):
+        and '#selector(ViewerController.defaultMiddleToolModified(_:)), name: .OsirixDefaultMiddleToolModified' \
+        not in read('Horos/Sources/ViewerSessionGraph+ViewerLife.swift'):
     failures.append('ViewerController does not observe OsirixDefaultMiddleToolModifiedNotification')
 
-toolbar = without_comments(read('Horos/Sources/ViewerController+Toolbar.swift'))
+# The viewer's actions hand the Tools item's work to ViewerToolbarItemFactory.
+toolbar = without_comments(read('Horos/Sources/ViewerToolbarItemFactory.swift'))
+facade = without_comments(read('Horos/Sources/ViewerController+Toolbar.swift'))
 if not re.search(r'static let middleButtonTag = 2\b', toolbar):
     failures.append('the toolbar has no middle button radio tag 2')
-set_default = body(toolbar, 'func setDefaultTool(_ sender: Any!)')
-if not re.search(r'case ViewerController\.middleButtonTag:\s*NotificationCenter\.default\.post\(name: \.OsirixDefaultMiddleToolModified',
-                 set_default):
+set_default = body(toolbar, 'func setDefaultTool(_ sender: Any?, in viewer: ViewerController)')
+if not re.search(r'case Self\.middleButtonTag: name = \.OsirixDefaultMiddleToolModified', set_default) \
+        or 'NotificationCenter.default.post(name: name, object: sender' not in set_default \
+        or 'toolbarItems.setDefaultTool(sender, in: self)' not in body(facade, 'func setDefaultTool(_ sender: Any!)'):
     failures.append('setDefaultTool: does not send the tool to the middle button when its radio is chosen')
-modified = body(toolbar, 'func defaultMiddleToolModified(_ note: Notification!)')
-if 'self.horos_imageView?.currentToolMiddle = tool' not in modified:
+modified = body(toolbar, 'func defaultMiddleToolModified(_ note: Notification?, in viewer: ViewerController)')
+if 'viewer.horos_imageView?.currentToolMiddle = tool' not in modified \
+        or 'toolbarItems.defaultMiddleToolModified(note, in: self)' not in body(facade, 'func defaultMiddleToolModified(_ note: Notification!)'):
     failures.append('defaultMiddleToolModified: does not store the middle button\'s tool')
-button = body(toolbar, 'func setButtonTool(_ sender: Any!)')
-if 'currentToolMiddle' not in button or 'button != ViewerController.rightButtonTag' not in button:
+button = body(toolbar, 'func setButtonTool(_ sender: Any?, in viewer: ViewerController)')
+if 'currentToolMiddle' not in button or 'button != Self.rightButtonTag' not in button:
     failures.append('setButtonTool: does not show the middle button\'s tool with the ROI tools available')
 
 editing = without_comments(read('Horos/Sources/ViewerController+ROI+Editing.swift'))
-if 'if self.middleButtonSelectedInToolbar' not in body(editing, 'func setROITool(_ sender: Any!)'):
+# -setROITool: is a façade over ViewerROIToolPalette.choose(from:in:).
+if 'ViewerROIToolPalette.choose(from: sender, in: self)' not in body(editing, 'func setROITool(_ sender: Any!)') \
+        or 'if viewer.middleButtonSelectedInToolbar' not in body(editing, 'static func choose(from sender: Any?, in viewer: ViewerController)'):
     failures.append('setROITool: gives a ROI tool to the left button while the middle radio is chosen')
 
 english = None

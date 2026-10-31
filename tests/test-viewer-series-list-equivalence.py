@@ -6,7 +6,10 @@ list with its thumbnails (-buildMatrixPreview: and the clicks on its cells),
 its dock (its thickness, visibility, automatic hiding and the split view's
 delegate), what a drop on the window does (-performDragOperation: and the
 fusion sheet it opens), the keys, the highlight and the movie export
-positions moved from ViewerController.m to Swift extensions of the class,
+positions moved from ViewerController.m to Swift extensions of the class
+(the list and its dock then on to SeriesListPresenter, over the browser's
+ComparativeStudiesProviding, filling the cells from a SeriesListModel;
+the menu on to SeriesMenuPresenter, filling it from a SeriesMenuModel),
 with their pure rules (which studies the list shows, their numbers, colours
 and titles, the comparatives button, what a series cell counts, the size of
 the pictures, the divider's snap, where the mouse keeps the list shown, the
@@ -40,7 +43,7 @@ Floats are compared to the last bit, pictures by a checksum of their pixels.
 The reference is the Objective-C of ViewerController.m in the last revision
 that has it (history_reference), compiled with clang as Xcode compiles it
 (manual retain and release); the other side is the current tree: the Swift
-files with IsiXImaging, compiled with swiftc, or the Objective-C again if the
+files with IsiXImaging and IsiXPreferences, compiled with swiftc, or the Objective-C again if the
 tree still has it. Both run over the same stand-ins of the viewer, its
 window, list, split view, cells and menus and of the classes they call,
 which record what they are given; the two records must be identical.
@@ -52,6 +55,8 @@ import difflib
 import re
 import subprocess
 import sys
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+import objc_exception_guards
 import tempfile
 from pathlib import Path
 
@@ -64,8 +69,13 @@ VC = 'Horos/Sources/ViewerController.m'
 MARK = '- (void) buildMatrixPreview: (BOOL) showSelected\n{'
 SWIFT_FILES = ['ViewerController+%s.swift' % name for name in
                ('SeriesPopup', 'SeriesThumbnails', 'SeriesListDock', 'DragAndDrop', 'Keyboard')]
+# The presenter of the list and its dock, and the port of the browser's
+# comparative studies, once the list's code moved there; and the opening of the
+# next series, which the keys hand to the database window through the viewer's
+# graph.
+PRESENTER_FILES = ['SeriesListPresenter.swift', 'ComparativeStudiesProviding.swift', 'ViewerStudyOpening.swift']
 # IsiXLogging first: the others that log write through it.
-MODULES = ['IsiXLogging', 'IsiXImaging']
+MODULES = ['IsiXLogging', 'IsiXPreferences', 'IsiXImaging']
 SCENARIOS = ['popup', 'matrix', 'selection', 'dock', 'drag', 'keys']
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -176,7 +186,12 @@ NSString *HarnessTruncate(NSString *string, NSInteger width);
 @property(retain) NSSet *images;
 @property(retain, nonatomic) NSData *thumbnail;
 @property(retain) NSData *harnessThumbnail;
-@property(retain) NSNumber *noFiles, *rawNoFiles, *harnessID;
+@property(retain) NSNumber *harnessID, *harnessNoFiles, *harnessRawNoFiles;
+// Methods, not properties, as the app's class declares them.
+- (NSNumber*) noFiles;
+- (void) setNoFiles:(NSNumber*)value;
+- (NSNumber*) rawNoFiles;
+- (void) setRawNoFiles:(NSNumber*)value;
 @property(retain) NSDate *displayDate;
 @property(assign) DicomStudy *study;
 @property BOOL harnessExternal;
@@ -202,6 +217,8 @@ DicomImage *NewImage(NSString *name, DicomSeries *series);
 - (id) objectWithID:(id)objectID;
 @property(readonly) BOOL isReadOnly;
 - (BOOL) isLocal;
+- (BOOL) isMainDatabase;
++ (NSArray*) allDatabases;
 @end
 
 @interface DCMTKQueryNode : NSObject
@@ -324,11 +341,16 @@ extern NSInteger harnessXMLCreated;
 @property(retain) NSArray *comparativeStudies;
 @property BOOL harnessSelects, isCurrentDatabaseBonjour;
 - (BOOL) selectThisStudy:(id)study;
+/// What the series menu calls: it never asks the window to show another
+/// database, and a call that does is recorded apart, so that it differs from
+/// the former selectThisStudy: and fails the comparison.
+- (BOOL) selectThisStudy:(id)study switchingDatabase:(BOOL)switchingDatabase;
 - (NSArray*) childrenArray:(id)item;
 - (NSArray*) imagesArray:(id)item preferredObject:(int)preferredObject;
 - (BOOL) isUsingExternalViewer:(NSManagedObject*)item NS_SWIFT_NAME(is(usingExternalViewer:));
 - (ViewerController*) loadSeries:(NSManagedObject*)curFile :(ViewerController*)viewer :(BOOL)firstViewer keyImagesOnly:(BOOL)keyImages;
 - (void) loadNextSeries:(NSManagedObject*)curImage :(long)direction :(ViewerController*)viewer :(BOOL)firstViewer keyImagesOnly:(BOOL)keyImages;
+- (void) loadNextPatient:(NSManagedObject*)curImage :(long)direction :(ViewerController*)viewer :(BOOL)firstViewer keyImagesOnly:(BOOL)keyImages;
 - (void) retrieveComparativeStudy:(DCMTKStudyQueryNode*)study select:(BOOL)select open:(BOOL)open showGUI:(BOOL)showGUI viewer:(ViewerController*)viewer;
 - (void) retrieveComparativeStudy:(DCMTKStudyQueryNode*)study select:(BOOL)select open:(BOOL)open;
 - (float) fontSize:(NSString*)type;
@@ -426,7 +448,7 @@ extern BOOL harnessNoBrowser;
     NSPopUpButton *blendingPlugins;
     ViewerController *blendedWindow;
     float highLighted, direction;
-    NSTimer *highLightedTimer, *timer;
+    NSTimer *highLightedTimer, *timer, *scrollSyncTimer;
     NSSlider *speedSlider, *dcmFrom, *dcmTo, *dcmInterval, *quicktimeFrom, *quicktimeTo, *quicktimeInterval;
     NSNumber *flagListPODComparatives;
 }
@@ -559,6 +581,7 @@ extern ViewerController *(*harnessOpenViewer)(NSString *name);
 @property(readonly, nullable) NSWindow* horos_blendingTypeWindow;
 @property(retain, nullable) ViewerController* horos_blendedWindow;
 @property(retain, nullable) NSTimer* horos_highLightedTimer;
+@property(retain, nullable) NSTimer* horos_scrollSyncTimer;
 @property(retain, nullable) NSTimer* horos_timer;
 @property(readonly, nullable) NSSlider *horos_speedSlider, *horos_dcmFrom, *horos_dcmTo, *horos_dcmInterval, *horos_quicktimeFrom, *horos_quicktimeTo, *horos_quicktimeInterval;
 @property(assign) short horos_curMovieIndex NS_SWIFT_NONISOLATED;
@@ -830,7 +853,11 @@ static NSEntityDescription *Entity(NSString *name, Class class) {
 @end
 
 @implementation DicomSeries
-@synthesize name, images, thumbnail, harnessThumbnail, noFiles, rawNoFiles, harnessID, displayDate, study, harnessExternal;
+@synthesize name, images, thumbnail, harnessThumbnail, harnessNoFiles, harnessRawNoFiles, harnessID, displayDate, study, harnessExternal;
+- (NSNumber*) noFiles { return harnessNoFiles; }
+- (void) setNoFiles:(NSNumber*)value { self.harnessNoFiles = value; }
+- (NSNumber*) rawNoFiles { return harnessRawNoFiles; }
+- (void) setRawNoFiles:(NSNumber*)value { self.harnessRawNoFiles = value; }
 - (void) setThumbnail:(NSData*)value { Record([NSString stringWithFormat: @"%@ thumbnail %@", Name(self), Name([[[NSString alloc] initWithData: value encoding: NSUTF8StringEncoding] autorelease])]); [value retain]; [thumbnail release]; thumbnail = value; }
 - (id) primitiveValueForKey:(NSString*)key { return [key isEqualToString: @"thumbnail"] ? harnessThumbnail : nil; }
 - (id) valueForUndefinedKey:(NSString*)key { if ([key isEqualToString: @"id"]) return harnessID; return [super valueForUndefinedKey: key]; }
@@ -873,6 +900,10 @@ DicomImage *NewImage(NSString *name, DicomSeries *series) {
 - (id) objectWithID:(id)objectID { Record([NSString stringWithFormat: @"%@ objectWithID %@", Name(self), Name(objectID)]); return [self.harnessObjects objectForKey: objectID]; }
 - (BOOL) isReadOnly { return self.isReadOnlyValue; }
 - (BOOL) isLocal { return self.isLocalValue; }
+- (BOOL) isMainDatabase { return YES; }
+// A drop asks the open databases only for a row the browser's has not: the
+// harness's rows are all the browser's.
++ (NSArray*) allDatabases { return @[]; }
 @end
 
 @implementation DCMTKQueryNode
@@ -1042,6 +1073,11 @@ static int harnessScrollerStyle = 1;
 + (NSArray*) comparativeServers { Record(@"comparativeServers"); return @[@"pacs"]; }
 + (NSArray<NSString*>*) DatabaseObjectXIDsPasteboardTypes { return @[@"harness.xids"]; }
 - (BOOL) selectThisStudy:(id)study { Record([NSString stringWithFormat: @"selectThisStudy %@", Name(study)]); return self.harnessSelects; }
+- (BOOL) selectThisStudy:(id)study switchingDatabase:(BOOL)switchingDatabase {
+    if (switchingDatabase) Record([NSString stringWithFormat: @"selectThisStudy %@ switchingDatabase", Name(study)]);
+    else Record([NSString stringWithFormat: @"selectThisStudy %@", Name(study)]);
+    return self.harnessSelects;
+}
 - (NSArray*) childrenArray:(DicomStudy*)item { Record([NSString stringWithFormat: @"childrenArray %@", Name(item)]); return item.harnessSeries; }
 - (NSArray*) imagesArray:(DicomStudy*)item preferredObject:(int)preferredObject {
     Record([NSString stringWithFormat: @"imagesArray %@ %d", Name(item), preferredObject]);
@@ -1057,6 +1093,9 @@ static long loadedViewers = 0;
 }
 - (void) loadNextSeries:(NSManagedObject*)curImage :(long)direction :(ViewerController*)viewer :(BOOL)firstViewer keyImagesOnly:(BOOL)keyImages {
     Record([NSString stringWithFormat: @"loadNextSeries %@ %ld viewer %@ first %d keyImages %d", Name(curImage), direction, Name(viewer), firstViewer, keyImages]);
+}
+- (void) loadNextPatient:(NSManagedObject*)curImage :(long)direction :(ViewerController*)viewer :(BOOL)firstViewer keyImagesOnly:(BOOL)keyImages {
+    Record([NSString stringWithFormat: @"loadNextPatient %@ %ld viewer %@ first %d keyImages %d", Name(curImage), direction, Name(viewer), firstViewer, keyImages]);
 }
 - (void) retrieveComparativeStudy:(DCMTKStudyQueryNode*)study select:(BOOL)select open:(BOOL)open showGUI:(BOOL)showGUI viewer:(ViewerController*)viewer {
     Record([NSString stringWithFormat: @"retrieveComparativeStudy %@ select %d open %d showGUI %d viewer %@", Name(study), select, open, showGUI, Name(viewer)]);
@@ -1294,7 +1333,7 @@ def accessors():
             ('readonly', 'NSMatrix*', 'previewMatrix'), ('readonly', 'NSScrollView*', 'previewMatrixScrollView'),
             ('readonly', 'NSSplitView*', 'splitView'), ('object', 'NSWindow*', 'FullScreenWindow'), ('object', 'SeriesView*', 'seriesView'),
             ('object', 'DCMView*', 'imageView'), ('readonly', 'NSWindow*', 'blendingTypeWindow'), ('object', 'ViewerController*', 'blendedWindow'),
-            ('object', 'NSTimer*', 'highLightedTimer'), ('object', 'NSTimer*', 'timer'), ('readonly', 'NSSlider*', 'speedSlider'),
+            ('object', 'NSTimer*', 'highLightedTimer'), ('object', 'NSTimer*', 'timer'), ('object', 'NSTimer*', 'scrollSyncTimer'), ('readonly', 'NSSlider*', 'speedSlider'),
             ('readonly', 'NSSlider*', 'dcmFrom'), ('readonly', 'NSSlider*', 'dcmTo'), ('readonly', 'NSSlider*', 'dcmInterval'),
             ('readonly', 'NSSlider*', 'quicktimeFrom'), ('readonly', 'NSSlider*', 'quicktimeTo'), ('readonly', 'NSSlider*', 'quicktimeInterval'),
             ('assign', 'short', 'curMovieIndex'), ('assign', 'short', 'maxMovieIndex')]:
@@ -2428,11 +2467,16 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-series-list-') as tmp:
                 sys.exit('FAIL: no Horos/Sources/%s' % name)
             (swift / name).write_bytes(text)
             sources.append(str(swift / name))
+        for name in PRESENTER_FILES:
+            text = read(args.current, 'Horos/Sources/' + name)
+            if text is not None:
+                (swift / name).write_bytes(text)
+                sources.append(str(swift / name))
         # [sender tag] and [sender intValue] as the blocks send them, the @try
         # of the blocks, -addObject: of a nil object, the main actor.
         support = read(args.current, 'Horos/Sources/ViewerController+ImagePipelineSupport.swift').decode('utf-8')
         sender = re.search(r'\nenum ViewerSender \{.*?\n}\n', support, re.S).group(0)
-        attempt = re.search(r'\n/// Runs `body` as an @try block.*?\nfunc viewerObjCTry.*?\n}\n', support, re.S).group(0)
+        attempt = (lambda found: found.group(0) if found else objc_exception_guards.source(read(args.current, objc_exception_guards.PATH) or '', log=False) + '\n// The former helper, for a base revision that calls it.\nfunc viewerObjCTry(_ body: () -> Void) -> NSException? { HorosObjCException.caught(body) }\n')(re.search(r'\n/// Runs `body` as an @try block.*?\nfunc viewerObjCTry.*?\n}\n', support, re.S))
         undo = read(args.current, 'Horos/Sources/ViewerController+UndoQueue.swift').decode('utf-8')
         add = re.search(r'\nfunc viewerArrayAdd\(.*?\n}\n', undo, re.S).group(0)
         actors = read(args.current, 'Horos/Sources/MainActorCallbacks.swift').decode('utf-8')
@@ -2445,7 +2489,54 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-series-list-') as tmp:
         identifiers = re.search(r'\n@objc\(HorosPasteboardObjectIdentifiers\)\npublic final class PasteboardObjectIdentifiers: NSObject \{.*?\n}\n',
                                 drag_export, re.S)
         identifiers = identifiers.group(0) if identifiers else ''
-        (swift / 'Helpers.swift').write_text('import AppKit\n' + sender + attempt + add + main_actor + truncate + identifiers)
+        # The graphs the presenters are made over: the process's browser (the
+        # stand-in's +currentBrowser), application controller and preferences.
+        # The database window's graph holds the same browser.
+        graphs = ('final class ProcessGraph: Sendable {\n    static let harness = ProcessGraph()\n'
+                  '    @MainActor var currentBrowser: BrowserController? { BrowserController.currentBrowser() }\n'
+                  '    @MainActor var browserWindow: BrowserWindowGraph? { BrowserController.currentBrowser().map { BrowserWindowGraph(browser: $0) } }\n'
+                  '    @MainActor var appController: AppController? { AppController.shared() }\n'
+                  '    @MainActor var browserDatabase: DicomDatabase? { BrowserController.currentBrowser()?.database }\n'
+                  '    @MainActor var viewerSync: ViewerSyncState { ViewerSyncState.harness }\n'
+                  '    var preferences: UserDefaults { UserDefaults.standard }\n}\n'
+                  '@MainActor final class BrowserWindowGraph {\n    let browser: BrowserController\n'
+                  '    init(browser: BrowserController) { self.browser = browser }\n}\n'
+                  '@MainActor final class ViewerSessionGraph {\n    let processGraph = ProcessGraph.harness\n}\n'
+                  'extension ViewerController {\n    var sessionGraph: ViewerSessionGraph! { ViewerSessionGraph() }\n'
+                  '    static var processGraph: ProcessGraph { ProcessGraph.harness }\n}\n')
+        # The fusion sheet a drop opens is ViewerFusion's, once the tree has
+        # it: its -completeDragOperation: over the viewer the drag came from,
+        # which the process's ViewerSyncState keeps; the fusion it cancels is
+        # the stand-in's -ActivateBlending:.
+        fusion_text = (read(args.current, 'Horos/Sources/ViewerFusion.swift') or b'').decode('utf-8')
+        fusion = ''
+        if fusion_text:
+            start = fusion_text.index('    func completeDragOperation(_ vc: ViewerController!) {')
+            complete = fusion_text[start:fusion_text.index('\n    }\n', start) + 7]
+            raise_nil = re.search(r'\nfunc viewerRaiseNilInsertion\(.*?\n}\n', undo, re.S).group(0)
+            fusion = (raise_nil + '@MainActor final class ViewerSyncState {\n    static let harness = ViewerSyncState()\n'
+                      '    weak var draggedViewer: ViewerController?\n}\n'
+                      '@MainActor final class ViewerFusion {\n    let viewer: ViewerController\n    let sync = ViewerSyncState.harness\n'
+                      '    init(viewer: ViewerController) { self.viewer = viewer }\n'
+                      '    func activateBlending(_ bC: ViewerController!) { viewer.activateBlending(bC) }\n' + complete + '}\n'
+                      'extension ViewerController {\n    var fusion: ViewerFusion { ViewerFusion(viewer: self) }\n}\n')
+        # Once the menu asks an image's own database (whether its file is a
+        # shared database's, the file of the window) and the list and the menu
+        # the database of the viewer's study: the stand-ins' rows are rows of the
+        # database the browser shows, which the Objective-C asked instead, so
+        # their own database answers as the browser did.
+        popup_text = read(args.current, 'Horos/Sources/ViewerController+SeriesPopup.swift').decode('utf-8')
+        rows = ''
+        if 'RemoteDicomDatabase.database(of:' in popup_text:
+            rows += ('final class RemoteDicomDatabase {\n    @MainActor static func database(of object: NSManagedObject?) -> RemoteDicomDatabase? {\n'
+                     '        BrowserController.currentBrowser()?.isCurrentDatabaseBonjour == true ? RemoteDicomDatabase() : nil\n    }\n}\n')
+        if 'DatabaseImageFiles.localFile(ofRow:' in popup_text:
+            rows += ('enum DatabaseImageFiles {\n    @MainActor static func localFile(ofRow image: NSManagedObject?) -> String? {\n'
+                     '        BrowserController.currentBrowser()?.getLocalDCMPath(image, 0)\n    }\n}\n')
+        if 'BrowserDatabaseSource(' in popup_text:
+            rows += ('struct BrowserDatabaseSource {\n    let processGraph: ProcessGraph\n'
+                     '    @MainActor func database(of object: NSManagedObject?) -> DicomDatabase? { processGraph.browserDatabase }\n}\n')
+        (swift / 'Helpers.swift').write_text('import AppKit\n' + sender + attempt + add + main_actor + truncate + identifiers + graphs + fusion + rows)
         sources.append(str(swift / 'Helpers.swift'))
         libraries = []
         for module in MODULES:
@@ -2507,11 +2598,13 @@ int main(int argc, const char **argv) { @autoreleasepool {
         # While the split view resizes, the Objective-C asked the viewers'
         # former window class to redraw the window (-disableUpdatesUntilFlush);
         # the windows are plain NSWindows now, and the Swift marks the content
-        # view itself, which is checked in its source below.
-        dock = (ROOT / 'Horos/Sources/ViewerController+SeriesListDock.swift').read_text()
+        # view itself, which is checked in its source below (the dock's, or
+        # the presenter's it moved to).
+        dock = ''.join((ROOT / 'Horos/Sources' / name).read_text() for name in ('ViewerController+SeriesListDock.swift', 'SeriesListPresenter.swift')
+                       if (ROOT / 'Horos/Sources' / name).is_file())
         if 'disableUpdatesUntilFlush' not in dock:
             expected = [line for line in expected if not line.endswith(' disableUpdatesUntilFlush')]
-            if scenario == 'dock' and 'self.window?.contentView?.needsDisplay = true' not in dock:
+            if scenario == 'dock' and not re.search(r'(?:self|viewer)\.window\?\.contentView\?\.needsDisplay = true', dock):
                 failures += 1
                 print('FAIL: the series list no longer redraws its window while its split view resizes')
         if expected == got:

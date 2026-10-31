@@ -39,8 +39,10 @@
 
 import AppKit
 import IsiXDICOMNetwork
+import Synchronization
 import IsiXKeychain
 import IsiXDICOMFile
+import IsiXPreferences
 
 /// The queries and retrieves other code asks of Query/Retrieve without its
 /// window: the browser's distant studies and comparatives, the web portal,
@@ -277,7 +279,7 @@ extension QueryController {
 
                     let qm = QueryArrayController(callingAET: UserDefaults.defaultAETitle(), distantServer: server)
 
-                    if let encoding = UserDefaults.standard.string(forKey: "STRINGENCODING"), encoding != "ISO_IR 100" {
+                    if let encoding = PreferencesSource.process.preferences[NetworkPreferences.queryCharacterSet], encoding != "ISO_IR 100" {
                         // Specific Character Set
                         qm.addFilter(encoding, forDescription: "SpecificCharacterSet")
                     }
@@ -335,6 +337,16 @@ extension QueryController {
     @objc(queryStudiesForPatient:usePatientID:usePatientName:usePatientBirthDate:servers:showErrors:)
     public nonisolated class func queryStudies(forPatient study: DicomStudy!, usePatientID: Bool, usePatientName: Bool,
                                                usePatientBirthDate: Bool, servers serversList: [Any]!, showErrors: Bool) -> [Any]! {
+        queryStudies(forPatient: study, usePatientID: usePatientID, usePatientName: usePatientName,
+                     usePatientBirthDate: usePatientBirthDate, servers: serversList, showErrors: showErrors, identity: nil)
+    }
+
+    nonisolated class func queryStudies(forPatient study: DicomStudy!, usePatientID: Bool, usePatientName: Bool,
+                                      usePatientBirthDate: Bool, servers serversList: [Any]!, showErrors: Bool,
+                                      identity: ComparativePatientIdentity?) -> [Any]! {
+        let identity = usePatientID ? identity : nil
+        let allowsFallback = identity != nil && (usePatientName || usePatientBirthDate)
+            && study?.patientID?.rangeOfCharacter(from: CharacterSet(charactersIn: "*?\\,;")) == nil
         if !usePatientID && !usePatientName && !usePatientBirthDate {
             NSLog("****** QR: usePatientID == NO && usePatientName == NO && usePatientBirthDate == NO")
             return nil
@@ -345,7 +357,7 @@ extension QueryController {
             return nil
         }
 
-        if usePatientBirthDate && study?.dateOfBirth == nil {
+        if usePatientBirthDate && study?.dateOfBirth == nil && !allowsFallback {
             NSLog("****** QR: usePatientBirthDate == YES && study.dateOfBirth == 0 : %@", study?.studyInstanceUID ?? "(null)")
             return nil
         }
@@ -366,7 +378,7 @@ extension QueryController {
 
         let filters = NSMutableDictionary()
 
-        if usePatientBirthDate, let birth = study?.dateOfBirth {
+        if usePatientBirthDate, !allowsFallback, let birth = study?.dateOfBirth {
             filters["PatientBirthDate"] = birth
         }
 
@@ -399,6 +411,13 @@ extension QueryController {
             }
             if usePatientName && DicomFile.nSreplaceBadCharacter(s?.name()) != study?.name {
                 matchesPatient = false
+            }
+            if let identity, let candidate = s?.comparativeIdentity {
+                if identity.hasDifferentIssuer(from: candidate) {
+                    matchesPatient = false
+                } else if !matchesPatient && allowsFallback {
+                    matchesPatient = identity.corroborates(candidate)
+                }
             }
             if !matchesPatient {
                 studies.removeObject(at: x)
@@ -455,7 +474,8 @@ extension QueryController {
         theTask.executableURL = URL(fileURLWithPath: echoscu)
         theTask.environment = ["DCMDICTPATH": (resources as NSString).appendingPathComponent("/dicom.dic")]
 
-        let timeout = UserDefaults.standard.string(forKey: "DICOMTimeout") ?? ""
+        // The text of the value, as echoscu takes it; the associations read it as an integer.
+        let timeout = PreferencesSource.process.preferences[NetworkPreferences.dicomTimeout.reading(as: String?.self)] ?? ""
         var args: [String] = [address ?? "", String(port),
                               "-aet", UserDefaults.defaultAETitle() ?? "", // set my calling AE title
                               "-aec", aet ?? "", // set called AE title of peer
@@ -638,12 +658,9 @@ extension QueryController {
 /// images their node reported: a study is not asked for again while that
 /// number stays the same. `previousAutoRetrieve` of the former class.
 enum RetrieveInTransfer {
-    private static let lock = NSLock()
-    nonisolated(unsafe) private static var counts: [String: Int32] = [:]
+    private static let counts = Mutex<[String: Int32]>([:])
 
-    static func withLock<T>(_ body: (inout [String: Int32]) -> T) -> T {
-        lock.lock()
-        defer { lock.unlock() }
-        return body(&counts)
+    static func withLock<T: Sendable>(_ body: (inout [String: Int32]) -> T) -> T {
+        counts.withLock { body(&$0) }
     }
 }

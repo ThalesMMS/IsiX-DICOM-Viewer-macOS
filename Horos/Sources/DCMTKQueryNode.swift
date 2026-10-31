@@ -42,6 +42,7 @@ import IsiXDICOMNetwork
 import IsiXKeychain
 import Synchronization
 import IsiXDICOMFile
+import IsiXPreferences
 
 /// A value the threads of one operation share, read and changed under its own lock.
 final class QueryNodeShared<Value>: @unchecked Sendable {
@@ -79,7 +80,10 @@ final class QueryNodeShared<Value>: @unchecked Sendable {
 /// The selectors and KVC keys are the Objective-C class's: the Query window,
 /// the browser's comparative studies, the probes in tools/ and Locations
 /// reach them by name.
-@objc(DCMTKQueryNode)
+/// @usableFromInline because its subclasses are, so that a Release build exports
+/// their Objective-C classes for plugins built against the former SDK: Swift asks
+/// the superclass of such a class to have it too.
+@objc(DCMTKQueryNode) @usableFromInline
 class DCMTKQueryNode: NSObject, @unchecked Sendable {
 
     // MARK: The peer
@@ -218,7 +222,7 @@ class DCMTKQueryNode: NSObject, @unchecked Sendable {
 
     // MARK: Attributes
 
-    private static var capitalized: Bool { UserDefaults.standard.bool(forKey: "CapitalizedString") }
+    private static var capitalized: Bool { PreferencesSource.process.preferences[DatabasePreferences.capitalizedString] }
 
     /// The value as shown: capitalized when the preference asks for it.
     static func displayed(_ value: String?) -> String? {
@@ -236,7 +240,7 @@ class DCMTKQueryNode: NSObject, @unchecked Sendable {
     @objc func performingPhysician() -> String! { Self.displayed(performingPhysicianValue) }
     @objc func institutionName() -> String! { Self.displayed(institutionNameValue) }
     @objc func comments() -> String! { commentsValue }
-    @objc func interpretationStatusID() -> String! { interpretationStatusIDValue }
+    func interpretationStatusID() -> String! { interpretationStatusIDValue }
     @objc func patientID() -> String! { patientIDValue }
     @objc func date() -> DICOMCalendarDate! { dateValue }
     @objc func birthdate() -> DICOMCalendarDate! { birthdateValue }
@@ -246,7 +250,7 @@ class DCMTKQueryNode: NSObject, @unchecked Sendable {
     }
     @objc func intervalSinceBirth() -> NSNumber! {
         guard let birth = birthdateValue as Date? else { return NSNumber(value: 0.0) }
-        if UserDefaults.standard.integer(forKey: "yearOldDatabaseDisplay") == 0 {
+        if PreferencesSource.process.preferences[DatabasePreferences.yearOldDatabaseDisplay] == 0 {
             return NSNumber(value: Date().timeIntervalSince(birth))
         }
         guard let date = self.date() as Date? else { return NSNumber(value: 0.0) }
@@ -284,7 +288,7 @@ class DCMTKQueryNode: NSObject, @unchecked Sendable {
         childrenStorage = nil
     }
 
-    @objc func childrenCount() -> UInt {
+    func childrenCount() -> UInt {
         childrenLock.lock(); defer { childrenLock.unlock() }
         return UInt(childrenStorage?.count ?? 0)
     }
@@ -356,7 +360,7 @@ class DCMTKQueryNode: NSObject, @unchecked Sendable {
         let title = message.first.map { "\($0)" } ?? ""
         let text = message.count > 1 ? "\(message[1])" : ""
         NSLog("*** listener error: %@ %@", title, text)
-        if !UserDefaults.standard.bool(forKey: "hideListenerError") {
+        if !PreferencesSource.process.preferences[NetworkPreferences.hidesListenerErrors] {
             NetworkNotices.post(title: title, message: text)
         }
     }
@@ -377,7 +381,7 @@ class DCMTKQueryNode: NSObject, @unchecked Sendable {
     /// retrieves were already past it.
     @objc(semaphoreForServerHostAndPort:)
     class func semaphore(forServerHostAndPort key: String) -> DispatchSemaphore {
-        let limit = UInt(max(0, UserDefaults.standard.integer(forKey: "MaxConcurrentPODRetrieves")))
+        let limit = UInt(max(0, PreferencesSource.process.preferences[NetworkPreferences.maxConcurrentPODRetrieves]))
         return semaphores.withLock { table in
             guard var entry = table[key] else {
                 let semaphore = DispatchSemaphore(value: Int(limit))
@@ -400,7 +404,7 @@ class DCMTKQueryNode: NSObject, @unchecked Sendable {
     // MARK: Inventory notification
 
     /// Posted on the main thread when a node's retrieve inventory changed.
-    @objc static let retrieveInventoryDidRefreshNotification = "HorosRetrieveInventoryDidRefresh"
+    static let retrieveInventoryDidRefreshNotification = "HorosRetrieveInventoryDidRefresh"
 }
 
 /// What an association of a query node is made with, from the node's entry in
@@ -419,9 +423,9 @@ struct DICOMAssociationSettings: Sendable {
     static var seedFilePath: String { (DICOMTLS.temporaryFolder() as NSString).appendingPathComponent("OsiriXTLSSeed") }
 
     init(extraParameters: [AnyHashable: Any]?) {
-        let defaults = UserDefaults.standard
-        if defaults.integer(forKey: "DICOMTimeout") <= 0 { defaults.set(20, forKey: "DICOMTimeout") }
-        acseTimeout = Int32(truncatingIfNeeded: defaults.integer(forKey: "DICOMTimeout"))
+        let preferences = PreferencesSource.process.preferences
+        if preferences[NetworkPreferences.dicomTimeout] <= 0 { preferences.set(20, for: NetworkPreferences.dicomTimeout) }
+        acseTimeout = Int32(truncatingIfNeeded: preferences[NetworkPreferences.dicomTimeout])
         dimseTimeout = acseTimeout
         let parameters = extraParameters ?? [:]
         secureConnection = (parameters["TLSEnabled"] as AnyObject?)?.boolValue ?? false
@@ -519,6 +523,25 @@ extension IsiXDCMTKDataset {
                                  replaceBadCharacters: replaceBadCharacters).map { $0 as String }
             }
         }
+    }
+
+    func comparativePatientIdentity(encodings: [UInt], birthDate: Date?) -> ComparativePatientIdentity? {
+        let sequence = DICOMTag(0x0010, 0x0024).rawValue
+        func qualifier(_ element: UInt16) -> String? {
+            stringValues(forTag: DICOMTag(0x0040, element).rawValue, inItemsOfSequence: sequence)
+                .first.flatMap { String(data: $0, encoding: .isoLatin1) }
+        }
+        let universalIssuer: String?
+        if let id = qualifier(0x0032), let type = qualifier(0x0033), !id.isEmpty, !type.isEmpty {
+            universalIssuer = "\(type):\(id)"
+        } else {
+            universalIssuer = nil
+        }
+        return ComparativePatientIdentity(
+            patientID: text(.patientID, encodings: encodings, replaceBadCharacters: false),
+            issuer: text(.issuerOfPatientID, encodings: encodings, replaceBadCharacters: false),
+            universalIssuer: universalIssuer, name: text(.patientName, encodings: encodings, replaceBadCharacters: false),
+            birthDate: birthDate)
     }
 
     /// The ten encodings of a response's Specific Character Set: the first is

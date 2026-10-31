@@ -27,6 +27,61 @@ public final class MailDraftComposer: NSObject {
     private static let subroutineEventID: AEEventID = 0x70736272 // 'psbr'
     private static let subroutineNameKeyword: AEKeyword = 0x736E616D // 'snam'
 
+    /// The subject of the draft that carries the password-protected ZIP of
+    /// "Send by e-mail". A subject travels in clear text, so it names the
+    /// application and the kind of attachment only: patient and study names
+    /// stay inside the encrypted archive.
+    public static var protectedArchiveSubject: String {
+        NSLocalizedString("IsiX DICOM Viewer: images in a password-protected ZIP", comment: "Subject of the Mail draft of Send by e-mail")
+    }
+
+    /// The subject of the draft that carries the viewer's exported JPEG
+    /// images. For the same reason it names the application and the kind of
+    /// attachment only, never the patient, the study or the series.
+    public static var viewerImagesSubject: String {
+        NSLocalizedString("IsiX DICOM Viewer: images exported as JPEG", comment: "Subject of the Mail draft of the viewer's JPEG export")
+    }
+
+    /// The private folders in the temporary directory that an e-mail export
+    /// writes its attachments in, named `horos-mail-<UUID>`.
+    public enum ExportFolder {
+        public static let prefix = "horos-mail-"
+
+        /// A new folder only this user can read.
+        public static func make(in parent: URL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)) throws -> URL {
+            let folder = parent.appendingPathComponent(prefix + UUID().uuidString, isDirectory: true)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false,
+                                                    attributes: [.posixPermissions: 0o700])
+            return folder
+        }
+
+        /// Removes the folders an earlier export left behind, when the app
+        /// quit or crashed before Mail answered. Only folders untouched for
+        /// `age` go: a younger one may belong to an export that another copy
+        /// of the app, sharing this temporary directory, is making now.
+        @discardableResult
+        public static func removeLeftovers(in parent: URL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true),
+                                           olderThan age: TimeInterval = 3600, now: Date = Date()) -> [URL] {
+            let keys: Set<URLResourceKey> = [.isDirectoryKey, .isSymbolicLinkKey, .contentModificationDateKey]
+            guard let entries = try? FileManager.default.contentsOfDirectory(at: parent, includingPropertiesForKeys: Array(keys)) else {
+                return []
+            }
+            var removed: [URL] = []
+            for entry in entries where isExportFolderName(entry.lastPathComponent) {
+                guard let values = try? entry.resourceValues(forKeys: keys),
+                      values.isDirectory == true, values.isSymbolicLink != true,
+                      let modified = values.contentModificationDate, now.timeIntervalSince(modified) >= age,
+                      (try? FileManager.default.removeItem(at: entry)) != nil else { continue }
+                removed.append(entry)
+            }
+            return removed
+        }
+
+        static func isExportFolderName(_ name: String) -> Bool {
+            name.hasPrefix(prefix) && UUID(uuidString: String(name.dropFirst(prefix.count))) != nil
+        }
+    }
+
     @objc(messageForErrorInfo:result:)
     public static func message(errorInfo: [AnyHashable: Any]?, result: NSAppleEventDescriptor?) -> String? {
         if errorInfo == nil && result == nil {
@@ -125,6 +180,30 @@ public final class MailDraftComposer: NSObject {
                 compose(subject: subject, filePaths: filePaths, scriptURL: nil,
                         using: { determineConsent(askingUser: true) }, completion: completion)
             }
+        }
+    }
+
+    /// Composes the draft from attachments written in `folder`, and removes
+    /// the folder once Mail has answered. The handler returns only after Mail
+    /// has made each attachment of the draft from its file, so the draft
+    /// keeps them; after an error nothing will read the folder either.
+    @MainActor public static func compose(subject: String, filePaths: [String], removingFolder folder: URL,
+                                          completion: @escaping @MainActor @Sendable (String?) -> Void) {
+        compose(subject: subject, filePaths: filePaths, completion: removing(folder, then: completion))
+    }
+
+    @MainActor static func compose(subject: String, filePaths: [String], scriptURL: URL?, removingFolder folder: URL,
+                                   using check: @escaping @Sendable () -> OSStatus,
+                                   completion: @escaping @MainActor @Sendable (String?) -> Void) {
+        compose(subject: subject, filePaths: filePaths, scriptURL: scriptURL, using: check,
+                completion: removing(folder, then: completion))
+    }
+
+    private static func removing(_ folder: URL,
+                                 then completion: @escaping @MainActor @Sendable (String?) -> Void) -> @MainActor @Sendable (String?) -> Void {
+        { error in
+            try? FileManager.default.removeItem(at: folder)
+            completion(error)
         }
     }
 

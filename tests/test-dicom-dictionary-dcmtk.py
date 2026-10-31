@@ -32,7 +32,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dcmtk_build import BUILD, ROOT, dcmtk_flags
+from dcmtk_build import BUILD, ROOT, dcmtk_dictionary, dcmtk_flags
 import legacy_dictionary
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -49,9 +49,16 @@ else:
 if not legacy_tags_bytes or not legacy_names_bytes:
     print('skipped: needs the former DCM dictionaries (Git history): --legacy DIR', file=sys.stderr)
     raise SystemExit(2)
-dictionary_file = BUILD.parent.parent.parent / 'Products' / BUILD.name / 'DCMTK/dicom.dic'
-if not dictionary_file.is_file():
-    dictionary_file = ROOT / 'DCMTK/dcmdata/data/dicom.dic'
+# The dicom.dic the build ships beside its tools. script/build_and_run.sh puts
+# the products in build/Build/Products (its SYMROOT) even when the
+# intermediates are at build/Intermediates.noindex; older layouts kept both
+# under build/Build, beside each other.
+shipped = [ROOT / 'build/Build/Products' / BUILD.name / 'DCMTK/dicom.dic',
+           BUILD.parent.parent.parent / 'Products' / BUILD.name / 'DCMTK/dicom.dic']
+dictionary_file = next((path for path in shipped if path.is_file()), None)
+if dictionary_file is None:
+    # Without a shipped copy, the same file from the pinned DCMTK source.
+    dictionary_file = dcmtk_dictionary()
 flags = dcmtk_flags('dcmnet')  # IsiXDCMTKError.mm names DIMSE conditions
 
 # DCMTK knows these tags better than the 2005 table did: URIs are UR, some

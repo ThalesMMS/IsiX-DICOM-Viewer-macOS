@@ -84,6 +84,8 @@ int main(){ @autoreleasepool {
 }}
 '''.replace('BLOCK',block)
 SWIFT=r'''import Foundation
+import IsiXPreferences
+final class ProcessGraph: Sendable { var preferences: UserDefaults { UserDefaults.standard } }
 final class Event { let deltaX: CGFloat, deltaY: CGFloat; init(_ dx: CGFloat, _ dy: CGFloat) { deltaX = dx; deltaY = dy } }
 final class Controller { let kind: String; init(_ kind: String) { self.kind = kind }
     func blendingController() -> Controller? { self }; func modality() -> String? { kind } }
@@ -91,6 +93,7 @@ final class Harness {
     var horos_wl: Float = 150, horos_ww: Float = 1000, horos_blendingWl: Float = 50, horos_blendingWw: Float = 100
     var horos_startWW: Float = 0, horos_startWL: Float = 0, horos_startMin: Float = 0, horos_startMax: Float = 0
     var horos_controller: Controller?
+    let processGraph = ProcessGraph()
     var needsDisplay = false
     func setBlendingWLWW(_ level: Float, _ width: Float) { horos_blendingWl = level; horos_blendingWw = width }
     func apply(_ theEvent: Event) {
@@ -119,7 +122,11 @@ with tempfile.TemporaryDirectory(prefix='horos-vr-window-') as d:
     p=Path(d)
     if swift_drag:
         (p/'main.swift').write_text(SWIFT.replace('BLOCK',block).replace('DRAGGED',dragged))
-        subprocess.run(['xcrun','swiftc','-swift-version','5',str(p/'main.swift'),str(root/'Modules/IsiXVolumeRendering/Sources/CConversion.swift'),'-o',str(p/'test')],check=True)
+        # The drag reads its preferences through the catalog of IsiXPreferences.
+        sys.path.insert(0, str(root / 'tests'))
+        import isix_modules
+        modules = isix_modules.module_flags('IsiXPreferences', p / 'modules')
+        subprocess.run(['xcrun','swiftc','-swift-version','5',*modules,str(p/'main.swift'),str(root/'Modules/IsiXVolumeRendering/Sources/CConversion.swift'),'-o',str(p/'test')],check=True)
     else:
         (p/'test.mm').write_text(code)
         subprocess.run(['xcrun','clang++','-std=c++11',str(p/'test.mm'),'-framework','Cocoa','-o',str(p/'test')],check=True)

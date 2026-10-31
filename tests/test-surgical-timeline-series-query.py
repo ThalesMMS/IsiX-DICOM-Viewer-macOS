@@ -9,7 +9,11 @@ builds a SQLite store of the app's data model (compiled with momc) with
 descriptions that differ only by case, accents, spacing or a prefix, and
 compares both ways, saved and then with unsaved changes in the context: a
 matching series deleted, one added to a study, one without a study, and one
-renamed to match. The browser must use the query.
+renamed to match. The index keeps the Series Description tag in `name` and the
+Protocol Name in `seriesDescription`, as the import of a file does: both ways
+read `name`, where the former walk read the attribute that these reports leave
+empty and so found none. The browser must use the query, for the timeline and
+for the records an import compares with.
 """
 from pathlib import Path
 import subprocess
@@ -18,7 +22,7 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 MODEL = root / 'Horos/Models/OsiriXDB_DataModel.xcdatamodeld'
-RULES = root / 'Modules/IsiXDatabase/Sources/DatabaseMaintenanceRules.swift'
+RULES = [root / 'Modules/IsiXDatabase/Sources' / name for name in ('DatabaseMaintenanceRules.swift', 'StudyListRules.swift')]
 failures = []
 
 DRIVER = r'''
@@ -41,23 +45,24 @@ func study(_ uid: String) -> NSManagedObject {
     study.setValue(false, forKey: "expanded")
     return study
 }
-func series(_ description: String?, in study: NSManagedObject?) -> NSManagedObject {
+func series(_ description: String?, protocolName: String? = nil, in study: NSManagedObject?) -> NSManagedObject {
     let series = NSEntityDescription.insertNewObject(forEntityName: "Series", into: context)
-    series.setValue(description, forKey: "seriesDescription")
+    series.setValue(description, forKey: "name")
+    series.setValue(protocolName, forKey: "seriesDescription")
     series.setValue(study, forKey: "study")
     return series
 }
 
-// The former walk: every study, its series as DicomStudy's getter gives them
-// (deleted ones left out while the context has deletions), the description
-// compared with -isEqualToString:.
+// The walk: every study, its series as DicomStudy's getter gives them (deleted
+// ones left out while the context has deletions), the description compared with
+// -isEqualToString:.
 func walked() -> Set<NSManagedObjectID> {
     let studies = try! context.fetch(NSFetchRequest<NSManagedObject>(entityName: "Study"))
     var found = Set<NSManagedObjectID>()
     for study in studies {
         var all = (study.value(forKey: "series") as? Set<NSManagedObject>) ?? []
         if !context.deletedObjects.isEmpty { all = all.filter { !$0.isDeleted } }
-        for one in all where (one.value(forKey: "seriesDescription") as? NSString)?.isEqual(to: wanted) == true {
+        for one in all where (one.value(forKey: "name") as? NSString)?.isEqual(to: wanted) == true {
             found.insert(one.objectID)
         }
     }
@@ -85,6 +90,7 @@ for variant in ["horos surgical procedure sr", "Horos Surgical Procedure SR ", "
     _ = series(variant, in: third)
 }
 _ = series(nil, in: third)
+_ = series("Other", protocolName: wanted, in: third)
 _ = series(wanted, in: third)
 try! context.save()
 context.reset()
@@ -95,7 +101,7 @@ let keptAgain = try! context.existingObject(with: kept.objectID)
 context.delete(keptAgain)
 _ = series(wanted, in: firstAgain)
 _ = series(wanted, in: nil)
-(try! context.existingObject(with: renamed.objectID)).setValue(wanted, forKey: "seriesDescription")
+(try! context.existingObject(with: renamed.objectID)).setValue(wanted, forKey: "name")
 compare("unsaved changes", expected: 4)
 print("ok: " + report.joined(separator: "; "))
 '''
@@ -108,7 +114,7 @@ with tempfile.TemporaryDirectory(prefix='horos-surgical-timeline-') as directory
     else:
         (directory / 'main.swift').write_text(DRIVER)
         binary = directory / 'check'
-        built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-o', str(binary), str(RULES), str(directory / 'main.swift')],
+        built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-o', str(binary), *map(str, RULES), str(directory / 'main.swift')],
                                capture_output=True, text=True)
         if built.returncode != 0:
             failures.append('the driver does not compile:\n' + built.stderr[-2500:])
@@ -119,12 +125,18 @@ with tempfile.TemporaryDirectory(prefix='horos-surgical-timeline-') as directory
                 failures.append((run.stdout + run.stderr).strip()[-1500:])
 
 browser = (root / 'Horos/Sources/BrowserController+DatabaseMaintenance.swift').read_text()
+reports = browser[browser.index('func surgicalReportSeries('):]
+reports = reports[:reports.index('\n    }\n')]
+if 'SurgicalTimelineQuery.seriesPredicate(' not in reports or 'seriesEntity()' not in reports:
+    failures.append('the surgical reports are not found with the query')
+if 'studyEntity()' in reports:
+    failures.append('the surgical reports are still found by fetching every study')
 timeline = browser[browser.index('func surgicalProcedureTimelineEvents()'):]
 timeline = timeline[:timeline.index('\n    }\n')]
-if 'SurgicalTimelineQuery.seriesPredicate(' not in timeline or 'seriesEntity()' not in timeline:
-    failures.append('the timeline does not fetch the surgical series with the query')
-if 'studyEntity()' in timeline:
-    failures.append('the timeline still fetches every study')
+if 'surgicalReportPaths(in: database)' not in timeline:
+    failures.append('the timeline does not read the reports the query finds')
+if 'existingPaths: surgicalReportPaths(in: database)' not in browser:
+    failures.append('an import does not compare the log with the reports the query finds')
 
 for failure in failures:
     print('FAIL: %s' % failure)

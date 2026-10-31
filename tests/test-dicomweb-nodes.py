@@ -31,7 +31,8 @@ new area of both the English and the Japanese xib has the nine columns and the
 add, remove and test buttons wired to the controller; the xibs compile; the
 migration runs in +[AppController initialize] after the defaults are
 registered (AppController is Swift: +initialize, in
-AppController+CAPI.m, sends +initializeAppController, its Swift body); the new strings are in the Italian and Spanish catalogs.
+AppController+CAPI.m, sends +initializeAppController, its Swift body, which
+calls ApplicationPreferencesSetup.register()); the new strings are in the Italian and Spanish catalogs.
 
 Pass a git revision to run the source checks against that revision instead
 (one that predates the DICOMweb nodes fails them).
@@ -52,6 +53,7 @@ sys.path.insert(0, str(root / 'tests'))
 from sources import source_path  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import isix_modules  # noqa: E402  - the retrieve modes are IsiXDICOMNetwork's
+import process_graph_stand_in  # noqa: E402
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 failures = []
 
@@ -404,6 +406,9 @@ with tempfile.TemporaryDirectory(prefix='horos-dicomweb-nodes-') as folder:
         if content is not None:
             (sources / name).write_bytes(content.encode('latin1'))
     (sources / 'Credentials.swift').write_text(CREDENTIALS_DOUBLE)
+    # The process graph the node service reads its preferences from, and PreferencesSource,
+    # which its Bonjour discovery reads them from.
+    graph = process_graph_stand_in.source(sources)
     if not failures:
         exported = temporary / 'written.plist'
         if run_swift(temporary, 'model', [sources / 'DICOMwebNode.swift', sources / 'Credentials.swift'], MODEL_DRIVER,
@@ -414,7 +419,7 @@ with tempfile.TemporaryDirectory(prefix='horos-dicomweb-nodes-') as folder:
             for marker in (b'secret-marker', b'Authorization', b'Basic ', b'Bearer ', b'password'):
                 check(marker not in written, f'no {marker!r} in the preferences')
         run_swift(temporary, 'service', [sources / 'DICOMNodeService.swift', sources / 'DICOMBonjourDiscovery.swift',
-                                         sources / 'BonjourDiscovery.swift'], SERVICE_DRIVER,
+                                         sources / 'BonjourDiscovery.swift', graph], SERVICE_DRIVER,
                   [str(temporary / 'synced-nodes.plist')])
 
 # Source level.
@@ -503,14 +508,27 @@ initialize = app[app.find('class func initializeAppController()'):]
 initialize = initialize[:initialize.find('\n    }\n') + 1] if 'class func initializeAppController()' in app else ''
 sends = capi[capi.find('+ (void) initialize'):]
 sends = sends[:sends.find('\n}') + 1] if '+ (void) initialize' in capi else ''
+if 'ApplicationLifecycle.initializeProcess()' in initialize:
+    # +initializeAppController hands its body to ApplicationLifecycle.initializeProcess().
+    lifecycle = text('Horos/Sources/ApplicationLifecycle.swift') or ''
+    initialize = lifecycle[lifecycle.find('    static func initializeProcess() {'):]
+    initialize = initialize[:initialize.find('\n    }\n') + 1] if '    static func initializeProcess() {' in lifecycle else ''
 registered = initialize.find('UserDefaults.standard.register(defaults: (DefaultPreferences.applicationDefaults()')
 migration = initialize.find('DICOMwebNode.migrateLegacyServers()')
+if registered < 0 and 'ApplicationPreferencesSetup.register()' in initialize:
+    # The registration and the migrations of the launch left for
+    # ApplicationPreferencesSetup.register(), which +initializeAppController calls.
+    setup = text('Horos/Sources/ApplicationPreferencesSetup.swift') or ''
+    initialize = setup[setup.find('static func register()'):]
+    initialize = initialize[:initialize.find('\n    }\n') + 1] if 'static func register()' in setup else ''
+    registered = initialize.find('preferences.register(defaults: (DefaultPreferences.applicationDefaults()')
+    migration = initialize.find('DICOMwebNode.migrateLegacyServers()')
 check('[self initializeAppController];' in sends and 0 <= registered < migration,
       'the migration runs in +initialize, after the defaults are registered')
 pbx = text('Horos.xcodeproj/project.pbxproj') or ''
 check('DICOMwebNode.swift in Sources' in pbx, 'the model is in the Horos target')
 editor = text('Horos/Sources/DICOMwebNodeEditor.swift') or ''
-check('DispatchQueue.global' in editor and 'DICOMwebSources.configuration(for: node)' in editor
+check('Self.verifications.async' in editor and 'DICOMwebSources.configuration(for: node)' in editor
       and 'DICOMwebClient(node: configuration, timeout: 30).verify()' in editor,
       'Test verifies off the main thread at the node\'s QIDO path with its credential')
 check('case Column.trustedCertificate: node.trustedCertificateSHA256 = try DICOMwebServerTrust.normalizedFingerprint(text)' in editor

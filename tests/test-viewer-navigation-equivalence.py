@@ -48,6 +48,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import private_tmpdir  # noqa: F401,E402  - its own TMPDIR for the tools it runs
 import history_reference  # noqa: E402
+import harness_defaults  # noqa: E402  the harness's preferences stay in its own process
 
 ROOT = Path(__file__).resolve().parents[1]
 VC = 'Horos/Sources/ViewerController.m'
@@ -55,6 +56,167 @@ MARK = '- (void) propagateSettingsToViewer: (ViewerController*) vC'
 SWIFT_FILES = ['ViewerController+%s.swift' % name for name in
                ('ImagePipelineSupport', 'Synchronization', 'Registration', 'SeriesNavigation', 'FourDNavigation', 'StudyNavigation')]
 SCENARIOS = ['sync', 'resync', 'navigation', '4d', 'study', 'registration']
+# The window arranger the study navigation asks for a tiling put off: over the
+# harness's delayedTileWindows and AppController, as the reference did it.
+ARRANGER_STAND_IN = r'''
+import AppKit
+
+@MainActor final class HarnessWindowArranger {
+    func tileNowIfScheduled() {
+        guard delayedTileWindows != 0 else { return }
+        delayedTileWindows = 0
+        NSObject.cancelPreviousPerformRequests(withTarget: AppController.shared() as Any, selector: #selector(AppController.tileWindows(_:)), object: nil)
+        AppController.shared()?.tileWindows(nil)
+    }
+}
+
+final class HarnessProcessGraph: Sendable {
+    @MainActor var appController: AppController? { AppController.shared() }
+}
+
+extension AppController {
+    @MainActor var windowArranger: HarnessWindowArranger { HarnessWindowArranger() }
+}
+
+extension ViewerController {
+    nonisolated static var processGraph: HarnessProcessGraph { HarnessProcessGraph() }
+}
+'''
+
+# The registration the "Registration" block hands its work to, in revisions that
+# have ViewerRegistrationSession.swift: the session's point-based registration and
+# resampling, as that file has them (its later parts, the companions, landmarks and
+# guided ROI copy of the fusion route, are not reached from these selectors), over
+# the viewer's graph, of which it reads only the preferences.
+SESSION_END = '    // MARK: - Series identity'
+SESSION_STAND_IN = r'''
+import AppKit
+
+@MainActor final class HarnessSessionGraph {
+    let processGraph = HarnessSessionProcessGraph()
+}
+
+final class HarnessSessionProcessGraph: Sendable {
+    var preferences: UserDefaults { UserDefaults.standard }
+}
+
+extension ViewerController {
+    @MainActor var sessionGraph: HarnessSessionGraph { HarnessSessionGraph() }
+}
+'''
+
+
+# The cine (CinePlayback.swift) and the study opening (ViewerStudyOpening.swift)
+# the navigation hands its work to, in revisions that have them: compiled with
+# the blocks, with the viewer's `cine` of ViewerController+PlaybackState.swift,
+# over the viewer's graph (its preferences and the browser of its database
+# window, the stand-in's +currentBrowser), the post of the viewer's
+# notifications, the view's stack and the slices' transfer table, which the
+# stand-ins answer through their own fields.
+NAVIGATION_FILES = ['CinePlayback.swift', 'ViewerStudyOpening.swift']
+NAVIGATION_STAND_IN = r'''
+import AppKit
+import IsiXImaging
+import IsiXPreferences
+
+typealias ProcessGraph = HarnessSessionProcessGraph
+
+@MainActor struct HarnessBrowserWindow {
+    var browser: BrowserController { BrowserController.currentBrowser() }
+}
+
+extension HarnessSessionProcessGraph {
+    @MainActor var browserWindow: HarnessBrowserWindow? { HarnessBrowserWindow() }
+}
+
+extension HarnessSessionGraph {
+    var preferences: any PreferenceStore { UserDefaults.standard }
+}
+
+func postViewerNotification(_ name: Notification.Name, _ object: Any?, _ userInfo: [AnyHashable: Any]? = nil) {
+    NotificationCenter.default.post(name: name, object: object, userInfo: userInfo)
+}
+
+extension DCMView {
+    var stackNavigation: StackNavigation { StackNavigation(current: curImage) }
+}
+
+extension DCMPix {
+    // The same NSData object, as the app's NSData property hands it.
+    var transferTable: NSData? {
+        get { value(forKey: "transferFunction") as? NSData }
+        set { setValue(newValue, forKey: "transferFunction") }
+    }
+}
+'''
+
+
+# The synchronization the "Synchronization" block hands its work to, in
+# revisions that have ViewerSettingsPropagator.swift: compiled with the blocks,
+# over the stand-ins' displayed viewers, the harness's two flags (the series
+# lock and the Sync button's behaviour, which the record reads) as the process's
+# ViewerSyncState, the application controller, and the "Re-sync origin" of
+# ViewerFusion.swift, which the selector reaches.
+SYNC_FILES = ['ViewerSettingsPropagator.swift']
+SYNC_STAND_IN = r'''
+import AppKit
+import IsiXImaging
+import IsiXPreferences
+
+@MainActor final class ViewerSyncState {
+    static let harness = ViewerSyncState()
+    var seriesLocked: Bool {
+        get { ViewerController.horos_SYNCSERIES() }
+        set { ViewerController.horos_setSYNCSERIES(newValue) }
+    }
+    var betweenStudies: Bool {
+        get { SyncButtonBehaviorIsBetweenStudies.boolValue }
+        set { SyncButtonBehaviorIsBetweenStudies = ObjCBool(newValue) }
+    }
+    weak var draggedViewer: ViewerController?
+}
+
+final class ViewerRegistry: Sendable {
+    @MainActor var displayedViewers: [ViewerController] { (ViewerController.getDisplayed2DViewers() as? [ViewerController]) ?? [] }
+}
+
+/// The files of the stand-ins are not database images.
+final class DicomImage: NSObject {
+    func completePath() -> String! { nil }
+}
+
+extension HarnessSessionProcessGraph {
+    var viewerRegistry: ViewerRegistry { ViewerRegistry() }
+    @MainActor var viewerSync: ViewerSyncState { ViewerSyncState.harness }
+    @MainActor var appController: AppController? { AppController.shared() }
+}
+
+extension HarnessProcessGraph {
+    @MainActor var viewerSync: ViewerSyncState { ViewerSyncState.harness }
+}
+
+extension ViewerController {
+    nonisolated static var viewerRegistry: ViewerRegistry { ViewerRegistry() }
+    var fusion: ViewerFusion { ViewerFusion(viewer: self, preferences: sessionGraph.preferences) }
+}
+
+@MainActor final class ViewerFusion {
+    let viewer: ViewerController
+    private let preferences: any PreferenceStore
+    init(viewer: ViewerController, preferences: any PreferenceStore) {
+        self.viewer = viewer
+        self.preferences = preferences
+    }
+RESYNC}
+'''
+
+
+def registration_session(text):
+    """The point-based part of ViewerRegistrationSession, closed as a type of its own."""
+    start = text.index('@MainActor struct ViewerRegistrationSession {')
+    end = text.index(SESSION_END, start)
+    return 'import AppKit\nimport IsiXImaging\n\n' + text[start:end].rstrip() + '\n}\n' + SESSION_STAND_IN
+
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument('--reference')
@@ -1315,7 +1477,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-navigation-') as tmp:
     (folder / 'Harness.h').write_text(HEADER)
     (folder / 'Navigation.h').write_text('#import "Harness.h"\n' + NAVIGATION)
     (folder / 'Stubs.m').write_text(STUBS)
-    (folder / 'Driver.m').write_text('#import "Navigation.h"\n' + DRIVER)
+    (folder / 'Driver.m').write_text('#import "Navigation.h"\n' + DRIVER + harness_defaults.OBJC)
     for name in ('HorosObjCException.h', 'HorosObjCException.m'):
         (folder / name).write_bytes((ROOT / 'Horos/Sources' / name).read_bytes())
     frameworks = ['-framework', 'Cocoa', '-framework', 'CoreData']
@@ -1346,9 +1508,11 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-navigation-') as tmp:
             (swift / name).write_bytes(text)
             sources.append(str(swift / name))
         # The NSString comparison the blocks share with the window level block.
-        level = read(args.current, 'Horos/Sources/ViewerController+WindowLevel.swift').decode('utf-8')
+        # ViewerWindowLevel.swift has it, or the viewer's window level file in a revision before it.
+        level = (read(args.current, 'Horos/Sources/ViewerWindowLevel.swift')
+                 or read(args.current, 'Horos/Sources/ViewerController+WindowLevel.swift')).decode('utf-8')
         helper = re.search(r'func viewerIsEqualToString\(.*?\n}\n', level, re.S).group(0)
-        (swift / 'Helpers.swift').write_text('import Foundation\n\n' + helper)
+        (swift / 'Helpers.swift').write_text('import Foundation\n\n' + helper + ARRANGER_STAND_IN)
         sources.append(str(swift / 'Helpers.swift'))
         module = folder / 'module'
         module.mkdir()
@@ -1366,6 +1530,20 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-navigation-') as tmp:
             if built.returncode:
                 sys.exit('FAIL: IsiXLogging does not compile:\n%s' % built.stderr[-3000:])
             linked = ['-I', str(logging), '-L', str(logging), '-lIsiXLogging']
+        # IsiXPreferences, which the cine and the study navigation read the
+        # preferences through, when the revision has it.
+        preferences = folder / 'preferences'
+        preferences.mkdir()
+        for relative, text in module_sources(args.current, 'IsiXPreferences').items():
+            (preferences / relative.replace('/', '_')).write_bytes(text)
+        if list(preferences.glob('*.swift')):
+            built = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-swift-version', '6', '-module-name', 'IsiXPreferences', *linked,
+                                    '-emit-library', '-static', '-emit-module', '-emit-module-path', str(preferences / 'IsiXPreferences.swiftmodule'),
+                                    '-o', str(preferences / 'libIsiXPreferences.a'), *map(str, sorted(preferences.glob('*.swift')))],
+                                   capture_output=True, text=True, cwd=preferences)
+            if built.returncode:
+                sys.exit('FAIL: IsiXPreferences does not compile:\n%s' % built.stderr[-3000:])
+            linked = linked + ['-I', str(preferences), '-L', str(preferences), '-lIsiXPreferences']
         for relative, text in module_sources(args.current).items():
             target = module / relative.replace('/', '_')
             target.write_bytes(text)
@@ -1375,6 +1553,29 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-navigation-') as tmp:
                                capture_output=True, text=True, cwd=module)
         if built.returncode:
             sys.exit('FAIL: IsiXImaging does not compile:\n%s' % built.stderr[-3000:])
+        session = read(args.current, 'Horos/Sources/ViewerRegistrationSession.swift')
+        if session is not None:
+            (swift / 'ViewerRegistrationSession.swift').write_text(registration_session(session.decode('utf-8')))
+            sources.append(str(swift / 'ViewerRegistrationSession.swift'))
+        navigation = {name: read(args.current, 'Horos/Sources/' + name) for name in NAVIGATION_FILES}
+        if all(text is not None for text in navigation.values()):
+            for name, text in navigation.items():
+                (swift / name).write_bytes(text)
+                sources.append(str(swift / name))
+            playback = read(args.current, 'Horos/Sources/ViewerController+PlaybackState.swift').decode('utf-8')
+            cine = re.search(r'    /// The cine of this viewer, for one call.*?\n    \}\n', playback, re.S).group(0)
+            (swift / 'Cine.swift').write_text(NAVIGATION_STAND_IN + '\nextension ViewerController {\n' + cine + '}\n')
+            sources.append(str(swift / 'Cine.swift'))
+        sync = {name: read(args.current, 'Horos/Sources/' + name) for name in SYNC_FILES}
+        if all(text is not None for text in sync.values()):
+            for name, text in sync.items():
+                (swift / name).write_bytes(text)
+                sources.append(str(swift / name))
+            fusion = read(args.current, 'Horos/Sources/ViewerFusion.swift').decode('utf-8')
+            start = fusion.index('    func reSyncOrigin() {')
+            resync = fusion[start:fusion.index('\n    }\n', start) + 7]
+            (swift / 'Sync.swift').write_text(SYNC_STAND_IN.replace('RESYNC', resync))
+            sources.append(str(swift / 'Sync.swift'))
         exception = subprocess.run(['xcrun', 'clang', '-c', '-fobjc-arc', '-I', str(folder), str(folder / 'HorosObjCException.m'),
                                     '-o', str(folder / 'HorosObjCException.o')], capture_output=True, text=True)
         if exception.returncode:

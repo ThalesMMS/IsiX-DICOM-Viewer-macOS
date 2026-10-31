@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 
 /// Layout for the existing database controls; their outlets, bindings and actions stay intact.
 // Main actor: it lays out the database window's views.
@@ -79,10 +80,10 @@ public final class DatabaseBrowserLayout: NSObject {
     /// The sidebar's width as the user last left it.
     @objc public static let sidebarWidthDefaultsKey = "DatabaseSidebarWidth"
     /// The last visible width, independent of the History pane's collapsed frame.
-    @objc public static let historyWidthDefaultsKey = "DatabaseHistoryWidth"
+    @objc public static let historyWidthDefaultsKey = DatabasePreferences.databaseHistoryWidth.name
 
     @MainActor private final class HistoryWidthState {
-        let initialWidth = CGFloat(UserDefaults.standard.double(forKey: historyWidthDefaultsKey))
+        let initialWidth = CGFloat(PreferencesSource.process.preferences[DatabasePreferences.databaseHistoryWidth])
         var restored = false
     }
     private static let historyWidthStates = NSMapTable<NSSplitView, HistoryWidthState>.weakToStrongObjects()
@@ -164,7 +165,7 @@ public final class DatabaseBrowserLayout: NSObject {
         let right = split.subviews[1]
         let width = right.frame.width
         guard !right.isHidden, !split.isSubviewCollapsed(right), width.isFinite, width > 0 else { return }
-        UserDefaults.standard.set(Double(width), forKey: historyWidthDefaultsKey)
+        PreferencesSource.process.preferences.set(Double(width), for: DatabasePreferences.databaseHistoryWidth)
     }
 
     @objc(prepareSidebar:)

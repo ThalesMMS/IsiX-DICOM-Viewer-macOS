@@ -1,20 +1,31 @@
 #!/usr/bin/env python3
 """Execute the actual ZIP method against /usr/bin/zip and inspect resulting archives.
 
-The ZIP archives are Swift (BrowserController+ZIPExport.swift, with the
-arguments of IsiXDatabase's ZipCommand): compiled here as they are, with the
-real ExportArchive and HorosAlertPanel, and called from this Objective-C
-driver through the generated interface.
+The ZIP archives are Swift: the browser's selectors of the former SDK
+(BrowserController+ZIPExport.swift) forward to the export's archive
+(DICOMFolderExport.swift) and to IsiXDatabase's ProtectedZipArchiver, with the
+arguments of ZipCommand. They are compiled here as they are, with the real
+HorosAlertPanel, and called from this Objective-C driver through the generated
+interface.
 """
 from pathlib import Path
 import subprocess,tempfile,zipfile,sys
 root=Path(__file__).resolve().parents[1]
-s=(root/'Horos/Sources/BrowserController+DICOMExport.swift').read_text()
+s=(root/'Horos/Sources/DICOMFolderExport.swift').read_text()
 # The export packs all its patient folders into one archive, not one per folder.
-call='BrowserController.encryptFilesOrFolders(folders, inZIPFile: folderClaims.archivePath(forFolders: folders)'
+call='try Self.archive(patientFolders, to: folderClaims.archivePath(forFolders: patientFolders)'
 assert call in s, 'the export no longer packs its patient folders into one archive'
 packing=s[s.rindex('if encryptExport && !exportAborted',0,s.index(call)):s.index(call)]
 assert 'for ' not in packing, 'the export still packs each patient folder on its own'
+archive=s[s.index('    // MARK: Archive\n'):s.index('    // MARK: Messages\n')]
+progress=s[s.index('/// The window of an archive made on the main thread.'):]
+harness=r'''
+import Foundation
+enum DICOMFolderExport {
+ARCHIVE
+}
+PROGRESS
+'''.replace('ARCHIVE',archive).replace('PROGRESS',progress)
 bridge=r'''
 #import <Cocoa/Cocoa.h>
 #import "HorosObjCException.h"
@@ -120,12 +131,13 @@ int main(int argc,char **argv){@autoreleasepool{
 with tempfile.TemporaryDirectory(prefix='horos-zip-result-') as folder:
  p=Path(folder);(p/'test.m').write_text(code);(p/'Bridge.h').write_text(bridge);(p/'stubs.m').write_text(stubs)
  sources=root/'Horos/Sources'
- # One module with the rules: the extension's "import IsiXDatabase" goes.
+ # One module with the rules and the archiver: the "import IsiXDatabase" goes.
  (p/'ZIPExport.swift').write_text((sources/'BrowserController+ZIPExport.swift').read_text().replace('import IsiXDatabase\n',''))
+ (p/'Archive.swift').write_text('import AppKit\n'+harness)
  subprocess.run(['xcrun','swiftc','-parse-as-library','-wmo','-swift-version','6','-module-name','Harness','-import-objc-header',str(p/'Bridge.h'),
                  '-Xcc','-I','-Xcc',str(sources),'-emit-objc-header-path',str(p/'Harness-Swift.h'),'-c',
-                 str(sources/'ExportArchive.swift'),str(sources/'BrowserController+DatabaseSupport.swift'),str(p/'ZIPExport.swift'),
-                 str(root/'Modules/IsiXDatabase/Sources/ExportRules.swift'),'-o',str(p/'swift.o')],check=True)
+                 str(p/'ZIPExport.swift'),str(p/'Archive.swift'),str(root/'Modules/IsiXDatabase/Sources/ProtectedZipArchiver.swift'),str(root/'Modules/IsiXDatabase/Sources/ZipPasswordTerminal.swift'),
+                 str(root/'Modules/IsiXDatabase/Sources/ExportRules.swift'),str(root/'Modules/IsiXDatabase/Sources/StudyListRules.swift'),'-o',str(p/'swift.o')],check=True)
  for source,arc in ((p/'stubs.m',False),(sources/'HorosObjCException.m',True),(sources/'HorosAlertPanel.m',False)):
   subprocess.run(['xcrun','clang','-c','-fblocks','-fobjc-arc' if arc else '-fno-objc-arc','-I',str(p),'-I',str(sources),str(source),'-o',str(p/(source.name+'.o'))],check=True)
  subprocess.run(['xcrun','clang','-c','-fmodules','-fblocks','-fno-objc-arc','-Werror=deprecated-declarations','-I',str(p),'-I',str(sources),str(p/'test.m'),'-o',str(p/'test.o')],check=True)

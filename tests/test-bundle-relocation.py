@@ -17,6 +17,8 @@ without Xcode's build:
 - changed input content, even with an equal or older timestamp, and rollbacks
   replace the signed copy; renamed ABIs and removed pins clean only managed
   libraries and notices; failed preparation leaves the previous bundle intact;
+- the DCMTK and OpenSSL source records, licenses and notices reach
+  CompiledSources, and one that differs from its pin leaves the bundle intact;
 - the audit passes that bundle once signed, and refuses a library by absolute
   path outside the bundle, a missing library, an outside LC_RPATH and a binary
   without arm64;
@@ -169,6 +171,24 @@ with tempfile.TemporaryDirectory() as directory:
         'publicSymbol':'_vtkfreetype_FT_MulFix',
         'installedArchiveSha256':hashlib.sha256(vtk_module.read_bytes()).hexdigest(),
         'aggregateSha256':hashlib.sha256(vtk_aggregate.read_bytes()).hexdigest()}))
+    # DCMTK and OpenSSL are compiled from their original archives as well: each
+    # install carries its source record and the texts that record declares, by
+    # the names their Make.sh installs them under.
+    native_installs = {}
+    for name, product, texts in (
+            ('DCMTK', 'lib/libdcmdata.a',
+             {'COPYRIGHT': 'Binaries/Splash/ThirdParty/Native/DCMTK/COPYRIGHT',
+              'CharLS-License.txt': 'Binaries/Splash/ThirdParty/Native/DCMTK/dcmjpls/docs/License.txt',
+              'ijg_readme.txt': 'Binaries/Splash/ThirdParty/Native/DCMTK/dcmjpeg/docs/ijg_readme.txt'}),
+            ('OpenSSL', 'lib/libcrypto.a', {'LICENSE.txt': 'Binaries/Splash/OpenSSL-LICENSE.txt'})):
+        native_install = temp_dir / ('%s.build/Install' % name)
+        (native_install / 'lib').mkdir(parents=True)
+        (native_install / product).write_bytes(b'synthetic archive identity for bundle transaction\n')
+        (native_install / 'share/licenses' / name).mkdir(parents=True)
+        (native_install / 'share/source.json').write_text(json.dumps(json.loads(source_pin)[name]))
+        for installed, original in texts.items():
+            shutil.copyfile(root / original, native_install / 'share/licenses' / name / installed)
+        native_installs[name] = native_install
 
     # --- a bundle whose executable links the staged library by absolute path -----
     products = temporary / 'Products/Debug'
@@ -198,6 +218,14 @@ with tempfile.TemporaryDirectory() as directory:
     report((vtk_resources/'source.json').read_bytes() == (vtk_install/'share/source.json').read_bytes() and
            (vtk_resources/'Copyright.txt').read_bytes() == (vtk_install/'share/licenses/VTK/Copyright.txt').read_bytes(),
            'VTK original source/license did not reach the bundle transaction')
+    for name, native_install in native_installs.items():
+        published = app / 'Contents/Resources/CompiledSources' / name
+        expected = {'source.json': (native_install / 'share/source.json').read_bytes()}
+        expected.update({text.name: text.read_bytes()
+                         for text in (native_install / 'share/licenses' / name).iterdir()})
+        report(published.is_dir() and
+               {path.name: path.read_bytes() for path in published.iterdir()} == expected,
+               '%s original source record, license and notices did not reach the bundle' % name)
     frameworks = app / 'Contents/Frameworks'
     embedded = sorted(p.name for p in frameworks.glob('*.dylib'))
     report(embedded == ['libqux.1.dylib', 'libtop.1.dylib', 'libzed.2.dylib'],
@@ -275,6 +303,24 @@ with tempfile.TemporaryDirectory() as directory:
     report(rejected.returncode != 0 and 'original source/license differs' in rejected.stderr and
            fingerprint(app) == preserved_bundle, 'a changed VTK copyright altered bundle resources/signatures')
     copyright_file.write_bytes(original_copyright)
+    # A DCMTK notice or an OpenSSL record that no longer matches the pinned
+    # declaration stops the phase before any bundle resource changes.
+    charls_notice = native_installs['DCMTK'] / 'share/licenses/DCMTK/CharLS-License.txt'
+    original_notice = charls_notice.read_bytes()
+    charls_notice.write_bytes(original_notice + b'changed\n')
+    rejected = embed_again()
+    report(rejected.returncode != 0 and 'DCMTK license or notice CharLS-License.txt differs' in rejected.stderr and
+           fingerprint(app) == preserved_bundle, 'a changed DCMTK notice altered bundle resources/signatures')
+    charls_notice.write_bytes(original_notice)
+    openssl_record = native_installs['OpenSSL'] / 'share/source.json'
+    original_openssl_record = openssl_record.read_bytes()
+    wrong_openssl = json.loads(original_openssl_record)
+    wrong_openssl['sha256'] = 'f'*64
+    openssl_record.write_text(json.dumps(wrong_openssl))
+    rejected = embed_again()
+    report(rejected.returncode != 0 and 'OpenSSL original source differs' in rejected.stderr and
+           fingerprint(app) == preserved_bundle, 'a divergent OpenSSL source changed the bundle transaction')
+    openssl_record.write_bytes(original_openssl_record)
 
     notices = app / 'Contents/Resources/ExternalLibraries'
     manifest_path = notices / 'embedded-identities.json'

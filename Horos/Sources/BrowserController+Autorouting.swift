@@ -40,8 +40,9 @@
 import AppKit
 
 // The autorouting functions of the browser: checking the routing filters of
-// the preferences and sending the selection through a rule by hand. The rules
-// themselves are applied by DicomDatabase.
+// the preferences and sending the selection through a rule by hand, which
+// SourceCopyJob does. The rules themselves are applied by DatabaseRouting,
+// through DicomDatabase (Routing).
 
 extension BrowserController {
 
@@ -49,41 +50,7 @@ extension BrowserController {
     /// study, and says which one has a syntax error.
     @objc(testAutorouting)
     func testAutorouting() {
-        #if !OSIRIX_LIGHT
-        guard UserDefaults.standard.bool(forKey: "AUTOROUTINGACTIVATED") else { return }
-        let rules = UserDefaults.standard.array(forKey: "AUTOROUTINGDICTIONARY") ?? []
-        guard let database = self.database, let context = database.managedObjectContext else { return }
-
-        N2ManagedObjectContextPerformAndWait(context) {
-            // A study to test the filters on.
-            let request = NSFetchRequest<NSFetchRequestResult>()
-            request.entity = database.managedObjectModel?.entitiesByName["Study"]
-            request.predicate = NSPredicate(value: true)
-            request.fetchLimit = 1
-            guard let study = (try? context.fetch(request))?.first as? DicomStudy else { return }
-            let images = (study.images() as NSSet?)?.allObjects ?? []
-
-            for case let rule as NSDictionary in rules {
-                if let exception = BrowserObjC.attempt({
-                    guard BrowserObjC.intValue(rule["filterType"]) == 0 else { return }
-                    // Tried on the first study; no predicate is an invalid argument there too.
-                    guard let predicate = self.smartAlbumPredicateString(rule["filter"] as? String) else {
-                        NSException(name: .invalidArgumentException, reason: "-[NSArray filteredArrayUsingPredicate:]: predicate cannot be nil",
-                                    userInfo: nil).raise()
-                        return
-                    }
-                    _ = (images as NSArray).filtered(using: predicate)
-                }) {
-                    let message = String(format: NSLocalizedString("Syntax error in this routing filter: %@\r\r%@\r\r%@", comment: ""),
-                                         String(describing: rule["name"] ?? "(null)"), String(describing: rule["filter"] ?? "(null)"),
-                                         exception.description)
-                    _ = HorosAlertPanel.run(title: NSLocalizedString("Routing Filter Error", comment: ""), message: message,
-                                            defaultButton: nil, alternateButton: nil, otherButton: nil)
-                    BrowserObjC.log(exception, stack: true, "-[BrowserController testAutorouting]")
-                }
-            }
-        }
-        #endif
+        SourceCopyJob.checkRoutingFilters(of: database, preferences: sourceList.preferences) { smartAlbumPredicateString($0) }
     }
 
     /// The study of the image last selected in the thumbnails, else in the list.
@@ -103,31 +70,16 @@ extension BrowserController {
     /// rule without one: the database window's contextual menu.
     @objc(applyRoutingRule:)
     func applyRoutingRule(_ sender: Any!) {
-        var matrixThumbnails = false
-        if isThumbnailMenuItem(sender) || window?.firstResponder === horos_oMatrix {
-            matrixThumbnails = true
-            NSLog("applyRoutingRule from matrix")
-        }
+        let fromThumbnails = isThumbnailMenuItem(sender) || window?.firstResponder === horos_oMatrix
+        if fromThumbnails { NSLog("applyRoutingRule from matrix") }
 
         let objects = NSMutableArray()
-        if matrixThumbnails {
+        if fromThumbnails {
             _ = files(forDatabaseMatrixSelection: objects, onlyImages: false)
         } else {
             _ = files(forDatabaseOutlineSelection: objects, onlyImages: false)
         }
-
-        if let rule = (sender as? NSMenuItem)?.representedObject ?? (sender as? NSCell)?.representedObject {
-            NSLog(" Autorouting trigger: %d image(s) sent through one rule by hand, from the database window", Int32(objects.count))
-            database?.applyRoutingRules([rule] as NSArray, toImages: objects)
-        } else {
-            NSLog(" Autorouting trigger: %d image(s) sent through every rule by hand, from the database window", Int32(objects.count))
-            database?.applyRoutingRules(nil, toImages: objects)
-        }
-    }
-
-    @available(*, deprecated)
-    @objc(addFiles:withRule:)
-    func addFiles(_ images: [Any]!, withRule routingRule: [AnyHashable: Any]!) {
-        database?.addImages(images as NSArray?, toSendQueueForRoutingRule: routingRule as NSDictionary?)
+        SourceCopyJob.route(Array(objects), through: (sender as? NSMenuItem)?.representedObject ?? (sender as? NSCell)?.representedObject,
+                            in: database)
     }
 }

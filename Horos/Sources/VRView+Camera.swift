@@ -46,8 +46,7 @@ import IsiXVolumeRendering
 // (origin, direction cosines, resolution) the exports and the MPR read; the
 // orientation letters; the window centre; the background colour; and the
 // conversions between the volume's voxels and VTK's world. A Swift extension
-// of the class, with the same selectors. The @try of -getOrigin:… is
-// HorosObjCException, with the same log.
+// of the class, with the same selectors.
 //
 // The arithmetic keeps the Objective-C's types: a float operand of a double
 // expression is widened, a float variable rounds what it is given, and a
@@ -518,62 +517,57 @@ extension VRView {
             return
         }
 
-        let exception = HorosObjCException.caught {
-            let factor = Double(self.horos_factor)
-            var cameraPosition = [Double](repeating: 0, count: 3)
-            vtk.getCameraPosition(&cameraPosition)
+        let factor = Double(self.horos_factor)
+        var cameraPosition = [Double](repeating: 0, count: 3)
+        vtk.getCameraPosition(&cameraPosition)
 
-            cameraPosition[0] /= factor
-            cameraPosition[1] /= factor
-            cameraPosition[2] /= factor
+        cameraPosition[0] /= factor
+        cameraPosition[1] /= factor
+        cameraPosition[2] /= factor
 
-            let rayCastImage = vtk.rayCastImageInfoFused(blendedView)
+        let rayCastImage = vtk.rayCastImageInfoFused(blendedView)
 
-            // Position of upper left part of the image
-            var viewport = [Double](repeating: 0, count: 4)
-            vtk.getViewport(&viewport)
-            var renWinWidth: Int32 = 0, renWinHeight: Int32 = 0
-            vtk.getWindowWidth(&renWinWidth, height: &renWinHeight)
+        // Position of upper left part of the image
+        var viewport = [Double](repeating: 0, count: 4)
+        vtk.getViewport(&viewport)
+        var renWinWidth: Int32 = 0, renWinHeight: Int32 = 0
+        vtk.getWindowWidth(&renWinWidth, height: &renWinHeight)
 
-            let sampleDistance = rayCastImage.sampleDistance
+        let sampleDistance = rayCastImage.sampleDistance
 
-            // turn ImageOrigin into (x1,y1) in window (not viewport!) coordinates.
-            let imageOrigin = rayCastImage.origin
-            let x1 = CConversion.int((Double(imageOrigin.0) * sampleDistance).addingProduct(viewport[0], Double(renWinWidth)))
-            let y1 = CConversion.int((Double(imageOrigin.1) * sampleDistance).addingProduct(viewport[1], Double(renWinHeight)))
+        // turn ImageOrigin into (x1,y1) in window (not viewport!) coordinates.
+        let imageOrigin = rayCastImage.origin
+        let x1 = CConversion.int((Double(imageOrigin.0) * sampleDistance).addingProduct(viewport[0], Double(renWinWidth)))
+        let y1 = CConversion.int((Double(imageOrigin.1) * sampleDistance).addingProduct(viewport[1], Double(renWinHeight)))
 
-            // cameraPosition is in the center of the screen
-            var x = Double(x1) - Double(renWinWidth) / 2.0
-            var y = Double(y1) - Double(renWinHeight) / 2.0
+        // cameraPosition is in the center of the screen
+        var x = Double(x1) - Double(renWinWidth) / 2.0
+        var y = Double(y1) - Double(renWinHeight) / 2.0
 
-            if wc {
-                let wC = self.windowCenter()
-                x -= Double(wC.x)
-                y -= Double(wC.y)
-            }
-
-            var cos = [Float](repeating: 0, count: 9)
-            _ = self.getCosMatrix(&cos)
-
-            let r = self.getResolution()
-
-            // Upper Left corner
-            for i in 0..<3 {
-                origin[i] = Float(cameraPosition[i].addingProduct(y * Double(cos[3 + i]), r).addingProduct(x * Double(cos[i]), r))
-            }
-
-            // Take into account the sliceThickness -> Origin is in the middle of the slice thickness
-            if sliceMiddle {
-                var thickness = self.clippingRangeThickness / factor
-                thickness /= 2.0
-
-                for i in 0..<3 {
-                    origin[i] = Float(Double(origin[i]).addingProduct(thickness, Double(cos[6 + i])))
-                }
-            }
+        if wc {
+            let wC = self.windowCenter()
+            x -= Double(wC.x)
+            y -= Double(wC.y)
         }
-        if let exception {
-            NSLog("***** exception in %@: %@", "-[VRView getOrigin:windowCentered:sliceMiddle:blendedView:]", exception)
+
+        var cos = [Float](repeating: 0, count: 9)
+        _ = self.getCosMatrix(&cos)
+
+        let r = self.getResolution()
+
+        // Upper Left corner
+        for i in 0..<3 {
+            origin[i] = Float(cameraPosition[i].addingProduct(y * Double(cos[3 + i]), r).addingProduct(x * Double(cos[i]), r))
+        }
+
+        // Take into account the sliceThickness -> Origin is in the middle of the slice thickness
+        if sliceMiddle {
+            var thickness = self.clippingRangeThickness / factor
+            thickness /= 2.0
+
+            for i in 0..<3 {
+                origin[i] = Float(Double(origin[i]).addingProduct(thickness, Double(cos[6 + i])))
+            }
         }
     }
 

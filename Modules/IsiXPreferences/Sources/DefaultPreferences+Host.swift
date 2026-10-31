@@ -61,7 +61,7 @@ extension DefaultPreferences {
     /// The bytes the GPU driving the main display may use: Apple Silicon has
     /// unified memory rather than a separate VRAM bank, so the recommended
     /// working set of that device stands for it, for the 3D texture presets.
-    @objc public static func vramSize() -> Int {
+    public static func vramSize() -> Int {
         guard let device = CGDirectDisplayCopyCurrentMetalDevice(CGMainDisplayID()) else { return 0 }
         let bytes = device.recommendedMaxWorkingSetSize
         return bytes > UInt64(Int.max) ? Int.max : Int(bytes)
@@ -70,7 +70,7 @@ extension DefaultPreferences {
     /// The VRAM of the first PCI display device that states it, in megabytes,
     /// logged with its model; 0 when none does, and UInt64.max (-1 as the
     /// unsigned size it was) when the devices cannot be listed.
-    @objc(GPUModelVRAMInfo) public static func gpuModelVRAMInfo() -> UInt64 {
+    public static func gpuModelVRAMInfo() -> UInt64 {
         var iterator: io_iterator_t = 0
         let error = IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching("IOPCIDevice"), &iterator)
         guard error == KERN_SUCCESS else {

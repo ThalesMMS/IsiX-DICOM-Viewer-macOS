@@ -39,7 +39,9 @@
 
 import AppKit
 import Accelerate
+import IsiXContracts
 import IsiXDICOMFile
+import IsiXPreferences
 
 /// The export of an image as DICOM: the pixels it is given (raw or from an
 /// NSImage), squared and turned as asked, written over the source file's
@@ -91,6 +93,8 @@ import IsiXDICOMFile
 
     let metaDataDict: NSMutableDictionary?
     var rotateRawDataBy90degrees = false
+    /// Where the choice of the DCMTK writer is read: the preferences of the process.
+    private final let preferences: any PreferenceStore = PreferencesSource.process.preferences
 
     // MARK: - Life
 
@@ -291,19 +295,22 @@ import IsiXDICOMFile
             return nil
         }
         guard horos_width != 0, horos_height != 0, horos_data != nil else { return nil }
-        var written: String?
-        // What the former @try handled: an Objective-C exception raised while
-        // writing is logged and nothing is returned.
-        if let exception = HorosObjCException.caught({ written = self.writeSecondaryCapture(dstPath) }) {
-            NSLog("*********** WriteDCMFile failed : %@", exception)
+        // What the former @try handled: a failure of the write, or an
+        // Objective-C exception raised while writing, is logged and nothing is
+        // returned.
+        do {
+            return try HorosObjCException.throwing(SecondaryCaptureFailure.raised) {
+                try self.writeSecondaryCapture(dstPath)
+            }
+        } catch {
+            NSLog("*********** WriteDCMFile failed : %@", SecondaryCaptureFailure.exception(of: error))
             return nil
         }
-        return written
     }
 
     /// The write itself, once the pixels are known to be writable.
-    final func writeSecondaryCapture(_ requestedPath: String?) -> String? {
-        guard UserDefaults.standard.bool(forKey: "useDCMTKForDicomExport") else { return nil }
+    final func writeSecondaryCapture(_ requestedPath: String?) throws -> String? {
+        guard preferences[ApplicationPreferences.useDCMTKForDicomExport] else { return nil }
         if horos_spacingX != 0 && horos_spacingY != 0 && horos_spacingX != horos_spacingY && horos_bitsPerSample == 16 {
             squarePixels()
         }
@@ -323,13 +330,13 @@ import IsiXDICOMFile
             if DicomFile.isDICOMFile(source) {
                 succeed = (try? file.read(fileAtPath: source)) != nil
             } else if let dicomFile = DicomFile(source) {
-                succeed = SecondaryCaptureDataset.writeHeader(into: file.dataset,
-                                                              values: SecondaryCaptureDataset.headerValues(of: dicomFile))
+                succeed = try SecondaryCaptureDataset.writeHeader(into: file.dataset,
+                                                                  values: SecondaryCaptureDataset.headerValues(of: dicomFile))
                 _ = try? file.metaInfo.putString(SecondaryCaptureExport.secondaryCaptureStorage, forTag: 0x0002_0002)
             }
         }
         if !succeed {
-            succeed = SecondaryCaptureDataset.writeHeader(into: file.dataset, values: metaDataDict ?? NSMutableDictionary())
+            succeed = try SecondaryCaptureDataset.writeHeader(into: file.dataset, values: metaDataDict ?? NSMutableDictionary())
             _ = try? file.metaInfo.putString(SecondaryCaptureExport.secondaryCaptureStorage, forTag: 0x0002_0002)
         }
         guard succeed else { return nil }
@@ -346,7 +353,7 @@ import IsiXDICOMFile
         if file.canWriteTransferSyntax(explicitLittleEndian) {
             // Into the current database when no path is given.
             if destination == nil {
-                destination = BrowserController.currentBrowser()?.database?.uniquePathForNewDataFile(withExtension: "dcm")
+                destination = DatabaseIngest.process.browserDatabase?.uniquePathForNewDataFile(withExtension: "dcm")
             }
             if (try? file.write(toPath: destination ?? "", transferSyntax: explicitLittleEndian,
                                 removingPadding: true)) == nil {
@@ -358,7 +365,7 @@ import IsiXDICOMFile
             let tmpFile = (manager.tmpDirPath() as NSString).appendingPathComponent((source as NSString).lastPathComponent)
             try? manager.removeItem(atPath: tmpFile)
             try? manager.copyItem(atPath: source, toPath: tmpFile)
-            DicomDatabase.decompressDicomFiles(atPaths: [tmpFile])
+            _ = DatabaseIngest.process.fileConverting(of: nil).convertNow([tmpFile], mode: .decompress, into: nil)
             if manager.fileExists(atPath: tmpFile) {
                 horos_triedToDecompress = true
                 horos_sourcePath = tmpFile

@@ -38,6 +38,8 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
+import Synchronization
 
 /// The entities of the portal's model.
 let WebPortalDatabaseUserEntityName = "User"
@@ -51,22 +53,20 @@ let WebPortalDatabaseStudyEntityName = "Study"
 @objc(WebPortalDatabase)
 public final class WebPortalDatabase: N2ManagedDatabase {
     /// Portal databases are opened on the connection threads too, so the
-    /// shared model is made and read under `modelLock`; Core Data shares a
-    /// model between threads once a coordinator uses it.
-    private static let modelLock = NSLock()
-    // nonisolated(unsafe): read and written only inside `modelLock.withLock`.
-    nonisolated(unsafe) private static var model: NSManagedObjectModel? = nil
+    /// shared model is made and read under a lock; Core Data shares a model
+    /// between threads once a coordinator uses it.
+    private static let model = Mutex<NSManagedObjectModel?>(nil)
 
     public override class func modelName() -> String! {
         return "WebPortalDB.momd"
     }
 
     public override var managedObjectModel: NSManagedObjectModel! {
-        return WebPortalDatabase.modelLock.withLock {
-            if WebPortalDatabase.model == nil {
-                WebPortalDatabase.model = NSManagedObjectModel(contentsOf: URL(fileURLWithPath: ((Bundle.main.resourcePath ?? "") as NSString).appendingPathComponent(WebPortalDatabase.modelName())))
+        return WebPortalDatabase.model.withLock { model in
+            if model == nil {
+                model = NSManagedObjectModel(contentsOf: URL(fileURLWithPath: ((Bundle.main.resourcePath ?? "") as NSString).appendingPathComponent(WebPortalDatabase.modelName())))
             }
-            return WebPortalDatabase.model
+            return model
         }
     }
 
@@ -97,7 +97,7 @@ public final class WebPortalDatabase: N2ManagedDatabase {
     public func newUser() -> WebPortalUser! {
         let newUser = NSEntityDescription.insertNewObject(forEntityName: WebPortalDatabaseUserEntityName, into: self.managedObjectContext)
 
-        newUser.setValue(Date(timeIntervalSinceReferenceDate: Date.timeIntervalSinceReferenceDate + Double(UserDefaults.standard.integer(forKey: "temporaryUserDuration") * 60 * 60 * 24)), forKey: "deletionDate")
+        newUser.setValue(Date(timeIntervalSinceReferenceDate: Date.timeIntervalSinceReferenceDate + Double(PreferencesSource.process.preferences[NetworkPreferences.temporaryUserDuration] * 60 * 60 * 24)), forKey: "deletionDate")
 
         return newUser as? WebPortalUser
     }

@@ -41,41 +41,11 @@ import Cocoa
 import CoreData
 import IsiXDICOMDataset
 import IsiXDICOMFile
+import IsiXPreferences
 
 fileprivate let ROIDATABASE = "/ROIs/"
 
 // MARK: - Objective-C semantics the class relies on
-
-/// `@synchronized (object) { … }`: the same recursive lock (objc_sync_enter).
-/// An NSException raised inside leaves the lock and goes on to the caller, as
-/// it did through @synchronized.
-@inline(__always)
-fileprivate func dicomImageSynchronized<T>(_ object: AnyObject, _ body: () -> T) -> T {
-    objc_sync_enter(object)
-    var result: T?
-    var raised: NSException?
-    do {
-        try HorosObjCException.perform { result = body() }
-    } catch {
-        raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    objc_sync_exit(object)
-    if let raised = raised {
-        raised.raise()
-    }
-    return result!
-}
-
-/// `@try { body } @catch (NSException *e) { … }`: the exception caught, or nil.
-@discardableResult
-fileprivate func dicomImageTry(_ body: () -> Void) -> NSException? {
-    do {
-        try HorosObjCException.perform(body)
-        return nil
-    } catch {
-        return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-}
 
 /// The lock of the former atomic completePathCache property.
 // nonisolated(unsafe): the pointer never changes, and what it points to is an
@@ -311,7 +281,7 @@ public final class DicomImage: NSManagedObject {
     /// -setDate: also clears the cached dicomTime.
     @objc(horos_setDate:)
     public func horosSetDate(_ date: NSDate!) {
-        dicomImageSynchronized(self) {
+        HorosObjCException.synchronized(self) {
             _dicomTime = nil
 
             self.willChangeValue(forKey: "date")
@@ -387,7 +357,7 @@ public final class DicomImage: NSManagedObject {
     }
 
     @objc public func sopInstanceUID() -> String! {
-        return dicomImageSynchronized(self) { () -> String? in
+        return HorosObjCException.synchronized(self) { () -> String? in
             if let sopInstanceUID = _sopInstanceUID {
                 return sopInstanceUID
             }
@@ -408,7 +378,7 @@ public final class DicomImage: NSManagedObject {
 
     @objc(setSopInstanceUID:)
     public func setSopInstanceUID(_ s: String!) {
-        dicomImageSynchronized(self) {
+        HorosObjCException.synchronized(self) {
             _sopInstanceUID = nil
 
             if let s = s {
@@ -427,7 +397,7 @@ public final class DicomImage: NSManagedObject {
     // MARK: -
 
     @objc public func inDatabaseFolder() -> NSNumber! {
-        return dicomImageSynchronized(self) { () -> NSNumber? in
+        return HorosObjCException.synchronized(self) { () -> NSNumber? in
             if let inDatabaseFolder = _inDatabaseFolder { return inDatabaseFolder }
 
             var f = self.primitiveValue(forKey: "storedInDatabaseFolder") as? NSNumber
@@ -442,7 +412,7 @@ public final class DicomImage: NSManagedObject {
 
     @objc(setInDatabaseFolder:)
     public dynamic func setInDatabaseFolder(_ f: NSNumber!) {
-        dicomImageSynchronized(self) {
+        HorosObjCException.synchronized(self) {
             _inDatabaseFolder = nil
 
             self.willChangeValue(forKey: "storedInDatabaseFolder")
@@ -465,7 +435,7 @@ public final class DicomImage: NSManagedObject {
     }
 
     @objc public func height() -> NSNumber! {
-        return dicomImageSynchronized(self) { () -> NSNumber? in
+        return HorosObjCException.synchronized(self) { () -> NSNumber? in
             if let height = _height { return height }
 
             var f = self.primitiveValue(forKey: "storedHeight") as? NSNumber
@@ -484,7 +454,7 @@ public final class DicomImage: NSManagedObject {
 
     @objc(setHeight:)
     public dynamic func setHeight(_ f: NSNumber!) {
-        dicomImageSynchronized(self) {
+        HorosObjCException.synchronized(self) {
             _height = nil
 
             self.willChangeValue(forKey: "storedHeight")
@@ -500,7 +470,7 @@ public final class DicomImage: NSManagedObject {
     // MARK: -
 
     @objc public func width() -> NSNumber! {
-        return dicomImageSynchronized(self) { () -> NSNumber? in
+        return HorosObjCException.synchronized(self) { () -> NSNumber? in
             if let width = _width { return width }
 
             var f = self.primitiveValue(forKey: "storedWidth") as? NSNumber
@@ -519,7 +489,7 @@ public final class DicomImage: NSManagedObject {
 
     @objc(setWidth:)
     public dynamic func setWidth(_ f: NSNumber!) {
-        dicomImageSynchronized(self) {
+        HorosObjCException.synchronized(self) {
             _width = nil
 
             self.willChangeValue(forKey: "storedWidth")
@@ -537,7 +507,7 @@ public final class DicomImage: NSManagedObject {
     /// Atomic in the former header; read and written under @synchronized (self).
     @objc public dynamic var numberOfFrames: NSNumber! {
         get {
-            return dicomImageSynchronized(self) { () -> NSNumber? in
+            return HorosObjCException.synchronized(self) { () -> NSNumber? in
                 if let numberOfFrames = _numberOfFrames { return numberOfFrames }
 
                 var f = self.primitiveValue(forKey: "storedNumberOfFrames") as? NSNumber
@@ -551,7 +521,7 @@ public final class DicomImage: NSManagedObject {
         }
         set {
             let f = newValue
-            dicomImageSynchronized(self) {
+            HorosObjCException.synchronized(self) {
                 _numberOfFrames = nil
 
                 self.willChangeValue(forKey: "storedNumberOfFrames")
@@ -568,7 +538,7 @@ public final class DicomImage: NSManagedObject {
     // MARK: -
 
     @objc public func numberOfSeries() -> NSNumber! {
-        return dicomImageSynchronized(self) { () -> NSNumber? in
+        return HorosObjCException.synchronized(self) { () -> NSNumber? in
             if let numberOfSeries = _numberOfSeries { return numberOfSeries }
 
             var f = self.primitiveValue(forKey: "storedNumberOfSeries") as? NSNumber
@@ -583,7 +553,7 @@ public final class DicomImage: NSManagedObject {
 
     @objc(setNumberOfSeries:)
     public dynamic func setNumberOfSeries(_ f: NSNumber!) {
-        dicomImageSynchronized(self) {
+        HorosObjCException.synchronized(self) {
             _numberOfSeries = nil
 
             self.willChangeValue(forKey: "storedNumberOfSeries")
@@ -608,7 +578,7 @@ public final class DicomImage: NSManagedObject {
     public func dcmodifyThread(_ dict: NSDictionary!) {
         autoreleasepool {
             DicomStudy.dbModifyLock()?.lock()
-            if let e = dicomImageTry({
+            if let e = HorosObjCException.caught({
                 let tagAndValues = NSMutableArray()
 
                 let value = dict?.object(forKey: "value")
@@ -661,7 +631,7 @@ public final class DicomImage: NSManagedObject {
     }
 
     @objc public func isKeyImage() -> NSNumber! {
-        return dicomImageSynchronized(self) { () -> NSNumber? in
+        return HorosObjCException.synchronized(self) { () -> NSNumber? in
             if let isKeyImage = _isKeyImage { return isKeyImage }
 
             var f = self.primitiveValue(forKey: "storedIsKeyImage") as? NSNumber
@@ -676,19 +646,19 @@ public final class DicomImage: NSManagedObject {
 
     @objc(setIsKeyImage:)
     public dynamic func setIsKey(_ f: NSNumber!) {
-        dicomImageSynchronized(self) {
+        HorosObjCException.synchronized(self) {
             autoreleasepool {
                 _isKeyImage = nil
 
                 if (f?.boolValue ?? false) != ((self.primitiveValue(forKey: "storedIsKeyImage") as? NSNumber)?.boolValue ?? false) {
                     if (self.series?.study?.hasDICOM?.boolValue ?? false) == true
-                        && UserDefaults.standard.bool(forKey: "savedCommentsAndStatusInDICOMFiles")
+                        && PreferencesSource.process.preferences[DatabasePreferences.savedCommentsAndStatusInDICOMFiles]
                         && (DicomDatabase(for: self.managedObjectContext)?.isLocal() ?? false) {
                         var c: String? = nil
 
                         if (self.numberOfFrames?.int32Value ?? 0) > 1 {
                             DicomStudy.dbModifyLock()?.lock()
-                            if let e = dicomImageTry({
+                            if let e = HorosObjCException.caught({
                                 let dcmObject: DCMObject? = self.completePath().flatMap { DCMObject.object(contentsOfFile: $0) }
 
                                 if dcmObject?.attributes?.object(forKey: "0028,6022") != nil { // DCM_FramesOfInterestDescription
@@ -765,7 +735,7 @@ public final class DicomImage: NSManagedObject {
 
     @objc(extension)
     public func `extension`() -> String! {
-        return dicomImageSynchronized(self) { () -> String? in
+        return HorosObjCException.synchronized(self) { () -> String? in
             if let e = _extension { return e }
 
             var f = self.primitiveValue(forKey: "storedExtension") as? String
@@ -780,7 +750,7 @@ public final class DicomImage: NSManagedObject {
 
     @objc(setExtension:)
     public dynamic func setExtension(_ f: String!) {
-        dicomImageSynchronized(self) {
+        HorosObjCException.synchronized(self) {
             _extension = nil
 
             self.willChangeValue(forKey: "storedExtension")
@@ -797,7 +767,7 @@ public final class DicomImage: NSManagedObject {
 
     @objc public dynamic var modality: String! {
         get {
-            return dicomImageSynchronized(self) { () -> String? in
+            return HorosObjCException.synchronized(self) { () -> String? in
                 if let modality = _modality { return modality }
 
                 var f = self.primitiveValue(forKey: "storedModality") as? String
@@ -811,7 +781,7 @@ public final class DicomImage: NSManagedObject {
         }
         set {
             let f = newValue
-            dicomImageSynchronized(self) {
+            HorosObjCException.synchronized(self) {
                 _modality = nil
 
                 self.willChangeValue(forKey: "storedModality")
@@ -828,7 +798,7 @@ public final class DicomImage: NSManagedObject {
     // MARK: -
 
     @objc public func fileType() -> String! {
-        return dicomImageSynchronized(self) { () -> String? in
+        return HorosObjCException.synchronized(self) { () -> String? in
             if let fileType = _fileType { return fileType }
 
             var f = self.primitiveValue(forKey: "storedFileType") as? String
@@ -843,7 +813,7 @@ public final class DicomImage: NSManagedObject {
 
     @objc(setFileType:)
     public dynamic func setFileType(_ f: String!) {
-        dicomImageSynchronized(self) {
+        HorosObjCException.synchronized(self) {
             _fileType = nil
 
             self.willChangeValue(forKey: "storedFileType")
@@ -874,7 +844,7 @@ public final class DicomImage: NSManagedObject {
     }
 
     @objc public func dicomTime() -> NSNumber! {
-        return dicomImageSynchronized(self) { () -> NSNumber? in
+        return HorosObjCException.synchronized(self) { () -> NSNumber? in
             if let dicomTime = _dicomTime { return dicomTime }
 
             _dicomTime = (DICOMCalendarDate.dicomTime(with: self.date))?.timeAsNumber()
@@ -965,7 +935,7 @@ public final class DicomImage: NSManagedObject {
     public func completePath(withDownload download: Bool, supportNonLocalDatabase: Bool) -> String! {
         var result: String? = nil
 
-        if let e = dicomImageTry({
+        if let e = HorosObjCException.caught({
             if self.completePathCache != nil && download == false {
                 result = self.completePathCache
                 return
@@ -1050,7 +1020,7 @@ public final class DicomImage: NSManagedObject {
         }
         let delete = failure == nil
 
-        dicomImageSynchronized(self) {
+        HorosObjCException.synchronized(self) {
             if delete {
                 if (self.inDatabaseFolder()?.boolValue ?? false) == true {
                     let path = self.completePath()
@@ -1059,9 +1029,9 @@ public final class DicomImage: NSManagedObject {
                     if let context = self.managedObjectContext as? N2ManagedObjectContext,
                        context.responds(to: #selector(N2ManagedObjectContext.perform(afterSuccessfulSave:))) {
                         context.perform(afterSuccessfulSave: {
-                            BrowserController.currentBrowser()?.addFile(toDeleteQueue: path)
+                            BrowserDatabaseSource.process.processGraph.queueForDeletion(path)
                             if let analyzePath = analyzePath {
-                                BrowserController.currentBrowser()?.addFile(toDeleteQueue: analyzePath)
+                                BrowserDatabaseSource.process.processGraph.queueForDeletion(analyzePath)
                             }
                         })
                     }
@@ -1125,7 +1095,7 @@ public final class DicomImage: NSManagedObject {
     }
 
     @objc public func image() -> NSImage! {
-        return dicomImageSynchronized(self) { () -> NSImage? in
+        return HorosObjCException.synchronized(self) { () -> NSImage? in
             let pix = DCMPix(path: self.completePath(), 0, 0, nil, 0, Int(dicomImageIntValue(self.value(forKeyPath: "series.id"))), isBonjour: false, imageObj: self)
             let data = pix?.image()?.tiffRepresentation
             let thumbnail = data.flatMap { NSImage(data: $0) }
@@ -1135,7 +1105,7 @@ public final class DicomImage: NSManagedObject {
     }
 
     @objc public func thumbnail() -> NSImage! {
-        return dicomImageSynchronized(self) { () -> NSImage? in
+        return HorosObjCException.synchronized(self) { () -> NSImage? in
             if let thumbnail = _thumbnail {
                 return thumbnail
             }
@@ -1160,7 +1130,7 @@ public final class DicomImage: NSManagedObject {
     @MainActor private func imageAsScreenCaptureOnMainActor(_ frame: NSRect) -> NSImage? {
         var renderedImage: NSImage? = nil
 
-        if let e = dicomImageTry({
+        if let e = HorosObjCException.caught({
             let pix = DCMPix(path: self.completePath(), 0, 0, nil, Int(self.frameID?.int32Value ?? 0), Int(self.series?.id?.int32Value ?? 0), isBonjour: false, imageObj: self)
 
             pix?.checkLoad()
@@ -1205,7 +1175,7 @@ public final class DicomImage: NSManagedObject {
     @MainActor private func imageAsDICOMScreenCaptureOnMainActor(_ exporter: DICOMExport!) -> NSDictionary? {
         var dicomImage: NSDictionary? = nil
 
-        if let e = dicomImageTry({
+        if let e = HorosObjCException.caught({
             let pix = DCMPix(path: self.completePath(), 0, 0, nil, Int(self.frameID?.int32Value ?? 0), Int(self.series?.id?.int32Value ?? 0), isBonjour: false, imageObj: self)
 
             pix?.checkLoad()
@@ -1214,11 +1184,11 @@ public final class DicomImage: NSManagedObject {
                 var frame = NSRect(x: 0, y: 0, width: CGFloat(pix.pwidth), height: CGFloat(pix.pheight))
 
                 // Not smaller than @"DicomImageScreenCapture" prefs
-                frame.size.height = max(frame.size.height, CGFloat(UserDefaults.standard.integer(forKey: "DicomImageScreenCaptureHeight")))
-                frame.size.width = max(frame.size.width, CGFloat(UserDefaults.standard.integer(forKey: "DicomImageScreenCaptureWidth")))
+                frame.size.height = max(frame.size.height, CGFloat(PreferencesSource.process.preferences[DatabasePreferences.dicomImageScreenCaptureHeight]))
+                frame.size.width = max(frame.size.width, CGFloat(PreferencesSource.process.preferences[DatabasePreferences.dicomImageScreenCaptureWidth]))
 
                 // Not larger than a screen
-                let viewerRect = ((AppController.shared() as AppController?)?.viewerScreens()?.last as? NSScreen)?.frame ?? .zero
+                let viewerRect = PreferencesSource.process.processGraph.windowArranger.viewerScreens().last?.frame ?? .zero
                 frame.size.height = min(frame.size.height, viewerRect.size.height)
                 frame.size.width = min(frame.size.width, viewerRect.size.width)
 
@@ -1256,7 +1226,7 @@ public final class DicomImage: NSManagedObject {
 
     @objc(setThumbnail:)
     public func setThumbnail(_ image: NSImage!) {
-        dicomImageSynchronized(self) {
+        HorosObjCException.synchronized(self) {
             if image !== _thumbnail {
                 _thumbnail = image
             }

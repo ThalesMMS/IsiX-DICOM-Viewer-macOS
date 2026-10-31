@@ -150,7 +150,7 @@ nonisolated(unsafe) private var totalN2ManagedObjectContexts = 0
         let actions = discardedChangesActions ?? []
         discardedChangesActions = nil
         for action in actions {
-            if let exception = N2ManagedDatabaseObjC.attempt(action) {
+            if let exception = HorosObjCException.caught(action) {
                 NSLog("Discard action failed: %@", exception.name.rawValue as NSString)
             }
         }
@@ -193,7 +193,7 @@ nonisolated(unsafe) private var totalN2ManagedObjectContexts = 0
         atomicChangesCancelled = false
 
         var committed = false
-        let raised = N2ManagedDatabaseObjC.attempt {
+        let raised = HorosObjCException.caught {
             var operationError: NSError? = nil
             let ready = changes(&operationError) && !self.atomicChangesCancelled
             self.storedDefersSaves = false
@@ -281,7 +281,7 @@ nonisolated(unsafe) private var totalN2ManagedObjectContexts = 0
         nextSuccessfulSaveActions = nil
 
         var saveError: Error? = nil
-        let raised = N2ManagedDatabaseObjC.attempt {
+        let raised = HorosObjCException.caught {
             do {
                 try super.save()
             } catch {
@@ -294,7 +294,7 @@ nonisolated(unsafe) private var totalN2ManagedObjectContexts = 0
                 let actions = self.afterSuccessfulSaveActions ?? []
                 self.afterSuccessfulSaveActions = nil
                 for action in actions {
-                    if let exception = N2ManagedDatabaseObjC.attempt(action) {
+                    if let exception = HorosObjCException.caught(action) {
                         NSLog("Post-save action failed: %@", exception.name.rawValue as NSString)
                     }
                 }

@@ -38,68 +38,33 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXDatabase
+import IsiXPreferences
+import IsiXStorage
 
-// The "Plugins" block of BrowserController is implemented in Swift:
-// a Swift extension of BrowserController, with the selectors of the former
+// The "Plugins" block of BrowserController: the entry points the former
+// plugin SDK and the rest of the app call, with the selectors of the former
 // methods. The state it uses is read through the class's accessors
 // (BrowserController+StateAccess.swift). The properties the header
 // declared (searchString, isCurrentDatabaseBonjour, currentDatabasePath,
 // documentsDirectory, fixedDocumentsDirectory, cfixed*) are @objc properties
 // with the same getters, and searchString's setter.
 //
-// An @try is HorosObjCException.perform (objcTry), and the code of its
-// @finally runs after it; an @synchronized is objcSynchronized. A plugin's
-// filter is sent -prepareFilter: and -filterImage: as Objective-C sent them
-// (objcSendLong), so that a filter that does not implement one raises inside
-// the @try as before. The USEHOMEPHONE branch (not defined) is left out.
-
-/// `@synchronized (object) { … }`: the same recursive lock, taken on nothing
-/// when the object is nil, and left before an exception raised inside goes on.
-@inline(__always)
-fileprivate func objcSynchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T {
-    guard let object else { return body() }
-    objc_sync_enter(object)
-    var result: T?
-    var raised: NSException?
-    do {
-        try HorosObjCException.perform { result = body() }
-    } catch {
-        raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    objc_sync_exit(object)
-    if let raised { raised.raise() }
-    return result!
-}
-
-/// Runs `body` as an @try block: the NSException it raises is returned.
-@inline(__always)
-fileprivate func objcTry(_ body: () -> Void) -> NSException? {
-    do {
-        try HorosObjCException.perform(body)
-    } catch {
-        return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    return nil
-}
+// The search field's predicate is IsiXDatabase's StudySearchRules, the
+// federated search FederatedStudySearch's, and the folders of the database
+// IsiXStorage's DocumentsLocation; these methods hand over to them.
+//
+// An @try is HorosObjCException.caught, and the code of its
+// @finally runs after it. A plugin's filter is sent -prepareFilter: and
+// -filterImage: as Objective-C sent them (objcSendLong), so that a filter
+// that does not implement one raises inside the @try as before. The
+// USEHOMEPHONE branch (not defined) is left out.
 
 /// A `%@` argument: the object, or "(null)" as Objective-C printed nil.
 fileprivate func objcFormatArgument(_ object: Any?) -> CVarArg {
     if let object = object as? NSObject { return object }
     if let object { return String(describing: object) as NSString }
     return "(null)" as NSString
-}
-
-/// `[NSDictionary dictionaryWithObjectsAndKeys: …, nil]`: the list ends at the
-/// first nil.
-fileprivate func objcDictionary(_ pairs: Any?...) -> NSDictionary {
-    let dictionary = NSMutableDictionary()
-    var index = 0
-    while index + 1 < pairs.count {
-        guard let object = pairs[index], let key = pairs[index + 1] as? NSCopying else { break }
-        dictionary.setObject(object, forKey: key)
-        index += 2
-    }
-    return dictionary
 }
 
 /// `[target selector: argument]` of a method returning `long`, sent as
@@ -135,15 +100,8 @@ fileprivate func objcPredicate(_ format: String, _ arguments: Any?...) -> NSPred
     return withVaList(list) { NSPredicate(format: format, arguments: $0) }
 }
 
-/// `[a isEqualToString: b]`, NO when either is nil.
-fileprivate func objcIsEqualToString(_ a: String?, _ b: String?) -> Bool {
-    guard let a, let b else { return false }
-    return (a as NSString).isEqual(to: b)
-}
-
 public extension BrowserController {
 
-    // MARK: -
     // MARK: Plugins
 
     @objc(executeFilterFromString:)
@@ -157,10 +115,9 @@ public extension BrowserController {
         }
 
         PluginManager.startProtectForCrash(withFilter: filter)
-        // The USEHOMEPHONE branch (not defined) is left out.
 
         var stage = NSLocalizedString("preparation", comment: "")
-        if let exception = objcTry({
+        if let exception = HorosObjCException.caught({
             var result = objcSendLong(filter as AnyObject, "prepareFilter:", nil)
             if result != 0 {
                 HorosAlertPanel.run(title: NSLocalizedString("Plugins Error", comment: ""),
@@ -198,7 +155,7 @@ public extension BrowserController {
 
     @objc(setNetworkLogs)
     func setNetworkLogs() {
-        horos_isNetworkLogsActive = UserDefaults.standard.bool(forKey: "NETWORKLOGS")
+        horos_isNetworkLogsActive = PreferencesSource.process.preferences[NetworkPreferences.networkLogs]
     }
 
     // The sends ask, for their network log entry (DCMTKStoreSCU.swift).
@@ -207,48 +164,17 @@ public extension BrowserController {
         return horos_isNetworkLogsActive
     }
 
-    // #pragma deprecated (setFixedDocumentsDirectory)
     @available(*, deprecated)
     @objc(setFixedDocumentsDirectory)
     func setFixedDocumentsDirectory() -> String! {
         NSLog("%@ IS NOT AVAILABLE ANYMORE, moved to DicomDatabase.. This message should never appear!", "-[BrowserController setFixedDocumentsDirectory]" as NSString)
         return nil
+    }
 
-        //	[fixedDocumentsDirectory release];
-        //	fixedDocumentsDirectory = [[self documentsDirectory] retain];
-        //
-        //	if( fixedDocumentsDirectory == nil)
-        //	{
-        //		NSRunAlertPanel( NSLocalizedString(@"Database Location Error", nil), NSLocalizedString(@"Cannot locate Database path.", nil), nil, nil, nil);
-        //		exit(0);
-        //	}
-        //
-        //	strcpy( cfixedDocumentsDirectory, [fixedDocumentsDirectory UTF8String]);
-        //
-        //	if( [[NSUserDefaults standardUserDefaults] boolForKey: OsirixCanActivateDefaultDatabaseOnlyDefaultsKey])
-        //	{
-        //		NSString *defaultPath = [self documentsDirectoryFor: [[NSUserDefaults standardUserDefaults] integerForKey: @"DEFAULT_DATABASELOCATION"] url: [[NSUserDefaults standardUserDefaults] stringForKey: @"DEFAULT_DATABASELOCATIONURL"]];
-        //
-        //		strcpy( cfixedIncomingDirectory, [defaultPath UTF8String]);
-        //	}
-        //	else strcpy( cfixedIncomingDirectory, [fixedDocumentsDirectory UTF8String]);
-        //
-        //	NSString *r;
-        //
-        //	r = [[NSFileManager defaultManager] destinationOfSymbolicLinkAtPath: [NSString stringWithFormat:@"%s/%s", cfixedIncomingDirectory, "TEMP.noindex"] error: nil];
-        //	if( r == nil)
-        //		r = [NSString stringWithFormat:@"%s/%s", cfixedIncomingDirectory, "TEMP.noindex"];
-        //	strcpy( cfixedTempNoIndexDirectory, [r UTF8String]);
-        //
-        //	r = [[NSFileManager defaultManager] destinationOfSymbolicLinkAtPath: [NSString stringWithFormat:@"%s/%s", cfixedIncomingDirectory, "INCOMING.noindex"] error: nil];
-        //	if( r == nil)
-        //	{
-        //		r = [NSString stringWithFormat:@"%s/%s", cfixedIncomingDirectory, "INCOMING.noindex"];
-        //		r = [self folderPathResolvingAliasAndSymLink: r];
-        //	}
-        //	strcpy( cfixedIncomingNoIndexDirectory, [r UTF8String]);
-        //
-        //	return fixedDocumentsDirectory;
+    /// The folders of the database shown.
+    nonisolated private var documentsLocation: DocumentsLocation {
+        let database = self.database
+        return DocumentsLocation(documentsDirectory: database?.baseDirPath, dataDirectory: database?.dataBaseDirPath)
     }
 
     @available(*, deprecated)
@@ -264,7 +190,6 @@ public extension BrowserController {
     }
 
     @available(*, deprecated)
-    @objc(cfixedDocumentsDirectory)
     var cfixedDocumentsDirectory: UnsafePointer<CChar>! { return DicomDatabase.activeLocal()?.baseDirPathC() }
 
     @available(*, deprecated)
@@ -272,7 +197,6 @@ public extension BrowserController {
     var cfixedIncomingDirectory: UnsafePointer<CChar>! { return DicomDatabase.activeLocal()?.incomingDirPathC() }
 
     @available(*, deprecated)
-    @objc(cfixedTempNoIndexDirectory)
     var cfixedTempNoIndexDirectory: UnsafePointer<CChar>! { return DicomDatabase.activeLocal()?.tempDirPathC() }
 
     @available(*, deprecated)
@@ -282,33 +206,37 @@ public extension BrowserController {
     @available(*, deprecated)
     @objc(INCOMINGPATH)
     nonisolated func incomingpath() -> String! {
-        return self.database?.incomingDirPath()
+        return documentsLocation.incomingDirectory
     }
 
     @available(*, deprecated)
     @objc(defaultDocumentsDirectory)
     class func defaultDocumentsDirectory() -> String! {
-        //	NSString *dir = documentsDirectory();
         return DicomDatabase.default()?.baseDirPath
     }
 
     @available(*, deprecated)
     @objc(TEMPPATH)
     func temppath() -> String! {
-        return self.database?.tempDirPath()
+        return documentsLocation.temporaryDirectory
     }
 
     @available(*, deprecated)
     @objc(documentsDirectory)
     var documentsDirectory: String! {
-        return self.database?.baseDirPath
+        return documentsLocation.documentsDirectory
     }
 
     @available(*, deprecated)
     @objc(documentsDirectoryFor:url:)
     func documentsDirectory(for mode: Int32, url: String!) -> String! {
-        let dir = DicomDatabase.baseDirPath(forMode: mode, path: url)
-        return dir
+        return DicomDatabase.baseDirPath(forMode: mode, path: url)
+    }
+
+    /// Plugins built for Horos and OsiriX index the files they wrote by this selector (LegacyPluginIngest).
+    @objc(addFiles:toContext:toDatabase:onlyDICOM:notifyAddedFiles:parseExistingObject:dbFolder:generatedByOsiriX:)
+    class func legacyPluginAdd(_ files: [Any]!, toContext context: NSManagedObjectContext!, toDatabase browser: BrowserController!, onlyDICOM: Bool, notifyAddedFiles: Bool, parseExistingObject: Bool, dbFolder: String!, generatedByOsiriX: Bool) -> [Any]! {
+        LegacyPluginIngest.add(files, context: context, browser: browser, folder: dbFolder, onlyDICOM: onlyDICOM, notify: notifyAddedFiles, reread: parseExistingObject, generatedByOsiriX: generatedByOsiriX)
     }
 
     @objc(showLogWindow:)
@@ -332,11 +260,7 @@ public extension BrowserController {
             return horos_searchString
         }
         set(searchString) {
-            if horos_searchType == 0 && UserDefaults.standard.bool(forKey: "HIDEPATIENTNAME") {
-                horos_searchField?.textColor = NSColor.controlBackgroundColor
-            } else {
-                horos_searchField?.textColor = NSColor.controlTextColor
-            }
+            applySearchFieldTextColour()
 
             // The retain setter releases the former string and retains this one.
             horos_searchString = searchString
@@ -350,31 +274,7 @@ public extension BrowserController {
                 databaseOutline.scrollRowToVisible(databaseOutline.selectedRow)
             }
 
-            let length = (horos_searchString as NSString?)?.length ?? 0
-            if length > 2 || (length >= 2 && horos_searchType == 5) {
-                objcSynchronized(self) {
-                    horos_distantSearchThread?.cancel()
-                    horos_distantSearchThread = nil
-                }
-
-                Thread.detachNewThreadSelector(#selector(BrowserController.search(forSearchField:)), toTarget: self,
-                                               with: objcDictionary(NSNumber(value: horos_searchType), "searchType", horos_searchString, "searchString", NSNumber(value: Int32(truncatingIfNeeded: horos_albumTable?.selectedRow ?? 0)), "selectedAlbumIndex"))
-            } else if horos_timeIntervalStart != nil || horos_timeIntervalEnd != nil {
-                objcSynchronized(self) {
-                    horos_distantSearchThread?.cancel()
-                    horos_distantSearchThread = nil
-                }
-
-                if (horos_albumTable?.selectedRow ?? 0) == 0 {
-                    Thread.detachNewThreadSelector(#selector(BrowserController.searchForTimeIntervalFrom(to:)), toTarget: self,
-                                                   with: objcDictionary(horos_timeIntervalStart, "from", horos_timeIntervalEnd, "to"))
-                }
-            } else {
-                objcSynchronized(self) {
-                    horos_distantSearchThread?.cancel()
-                    horos_distantSearchThread = nil
-                }
-            }
+            askDistantNodesForSearch()
         }
     }
 
@@ -404,306 +304,60 @@ public extension BrowserController {
 
     @objc(createFilterDescription)
     func createFilterDescription() -> String! {
-        var description: String? = nil
+        guard let searchString = horos_searchString,
+              let field = StudySearchRules.field(searchType: Int(horos_searchType), searchString: searchString),
+              let format = searchDescriptionFormat(field) else { return nil }
+        let description = String(format: format, searchString as NSString)
 
-        if let searchString = horos_searchString, (searchString as NSString).length > 0 {
-            let s = searchString as NSString
-            switch horos_searchType {
-            case 7:			// All fields
-                description = String(format: NSLocalizedString(" / Search: All fields = %@", comment: ""), s)
-
-            case 0:			// Patient Name
-                description = String(format: NSLocalizedString(" / Search: Patient's name = %@", comment: ""), s)
-
-            case 1:			// Patient ID
-                description = String(format: " / Search: Patient's ID = %@", s)
-
-            case 2:			// Study/Series ID
-                description = String(format: " / Search: Study's ID = %@", s)
-
-            case 3:			// Comments
-                description = String(format: NSLocalizedString(" / Search: Comments = %@", comment: ""), s)
-
-            case 4:			// Study Description
-                description = String(format: NSLocalizedString(" / Search: Study Description = %@", comment: ""), s)
-
-            case 11: // Series Description: preserve complete study context for review
-                description = String(format: NSLocalizedString(" / Search: Series Description = %@ (matching studies; expand to review series)", comment: ""), s)
-
-            case 5:			// Modality
-                description = String(format: NSLocalizedString(" / Search: Modality = %@", comment: ""), s)
-
-            case 6:			// Accession Number
-                description = String(format: NSLocalizedString(" / Search: Accession Number = %@", comment: ""), s)
-
-            case 8:			// Comments
-                description = String(format: NSLocalizedString(" / Search: Comments 2 = %@", comment: ""), s)
-
-            case 9:			// Comments
-                description = String(format: NSLocalizedString(" / Search: Comments 3 = %@", comment: ""), s)
-
-            case 10:			// Comments
-                description = String(format: NSLocalizedString(" / Search: Comments 4 = %@", comment: ""), s)
-
-            case 100:
-                // Advanced
-                break
-
-            default:
-                break
-            }
-        }
-        if let current = description, ((horos_searchString as NSString?)?.length ?? 0) > 0 {
-            let names = NSMutableArray()
-            for case let source as NSDictionary in (type(of: self).federatedSourceCatalog() ?? []) {
-                if ((source.object(forKey: "included") as? NSNumber)?.boolValue ?? false)
-                    && FederatedSearch.pathsEqual(source.object(forKey: "path") as? String, self.database?.baseDirPath) == false {
-                    let label = source.object(forKey: "name") as? String
-                    if let label, (label as NSString).length > 0 {
-                        names.add(label)
-                    }
-                }
-            }
-            if names.count > 0 {
-                let combined = current.appendingFormat(NSLocalizedString(" / Federated: %@", comment: ""), names.componentsJoined(by: ", ") as NSString)
-                description = combined
-            }
-        }
-        return description
+        let federated = FederatedStudySearch(source: .process)
+        let names = federated.includedSourceNames(besides: self.database?.baseDirPath)
+        guard !names.isEmpty else { return description }
+        return description.appendingFormat(NSLocalizedString(" / Federated: %@", comment: ""), names.joined(separator: ", ") as NSString)
     }
 
     @objc(patientsnamePredicate:)
     func patientsnamePredicate(_ s: String!) -> NSPredicate! {
-        return patientsnamePredicate(s, soundex: UserDefaults.standard.bool(forKey: "useSoundexForName"))
+        return patientsnamePredicate(s, soundex: PreferencesSource.process.preferences[DatabasePreferences.useSoundexForName])
     }
 
-    /// Each name component narrows the match: the first from the start of the
-    /// name, the others anywhere in it. A component that is only `*` narrows
-    /// nothing, so `*` alone, like an empty value, matches every name, as
-    /// universal matching does in a C-FIND (PS3.4 C.2.2.2.3); a component with
-    /// `*` or `?` inside is matched as a wildcard pattern (C.2.2.2.4). The
-    /// listener's query threads call it too, so it touches no browser state.
+    /// The patient name search of the database (PatientNameMatching), with
+    /// the names that sound alike when `soundex` is set. Any thread may call it.
     @objc(patientsnamePredicate:soundex:)
     nonisolated func patientsnamePredicate(_ s: String!, soundex: Bool) -> NSPredicate! {
-        var s = s as NSString?
-        s = s?.replacingOccurrences(of: "^", with: " ") as NSString?
-        s = s?.replacingOccurrences(of: ", ", with: " ") as NSString?
-        s = s?.replacingOccurrences(of: ",", with: " ") as NSString?
-
-        let predicates = NSMutableArray()
-
-        if let exception = objcTry({
-            var firstComponent = true
-            let nameComponents = s?.components(separatedBy: " ") ?? []
-
-            for name in nameComponents {
-                var component = name as NSString
-                var p: NSPredicate? = nil
-
-                while component.hasPrefix("*") {
-                    component = component.substring(from: 1) as NSString
-                    firstComponent = false
-                }
-
-                while component.hasSuffix("*") {
-                    component = component.substring(to: component.length - 1) as NSString
-                }
-
-                if component.length == 0 {
-                    // "*", or an empty component between separators: no condition.
-                    // A CONTAINS/BEGINSWITH of "" never matches in the store.
-                    firstComponent = false
-                    continue
-                }
-
-                if component.contains("*") || component.contains("?") {
-                    p = objcPredicate("name LIKE[cd] %@", (firstComponent ? "" : "*") + (component as String) + "*")
-                } else if firstComponent == false {
-                    if soundex && component.length >= 2 {
-                        p = objcPredicate("(soundex CONTAINS[cd] %@) OR (name CONTAINS[cd] %@)", DicomStudy.soundex(component as String), component)
-                    } else {
-                        p = objcPredicate("name CONTAINS[cd] %@", component)
-                    }
-                } else {
-                    if soundex && component.length >= 2 {
-                        p = objcPredicate("(soundex BEGINSWITH[cd] %@) OR (name BEGINSWITH[cd] %@)", DicomStudy.soundex(component as String), component)
-                    } else {
-                        p = objcPredicate("name BEGINSWITH[cd] %@", component)
-                    }
-                }
-
-                // [cd] does not fold Ł, Ø, Đ or ı: "zolw" also finds "Żółw".
-                if let plain = p, !component.contains("*"), !component.contains("?"),
-                   let pattern = PatientNameMatching.undecomposedPattern(component: component as String, anchored: firstComponent) {
-                    p = NSCompoundPredicate(orPredicateWithSubpredicates: [plain, objcPredicate("name MATCHES[cd] %@", pattern)])
-                }
-
-                if let p {
-                    predicates.add(p)
-                }
-
-                firstComponent = false
-            }
-        }) {
-            _N2LogExceptionImpl(exception, false, "-[BrowserController patientsnamePredicate:soundex:]")
-        }
-
-        return NSCompoundPredicate(andPredicateWithSubpredicates: (predicates as? [NSPredicate]) ?? [])
+        PatientNameMatching.namePredicate(s, soundex: soundex ? { DicomStudy.soundex($0) } : nil)
     }
 
+    /// The local databases a federated search can ask (FederatedStudySearch).
     @objc(federatedSourceCatalog)
     nonisolated class func federatedSourceCatalog() -> [Any]! {
-        let defaultDB = DicomDatabase.default()
-        return FederatedSearch.sources(fromLocalDatabasePaths: UserDefaults.standard.object(forKey: "localDatabasePaths") as? [[String: Any]],
-                                       defaultPath: defaultDB?.baseDirPath,
-                                       defaultName: defaultDB?.name,
-                                       defaultIncluded: FederatedSearch.isDefaultDatabaseIncluded)
+        FederatedStudySearch(source: .process).sources()
     }
 
+    /// The studies of the other local databases asked that match `predicate`
+    /// and that the web portal user may see (FederatedStudySearch).
     @objc(federatedStudiesMatchingPredicate:excludingDatabasePath:applyingUser:)
     nonisolated class func federatedStudies(matching predicate: NSPredicate!, excludingDatabasePath path: String!, applyingUser userObject: Any!) -> [Any]! {
-        guard let predicate else {
-            return []
-        }
-
-        let user = userObject as? WebPortalUser
-        let localPaths = UserDefaults.standard.object(forKey: "localDatabasePaths") as? [[String: Any]]
-        let defaultDB = DicomDatabase.default()
-        let included = FederatedSearch.includedPaths(fromLocalDatabasePaths: localPaths,
-                                                     defaultPath: defaultDB?.baseDirPath,
-                                                     defaultIncluded: FederatedSearch.isDefaultDatabaseIncluded)
-        let hits = NSMutableArray()
-        let seen = NSMutableSet()
-        var permission: NSPredicate? = nil
-        if let user, FederatedSearch.isUnrestrictedPermission(user.studyPredicate) == false {
-            permission = DicomDatabase.predicate(forSmartAlbumFilter: user.studyPredicate)
-        }
-
-        for sourcePath in included {
-            if FederatedSearch.pathsEqual(sourcePath, path) {
-                continue
-            }
-            if let e = objcTry({
-                guard let db = DicomDatabase(atPath: sourcePath) else {
-                    return
-                }
-                // On a web connection's thread, its database of that path,
-                // inside its queue; the studies go back to the connection.
-                let idb: DicomDatabase? = Thread.isMainThread ? db
-                    : (WebPortalConnection.threadFederatedDatabase(atPath: sourcePath)
-                       ?? db.privateQueueIndependentDatabase() as? DicomDatabase)
-                let studies = idb?.objects(forEntity: idb?.studyEntity(), predicate: predicate) ?? []
-                for case let study as DicomStudy in studies {
-                    if let permission, permission.evaluate(with: study) == false {
-                        var assigned = false
-                        for case let specific as WebPortalStudy in (user?.studies ?? []) {
-                            if objcIsEqualToString(specific.studyInstanceUID, study.studyInstanceUID)
-                                && study.patientUID != nil
-                                && specific.patientUID != nil
-                                && (study.patientUID as NSString).range(of: specific.patientUID, options: [.caseInsensitive, .diacriticInsensitive]).location == 0 {
-                                assigned = true
-                                break
-                            }
-                        }
-                        if assigned == false {
-                            continue
-                        }
-                    }
-                    let key = FederatedSearch.identityKey(patientUID: study.patientUID,
-                                                          studyUID: study.studyInstanceUID,
-                                                          originPath: db.baseDirPath)
-                    if seen.contains(key) {
-                        continue
-                    }
-                    seen.add(key)
-                    hits.add(study)
-                }
-            }) {
-                _N2LogExceptionImpl(e, false, "+[BrowserController federatedStudiesMatchingPredicate:excludingDatabasePath:applyingUser:]")
-            }
-        }
-        return hits as? [Any]
+        guard let predicate else { return [] }
+        return FederatedStudySearch(source: .process)
+            .studies(matching: predicate, excludingDatabasePath: path, user: userObject as? WebPortalUser)
     }
 
+    /// The predicate of the search field's string (StudySearchRules).
     @objc(createFilterPredicate)
     func createFilterPredicate() -> NSPredicate! {
-        var predicate: NSPredicate? = nil
-        var s: NSString? = nil
-
-        if let searchString = horos_searchString as NSString?, searchString.length > 0 {
-            switch horos_searchType {
-            case 7:			// All Fields
-                s = searchString
-
-                if let s, s.length >= 3 {
-                    predicate = NSPredicate(format: "(name CONTAINS[cd] %@) OR (patientID CONTAINS[cd] %@) OR (id CONTAINS[cd] %@) OR (comment CONTAINS[cd] %@) OR (comment2 CONTAINS[cd] %@) OR (comment3 CONTAINS[cd] %@) OR (comment4 CONTAINS[cd] %@) OR (studyName CONTAINS[cd] %@) OR (modality CONTAINS[cd] %@) OR (accessionNumber CONTAINS[cd] %@) OR (performingPhysician CONTAINS[cd] %@) OR (referringPhysician CONTAINS[cd] %@) OR (institutionName CONTAINS[cd] %@) OR (note CONTAINS[cd] %@)", s, s, s, s, s, s, s, s, s, s, s, s, s, s)
-                } else if (s?.length ?? 0) >= 1 {
-                    predicate = patientsnamePredicate(searchString as String)
-                }
-
-            case 0:			// Patient Name
-                predicate = patientsnamePredicate(searchString as String)
-
-            case 1:			// Patient ID
-                predicate = NSPredicate(format: "patientID CONTAINS[cd] %@", searchString)
-
-            case 2:			// Study/Series ID
-                predicate = NSPredicate(format: "id CONTAINS[cd] %@", searchString)
-
-            case 3:			// Comments
-                predicate = NSPredicate(format: "comment CONTAINS[cd] %@", searchString)
-
-            case 4:			// Study Description
-                predicate = NSPredicate(format: "studyName CONTAINS[cd] %@", searchString)
-
-            case 11: // Core Data relationship query; no synthetic result objects
-                predicate = NSPredicate(format: "ANY series.name CONTAINS[cd] %@", searchString)
-
-            case 5:			// Modality
-                predicate = NSPredicate(format: "modality CONTAINS[cd] %@", searchString)
-
-            case 6:			// Accession Number
-                predicate = NSPredicate(format: "accessionNumber CONTAINS[cd] %@", searchString)
-
-            case 8:			// Comments
-                predicate = NSPredicate(format: "comment2 CONTAINS[cd] %@", searchString)
-
-            case 9:			// Comments
-                predicate = NSPredicate(format: "comment3 CONTAINS[cd] %@", searchString)
-
-            case 10:			// Comments
-                predicate = NSPredicate(format: "comment4 CONTAINS[cd] %@", searchString)
-
-            case 100:		// Advanced
-                break
-
-            default:
-                break
-            }
-        }
-        return predicate
+        StudySearchRules.filterPredicate(searchString: horos_searchString, searchType: Int(horos_searchType),
+                                         namePredicate: { self.patientsnamePredicate($0) })
     }
 
     @objc(databaseSelection)
     func databaseSelection() -> [Any]! {
-        let selectedItems = NSMutableArray()
-
-        if let databaseOutline = horos_databaseOutline {
-            let selectedRowIndexes = databaseOutline.selectedRowIndexes
-            for index in selectedRowIndexes {
-                if let item = databaseOutline.item(atRow: index) {
-                    selectedItems.add(item)
-                }
-            }
-        }
-        return selectedItems as? [Any]
+        guard let databaseOutline = horos_databaseOutline else { return [] }
+        return databaseOutline.selectedRowIndexes.compactMap { databaseOutline.item(atRow: $0) }
     }
 
-    // Comparisons
     // Finding Comparisons
     @objc(relatedStudiesForStudy:)
     func relatedStudies(forStudy study: Any!) -> [Any]! {
-        let model = self.database?.managedObjectModel
         let context = self.database?.managedObjectContext
 
         var studiesArray: NSArray? = nil
@@ -712,16 +366,15 @@ public extension BrowserController {
         // FIND ALL STUDIES of this patient
 
         let predicate = objcPredicate("(patientUID BEGINSWITH[cd] %@)", (study as AnyObject?)?.value(forKey: "patientUID"))
-        let dbRequest = NSFetchRequest<NSFetchRequestResult>()
-        dbRequest.entity = model?.entitiesByName["Study"]
+        let dbRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "Study")
         dbRequest.predicate = predicate
 
         // The result stays alive until the synchronous queue operation ends;
         // an exception is raised on the caller after leaving the queue.
-        raised = objcTry {
+        raised = HorosObjCException.caught {
             studiesArray = (try? context?.fetch(dbRequest)) as NSArray?
 
-            if let e = objcTry({
+            if let e = HorosObjCException.caught({
                 if let current = studiesArray, current.count > 0, let study, current.index(of: study) != NSNotFound {
                     let sort = NSSortDescriptor(key: "date", ascending: false)
                     let sortDescriptors = [sort]
@@ -743,7 +396,8 @@ public extension BrowserController {
         return studiesArray as? [Any]
     }
 
-    // DCMPix asks while it loads, on any thread.
+    // Of the database shown, asked on any thread; an object's own database
+    // answers for it (RemoteDicomDatabase.database(of:)).
     @objc(isCurrentDatabaseBonjour)
     nonisolated var isCurrentDatabaseBonjour: Bool {
         return !(self.database?.isLocal() ?? false)
@@ -762,5 +416,26 @@ public extension BrowserController {
             return self.database?.managedObjectContext
         }
         return nil
+    }
+}
+
+/// The description of a search, by the field searched, with %@ for the string.
+private func searchDescriptionFormat(_ field: StudySearchRules.Field) -> String? {
+    switch field {
+    case .allFields: return NSLocalizedString(" / Search: All fields = %@", comment: "")
+    case .patientName: return NSLocalizedString(" / Search: Patient's name = %@", comment: "")
+    case .patientID: return " / Search: Patient's ID = %@"
+    case .studyID: return " / Search: Study's ID = %@"
+    case .comments: return NSLocalizedString(" / Search: Comments = %@", comment: "")
+    case .studyDescription: return NSLocalizedString(" / Search: Study Description = %@", comment: "")
+    // Series Description: preserve complete study context for review
+    case .seriesDescription:
+        return NSLocalizedString(" / Search: Series Description = %@ (matching studies; expand to review series)", comment: "")
+    case .modality: return NSLocalizedString(" / Search: Modality = %@", comment: "")
+    case .accessionNumber: return NSLocalizedString(" / Search: Accession Number = %@", comment: "")
+    case .comments2: return NSLocalizedString(" / Search: Comments 2 = %@", comment: "")
+    case .comments3: return NSLocalizedString(" / Search: Comments 3 = %@", comment: "")
+    case .comments4: return NSLocalizedString(" / Search: Comments 4 = %@", comment: "")
+    case .advanced: return nil
     }
 }

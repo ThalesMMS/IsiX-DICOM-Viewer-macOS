@@ -49,17 +49,17 @@ import IsiXImaging
 /// the elements as it found them, the Bio-Rad reader excepted, as before.
 extension DicomFile {
 
-    /// The keys of the elements, made once: the readers set them for every file.
+    /// The keys of the elements.
     private enum Key {
-        nonisolated(unsafe) static let studyID: NSString = "studyID", studyDescription: NSString = "studyDescription"
-        nonisolated(unsafe) static let studyDate: NSString = "studyDate", modality: NSString = "modality"
-        nonisolated(unsafe) static let patientID: NSString = "patientID", patientName: NSString = "patientName"
-        nonisolated(unsafe) static let patientUID: NSString = "patientUID", fileType: NSString = "fileType"
-        nonisolated(unsafe) static let seriesID: NSString = "seriesID", seriesDescription: NSString = "seriesDescription"
-        nonisolated(unsafe) static let seriesNumber: NSString = "seriesNumber", sopUID: NSString = "SOPUID", imageID: NSString = "imageID"
-        nonisolated(unsafe) static let studyComments: NSString = "studyComments"
-        nonisolated(unsafe) static let height: NSString = "height", width: NSString = "width", numberOfFrames: NSString = "numberOfFrames"
-        nonisolated(unsafe) static let numberOfSeries: NSString = "numberOfSeries", filePath: NSString = "filePath"
+        static let studyID = "studyID", studyDescription = "studyDescription"
+        static let studyDate = "studyDate", modality = "modality"
+        static let patientID = "patientID", patientName = "patientName"
+        static let patientUID = "patientUID", fileType = "fileType"
+        static let seriesID = "seriesID", seriesDescription = "seriesDescription"
+        static let seriesNumber = "seriesNumber", sopUID = "SOPUID", imageID = "imageID"
+        static let studyComments = "studyComments"
+        static let height = "height", width = "width", numberOfFrames = "numberOfFrames"
+        static let numberOfSeries = "numberOfSeries", filePath = "filePath"
     }
 
     // MARK: - Elements
@@ -69,34 +69,34 @@ extension DicomFile {
     func storeElements(studyID: String, study: String, date: Any, modality: String, patientID: String, name: String,
                        fileType: String) {
         let elements = dicomElements()!
-        elements.setObject(studyID, forKey: Key.studyID)
-        elements.setObject(study, forKey: Key.studyDescription)
-        elements.setObject(date, forKey: Key.studyDate)
-        elements.setObject(modality, forKey: Key.modality)
-        elements.setObject(patientID, forKey: Key.patientID)
-        elements.setObject(name, forKey: Key.patientName)
-        elements.setObject(patientUID() as Any, forKey: Key.patientUID)
-        elements.setObject(fileType, forKey: Key.fileType)
+        elements.setObject(studyID, forKey: Key.studyID as NSString)
+        elements.setObject(study, forKey: Key.studyDescription as NSString)
+        elements.setObject(date, forKey: Key.studyDate as NSString)
+        elements.setObject(modality, forKey: Key.modality as NSString)
+        elements.setObject(patientID, forKey: Key.patientID as NSString)
+        elements.setObject(name, forKey: Key.patientName as NSString)
+        elements.setObject(patientUID() as Any, forKey: Key.patientUID as NSString)
+        elements.setObject(fileType, forKey: Key.fileType as NSString)
     }
 
     /// The one series of the file, and its one image.
     func storeSeries(seriesID: String, description: String, sopUID: String, imageID: String) {
         let elements = dicomElements()!
-        elements.setObject(seriesID, forKey: Key.seriesID)
-        elements.setObject(description, forKey: Key.seriesDescription)
-        elements.setObject(NSNumber(value: Int32(0)), forKey: Key.seriesNumber)
-        elements.setObject(sopUID, forKey: Key.sopUID)
-        elements.setObject(NSNumber(value: (imageID as NSString).intValue), forKey: Key.imageID)
+        elements.setObject(seriesID, forKey: Key.seriesID as NSString)
+        elements.setObject(description, forKey: Key.seriesDescription as NSString)
+        elements.setObject(NSNumber(value: Int32(0)), forKey: Key.seriesNumber as NSString)
+        elements.setObject(sopUID, forKey: Key.sopUID as NSString)
+        elements.setObject(NSNumber(value: (imageID as NSString).intValue), forKey: Key.imageID as NSString)
     }
 
     /// What every file read has: its size, its counts and its path.
     func storeSizes() {
         let elements = dicomElements()!
-        elements.setObject(NSNumber(value: Int32(truncatingIfNeeded: horos_height)), forKey: Key.height)
-        elements.setObject(NSNumber(value: Int32(truncatingIfNeeded: horos_width)), forKey: Key.width)
-        elements.setObject(NSNumber(value: Int32(truncatingIfNeeded: horos_numberOfFrames)), forKey: Key.numberOfFrames)
-        elements.setObject(NSNumber(value: Int32(truncatingIfNeeded: horos_numberOfSeries)), forKey: Key.numberOfSeries)
-        elements.setObject(horos_filePath as Any, forKey: Key.filePath)
+        elements.setObject(NSNumber(value: Int32(truncatingIfNeeded: horos_height)), forKey: Key.height as NSString)
+        elements.setObject(NSNumber(value: Int32(truncatingIfNeeded: horos_width)), forKey: Key.width as NSString)
+        elements.setObject(NSNumber(value: Int32(truncatingIfNeeded: horos_numberOfFrames)), forKey: Key.numberOfFrames as NSString)
+        elements.setObject(NSNumber(value: Int32(truncatingIfNeeded: horos_numberOfSeries)), forKey: Key.numberOfSeries as NSString)
+        elements.setObject(horos_filePath as Any, forKey: Key.filePath as NSString)
     }
 
     /// When the file was made, else now: the study date of a file without one.
@@ -140,7 +140,7 @@ extension DicomFile {
         let elements = dicomElements()!
         for node in xmlDocument?.rootElement()?.children ?? [] {
             if node.name == "Description", let comments = node.stringValue {
-                elements.setObject(comments, forKey: Key.studyComments)
+                elements.setObject(comments, forKey: Key.studyComments as NSString)
             }
             if node.name == "Acquisition Parameters" {
                 for subNode in node.children ?? [] where subNode.name == "Date" || subNode.name == "Time" {

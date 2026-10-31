@@ -92,7 +92,6 @@ extension VRController {
                                           geometryDepth: geometryDepth, scalarOut: scalarOut)
     }
 
-    @objc(horosFusedVolumeMetalRenderSnapshot:width:height:imageRegion:geometryDepth:scalarOut:error:)
     func horosFusedVolumeMetalRender(snapshot: NSDictionary, width: Int, height: Int, imageRegion: [NSNumber],
                                      geometryDepth: Data?, scalarOut: NSMutableData?) throws -> NSData {
         try horosVolumeMetalRender(snapshot, fused: true, width: width, height: height, imageRegion: imageRegion,
@@ -101,14 +100,12 @@ extension VRController {
 
     /// Renders one volume's snapshot with its own renderer: the image's, or the
     /// fused series', each holding its own volume on the GPU.
-    @objc(horosVolumeMetalRender:fused:width:height:imageRegion:geometryDepth:scalarOut:error:)
     func horosVolumeMetalRender(_ snapshot: NSDictionary, fused: Bool, width: Int, height: Int, imageRegion: [NSNumber],
                                 geometryDepth: Data?, scalarOut: NSMutableData?) throws -> NSData {
         try horosVolumeMetalRender(snapshot, fused: fused, width: width, height: height, imageRegion: imageRegion,
                                    geometryDepth: geometryDepth, scalarOut: scalarOut, forVTK: false)
     }
 
-    @objc(horosVolumeMetalRender:fused:width:height:imageRegion:geometryDepth:scalarOut:forVTK:error:)
     func horosVolumeMetalRender(_ snapshot: NSDictionary, fused: Bool, width: Int, height: Int, imageRegion: [NSNumber],
                                 geometryDepth: Data?, scalarOut: NSMutableData?, forVTK: Bool) throws -> NSData {
         let rendererSlot = fused ? VolumeMetalSlots.key(&VolumeMetalSlots.fusedRenderer) : VolumeMetalSlots.key(&VolumeMetalSlots.renderer)
@@ -245,7 +242,7 @@ extension VRController {
 
     /// Drops the fused series' renderer and its volume; a later fusion makes a
     /// new one.
-    @objc func horosFusedVolumeMetalRelease() {
+    func horosFusedVolumeMetalRelease() {
         guard let renderer = VolumeMetalSlots.get(self, VolumeMetalSlots.key(&VolumeMetalSlots.fusedRenderer)) as? VolumeRendererBridge
         else { return }
         renderer.releaseVolume()

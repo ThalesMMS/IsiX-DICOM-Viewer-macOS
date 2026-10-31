@@ -228,7 +228,7 @@ else:
     for expected, missing in (
             ('RetrieveManifest(urls: unique', 'the manifest is not built from the list that will be asked for'),
             ('retryableURLs', 'the retry does not ask the manifest what is worth repeating'),
-            ('WADORetryAttempts', 'the number of attempts is not configurable'),
+            ('WADORetrieveSettings.retryAttempts(preferences:', 'the number of attempts is not configurable'),
             ('finishNetworkLog(completed:', 'the retrieval does not finalize its network log and abandoned instances'),
             ('WADO Retrieve Incomplete', 'an incomplete retrieval is not reported')):
         if expected not in driver:
@@ -260,14 +260,26 @@ for gone, why in (('NSURLConnection', 'a request still goes through NSURLConnect
                   ('RunLoop', 'the pass still runs the run loop to wait for its requests')):
     if re.search(r'\b%s\b' % gone, download):
         failures.append(why)
+# How a request is sent and what the settings say are IsiXDICOMNetwork's rules.
+rules = (root / 'Modules/IsiXDICOMNetwork/Sources/WADORetrieveRules.swift').read_text()
+# The keys are declared in the catalog of the preferences, which the rules read by.
+rules += (root / 'Modules/IsiXPreferences/Sources/NetworkPreferences.swift').read_text()
 for expected, missing in (
         ('URLSession(configuration:', 'the requests are not made by a URLSession'),
+        ('WADORequestRules.sessionConfiguration(timeout: TimeInterval(timeout))', 'the pass does not use the session rules'),
+        ('WADORequestRules.request(for: sent, authorization: self.authorization, timeout: TimeInterval(timeout))',
+         'a request is not built by the request rules'),
+        ('WADORetrieveSettings(nodeLimit: self.maximumConcurrentDownloads', 'the pass does not read its settings')):
+    if expected not in download:
+        failures.append(missing)
+for expected, missing in (
         ('configuration.urlCache = nil', 'the downloaded objects may be cached'),
         ('.reloadIgnoringLocalCacheData', 'a request may be answered from a cache'),
-        ('configuration.timeoutIntervalForRequest = TimeInterval(timeout)',
-         'WADOTimeout no longer bounds a request'),
-        ('WADOMaximumConcurrentDownloads', 'the number of requests at once is not configurable')):
-    if expected not in download:
+        ('configuration.timeoutIntervalForRequest = timeout', 'WADOTimeout no longer bounds a request'),
+        ('"WADOTimeout"', 'WADOTimeout is not read'),
+        ('"WADORetryAttempts"', 'the number of attempts is not configurable'),
+        ('"WADOMaximumConcurrentDownloads"', 'the number of requests at once is not configurable')):
+    if expected not in rules:
         failures.append(missing)
 # The server's certificate and any credentials are left to the system: a
 # delegate that answers challenges could accept any certificate.

@@ -51,18 +51,6 @@ private func debugLog(_ format: StaticString, _ arguments: CVarArg...) {
     #endif
 }
 
-/// Runs `body` and answers the Objective-C exception it raised, if any: the
-/// delegate's methods and a subclass may raise, which the connection answers
-/// as a fault, as its @try did.
-private func raisedException(_ body: () -> Void) -> NSException? {
-    do {
-        try HorosObjCException.perform(body)
-        return nil
-    } catch {
-        return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-}
-
 /// What the XML-RPC connection asks the object that answers its calls.
 @objc(N2XMLRPCConnectionDelegate)
 public protocol N2XMLRPCConnectionDelegate: NSObjectProtocol {
@@ -234,7 +222,7 @@ open class N2XMLRPCConnection: NSObject {
             let methodCall = try XMLRPCMethodCall.element(in: document)
             // A subclass may raise while it answers early; that is an
             // unreadable request too.
-            if let raised = raisedException({ self.handleXmlrpcMethodCall([methodCall, version]) }) {
+            if let raised = HorosObjCException.caught({ self.handleXmlrpcMethodCall([methodCall, version]) }) {
                 throw XMLRPCCodingError(name: raised.name.rawValue, reason: raised.reason ?? "(null)")
             }
         } catch {
@@ -257,7 +245,7 @@ open class N2XMLRPCConnection: NSObject {
             var methodName: String?
             var failure: String?
 
-            let raised = raisedException {
+            let raised = HorosObjCException.caught {
                 do {
                     let methodCall = args[0] as! XMLNode
                     methodName = try XMLRPCMethodCall.methodName(of: methodCall)

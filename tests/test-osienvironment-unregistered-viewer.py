@@ -52,6 +52,8 @@ import tempfile
 
 SKIPPED = 2
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+import process_graph_stand_in  # noqa: E402
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 
@@ -474,11 +476,13 @@ with tempfile.TemporaryDirectory(prefix='horos-osienvironment-') as tmp:
         if swift:
             (tmp / 'bridge.h').write_text(BRIDGE)
             (tmp / 'OSIFloatVolumeData.swift').write_text(FLOAT_VOLUME_SWIFT)
+            # The environment reads whether it is on through the process graph.
+            graph = process_graph_stand_in.swift_flags(tmp / 'isix')
             # The Debug build: unoptimized, so Swift's asserts are live.
-            run(['xcrun', 'swiftc', '-parse-as-library', '-wmo', '-module-name', 'Horos', '-Onone', '-g',
+            run(['xcrun', 'swiftc', '-parse-as-library', '-wmo', '-module-name', 'Horos', '-Onone', '-g', *graph[1:3],
                  '-sanitize=address', '-import-objc-header', str(tmp / 'bridge.h'), '-Xcc', '-I' + str(tmp),
                  '-emit-objc-header', '-emit-objc-header-path', str(tmp / 'Horos-Swift.h'),
-                 '-c', *[str(tmp / Path(path).name) for path in SWIFT_SOURCES], str(tmp / 'OSIFloatVolumeData.swift'),
+                 '-c', *[str(tmp / Path(path).name) for path in SWIFT_SOURCES], str(tmp / 'OSIFloatVolumeData.swift'), graph[0],
                  '-o', str(tmp / 'swift.o')])
             objects.append(str(tmp / 'swift.o'))
         for name in [Path(path).name for path in objc_sources] + ['Doubles.m', 'main.m']:
@@ -490,7 +494,7 @@ with tempfile.TemporaryDirectory(prefix='horos-osienvironment-') as tmp:
                  '-c', str(tmp / name), '-o', str(obj)])
             objects.append(str(obj))
         linker = ['xcrun', 'swiftc', '-sanitize=address'] if swift else ['xcrun', 'clang', '-fsanitize=address']
-        run([*linker, *objects, '-framework', 'Cocoa', '-o', str(harness)])
+        run([*linker, *objects, *(graph[3:] if swift else []), '-framework', 'Cocoa', '-o', str(harness)])
     except subprocess.CalledProcessError as e:
         print('FAIL: the harness did not build:', (e.stderr or b'').decode(errors='replace')[-3000:])
         sys.exit(1)

@@ -46,103 +46,62 @@ import IsiXImaging
 // selectors (-vertFlipDataSet:, -horzFlipDataSet:, -rotateDataSet:,
 // -squareDataSet:, +orientation:, -replaceSeriesWith:::). What they do to
 // the pixels and to the geometry of each slice is in the IsiXImaging module
-// (SeriesTransforms, SeriesRotation); this keeps what reads and writes the
-// viewer and its DCMPix. The series a copy of the viewer opens with
-// (-copyViewerWindow, which ViewerController.m keeps: a copy-family method
-// written in Swift would return its result retained) is made here too.
+// (SeriesTransforms, SeriesRotation, SeriesReorientation); DataSetTransform
+// applies it to the slices of every time point, and the viewer redraws. The
+// series a copy of the viewer opens with (-copyViewerWindow, which
+// ViewerController.m keeps: a copy-family method written in Swift would return
+// its result retained) is made here too.
 
-/// The nine orientation values of a slice.
-fileprivate func sliceOrientation(of pix: DCMPix) -> [Double] {
-    var o = [Double](repeating: 0, count: 9)
-    pix.orientationDouble(&o)
-    return o
-}
+/// The slices of every time point of a viewer, turned or flipped: their
+/// pixels, one volume per time point, then the geometry of each slice.
+struct DataSetTransform {
 
-public extension ViewerController {
+    /// The slices of each time point, in order.
+    let stacks: [[DCMPix]]
 
-    /// The axis (0 x, 1 y, 2 z) the normal of these orientation vectors
-    /// (6…8) is closest to, 0 when no component is the largest.
-    @objc(orientation:)
-    class func orientation(_ vectors: UnsafeMutablePointer<Double>!) -> Int32 {
-        return Int32(SliceStack.dominantAxis(vectors[6], vectors[7], vectors[8]) ?? 0)
-    }
-
-    /// Turns every slice upside down.
-    @objc(vertFlipDataSet:)
-    @IBAction func vertFlipDataSet(_ sender: Any!) {
-        var y = 0
-        while y < Int(horos_maxMovieIndex) {
-            let list: NSArray = horos_pixList(at: y) ?? NSMutableArray()
-            let firstObject = list.object(at: 0) as! DCMPix
-            if !SeriesTransforms.flipSlicesVertically(firstObject.fImage, width: firstObject.pwidth, height: firstObject.pheight, count: list.count) {
-                NSLog("***** not enough memory : vertFlipDataSet")
+    /// Every slice upside down, or left to right.
+    func flip(_ step: SeriesReorientation.Step) {
+        for stack in stacks {
+            guard let first = stack.first else { continue }
+            if step == .flipVertically {
+                if !SeriesTransforms.flipSlicesVertically(first.fImage, width: first.pwidth, height: first.pheight, count: stack.count) {
+                    NSLog("***** not enough memory : vertFlipDataSet")
+                }
+            } else {
+                SeriesTransforms.flipRowsHorizontally(first.fImage, width: first.pwidth, rows: first.pheight * stack.count)
             }
-            y += 1
         }
 
-        forEachSlice { dcm in
-            var o = SeriesTransforms.verticallyFlipped(sliceOrientation(of: dcm))
+        for dcm in stacks.joined() {
+            var o = sliceOrientation(of: dcm)
+            o = SeriesReorientation.orientation(o, after: step) ?? o
             dcm.setOrientationDouble(&o)
             dcm.sliceInterval = 0
 
+            let pixel = SeriesReorientation.originPixel(after: step, width: dcm.pwidth, height: dcm.pheight) ?? (0, 0)
             var origin = [Double](repeating: 0, count: 3)
-            dcm.convertDoubleX(0, pixY: Double(-dcm.pheight + 1), toDICOMCoords: &origin, pixelCenter: false)
+            dcm.convertDoubleX(pixel.x, pixY: pixel.y, toDICOMCoords: &origin, pixelCenter: false)
             dcm.setOriginDouble(&origin)
             dcm.computeSliceLocation()
         }
-
-        setPostprocessed(true)
-        computeInterval()
-        updateImage(self)
     }
 
-    /// Turns every slice left to right.
-    @objc(horzFlipDataSet:)
-    @IBAction func horzFlipDataSet(_ sender: Any!) {
-        var y = 0
-        while y < Int(horos_maxMovieIndex) {
-            let list: NSArray = horos_pixList(at: y) ?? NSMutableArray()
-            let firstObject = list.object(at: 0) as! DCMPix
-            SeriesTransforms.flipRowsHorizontally(firstObject.fImage, width: firstObject.pwidth, rows: firstObject.pheight * list.count)
-            y += 1
-        }
-
-        forEachSlice { dcm in
-            var o = SeriesTransforms.horizontallyFlipped(sliceOrientation(of: dcm))
-            dcm.setOrientationDouble(&o)
-            dcm.sliceInterval = 0
-
-            var origin = [Double](repeating: 0, count: 3)
-            dcm.convertDoubleX(Double(-dcm.pwidth + 1), pixY: 0, toDICOMCoords: &origin, pixelCenter: false)
-            dcm.setOriginDouble(&origin)
-            dcm.computeSliceLocation()
-        }
-
-        setPostprocessed(true)
-        computeInterval()
-        updateImage(self)
-    }
-
-    /// Turns every slice clockwise by the vImage rotation constant
+    /// Every slice turned clockwise by the vImage rotation constant
     /// (kRotate90DegreesClockwise, kRotate180DegreesClockwise or
     /// kRotate270DegreesClockwise).
-    @objc(rotateDataSet:)
-    func rotateDataSet(_ constant: Int32) {
+    func rotate(_ constant: Int32) {
         let rotation = SeriesRotation(vImageConstant: Int(constant))
         let degrees = rotation?.degrees ?? 0
 
-        var y = 0
-        while y < Int(horos_maxMovieIndex) {
-            let list: NSArray = horos_pixList(at: y) ?? NSMutableArray()
-            let firstObject = list.object(at: 0) as! DCMPix
-            if !SeriesTransforms.rotateSlices(firstObject.fImage, width: firstObject.pwidth, height: firstObject.pheight,
-                                              count: list.count, vImageConstant: UInt8(truncatingIfNeeded: constant)) {
+        for stack in stacks {
+            guard let first = stack.first else { continue }
+            if !SeriesTransforms.rotateSlices(first.fImage, width: first.pwidth, height: first.pheight,
+                                              count: stack.count, vImageConstant: UInt8(truncatingIfNeeded: constant)) {
                 NSLog("***** not enough memory : rotateDataSet")
             }
-            y += 1
         }
 
-        forEachSlice { dcm in
+        for dcm in stacks.joined() {
             if rotation?.swapsAxes == true {
                 let spacing = SeriesTransforms.swappedSpacing(x: dcm.pixelSpacingX, y: dcm.pixelSpacingY)
                 dcm.pixelSpacingX = spacing.x
@@ -166,7 +125,54 @@ public extension ViewerController {
             dcm.setOriginDouble(&d)
             dcm.computeSliceLocation()
         }
+    }
 
+    /// The nine orientation values of a slice.
+    private func sliceOrientation(of pix: DCMPix) -> [Double] {
+        var o = [Double](repeating: 0, count: 9)
+        pix.orientationDouble(&o)
+        return o
+    }
+}
+
+public extension ViewerController {
+
+    /// The axis (0 x, 1 y, 2 z) the normal of these orientation vectors
+    /// (6…8) is closest to, 0 when no component is the largest.
+    @objc(orientation:)
+    class func orientation(_ vectors: UnsafeMutablePointer<Double>!) -> Int32 {
+        return Int32(SliceStack.dominantAxis(vectors[6], vectors[7], vectors[8]) ?? 0)
+    }
+
+    /// The slices of every time point.
+    private var dataSet: DataSetTransform {
+        DataSetTransform(stacks: (0..<max(Int(horos_maxMovieIndex), 0)).map { horos_pixArray($0) })
+    }
+
+    /// Turns every slice upside down.
+    @objc(vertFlipDataSet:)
+    @IBAction func vertFlipDataSet(_ sender: Any!) {
+        dataSet.flip(.flipVertically)
+        transformed()
+    }
+
+    /// Turns every slice left to right.
+    @objc(horzFlipDataSet:)
+    @IBAction func horzFlipDataSet(_ sender: Any!) {
+        dataSet.flip(.flipHorizontally)
+        transformed()
+    }
+
+    /// Turns every slice clockwise by the vImage rotation constant
+    /// (kRotate90DegreesClockwise, kRotate180DegreesClockwise or
+    /// kRotate270DegreesClockwise).
+    @objc(rotateDataSet:)
+    func rotateDataSet(_ constant: Int32) {
+        dataSet.rotate(constant)
+        transformed()
+    }
+
+    private func transformed() {
         setPostprocessed(true)
         computeInterval()
         updateImage(self)
@@ -176,18 +182,17 @@ public extension ViewerController {
     /// larger spacing.
     @objc(squareDataSet:)
     @IBAction func squareDataSet(_ sender: Any!) {
-        var y = 0
-        while y < Int(horos_maxMovieIndex) {
-            let curPix = (horos_pixList(at: y) ?? NSMutableArray()).object(at: 0) as! DCMPix
-            if curPix.pixelSpacingX != curPix.pixelSpacingY {
-                if curPix.pixelSpacingX < curPix.pixelSpacingY {
-                    resampleData(withXFactor: 1.0, yFactor: Float(curPix.pixelSpacingX / curPix.pixelSpacingY), zFactor: 1.0)
-                } else {
-                    resampleData(withXFactor: Float(curPix.pixelSpacingY / curPix.pixelSpacingX), yFactor: 1.0, zFactor: 1.0)
-                }
-                setPostprocessed(true)
+        // The count is read again after each time point, which a resampling replaces.
+        var movie = 0
+        while movie < Int(horos_maxMovieIndex) {
+            defer { movie += 1 }
+            guard let curPix = horos_pixArray(movie).first, curPix.pixelSpacingX != curPix.pixelSpacingY else { continue }
+            if curPix.pixelSpacingX < curPix.pixelSpacingY {
+                resampleData(withXFactor: 1.0, yFactor: Float(curPix.pixelSpacingX / curPix.pixelSpacingY), zFactor: 1.0)
+            } else {
+                resampleData(withXFactor: Float(curPix.pixelSpacingY / curPix.pixelSpacingX), yFactor: 1.0, zFactor: 1.0)
             }
-            y += 1
+            setPostprocessed(true)
         }
     }
 
@@ -213,38 +218,23 @@ public extension ViewerController {
 
         var v: Int32 = 0
         while v < Int32(maxMovieIndex()) {
+            defer { v += 1 }
             var vD: NSData?
             var newPixList: NSMutableArray?
             copyVolumeData(&vD, andDCMPix: &newPixList, forMovieIndex: v)
+            guard let vD else { continue }
 
-            if let vD {
-                if new2DViewer == nil {
-                    new2DViewer = newWindow(newPixList, fileList(Int(v)), vD)
-                    // -newWindow::: hands over the +1 of the viewer's alloc, which the
-                    // former code kept: the viewer releases itself when it closes.
-                    if let new2DViewer { _ = Unmanaged.passRetained(new2DViewer) }
-                    new2DViewer?.roiDeleteAll(self)
-                } else {
-                    new2DViewer?.addMovieSerie(newPixList, fileList(Int(v)), vD)
-                }
+            if let new2DViewer {
+                new2DViewer.addMovieSerie(newPixList, fileList(Int(v)), vD)
+            } else {
+                new2DViewer = newWindow(newPixList, fileList(Int(v)), vD)
+                // -newWindow::: hands over the +1 of the viewer's alloc, which the
+                // former code kept: the viewer releases itself when it closes.
+                if let new2DViewer { _ = Unmanaged.passRetained(new2DViewer) }
+                new2DViewer?.roiDeleteAll(self)
             }
-            v += 1
         }
 
         return new2DViewer
-    }
-
-    /// Calls `body` with every slice of every time point, in order.
-    private func forEachSlice(_ body: (DCMPix) -> Void) {
-        var y = 0
-        while y < Int(horos_maxMovieIndex) {
-            let list: NSArray = horos_pixList(at: y) ?? NSMutableArray()
-            var x = 0
-            while x < list.count {
-                body(list.object(at: x) as! DCMPix)
-                x += 1
-            }
-            y += 1
-        }
     }
 }

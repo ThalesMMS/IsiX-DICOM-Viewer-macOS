@@ -47,6 +47,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from dicomweb_package import swift_flags  # noqa: E402
+import retrieve_inventory_harness  # noqa: E402
 import python_with  # noqa: E402
 
 failures = []
@@ -175,11 +176,11 @@ try:
         temporary = Path(folder)
         sources = [str(root / 'Horos/Sources' / name) for name in
                    ('DICOMwebClient.swift', 'DICOMwebNode.swift', 'DICOMwebCredentials.swift', 'DICOMwebMultipart.swift',
-                    'NonInteractiveKeychainRead.swift', 'RetrieveInventory.swift')]
+                    'NonInteractiveKeychainRead.swift')]
         (temporary / 'check.swift').write_text(DRIVER)
         executable = temporary / 'check'
         build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-suppress-warnings',
-                                '-module-cache-path', str(temporary / 'module-cache'), *sources,
+                                '-module-cache-path', str(temporary / 'module-cache'), *sources, *retrieve_inventory_harness.swiftc_arguments(temporary / 'harness', link=False),
                                 *swift_flags(temporary), str(temporary / 'check.swift'), '-o', str(executable)],
                                capture_output=True, text=True, timeout=600)
         check(build.returncode == 0, 'the DICOMweb and inventory sources and the check compile\n' + build.stderr[-3000:])
@@ -237,17 +238,21 @@ finally:
 session = (root / 'Horos/Sources/DCMTKQueryNode+DICOMweb.swift').read_text()
 retrieve = session[session.index('func retrieveDICOMweb() -> Bool'):]
 retrieve = retrieve[:retrieve.index('\n    }\n')]
-handler = session[session.index('let queue: (String) -> String? = {'):session.index('var requestError: NSError?')]
+handler = session[session.index('let handler: (String) -> String? = {'):session.index('let requestFailure = queue.perform(')]
 dataset = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKDataset.mm').read_text()
 check('stringValues(forTag: DICOMTag.referencedSOPInstanceUID.rawValue' in handler
       and 'inItemsOfSequence: DICOMTag.sourceImageSequence.rawValue' in handler
       and '_dataset->findAndGetSequenceItem(IsiXDCMTKTagKey(sequenceTag), item, i)' in dataset,
       'each object\'s Source Image Sequence is read with its identifiers')
-check('request.uid == objectUID || sources.contains(request.uid ?? "")' in handler,
+# Whether an object belongs to its request is the module's queue's rule.
+queue = (root / 'Modules/IsiXDICOMNetwork/Sources/DICOMwebRetrieveQueue.swift').read_text()
+check('request.uid == objectUID || sources.contains(request.uid ?? "")' in queue
+      and 'DICOMwebRetrieveQueue.belongs(study: study, series: series, request: request' in handler
+      and 'sources: sources, seen: unique)' in handler,
       'an instance asked for may come as a copy that names it')
 check('inventory.record(uid: objectUID, status: 0, sources: sources)' in handler, 'the object is recorded with its sources')
 local = retrieve[:retrieve.index('let whole = localUIDs.isEmpty')]
-check('inventory.sourceUIDs(ofDerived: localList)' in local and local.index('RetrieveInventory.begin(') < local.index('sourceUIDs(ofDerived:'),
+check('inventory.sourceUIDs(ofDerived: localList)' in local and 'retrieveInventories.begin(' in local and local.index('retrieveInventories.begin(') < local.index('sourceUIDs(ofDerived:'),
       'the sources of local copies count as local, read from the inventory this retrieve begins')
 
 for failure in failures:

@@ -204,9 +204,9 @@ if (root / 'Horos/Sources/DICOM-Swift').exists():
 import json
 package_lock = json.loads((root / 'Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved').read_text())
 client_pin = next(pin for pin in package_lock['pins'] if pin['identity'] == 'dicom-swift')
-if client_pin['location'] != 'https://github.com/ThalesMMS/DICOM-Swift.git' or client_pin['state']['version'] != '3.0.1':
+if client_pin['location'] != 'https://github.com/ThalesMMS/DICOM-Swift.git' or client_pin['state']['version'] != '3.1.1':
     fail('the public client pin is not the approved exact release')
-if client_pin['state']['revision'] != '2cb82e44c1041a2c1e85319fb5661f442d0b1ee9':
+if client_pin['state']['revision'] != '229714f81e3090a937a17c344ca804fa4473cbe7':
     fail('the public client revision differs from the selected release')
 client_family = next(component for component in provenance['components'] if component['id'] == 'dicom-swift')
 if client_family['selected_pin'] != client_pin:
@@ -310,13 +310,27 @@ precondition(LicenseAttribution.requiredThirdPartyResourceNames.contains("Compat
 precondition(!ids.contains("grok"), "Grok is listed, but nothing links it")
 let openssl = components.first { $0.identifier == "openssl" }!
 precondition(openssl.license == "Apache-2.0")
-precondition(openssl.sourcePath == "OpenSSL/upstream/LICENSE.txt")
+precondition(openssl.sourcePath == "Horos/Scripts/external-sources.json")
+precondition(openssl.origin == "upstream release archive")
+precondition(openssl.distributionNote.contains("CompiledSources/OpenSSL") && openssl.distributionNote.contains("Splash/OpenSSL-LICENSE.txt"))
+let dcmtk = components.first { $0.identifier == "dcmtk" }!
+precondition(dcmtk.license == "BSD-style (OFFIS)" && dcmtk.incorporated)
+precondition(dcmtk.sourcePath == "Horos/Scripts/external-sources.json")
+precondition(dcmtk.origin == "upstream archive")
+precondition(dcmtk.distributionNote.contains("CompiledSources/DCMTK") && dcmtk.distributionNote.contains("Native/DCMTK/COPYRIGHT"))
+// CharLS reaches the app inside DCMTK's archive; its catalog source is the
+// bundled copy of that notice, which the repository versions.
+let charls = components.first { $0.identifier == "charls" }!
+precondition(charls.license == "BSD-3-Clause" && charls.incorporated)
+precondition(charls.sourcePath == "Binaries/Splash/ThirdParty/Native/DCMTK/dcmjpls/docs/License.txt")
+precondition(FileManager.default.fileExists(atPath: repositoryRoot + "/" + charls.sourcePath))
+precondition(FileManager.default.fileExists(atPath: repositoryRoot + "/" + dcmtk.sourcePath))
 
 let dicomSwift = components.first { $0.identifier == "dicom-swift" }!
 precondition(dicomSwift.license == "Apache-2.0" && dicomSwift.incorporated)
 precondition(dicomSwift.sourcePath == "Binaries/Splash/DICOM-Swift-LICENSE.txt")
 precondition(dicomSwift.origin == "remote-package")
-precondition(dicomSwift.distributionNote.contains("3.0.1") && dicomSwift.distributionNote.contains("2cb82e44c1041a2c1e85319fb5661f442d0b1ee9"))
+precondition(dicomSwift.distributionNote.contains("3.1.1") && dicomSwift.distributionNote.contains("229714f81e3090a937a17c344ca804fa4473cbe7"))
 precondition(!dicomSwift.distributionNote.contains("Horos/Sources/DICOM-Swift"))
 
 let nio = components.first { $0.identifier == "swift-nio" }!
@@ -411,10 +425,12 @@ with tempfile.TemporaryDirectory(prefix='horos-license-') as d:
         'let workbenchLicense = """\n%s\n"""\n'
         'let packageRoot = "%s"\n'
         'let incompleteRoot = "%s"\n'
+        'let repositoryRoot = "%s"\n'
         '%s' % (
             workbench_license.replace('\\', '\\\\'),
             str(package),
             str(incomplete),
+            str(root),
             code,
         )
     )

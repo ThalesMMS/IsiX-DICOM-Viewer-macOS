@@ -222,6 +222,8 @@ static NSMutableDictionary *gRows = nil;    // object ID -> row
 @implementation ProbeDatabase
 - (id) managedObjectContext { static ProbeContext *c = nil; if( c == nil) c = [[ProbeContext alloc] init]; return c; }
 - (id) privateQueueIndependentDatabase { return self; }
+// Whether the database is the Mac's own: not while the probe stands for one shared over Bonjour.
+- (BOOL) isLocal { return !gBonjour; }
 - (void) performBlockAndWait:(void (^)(void)) block { event( @"perform", nil); block(); }
 - (id) objectWithID:(id) objectID { return [gRows objectForKey: objectID]; }
 - (BOOL) save:(NSError**) error { event( @"save", nil); return YES; }

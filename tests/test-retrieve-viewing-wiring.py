@@ -16,7 +16,8 @@ argument for the negative control:
   (its -retrieveStatusOverlay, -isReceivingPartialSeries and
   -retrieveViewingStateChanged: are Swift, in
   ViewerController+RetrieveAndView.swift, declared for Objective-C in
-  ViewerController+RetrieveAndView.h, which ViewerController.h imports;)
+  ViewerController+RetrieveAndView.h, which ViewerController.h imports; the
+  refresh and the status are the viewer's ProgressiveRetrieveState;)
 * the image view draws the retrieve status over the image;
 * the preference that gates the new arrival behaviour is registered on.
 """
@@ -93,6 +94,8 @@ if check.count('RetrieveViewing.shared.viewerOpened(studyUID:') != 2:
     failures.append('both the study and the series opening must be recorded (found %d)' % check.count('RetrieveViewing.shared.viewerOpened(studyUID:'))
 if 'let tries = self.checkAndViewTry\n                    self.checkAndViewTry -= 1\n                    if (tries > 0 || stillPending) && self.sendToPopup.indexOfSelectedItem == 0 {' not in check:
     failures.append('checkAndView: does not keep polling while the transfer runs')
+if 'browser.showEntireDatabase()\n' not in check or 'browser.refreshStudyList(whileHidden: true)\n' not in check.split('browser.showEntireDatabase()\n', 1)[-1].split('if browser.findAndSelectFile', 1)[0]:
+    failures.append('checkAndView: a study in the database stays unlisted, and unopened, while the server mode hides the browser')
 
 perform = method(query, '    public nonisolated func performRetrieve(_ array: [Any]!) {\n', END) + \
     method(query, '    private nonisolated func performRetrieveOnThisThread(_ given: [Any]) {\n', END)
@@ -126,7 +129,7 @@ if 'unstarted.removeObjects(in: selectedItems' not in retrieve:
     failures.append('items that did start a transfer would be settled twice')
 
 nudge = method(query, '    nonisolated func observeStoreCompletedNotification(_ notification: Notification) {\n', END)
-if 'importNudgeWanted(studyUID:' not in nudge or 'initiateImportFilesFromIncomingDirUnlessAlreadyImporting' not in nudge:
+if 'importNudgeWanted(studyUID:' not in nudge or 'DatabaseIngest.process.requestImport()' not in nudge:
     failures.append('a completed C-STORE does not nudge the importer')
 if 'name: NSNotification.Name("HorosDICOMStoreCompleted")' not in query:
     failures.append('the store-completed notification is not observed')
@@ -139,10 +142,24 @@ for declaration in ('@objc(pendingRetrieveAndViewItems)\n    public nonisolated 
 # --- viewer -------------------------------------------------------------------
 refresh = method(viewer, '-(void)refreshDatabase:(NSArray*)newImages\n')
 # Since the class is Swift, -refreshDatabase: is in ViewerController+DatabaseRefresh.swift
-# and the observers are registered in ViewerController+Lifecycle.swift.
+# and the observers are registered by the viewer's graph (ViewerSessionGraph+ViewerLife.swift);
+# the refresh itself is the viewer's ProgressiveRetrieveState since it left ViewerController,
+# with -refreshDatabase: as its façade.
 swift_refresh = read_if_present('Horos/Sources/ViewerController+DatabaseRefresh.swift') if not refresh else ''
-swift_lifecycle = read_if_present('Horos/Sources/ViewerController+Lifecycle.swift') if not refresh else ''
-if swift_refresh:
+swift_lifecycle = read_if_present('Horos/Sources/ViewerSessionGraph+ViewerLife.swift') if not refresh else ''
+progressive = read_if_present('Horos/Sources/ProgressiveRetrieveState.swift') if not refresh else ''
+if progressive:
+    if 'ProgressiveRetrieveState.of(self).refresh(self, newImages: newImages) { super.refreshDatabase(newImages) }' not in swift_refresh:
+        failures.append('-refreshDatabase: does not hand the refresh to the viewer\'s ProgressiveRetrieveState')
+    refresh = progressive[progressive.index('    func refresh(_ viewer: ViewerController, newImages: [Any]?, passOn: () -> Void) {'):]
+    spelled = {'[coalescer requestAt: now]': 'coalescer?.request(at: now)',
+               'indexOfSOPInstanceUID: shownSOP frame: shownFrame': 'RetrieveViewing.index(ofSOPInstanceUID: shownSOP, frame: shownFrame',
+               'shownSOP = ': 'let shownSOP = ',
+               'openViewerFromImages:': '.openViewer(fromImages:',
+               'localCountChangedForStudyUID:': 'RetrieveViewing.shared.localCountChanged(studyUID:',
+               '[coalescer appliedAt:': 'coalescer?.applied(at:',
+               'afterDelay: wait': 'refreshLater(viewer, newImages: newImages, after: wait, replacing: true)'}
+elif swift_refresh:
     refresh = swift_refresh[swift_refresh.index('    public override func refreshDatabase(_ newImages: [Any]!) {'):]
     spelled = {'[coalescer requestAt: now]': 'coalescer?.request(at: now)',
                'indexOfSOPInstanceUID: shownSOP frame: shownFrame': 'RetrieveViewing.index(ofSOPInstanceUID: shownSOP, frame: shownFrame',
@@ -186,6 +203,14 @@ if orientation is None:
     if 'retrieveStatusOverlay]' not in view or 'DrawNSStringGL: receiving' not in view:
         failures.append('DCMView does not draw the retrieve status')
     if view.find('DrawNSStringGL: receiving') < view.find('self.curDCM.missingPixelsReason.length'):
+        failures.append('the retrieve status must follow the missing-pixels reason, both truthful about the frame')
+elif 'AnnotationOverlayLayout(' in orientation:
+    # The notices under the top letter are drawn in order by the layout.
+    status = "if self.is2DViewer(), let receiving = (self.windowController() as? ViewerController)?.retrieveStatusOverlay(), !receiving.isEmpty {\n            notices.append(receiving)"
+    missing = 'if let missing = self.curDCM?.missingPixelsReason, !missing.isEmpty {\n            notices.append(missing)'
+    if status not in orientation or 'notices: notices)' not in orientation:
+        failures.append('DCMView does not draw the retrieve status')
+    if orientation.find(status) < orientation.find(missing) or orientation.find(missing) < 0:
         failures.append('the retrieve status must follow the missing-pixels reason, both truthful about the frame')
 else:
     if ('private let kRetrieveStatusOverlay = #selector(ViewerController.retrieveStatusOverlay)' not in orientation

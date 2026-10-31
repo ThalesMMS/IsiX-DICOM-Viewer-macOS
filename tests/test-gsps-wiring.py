@@ -33,6 +33,11 @@ if 'Pixel Data is never rewritten' not in document and 'never written back into 
 # spelling (-setRotation: is the `rotation` property's setter there).
 viewer_source = source_path('ViewerController+GSPS')
 viewer = stripped(viewer_source)
+# The category hands the work to ViewerPresentationState and IsiXImaging's
+# PresentationStateOverlay: the checks read the three.
+if 'ViewerPresentationState.' in viewer:
+    viewer += stripped(source_path('ViewerPresentationState'))
+    viewer += stripped(root / 'Modules/IsiXImaging/Sources/PresentationStateOverlay.swift')
 if 'applyGrayscaleSoftcopyPresentationStateFromPath' not in viewer:
     failures.append('the 2D viewer no longer applies a GSPS file to the open images')
 rotation = 'view.rotation = ' if viewer_source.suffix == '.swift' else 'setRotation'
@@ -44,21 +49,42 @@ if 'fImage' not in viewer:
     failures.append('apply no longer checks that fImage was not rewritten')
 if 'Missing referenced SOP Instance UID' not in viewer:
     failures.append('a missing referenced SOP Instance UID is no longer named')
+# The flags are a sheet of the viewer window. A viewer opened for a
+# presentation state is still off screen when the state is applied, and a
+# sheet begun then comes up as a panel of its own: the sheet waits for the
+# window to be on screen.
+presenting = stripped(source_path('ViewerPresentationState'))
+if 'presentSheet(alert, on: window)' not in presenting:
+    failures.append('the GSPS flags are no longer shown as a sheet of the viewer window')
+if not re.search(r'func presentSheet\(_ alert: NSAlert, on window: NSWindow\) \{\s*if window\.isVisible \{\s*alert\.beginSheetModal', presenting) \
+        or 'guard window.isVisible else { return false }' not in presenting:
+    failures.append('the GSPS sheet is begun on a viewer window that is not on screen yet')
+if presenting.count('beginSheetModal(for: window, completionHandler: nil)') != 2:
+    failures.append('the GSPS flags are begun as a sheet outside presentSheet')
 
 browser_source = source_path('BrowserController+GSPS')
 browser = stripped(browser_source)
+# The browser hands the opening to its ViewerOpener (ViewerOpener.swift).
+if 'viewerOpener.openPresentationState(' in browser:
+    browser += stripped(source_path('ViewerOpener'))
 if 'horos_tryOpenGSPSSeries' not in browser:
     failures.append('opening a presentation-state series no longer looks up the referenced images')
 if 'applyGrayscaleSoftcopyPresentationStateFromPath' not in browser:
     failures.append('opening a GSPS series no longer applies it to the referenced images')
 
-# -loadSeries:::keyImagesOnly: is Swift.
+# -loadSeries:::keyImagesOnly: hands its work to the browser's ViewerOpener
+# (ViewerOpener+Navigation.swift), which asks for a presentation state first.
 load = stripped(source_path('BrowserController+DatabaseDragExport+Selection'))
-if 'horos_tryOpenGSPSSeries' not in load:
+if 'viewerOpener.loadSeries(' in load:
+    navigation = stripped(source_path('ViewerOpener+Navigation'))
+    at = navigation.find('func loadSeries(')
+    load = navigation[at:navigation.find('openViewer(', at)] if at >= 0 else ''
+if 'horos_tryOpenGSPSSeries' not in load and 'openPresentationState(' not in load:
     failures.append('loadSeries no longer asks whether the series is a GSPS before opening it as pixels')
 
-# AppController is Swift: the call is read in its Swift spelling.
-app = stripped(source_path('AppController'))
+# AppController is Swift: the call is read in its Swift spelling, in the launch
+# of ApplicationLifecycle.
+app = stripped(source_path('ApplicationLifecycle'))
 if 'ViewerController.installGSPSMenuItems()' not in app:
     failures.append('the Apply Grayscale Presentation State menu is no longer installed')
 

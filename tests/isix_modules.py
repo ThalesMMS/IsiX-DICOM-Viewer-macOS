@@ -11,6 +11,7 @@ the slice imports: `module_flags('IsiXStorage', folder)` compiles it once into
 from pathlib import Path
 import re
 import subprocess
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 LOGGING = 'IsiXLogging'
@@ -147,3 +148,24 @@ def object_link_flags(obj, folder):
             flags += module_flags(name, Path(folder))
             classes |= defined
     return flags, classes
+
+
+def former_models(folder):
+    """The former data models, unpacked from the archive the repository keeps into `folder`."""
+    folder.mkdir()
+    with zipfile.ZipFile(ROOT / 'Binaries/DB_Previous_Models.zip') as archive:
+        for member in archive.namelist():
+            if member.endswith('.mom'):
+                (folder / Path(member).name).write_bytes(archive.read(member))
+    return folder
+
+
+def revision_before(repository, path):
+    """The last revision without `path`, HEAD while `path` is not committed, or None without that history."""
+    added = subprocess.run(['git', '-C', str(repository), 'log', '--diff-filter=A', '--format=%H', '-1', '--', path],
+                           capture_output=True, text=True)
+    if added.returncode != 0:
+        return None
+    revision = added.stdout.strip() + '~1' if added.stdout.strip() else 'HEAD'
+    known = subprocess.run(['git', '-C', str(repository), 'rev-parse', '--verify', '--quiet', revision + '^{commit}'], capture_output=True)
+    return revision if known.returncode == 0 else None

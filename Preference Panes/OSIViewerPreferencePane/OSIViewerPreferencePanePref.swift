@@ -46,7 +46,7 @@ private let UserDefaultsObservingContext = IdentityToken()
 
 /// The Viewers preference pane.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors,
+/// Implemented in Swift: the Objective-C name, the selectors,
 /// the xib outlets and <Horos/OSIViewerPreferencePanePref.h> are those of
 /// the former class.
 // Main actor: a preferences pane, which the preferences window creates, shows
@@ -121,9 +121,8 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
         inner.addSubview(check)
     }
 
-    /// A check for each statistic of closed ROIs' labels, in a row added at the
-    /// bottom of the ROI labels box, which grows to hold it. Built here rather
-    /// than in the xib so that every localized copy of the pane gets it.
+    /// Put the compact label setting beside the statistics it overrides.
+    /// Build the controls here so that every localized copy of the pane gets them.
     private func addROIStatisticsChecks() {
         let backgroundPath = "values." + ROILabelContrast.backgroundKey
         guard let content = mainWindow?.contentView,
@@ -134,7 +133,8 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
               }),
               let inner = box.contentView else { return }
 
-        let rowHeight: CGFloat = 30
+        let rowSpacing: CGFloat = 24
+        let addedHeight: CGFloat = 30 + rowSpacing
         let rowY = inner.subviews.map(\.frame.minY).min() ?? 10
         let autoresizing = (content.autoresizesSubviews, inner.autoresizesSubviews)
         content.autoresizesSubviews = false
@@ -143,14 +143,23 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
             content.autoresizesSubviews = autoresizing.0
             inner.autoresizesSubviews = autoresizing.1
         }
-        content.setFrameSize(NSSize(width: content.frame.width, height: content.frame.height + rowHeight))
+        content.setFrameSize(NSSize(width: content.frame.width, height: content.frame.height + addedHeight))
         for view in content.subviews where view !== box {
-            view.setFrameOrigin(NSPoint(x: view.frame.minX, y: view.frame.minY + rowHeight))
+            view.setFrameOrigin(NSPoint(x: view.frame.minX, y: view.frame.minY + addedHeight))
         }
-        box.setFrameSize(NSSize(width: box.frame.width, height: box.frame.height + rowHeight))
+        box.setFrameSize(NSSize(width: box.frame.width, height: box.frame.height + addedHeight))
         for view in inner.subviews {
-            view.setFrameOrigin(NSPoint(x: view.frame.minX, y: view.frame.minY + rowHeight))
+            view.setFrameOrigin(NSPoint(x: view.frame.minX, y: view.frame.minY + addedHeight))
         }
+
+        let defaults = NSUserDefaultsController.shared
+        let compactPath = "values.ROIPRIMARYMEASUREMENTONLY"
+        let compact = NSButton(checkboxWithTitle: NSLocalizedString("Show Primary Measurement Only", comment: "ROI label display mode"),
+                               target: nil, action: nil)
+        compact.sizeToFit()
+        compact.setFrameOrigin(NSPoint(x: 12, y: rowY + rowSpacing + 4))
+        compact.bind(.value, to: defaults, withKeyPath: compactPath, options: nil)
+        inner.addSubview(compact)
 
         let label = NSTextField(labelWithString: NSLocalizedString("Statistics shown:", comment: "Viewers pane: the checks of the statistics ROI labels show"))
         label.sizeToFit()
@@ -161,8 +170,10 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
             let check = NSButton(checkboxWithTitle: ROILabelPresentation.title(forStatistic: statistic), target: nil, action: nil)
             check.sizeToFit()
             check.setFrameOrigin(NSPoint(x: x, y: rowY + 4))
-            check.bind(.value, to: NSUserDefaultsController.shared,
+            check.bind(.value, to: defaults,
                        withKeyPath: "values." + ROILabelPresentation.defaultsKey(forStatistic: statistic), options: nil)
+            check.bind(.enabled, to: defaults, withKeyPath: compactPath,
+                       options: [.valueTransformerName: NSValueTransformerName.negateBooleanTransformerName])
             inner.addSubview(check)
             x = check.frame.maxX + 12
         }

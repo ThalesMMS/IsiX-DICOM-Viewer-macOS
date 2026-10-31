@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXPreferences
 
 /// Which directory a database lives in, for whatever the user pointed at.
 ///
@@ -50,7 +51,7 @@ public final class DatabaseLocation: NSObject {
     /// ones it was already using when it stopped opening them by name, and the
     /// ones the user chose and confirmed since. The key's presence also says
     /// that the first of those was recorded.
-    @objc public static let adoptedHorosDirectoriesKey = "AdoptedHorosDataDirectories"
+    @objc public static let adoptedHorosDirectoriesKey = DatabasePreferences.adoptedHorosDirectories.name
 
     /// Whether `name` is a database directory's: this application's, current or
     /// previous, or Horos's. Recognising one is not opening it.
@@ -92,7 +93,7 @@ public final class DatabaseLocation: NSObject {
 
     /// The adopted `Horos Data` directories, as recorded in `defaults`.
     class func adoptedHorosDirectories(_ defaults: UserDefaults = .standard) -> [String] {
-        return defaults.stringArray(forKey: adoptedHorosDirectoriesKey) ?? []
+        return defaults[DatabasePreferences.adoptedHorosDirectories] ?? []
     }
 
     class func isAdopted(_ path: String, in adopted: [String]) -> Bool {
@@ -110,7 +111,7 @@ public final class DatabaseLocation: NSObject {
         var adopted = adoptedHorosDirectories(defaults)
         guard !isAdopted(directory, in: adopted) else { return }
         adopted.append(standardized(directory))
-        defaults.set(adopted, forKey: adoptedHorosDirectoriesKey)
+        defaults.set(adopted, for: DatabasePreferences.adoptedHorosDirectories)
         NSLog("Database: %@ is opened as this installation's database, as the user confirmed", directory)
     }
 
@@ -118,7 +119,7 @@ public final class DatabaseLocation: NSObject {
     /// folder holding it resolves to a database of this application beside it.
     class func unadoptHorosDirectory(_ directory: String, defaults: UserDefaults) {
         let standard = standardized(directory)
-        defaults.set(adoptedHorosDirectories(defaults).filter { standardized($0) != standard }, forKey: adoptedHorosDirectoriesKey)
+        defaults.set(adoptedHorosDirectories(defaults).filter { standardized($0) != standard }, for: DatabasePreferences.adoptedHorosDirectories)
         NSLog("Database: %@ is no longer opened as this installation's database", directory)
     }
 
@@ -165,16 +166,15 @@ public final class DatabaseLocation: NSObject {
     }
 
     static func recordHorosDirectoriesInUse(existingInstallation: Bool, defaults: UserDefaults, documents: String) {
-        guard defaults.object(forKey: adoptedHorosDirectoriesKey) == nil else { return }
+        guard defaults[DatabasePreferences.adoptedHorosDirectories.reading(as: PropertyListValue?.self)] == nil else { return }
         var inUse: [String] = []
         if existingInstallation {
-            let sources = (defaults.array(forKey: "localDatabasePaths") ?? [])
-                .compactMap { ($0 as? [String: Any])?["Path"] as? String }
-            inUse = horosDirectoriesInUse(locationMode: defaults.integer(forKey: "DEFAULT_DATABASELOCATION"),
-                                          locationURL: defaults.string(forKey: "DEFAULT_DATABASELOCATIONURL"),
-                                          sourcePaths: sources, documents: documents)
+            let location = defaults[DatabasePreferences.defaultLocation]
+            inUse = horosDirectoriesInUse(locationMode: location.mode, locationURL: location.folder,
+                                          sourcePaths: defaults[DatabasePreferences.localDatabaseSources]?.paths ?? [],
+                                          documents: documents)
         }
-        defaults.set(inUse, forKey: adoptedHorosDirectoriesKey)
+        defaults.set(inUse, for: DatabasePreferences.adoptedHorosDirectories)
         NSLog("Database: %@ installation; Horos databases kept in use: %@",
               existingInstallation ? "existing" : "new", inUse.isEmpty ? "none" : inUse.joined(separator: ", "))
     }

@@ -83,21 +83,27 @@ check('getDicomField:forFile:' not in EXCERPT and 'Load Image Data' not in EXCER
       'do not import the PapyrusLock or 3.1.2 worker lock into this excerpt')
 
 # --- those selectors still exist, and the main-thread sleep is gone ----------
-# BrowserSourcesHelper is Swift; the selectors are the same.
+# BrowserSourcesHelper is Swift; the selectors are the same. Its entries hand
+# the work to the browser's SourceList (SourceList.swift), whose observer of
+# the workspace has the same selector; its @objc entry is nonisolated and goes
+# to the main actor, where the body is.
 sources = source_path('BrowserController+Sources')
-# The @objc entries are nonisolated and go to the main actor, where
-# the bodies are.
+source_list = source_path('SourceList')
 analyze = (body(sources, 'public nonisolated func _analyzeVolume(atPath path: String!)')
-           + body(sources, 'private func analyzeVolumeOnMainActor(_ path: String)'))
+           + body(source_list, 'func analyzeVolume(atPath path: String)'))
 observe = (body(sources, 'nonisolated func _observeVolumeNotification(_ notification: Notification)')
-           + body(sources, 'private func observeVolumeNotificationOnMainActor(_ notification: Notification)'))
+           + body(source_list, 'nonisolated func volumeDidChange(_ notification: Notification)')
+           + body(source_list, 'private func volumeDidChange(_ name: Notification.Name, path: String?, oldPath: String?)'))
 orientation = body(root / 'Horos/Sources/ViewerController.m',
                    '- (BOOL) setOrientation: (int) newOrientationTool')
 # -setOrientation: is Swift, in ViewerController+Orientation.swift.
 if not orientation:
     orientation = body(source_path('ViewerController+Orientation'), 'func setOrientation(_ newOrientationTool: Int32) -> Bool')
-# -checkEverythingLoaded is Swift, in ViewerController+StudyNavigation.swift.
-loaded = body(source_path('ViewerController+StudyNavigation'), 'func checkEverythingLoaded()')
+# -checkEverythingLoaded is Swift, a façade in ViewerController+StudyNavigation.swift
+# of the viewer's ViewerLoadingWait.waitUntilLoaded() there, which waits.
+study_navigation = source_path('ViewerController+StudyNavigation')
+loaded = (body(study_navigation, 'func waitUntilLoaded()')
+          if 'ViewerLoadingWait(viewer: self).waitUntilLoaded()' in body(study_navigation, 'func checkEverythingLoaded()') else '')
 # HorosVolumeDiscovery is implemented in BrowserController+Sources+CAPI.m.
 discovery = (root / 'Horos/Sources/BrowserController+Sources+CAPI.m').read_bytes().decode('latin1')
 bounded = (root / 'Horos/Sources/HorosBoundedTask.h').read_bytes().decode('latin1')
@@ -106,7 +112,7 @@ check(analyze and 'discoverPath(' in analyze and 'HorosRunBoundedTask' in analyz
       '_analyzeVolumeAtPath: must still hand diskutil to bounded discovery')
 check(analyze and 'sleepForTimeInterval' not in analyze and 'sleep(forTimeInterval' not in analyze,
       '_analyzeVolumeAtPath: grew a main-thread sleep; that is the RC hang')
-check(observe and '_analyzeVolume(atPath:' in observe,
+check(observe and 'analyzeVolume(atPath:' in observe,
       'the notification observer must still reach volume analysis')
 check(observe and 'sleepForTimeInterval' not in observe and 'sleep(forTimeInterval' not in observe,
       '_observeVolumeNotification: must not sleep on the main thread')

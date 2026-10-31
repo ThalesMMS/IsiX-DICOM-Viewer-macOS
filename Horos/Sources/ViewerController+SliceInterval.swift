@@ -39,6 +39,7 @@
 
 import AppKit
 import IsiXImaging
+import IsiXPreferences
 
 // The geometry part of the "VOI LUT transformation" block of
 // ViewerController's DICOM pipeline (4.1.1.3): the orientation of the series,
@@ -46,13 +47,9 @@ import IsiXImaging
 // slices, files and ROIs) so 3D texture mapping gets ascending data, the
 // warnings for a tilted gantry and irregular slices, and the sheet that sets
 // the interval and the orientation by hand. The geometry is IsiXImaging's
-// SliceStack and SliceStackSpacing; here the viewer reads its DCMPix, applies
-// the answers to them and to its orientation tool. The selectors are those of
-// the former Objective-C methods.
-
-/// `static float deg2rad = M_PI/180.0` of the former file: computed in double,
-/// kept as a float.
-fileprivate let degreesToRadians = Float(Double.pi / 180.0)
+// SliceStack and SliceIntervalCorrection; here the viewer reads its DCMPix,
+// applies the answers to them and to its orientation tool. The selectors are
+// those of the former Objective-C methods.
 
 /// The nine orientation cosines of a DCMPix, in double.
 fileprivate func orientationDouble(_ pix: DCMPix) -> [Double] {
@@ -82,7 +79,7 @@ public extension ViewerController {
             horos_orientationVector = SliceStackOrientation(axis: axis, component: Double(vectors[6 + axis])).rawValue
         }
 
-        return SliceStackOrientation(rawValue: horos_orientationVector)?.orthogonalTag ?? 0
+        return SliceStackOrientation(rawValue: horos_orientationVector)?.tool.rawValue ?? 0
     }
 
     @objc(orientationVector)
@@ -129,22 +126,21 @@ public extension ViewerController {
         var step = [pixList[2].originX - pixList[1].originX, pixList[2].originY - pixList[1].originY, pixList[2].originZ - pixList[1].originZ]
         var vectors = orientationDouble(pixList[1])
 
-        var angle = abs(step.withUnsafeMutableBufferPointer { stepBuffer in
+        let angle = step.withUnsafeMutableBufferPointer { stepBuffer in
             vectors.withUnsafeMutableBufferPointer { DCMView.angleBetweenVectorD(stepBuffer.baseAddress, andVectorD: $0.baseAddress! + 6) }
-        })
-        angle /= Double(degreesToRadians)
-
-        var tilted = false
-        if angle < 90 {
-            if angle > Double(UserDefaults.standard.float(forKey: "MinimumTitledGantryTolerance")) {
-                NSLog("---- titledGantry - Not a real 3D data set: %f degrees", angle)
-                tilted = true
-            } else if angle > 0.001 {
-                NSLog("---- titledGantry (tolerated) - Not a real 3D data set: %f degrees", angle)
-            }
-            horos_titledGantryDegrees = Float(angle)
         }
-        return tilted
+
+        let tilt = SliceIntervalCorrection.gantryTilt(angle: angle, tolerance: sessionGraph.preferences[ViewerPreferences.minimumTitledGantryTolerance])
+        switch tilt {
+        case .tilted(let degrees):
+            NSLog("---- titledGantry - Not a real 3D data set: %f degrees", degrees)
+        case .tolerated(let degrees) where degrees > 0.001:
+            NSLog("---- titledGantry (tolerated) - Not a real 3D data set: %f degrees", degrees)
+        default:
+            break
+        }
+        if let degrees = tilt.degrees { horos_titledGantryDegrees = Float(degrees) }
+        return tilt.isTilted
     }
 
     /// Computes the interval between the slices of the current movie frame
@@ -157,10 +153,8 @@ public extension ViewerController {
     func computeIntervalFlipNow(_ flipNowNumber: NSNumber!) -> Float {
         selectFirstTilingView()
 
-        let z = Int(horos_curMovieIndex)
-        let pixList = horos_pixArray(z)
-        var flipNow = flipNowNumber?.boolValue ?? false
-        if flipNow { flipNow = isEverythingLoaded() }
+        let pixList = horos_pixArray(Int(horos_curMovieIndex))
+        let flipNow = (flipNowNumber?.boolValue ?? false) && isEverythingLoaded()
 
         var interval = pixList.first?.sliceInterval ?? 0
         if pixList.count > 1 && flipNow { interval = 0 }
@@ -168,47 +162,40 @@ public extension ViewerController {
         if interval == 0 && pixList.count > 2 {
             horos_titledGantry = false
 
-            if let spacing = SliceStackSpacing(orientation1: orientationDouble(pixList[1]), orientation2: orientationDouble(pixList[2]),
-                                               origin1: origin(pixList[1]), origin2: origin(pixList[2])) {
-                interval = spacing.interval
-                var interval3D = spacing.interval3D
-
-                if let orientation = spacing.orientation {
+            let first = pixList[0]
+            if let correction = SliceIntervalCorrection(orientation1: orientationDouble(pixList[1]), orientation2: orientationDouble(pixList[2]),
+                                                        origin1: origin(pixList[1]), origin2: origin(pixList[2]), firstOrigin: origin(first),
+                                                        spacingBetweenSlices: first.spacingBetweenSlices, flipNow: flipNow) {
+                if let orientation = correction.spacing.orientation {
                     horos_orientationVector = orientation.rawValue
-                    let tool = orientation.orthogonalTag
+                    let tool = orientation.tool.rawValue
                     horos_orientationMatrix?.selectCell(withTag: Int(tool))
-                    if interval != 0 { horos_orientationMatrix?.isEnabled = true }
+                    if correction.spacing.interval != 0 { horos_orientationMatrix?.isEnabled = true }
                     horos_currentOrientationTool = tool
                 }
 
                 if horos_originalOrientation == -1, let orientation = SliceStackOrientation(rawValue: horos_orientationVector) {
-                    horos_originalOrientation = orientation.orthogonalTag
+                    horos_originalOrientation = orientation.tool.rawValue
                 }
 
                 // Slices without a position: stacked along z by their spacing.
-                let first = pixList[0]
-                if interval == 0 && first.originX == 0 && first.originY == 0 && first.originZ == 0 {
-                    interval = first.spacingBetweenSlices
-                    if interval != 0 {
-                        interval3D = -interval
-                        horos_orientationVector = SliceStackOrientation.axialNegative.rawValue
-                        horos_orientationMatrix?.isEnabled = true
+                if correction.stacksWithoutPosition {
+                    horos_orientationVector = SliceStackOrientation.axialNegative.rawValue
+                    horos_orientationMatrix?.isEnabled = true
 
-                        var vectors: [Float] = [1, 0, 0, 0, 1, 0, 1, 0, 1]
-                        var position: [Float] = [0, 0, 0]
-                        for pix in pixList {
-                            pix.setOrientation(&vectors)
-                            pix.setOrigin(&position)
-                            position[2] = Float(Double(position[2]) + interval)
-                        }
+                    var vectors = SliceIntervalCorrection.orientationWithoutPosition
+                    let origins = SliceIntervalCorrection.originsWithoutPosition(count: pixList.count, interval: correction.interval)
+                    for (pix, stacked) in zip(pixList, origins) {
+                        var position = stacked
+                        pix.setOrientation(&vectors)
+                        pix.setOrigin(&position)
                     }
                 }
 
-                if interval < 0 && flipNow {
+                if correction.reversesStack {
                     // Flip the data for 3D texture mapping.
                     if pixList.allSatisfy({ $0.pheight == first.pheight && $0.pwidth == first.pwidth }) {
-                        interval = SliceStackSpacing.reversedSliceInterval(interval: interval, interval3D: interval3D)
-                        reverseSeries(sliceInterval: interval)
+                        reverseSeries(sliceInterval: correction.reversedSliceInterval)
 
                         horos_subCtrlMaskID = pixList.count - horos_subCtrlMaskID - 1
 
@@ -217,10 +204,9 @@ public extension ViewerController {
                         NSLog("sameSize = NO")
                     }
                 } else {
-                    interval = SliceStackSpacing.sliceInterval(interval: interval, interval3D: interval3D)
-
+                    let sliceInterval = correction.sliceInterval
                     for x in 0..<horos_movieCount {
-                        for pix in horos_pixArray(x) { pix.sliceInterval = interval }
+                        for pix in horos_pixArray(x) { pix.sliceInterval = sliceInterval }
                     }
                 }
 
@@ -234,7 +220,8 @@ public extension ViewerController {
     }
 
     /// Reverses every movie frame: its volume buffer, the order of its slices,
-    /// files and ROIs, and gives the slices `sliceInterval`.
+    /// files and ROIs (the lists the viewer's ROI storage keeps, by slice),
+    /// and gives the slices `sliceInterval`.
     private func reverseSeries(sliceInterval interval: Double) {
         for x in 0..<horos_movieCount {
             guard let pixList = horos_pixList(at: x), let first = pixList.firstObject as? DCMPix, let volume = first.fImage else { continue }
@@ -381,22 +368,17 @@ public extension ViewerController {
     @objc(endThicknessInterval:)
     func endThicknessInterval(_ sender: Any!) {
         let tag = ViewerSender.tag(sender)
-        var interval: Float = 0, xSpacing: Float = 0, ySpacing: Float = 0
-        var v = [Float](repeating: 0, count: 9), o = [Float](repeating: 0, count: 3)
+        var typed: SliceIntervalCorrection.Sheet?
         if tag != 0 {
             let locale = Locale.current
-            func parse(_ text: String?, _ value: inout Float) -> Bool {
-                guard let parsed = text.flatMap({ CalibrationNumber.parse($0, locale: locale) }) else { return false }
-                value = parsed
-                return true
-            }
-            var valid = parse(horos_customInterval?.stringValue, &interval) && parse(horos_customXSpacing?.stringValue, &xSpacing) &&
-                parse(horos_customYSpacing?.stringValue, &ySpacing) &&
-                xSpacing > 0 && ySpacing > 0 &&
-                (interval != 0 || (horos_pixList(at: Int(horos_curMovieIndex))?.count ?? 0) <= 1)
-            for i in 0..<6 { valid = parse(horos_customVectors?.cell(withTag: i)?.stringValue, &v[i]) && valid }
-            for i in 0..<3 { valid = parse(horos_customOrigin?.cell(withTag: i)?.stringValue, &o[i]) && valid }
-            if !valid {
+            func value(_ text: String?) -> Float? { text.flatMap { CalibrationNumber.parse($0, locale: locale) } }
+            typed = SliceIntervalCorrection.Sheet(interval: value(horos_customInterval?.stringValue),
+                                                  spacingX: value(horos_customXSpacing?.stringValue),
+                                                  spacingY: value(horos_customYSpacing?.stringValue),
+                                                  vectors: (0..<6).map { value(horos_customVectors?.cell(withTag: $0)?.stringValue) },
+                                                  origin: (0..<3).map { value(horos_customOrigin?.cell(withTag: $0)?.stringValue) },
+                                                  sliceCount: horos_pixList(at: Int(horos_curMovieIndex))?.count ?? 0)
+            if typed == nil {
                 HorosAlertPanel.runCritical(title: NSLocalizedString("Error", comment: ""),
                                             message: NSLocalizedString("Enter finite numeric values. Pixel spacing must be positive, and the slice interval must be nonzero for a series with multiple images.", comment: ""),
                                             defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
@@ -409,23 +391,18 @@ public extension ViewerController {
         let intervalParent = sheet?.sheetParent
         sheet?.orderOut(sender)
 
-        if tag != 0 {
-            let normal = SliceStack.normal(v)
-            v[6] = normal[0]; v[7] = normal[1]; v[8] = normal[2]
-            let axis = SliceStack.dominantAxis(v[6], v[7], v[8]) ?? 2
-
-            for i in 0..<horos_movieCount {
-                for pix in horos_pixArray(i) {
-                    pix.sliceInterval = 0
-                    pix.pixelSpacingX = Double(xSpacing)
-                    pix.pixelSpacingY = Double(ySpacing)
-                    if xSpacing != 0 && ySpacing != 0 { pix.pixelRatio = Double(ySpacing / xSpacing) }
-                    pix.setOrientation(&v)
-                    pix.setOrigin(&o)
-                    pix.computeSliceLocation()
-
-                    o[axis] += interval
-                }
+        if let typed {
+            let stacks = (0..<horos_movieCount).map { horos_pixArray($0) }
+            var v = typed.orientation
+            for (pix, typedOrigin) in zip(stacks.joined(), typed.origins(sliceCounts: stacks.map(\.count)).joined()) {
+                var o = typedOrigin
+                pix.sliceInterval = 0
+                pix.pixelSpacingX = Double(typed.spacingX)
+                pix.pixelSpacingY = Double(typed.spacingY)
+                pix.pixelRatio = typed.pixelRatio
+                pix.setOrientation(&v)
+                pix.setOrigin(&o)
+                pix.computeSliceLocation()
             }
 
             if let imageView = horos_imageView { imageView.setIndex(imageView.curImage) }

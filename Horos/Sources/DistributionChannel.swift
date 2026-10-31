@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 
 @objc(IsisDistributionChannel)
 public final class DistributionChannel: NSObject {
@@ -25,13 +26,14 @@ public final class DistributionChannel: NSObject {
     @objc public static var supportsExternalPlugins: Bool { !isAppStore }
     @objc public static var supportsGitHubUpdates: Bool { !isAppStore }
 
-    static func configurePreferences() {
-        let defaults = UserDefaults.standard
-        defaults.set(isAppStore, forKey: "MACAPPSTORE")
+    /// Writes in `preferences` the distribution the application was built
+    /// for, and turns off what the App Store build does not offer.
+    static func configurePreferences(in preferences: any PreferenceStore = PreferencesSource.process.preferences) {
+        preferences.set(isAppStore, for: ApplicationPreferences.macAppStore)
         #if MACAPPSTORE
-        defaults.set(false, forKey: "AUTHENTICATION")
-        defaults.set(false, forKey: "CheckHorosUpdates")
-        defaults.set(false, forKey: "checkForUpdatesPlugins")
+        preferences.set(false, for: ApplicationPreferences.authentication)
+        preferences.set(false, for: ApplicationPreferences.checkHorosUpdates)
+        preferences.set(false, for: ApplicationPreferences.checkForUpdatesPlugins)
         #endif
     }
 

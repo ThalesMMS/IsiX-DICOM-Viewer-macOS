@@ -73,12 +73,19 @@ final class Application { var currentEvent: Event? = nil }
 enum NSApplication { static let shared = Application() }
 final class Browser { var window: AnyObject? = nil; func matrixDoublePressed(_ sender: Any?) {} }
 enum BrowserController { static func currentBrowser() -> Browser? { nil } }
+// The browser through the process's graph, as the view reaches it.
+struct HarnessProcessGraph { var currentBrowser: Browser? { nil } }
+struct HarnessPreferencesSource { let processGraph = HarnessProcessGraph() }
+enum PreferencesSource { static let process = HarnessPreferencesSource() }
 
 /// An Objective-C exception, as HorosObjCPerformFunction catches it.
 struct Raised: Error {}
 func inputCatch(_ body: () throws -> Void) -> NSException? {
     do { try body() } catch { return NSException(name: .genericException, reason: "raised", userInfo: nil) }
     return nil
+}
+enum HorosObjCException {
+    static func caughtWithoutAllocation(_ body: () throws -> Void) -> NSException? { inputCatch(body) }
 }
 func inputLogException(_ exception: NSException?, _ function: String) {}
 

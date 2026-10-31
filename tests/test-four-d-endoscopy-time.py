@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Endoscopy opens the aligned 4D time, not pixList[0]."""
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -61,8 +62,11 @@ with tempfile.TemporaryDirectory(prefix='horos-endo-time-') as tmp:
     ], check=True)
     subprocess.run([str(p / 'test')], check=True)
 
-viewer = (root / 'Horos/Sources/ViewerController+ThreeDViewers.swift').read_text()
-open_endo = body(viewer, 'func openEndoscopyViewer() -> EndoscopyViewer!')
+# The 3D viewers are opened by ThreeDViewerLauncher (the viewer's selectors
+# are its façade); the checks each door runs are IsiXImaging's VolumeEligibility.
+viewer = (root / 'Horos/Sources/ThreeDViewerLauncher.swift').read_text()
+eligibility = (root / 'Modules/IsiXImaging/Sources/ViewerReconstruction/VolumeEligibility.swift').read_text()
+open_endo = body(viewer, 'func endoscopyWindow() -> EndoscopyViewer?')
 check(open_endo, 'openEndoscopyViewer is missing')
 check('FourDSeriesGuard.alignedTimeIndex(requested:' in open_endo or 'FourDSeriesGuard.wrappedIndex(' in open_endo,
       'openEndoscopyViewer must wrap the host 4D time')
@@ -71,16 +75,19 @@ check('EndoscopyViewer(pixList: horos_pixList(at: 0)' not in open_endo,
 check('horos_pixList(at: time)' in open_endo and 'horos_fileList(at: time)' in open_endo
       and 'horos_volumeData(at: time)' in open_endo and 'EndoscopyViewer(pixList: pix, files, volume,' in open_endo,
       'pixList, fileList and volumeData must share the wrapped time')
-check('FindViewer("Endoscopy", horos_pixList(at: 0))' in open_endo,
+check('findViewer(nibName: "Endoscopy", pixList: viewer.horos_pixList(at: 0))' in open_endo,
       'FindViewer may still identify the series by pixList[0]')
 
-endo_action = body(viewer, 'func endoscopyViewer(_ sender: Any!)')
-check('refuseFourDReconstruction(withTitle:' in endo_action,
+endo_action = body(viewer, 'func openEndoscopy(_ sender: Any?)')
+rendering_checks = re.search(r'case \.volumeRenderingPanel, \.volumeRendering, \.surfaceRendering, \.endoscopy:\s*return (\[[^\]]*\])',
+                             eligibility)
+check('passesChecks(.endoscopy, sender: sender)' in endo_action and rendering_checks is not None
+      and '.fourDFrames' in rendering_checks.group(1),
       'endoscopyViewer must keep the 4D geometry refusal')
-check('Endoscopy' in endo_action,
+check(re.search(r'case \.endoscopy: return NSLocalizedString\("Endoscopy"', viewer),
       'endoscopyViewer must keep the Endoscopy refusal title')
 
-open_sr = body(viewer, 'func openSRViewer() -> SRController!')
+open_sr = body(viewer, 'func surfaceRenderingWindow() -> SRController?')
 check('horos_pixList(at: time)' in open_sr and 'horos_fileList(at: time)' in open_sr
       and 'horos_volumeData(at: time)' in open_sr,
       'openSRViewer aligned time must stay')

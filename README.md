@@ -1,11 +1,11 @@
 # IsiX DICOM Viewer
 
-[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.3.7/IsiX-DICOM-Viewer-5.3.7-Apple-Silicon-Macs.zip)
-[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.3.7/IsiX-DICOM-Viewer-5.3.7-Intel-Macs.zip)
+[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.4.0/IsiX-DICOM-Viewer-5.4.0-Apple-Silicon-Macs.zip)
+[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.4.0/IsiX-DICOM-Viewer-5.4.0-Intel-Macs.zip)
 
-**6.0.0-beta1 prerelease:** [Apple Silicon](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0-beta1/IsiX-DICOM-Viewer-6.0.0-beta1-Apple-Silicon-Macs.zip) · [Intel](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0-beta1/IsiX-DICOM-Viewer-6.0.0-beta1-Intel-Macs.zip) · [IsiXPluginKit SDK](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0-beta1/IsiXPluginKit-SDK-6.0.0-beta1.zip).
-This beta uses plugin API version 1 and requires plugins built for IsiXPluginKit.
-The download buttons above point to the stable v5.3.7 release.
+**6.0.0-beta2 prerelease:** [Apple Silicon](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0-beta2/IsiX-DICOM-Viewer-6.0.0-beta2-Apple-Silicon-Macs.zip) · [Intel](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0-beta2/IsiX-DICOM-Viewer-6.0.0-beta2-Intel-Macs.zip) · [IsiXPluginKit SDK](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0-beta2/IsiXPluginKit-SDK-6.0.0-beta2.zip).
+This beta supports IsiXPluginKit v1 and compatible Horos and OsiriX plugins built for the running architecture.
+The download buttons above point to the stable v5.4.0 release.
 
 Browse the [latest release](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest)
 or the [complete release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases).
@@ -91,23 +91,16 @@ except when the start would upgrade the database to a newer format.
 
 ## Plugins
 
-Version 6.0 changes the plugin API. IsiX DICOM Viewer loads only plugins built
-for its plugin API version 1: `.isixplugin` bundles, written in Swift against
-`IsiXPluginKit.framework`, which is the application's only public plugin
-interface. Plugins made for Horos or OsiriX (`.horosplugin`, `.osirixplugin`)
-compiled against the application's own classes and headers, published as
-`Horos.framework` and its aliases `HorosAPI`, `OsiriXAPI`, `OsiriX Headers`
-and `HorosDCM`; they no longer load, and those frameworks are no longer in the
-application. There is no automatic conversion: a former plugin has to be
-rewritten against IsiXPluginKit, and renaming one to `.isixplugin` does not make
-it one.
-
-A former plugin found in the plugins folders is listed in **Plugins > Plugins
-Manager** as incompatible, with the reason, and is left as it is: it is not
-loaded, moved, changed or deleted, and neither is anything in the folders of a
-Horos installation. Installing one, opening one in the Finder, passing one with
-`--LoadPlugin`, or downloading one as an update is refused with the same
-reason.
+IsiX DICOM Viewer loads three plugin formats. `.isixplugin` bundles are built
+for its plugin API version 1, written in Swift against `IsiXPluginKit.framework`,
+the public plugin interface for new plugins. Plugins made for Horos or OsiriX
+(`.horosplugin`, `.osirixplugin`) load as they are, without being rebuilt or
+changed; the application still provides `Horos.framework` and its aliases
+`HorosAPI`, `OsiriXAPI`, `OsiriX Headers` and `HorosDCM`, which they link. A
+plugin built for another architecture, or renamed to another format's
+extension, is listed in **Plugins > Plugins Manager** with the reason and not
+loaded. Plugins in the folders of a Horos installation are listed and left as
+they are.
 
 Plugins are installed in `~/Library/Application Support/IsiX/Plugins`, or in
 `/Library/Application Support/IsiX/Plugins` for every user of the Mac. The
@@ -298,15 +291,19 @@ DCMTK snapshot, Jasper sources, unused parser and codec implementations, and
 unused build targets have been removed.
 
 Current dependency work includes a pinned DCMTK 3.7.0+ development revision,
-OpenSSL 3.5.9, corrected OpenJPEG 2.5.0 builds, and updated NIfTI-1 I/O 2.1.0
-and znzlib 3.0.0 components. The public DICOM-Swift package provides DICOMweb
+OpenSSL 3.5.9, OpenJPEG 2.5.4, and updated NIfTI-1 I/O 2.1.0 and znzlib 3.0.0
+components. The public DICOM-Swift package provides DICOMweb
 multipart and transfer support through its DicomWebClient and DicomData products. ITK and VTK remain part of the imaging
 stack, with build adjustments for the current Apple toolchain. CharLS is used
 through DCMTK rather than a separate build target.
 
-Dependency revisions are recorded by Git and the build scripts. Vendored
-components retain their provenance and license notices. Release assets record
-the exact dependency revisions and any packaging patches.
+Dependency revisions are declared authoritatively in three files: the native
+sources in `Horos/Scripts/external-sources.json`, the prebuilt libraries in
+`Horos/Scripts/external-inputs.lock`, and the Swift packages in the project's
+`Package.resolved`. NIfTI's file-selection manifest repeats its pin, kept equal
+by a test. Vendored components retain their provenance and license
+notices. Release assets record the exact dependency revisions and any packaging
+patches.
 
 ## Build from source
 
@@ -332,6 +329,18 @@ build directory. It never uses the libraries of the Homebrew installed on the
 Mac, and it stops the build if a file differs from the declaration. After that
 first download the build works offline.
 
+The native libraries compiled by the build (DCMTK, OpenSSL, OpenJPEG, ITK, VTK,
+and the NIfTI-1 I/O files) come from original upstream archives declared in
+`Horos/Scripts/external-sources.json`: the official URL, the upstream commit,
+the archive's SHA-256, its layout, version and license digest. Each recipe has
+`Horos/Scripts/external-inputs.sh --source` download the archive into a cache,
+check its SHA-256, and extract it into a temporary directory of the target that
+compiles it, apart from the Debug and Release build outputs.
+Later builds verify the extracted tree before reusing it and recover it from the
+cached archive if a file was changed or removed. No source patch is applied.
+Swift packages are resolved by Xcode from `Package.resolved` (see below), and
+system libraries and frameworks come from the macOS SDK.
+
 OpenJPEG 2.5.4 is acquired from its official upstream commit archive, declared
 with its commit, SHA-256, layout and license in
 `Horos/Scripts/external-sources.json`. It is extracted into the OpenJPEG target's
@@ -341,8 +350,8 @@ including the legacy `include/OpenJPEG` alias used by Horos and Decompress.
 
 For offline builds, supply the exact declared archive in the directory selected
 by `EXTERNAL_SOURCES_DOWNLOADS` (an absolute path), or in Xcode's
-`$PROJECT_TEMP_DIR/ExternalSources.downloads` cache, and supply the bottles and
-initialized submodules as above. Set `EXTERNAL_INPUTS_OFFLINE=1` to make a missing
+`$PROJECT_TEMP_DIR/ExternalSources.downloads` cache, and supply the bottles as
+above. Set `EXTERNAL_INPUTS_OFFLINE=1` to make a missing
 or corrupt source archive fail immediately with its required filename and digest.
 `EXTERNAL_SOURCES_MIRROR` can name an HTTPS or `file://` directory containing the
 declared archive filenames; mirrors pass the same digest, layout and version
@@ -375,6 +384,16 @@ configuration and compiled with no source patch; diagnostics of its own code
 are those of the upstream release. The consumed source record, license and
 NOTICE accompany the app in `Contents/Resources/CompiledSources/ITK`.
 
+DCMTK is compiled from the archive of its pinned development commit
+`414cbd77b01d6f0138ea58a7eca34b2c19157c78` (version 3.7.0+), with no source
+patch; the JPEG-LS symbol localization happens on the installed libraries. The
+consumed source record, the DCMTK copyright and the CharLS and IJG notices
+accompany the app in `Contents/Resources/CompiledSources/DCMTK`. OpenSSL 3.5.9 is
+compiled from the official signed release asset `openssl-3.5.9.tar.gz`, whose
+release commit the declaration records; its source record and license accompany
+the app in `Contents/Resources/CompiledSources/OpenSSL`. A new OpenSSL pin also
+reconfigures DCMTK, which links it.
+
 VTK's FreeType source is checked against its original release archive.
 Its installed static module retains the public `vtkfreetype_FT_MulFix` ABI through
 a Mach-O symbol alias to the original function; the raw name is made local so
@@ -390,27 +409,40 @@ so a built application no longer depends on its build directory or on
 Homebrew and can be moved. It is signed ad hoc, which is not a Developer ID
 signature: Gatekeeper on another Mac does not approve it.
 
-Clone the repository and its pinned submodules:
+Clone the repository; it has no submodules to initialize:
 
 ```sh
 git clone https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS.git
 cd IsiX-DICOM-Viewer-macOS
-git submodule update --init -- DCMTK OpenSSL/upstream
 ```
 
-For an existing checkout, initialize or update the submodules before building:
+DCMTK and OpenSSL used to be git submodules. A checkout made before they became
+pinned archives keeps the former `DCMTK` and `OpenSSL/upstream` worktrees after
+`git pull`, as untracked directories the build no longer reads; no script
+removes them. Check them for local work first: uncommitted changes, and, since
+a submodule sits on a detached commit, local commits and stashes that removing
+its repository would lose.
 
 ```sh
-git submodule sync -- DCMTK OpenSSL/upstream
-git submodule update --init -- DCMTK OpenSSL/upstream
+for tree in DCMTK OpenSSL/upstream; do
+    git -C "$tree" status --short
+    git -C "$tree" log --oneline HEAD --branches --not --remotes
+    git -C "$tree" stash list
+done
 ```
 
-The build initializes only these two production sources, without recursing
-into OpenSSL's optional test dependencies. Existing optional checkouts are
-left in place. OpenSSL reads its pinned source directly and writes generated
-files into each configuration's separate build directory. Its external
-cryptography tests are opt-in through `tools/test-openssl-cryptography.py`,
-which acquires its own pinned test inputs.
+Then remove them and their submodule metadata yourself:
+
+```sh
+modules="$(git rev-parse --git-common-dir)/modules"
+rm -rf DCMTK OpenSSL/upstream "$modules/DCMTK" "$modules/OpenSSL"
+git config --remove-section submodule.DCMTK
+git config --remove-section submodule.OpenSSL
+```
+
+OpenSSL writes generated files into each configuration's separate build
+directory. Its external cryptography tests are opt-in through
+`tools/test-openssl-cryptography.py`, which acquires its own pinned test inputs.
 
 The original acquired VTK release builds with the host recipe; the `VTK-no-OpenGL-export.patch` that
 the 29 September release needed for VTK 8.2 no longer applies.
@@ -439,7 +471,7 @@ xcodebuild -project Horos.xcodeproj -scheme Horos \
 
 `Horos.xcodeproj` requires the public
 [DICOM-Swift package](https://github.com/ThalesMMS/DICOM-Swift) at exact version
-`3.0.1` (revision `2cb82e44c1041a2c1e85319fb5661f442d0b1ee9`). The app
+`3.1.1` (revision `229714f81e3090a937a17c344ca804fa4473cbe7`). The app
 links `DicomWebClient`, `DicomWebOIDC` and their `DicomData` dependency. Optional codecs, server,
 UI and ZIP products are not linked. Resolver downloads of optional dependencies
 do not imply that their code is part of the app.
@@ -510,9 +542,8 @@ after export. See [distribution builds](Horos/Configuration/README.md) for
 signing and version settings. Upload and submission are separate steps.
 
 From a clean clone, that command alone produces the self-contained package: it
-builds the dependencies, downloads the pinned bottles once, and needs no file
-from an earlier build. On the Apple Silicon Mac where this was checked, a clean
-clone took about 11 minutes.
+builds the dependencies, downloads the pinned bottles and source archives once,
+and needs no file from an earlier build.
 
 That builds the arm64 package, in `build/Release/arm64/IsiX DICOM Viewer.app`.
 The x86_64 package for Intel Macs is built on the same Mac with
@@ -546,6 +577,15 @@ every file of the bundle:
 cd build/Release/arm64 && shasum -a 256 -c SHA256SUMS.txt
 python3 tools/audit-release-bundle.py "build/Release/arm64/IsiX DICOM Viewer.app" --strict --notices --expect-arch arm64
 ```
+
+The arm64 build also exports the plugin SDK a release publishes,
+`build/Release/IsiXPluginKit-SDK-<version>.zip`, with
+`tools/export-isix-plugin-kit.py --xcode Release --archs arm64,x86_64 --zip`:
+the framework for both architectures, `SDK.json`, the license files, the kit's
+README and `LegacyPorting/`, the porting kit for Horos and OsiriX plugins with
+its `PORTING.json`. `<version>` is the one `HUMAN_READABLE_VERSION` shows in
+`Horos/Horos.xcconfig`, or `HOROS_SDK_VERSION`. A replaced SDK is kept as
+`IsiXPluginKit-SDK-<version>.previous-<date>.zip`.
 
 To go back to the previous artifact, move the current three files aside and
 rename the `*.previous-<date>*` files of one date to `IsiX DICOM Viewer.app`,

@@ -41,46 +41,123 @@
 import AppKit
 import CoreData
 import IsiXDatabase
+import IsiXPreferences
 import IsiXStorage
+import Synchronization
 
 // DicomDatabase is implemented in Swift under the interface DicomDatabase.h
 // declares (@objc @implementation): this file holds its state, the registry of
 // the databases by path, the default and the active local database, the
 // initializer and the life cycle. Each category of the header is its own file:
 //
-//   DicomDatabase+Import.swift          -addFilesAtPaths: and -addFilesDescribedInDictionaries:
-//   DicomDatabase+IncomingImport.swift  the scan of the incoming folder and its timer
-//   DicomDatabase+Compression.swift     compression, decompression and their queue
-//   DicomDatabase+MediaCopy.swift       -copyFilesThread:, a folder or a medium copied in
-//   DicomDatabase+ImportCleanup.swift   what becomes of the files an import does not index
-//   DicomDatabase+ImportAlerts.swift    the refusals, the full volume and the notifications
+//   DicomFileIndexer.swift              -addFilesAtPaths: and -addFilesDescribedInDictionaries:, which
+//                                       forward to the indexer, DicomFileIndexer
+//   IncomingAdmission.swift             the selectors of the scan of the incoming folder and its timer
+//   DatabaseFileConversion.swift        the selectors of compression and decompression
+//   MediaImportJob.swift                -copyFilesThread:, a folder or a medium copied in
+//   ImportFeedback.swift                the refusals, the full volume and the notifications, which
+//                                       forward to ImportFeedback and its ImportFeedbackLog
 //
-// The pure rules of the import are in IsiXDatabase (DatabaseImportRules.swift).
+// What becomes of the files an import does not index is ImportDisposal. The
+// numbers of the data files are DataFileAllocator, in IsiXStorage. The pure
+// rules of the import are in IsiXDatabase (DatabaseImportRules.swift).
 // DicomDatabase+CAPI.m keeps what Swift cannot write: the exported constants,
 // -release, which takes the registry's lock, and the import's C helpers.
 //
 // The registry holds the databases without retaining them, as NSValues of their
 // pointers. A lookup retains a database under the registry's lock, and its last
-// -release (DicomDatabase+CAPI.m) holds the same lock, so deinit removes it
-// from the registry before any lookup can find it again. deinit leaves that
-// lock once the database is out of the registry, as the former -dealloc did.
+// -release (DicomDatabase+CAPI.m) holds the same lock, so a lookup can never
+// find a database being deallocated: the first deinit to run removes it from
+// the registry and leaves that lock before anything else (DicomDatabaseRegistry).
 //
-// An @try is HorosObjCException.perform (DicomDatabaseObjC.attempt), an
-// @synchronized is DicomDatabaseObjC.synchronized on the same object. The
+// An @try is HorosObjCException.caught, an
+// @synchronized is HorosObjCException.synchronized on the same object. The
 // methods run on any thread, as the Objective-C ones did.
 
 /// The databases by base path, and by pointer for a second database of the
 /// same path: NSValues of their pointers, not retained.
 nonisolated(unsafe) private let databasesDictionary = NSMutableDictionary()
+
+/// How a deallocated database leaves the registry. Its last -release holds the
+/// registry's lock, and every lookup, +allDatabases and every other release of
+/// a database wait for that lock. Swift runs the deinit of the most-derived
+/// class first, and RemoteDicomDatabase's waits for an update of the shared
+/// index in progress, which may need the main thread: each deinit therefore
+/// calls leave(_:) first, so the database is out of the registry and the lock
+/// left before any deinit waits for anything. The later calls do nothing.
+enum DicomDatabaseRegistry {
+    static func leave(_ database: DicomDatabase) {
+        guard !database.leftRegistry else { return }
+        database.leftRegistry = true
+        let me = Unmanaged.passUnretained(database).toOpaque()
+        var found = false
+        for case let (key, value as NSValue) in NSDictionary(dictionary: databasesDictionary) where value.pointerValue == me {
+            databasesDictionary.removeObject(forKey: key)
+            found = true
+        }
+        if !found {
+            // A database whose -initWithPath: threw - the usual cause is its volume
+            // going away under it - never reached the registry, so this is a real
+            // situation and not a mystery. Name it instead of logging a stack trace
+            // under "WTF", which said nothing about what had happened.
+            NSLog("---- database at %@ was released without ever being registered; it did not finish opening", database.storedBaseDirPath ?? "an unknown path")
+        }
+
+        #if DEBUG
+        if databasesDictionary.count > 50 {
+            NSLog("******** WARNING databasesDictionary.count is very high = %lu", UInt(databasesDictionary.count))
+        }
+        #endif
+
+        DicomDatabaseRegistryUnlockForDealloc()
+    }
+}
+
 /// +defaultDatabase, retained for the life of the application.
-nonisolated(unsafe) private var defaultDatabaseInstance: DicomDatabase? = nil
+private let defaultDatabaseInstance = DatabaseSlot()
 /// +activeLocalDatabase, retained.
-nonisolated(unsafe) private var activeLocalDatabaseInstance: DicomDatabase? = nil
-/// The location +baseDirPathForMode:path: said last, under @synchronized([DicomDatabase class]).
-nonisolated(unsafe) private var lastReportedLocation: String? = nil
+private let activeLocalDatabaseInstance = DatabaseSlot()
+/// The location +baseDirPathForMode:path: said last.
+private let lastReportedLocation = Mutex<String?>(nil)
 /// The observer of OsirixCanActivateDefaultDatabaseOnlyDefaultsKey that
 /// +initializeDicomDatabaseClass registers.
-nonisolated(unsafe) private var defaultDatabaseActivation: DicomDatabaseDefaultActivation? = nil
+private let defaultDatabaseActivation = Mutex<DicomDatabaseDefaultActivation?>(nil)
+
+/// A database kept for every thread, behind a lock that covers only the
+/// reference: the default and the active local database of the process, and
+/// the database a browser shows. Opening a database, posting a notification
+/// and the last release of the one replaced all happen outside it: each runs
+/// code that can come back here, or raise.
+final class DatabaseSlot: Sendable {
+    /// @unchecked Sendable: only the reference crosses threads here; what a
+    /// database holds stays on the queue of its context.
+    private struct Held: @unchecked Sendable {
+        let database: DicomDatabase?
+    }
+
+    private let held = Mutex(Held(database: nil))
+
+    var database: DicomDatabase? {
+        held.withLock { $0 }.database
+    }
+
+    /// What the slot held goes after the lock is left: the last release of a
+    /// database saves its context and posts.
+    func replace(with database: DicomDatabase?) {
+        withExtendedLifetime(exchange(with: database)) {}
+    }
+
+    /// Puts `database` in the slot and answers what it held, for the caller
+    /// to release outside the lock.
+    func exchange(with database: DicomDatabase?) -> DicomDatabase? {
+        let new = Held(database: database)
+        return held.withLock { current in
+            let replaced = current
+            current = new
+            return replaced
+        }.database
+    }
+}
 
 /// The three C paths the DICOM listener reads: a zeroed buffer of 4096 bytes
 /// for each, as the former instance variables were, for the life of the database.
@@ -130,20 +207,31 @@ extension DicomDatabaseObjC {
     }
 }
 
+/// The window shown on the main thread while the default database is erased at launch.
+@MainActor private func erasingDatabaseWindow() -> WaitRendering? {
+    let shown: WaitRendering? = WaitRendering(NSLocalizedString("Erase Entire Database...", comment: ""))
+    shown?.showWindow(DicomDatabase.self)
+    return shown
+}
+
 /// Activates the default database when the preferences allow only it: what
 /// the class itself observed, registered by +initializeDicomDatabaseClass.
 private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendable {
-    nonisolated(unsafe) static let context = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1)
+    /// The observation's own context: the observer's address, which no other
+    /// observation of the controller uses and which stays while it observes.
+    private var context: UnsafeMutableRawPointer {
+        Unmanaged.passUnretained(self).toOpaque()
+    }
 
     override init() {
         super.init()
         NSUserDefaultsController.shared.addObserver(self, forValuesKey: OsirixCanActivateDefaultDatabaseOnlyDefaultsKey,
-                                                    options: .initial, context: DicomDatabaseDefaultActivation.context)
+                                                    options: .initial, context: context)
     }
 
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?,
                                context: UnsafeMutableRawPointer?) {
-        guard context == DicomDatabaseDefaultActivation.context else { return }
+        guard context == self.context else { return }
         if keyPath == valuesKeyPath(OsirixCanActivateDefaultDatabaseOnlyDefaultsKey), UserDefaults.canActivateOnlyDefaultDatabase() {
             DicomDatabase.setActiveLocal(DicomDatabase.default())
         }
@@ -160,31 +248,29 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
     /// RemoteDicomDatabase overrides.
     final var assignedName: String?
     final var storedSourcePath: String?
-    /// The number of the next data file; a main database shares its own with its independent databases.
-    final var dataFileIndex: N2MutableUInteger?
+    /// The numbers of the data files; a main database shares its own with its independent databases.
+    final let dataFileAllocator: DataFileAllocator
     /// Held while files are compressed or decompressed; shared with the independent databases.
     final var processFilesLock: NSRecursiveLock?
     /// Held while the incoming folder is imported; shared with the independent databases.
     final var importFilesFromIncomingDirLock: NSRecursiveLock?
-    /// The files waiting for compression and for decompression, under their own
+    /// What a diagnostic probe leaves for ConversionQueue, under their own
     /// @synchronized; shared with the independent databases.
     final var horos_compressQueue: NSMutableArray?
     final var horos_decompressQueue: NSMutableArray?
-    /// The thread that empties the two queues, not retained (an assign property):
-    /// it clears this itself before it ends.
-    final unowned(unsafe) var horos_compressDecompressThread: Thread?
     final var timeOfLastFreeSizeVerification: TimeInterval = 0
     final var freeSizeLimitReached = false
-    /// Main-thread state of the main database: whether the full volume was said.
-    final var incomingImportSpaceWarningShown = false
-    /// What the last import refused, under @synchronized(self).
-    final var storedImportRefusalSummary: String?
-    // DicomDatabase+Routing.swift and DicomDatabase+Clean.swift: the main
-    // database shares them with its independent databases.
-    final var routingSendQueues: NSMutableArray?
-    final var routingLock: NSRecursiveLock?
+    /// What the imports refused and whether the full volume was said; the
+    /// main database shares it with its independent databases.
+    final let importFeedbackLog: ImportFeedbackLog
+    // DicomDatabase+Clean.swift: the main database shares it with its
+    // independent databases.
     final var cleanLock: NSRecursiveLock?
     final let listenerPaths = DicomDatabaseListenerPaths()
+    /// One import writes at a time; the main database shares it with its independent databases.
+    final let databaseWriterGate: DatabaseWriterGate
+    /// Set by the first deinit to run, once the database is out of the registry.
+    final var leftRegistry = false
 
     var timeOfLastModification: TimeInterval = 0
     var isReadOnly: Bool = false
@@ -211,7 +297,10 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
     // MARK: - Class
 
     class func initializeDicomDatabaseClass() {
-        defaultDatabaseActivation = DicomDatabaseDefaultActivation()
+        // Made outside the lock: it observes with .initial, so making it can
+        // open the default database and activate it.
+        let activation = DicomDatabaseDefaultActivation()
+        defaultDatabaseActivation.withLock { $0 = activation }
     }
 
     class func baseDirPath(forPath path: String!) -> String! {
@@ -254,24 +343,26 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
         let existing = DatabaseLocation.pathHoldsExistingDatabase(path)
         FileManager.default.confirmDirectory(atPath: path)
         // This is asked repeatedly for the same location; say it when it changes.
-        DicomDatabaseObjC.synchronized(DicomDatabase.self as AnyObject) {
-            if !DicomDatabaseObjC.isEqual(lastReportedLocation, path) {
-                lastReportedLocation = path
-                NSLog("---- database location: %@ (%@)", path, existing ? "opening the database already there" : "no index there yet; a new database will be created")
-            }
+        let changed = lastReportedLocation.withLock { reported in
+            if DicomDatabaseObjC.isEqual(reported, path) { return false }
+            reported = path
+            return true
+        }
+        if changed {
+            NSLog("---- database location: %@ (%@)", path, existing ? "opening the database already there" : "no index there yet; a new database will be created")
         }
         return path
     }
 
     class func defaultBaseDirPath() -> String! {
         var path: String? = nil
-        if let exception = DicomDatabaseObjC.attempt({
-            let defaults = UserDefaults.standard
-            path = self.baseDirPath(forMode: Int32(truncatingIfNeeded: defaults.integer(forKey: "DATABASELOCATION")), path: defaults.string(forKey: "DATABASELOCATIONURL"))
+        if let exception = HorosObjCException.caught({
+            let defaults = PreferencesSource.process.preferences
+            path = self.baseDirPath(forMode: Int32(truncatingIfNeeded: defaults[DatabasePreferences.location].mode), path: defaults[DatabasePreferences.location].folder)
             if path == nil || !FileManager.default.fileExists(atPath: path!) { // STILL NOT AVAILABLE?? Use the default folder.. and reset this strange URL..
-                defaults.set(0, forKey: "DATABASELOCATION")
-                defaults.set(0, forKey: "DEFAULT_DATABASELOCATION")
-                path = self.baseDirPath(forMode: Int32(truncatingIfNeeded: defaults.integer(forKey: "DATABASELOCATION")), path: defaults.string(forKey: "DATABASELOCATIONURL"))
+                defaults.set(0, for: DatabasePreferences.databaseLocation)
+                defaults.set(0, for: DatabasePreferences.defaultDatabaseLocation)
+                path = self.baseDirPath(forMode: Int32(truncatingIfNeeded: defaults[DatabasePreferences.location].mode), path: defaults[DatabasePreferences.location].folder)
             }
         }) {
             DicomDatabaseObjC.log(exception, stack: true, "+[DicomDatabase defaultBaseDirPath]")
@@ -285,20 +376,19 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
     class func `default`() -> DicomDatabase! {
         // Nib loading can request the database before first-use setup is complete.
         if DatabaseFirstUse.hasPendingChoice { return nil }
-        DicomDatabaseObjC.synchronized(self as AnyObject) {
-            if defaultDatabaseInstance == nil {
-                let defaults = UserDefaults.standard
+        // One opening at a time: this lock is held while the database opens, which
+        // can ask for the default database again on this thread. The slot's is not.
+        HorosObjCException.synchronized(self as AnyObject) {
+            if defaultDatabaseInstance.database == nil {
+                let defaults = PreferencesSource.process.preferences
                 // Shown only on the main thread, where it was made.
-                nonisolated(unsafe) var wait: WaitRendering? = nil
+                var wait: WaitRendering? = nil
 
-                if defaults.bool(forKey: "eraseEntireDBAtStartup") {
+                if defaults[DatabasePreferences.erasesEntireDatabaseAtStartup] {
                     let databaseDir = (DicomDatabaseObjC.appending(self.defaultBaseDirPath(), "DATABASE.noindex") as NSString?)?.resolvingSymlinksAndAliases()
 
                     if Thread.isMainThread {
-                        MainActor.assumeIsolated {
-                            wait = WaitRendering(NSLocalizedString("Erase Entire Database...", comment: ""))
-                            wait?.showWindow(self)
-                        }
+                        wait = MainActor.assumeIsolated { erasingDatabaseWindow() }
                     }
 
                     if let databaseDir {
@@ -309,9 +399,9 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
 
                 var dbName: String? = nil
 
-                for case let d as NSDictionary in (defaults.object(forKey: "localDatabasePaths") as? NSArray) ?? [] {
-                    if DicomDatabaseObjC.isEqual(d.value(forKey: "Path") as? String, (self.defaultBaseDirPath() as NSString?)?.deletingLastPathComponent) {
-                        dbName = d.value(forKey: "Description") as? String
+                for source in defaults[DatabasePreferences.localDatabaseSources]?.sources ?? [] {
+                    if DicomDatabaseObjC.isEqual(source.path, (self.defaultBaseDirPath() as NSString?)?.deletingLastPathComponent) {
+                        dbName = source.name
                     }
                 }
 
@@ -320,9 +410,10 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
                         .appending(NSLocalizedString(" DB", comment: "DB = DataBase"))
                 }
 
-                defaultDatabaseInstance = DicomDatabase(atPath: self.defaultBaseDirPath(), name: dbName)
+                let opened: DicomDatabase? = DicomDatabase(atPath: self.defaultBaseDirPath(), name: dbName)
+                defaultDatabaseInstance.replace(with: opened)
 
-                if defaults.bool(forKey: "eraseEntireDBAtStartup"), let database = defaultDatabaseInstance {
+                if defaults[DatabasePreferences.erasesEntireDatabaseAtStartup], let database = opened {
                     let studies = database.objects(forEntity: database.studyEntity()) as NSArray?
 
                     for case let study as DicomStudy in studies ?? [] {
@@ -338,7 +429,7 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
             }
         }
 
-        return defaultDatabaseInstance
+        return defaultDatabaseInstance.database
     }
 
     class func allDatabases() -> [Any]! {
@@ -397,14 +488,14 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
 
     @objc(activeLocalDatabase)
     class func activeLocal() -> DicomDatabase! {
-        return activeLocalDatabaseInstance ?? self.default()
+        return activeLocalDatabaseInstance.database ?? self.default()
     }
 
     @objc(setActiveLocalDatabase:)
     class func setActiveLocal(_ ldb: DicomDatabase!) {
         guard let ldb, ldb.isLocal() else { return }
         if ldb !== self.activeLocal() {
-            activeLocalDatabaseInstance = ldb
+            activeLocalDatabaseInstance.replace(with: ldb)
             NotificationCenter.default.post(name: .OsirixActiveLocalDatabaseDidChange, object: nil)
         }
     }
@@ -434,7 +525,7 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
         var dataBasePath: String? = nil
         var isNewDb = false
 
-        if let exception = DicomDatabaseObjC.attempt({
+        if let exception = HorosObjCException.caught({
             basePath = (DicomDatabase.baseDirPath(forPath: p) as NSString?)?.resolvingSymlinksAndAliases()
 
             if main == nil {
@@ -460,10 +551,13 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
 
         storedBaseDirPath = basePath
         storedDataBaseDirPath = dataBasePath
+        databaseWriterGate = (main as? DicomDatabase)?.databaseWriterGate ?? DatabaseWriterGate()
+        dataFileAllocator = (main as? DicomDatabase)?.dataFileAllocator ?? DataFileAllocator()
+        importFeedbackLog = (main as? DicomDatabase)?.importFeedbackLog ?? ImportFeedbackLog()
 
         super.init(path: sqlFilePath, context: c, mainDatabase: main)
 
-        if let exception = DicomDatabaseObjC.attempt({
+        if let exception = HorosObjCException.caught({
             self.finishOpening(basePath: basePath, isNewFile: isNewFile, isNewDb: isNewDb, mainDbReference: main)
         }) {
             DicomDatabase.reportOpeningFailure(exception)
@@ -493,7 +587,6 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
         if self.isMainDatabase() { // is main (not independent)
             if let loading = self.loadingFilePath() { try? FileManager.default.removeItem(atPath: loading) }
 
-            dataFileIndex = N2MutableUInteger(uInteger: 0)
             processFilesLock = NSRecursiveLock()
             importFilesFromIncomingDirLock = NSRecursiveLock()
 
@@ -537,16 +630,16 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
             #endif
             #endif
 
-            self.checkForHtmlTemplates()
+            DatabaseTemplateInstaller(database: self).install()
 
             let tmpDirPath = FileManager.default.tmpDirPath()
             if isNewFile && Thread.isMainThread && !(p?.hasPrefix("/tmp/") ?? false) && !(p?.hasPrefix(tmpDirPath) ?? false) && !isNewDb {
                 // This thread is the main thread (checked above), which the
                 // modal window controller watches while the rebuild runs on it.
-                nonisolated(unsafe) let thread = Thread.current
+                let thread = Thread.current
                 thread.enterOperation()
                 thread.name = NSLocalizedString("Rebuilding default IsiX DICOM Viewer database...", comment: "")
-                let tmfwc = MainActor.assumeIsolated { ThreadModalForWindowController(thread: thread, window: nil) }
+                let tmfwc = MainActor.assumeIsolated { ThreadModalForWindowController(thread: Thread.main, window: nil) }
                 self.rebuild(true)
                 tmfwc.invalidate()
                 thread.exitOperation()
@@ -559,17 +652,16 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
                     self.addDefaultAlbums()
                 }
                 self.modifyDefaultAlbums()
-                DicomDatabase.repairEmptySeriesIdentifiers(in: self.managedObjectContext)
-                DicomDatabase.repairFabricatedPatientIdentifiers(in: self.managedObjectContext)
+                DatabaseStartupRepairs.repairEmptySeriesIdentifiers(in: self.managedObjectContext)
+                DatabaseStartupRepairs.repairFabricatedPatientIdentifiers(in: self.managedObjectContext)
             }
 
             // In the background: it reads files, and only once per database.
-            self.repairDatesLostToFractionalTimesUnlessDone()
+            DatabaseStartupRepairs(database: self).repairDatesLostToFractionalTimesUnlessDone()
 
             DicomDatabase.syncImportFilesFromIncomingDirTimerWithUserDefaults()
         } else { // is independentDatabase
             let main = self.mainDatabase as? DicomDatabase
-            dataFileIndex = main?.dataFileIndex
             processFilesLock = main?.processFilesLock
             importFilesFromIncomingDirLock = main?.importFilesFromIncomingDirLock
             hasPotentiallySlowDataAccess = main?.hasPotentiallySlowDataAccess ?? false
@@ -594,31 +686,9 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
         self.initClean()
     }
 
-    // The registry's lock is held: -release (DicomDatabase+CAPI.m) took it.
     deinit {
-        storedImportRefusalSummary = nil
-
-        let me = Unmanaged.passUnretained(self).toOpaque()
-        var found = false
-        for case let (key, value as NSValue) in NSDictionary(dictionary: databasesDictionary) where value.pointerValue == me {
-            databasesDictionary.removeObject(forKey: key)
-            found = true
-        }
-        if !found {
-            // A database whose -initWithPath: threw - the usual cause is its volume
-            // going away under it - never reached the registry, so this is a real
-            // situation and not a mystery. Name it instead of logging a stack trace
-            // under "WTF", which said nothing about what had happened.
-            NSLog("---- database at %@ was released without ever being registered; it did not finish opening", storedBaseDirPath ?? "an unknown path")
-        }
-
-        #if DEBUG
-        if databasesDictionary.count > 50 {
-            NSLog("******** WARNING databasesDictionary.count is very high = %lu", UInt(databasesDictionary.count))
-        }
-        #endif
-
-        DicomDatabaseRegistryUnlockForDealloc()
+        // Unless a subclass's deinit, which runs first, left the registry already.
+        DicomDatabaseRegistry.leave(self)
 
         self.deallocClean()
         self.deallocRouting()

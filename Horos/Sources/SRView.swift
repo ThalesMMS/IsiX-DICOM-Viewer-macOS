@@ -50,8 +50,16 @@ import IsiXVolumeRendering
 /// the camera and orientation (SRView+Camera.swift), the mouse, keys and
 /// cursors (SRView+Mouse.swift), the 3D points (SRView+Points.swift) and the
 /// exports and drags (SRView+Export.swift).
-@objc(SRView)
+/// @usableFromInline because plugins built against the former SDK look up its
+/// Objective-C class: without it, the class symbol of an internal Swift class is
+/// private external, which a Release build, having no testability, leaves
+/// unexported. The attribute gives it public linkage and changes nothing else.
+@objc(SRView) @usableFromInline
 final class SRView: HorosSceneView {
+    /// The process's dependencies, made with the view: it reads its
+    /// preferences from their store.
+    let processGraph = PreferencesSource.process.processGraph
+
     // MARK: Outlets of SR.xib
 
     @IBOutlet var export3DWindow: NSWindow?
@@ -363,7 +371,7 @@ final class SRView: HorosSceneView {
         saView(self)
         needsDisplay = true
 
-        if (UserDefaults.standard.persistentDomain(forName: "com.apple.CoreGraphics")?["DisplayUseInvertedPolarity"] as AnyObject?)?.boolValue == true {
+        if (processGraph.preferences.persistentDomain(forName: "com.apple.CoreGraphics")?["DisplayUseInvertedPolarity"] as AnyObject?)?.boolValue == true {
             scene.setBackground(red: 1, green: 1, blue: 1)
         }
         return 0

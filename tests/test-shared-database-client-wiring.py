@@ -57,8 +57,9 @@ if swift:
     send = method(client, 'private func horosSendDatabaseRequest(')
     spelling = {
         'transport': 'DatabaseTransport.sendRequest(',
-        'handler': 'try HorosObjCException.perform { consumed = handler(data as NSData?) }',
-        'request': method(client, '    func synchronousRequest(_ request: NSData?, urgent: Bool, dataHandlerTarget target: AnyObject?, selector sel: Selector?, context: UnsafeMutableRawPointer?) -> NSData? {', '\n    }\n'),
+        'handler': 'if let exception = HorosObjCException.caught({ consumed = handler(data as NSData?) })',
+        # The request of -synchronousRequest:…, which throws.
+        'request': method(client, '    private func sendRequest(_ request: NSData?, urgent: Bool,', '\n    }\n'),
         'legacy': 'N2Connection.sendSynchronousRequest(',
         'classified': 'SharedDatabaseCommand.isRetryable(',
         'guidance': 'SharedDatabaseCommand.actionRequired(for:',
@@ -105,7 +106,8 @@ if 'isCancelled' not in request:
 # The inbound server and the other transports are out of scope.
 # BonjourPublisher is Swift: the inbound server's source, whatever its language.
 publisher_path = str(sources.source_path('BonjourPublisher').relative_to(root))
-for path, forbidden in ((publisher_path, 'N2ConnectionListener'),):
+# Its listener is HorosDatabaseServer, which the publisher starts.
+for path, forbidden in ((publisher_path, 'HorosDatabaseServer('),):
     if forbidden not in read(path):
         failures.append('%s no longer has %s; the inbound server is out of scope' % (path, forbidden))
 # N2Connection, the stream connection the client used to send through, is gone:

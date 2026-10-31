@@ -39,6 +39,7 @@
 
 
 import Cocoa
+import IsiXPreferences
 
 /// Window Controller for VR and MIP: the volume rendering window, its
 /// toolbar, its panels (shading, 16-bit CLUT editor, 3D presets) and the 3D
@@ -260,7 +261,7 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
         // edge case, a DCMPix that throws) is logged and the window is not made:
         // nil, as the former initializer answered after N2LogException.
         var renderable = false
-        if let e = HorosObjCException.caught({ renderable = VRController.volumeIsRenderable(pix, firstObject) }) {
+        if let e = HorosObjCException.caught({ renderable = VRController.volumeIsRenderable(pix, firstObject, preferences: PreferencesSource.process.preferences) }) {
             _N2LogExceptionImpl(e, false, VRController.initializerName)
             return nil
         }
@@ -281,7 +282,7 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
     /// The checks of the initializer before the controller exists: the
     /// memory, the slice interval and the images' sizes. NO, after an alert,
     /// when the volume cannot be rendered.
-    private static func volumeIsRenderable(_ pix: NSMutableArray, _ firstObject: DCMPix) -> Bool {
+    private static func volumeIsRenderable(_ pix: NSMutableArray, _ firstObject: DCMPix, preferences: UserDefaults) -> Bool {
         // MEMORY TEST: the renderer needs the volume in shorts, and the
         // gradients a byte more per voxel. An oversized volume is named with
         // the matrix and the size that was refused.
@@ -297,8 +298,9 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
         }
         free(testPtr)
 
-        UserDefaults.standard.set(Float(1125), forKey: "VRGrowingRegionValue")
-        UserDefaults.standard.set(Float(1750), forKey: "VRGrowingRegionInterval")
+        // The bone removal starts from its own value and interval in every new window.
+        preferences.set(Float(1125), for: VolumeRenderingPreferences.vrGrowingRegionValue)
+        preferences.set(Float(1750), for: VolumeRenderingPreferences.vrGrowingRegionInterval)
 
         var sliceThickness = abs(firstObject.sliceInterval)
         if sliceThickness == 0 {
@@ -505,7 +507,6 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
 
     // The shading presets' popup has no action: a preset chosen there is
     // applied through this observer.
-    @objc(horosObserveShadingSelection)
     final func horosObserveShadingSelection() {
         guard horosObservedShadings == nil, let shadings = shadingsPresetsController else { return }
         shadings.addObserver(self, forKeyPath: "selectedObjects", options: [], context: Self.shadingObservation)
@@ -562,7 +563,6 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
     }
 
     /// The file list the window was given, the same object.
-    @objc(horosFileList)
     public nonisolated final func horosFileList() -> NSArray? { fileListStorage }
 
     public override func view() -> Any! { vrView }
@@ -603,19 +603,14 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
     @objc(factor)
     public final func factor() -> Float { vrView?.factor() ?? 0 }
 
-    @objc(currentStudy)
     public override nonisolated final func currentStudy() -> DicomStudy! { viewer2DStorage?.currentStudy() }
 
-    @objc(currentSeries)
     public override nonisolated final func currentSeries() -> DicomSeries! { viewer2DStorage?.currentSeries() }
 
-    @objc(currentImage)
     public override nonisolated final func currentImage() -> DicomImage! { viewer2DStorage?.currentImage() }
 
-    @objc(curWW)
     public override nonisolated final func curWW() -> Float { viewer2DStorage?.curWW() ?? 0 }
 
-    @objc(curWL)
     public override nonisolated final func curWL() -> Float { viewer2DStorage?.curWL() ?? 0 }
 
     @objc(renderingMode)
@@ -635,7 +630,6 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
     /// comes back as a new object each frame (a copy, for mutable data), and
     /// the renderer, which knows the volume it uploaded by identity, uploaded
     /// it again at every frame.
-    @objc(horosVolumeData)
     public final func horosVolumeData() -> NSObject? { volumeData[Int(curMovieIndexStorage)] }
 
     // MARK: - Range
@@ -718,12 +712,10 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
         }
     }
 
-    @objc(windowDidResize:)
     public override func windowDidResize(_ aNotification: Notification) {
         if styleName != "panel" { vrView?.squareView(self) }
     }
 
-    @objc(windowWillClose:)
     public override func windowWillClose(_ notification: Notification) {
         guard (notification.object as AnyObject?) === window else { return }
         horos_windowWillClose = true
@@ -762,15 +754,5 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
     @objc(drawerDidOpen:)
     public final func drawerDidOpen(_ sender: Notification!) {
         window?.invalidateShadow()
-    }
-
-    // MARK: - Unused actions of the nib
-
-    @objc(endShadingEditing:)
-    public final func endShadingEditing(_ sender: Any!) {
-    }
-
-    @objc(resetShading:)
-    public final func resetShading(_ sender: Any!) {
     }
 }

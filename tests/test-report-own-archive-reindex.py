@@ -10,7 +10,7 @@ the study then moved to an older copy, the document still open in Pages was no
 longer its report, and every report command opened another copy.
 
 Compiles the production report branch of the importer - Swift, in
-DicomDatabase+Import.swift, or Objective-C in DicomDatabase.mm before the class
+DicomFileIndexer.swift, or Objective-C in DicomDatabase.mm before the class
 moved - with the production HorosReportsHaveSameContents (through
 DicomDatabase+CAPI.m's wrapper for the Swift branch) and ReportArchiveIndexing,
 and checks that:
@@ -56,10 +56,10 @@ def block(text, opening_line):
     return None
 
 
-# DicomDatabase is Swift: the branch is in DicomDatabase+Import.swift and the
+# DicomDatabase is Swift: the branch is in DicomFileIndexer.swift and the
 # report helpers are reached through DicomDatabase+CAPI.m. A revision from before
 # the move has DicomDatabase.mm, whose Objective-C branch is compiled instead.
-swift_import = read('Horos/Sources/DicomDatabase+Import.swift')
+swift_import = read('Horos/Sources/DicomFileIndexer.swift')
 database = swift_import if swift_import is not None else (read('Horos/Sources/DicomDatabase.mm') or '')
 capi = read('Horos/Sources/DicomDatabase+CAPI.m') or ''
 study = read('Horos/Sources/DicomStudy.swift') or ''
@@ -67,7 +67,7 @@ project = read('Horos.xcodeproj/project.pbxproj') or ''
 registry = (root / 'Horos/Sources/ReportArchiveIndexing.swift')
 
 if swift_import is not None:
-    branch = block(database, 'if DICOMSR && isEqualString(curDict.value(forKey: "seriesDescription"), "OsiriX Report SR")')
+    branch = block(database, 'if DICOMSR && isEqualString(curDict.object(forKey: "seriesDescription"), "OsiriX Report SR")')
     helpers = [block(database, 'private func %s(' % name) for name in ('isEqualString', 'objcLength')]
     same = block(capi, 'BOOL DicomDatabaseReportsHaveSameContents(NSString* existing, NSString* incoming)')
     if None in helpers or same is None:
@@ -79,8 +79,11 @@ archive = block(study, 'public dynamic func archiveReportAsDICOMSR()') or ''
 if branch is None:
     failures.append('the report branch of the importer was not found')
 if 'ReportArchiveIndexing.indexing(dstPath)' not in archive or \
-        archive.find('ReportArchiveIndexing.indexing(dstPath)') > archive.find('dicomStudyAddGeneratedFiles(idb'):
+        archive.find('ReportArchiveIndexing.indexing(dstPath)') > archive.find('dicomStudyAddGeneratedFiles('):
     failures.append('archiveReportAsDICOMSR does not register its SR around the indexing')
+if 'else if ReportAttachment.isOnVolumeThatIsOut(self.reportURL' not in archive or \
+        archive.find('isOnVolumeThatIsOut') > archive.find('//empty or deleted report?'):
+    failures.append('a report on a volume that is out is taken for one that was deleted')
 if 'ReportArchiveIndexing.swift in Sources' not in project:
     failures.append('ReportArchiveIndexing.swift is not compiled into the app')
 if not registry.exists():
@@ -200,6 +203,8 @@ final class Study: NSObject {
 
 final class Importer: NSObject {
     var managedObjectContext: NSObject? = nil
+    // The indexer, a type of its own, reaches its database as `database`.
+    var database: Importer { self }
     func importReport(_ newFile: String, study: Study?, extracted preparedReportPath: String?, directory reportsDirPath: String) -> String? {
         let DICOMSR = true
         let curDict: NSMutableDictionary = ["seriesDescription": "OsiriX Report SR", "patientName": "SYNTHETIC^REPORT"]

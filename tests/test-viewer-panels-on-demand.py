@@ -123,9 +123,9 @@ if '- (void) completeDragOperation:(ViewerController*) vc' in source:
     check(checked >= 2, f'only {checked} entry points found; the outlet scan no longer matches the source')
 else:
     # The fusion sheet a drop opens and the movie export positions are Swift
-    # too (+DragAndDrop, +Keyboard): they load the panels before they read
+    # too (ViewerFusion, +Keyboard): they load the panels before they read
     # the outlets, also those of the class's properties.
-    for name, signature in (('ViewerController+DragAndDrop', 'func completeDragOperation(_ vc: ViewerController!)'),
+    for name, signature in (('ViewerFusion', 'func completeDragOperation(_ vc: ViewerController!)'),
                             ('ViewerController+Keyboard', 'func setCurrentPosition(_ sender: Any!)')):
         swift_source = (root / 'Horos/Sources' / (name + '.swift')).read_text()
         body = swift_source[swift_source.index(signature):]
@@ -143,13 +143,14 @@ if '-(void)awakeFromNib' in source:
     check(awake.split('{', 1)[1].lstrip().startswith('//') and 'if( [self horosViewerPanelsLoaded])\n        return;' in awake,
           '-awakeFromNib must return at once when ViewerPanels.nib sends it again')
 else:
-    lifecycle = (root / 'Horos/Sources/ViewerController+Lifecycle.swift').read_text()
-    awake = lifecycle[lifecycle.index('    private func awakeFromViewerNib() {'):]
-    check(awake.split('{', 1)[1].lstrip().startswith('if horosViewerPanelsLoaded {\n            return\n        }'),
+    # The viewer's graph runs the awakening (ViewerSessionGraph+ViewerLife.swift).
+    lifecycle = (root / 'Horos/Sources/ViewerSessionGraph+ViewerLife.swift').read_text()
+    awake = lifecycle[lifecycle.index('    func awakeFromViewerNib() {'):]
+    check(awake.split('{', 1)[1].lstrip().startswith('guard let viewer, !viewer.horosViewerPanelsLoaded else { return }'),
           '-awakeFromNib must return at once when ViewerPanels.nib sends it again')
 
 swift = (root / 'Horos/Sources/ViewerController+Panels.swift').read_text()
-check('loadNibNamed("ViewerPanels", owner: self' in swift, 'the loader no longer loads ViewerPanels with the viewer as owner')
+check('loadNibNamed("ViewerPanels", owner: viewer' in swift, 'the loader no longer loads ViewerPanels with the viewer as owner')
 
 if failures:
     raise SystemExit('FAIL:\n  ' + '\n  '.join(failures))

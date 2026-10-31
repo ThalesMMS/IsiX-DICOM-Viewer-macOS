@@ -100,7 +100,9 @@ int main(void) { @autoreleasepool {
     puts("PASS: button order, styles, literal messages, historical responses, abort and one deferred sheet completion after pool drain");
 } }
 '''
-# The SQL rebuild is BrowserController+DatabaseMaintenance.swift.
+# The SQL rebuild is DatabaseMaintenance, in BrowserController+DatabaseMaintenance.swift:
+# -rebuildSQLFile: forwards to its askSQLRebuild(), which reads the browser's
+# database and window and starts the rebuild with startSQLRebuild().
 maintenance = (root / 'Horos/Sources/BrowserController+DatabaseMaintenance.swift').read_text()
 def swift_method(signature):
     start = maintenance.index(signature)
@@ -154,6 +156,9 @@ final class ThreadsManager: NSObject {
     func threadsCount() -> Int { threadCount }
 }
 enum SendController { static func sendControllerObjects() -> Int { 0 } }
+// No rebuild of the index is under way here; test-sql-rebuild-direct-writer.py
+// covers the wait for one.
+enum DatabaseRebuildService { @MainActor static func waitForRebuildsBeforeQuitting() -> Bool { true } }
 @MainActor final class BrowserPeer: NSObject {
     var horos_databaseIvar: DatabasePeer?
     var detached = 0
@@ -221,15 +226,18 @@ method_setImplementation(class_getInstanceMethod(NSAlert.self, #selector(NSAlert
                          imp_implementationWithBlock(begin))
 method_setImplementation(class_getInstanceMethod(NSAlert.self, #selector(NSAlert.runModal))!, imp_implementationWithBlock(run))
 
+struct RebuildingPeer {
+    let rebuildAllowed: Bool
+}
 final class DatabasePeer: NSObject {
     var allowed = true
-    func rebuildAllowed() -> Bool { allowed }
+    var rebuilding: RebuildingPeer { RebuildingPeer(rebuildAllowed: allowed) }
 }
 @MainActor final class BrowserPeer: NSObject {
     var database: DatabasePeer?
     var window: NSWindow?
     var rebuilds = 0
-    func initiateRebuildSql() -> Thread! { rebuilds += 1; return nil }
+    func startSQLRebuild() -> Thread! { rebuilds += 1; return nil }
 }
 extension BrowserPeer {
 METHOD
@@ -242,7 +250,7 @@ MainActor.assumeIsolated {
     browser.window = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: true)
     for response in [NSApplication.ModalResponse.alertFirstButtonReturn, .alertSecondButtonReturn, .alertThirdButtonReturn] {
         let before = browser.rebuilds
-        browser.rebuildSQLFile(nil)
+        browser.askSQLRebuild()
         check(browser.rebuilds == before && completion != nil, "the rebuild did not wait for the answer")
         completion?(response); completion = nil
         check(browser.rebuilds == before + (response == .alertFirstButtonReturn ? 1 : 0), "only OK rebuilds")
@@ -251,17 +259,17 @@ MainActor.assumeIsolated {
     // No window: asked app-modally, as AppKit does for a sheet on no window.
     browser.window = nil
     answer = .alertSecondButtonReturn
-    browser.rebuildSQLFile(nil)
+    browser.askSQLRebuild()
     answer = .alertFirstButtonReturn
-    browser.rebuildSQLFile(nil)
+    browser.askSQLRebuild()
     check(modals == 2 && browser.rebuilds == 2, "without a window the answer is still asked for and kept")
     database.allowed = false
     let before = sheets + modals
-    let raised = CatchException { browser.rebuildSQLFile(nil) }
+    let raised = CatchException { browser.askSQLRebuild() }
     check(raised == NSExceptionName.genericException.rawValue && sheets + modals == before, "a refused rebuild asks or does not raise")
     print("PASS: actual Browser rebuild OK-only/deferred/no-window/refusal")
 }
-'''.replace('METHOD', swift_method('@objc(rebuildSQLFile:)'))
+'''.replace('METHOD', swift_method('    func askSQLRebuild('))
 
 with tempfile.TemporaryDirectory(prefix='horos-alert-responses-') as folder:
     path = Path(folder)

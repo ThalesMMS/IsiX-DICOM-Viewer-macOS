@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 
 private let NAVIGATORMODE_BASIC: Int32 = 1
 private let NAVIGATORMODE_2POINT: Int32 = 2
@@ -154,10 +155,13 @@ private func cULong(_ x: Double) -> Int {
 /// <Horos/EndoscopyViewer.h> are those of the former class, the File's Owner
 /// of Endoscopy.xib. Its superclass, Window3DController, stays in Objective-C.
 /// The viewer hands the nib's VRController and OrthogonalMPRController their
-/// volume through methods outside the init family (-horosReinit), since the
+/// volume through Swift methods named horosReinit, not initializers, since the
 /// nib made them before the viewer had the pixels.
 @objc(EndoscopyViewer)
 public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSplitViewDelegate {
+    /// The preferences the window reads and writes: those of the process graph.
+    let preferenceStore: any PreferenceStore = PreferencesSource.process.preferences
+
     // MARK: - Outlets
 
     @IBOutlet private var mprController: OrthogonalMPRController?
@@ -789,8 +793,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         }
     }
 
-    @objc(Apply2DCLUTString:)
-    private dynamic func apply2DCLUTString(_ str: String!) {
+    private func apply2DCLUTString(_ str: String!) {
         mprController?.applyCLUTString(str)
         cur2DCLUTMenu = str
         NotificationCenter.default.post(name: NSNotification.Name.OsirixUpdate2dCLUTMenu, object: cur2DCLUTMenu, userInfo: nil)
@@ -800,14 +803,9 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
     @objc(Update2DCLUTMenu:)
     private dynamic func Update2DCLUTMenu(_ note: Notification?) {
         //*** Build the menu
-        var i: Int16
-        let keys: NSArray?
-        let sortedKeys: NSArray?
-
         // Presets VIEWER Menu
 
-        keys = (UserDefaults.standard.dictionary(forKey: "CLUT") as NSDictionary?)?.allKeys as NSArray?
-        sortedKeys = keys?.sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as NSArray?
+        let names = ReconstructionPreferences.menuNames(ImagePresetPreferences.colourTables, in: self.preferenceStore)
 
         clut2DPopup?.menu?.removeAllItems()
 
@@ -815,10 +813,8 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         clut2DPopup?.menu?.addItem(withTitle: NSLocalizedString("No CLUT", comment: ""), action: #selector(applyCLUT(_:)), keyEquivalent: "")
         clut2DPopup?.menu?.addItem(NSMenuItem.separator())
 
-        i = 0
-        while Int(i) < (sortedKeys?.count ?? 0) {
-            clut2DPopup?.menu?.addItem(withTitle: sortedKeys?.object(at: Int(i)) as? String ?? "", action: #selector(applyCLUT(_:)), keyEquivalent: "")
-            i += 1
+        for name in names {
+            clut2DPopup?.menu?.addItem(withTitle: name, action: #selector(applyCLUT(_:)), keyEquivalent: "")
         }
         clut2DPopup?.menu?.item(at: 0)?.title = cur2DCLUTMenu ?? ""
     }
@@ -828,8 +824,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         self.apply2DCLUTString(titleOf(sender))
     }
 
-    @objc(set2DWLWW::)
-    private dynamic func set2DWLWW(_ iwl: Float, _ iww: Float) {
+    private func set2DWLWW(_ iwl: Float, _ iww: Float) {
         mprController?.setWLWW(iwl, iww)
         mprController?.setCurWLWWMenu(cur2DWLWWMenu)
         NotificationCenter.default.post(name: NSNotification.Name.OsirixUpdate2dWLWWMenu, object: cur2DWLWWMenu, userInfo: nil)
@@ -838,13 +833,8 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
     @objc(Update2DWLWWMenu:)
     private dynamic func Update2DWLWWMenu(_ note: Notification?) {
         //*** Build the menu
-        var i: Int16
-        let keys: NSArray?
-        let sortedKeys: NSArray?
-
         // Presets VIEWER Menu
-        keys = (UserDefaults.standard.dictionary(forKey: "WLWW3") as NSDictionary?)?.allKeys as NSArray?
-        sortedKeys = keys?.sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as NSArray?
+        let names = ReconstructionPreferences.menuNames(ImagePresetPreferences.windowLevelPresets, in: self.preferenceStore)
 
         wlww2DPopup?.menu?.removeAllItems()
         wlww2DPopup?.menu?.addItem(withTitle: NSLocalizedString("Default WL & WW", comment: ""), action: nil, keyEquivalent: "")
@@ -853,10 +843,8 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         wlww2DPopup?.menu?.addItem(withTitle: NSLocalizedString("Full dynamic", comment: ""), action: #selector(apply2DWLWW(_:)), keyEquivalent: "")
         wlww2DPopup?.menu?.addItem(NSMenuItem.separator())
 
-        i = 0
-        while Int(i) < (sortedKeys?.count ?? 0) {
-            wlww2DPopup?.menu?.addItem(withTitle: sortedKeys?.object(at: Int(i)) as? String ?? "", action: #selector(apply2DWLWW(_:)), keyEquivalent: "")
-            i += 1
+        for name in names {
+            wlww2DPopup?.menu?.addItem(withTitle: name, action: #selector(apply2DWLWW(_:)), keyEquivalent: "")
         }
         wlww2DPopup?.menu?.item(at: 0)?.title = mprController?.originalView()?.curWLWWMenu() ?? ""
     }
@@ -872,19 +860,13 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         } else if titleOf(sender) == NSLocalizedString("Full dynamic", comment: "") {
             self.set2DWLWW(0, 0)
         } else {
-            let value: NSArray?
-            value = (UserDefaults.standard.dictionary(forKey: "WLWW3") as NSDictionary?)?.object(forKey: titleOf(sender) as Any) as? NSArray
-            self.set2DWLWW(((value?.object(at: 0) as AnyObject?)?.floatValue) ?? 0, ((value?.object(at: 1) as AnyObject?)?.floatValue) ?? 0)
+            let value = ReconstructionPreferences.preset(titleOf(sender), of: ImagePresetPreferences.windowLevelPresets, in: self.preferenceStore)
+            self.set2DWLWW(Float(value?.level ?? 0), Float(value?.width ?? 0))
         }
 
         wlww2DPopup?.menu?.item(at: 0)?.title = titleOf(sender) ?? ""
         NotificationCenter.default.post(name: NSNotification.Name.OsirixUpdate2dWLWWMenu, object: cur2DWLWWMenu, userInfo: nil)
         cur2DWLWWMenu = NSLocalizedString("Other", comment: "")
-    }
-
-    @objc(setCur2DWLWWMenu:)
-    private dynamic func setCur2DWLWWMenu(_ wlww: String!) {
-        cur2DWLWWMenu = wlww
     }
 
     public override dynamic func movieFrames() -> Int {
@@ -1019,7 +1001,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         ToolbarPolicy.adopt(toolbar: toolbar, in: self.window)
         if let toolbar {
             ViewAngleControl.reveal(item: ViewAngleToolbarItemIdentifier, in: toolbar, after: ShadingToolbarItemIdentifier,
-                                    defaultsKey: "EndoscopyViewAngleToolbarItemShown")
+                                    shownKey: ReconstructionPreferences.endoscopyViewAngleItemShown, in: self.preferenceStore)
         }
     }
 
@@ -1306,24 +1288,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         }
 
         if producedFiles.count > 0 {
-            let database = BrowserController.currentBrowser()?.database
-            var objects = database?.addFiles(atPaths: producedFiles.value(forKey: "file") as? [Any],
-                                             postNotifications: true,
-                                             dicomOnly: true,
-                                             rereadExistingItems: true,
-                                             generatedByOsiriX: true)
-
-            objects = database?.objects(withIDs: objects)
-
-            if UserDefaults.standard.bool(forKey: "afterExportSendToDICOMNode") {
-                BrowserController.currentBrowser()?.selectServer(objects)
-            }
-
-            if UserDefaults.standard.bool(forKey: "afterExportMarkThemAsKeyImages") {
-                for case let im as NSManagedObject in (objects as NSArray?) ?? NSArray() {
-                    im.setValue(NSNumber(value: true), forKey: "isKeyImage")
-                }
-            }
+            GeneratedSeriesImport.process.add(producedFiles.value(forKey: "file") as? [Any] ?? [])
         }
     }
 
@@ -1336,10 +1301,10 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         var widthSag = 0, heightSag = 0, sppSag = 0, bppSag = 0
         var width3D = 0, height3D = 0, spp3D = 0, bpp3D = 0
 
-        let annotations = UserDefaults.standard.integer(forKey: "ANNOTATIONS")
+        let annotations = self.preferenceStore[ViewerPreferences.annotations]
 
         self.window?.makeFirstResponder(unsafeBitCast(vrController?.view() as AnyObject?, to: NSView?.self))
-        UserDefaults.standard.set(annotGraphics, forKey: "ANNOTATIONS")
+        self.preferenceStore.set(Int(annotGraphics), for: ViewerPreferences.annotations)
         DCMView.setDefaults()
 
         mprController?.originalView()?.display()
@@ -1350,7 +1315,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         coronalDataPtr = endoscopyView(mprController?.xReslicedView())?.superGetRawPixels(&widthCor, &heightCor, &sppCor, &bppCor, true, true, false)
         sagittalDataPtr = endoscopyView(mprController?.yReslicedView())?.superGetRawPixels(&widthSag, &heightSag, &sppSag, &bppSag, true, true, false)
 
-        UserDefaults.standard.set(annotations, forKey: "ANNOTATIONS")
+        self.preferenceStore.set(annotations, for: ViewerPreferences.annotations)
         DCMView.setDefaults()
 
         mprController?.originalView()?.needsDisplay = true
@@ -1524,8 +1489,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         }
     }
 
-    @IBAction @objc(pathAssistantLockPath:)
-    private dynamic func pathAssistantLockPath(_ sender: Any!) {
+    private func pathAssistantLockPath(_ sender: Any!) {
         isLookingBackwards = false
         pathAssistantLookBackButton?.state = .off
         pathAssistantExportToFlyThruButton?.isEnabled = true
@@ -1539,8 +1503,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         self.flyThruAssistantGoForward(nil)
     }
 
-    @IBAction @objc(pathAssistantDeletePath:)
-    private dynamic func pathAssistantDeletePath(_ sender: Any!) {
+    private func pathAssistantDeletePath(_ sender: Any!) {
         isLookingBackwards = false
         pathAssistantLookBackButton?.state = .off
         pathAssistantExportToFlyThruButton?.isEnabled = false

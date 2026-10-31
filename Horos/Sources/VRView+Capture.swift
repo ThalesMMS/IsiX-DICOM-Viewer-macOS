@@ -47,7 +47,7 @@ import AppKit
 // with the same selectors.
 //
 // The buffers are malloc'ed as before: the callers free them. The @try of
-// the two captures are HorosObjCException, with the same logs.
+// the raw pixels' capture is HorosObjCException, with the same log.
 
 extension VRView {
 
@@ -106,18 +106,12 @@ extension VRView {
     @objc(imageInFullDepthWidth:height:isRGB:blendingView:)
     func imageInFullDepthWidth(_ w: UnsafeMutablePointer<Int>!, height h: UnsafeMutablePointer<Int>!,
                                isRGB rgb: UnsafeMutablePointer<ObjCBool>!, blendingView: Bool) -> UnsafeMutablePointer<Float>! {
-        var returnedPtr: UnsafeMutablePointer<Float>? = nil
-
-        if let e = HorosObjCException.caught({
-            returnedPtr = self.fullDepthImage(w, h, rgb, blendingView: blendingView)
-        }) {
-            NSLog("***** exception in %s: %@", "-[VRView imageInFullDepthWidth:height:isRGB:blendingView:]", e)
-        }
-
-        return returnedPtr
+        return fullDepthImage(w, h, rgb, blendingView: blendingView)
     }
 
-    /// The body of the @try of -imageInFullDepthWidth:height:isRGB:blendingView:.
+    /// The picture of -imageInFullDepthWidth:height:isRGB:blendingView:, read
+    /// from the ray caster through the VTK adapter, which reports a failure
+    /// rather than raising.
     private func fullDepthImage(_ w: UnsafeMutablePointer<Int>, _ h: UnsafeMutablePointer<Int>,
                                 _ rgb: UnsafeMutablePointer<ObjCBool>, blendingView: Bool) -> UnsafeMutablePointer<Float>? {
         let vtk = horos_vtk

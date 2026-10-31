@@ -12,8 +12,9 @@ database between queueing and sending, both dropped out of the send without a
 word - which is exactly what a partial delivery looks like from the far end.
 
 The fixture generator is exercised here; the reporting is checked in source, and
-was measured against a running build (see the validation document). The routing is
-Swift; the checks read it in Swift spelling.
+was measured against a running build (see the validation document). The queue is
+IsiXDICOMNetwork's RoutingQueue, which reads the queued images again through the
+app (DatabaseRoutingDelivery) before it sends them.
 """
 from pathlib import Path
 import json
@@ -23,16 +24,15 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
 
 failures = []
-routing = source_text('DicomDatabase+Routing')
+routing = (root / 'Modules/IsiXDICOMNetwork/Sources/RoutingQueue.swift').read_text()
+delivery = (root / 'Horos/Sources/DatabaseRoutingDelivery.swift').read_text()
 
 # --- the queue says what it left behind --------------------------------------
-at = routing.find('var objectsToSend = (self.objects(withIDs: objectIDs')
-if at < 0:
-    failures.append('the queue no longer resolves its object IDs')
+at = routing.find('let files = await delivery.currentFiles(of: order)')
+if at < 0 or 'reader.objects(withIDs: order.files.map(\\.id))' not in delivery:
+    failures.append('the queue no longer reads its images again from the database')
 else:
     window = routing[at:at + 700]
     if 'no longer in the database' not in window:
@@ -44,7 +44,7 @@ if 'were not sent because their files are not there' not in routing:
     failures.append('the queue does not say how many images it could not send')
 
 # The skip is still a skip - the send must not be attempted for a missing file.
-if not re.search(r'if !\(\(objectToSend\.value\(forKey: "completePath"\) as\? String\)\.map \{ FileManager\.default\.fileExists\(atPath: \$0\) \} \?\? false\)', routing):
+if not re.search(r'guard let path = file\.path, fileExists\(path\) else \{\s*\n\s*missing \+= 1', routing):
     failures.append('the missing-file test no longer guards the send')
 
 # --- the fixture ---------------------------------------------------------------

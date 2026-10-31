@@ -1,566 +1,465 @@
 #!/usr/bin/env python3
-"""Execute the host's real loading methods under deterministic replacement/cancel races.
+"""Execute the host's real series load under deterministic replacement/cancel races.
 
-Only pixels, catalog records and UI callbacks are stubs. NSThread, the operation
-queue and main-thread delivery are real. --source accepts a previous revision.
-The barriers hold an in-flight decode; they never alter the production methods.
+Only the pixels, the viewer and its UI callbacks are doubles. The series load
+(ViewerSeriesLoad.swift: the loading state, the start, the acceptance and
+delivery of a result, the cancellation and the close), the loader
+(SeriesImageLoader.swift: the actor on its own queue, the in-order and the
+concurrent decode, the opening content bounds) and the waits of
+ViewerController+StudyNavigation.swift (the façades -isEverythingLoaded and
+-checkEverythingLoaded, and the ViewerLoadingWait there that answers and
+waits) are taken as they stand and compiled with swiftc,
+with OpeningContentBounds.swift, ObservedThread.swift, DeferredCalls.swift,
+IdentityToken.swift, the @try of ViewerController+ImagePipelineSupport.swift
+and the real HorosObjCException, against IsiXImaging and IsiXPreferences.
+Swift concurrency, the loader's queue, the decoders and main-actor delivery
+are real. The probes hold an in-flight decode; they never alter the
+production methods.
 
-+openingContentBoundsForPixLists:loadThread:, -startLoadImageThread and
--finishLoadImageData: are Swift, in
-ViewerController+RetrieveAndView.swift (--swift-source), with
--subtractionUnavailableReason, which -finishLoadImageData: asks;
-+loadImageData: is Swift, in ViewerController+ImageLoading.swift (--loading-source),
-or Objective-C in a --source that still has it; -isEverythingLoaded and
--checkEverythingLoaded are Swift, in ViewerController+StudyNavigation.swift
-(--study-source), or Objective-C in a --source that still has them. The Swift methods are taken as they stand,
-with the file's own objcSynchronized/objcTry/objcAssert/objcAdd/
-objcIsEqualToString, and compiled with swiftc as an extension of the
-Objective-C double of ViewerController, beside the real HorosObjCException; the
-double reaches its instance variables through accessors spelled as in
-ViewerController+SwiftIvars.h, and the DCMPix double keeps the declarations
-Swift reads in DCMPix.h. The driver (and an Objective-C +loadImageData:) stays
-Objective-C (manual retain/release), compiled with clang as before.
+Of ViewerSeriesLoad.swift only its first part is compiled: the second, from
+"// MARK: - The series shown", gives the viewer a series and needs the whole
+viewer. The post of the viewer's notifications (postViewerNotification, in
+ViewerController+RetrieveAndView.swift) is taken as the double posts it.
 """
 import argparse
 from pathlib import Path
 import re
 import subprocess
 import sys
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+import objc_exception_guards
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
+import isix_modules
 import sources
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--source', type=Path, default=ROOT/'Horos/Sources/ViewerController.m')
-parser.add_argument('--swift-source', type=Path, default=sources.source_path('ViewerController+RetrieveAndView'))
+parser.add_argument('--series-load', type=Path, default=ROOT/'Horos/Sources/ViewerSeriesLoad.swift')
+parser.add_argument('--loader', type=Path, default=ROOT/'Horos/Sources/SeriesImageLoader.swift')
 parser.add_argument('--study-source', type=Path, default=sources.source_path('ViewerController+StudyNavigation'))
-parser.add_argument('--loading-source', type=Path, default=sources.source_path('ViewerController+ImageLoading'))
 parser.add_argument('--support-source', type=Path, default=sources.source_path('ViewerController+ImagePipelineSupport'))
 parser.add_argument('--case')
 args = parser.parse_args()
-source = args.source.read_bytes().decode('latin1') if args.source.exists() else ''  # ViewerController.m is gone once the class is Swift
-swift = args.swift_source.read_text(encoding='utf-8')
 
+series_load = args.series_load.read_text(encoding='utf-8')
+MARK = '// MARK: - The series shown'
+assert MARK in series_load, 'ViewerSeriesLoad.swift no longer separates the load from the series shown'
+series_load = series_load[:series_load.index(MARK)]
+study = args.study_source.read_text(encoding='utf-8')
+support = args.support_source.read_text(encoding='utf-8')
 
-def method(signature):
-    at = source.index(signature)
-    end = re.search(r'\n[-+]\s*\(', source[at+len(signature):])
-    assert end, signature
-    return source[at:at+len(signature)+end.start()]
-
-
-def swift_method(selector):
-    """The Swift method from its @objc(selector) line up to the next method's
-    @objc( line, or, for the extension's last method, up to its closing brace."""
-    at = swift.index('    @objc(' + selector + ')\n')
-    end = swift.find('    @objc(', at + 1)
-    return swift[at:end] if end >= 0 else swift[at:swift.rindex('\n}')] + '\n'
-
-
-def swift_helper(name):
-    return re.search(r'(?:@inline\(__always\)\n)?fileprivate func ' + name + r'\b.*?\n}\n', swift, re.S).group(0)
-
-
-# What the viewer answers about a pending load, and how it waits for one:
-# Objective-C in a --source that has them, Swift otherwise.
-objc_waits = '- (BOOL) isEverythingLoaded' in source
-study = '' if objc_waits else args.study_source.read_text(encoding='utf-8')
+# The loader is an actor on a queue of its own, and the load does not run on a thread of its own.
+loader = args.loader.read_text(encoding='utf-8')
+assert re.search(r'\nactor SeriesImageLoader \{', loader), 'SeriesImageLoader is not an actor'
+assert 'DispatchSerialQueue(label: "Load Image Data"' in loader and 'queue.asUnownedSerialExecutor()' in loader
+assert 'Thread(target:' not in series_load + loader, 'the series load starts a thread of its own again'
+assert 'await loader.load(request)' in series_load and 'checkLoad(from:' not in loader
+for needed in ('NSLog("start loading")', 'NSLog("end loading: %f [s]"'):
+    assert needed in loader, f'the loader no longer logs {needed}: tools/measure-native-series-load.py reads it'
 
 
 def study_method(pattern):
     return re.search(pattern + r'.*?\n    }\n', study, re.S).group(0)
 
 
-# The loader: Objective-C in a --source that has it, Swift otherwise.
-objc_loader = '+ (void) loadImageData:' in source
-methods = method('+ (void) loadImageData:') if objc_loader else ''
-loader = ''
-if not objc_loader:
-    loading = args.loading_source.read_text(encoding='utf-8')
-    loader = loading[loading.index('    @objc(loadImageData:)\n'):loading.rindex('\n}')] + '\n'
-    support = args.support_source.read_text(encoding='utf-8')
-    # The @try of the loader.
-    loader_helpers = re.search(r'\n/// Runs `body` as an @try block.*?\nfunc viewerObjCTry.*?\n}\n', support, re.S).group(0)
-if objc_waits:
-    methods += method('- (BOOL) isEverythingLoaded') + method('-(void) checkEverythingLoaded')
-    waits = ''
-else:
-    waits = (study_method(r'    /// Whether every image is loaded:') + study_method(r'    /// Waits, with a progress window,')
-             + study_method(r'    /// Whether the loading thread is still to finish'))
-extension = ('import AppKit\nimport Synchronization\n\n'
-             + ''.join(swift_helper(n) + '\n' for n in ('objcSynchronized', 'objcTry', 'objcAssert', 'objcIsEqualToString', 'objcAdd'))
-             + 'extension ViewerController {\n'
-             + ''.join(swift_method(s) for s in ('openingContentBoundsForPixLists:loadThread:', 'startLoadImageThread', 'finishLoadImageData:')
-                       # which -finishLoadImageData: asks
-                       + (('subtractionUnavailableReason',) if '    @objc(subtractionUnavailableReason)\n' in swift else ()))
-             + waits.replace('    fileprivate func isLoadingPending', '    func isLoadingPending')
-             + loader
-             + '}\n'
-             + ('' if objc_loader else loader_helpers))
-header = r"""
-// The doubles, as Swift and the driver see them. What Swift reads is spelled as
-// in DCMPix.h, DCMView.h, Notifications.h and ViewerController+SwiftIvars.h.
-#pragma clang diagnostic ignored "-Wnullability-completeness"
-#import <Foundation/Foundation.h>
-#import "HorosObjCException.h"
-#include "HorosContentBounds.h"
-extern NSString* const OsirixViewerControllerDidLoadImagesNotification;
-@class Probe;
+# The façades go into the viewer's double; the wait, with the members it
+# answers and waits with, is a type of its own over the viewer.
+waits = study_method(r'    @objc\(isEverythingLoaded\)') + study_method(r'    @objc\(checkEverythingLoaded\)')
+wait_start = study.index('@MainActor struct ViewerLoadingWait {')
+wait_type = (study[wait_start:study.index('\n', wait_start) + 1] + '    let viewer: ViewerController\n\n'
+             + study_method(r'    /// Whether every image is loaded:') + study_method(r'    /// Waits, with a progress window,')
+             + study_method(r'    /// Whether the loading thread is still to finish') + '}\n')
+try_helper = (lambda found: found.group(0) if found else objc_exception_guards.source(log=False))(re.search(r'\n/// Runs `body` as an @try block.*?\nfunc viewerObjCTry.*?\n}\n', support, re.S))
 
-@interface DCMPix : NSObject
-@property(retain) Probe *probe;
-@property(nonatomic) BOOL shutterEnabled;
-@property(retain) Probe *contentProbe;
-@property(nonatomic) float *fImage;
-@property(nonatomic) BOOL isRGB;
-@property(nonatomic) double pixelRatio;
-@property(copy) NSString *rescaleType;
-@property(readonly) NSString *modalityString;
-@property(nonatomic) float minValueOfSeries, maxValueOfSeries;
-@property(nonatomic, readonly) long pwidth, pheight;
-@property(readonly) NSString *srcFile;
-- (BOOL) isLoaded;
-- (void)CheckLoad;
-- (void)CheckLoadFromThread:(NSThread *)thread;
-@end
+doubles = r'''
+import AppKit
+import IsiXPreferences
 
-@interface ViewStub : NSObject
-@property(getter=isVisible) BOOL visible;
-- (void)updatePresentationStateFromSeries;
-- (void)setStartWLWW;
-- (void)display;
-@end
+// The pixels: a probe holds the decode of every slice that shares it.
+final class Probe: @unchecked Sendable {
+    let gate = NSCondition()
+    var released = false, compressed = false
+    var entered = 0, decoded = 0, wrongOrigin = 0
+    var origin: Thread?
+
+    func decode(from thread: Thread?) {
+        gate.lock()
+        if let thread, let origin, thread !== origin { wrongOrigin += 1 }
+        entered += 1; gate.broadcast()
+        while !released { gate.wait() }
+        decoded += 1; gate.unlock()
+    }
+    func waitForEntry() {
+        gate.lock(); let deadline = Date(timeIntervalSinceNow: 5)
+        while entered == 0 && gate.wait(until: deadline) {}
+        let entered = self.entered; gate.unlock()
+        check(entered > 0, "no decode began")
+    }
+    func resume() { gate.lock(); released = true; gate.broadcast(); gate.unlock() }
+    var counts: (entered: Int, decoded: Int, wrongOrigin: Int) { gate.lock(); defer { gate.unlock() }; return (entered, decoded, wrongOrigin) }
+}
+
+final class DCMPix: NSObject, @unchecked Sendable {
+    let probe: Probe
+    var contentProbe: Probe?
+    var shutterEnabled = false
+    var maxValueOfSeries: Float = 0, minValueOfSeries: Float = 0
+    var isRGB = false
+    var pixelRatio: Double = 1
+    var rescaleType: String? = nil
+    var modalityString: String? = "CT"
+    var pwidth: Int { 32 }
+    var pheight: Int { 32 }
+    var srcFile: String? { probe.compressed ? "compressed" : "plain" }
+    nonisolated(unsafe) private static let pixels = UnsafeMutablePointer<Float>.allocate(capacity: 32 * 32)
+    var fImage: UnsafeMutablePointer<Float>! { contentProbe?.decode(from: nil); return DCMPix.pixels }
+    init(probe: Probe) { self.probe = probe }
+    func isLoaded() -> Bool { true }
+    func checkLoad() { probe.decode(from: nil) }
+}
+
+enum DicomFile {
+    @discardableResult
+    static func isDICOMFile(_ file: String?, compressed: UnsafeMutablePointer<ObjCBool>) -> Bool {
+        compressed.pointee = ObjCBool(file == "compressed"); return true
+    }
+}
+enum BrowserController {
+    static func isItCD(_ path: String?) -> Bool { false }
+}
+func _N2LogExceptionImpl(_ exception: NSException, _ logStack: Bool, _ place: UnsafePointer<CChar>) { NSLog("%@", exception) }
+// The viewer's notifications, posted as ViewerController+RetrieveAndView.swift posts them.
+func postViewerNotification(_ name: Notification.Name, _ object: Any?, _ userInfo: [AnyHashable: Any]? = nil) {
+    NotificationCenter.default.post(name: name, object: object, userInfo: userInfo)
+}
+
+func check(_ value: Bool, _ message: String) {
+    if !value { FileHandle.standardError.write("FAIL: \(message)\n".data(using: .utf8)!); exit(1) }
+}
 
 // The "Data loading..." panel -checkEverythingLoaded shows while it waits.
-@interface Wait : NSObject
-- (id)initWithString:(NSString *)string;
-- (void)showWindow:(id)sender;
-- (void)incrementBy:(double)delta;
-- (void)close;
-@end
+final class Wait: NSObject {
+    init?(string: String?) {}
+    func showWindow(_ sender: Any?) {}
+    func increment(by delta: Double) {}
+    func close() {}
+}
 
-// What the loader reads of the threads, the files and the browser.
-@interface NSThread (Status)
-@property double progress;
-@property(copy) NSString *status;
-@end
-@interface DicomFile : NSObject
-+ (void)isDICOMFile:(NSString *)path compressed:(BOOL *)out;
-@end
-@interface BrowserController : NSObject
-+ (BOOL)isItCD:(NSString *)path;
-@end
-void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *where);
+final class ViewStub: NSObject {
+    func updatePresentationStateFromSeries() {}
+    func setStartWLWW() {}
+    func display() {}
+}
+
+struct HarnessGraph { let preferences: any PreferenceStore }
+final class HarnessImageViews { let openingScaleToFit = DeferredCalls() }
 
 // On the main actor, as the app's ViewerController is by its AppKit superclass.
-NS_SWIFT_UI_ACTOR
-@interface ViewerController : NSObject {
-@public NSThread *loadingThread;
-    NSDictionary *openingContentBoundsByPixels; BOOL openingScaleToFitRequested;
-    BOOL requestLoadingCancel, windowWillClose, enableSubtraction, subCtrlMinMaxComputed;
-    short originalOrientation, maxMovieIndex;
-    NSMutableArray *pixList[4], *fileList[4];
-    NSData *volumeData[4];
-    ViewStub *imageView;
-    NSUInteger orientations, backgroundOrientations, backgroundWindows;
-    BOOL checkEverythingLoaded; ViewerController *blendingController; NSUInteger intervals;
+@MainActor public final class ViewerController: NSObject {
+    let loadingState = ViewerLoadingState()
+    let imageViewsState = HarnessImageViews()
+    var sessionGraph: HarnessGraph! = HarnessGraph(preferences: MemoryPreferences())
+    nonisolated(unsafe) var pixLists: [NSMutableArray?] = [nil, nil]
+    var volumes: [NSObject?] = [NSData(), NSData()]
+    nonisolated(unsafe) var horos_maxMovieIndex: Int16 = 1
+    var horos_openingScaleToFitRequested = false
+    var horos_openingContentBoundsByPixels: [AnyHashable: Any]?
+    var horos_imageView: ViewStub? = ViewStub()
+    var horos_originalOrientation: Int16 = 0
+    var horos_enableSubtraction = false
+    var horos_subCtrlMinMaxComputed = false
+    var horos_blending: ViewerController?
+    var window: ViewStub? { horos_imageView }
+    var orientations = 0, intervals = 0
+
+    nonisolated func horos_pixList(at index: Int) -> NSMutableArray? { pixLists[index] }
+    func horos_volumeData(at index: Int) -> NSObject? { volumes[index] }
+    func setWindowTitle(_ sender: Any?) { check(Thread.isMainThread, "title off the main thread") }
+    func subtractionUnavailableReason() -> String? { "not XA" }
+    func enableSubtraction() {}
+    func convertPETtoSUV() {}
+    func setShutterOnOffButton(_ sender: NSNumber?) {}
+    func computeIntervalAsync() {}
+    func computeInterval() -> Bool { intervals += 1; return true }
+    func finishOpeningScaleToFit() {}
+    func computeOriginalOrientation() -> Double { check(Thread.isMainThread, "geometry off the main thread"); orientations += 1; return 0 }
+'''
+
+driver = r'''
 }
-@property(retain) ViewStub *window;
-+ (void)loadImageData:(NSDictionary *)dict;
-- (void)setWindowTitle:(id)sender;
-- (void)enableSubtraction;
-- (void)convertPETtoSUV;
-- (void)setShutterOnOffButton:(id)sender;
-- (void)computeIntervalAsync;
-- (void)computeInterval;
-WAITS
-- (void)finishOpeningScaleToFit;
-- (double)computeOriginalOrientation;
-@property(assign) BOOL horos_openingScaleToFitRequested;
-@property(retain, nullable) NSDictionary* horos_openingContentBoundsByPixels;
-@property(retain, nullable) NSThread* horos_loadingThread NS_SWIFT_NONISOLATED;
-- (void)horos_assignLoadingThread:(nullable NSThread*)value;
-@property(assign) BOOL horos_checkEverythingLoadedFlag;
-@property(retain, nullable) ViewerController* horos_blendingController;
-@property(retain, nullable) ViewStub* horos_imageView;
-@property(assign) short horos_originalOrientation;
-@property(assign) BOOL horos_enableSubtraction;
-@property(assign) BOOL horos_subCtrlMinMaxComputed;
-- (nullable NSMutableArray<DCMPix *>*)horos_pixListAt:(NSInteger)index NS_SWIFT_NONISOLATED;
-- (nullable NSObject*)horos_volumeDataAt:(NSInteger)index;
-@property(assign) short horos_maxMovieIndex;
-@property(assign) BOOL horos_windowWillClose;
-@property(assign) BOOL horos_requestLoadingCancel;
-@end
-"""
-stub = r"""
-#import "Harness.h"
-#include <assert.h>
-#define N2LogException(e) NSLog(@"%@", e)
-NSString * const OsirixViewerControllerDidLoadImagesNotification = @"DidLoad";
 
-// The Swift methods, as the Objective-C of the app sees them.
-// The viewer's series load (ViewerSeriesLoad.swift), as Objective-C sees it.
-@interface HorosViewerSeriesLoad : NSObject
-@property(readonly) NSInteger state;
-- (void)cancel;
-- (void)requestCancel;
-- (void)close;
-@end
-@interface ViewerController (RetrieveAndView)
-STUDYWAITS
-@property(readonly) HorosViewerSeriesLoad *horosSeriesLoad;
-- (void)startLoadImageThread;
-- (void)finishLoadImageData:(NSDictionary *)dict;
-+ (NSDictionary*) openingContentBoundsForPixLists:(NSArray*)lists loadThread:(NSThread*)thread;
-@end
+@MainActor var notices = 0
+@MainActor var reentrantReplacement: SeriesLoadHandle?
 
-void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *where) { NSLog(@"%@", e); }
-@implementation NSThread (Status)
-- (void)setProgress:(double)x {}
-- (double)progress { return 0; }
-- (void)setStatus:(NSString *)s {}
-- (NSString *)status { return @""; }
-@end
-
-@interface Probe : NSObject {
-@public NSCondition *gate;
-    BOOL released, compressed;
-    NSUInteger entered, decoded, wrongOrigin;
-    NSThread *origin;
+func pixels(_ probe: Probe, _ count: Int) -> NSMutableArray {
+    let array = NSMutableArray()
+    for _ in 0..<count { array.add(DCMPix(probe: probe)) }
+    return array
 }
-- (void)decodeFrom:(NSThread *)thread;
-- (void)waitForEntry;
-- (void)resume;
-- (void)park;
-@end
-@implementation Probe
-- (id)init { if ((self = [super init])) gate = [NSCondition new]; return self; }
-- (void)decodeFrom:(NSThread *)thread {
-    [gate lock];
-    if (thread && origin && thread != origin) ++wrongOrigin;
-    ++entered; [gate broadcast];
-    while (!released) [gate wait];
-    ++decoded; [gate unlock];
+
+func waitFinished(_ thread: Thread?) {
+    let until = Date(timeIntervalSinceNow: 5)
+    while !(thread?.isFinished ?? true) && until.timeIntervalSinceNow > 0 { Thread.sleep(forTimeInterval: 0.005) }
+    check(thread?.isFinished ?? true, "the load did not end")
 }
-- (void)waitForEntry {
-    [gate lock]; NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:5];
-    while (!entered && [gate waitUntilDate:deadline]) {}
-    assert(entered); [gate unlock];
+
+/// Runs the main run loop a moment: the main actor's jobs and the deferred calls run.
+@MainActor func drainMain() {
+    RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
 }
-- (void)resume { [gate lock]; released = YES; [gate broadcast]; [gate unlock]; }
-- (void)park { @autoreleasepool { [self decodeFrom:nil]; } }
-@end
 
-@implementation DCMPix
-- (NSString *)srcFile { return self.probe->compressed ? @"compressed" : @"plain"; }
-- (NSString *)modalityString { return @"CT"; }
-- (BOOL)isLoaded { return YES; }
-- (double)pixelRatio { return 1; }
-- (float *)fImage { static float data[32*32]; if(self.contentProbe)[self.contentProbe decodeFrom:nil]; return data; }
-- (void)CheckLoad { [self.probe decodeFrom:nil]; }
-- (void)CheckLoadFromThread:(NSThread *)thread {
-    if (!thread.isExecuting || thread.isCancelled || thread.isFinished) return;
-    [self.probe decodeFrom:thread];
+@MainActor func resumeLater(_ probe: Probe, after milliseconds: Int) {
+    DispatchQueue.global().asyncAfter(deadline: .now() + .milliseconds(milliseconds)) { probe.resume() }
 }
-- (void)setMaxValueOfSeries:(float)x {}
-- (void)setMinValueOfSeries:(float)x {}
-- (long)pwidth { return 32; }
-- (long)pheight { return 32; }
-@end
 
-@implementation DicomFile
-+ (void)isDICOMFile:(NSString *)path compressed:(BOOL *)out { *out = [path isEqual:@"compressed"]; }
-@end
-@implementation BrowserController
-+ (BOOL)isItCD:(NSString *)path { return NO; }
-@end
-
-@implementation ViewStub
-- (void)updatePresentationStateFromSeries {}
-- (void)setStartWLWW {}
-- (void)display {}
-@end
-@implementation Wait
-- (id)initWithString:(NSString *)string { return [super init]; }
-- (void)showWindow:(id)sender {}
-- (void)incrementBy:(double)delta {}
-- (void)close {}
-@end
-
-@implementation ViewerController
-@synthesize horos_openingScaleToFitRequested = openingScaleToFitRequested, horos_openingContentBoundsByPixels = openingContentBoundsByPixels;
-@synthesize horos_loadingThread = loadingThread, horos_imageView = imageView, horos_originalOrientation = originalOrientation;
-@synthesize horos_enableSubtraction = enableSubtraction, horos_subCtrlMinMaxComputed = subCtrlMinMaxComputed, horos_maxMovieIndex = maxMovieIndex;
-@synthesize horos_windowWillClose = windowWillClose, horos_requestLoadingCancel = requestLoadingCancel;
-@synthesize horos_checkEverythingLoadedFlag = checkEverythingLoaded, horos_blendingController = blendingController;
-- (void)horos_assignLoadingThread:(NSThread *)value { loadingThread = value; }
-- (NSMutableArray *)horos_pixListAt:(NSInteger)index { return pixList[index]; }
-- (NSObject *)horos_volumeDataAt:(NSInteger)index { return volumeData[index]; }
-- (id)init {
-    if ((self = [super init])) {
-        imageView = [ViewStub new]; imageView.visible = YES;
-        maxMovieIndex = 1;
+extension SeriesLoadRequest {
+    /// A request for `lists` under `handle`: the result of a load the viewer
+    /// may no longer await.
+    init(lists: [NSMutableArray], handle: SeriesLoadHandle) {
+        self.lists = lists
+        frames = lists.map { $0.compactMap { $0 as? DCMPix } }
+        volumes = []
+        computeOpeningContentBounds = false
+        progress = handle.loadProgress
+        observedLoad = ObservedThread(handle)
     }
-    return self;
 }
-- (ViewStub *)window { if (!NSThread.isMainThread) ++backgroundWindows; return imageView; }
-- (void)setWindow:(ViewStub *)view {}
-- (void)setWindowTitle:(id)sender { assert(NSThread.isMainThread); }
-- (void)enableSubtraction { assert(NSThread.isMainThread); }
-- (void)convertPETtoSUV { assert(NSThread.isMainThread); }
-- (void)setShutterOnOffButton:(id)sender { assert(NSThread.isMainThread); }
-- (void)computeIntervalAsync { assert(NSThread.isMainThread); }
-- (void)computeInterval { assert(NSThread.isMainThread); ++intervals; }
-- (void)finishOpeningScaleToFit { assert(NSThread.isMainThread); }
-- (double)computeOriginalOrientation {
-    ++orientations; if (!NSThread.isMainThread) ++backgroundOrientations; return 0;
-}
-"""
-driver = r"""
-@end
 
-static NSMutableArray *pixels(Probe *probe, NSUInteger count) {
-    NSMutableArray *array = [NSMutableArray array];
-    for (NSUInteger i=0; i<count; ++i) {
-        DCMPix *p = [DCMPix new]; p.probe = probe;
-        [array addObject:p]; [p release];
+/// A result for `viewer`'s current lists, or for `lists`, under `handle`.
+@MainActor func result(_ viewer: ViewerController, lists: [NSMutableArray]? = nil, handle: SeriesLoadHandle) -> SeriesLoadResult {
+    let lists = lists ?? (0..<Int(viewer.horos_maxMovieIndex)).compactMap { viewer.pixLists[$0] }
+    return SeriesLoadResult(request: SeriesLoadRequest(lists: lists, handle: handle), openingContentBounds: [0: .zero])
+}
+
+/// An obsolete result is refused: the pending load, the content bounds, the
+/// geometry and the announcement stay as they were.
+@MainActor func staleCase(_ name: String) {
+    let v = ViewerController(); let probe = Probe()
+    let first = pixels(probe, 2), second = pixels(probe, 2)
+    v.pixLists[0] = second
+    v.horosSeriesLoad.start()
+    let current = v.loadingState.load!
+    probe.waitForEntry()
+    let cache: [AnyHashable: Any] = ["sentinel": 1]
+    v.horos_openingContentBoundsByPixels = cache
+    var stale: SeriesLoadResult
+    switch name {
+    case "restart-same-pixels":
+        stale = result(v, handle: SeriesLoadHandle())
+    case "changed-timepoint":
+        v.horos_maxMovieIndex = 2; v.pixLists[1] = second
+        stale = result(v, lists: [second, first], handle: current)
+    case "closed":
+        stale = result(v, handle: current); v.horos_windowWillClose = true
+    case "cancelled":
+        stale = result(v, handle: current); current.cancel()
+    default:
+        stale = result(v, lists: [first], handle: SeriesLoadHandle())
     }
-    return array;
+    v.horosSeriesLoad.deliver(stale)
+    check(v.loadingState.load === current, "obsolete result detached the current load")
+    check(v.horos_openingContentBoundsByPixels?["sentinel"] != nil, "obsolete result replaced current series content bounds")
+    if name != "cancelled" { check(!current.isCancelled, "obsolete result cancelled the replacement load") }
+    check(notices == 0, "obsolete result announced a loaded volume")
+    check(v.orientations == 0, "obsolete result recomputed viewer geometry")
+    current.cancel(); probe.resume(); waitFinished(current)
 }
-static NSDictionary *job(ViewerController *viewer, NSArray *arrays) {
-    return @{ @"viewerController":viewer, @"pixListArray":arrays,
-        @"volumeDataArray":@[[NSData data]], @"fileListArray":@[] };
-}
-static NSDictionary *completion(ViewerController *viewer, NSArray *arrays, NSThread *thread) {
-    NSMutableDictionary *dict = [[job(viewer, arrays) mutableCopy] autorelease];
-    dict[@"loadThread"] = thread;
-    return dict;
-}
-static void waitFinished(NSThread *thread) {
-    NSDate *until = [NSDate dateWithTimeIntervalSinceNow:5];
-    while (!thread.isFinished && until.timeIntervalSinceNow > 0) [NSThread sleepForTimeInterval:.005];
-    assert(thread.isFinished);
-}
-static void drainMain(void) {
-    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.05]];
-}
-static void check(BOOL value, const char *message) {
-    if (!value) { fprintf(stderr, "FAIL: %s\n", message); exit(1); }
-}
-static int notices;
 
-static void staleCase(NSString *name) {
-    ViewerController *v = [ViewerController new]; Probe *probe = [Probe new];
-    NSMutableArray *first = pixels(probe, 2), *second = pixels(probe, 2);
-    NSThread *old = [NSThread new], *current = [NSThread new];
-    v->loadingThread = [current retain]; v->pixList[0] = [second retain];
-    NSDictionary *cache=@{@"sentinel":@1};v->openingContentBoundsByPixels=[cache retain];
-    NSArray *oldArrays = @[first];
-    if ([name isEqual:@"restart-same-pixels"]) oldArrays = @[second];
-    if ([name isEqual:@"changed-timepoint"]) {
-        v->maxMovieIndex = 2; v->pixList[1] = [second retain];
-        oldArrays = @[second, first]; old = current;
+/// A load replaced while it decodes stops at the slice it is decoding, and
+/// its decodes never borrow the replacement's handle.
+@MainActor func workerCase(compressed: Bool) {
+    let v = ViewerController(); let a = Probe(); a.compressed = compressed
+    v.horos_maxMovieIndex = 2
+    v.pixLists[0] = pixels(a, 64); v.pixLists[1] = pixels(a, 64)
+    v.horosSeriesLoad.start()
+    let old = v.loadingState.load!
+    a.waitForEntry()
+    let b = Probe()
+    v.pixLists[0] = pixels(b, 2); v.pixLists[1] = pixels(b, 2)
+    v.horosSeriesLoad.start()
+    let replacement = v.loadingState.load!
+    check(old.isCancelled, "the replaced load was not cancelled")
+    a.resume(); waitFinished(old); drainMain()
+    b.waitForEntry()
+    check(v.loadingState.load === replacement && !replacement.isCancelled, "cancelled load disturbed its replacement")
+    check(notices == 0 && v.orientations == 0, "cancelled load delivered UI/geometry effects")
+    let counts = a.counts
+    check(counts.decoded < 128, "cancelled load decoded the entire old volume")
+    if !compressed { check(counts.decoded == 1, "in-order cancellation crossed a slice/timepoint boundary") }
+    replacement.cancel(); b.resume(); waitFinished(replacement)
+}
+
+@MainActor func validCase(compressed: Bool) {
+    let v = ViewerController(); let p = Probe(); p.compressed = compressed; p.resume()
+    v.pixLists[0] = pixels(p, 8)
+    v.horosSeriesLoad.start()
+    let load = v.loadingState.load
+    waitFinished(load); drainMain()
+    check(p.counts.decoded == 8, "valid load did not decode all slices")
+    check(notices == 1 && v.loadingState.load == nil, "valid load did not finish exactly once")
+    check(v.orientations == 1, "the delivery did not compute the geometry once")
+    check(v.horosSeriesLoad.state == .completed, "the delivered load is not completed")
+}
+
+@MainActor func contentCancellationCase() {
+    let v = ViewerController(); let decode = Probe(), content = Probe(); decode.resume()
+    let store = MemoryPreferences(); store.set(true, for: ViewerPreferences.scaleToFitOnOpen)
+    v.sessionGraph = HarnessGraph(preferences: store)
+    let array = pixels(decode, 64)
+    for case let pix as DCMPix in array { pix.contentProbe = content }
+    v.pixLists[0] = array
+    v.horosSeriesLoad.start()
+    let old = v.loadingState.load!
+    content.waitForEntry()
+    check(decode.counts.decoded == 64, "content analysis started before decoding finished")
+    let parked = Probe()
+    v.pixLists[0] = pixels(parked, 2)
+    v.horosSeriesLoad.start()
+    let replacement = v.loadingState.load!
+    content.resume(); waitFinished(old); drainMain()
+    check(v.loadingState.load === replacement && !replacement.isCancelled, "content cancellation disturbed replacement")
+    check(notices == 0 && v.horos_openingContentBoundsByPixels == nil, "cancelled content reached the viewer")
+    check(content.counts.decoded <= 4, "cancelled analysis continued beyond in-flight reads")
+    replacement.cancel(); parked.resume(); waitFinished(replacement)
+}
+
+/// The load an observer of the announcement starts is not cancelled.
+@MainActor func reentrantCase() {
+    let v = ViewerController(); let p = Probe(); p.resume()
+    v.pixLists[0] = pixels(p, 2)
+    let replacement = SeriesLoadHandle()
+    reentrantReplacement = replacement
+    let observer = NotificationCenter.default.addObserver(forName: .OsirixViewerControllerDidLoadImages, object: v, queue: nil) { _ in
+        MainActor.assumeIsolated { v.loadingState.load = reentrantReplacement }
     }
-    if ([name isEqual:@"closed"]) {
-        oldArrays = @[second]; old = current; v->windowWillClose = YES;
-    }
-    if ([name isEqual:@"cancelled"]) {
-        oldArrays = @[second]; old = current; [old cancel];
-    }
-    [v finishLoadImageData:completion(v, oldArrays, old)];
-    check(v->loadingThread == current, "obsolete completion detached the current load");
-    check(v->openingContentBoundsByPixels==cache, "obsolete completion replaced current series content bounds");
-    if (![name isEqual:@"cancelled"]) check(!current.isCancelled, "obsolete completion cancelled the replacement load");
-    check(notices == 0, "obsolete completion announced a loaded volume");
-    check(v->orientations == 0, "obsolete completion recomputed viewer geometry");
+    v.horosSeriesLoad.start()
+    waitFinished(v.loadingState.load); drainMain()
+    check(v.loadingState.load === replacement && !replacement.isCancelled, "delivery cancelled the load started by its notification observer")
+    check(notices == 1, "accepted result did not announce exactly once")
+    NotificationCenter.default.removeObserver(observer)
 }
 
-static void workerCase(BOOL compressed) {
-    ViewerController *v = [ViewerController new];
-    Probe *a = [Probe new]; a->compressed = compressed;
-    NSArray *arrays = @[pixels(a, 64), pixels(a, 64)];
-    v->maxMovieIndex = 2;
-    v->pixList[0] = [arrays[0] retain]; v->pixList[1] = [arrays[1] retain];
-    NSThread *old = [[NSThread alloc] initWithTarget:ViewerController.class selector:@selector(loadImageData:) object:job(v, arrays)];
-    a->origin = old; v->loadingThread = [old retain];
-    [old start]; [a waitForEntry];
-    [old cancel];
-    Probe *b = [Probe new];
-    NSThread *replacement = [[NSThread alloc] initWithTarget:b selector:@selector(park) object:nil];
-    v->loadingThread = [replacement retain];
-    v->pixList[0] = [pixels(b,2) retain]; v->pixList[1] = [pixels(b,2) retain];
-    [replacement start]; [b waitForEntry];
-    [a resume]; waitFinished(old); drainMain();
-    check(v->loadingThread == replacement && !replacement.isCancelled,
-          "cancelled worker disturbed its replacement");
-    check(notices == 0 && v->orientations == 0, "cancelled worker delivered UI/geometry effects");
-    check(a->wrongOrigin == 0, "compressed decode borrowed the replacement's cancellation thread");
-    check(a->decoded < 128, "cancelled worker decoded the entire old volume");
-    if (!compressed) check(a->decoded == 1, "sequential cancellation crossed a slice/timepoint boundary");
-    check(v->backgroundWindows == 0, "loader accessed the AppKit window on its worker");
-    [replacement cancel]; [b resume]; waitFinished(replacement);
+/// Closing while a decode is in flight waits for the loader, delivers
+/// nothing, and no load starts after.
+@MainActor func closeCase() {
+    let v = ViewerController(); let p = Probe()
+    v.pixLists[0] = pixels(p, 8)
+    v.horosSeriesLoad.start()
+    let load = v.loadingState.load!
+    check(v.horosSeriesLoad.state == .loading, "the started load is not loading")
+    p.waitForEntry()
+    resumeLater(p, after: 100)
+    v.horosSeriesLoad.requestCancel()
+    v.horosSeriesLoad.close()
+    check(load.isCancelled && !load.isExecuting && load.isFinished, "close returned before the loader left")
+    check(v.loadingState.load == nil && v.horosSeriesLoad.state == .closed, "close left a pending load")
+    drainMain()
+    check(notices == 0 && v.orientations == 0, "a closed viewer received its load")
+    v.horosSeriesLoad.start()
+    check(v.loadingState.load == nil, "a load started after the close")
 }
 
-static void validCase(BOOL compressed) {
-    ViewerController *v = [ViewerController new]; Probe *p = [Probe new];
-    p->compressed = compressed; [p resume];
-    v->pixList[0] = [pixels(p, 8) retain]; v->fileList[0] = [NSMutableArray new];
-    v->volumeData[0] = [NSData new];
-    [v startLoadImageThread]; NSThread *thread = [v->loadingThread retain];
-    waitFinished(thread); drainMain();
-    check(p->decoded == 8, "valid load did not decode all slices");
-    check(notices == 1 && v->loadingThread == nil, "valid load did not finish exactly once");
-    check(v->orientations == 1 && v->backgroundOrientations == 0, "geometry did not stay on main thread");
-    check(v->backgroundWindows == 0, "loader accessed the AppKit window on its worker");
+@MainActor func cancelledCase() {
+    let v = ViewerController(); let p = Probe()
+    v.pixLists[0] = pixels(p, 2)
+    v.horosSeriesLoad.start()
+    let load = v.loadingState.load!
+    p.waitForEntry()
+    v.horosSeriesLoad.cancel()
+    check(load.isCancelled && v.loadingState.load == nil && v.horosSeriesLoad.state == .cancelled, "cancel left the load pending")
+    v.horosSeriesLoad.deliver(result(v, handle: load))
+    check(notices == 0 && v.orientations == 0, "a cancelled load was delivered")
+    p.resume(); waitFinished(load); drainMain()
+    check(notices == 0, "a cancelled load announced its volume")
 }
 
-static void contentCancellationCase(void) {
-    ViewerController *v = [ViewerController new];
-    Probe *decode = [Probe new], *content = [Probe new]; [decode resume];
-    NSArray *array = pixels(decode, 64);
-    for (DCMPix *pix in array) pix.contentProbe = content;
-    v->pixList[0] = [array retain];
-    NSMutableDictionary *input = [[job(v, @[array]) mutableCopy] autorelease];
-    input[@"computeOpeningContentBounds"] = @YES;
-    NSThread *old = [[NSThread alloc] initWithTarget:ViewerController.class selector:@selector(loadImageData:) object:input];
-    v->loadingThread = [old retain]; [old start]; [content waitForEntry];
-    check(decode->decoded == 64, "content analysis started before decoding finished");
-    [old cancel];
-    NSThread *replacement = [NSThread new]; v->loadingThread = [replacement retain];
-    v->pixList[0] = [pixels(decode, 2) retain];
-    [content resume]; waitFinished(old); drainMain();
-    check(v->loadingThread == replacement && !replacement.isCancelled, "content cancellation disturbed replacement");
-    check(notices == 0 && v->openingContentBoundsByPixels == nil, "cancelled content reached the viewer");
-    check(content->decoded <= 4, "cancelled analysis continued beyond in-flight reads");
-    check(v->backgroundWindows == 0, "content analysis accessed an AppKit window");
-}
-
-static void reentrantCase(void) {
-    ViewerController *v = [ViewerController new]; Probe *p = [Probe new];
-    v->pixList[0] = [pixels(p,2) retain];
-    NSThread *old = [NSThread new], *replacement = [NSThread new];
-    v->loadingThread = [old retain];
-    id observer = [NSNotificationCenter.defaultCenter addObserverForName:OsirixViewerControllerDidLoadImagesNotification
-        object:v queue:nil usingBlock:^(NSNotification *note) { v->loadingThread = [replacement retain]; }];
-    [v finishLoadImageData:completion(v, @[v->pixList[0]], old)];
-    check(v->loadingThread == replacement && !replacement.isCancelled,
-          "completion cancelled the load started by its notification observer");
-    check(notices == 1, "accepted completion did not announce exactly once");
-    [NSNotificationCenter.defaultCenter removeObserver:observer];
-}
-
-// Closing while a decode is in flight waits for the worker, delivers
-// nothing, and no load starts after; a cancelled load's completion is refused.
-static void closeCase(void) {
-    ViewerController *v = [ViewerController new]; Probe *p = [Probe new];
-    v->pixList[0] = [pixels(p, 8) retain]; v->volumeData[0] = [NSData new];
-    [v startLoadImageThread]; NSThread *thread = [v->loadingThread retain];
-    check(v.horosSeriesLoad.state == 1, "the started load is not loading");
-    [p waitForEntry];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), dispatch_get_global_queue(0, 0), ^{ [p resume]; });
-    [v.horosSeriesLoad requestCancel];
-    [v.horosSeriesLoad close];
-    check(thread.isCancelled && !thread.isExecuting, "close returned before the worker left");
-    check(v->loadingThread == nil && v.horosSeriesLoad.state == 4, "close left a pending load");
-    drainMain();
-    check(notices == 0 && v->orientations == 0, "a closed viewer received its load");
-    [v startLoadImageThread];
-    check(v->loadingThread == nil, "a load started after the close");
-}
-
-static void cancelledCase(void) {
-    ViewerController *v = [ViewerController new]; Probe *p = [Probe new];
-    v->pixList[0] = [pixels(p, 2) retain]; v->volumeData[0] = [NSData new];
-    [v startLoadImageThread]; NSThread *thread = [v->loadingThread retain];
-    [p waitForEntry];
-    [v.horosSeriesLoad cancel];
-    check(thread.isCancelled && v->loadingThread == nil && v.horosSeriesLoad.state == 3, "cancel left the load pending");
-    [v finishLoadImageData:completion(v, @[v->pixList[0]], thread)];
-    check(notices == 0 && v->orientations == 0, "a cancelled load was delivered");
-    [p resume]; waitFinished(thread); drainMain();
-    check(notices == 0, "a cancelled worker announced its volume");
-}
-
-// A load asked about in the same pass that started it, before its worker has
-// begun executing: it is pending, and waiting for it waits.
-static void queriedAtStartCase(void) {
-    ViewerController *v = [ViewerController new]; Probe *p = [Probe new];
-    v->pixList[0] = [pixels(p, 4) retain]; v->volumeData[0] = [NSData new];
-    [v startLoadImageThread]; NSThread *thread = [v->loadingThread retain];
-    check(![v isEverythingLoaded], "a load that has just been started reads as loaded");
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 200 * NSEC_PER_MSEC), dispatch_get_global_queue(0, 0), ^{ [p resume]; });
-    [v checkEverythingLoaded];
-    check(thread.isFinished, "the wait for a load that had just been started did not wait");
-    check(p->decoded == 4 && v->intervals == 1, "the awaited load did not decode its images");
-    check([v isEverythingLoaded], "a finished load does not read as loaded");
-    drainMain();
-    check(v->loadingThread == nil && [v isEverythingLoaded], "a delivered load does not read as loaded");
+/// A load asked about in the same pass that started it, before the loader has
+/// begun: it is pending, and waiting for it waits.
+@MainActor func queriedAtStartCase() {
+    let v = ViewerController(); let p = Probe()
+    v.pixLists[0] = pixels(p, 4)
+    v.horosSeriesLoad.start()
+    let load = v.loadingState.load
+    check(!v.isEverythingLoaded(), "a load that has just been started reads as loaded")
+    resumeLater(p, after: 200)
+    v.checkEverythingLoaded()
+    check(load?.isFinished ?? false, "the wait for a load that had just been started did not wait")
+    check(p.counts.decoded == 4 && v.intervals == 1, "the awaited load did not decode its images")
+    check(v.isEverythingLoaded(), "a finished load does not read as loaded")
+    drainMain()
+    check(v.loadingState.load == nil && v.isEverythingLoaded(), "a delivered load does not read as loaded")
 
     // A load being cancelled is not waited for, just started or not.
-    ViewerController *w = [ViewerController new]; Probe *q = [Probe new];
-    w->pixList[0] = [pixels(q, 4) retain]; w->volumeData[0] = [NSData new];
-    [w startLoadImageThread]; NSThread *cancelled = [w->loadingThread retain];
-    [w.horosSeriesLoad requestCancel];
-    NSDate *asked = [NSDate date];
-    [w checkEverythingLoaded];
-    check(-asked.timeIntervalSinceNow < 1 && w->intervals == 0, "a load being cancelled was waited for");
-    [q resume]; waitFinished(cancelled); drainMain();
+    let w = ViewerController(); let q = Probe()
+    w.pixLists[0] = pixels(q, 4)
+    w.horosSeriesLoad.start()
+    let cancelled = w.loadingState.load
+    w.horosSeriesLoad.requestCancel()
+    let asked = Date()
+    w.checkEverythingLoaded()
+    check(-asked.timeIntervalSinceNow < 1 && w.intervals == 0, "a load being cancelled was waited for")
+    q.resume(); waitFinished(cancelled); drainMain()
 }
 
-int main(int argc, const char **argv) { @autoreleasepool {
-    assert(argc == 2 && NSThread.isMainThread);
-    NSString *name = @(argv[1]);
-    id observer = [NSNotificationCenter.defaultCenter addObserverForName:OsirixViewerControllerDidLoadImagesNotification
-        object:nil queue:nil usingBlock:^(NSNotification *note) { assert(NSThread.isMainThread); ++notices; }];
-    if ([name isEqual:@"worker-plain"]) workerCase(NO);
-    else if ([name isEqual:@"worker-compressed"]) workerCase(YES);
-    else if ([name isEqual:@"valid-plain"]) validCase(NO);
-    else if ([name isEqual:@"valid-compressed"]) validCase(YES);
-    else if ([name isEqual:@"content-cancelled"]) contentCancellationCase();
-    else if ([name isEqual:@"reentrant"]) reentrantCase();
-    else if ([name isEqual:@"close-during-load"]) closeCase();
-    else if ([name isEqual:@"cancelled-load"]) cancelledCase();
-    else if ([name isEqual:@"queried-at-start"]) queriedAtStartCase();
-    else staleCase(name);
-    [NSNotificationCenter.defaultCenter removeObserver:observer];
-    printf("PASS: %s\n", argv[1]);
-} return 0; }
-"""
+@main struct Check {
+    @MainActor static func main() {
+        let name = CommandLine.arguments[1]
+        let observer = NotificationCenter.default.addObserver(forName: .OsirixViewerControllerDidLoadImages, object: nil, queue: nil) { _ in
+            check(Thread.isMainThread, "the load was announced off the main thread")
+            MainActor.assumeIsolated { notices += 1 }
+        }
+        switch name {
+        case "worker-plain": workerCase(compressed: false)
+        case "worker-compressed": workerCase(compressed: true)
+        case "valid-plain": validCase(compressed: false)
+        case "valid-compressed": validCase(compressed: true)
+        case "content-cancelled": contentCancellationCase()
+        case "reentrant": reentrantCase()
+        case "close-during-load": closeCase()
+        case "cancelled-load": cancelledCase()
+        case "queried-at-start": queriedAtStartCase()
+        default: staleCase(name)
+        }
+        NotificationCenter.default.removeObserver(observer)
+        print("PASS: \(name)")
+    }
+}
 
-cases = ['stale-series', 'restart-same-pixels', 'changed-timepoint', 'closed',
-         'cancelled', 'worker-plain', 'worker-compressed', 'valid-plain',
-         'valid-compressed', 'content-cancelled', 'reentrant']
-# The series load holds the start, cancellation and close since it exists.
-series_load = ROOT/'Horos/Sources/ViewerSeriesLoad.swift'
-if series_load.exists():
-    cases += ['close-during-load', 'cancelled-load', 'queried-at-start']
+extension Notification.Name {
+    static let OsirixViewerControllerDidLoadImages = Notification.Name("OsirixViewerControllerDidLoadImagesNotification")
+}
+'''
+
+cases = ['stale-series', 'restart-same-pixels', 'changed-timepoint', 'closed', 'cancelled', 'worker-plain', 'worker-compressed',
+         'valid-plain', 'valid-compressed', 'content-cancelled', 'reentrant', 'close-during-load', 'cancelled-load', 'queried-at-start']
 if args.case:
     assert args.case in cases
     cases = [args.case]
 with tempfile.TemporaryDirectory(prefix='horos-loader-lifetime-') as tmp:
     folder = Path(tmp)
-    declared = '- (BOOL)isEverythingLoaded;\n- (void)checkEverythingLoaded;'
-    (folder/'Harness.h').write_text(header.replace('WAITS', declared if objc_waits else ''))
-    (folder/'Check.m').write_text(stub.replace('STUDYWAITS', '' if objc_waits else declared)+methods+driver)
-    (folder/'Loading.swift').write_text(extension)
-    service = [str(series_load), str(ROOT/'Horos/Sources/IdentityToken.swift')] if series_load.exists() else []
-    include = ['-I', str(folder), '-I', str(ROOT/'Horos/Sources')]
-    subprocess.run(['xcrun','clang','-c','-fno-objc-arc','-fblocks','-O1','-g',
-                    *include,str(folder/'Check.m'),'-o',str(folder/'Check.o')], check=True)
-    subprocess.run(['xcrun','clang','-c','-fobjc-arc',*include,str(ROOT/'Horos/Sources/HorosObjCException.m'),
-                    '-o',str(folder/'HorosObjCException.o')], check=True)
-    subprocess.run(['xcrun','swiftc','-parse-as-library','-g',*include,'-import-objc-header',str(folder/'Harness.h'),
-                    str(folder/'Loading.swift'),*service,str(folder/'Check.o'),str(folder/'HorosObjCException.o'),
-                    '-framework','Foundation','-o',str(folder/'check')], check=True)
+    target = ['-target', 'arm64-apple-macos15.0']
+    flags = isix_modules.module_flags('IsiXImaging', folder / 'modules', target)
+    flags += [flag for flag in isix_modules.module_flags('IsiXPreferences', folder / 'modules', target) if flag not in flags]
+    (folder/'Harness.h').write_text('#import <Foundation/Foundation.h>\n#import "HorosObjCException.h"\n#include "HorosContentBounds.h"\n')
+    (folder/'Check.swift').write_text(doubles + waits + driver + try_helper + wait_type)
+    (folder/'Load.swift').write_text(series_load)
+    include = ['-I', str(ROOT/'Horos/Sources')]
+    subprocess.run(['xcrun', 'clang', '-c', '-fobjc-arc', *target, *include, str(ROOT/'Horos/Sources/HorosObjCException.m'),
+                    '-o', str(folder/'HorosObjCException.o')], check=True)
+    service = [str(ROOT/'Horos/Sources'/name) for name in ('ObservedThread.swift', 'OpeningContentBounds.swift', 'DeferredCalls.swift',
+                                                           'IdentityToken.swift')]
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-parse-as-library', '-g', *target, *include, *flags,
+                    '-import-objc-header', str(folder/'Harness.h'),
+                    str(folder/'Check.swift'), str(folder/'Load.swift'), str(args.loader), *service,
+                    str(folder/'HorosObjCException.o'), '-framework', 'AppKit', '-o', str(folder/'check')], check=True)
     failed = []
     for case in cases:
-        result = subprocess.run([str(folder/'check'), case], timeout=20)
+        result = subprocess.run([str(folder/'check'), case], timeout=30)
         if result.returncode:
             failed.append(case)
     if failed:
-        raise SystemExit('FAIL: '+', '.join(failed))
-print(f'PASS: {len(cases)} host loading lifetime scenarios')
+        raise SystemExit('FAIL: ' + ', '.join(failed))
+print(f'PASS: {len(cases)} host series load lifetime scenarios')

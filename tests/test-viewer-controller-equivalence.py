@@ -54,6 +54,8 @@ import difflib
 import re
 import subprocess
 import sys
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+import objc_exception_guards
 import tempfile
 from pathlib import Path
 
@@ -65,8 +67,75 @@ ROOT = Path(__file__).resolve().parents[1]
 VC = 'Horos/Sources/ViewerController.m'
 SWIFT_FILES = ['NSString+Truncate.swift', 'ViewerController+HotKeys.swift', 'ViewerController+ViewerNotifications.swift',
                'ViewerController+DatabaseRefresh.swift', 'ViewerController+Lifecycle.swift']
+# The viewer's graph runs its life (ViewerSessionGraph.swift and its
+# ViewerLife extension): compiled with the blocks, over a stand-in of the
+# process graph and its register that answer through the stand-in class
+# methods, and attached to each viewer as the initializer attaches it.
+GRAPH_FILES = ['ViewerSessionGraph.swift', 'ViewerSessionGraph+ViewerLife.swift']
+# The refresh from the database left -refreshDatabase: for the viewer's
+# ProgressiveRetrieveState: compiled with the blocks when the revision has it,
+# with the @try of ViewerController+ImagePipelineSupport.swift. Its put-off
+# refreshes are DeferredCalls of its own, here a stand-in that records them, and
+# the records of the former -performSelector:withObject:afterDelay: and
+# -cancelPreviousPerformRequestsWithTarget:selector:object: are read as those (see
+# deferred()).
+STATE_FILES = ['ProgressiveRetrieveState.swift', 'IdentityToken.swift']
+GRAPH_STAND_INS = r'''
+import AppKit
+import ObjectiveC
+
+final class ProcessGraph: @unchecked Sendable {
+    static let process = ProcessGraph()
+    var preferences: UserDefaults { UserDefaults.standard }
+    let viewerRegistry = ViewerRegistry()
+    let presetMenuCache = PresetMenuCache()
+    let colourTableCache = ColourTableCache()
+    @MainActor var currentBrowser: BrowserController? { BrowserController.currentBrowser() }
+}
+
+// The graph keeps the viewer's window level (ViewerWindowLevel.swift) and its
+// colour tables (ViewerColourTables.swift), which these blocks never reach:
+// made, not used.
+final class PresetMenuCache: @unchecked Sendable {}
+final class ColourTableCache: @unchecked Sendable {}
+final class ViewerWindowLevel {
+    init(viewer: ViewerController, preferences: UserDefaults, menus: PresetMenuCache) {}
+}
+final class ViewerColourTables {
+    init(preferences: UserDefaults, menus: PresetMenuCache, cache: ColourTableCache) {}
+}
+
+final class ViewerRegistry: @unchecked Sendable {
+    @MainActor func register(_ viewer: ViewerController, isFullScreen: Bool) { ViewerController.horos_register2DViewer(viewer) }
+    @MainActor var count: Int32 { Int32(ViewerController.numberOf2DViewer()) }
+    @MainActor var displayedViewers: [ViewerController] { (ViewerController.getDisplayed2DViewers() as? [ViewerController]) ?? [] }
+}
+
+final class NSFullScreenWindow: NSWindow {}
+
+// The put-off refreshes of ProgressiveRetrieveState: recorded, never run.
+@MainActor final class DeferredCalls {
+    nonisolated init() {}
+    func perform(_ name: String, after delay: TimeInterval, inModes modes: [RunLoop.Mode] = [.default],
+                 _ body: @escaping @MainActor () -> Void) {
+        Record(String(format: "deferred %@ after %a", name, delay))
+    }
+    func cancel(_ name: String) { Record("deferred cancel " + name) }
+}
+
+nonisolated(unsafe) private var graphKey = 0
+
+extension ViewerController {
+    var sessionGraph: ViewerSessionGraph! { objc_getAssociatedObject(self, &graphKey) as? ViewerSessionGraph }
+}
+
+@_cdecl("HarnessAttachGraph")
+@MainActor func HarnessAttachGraph(_ viewer: ViewerController) {
+    objc_setAssociatedObject(viewer, &graphKey, ViewerSessionGraph(viewer: viewer, processGraph: .process), .OBJC_ASSOCIATION_RETAIN)
+}
+'''
 # IsiXLogging first: the others that log write through it.
-MODULES = ['IsiXLogging', 'IsiXImaging']
+MODULES = ['IsiXLogging', 'IsiXPreferences', 'IsiXImaging']
 SCENARIOS = ['lifecycle', 'refresh', 'notifications', 'hotkeys', 'truncate']
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -74,6 +143,22 @@ parser.add_argument('--reference')
 parser.add_argument('--current')
 parser.add_argument('--dump', type=Path, help='write the records of both programs to this folder')
 args = parser.parse_args()
+
+
+def deferred(lines):
+    """The refreshes put off, as the former -performSelector:withObject:afterDelay: of
+    -refreshDatabase: and its -cancelPreviousPerformRequestsWithTarget:selector:object:
+    recorded them, and as ProgressiveRetrieveState's DeferredCalls record them: a
+    refresh put off by a delay (after a drag, or by the coalescer), and the put-off
+    reload cancelled before the coalescer puts off the next one. The viewer and the
+    images the put-off refresh is sent again with are not in the second record."""
+    spelled = []
+    for line in lines:
+        line = re.sub(r'^\S+ perform refreshDatabase: with \S+ after (\S+)$', r'refresh put off by \1', line)
+        line = re.sub(r'^deferred (?:coalescedReload|afterDragging) after (\S+)$', r'refresh put off by \1', line)
+        line = re.sub(r'^cancel refreshDatabase: of \S+ with \S+$', 'put-off reload cancelled', line)
+        spelled.append(re.sub(r'^deferred cancel coalescedReload$', 'put-off reload cancelled', line))
+    return spelled
 
 
 def git(*command):
@@ -360,13 +445,21 @@ NS_SWIFT_NAME(SeriesListLayout)
 NS_SWIFT_NAME(RefreshCoalescer)
 @interface HorosRefreshCoalescer : NSObject
 @property NSTimeInterval harnessWait;
++ (HorosRefreshCoalescer*) standard;
 - (NSTimeInterval) requestAt:(NSTimeInterval) now NS_SWIFT_NAME(request(at:));
 - (void) appliedAt:(NSTimeInterval) now NS_SWIFT_NAME(applied(at:));
+@end
+
+NS_SWIFT_NAME(RetrieveViewingState)
+@interface HorosRetrieveViewingState : NSObject
+@property(readonly) NSString *overlayText;
+@property(readonly) BOOL isPartial;
 @end
 
 NS_SWIFT_NAME(RetrieveViewing)
 @interface HorosRetrieveViewing : NSObject
 @property(class, readonly) HorosRetrieveViewing *shared;
+- (nullable HorosRetrieveViewingState*) stateForStudyUID:(NSString*) study seriesUID:(NSString*) series NS_SWIFT_NAME(state(studyUID:seriesUID:));
 + (NSInteger) indexOfSOPInstanceUID:(NSString*) sop frame:(NSInteger) frame inSOPInstanceUIDs:(NSArray<NSString*>*) sops frames:(NSArray<NSNumber*>*) frames fallback:(NSInteger) fallback
     NS_SWIFT_NAME(index(ofSOPInstanceUID:frame:inSOPInstanceUIDs:frames:fallback:));
 - (void) localCountChangedForStudyUID:(NSString*) study seriesUID:(NSString*) series localCount:(NSInteger) count
@@ -768,12 +861,18 @@ static BOOL useToolbarPanel;
 + (NSString*) placementDidChangeNotification { return @"HorosSeriesListPlacementDidChange"; }
 @end
 
+@implementation HorosRetrieveViewingState
+- (NSString*) overlayText { return @""; }
+- (BOOL) isPartial { return NO; }
+@end
 @implementation HorosRefreshCoalescer
++ (HorosRefreshCoalescer*) standard { return [[HorosRefreshCoalescer new] autorelease]; }
 - (NSTimeInterval) requestAt:(NSTimeInterval) now { Record([NSString stringWithFormat: @"coalescer request -> %a", self.harnessWait]); return self.harnessWait; }
 - (void) appliedAt:(NSTimeInterval) now { Record(@"coalescer applied"); }
 @end
 
 @implementation HorosRetrieveViewing
+- (HorosRetrieveViewingState*) stateForStudyUID:(NSString*) study seriesUID:(NSString*) series { return nil; }
 + (HorosRetrieveViewing*) shared {
     static HorosRetrieveViewing *shared;
     if (!shared) { shared = [HorosRetrieveViewing new]; Register(shared, @"retrieveViewing"); }
@@ -918,6 +1017,9 @@ IVAR_IMPLEMENTATIONS
 
 DRIVER = r'''#import "Harness.h"
 #import <objc/runtime.h>
+#ifdef HARNESS_SWIFT
+void HarnessAttachGraph(ViewerController *viewer);
+#endif
 
 void HarnessInstall(void);
 
@@ -985,6 +1087,9 @@ DUMP_LINES
 /// (not retained), its views, its window's other viewers.
 static ViewerController *MakeViewer(NSString *name, NSDictionary *options) {
     ViewerController *v = [ViewerController alloc];
+#ifdef HARNESS_SWIFT
+    HarnessAttachGraph(v);
+#endif
     RegisterViewer(v, name);
     v->harnessStudyUID = [options[@"study"] ?: @"1.2.3" retain];
     v->harnessModality = [options[@"modality"] ?: @"CT" retain];
@@ -1439,6 +1544,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-controller-') as tmp:
         return program
 
     reference_program = objc_program('reference', reference_vc)
+    deferred_refreshes = False
     if current_is_objc:
         current_program = objc_program('current', current_vc.decode('utf-8'))
         current_label = 'Objective-C of %s' % (args.current or 'the tree')
@@ -1446,12 +1552,23 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-controller-') as tmp:
         objects = common('swift', ('-DHARNESS_SWIFT',))
         swift = folder / 'swift'
         sources = []
-        for name in SWIFT_FILES:
+        for name in SWIFT_FILES + GRAPH_FILES:
             text = read(args.current, 'Horos/Sources/' + name)
             if text is None:
                 sys.exit('FAIL: no Horos/Sources/%s' % name)
             (swift / name).write_bytes(text)
             sources.append(str(swift / name))
+        for name in STATE_FILES:
+            text = read(args.current, 'Horos/Sources/' + name)
+            if text is not None and read(args.current, 'Horos/Sources/ProgressiveRetrieveState.swift') is not None:
+                (swift / name).write_bytes(text)
+                sources.append(str(swift / name))
+        support = (read(args.current, 'Horos/Sources/ViewerController+ImagePipelineSupport.swift') or b'').decode('utf-8')
+        try_helper = re.search(r'\n/// Runs `body` as an @try block.*?\nfunc viewerObjCTry.*?\n}\n', support, re.S)
+        guards = try_helper.group(0) if try_helper else (objc_exception_guards.source(read(args.current, objc_exception_guards.PATH) or '', log=False) + '\n// The former helper, for a base revision that calls it.\nfunc viewerObjCTry(_ body: () -> Void) -> NSException? { HorosObjCException.caught(body) }\n')
+        stand_ins = GRAPH_STAND_INS + (guards if 'ProgressiveRetrieveState.swift' in ' '.join(sources) else '')
+        (swift / 'GraphStandIns.swift').write_text(stand_ins)
+        sources.append(str(swift / 'GraphStandIns.swift'))
         libraries = []
         for module in MODULES:
             directory = folder / module
@@ -1471,6 +1588,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-controller-') as tmp:
              *sources, *objects, *frameworks, '-o', str(current_program)],
             'the Swift blocks do not compile against the stand-ins', keep_errors=True)
         current_label = 'Swift of %s' % (args.current or 'the tree')
+        deferred_refreshes = any(path.endswith('ProgressiveRetrieveState.swift') for path in sources)
 
     if args.dump:
         args.dump.mkdir(parents=True, exist_ok=True)
@@ -1489,6 +1607,8 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-controller-') as tmp:
             for label, text in results.items():
                 (args.dump / ('%s-%s.txt' % (scenario, label))).write_text(text)
         expected, got = results['reference'].splitlines(), results['current'].splitlines()
+        if deferred_refreshes:
+            expected, got = deferred(expected), deferred(got)
         if not expected:
             sys.exit('FAIL: %s recorded nothing' % scenario)
         if expected == got:

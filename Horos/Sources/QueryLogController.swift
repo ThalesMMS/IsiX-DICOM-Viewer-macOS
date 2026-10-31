@@ -50,8 +50,14 @@ public final class QueryLogController: NSArrayController {
     /// Does not call super, as the former class did not.
     public override func awakeFromNib() {
         // The nib loads on the main thread, where the browser's database is.
+        // The log and the query windows' nibs make the controller: it lists the
+        // entries of the database the database window of the process shows.
         assumeMainActor(self) { controller in
-            controller.managedObjectContext = BrowserController.currentBrowser()?.database?.managedObjectContext
+            guard let context = PreferencesSource.process.processGraph.browserWindow?.database?.managedObjectContext else {
+                controller.automaticallyPreparesContent = false
+                return
+            }
+            controller.managedObjectContext = context
             controller.automaticallyPreparesContent = true
 
             controller.fetch(controller)

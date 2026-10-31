@@ -10,6 +10,9 @@ in the driver before any comparison.
 import private_tmpdir  # noqa: F401  - its TMPDIR holds the harness preference domains
 import harness_defaults
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402  - ROIInterchange.swift writes IsiXROI's ROIInterchangeDocument
 import subprocess
 import tempfile
 
@@ -205,7 +208,8 @@ print("PASS: rigid landmark registration recovers a known transform to 1e-9 mm, 
 '''
 with tempfile.TemporaryDirectory(prefix='horos-registration-') as folder:
     tmp = Path(folder); (tmp / 'main.swift').write_text(harness_defaults.DOMAINS + driver)
-    subprocess.run(['xcrun', 'swiftc', *[str(root / 'Horos/Sources' / name) for name in
+    subprocess.run(['xcrun', 'swiftc', *isix_modules.module_flags('IsiXROI', tmp / 'modules'),
+                    *[str(root / 'Horos/Sources' / name) for name in
                     ('LongitudinalRegistration.swift', 'ROIInterchange.swift', 'ROIIntersliceGeometry.swift')],
                     str(tmp / 'main.swift'), '-o', str(tmp / 'test')], check=True)
     subprocess.run([str(tmp / 'test')], check=True)

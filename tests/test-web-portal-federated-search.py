@@ -3,9 +3,9 @@
 
 The browser's search and federated query methods are Swift
 (BrowserController+Plugins.swift, exported to Objective-C under their
-selectors); the study list's refresh, which asks the chosen
-databases for a UI search, is Swift too (BrowserController+StudyList.swift),
-and so are the list's rows (BrowserController+OutlineDataSource.swift).
+selectors), and hand the query to FederatedStudySearch.swift; the study
+list's refresh, which asks the chosen databases for a UI search, is Swift too
+(StudyListContent.swift), and so are the list's cells (StudyListCellStyler.swift).
 """
 from pathlib import Path
 import sys
@@ -19,10 +19,12 @@ failures = []
 def read(path):
     return (root / path).read_bytes().decode('latin1')
 
-study_list = source_text('BrowserController+StudyList')
-outline_rows = source_text('BrowserController+OutlineDataSource')
-# BrowserController (Sources) is Swift.
-sources = source_text('BrowserController+Sources')
+study_list = source_text('StudyListContent')
+cells = source_text('StudyListCellStyler')
+federated = source_text('FederatedStudySearch')
+# The Sources list (SourceList.swift) draws the boxes; the helper of the
+# former category keeps the selector.
+sources = source_text('BrowserController+Sources') + source_text('SourceList')
 portal = source_text('WebPortalConnection+Data')
 response = source_text('WebPortalResponse')
 # The Plugins block of BrowserController is Swift.
@@ -37,8 +39,10 @@ checks = [
     ('@objc(federatedStudiesMatchingPredicate:excludingDatabasePath:applyingUser:)' in plugins,
      'the browser publishes the aggregate query'),
     ('BrowserController.federatedStudies(matching: filterPredicate' in study_list, 'a UI search asks the chosen databases'),
-    ('FederatedSearch.displayName(name as? String,' in outline_rows and 'studyListName(' in outline_rows,
+    ('FederatedSearch.displayName(name as? String,' in federated and 'FederatedStudySearch.listName(' in cells,
      'the study list shows origin for a foreign hit'),
+    ('FederatedStudySearch(source:' in plugins and 'DicomDatabase(atPath: sourcePath)' in federated,
+     'the browser asks the other databases through FederatedStudySearch'),
     (' / Federated: %@' in plugins, 'the status line names the chosen databases'),
     ('toggleFederatedSearch:' in sources, 'each local source can be opted in'),
     ('Include in federated search' in sources, 'the checkbox states the permission'),
@@ -49,7 +53,8 @@ checks = [
     ('federatedPermission' in response, 'HTML can print the permission'),
     ('Info.hasFederatedSources' in main, 'the portal search page lists chosen databases'),
     ('Study.federatedOrigin' in listing, 'the study list shows origin next to a homonym'),
-    ('FederatedSearch.swift in Sources' in project, 'the Swift file is compiled into Horos'),
+    ('FederatedSearch.swift in Sources' in project and 'FederatedStudySearch.swift in Sources' in project,
+     'the Swift files are compiled into Horos'),
 ]
 for ok, what in checks:
     if not ok:

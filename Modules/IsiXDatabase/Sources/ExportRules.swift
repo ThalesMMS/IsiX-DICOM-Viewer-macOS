@@ -144,23 +144,29 @@ public enum MovieExportPaths {
     }
 }
 
-/// The arguments the exports give /usr/bin/zip.
+/// The arguments the exports give /usr/bin/zip. An encrypted archive asks
+/// for -e only: the password is never an argument, which any process of the
+/// machine can read (`ps`), but is typed on zip's terminal
+/// (`ZipPasswordTerminal`).
 public enum ZipCommand {
 
     /// Files at the archive's root (-j), in groups of `chunkSize`.
     public static let chunkSize = 1000
 
+    /// Whether a password asks for an encrypted archive.
+    public static func encrypts(_ password: String?) -> Bool {
+        !(password ?? "").isEmpty
+    }
+
     /// The command for one group of files stored without their folders.
-    public static func flatArguments(password: String?, archive: String, files: [String]) -> [String] {
-        let options = (password ?? "").isEmpty ? ["-q", "-j", archive] : ["-q", "-j", "-e", "-P", password!, archive]
-        return options + files
+    public static func flatArguments(encrypted: Bool, archive: String, files: [String]) -> [String] {
+        (encrypted ? ["-q", "-j", "-e", archive] : ["-q", "-j", archive]) + files
     }
 
     /// The command for items of one folder, stored under their names, run in
     /// that folder (-r).
-    public static func recursiveArguments(password: String?, archive: String, names: [String]) -> [String] {
-        let options = (password ?? "").isEmpty ? ["-q", "-r", archive] : ["-q", "-r", "-e", "-P", password!, archive]
-        return options + names
+    public static func recursiveArguments(encrypted: Bool, archive: String, names: [String]) -> [String] {
+        (encrypted ? ["-q", "-r", "-e", archive] : ["-q", "-r", archive]) + names
     }
 
     /// The ranges of the groups of `count` files.
@@ -188,7 +194,7 @@ public enum ExportSeriesFilter {
 
     public static let privateSeries: [(name: String, number: String)] = [
         ("OsiriX ROI SR", "5002"), ("OsiriX Report SR", "5003"), ("OsiriX Annotations SR", "5004"),
-        ("OsiriX No Autodeletion", "5005"), ("OsiriX WindowsState SR", "5006"),
+        (SelectionImages.noAutodeletionName, String(SelectionImages.noAutodeletionID)), ("OsiriX WindowsState SR", "5006"),
     ]
 
     /// One predicate per private series, applied one after the other.

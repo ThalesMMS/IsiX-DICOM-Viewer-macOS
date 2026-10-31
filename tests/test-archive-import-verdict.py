@@ -137,9 +137,9 @@ else:
     # would test a path that no longer exists and call it unreadable.
     # The parts are written by -unpackWADORSMultipart:, which says it split
     # the file, and the scan goes on to the next one.
-    at = database.find('if dicomFileCreated {')
-    window = database[at:at + 600] if at >= 0 else ''
-    split = database.find('if self.unpackWADORSMultipart(srcPath, enclosingArchive: enclosingArchive) {')
+    at = database.find('case .split:')
+    window = database[at:at + 900] if at >= 0 else ''
+    split = database.find('if unpackWADORSMultipart(srcPath, enclosingArchive: enclosingArchive) {')
     if 'return true' not in window or split < 0 or 'continue' not in database[split:split + 120]:
         failures.append('a split multipart response falls through to the readability test on a '
                         'file that has just been deleted')
@@ -147,15 +147,16 @@ else:
 # --- an archive is recognised whatever the case of its extension ---------------
 # Exporters write STUDY.ZIP as often as study.zip. A case-sensitive test sent the
 # former to the DICOM importer as a plain file, which could not read it.
-# The browser's drop and import is BrowserController+DatabaseImport.swift.
+# The browser's drop and import is DroppedFilesImport.swift, its archives ArchiveImport.swift.
 browser = (class_text('BrowserController')
-           + (root / 'Horos/Sources/BrowserController+DatabaseImport.swift').read_text())
-scan = (root / 'Horos/Sources/DicomDatabase+Scan.swift').read_text(encoding='utf-8')
+           + (root / 'Horos/Sources/DroppedFilesImport.swift').read_text()
+           + (root / 'Horos/Sources/ArchiveImport.swift').read_text())
+scan = (root / 'Horos/Sources/MediaVolumeScan.swift').read_text(encoding='utf-8')
 # The importer's tests are the ones that also accept .osirixzip; the export's own
 # lowercase .zip files are not looked for this way.
 case_sensitive = re.compile(r'pathExtension\]?\s*isEqualToString:\s*@"osirixzip"')
 for name, text in (('BrowserController', browser), ('DicomDatabase', database),
-                   ('DicomDatabase+Scan.swift', scan)):
+                   ('MediaVolumeScan.swift', scan)):
     live = re.sub(r'//[^\n]*', '', text)
     for match in case_sensitive.finditer(live):
         line = live.count('\n', 0, match.start()) + 1

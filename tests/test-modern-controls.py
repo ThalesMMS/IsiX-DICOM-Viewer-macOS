@@ -13,22 +13,23 @@ import tempfile
 import xml.etree.ElementTree as E
 from sources import class_text
 from isix_modules import build_module
+import process_graph_stand_in
 
 root = Path(__file__).resolve().parents[1]
 resources = root / 'Horos/Resources'
 viewer_source = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
-# -updateSUVValues: of ViewerController.m, or of ViewerController+SUV.swift
-# once it moved there.
+# -updateSUVValues: of ViewerController.m, or of ViewerWindowLevel.swift, the
+# viewer's window level, once it moved there.
 suv_objc = '- (IBAction) updateSUVValues:(id) sender' in viewer_source
 if suv_objc:
     suv_start = viewer_source.index('- (IBAction) updateSUVValues:(id) sender')
     suv_update = viewer_source[suv_start:viewer_source.index('\n- (void) displaySUV:', suv_start)]
 else:
-    suv_source = (root/'Horos/Sources/ViewerController+SUV.swift').read_text()
+    suv_source = (root/'Horos/Sources/ViewerWindowLevel.swift').read_text()
     def suv_piece(first, end):
         start = suv_source.index(first)
         return suv_source[start:suv_source.index(end, start) + len(end)]
-    suv_update = suv_piece('    @objc(updateSUVValues:)', '\n    }\n')
+    suv_update = suv_piece('    func updateSUVValues() {', '\n    }\n')
     suv_slices = suv_piece('    private func forEachPETSlice(', '\n    }\n')
     suv_interval = suv_piece('fileprivate func timeInterval(', '\n}\n')
 pix_source = class_text('DCMPix')
@@ -489,6 +490,7 @@ func HorosSUVLoadedDate(_ date: String, _ radio: String, _ time: String, _ injec
 ''')
     if not suv_objc:
         (tmp/'SUV.swift').write_text('''import AppKit
+import IsiXImaging
 final class DCMPix: NSObject {
     var acquisitionTime: Date?
     var radiopharmaceuticalStartTime: Date?
@@ -509,10 +511,15 @@ final class SUVDriver: NSObject {
     var horos_imageView: SUVImage?
     var horos_maxMovieIndex: Int16 = 1
     var pixes: [DCMPix] = []
-    func horos_pixList(at index: Int) -> NSMutableArray? { NSMutableArray(array: pixes) }
+    func horos_pixArray(_ index: Int) -> [DCMPix] { pixes }
+}
+// The viewer's window level, which works on its viewer.
+final class SUVWindowLevel {
+    let viewer: SUVDriver
+    init(viewer: SUVDriver) { self.viewer = viewer }
 }
 ''' + suv_interval + '''
-extension SUVDriver {
+extension SUVWindowLevel {
 ''' + suv_update + suv_slices + '''}
 func HorosSUVValidate(_ form: HorosFormView, _ acquisition: Date) -> Int {
     suvAlertCount = 0
@@ -524,7 +531,7 @@ func HorosSUVValidate(_ form: HorosFormView, _ acquisition: Date) -> Int {
     driver.horos_imageView = SUVImage()
     driver.horos_imageView?.curDCM = pix
     driver.pixes = [pix]
-    driver.updateSUVValues(nil)
+    SUVWindowLevel(viewer: driver).updateSUVValues()
     return suvAlertCount
 }
 ''')
@@ -541,6 +548,8 @@ func HorosSUVValidate(_ form: HorosFormView, _ acquisition: Date) -> Int {
                     str(root/'Horos/Sources/ToolbarPolicy.swift'), str(root/'Horos/Sources/ToolbarImage.swift'),
                     str(root/'Horos/Sources/ToolbarMenuBridge.swift'), str(tmp/'main.swift'), *suv_swift,
                     *date_objects, '-L', str(modules), '-lIsiXDICOMFile', '-lIsiXImaging',
+                    # The detached toolbar reads its preference through the process graph.
+                    *process_graph_stand_in.swift_flags(modules),
                     '-o', str(tmp/'probe')], check=True)
     home = tmp/'home'; home.mkdir()
     subprocess.run([str(tmp/'probe'), str(tmp/'Probe.nib'), str(tmp/'Toolbar.nib')], check=True, timeout=30, env=dict(os.environ, CFFIXED_USER_HOME=str(home)))

@@ -435,6 +435,7 @@ def swift_class_pieces():
 SWIFT_PROGRAM = r'''
 import Cocoa
 import IsiXImaging
+import IsiXPreferences
 
 var harnessVOICalls: [UInt] = []
 
@@ -660,6 +661,12 @@ def compile_swift_class(work, name, module_folder):
     for key, value in parts.items():
         if key != 'CATEGORY':
             program = program.replace('\n' + key + '\n', '\n' + value + '\n')
+    # The frame loading reads its switches through the catalog, from PreferencesSource over the standard
+    # preferences: the process graph's stand-in and PreferencesSource.swift, in the program's own file, which
+    # has top-level code.
+    import process_graph_stand_in
+    graph = process_graph_stand_in.source(work).read_text(encoding='utf-8')
+    program += '\n' + '\n'.join(line for line in graph.splitlines() if not line.startswith('import '))
     (work / (name + '.swift')).write_text(program)
     obj = work / (name + '-standins.o')
     built = subprocess.run(['xcrun', 'clang', '-c', '-Os', '-fno-objc-arc', '-w', '-I', str(work), '-I', str(module_folder),
@@ -668,6 +675,7 @@ def compile_swift_class(work, name, module_folder):
         return None, built.stderr
     binary = work / name
     built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-Onone', *isix_modules.module_flags('IsiXImaging', module_folder),
+                            *isix_modules.module_flags('IsiXPreferences', module_folder),
                             '-import-objc-header', str(work / 'Harness.h'), str(work / (name + '.swift')), str(obj),
                             '-framework', 'Cocoa', '-framework', 'Accelerate', '-o', str(binary)], capture_output=True, text=True)
     if built.returncode != 0:

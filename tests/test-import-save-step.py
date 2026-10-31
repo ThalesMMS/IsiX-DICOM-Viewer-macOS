@@ -65,31 +65,27 @@ else:
     if 'rebuilding the database index' not in region:
         failures.append('a failed save does not say what state it leaves the copied files in')
 
-    guard = region.find('protectionAgainstReentry = true')
-    if guard < 0:
-        failures.append('the guard against a re-entrant save is gone')
-    else:
-        # The save runs in an @try (DicomDatabaseObjC.attempt); the flag is
-        # cleared after it, whatever it raised, and only then is the exception
-        # raised again: the @finally of the Objective-C.
-        window = region[guard:guard + 1600]
-        attempt = window.find('let raised = DicomDatabaseObjC.attempt {')
-        if attempt < 0:
-            failures.append('a save that raises leaves the re-entry flag set, and every later '
-                            'import in the session then skips its save in silence')
-        clear = window.find('protectionAgainstReentry = false')
-        reraise = window.find('if let raised { raised.raise() }')
-        if clear < 0 or clear < attempt or reraise < 0 or reraise < clear:
-            failures.append('the re-entry flag is not cleared before the exception goes on, so an '
-                            'exception still leaves it set')
-    tail = region[region.find('protectionAgainstReentry = true'):]
-    if 'another import is saving' not in tail:
-        failures.append('a save skipped because another import holds the flag is skipped in '
-                        'silence')
+    if 'protectionAgainstReentry' in database:
+        failures.append('the process-wide flag is back: its second import skips its save, and a '
+                        'context writes only its own rows')
+    if 'try context?.save()' not in region:
+        failures.append('the import no longer saves')
+
+    # The gate is left whatever the save did: the method runs in an @try
+    # (HorosObjCException.caught) inside the gate, so that an exception reaches
+    # no `defer` it would pass over, and it is logged once the gate is free.
+    add = database[database.find('raised = database.databaseWriterGate.withExclusiveWrite {'):]
+    gate = add.find('database.databaseWriterGate.withExclusiveWrite {')
+    attempt = add.find('HorosObjCException.caught {')
+    index = add.find('self.indexDescribedFiles(')
+    logged = add.find('if let raised { DicomDatabaseObjC.log(raised')
+    if not 0 <= gate < attempt < index < logged:
+        failures.append('an exception inside the writer gate is not caught before the gate is '
+                        'left, and it would stay held for the session')
 
 for failure in failures:
     print('FAIL: %s' % failure)
 if failures:
     sys.exit(1)
 print('ok: the synchronising step names its error, keeps the copied files, and cannot leave the '
-      're-entry guard set')
+      'writer gate held')

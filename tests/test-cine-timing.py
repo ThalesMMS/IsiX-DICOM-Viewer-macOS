@@ -37,11 +37,13 @@ root = Path(__file__).resolve().parents[1]
 
 # -performAnimation: (the "Browse" player, ViewerController+SeriesNavigation.swift)
 # and -performMovieAnimation: (the 4D player, ViewerController+FourDNavigation.swift)
-# are Swift. They are taken as they stand, with the helper they share, and
-# compiled with swiftc as an extension of an Objective-C double of the viewer,
-# which reaches its instance variables through accessors spelled as in
-# ViewerController+SwiftIvars.h; IsiXImaging and HorosFourDSeriesGuard are the
-# app's own.
+# are Swift façades of the viewer's CinePlayback (CinePlayback.swift). The
+# façades, the viewer's `cine` (ViewerController+PlaybackState.swift) and the
+# players' ticks with the wait they share are taken as they stand and compiled
+# with swiftc over an Objective-C double of the viewer, which reaches its
+# instance variables through accessors spelled as in
+# ViewerController+SwiftIvars.h; IsiXImaging (SliceNavigation) and
+# IsiXPreferences are the app's own.
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import private_tmpdir  # noqa: F401,E402  - its own TMPDIR for the tools it runs
@@ -50,6 +52,8 @@ from isix_modules import module_flags  # noqa: E402
 root = Path(__file__).resolve().parents[1]
 browse = (root / 'Horos/Sources/ViewerController+SeriesNavigation.swift').read_text(encoding='utf-8')
 player = (root / 'Horos/Sources/ViewerController+FourDNavigation.swift').read_text(encoding='utf-8')
+playback = (root / 'Horos/Sources/ViewerController+PlaybackState.swift').read_text(encoding='utf-8')
+cine = (root / 'Horos/Sources/CinePlayback.swift').read_text(encoding='utf-8')
 
 
 def method(text, start):
@@ -60,16 +64,24 @@ def method(text, start):
 
 
 uptime = 'ProcessInfo.processInfo.systemUptime'
-callbacks = (method(browse, '    @objc(performAnimation:)') + method(player, '    @objc(performMovieAnimation:)')
-             + method(browse, '    func isLoadingFirstHalf()'))
+facades = (method(browse, '    @objc(performAnimation:)') + method(player, '    @objc(performMovieAnimation:)')
+           + method(playback, '    var cine: CinePlayback {'))
+for facade, tick in (('@objc(performAnimation:)', 'cine.advanceSlice()'), ('@objc(performMovieAnimation:)', 'cine.advanceMovie()')):
+    if tick not in method(facades, '    ' + facade):
+        raise SystemExit(f'{facade} no longer ticks the viewer\'s CinePlayback')
+start = cine.index('@MainActor final class CinePlayback {')
+shell = cine[start:cine.index('\n    /// The "Browse" player\'s timer', start)]
+callbacks = (method(cine, '    func advanceSlice()') + method(cine, '    func advanceMovie()')
+             + method(cine, '    func isLoadingFirstHalf()') + method(cine, '    private static func imagesPerSecond('))
 if callbacks.count(uptime) < 2:
     raise SystemExit(f'expected systemUptime in cine callbacks, found {callbacks.count(uptime)}')
 callbacks = callbacks.replace(uptime, 'testUptime()')
 if 'systemUptime' in callbacks:
     raise SystemExit('missed a systemUptime substitution')
-# The players start from the uptime, as -PlayStop: and -MoviePlayStop: set it.
-slice_start = method(browse, '    @objc(PlayStop:)')
-phase_start = method(player, '    @objc(MoviePlayStop:)')
+# The players start from the uptime, as -PlayStop: and -MoviePlayStop: set it
+# through the viewer's CinePlayback.
+slice_start = method(cine, '    func toggleSlices(')
+phase_start = method(cine, '    func toggleMovie()')
 for field, body in [('horos_lastTime', slice_start), ('horos_lastTimeFrame', slice_start), ('horos_lastMovieTime', phase_start)]:
     if f'{field} = {uptime}' not in body:
         raise SystemExit(f'the player no longer starts {field} from the uptime')
@@ -86,6 +98,8 @@ double testUptime(void);
 - (void)sendSyncMessage:(NSInteger)value;
 - (void)displayIfNeeded;
 @end
+// On the main actor, as the app's viewer is by its AppKit superclass.
+NS_SWIFT_UI_ACTOR
 @interface ViewerController : NSObject {
 @public
  NSThread *loadingThread;
@@ -236,10 +250,16 @@ with tempfile.TemporaryDirectory(prefix='horos-cine-timing-') as directory:
     path = Path(directory)
     (path/'Harness.h').write_text(header)
     (path/'test.m').write_text(code)
-    (path/'Players.swift').write_text('import AppKit\nimport IsiXImaging\n\nextension ViewerController {\n' + callbacks + '}\n')
+    (path/'Players.swift').write_text('import AppKit\nimport IsiXImaging\nimport IsiXPreferences\n\n'
+                                      '// The viewer\'s graph, whose preferences are the harness\'s.\n'
+                                      'struct HarnessGraph {\n    var preferences: any PreferenceStore { UserDefaults.standard }\n}\n\n'
+                                      '// The view\'s stack, which the player steps from.\n'
+                                      'extension ImageProbe {\n    var stackNavigation: StackNavigation { StackNavigation(current: curImage) }\n}\n\n'
+                                      'extension ViewerController {\n    var sessionGraph: HarnessGraph! { HarnessGraph() }\n\n'
+                                      + facades + '}\n\n' + shell + callbacks + '}\n')
     subprocess.run(['xcrun','clang','-c','-fobjc-arc','-I',str(path),str(path/'test.m'),'-o',str(path/'test.o')],check=True)
     subprocess.run(['xcrun','swiftc','-parse-as-library',*module_flags('IsiXImaging', path / 'modules'),
-                    '-import-objc-header',str(path/'Harness.h'),str(path/'Players.swift'),
-                    str(root/'Horos/Sources/FourDSeriesGuard.swift'),str(path/'test.o'),
+                    *module_flags('IsiXPreferences', path / 'modules'),
+                    '-import-objc-header',str(path/'Harness.h'),str(path/'Players.swift'),str(path/'test.o'),
                     '-framework','AppKit','-o',str(path/'test')],check=True)
     subprocess.run([str(path/'test')],check=True,timeout=300)

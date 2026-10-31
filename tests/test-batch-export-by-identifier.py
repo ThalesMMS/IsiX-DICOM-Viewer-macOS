@@ -8,8 +8,10 @@ patients who share a name are never merged; and the run leaves a report - per
 identifier, the studies found, the files, the bytes and a digest of them - so it
 can be checked afterwards instead of trusted.
 
--exportStudiesForIdentifiers:toDirectory:dryRun: is Swift, in
-BrowserController+DatabaseDragExport+Selection.swift; the checks read it there.
+-exportStudiesForIdentifiers:toDirectory:dryRun: is the browser's selector; the
+work is StudyListExport.exportStudies(identifiers:to:dryRun:) (StudyListExport.swift),
+which the checks read, over the rules of IdentifierListExport (IsiXDatabase),
+which are compiled and run here.
 
 The digest is over the files, not over the order they were read: the same set
 enumerated differently has to answer the same, and a file that changed, arrived
@@ -27,9 +29,12 @@ root = Path(__file__).resolve().parents[1]
 failures = []
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
-browser = source_text('BrowserController+DatabaseDragExport+Selection')
+browser = source_text('StudyListExport')
+facade = source_text('BrowserController+DatabaseDragExport+Selection')
+if 'StudyListExport(browser: self).exportStudies(identifiers:' not in facade:
+    failures.append('-exportStudiesForIdentifiers:toDirectory:dryRun: no longer hands its work to StudyListExport')
 
-at = browser.find('func exportStudies(forIdentifiers ')
+at = browser.find('func exportStudies(identifiers: ')
 # The method ends at the first closing brace at its own indentation after the
 # Wait window is closed: the report is written after that.
 body = browser[at:browser.index('\n    }\n', browser.index('wait?.close()', at))] if at >= 0 else ''
@@ -47,10 +52,10 @@ else:
     if 'if dryRun { continue }' not in body:
         failures.append('a dry run would copy files')
     # The report, with the counts and the digest.
-    for wanted in ('FileSetDigest()', 'BatchExportManifest.row(identifier:', 'horos-export-manifest.csv'):
+    for wanted in ('IdentifierListExport.FileSetDigest()', 'IdentifierListExport.row(identifier:', 'IdentifierListExport.reportFileName'):
         if wanted not in body:
             failures.append('the run does not produce %s' % wanted)
-    if 'status: "not found"' not in body:
+    if 'status: .notFound' not in body:
         failures.append('an identifier nothing answers to is not reported')
 
 for failure in failures:
@@ -74,7 +79,7 @@ with tempfile.TemporaryDirectory(prefix='horos-batch-export-') as tmp:
     main = '''import Foundation
 
 let paths = %s
-let digest = FileSetDigest()
+var digest = IdentifierListExport.FileSetDigest()
 for path in paths { precondition(digest.add(path: path), path) }
 precondition(digest.fileCount == 3)
 precondition(digest.byteCount == %d)
@@ -82,24 +87,24 @@ precondition(digest.unreadable.isEmpty)
 print("digest", digest.hexDigest)
 
 // The same files in another order answer the same.
-let reversed = FileSetDigest()
+var reversed = IdentifierListExport.FileSetDigest()
 for path in paths.reversed() { reversed.add(path: path) }
 precondition(reversed.hexDigest == digest.hexDigest, "the order of reading changed the answer")
 
 // One file fewer does not.
-let fewer = FileSetDigest()
+var fewer = IdentifierListExport.FileSetDigest()
 for path in paths.dropLast() { fewer.add(path: path) }
 precondition(fewer.hexDigest != digest.hexDigest)
-precondition(FileSetDigest().hexDigest == "", "nothing hashed is not a digest of nothing")
+precondition(IdentifierListExport.FileSetDigest().hexDigest == "", "nothing hashed is not a digest of nothing")
 
 // A file that cannot be read is named rather than passed over in silence.
-let missing = FileSetDigest()
+var missing = IdentifierListExport.FileSetDigest()
 precondition(!missing.add(path: paths[0] + "-not-here"))
 precondition(missing.unreadable.count == 1 && missing.fileCount == 0)
 
 // The list: one per line, comments and blanks dropped, each kept once, and a
 // spreadsheet column taken as its first field.
-let identifiers = BatchExportManifest.identifiers(fromText: """
+let identifiers = IdentifierListExport.identifiers(fromText: """
 MRN-1
   MRN-2  # the second
 
@@ -108,12 +113,12 @@ MRN-1
 "MRN-3",Silva Maria,2026
 """)
 precondition(identifiers == ["MRN-1", "MRN-2", "MRN-3"], "\\(identifiers)")
-precondition(BatchExportManifest.identifiers(fromText: "").isEmpty)
+precondition(IdentifierListExport.identifiers(fromText: "").isEmpty)
 
 // A row says all of it, in the order the header promises.
-let row = BatchExportManifest.row(identifier: "MRN-1", status: "exported", names: ["A", "B"],
+let row = IdentifierListExport.row(identifier: "MRN-1", status: "exported", names: ["A", "B"],
                                   studies: 2, files: 5, bytes: 1234, digest: "abc", detail: "")
-precondition(row.count == BatchExportManifest.header.count)
+precondition(row.count == IdentifierListExport.header.count)
 precondition(row[0] == "MRN-1" && row[1] == "exported" && row[2] == "A; B")
 precondition(row[3] == "2" && row[4] == "5" && row[5] == "1234" && row[6] == "abc")
 
@@ -121,7 +126,8 @@ print("PASS: the digest is over the files, not their order, and the list is read
 ''' % (json.dumps(paths), sum(len(data) for data in contents))
 
     (p / 'main.swift').write_text(main)
-    build = subprocess.run(['swiftc', str(root / 'Horos/Sources/BatchExportManifest.swift'),
+    build = subprocess.run(['swiftc', str(root / 'Modules/IsiXDatabase/Sources/IdentifierListExport.swift'),
+                            str(root / 'Modules/IsiXDatabase/Sources/StudyMetadataCSV.swift'),
                             str(p / 'main.swift'), '-o', str(p / 'test')],
                            capture_output=True, text=True)
     if build.returncode:

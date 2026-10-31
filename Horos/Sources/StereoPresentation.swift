@@ -31,7 +31,7 @@ public final class StereoPresentation: NSObject {
     @objc public private(set) var mode: StereoMode = .off
     @objc public private(set) var eyePresenter: VRPresenter?
     /// Asked to switch stereo off: Escape on either screen of the two-screen mode.
-    @objc public var turnOff: (() -> Void)?
+    public var turnOff: (() -> Void)?
 
     private weak var view: NSView?
     private var eyeLayer: CAMetalLayer?

@@ -204,7 +204,6 @@ extension VRView {
 
     /// Hands a mouse event to the view's interactor as vtkCocoaGLView handed it to
     /// VTK's: backing pixels from the bottom left, command counting as control.
-    @objc(horosForwardMouseEvent:event:)
     func horosForwardMouseEvent(_ eventId: IsiXVTKMouseEvent, event theEvent: NSEvent) {
         let backing = convertToBacking(convert(theEvent.locationInWindow, from: nil))
         let flags = theEvent.modifierFlags
@@ -308,7 +307,6 @@ extension VRView {
 
     /// A trackpad gesture renders at the interactive level of detail while it
     /// lasts and at the selected one when it ends, as a drag with a tool does.
-    @objc(horosTrackpadGesture:changedCamera:)
     func horosTrackpadGesture(_ event: NSEvent, changedCamera changed: Bool) {
         let vtk = horos_vtk
         let phase = event.phase

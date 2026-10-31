@@ -31,7 +31,7 @@ failures = []
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources as dicom_database_sources  # noqa: E402
 database = dicom_database_sources.class_text('DicomDatabase')
-scan = (root / 'Horos/Sources/DicomDatabase+Scan.swift').read_text(encoding='utf-8')
+scan = (root / 'Horos/Sources/MediaVolumeScan.swift').read_text(encoding='utf-8')
 
 live = re.sub(r'//[^\n]*', '', database)
 at = live.find('importFilesFromIncomingDir):')
@@ -53,7 +53,6 @@ else:
 
 # The medium half has to keep saying the same things, or the two are not comparable.
 mount = re.sub(r'//[^\n]*', '', scan)
-# DicomDatabase (Scan) is Swift (DicomDatabase+Scan.swift).
 for needed in ('file(s) on the medium', 'instance(s) to take', 'MediaScanTiming(medium:'):
     if needed not in mount:
         failures.append('the medium import no longer reports %r' % needed)

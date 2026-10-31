@@ -17,8 +17,10 @@ import IsiXImaging
 /// slice, the same window, the fusion blend moved from one series to the other
 /// and put back where it was. The result goes to the clipboard as data; no
 /// file is written. Fused DICOM export, movie/codec export, the fly-through and
-/// the drag file promises keep their own routes. The plan, the frames and the
-/// GIF are RegisteredGIFExport.swift's.
+/// the drag file promises keep their own routes. The plan and the GIF are
+/// RegisteredGIFExport.swift's; the captures are the viewer's movie export
+/// (ViewerMovieExport.swift), and the viewer keeps the menu item and the
+/// selectors the menu and the in-app tools send.
 extension ViewerController {
 
     /// Adds "Copy Registered Comparison as GIF" after the guided copy item, or
@@ -36,46 +38,10 @@ extension ViewerController {
         anchor.menu.insertItem(item, at: anchor.menu.index(of: anchor.item) + 1)
     }
 
-    /// Captures the comparison without touching the clipboard or any panel:
-    /// the result, and the reason when it is not usable.
-    func registeredComparisonGIF(blendStops: [Double], delaySeconds: Double) -> (result: RegisteredGIFResult, refusal: String?) {
-        let companion = blending()?.horosSeriesDICOMUID() ?? ""
-        let plan = RegisteredGIF.plan(session: horosRegistrationSession(), companion: companion,
-                                      blendStops: blendStops, delaySeconds: delaySeconds)
-        guard plan.isUsable else { return (RegisteredGIF.data(for: plan, images: []), plan.refusal) }
-        let frames = captureBlendFrames(plan.blendValues)
-        // A comparison that changed while it was being captured is not this plan.
-        let moved = RegisteredGIF.refusalForApplying(plan, to: horosRegistrationSession())
-        if !moved.isEmpty { return (RegisteredGIF.refusedResult(moved), moved) }
-        let result = RegisteredGIF.data(for: plan, images: frames)
-        return (result, result.isUsable ? nil : result.refusal)
-    }
-
-    /// What the viewer draws at each blend: the host's own fusion blend is
-    /// moved to each one, and put back exactly where the user had it.
-    private func captureBlendFrames(_ blends: [Double]) -> [NSImage] {
-        let slider = blendingSlider()
-        let previous = slider?.doubleValue ?? 0, low = slider?.minValue ?? 0, high = slider?.maxValue ?? 0
-        defer {
-            slider?.doubleValue = previous
-            blendingSlider(slider)
-            imageView()?.display()
-        }
-        var frames: [NSImage] = []
-        for blend in blends {
-            slider?.doubleValue = FusionComparison.sliderValue(stop: blend, minimum: low, maximum: high)
-            blendingSlider(slider)
-            imageView()?.display()
-            guard let capture = imageView()?.nsimage(false) else { break }
-            frames.append(capture)
-        }
-        return frames
-    }
-
     @objc(horosRegisteredComparisonGIFWithBlendStops:delaySeconds:refusal:)
     func horosRegisteredComparisonGIF(blendStops: [NSNumber], delaySeconds: Double,
                                       refusal: AutoreleasingUnsafeMutablePointer<NSString?>?) -> RegisteredGIFResult {
-        let outcome = registeredComparisonGIF(blendStops: blendStops.map(\.doubleValue), delaySeconds: delaySeconds)
+        let outcome = movieExport.registeredComparisonGIF(blendStops: blendStops.map(\.doubleValue), delaySeconds: delaySeconds)
         refusal?.pointee = outcome.refusal as NSString?
         return outcome.result
     }
@@ -83,20 +49,6 @@ extension ViewerController {
     /// Menu action: the blink comparison to the clipboard, or why not.
     @IBAction @objc(copyRegisteredComparisonGIF:)
     func copyRegisteredComparisonGIF(_ sender: Any?) {
-        let (result, refusal) = registeredComparisonGIF(blendStops: RegisteredGIF.blinkStops(),
-                                                        delaySeconds: RegisteredGIF.defaultDelaySeconds)
-        guard result.isUsable, let data = result.data, RegisteredGIF.copy(data, to: NSPasteboard.general) else {
-            let alert = NSAlert()
-            alert.messageText = NSLocalizedString("The Comparison Was Not Copied", comment: "")
-            if let refusal, !refusal.isEmpty {
-                alert.informativeText = refusal
-            } else {
-                alert.informativeText = NSLocalizedString("The registered comparison could not be copied to the clipboard.", comment: "")
-            }
-            alert.addButton(withTitle: NSLocalizedString("OK", comment: ""))
-            alert.runModal()
-            return
-        }
-        NSLog("--- registered comparison copied to the clipboard: %ld frames, %ldx%ld", result.frameCount, result.width, result.height)
+        movieExport.copyRegisteredComparisonGIF()
     }
 }

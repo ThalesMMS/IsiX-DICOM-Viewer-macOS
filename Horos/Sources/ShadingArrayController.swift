@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 
 /// The shading presets of the 3D viewers, kept in the shadingsPresets default.
 ///
@@ -46,6 +47,10 @@ import Cocoa
 /// controller of the presets in VR.xib, MPR.xib, CPR.xib and Endoscopy.xib.
 @objc(ShadingArrayController)
 public final class ShadingArrayController: NSArrayController {
+    /// The process's dependencies, made with the controller: the presets are
+    /// read from and written to its preferences.
+    let processGraph = PreferencesSource.process.processGraph
+
     /// The former _enableEditing ivar. The xibs bind to enableEditing, and
     /// -setEnableEditing: notifies them as the synthesized KVO did.
     @objc public dynamic var enableEditing: Bool = false
@@ -79,17 +84,19 @@ public final class ShadingArrayController: NSArrayController {
     }
 
     public override func prepareContent() {
-        let array = NSMutableArray()
-        let src = UserDefaults.standard.array(forKey: "shadingsPresets") as NSArray?
-
-        for loopItem in src ?? NSArray() {
-            array.add((loopItem as AnyObject).mutableCopy() as Any)
-        }
-
-        self.content = array
+        // The table edits each preset in place: one mutable dictionary per preset.
+        let presets: [ShadingPreset] = ImagePresetPreferences.shadingPresets.elements(in: processGraph.preferences)
+        self.content = NSMutableArray(array: presets.map { preset in
+            NSMutableDictionary(dictionary: preset.propertyList.object as? [String: Any] ?? [:])
+        })
     }
 
     deinit {
-        UserDefaults.standard.set(self.content, forKey: "shadingsPresets")
+        // The presets as the table left them, each in its own form; without
+        // content the user's own list goes and the registered one shows again.
+        let presets = (self.content as? [Any]).map { items in
+            items.compactMap { PropertyListValue($0).flatMap(ShadingPreset.init(propertyList:)) }
+        }
+        processGraph.preferences.set(presets, for: ImagePresetPreferences.shadingPresets)
     }
 }

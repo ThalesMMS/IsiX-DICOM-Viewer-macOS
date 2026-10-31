@@ -39,6 +39,10 @@
 
 import AppKit
 import CoreData
+import IsiXDICOMNetwork
+import IsiXPreferences
+import IsiXContracts
+import Synchronization
 import UniformTypeIdentifiers
 
 /// The list of results: the outline's data and cells, its order, its columns,
@@ -63,7 +67,7 @@ extension QueryController {
                         children = node.children() ?? []
                     }
 
-                    child = (children as NSArray).object(at: index)
+                    child = children.count > index ? children[index] : nil
                 }
             }
         } catch {
@@ -87,6 +91,7 @@ extension QueryController {
     @objc(outlineView:numberOfChildrenOfItem:)
     func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
         var count = resultArray.count
+        var askedForChildren = false
         do {
             try HorosObjCException.perform {
                 QueryController.synchronized(self) {
@@ -100,15 +105,16 @@ extension QueryController {
                     }
 
                     if node.children() == nil {
-                        if !self.performingCFind {
+                        if !self.workers.isPerformingCFind {
                             // to avoid re-entries during WaitRendering window,
                             // and separate thread for cFind
-                            self.performingCFind = true
+                            self.workers.isPerformingCFind = true
+                            self.outlineView.beginWaitingForChildren()
+                            askedForChildren = true
 
                             self.progressIndicator.startAnimation(nil)
                             node.query(withValues: nil)
                             self.progressIndicator.stopAnimation(nil)
-                            self.performingCFind = false
 
                             if node.children() == nil { // It failed... put an empty children...
                                 node.setChildren([])
@@ -130,6 +136,11 @@ extension QueryController {
             }
         } catch {
             QueryController.log(error, "-[QueryController outlineView:numberOfChildrenOfItem:]")
+        }
+        // Out here: an exception of the query skips the rest of the block.
+        if askedForChildren {
+            workers.isPerformingCFind = false
+            self.outlineView.endWaitingForChildren()
         }
         return count
     }
@@ -209,7 +220,7 @@ extension QueryController {
             try HorosObjCException.perform {
                 let identifier = tableColumn?.identifier.rawValue
                 if identifier == "name" { // Is this study already available in our local database?
-                    if UserDefaults.standard.bool(forKey: "displaySamePatientWithColorBackground") &&
+                    if preferences[DatabasePreferences.displaySamePatientWithColorBackground] &&
                         self.window?.firstResponder === outlineView && outlineView.selectedRow >= 0 {
                         let selStudy = outlineView.item(atRow: outlineView.selectedRow) as AnyObject?
 
@@ -263,7 +274,7 @@ extension QueryController {
             selectedResultSource.stringValue = ""
         }
 
-        if UserDefaults.standard.bool(forKey: "displaySamePatientWithColorBackground") {
+        if preferences[DatabasePreferences.displaySamePatientWithColorBackground] {
             outlineView.needsDisplay = true
         }
     }
@@ -275,21 +286,18 @@ extension QueryController {
     /// row and sort; a date is followed by the time.
     @objc(sortArray)
     nonisolated func sortArray() -> [NSSortDescriptor] {
-        nonisolated(unsafe) var outlineDescriptors = [NSSortDescriptor]()
-        if Thread.isMainThread {
-            MainActor.assumeIsolated { outlineDescriptors = self.outlineView?.sortDescriptors ?? [] }
-        } else {
-            outlineDescriptors = windowState.sortDescriptors
-        }
+        let outlineKeys = Thread.isMainThread
+            ? MainActor.assumeIsolated { (self.outlineView?.sortDescriptors ?? []).map(QueryController.sortKey) }
+            : windowState.sortKeys
         var descriptors: [NSSortDescriptor] = []
-        for descriptor in outlineDescriptors {
+        for descriptor in outlineKeys.map(QueryController.sortDescriptor) {
             // AppKit keeps previous columns as tie breakers. Translate Local at
             // every position: it is a database comparison, not a query-node key.
             if descriptor.key == "localCompleteness" {
                 // Freeze each row's value for this sort, avoiding repeated
                 // database and inventory lookups inside the O(n log n)
                 // comparisons.
-                nonisolated(unsafe) let values = NSMapTable<AnyObject, LocalCompleteness>.strongToStrongObjects()
+                let values = FrozenCompleteness()
                 descriptors.append(NSSortDescriptor(key: "self", ascending: descriptor.ascending) { a, b in
                     guard let first = QueryController.frozenCompleteness(of: a, in: values, controller: self),
                           let second = QueryController.frozenCompleteness(of: b, in: values, controller: self) else { return .orderedSame }
@@ -306,15 +314,14 @@ extension QueryController {
     }
 
     /// The completeness of `row` for one sort, read once.
-    nonisolated static func frozenCompleteness(of row: Any, in values: NSMapTable<AnyObject, LocalCompleteness>,
+    nonisolated static func frozenCompleteness(of row: Any, in values: FrozenCompleteness,
                                                controller: QueryController) -> LocalCompleteness? {
-        if let known = values.object(forKey: row as AnyObject) { return known }
+        if let known = values.value(of: row as AnyObject) { return known }
         let computed = controller.displayedCompletenessForItem(row)
-        if let computed { values.setObject(computed, forKey: row as AnyObject) }
+        if let computed { values.keep(computed, of: row as AnyObject) }
         return computed
     }
 
-    @objc(sortResultsPreservingSelection)
     func sortResultsPreservingSelection() {
         let selectedItems = outlineView.selectedRowIndexes.compactMap { outlineView.item(atRow: $0) }
 
@@ -331,7 +338,6 @@ extension QueryController {
 
     /// Imports change the values, not the order: rows move only when the user
     /// clicks a column header.
-    @objc(reloadResultsAfterLocalChange)
     func reloadResultsAfterLocalChange() {
         outlineView.reloadData()
     }
@@ -434,7 +440,7 @@ extension QueryController {
         // build table header context menu
         guard (outlineView.autosaveName ?? "").isEmpty else { return }
 
-        let cols = UserDefaults.standard.array(forKey: autoQueryValue ? "NewQueryControllerTableColumnsAutoQR" : "NewQueryControllerTableColumns")
+        let cols = preferences.array(forKey: autoQueryValue ? "NewQueryControllerTableColumnsAutoQR" : "NewQueryControllerTableColumns")
 
         let tableHeaderContextMenu = NSMenu(title: "")
         outlineView.headerView?.menu = tableHeaderContextMenu
@@ -471,7 +477,7 @@ extension QueryController {
         let prefsSortKey = autoQueryValue ? "QueryControllerTableColumnsSortDescriptorAutoQR" : "QueryControllerTableColumnsSortDescriptor"
 
         let byName = [NSSortDescriptor(key: "name", ascending: true, selector: #selector(NSString.caseInsensitiveCompare(_:)))]
-        if let sort = UserDefaults.standard.object(forKey: prefsSortKey) as? NSDictionary {
+        if let sort = preferences.object(forKey: prefsSortKey) as? NSDictionary {
             let key = sort.object(forKey: "key") as? String ?? ""
             if outlineView.column(withIdentifier: NSUserInterfaceItemIdentifier(key)) != -1 {
                 let prototype = outlineView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(key))?.sortDescriptorPrototype
@@ -495,10 +501,10 @@ extension QueryController {
         let cols = outlineView.tableColumns.map { column -> NSDictionary in
             ["identifier": column.identifier.rawValue, "width": NSNumber(value: Float(column.width))]
         }
-        UserDefaults.standard.set(cols, forKey: autoQueryValue ? "NewQueryControllerTableColumnsAutoQR" : "NewQueryControllerTableColumns")
+        preferences.set(cols, forKey: autoQueryValue ? "NewQueryControllerTableColumnsAutoQR" : "NewQueryControllerTableColumns")
         if let first = outlineView.sortDescriptors.first, let key = first.key {
             let sort: NSDictionary = ["order": NSNumber(value: first.ascending), "key": key]
-            UserDefaults.standard.set(sort, forKey: autoQueryValue ? "QueryControllerTableColumnsSortDescriptorAutoQR" : "QueryControllerTableColumnsSortDescriptor")
+            preferences.set(sort, forKey: autoQueryValue ? "QueryControllerTableColumnsSortDescriptorAutoQR" : "QueryControllerTableColumnsSortDescriptor")
         }
     }
 
@@ -525,7 +531,6 @@ extension QueryController {
     /// each reading a remote total of zero as 0% and more files locally than
     /// the node reports as 100%. LocalCompleteness keeps those apart; this is
     /// the only place that reads the two counts.
-    @objc(inventoryCompletenessForItem:inventory:)
     nonisolated func inventoryCompleteness(forItem item: Any?, inventory: RetrieveInventory) -> LocalCompleteness {
         let node = item as? DCMTKQueryNode
         node?.refreshRetrieveInventoryWithoutWaiting()
@@ -592,7 +597,6 @@ extension QueryController {
     /// What the window paints and sorts on, on the main thread: the inventory
     /// when one was found, otherwise the snapshot. Neither reads the database
     /// here.
-    @objc(displayedCompletenessForItem:)
     nonisolated func displayedCompletenessForItem(_ item: Any?) -> LocalCompleteness? {
         if !Thread.isMainThread {
             return localCompleteness(forItem: item)
@@ -609,7 +613,6 @@ extension QueryController {
         return type(of: item) == DCMTKStudyQueryNode.self || type(of: item) == DCMTKSeriesQueryNode.self
     }
 
-    @objc(resultStudyInstanceUIDs)
     func resultStudyInstanceUIDs() -> [String] {
         var uids: [String] = []
         for case let item as NSObject in resultArray {
@@ -621,10 +624,9 @@ extension QueryController {
         return uids
     }
 
-    @objc(scheduleLocalSnapshot)
     func scheduleLocalSnapshot() {
-        NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(readLocalSnapshot), object: nil)
-        perform(#selector(readLocalSnapshot), with: nil, afterDelay: 0.25)
+        deferredCalls.cancel("readLocalSnapshot")
+        deferredCalls.perform("readLocalSnapshot", after: 0.25) { [weak self] in self?.readLocalSnapshot() }
     }
 
     private nonisolated static let snapshotQueue = DispatchQueue(label: "Horos.queryLocalSnapshot")
@@ -632,27 +634,30 @@ extension QueryController {
     /// Reads what of the results is here, off the main thread.
     @objc(readLocalSnapshot)
     func readLocalSnapshot() {
-        guard let database = BrowserController.currentBrowser()?.database else { // During DB rebuild
+        guard let graph = processGraph, graph.browserDatabase != nil else { // During DB rebuild
             return
         }
 
         let uids = resultStudyInstanceUIDs()
         localSnapshotGeneration += 1
         let generation = localSnapshotGeneration
-        nonisolated(unsafe) let reader = database
         QueryController.snapshotQueue.async {
             autoreleasepool {
                 var read: HorosLocalQuerySnapshot?
                 do {
-                    read = try HorosLocalQueryReader.snapshot(ofStudyInstanceUIDs: uids, in: reader)
+                    // The browser's database, read on this queue: a rebuild
+                    // begun since has none, and the read waits for the next.
+                    guard let database = graph.browserDatabase else { return }
+                    read = try HorosLocalQueryReader.snapshot(ofStudyInstanceUIDs: uids, in: database)
                 } catch {
                     NSLog("******** the local side of the query results could not be read: %@", (error as NSError).localizedDescription)
                 }
-                nonisolated(unsafe) let snapshot = read
+                // Made on this queue and never changed: only read on the main thread.
+                let snapshot = UncheckedSendableBox(read)
                 DispatchQueue.main.async {
                     MainActor.assumeIsolated {
-                        guard let snapshot, generation == self.localSnapshotGeneration else { return }
-                        self.localSnapshot = snapshot
+                        guard let snapshot = snapshot.value, generation == self.localSnapshotGeneration else { return }
+                        self.workers.localSnapshot = snapshot
                         DCMTKQueryNode.forgetMissingRetrieveInventories()
                         if !self.DatabaseIsEdited {
                             self.reloadResultsAfterLocalChange()
@@ -664,7 +669,6 @@ extension QueryController {
         }
     }
 
-    @objc(updateStudyCountLabel)
     func updateStudyCountLabel() {
         var found = QueryController.singularPluralCount(resultArray.count, NSLocalizedString("study found", comment: ""),
                                                         NSLocalizedString("studies found", comment: ""))
@@ -703,11 +707,11 @@ extension QueryController {
         guard !LocalStudyIndex.refreshScheduled else { return }
         LocalStudyIndex.refreshScheduled = true
 
-        NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(executeRefresh(_:)), object: nil)
+        deferredCalls.cancel("executeRefresh")
 
         let delay: TimeInterval = QueryController.current()?.window?.isKeyWindow == true || QueryController.currentAuto()?.window?.isKeyWindow == true ? 1 : 10
 
-        perform(#selector(executeRefresh(_:)), with: self, afterDelay: delay)
+        deferredCalls.perform("executeRefresh", after: delay) { [weak self] in self?.executeRefresh(self) }
     }
 
     @objc(executeRefresh:)
@@ -718,14 +722,18 @@ extension QueryController {
             }
         }
 
-        Thread.detachNewThreadSelector(#selector(computeStudyArrayInstanceUID(_:)), toTarget: self, with: nil)
+        // A read of the whole index, which blocks on the database's queue.
+        QueryController.studyIndexQueue.async { self.computeStudyArrayInstanceUID(nil) }
         QueryController.current()?.readLocalSnapshot()
         QueryController.currentAuto()?.readLocalSnapshot()
     }
 
+    private nonisolated static let studyIndexQueue = DispatchQueue(label: "Horos.queryLocalStudyIndex", qos: .utility,
+                                                                   attributes: .concurrent)
+
     @objc(applyNewStudyArray:)
     func applyNewStudyArray(_ d: NSDictionary?) {
-        NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(applyNewStudyArray(_:)), object: nil)
+        deferredCalls.cancel("applyNewStudyArray")
 
         for controller in [QueryController.current(), QueryController.currentAuto()] {
             if let controller, !controller.DatabaseIsEdited {
@@ -736,14 +744,13 @@ extension QueryController {
 
     /// Reads the Study Instance UID and object ID of every local study, on a
     /// private queue, from any thread, without the UI context.
-    @objc(computeStudyArrayInstanceUID:)
     nonisolated func computeStudyArrayInstanceUID(_ sender: NSNumber?) {
         // Whatever this read finds, even no database during a rebuild, the
         // refresh that -refresh: scheduled is over: a flag left on would make
         // -refresh: ignore every later change of the database.
         defer { LocalStudyIndex.refreshScheduled = false }
 
-        guard let database = BrowserController.currentBrowser()?.database else { // During DB rebuild
+        guard let database = workerGraph?.browserDatabase else { // During DB rebuild
             return
         }
 
@@ -762,7 +769,7 @@ extension QueryController {
             LocalStudyIndex.computing.unlock()
 
             if let localStudyIDs, let localStudyInstanceUIDs {
-                NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(applyNewStudyArray(_:)), object: nil)
+                if Thread.isMainThread { MainActor.assumeIsolated { deferredCalls.cancel("applyNewStudyArray") } }
 
                 // The first study with a UID answers for it, as the linear search did.
                 var byUID: [String: NSManagedObjectID] = [:]
@@ -775,7 +782,9 @@ extension QueryController {
                 LocalStudyIndex.set(byUID)
 
                 if Thread.isMainThread {
-                    perform(#selector(applyNewStudyArray(_:)), with: nil, afterDelay: 0.001)
+                    MainActor.assumeIsolated {
+                        deferredCalls.perform("applyNewStudyArray", after: 0.001) { [weak self] in self?.applyNewStudyArray(nil) }
+                    }
                 } else {
                     performSelector(onMainThread: #selector(applyNewStudyArray(_:)), with: nil, waitUntilDone: false)
                 }
@@ -807,7 +816,7 @@ extension QueryController {
                 var context = context
                 if context == nil {
                     if Thread.isMainThread {
-                        context = BrowserController.currentBrowser()?.database?.managedObjectContext
+                        context = self.workerGraph?.browserDatabase?.managedObjectContext
                     } else {
                         QueryController.logStackTrace("localStudy: no context off the main thread; the local count is -localFileCountForItem:")
                     }
@@ -850,9 +859,14 @@ extension QueryController {
         return seriesArray
     }
 
+    /// The series and files of the browser's database, for any thread: the
+    /// database is the one the browser shows when each read asks.
+    nonisolated var localSeries: any LocalSeriesReading {
+        (workerGraph ?? .process).localStudyReader(reading: .browser)
+    }
+
     /// The local study of a study or series row, as the object ID the study
     /// index holds: a value any thread can keep.
-    @objc(localStudyObjectIDForItem:)
     nonisolated func localStudyObjectID(forItem item: Any?) -> NSManagedObjectID? {
         guard let item = item as AnyObject?, QueryController.isStudyOrSeries(item) else { return nil }
 
@@ -870,16 +884,15 @@ extension QueryController {
     /// of the UI context. A read that fails is logged and counts as nothing
     /// here, so the retrieve asks for everything, as it would for a study not
     /// yet here.
-    @objc(localFileCountForItem:)
     nonisolated func localFileCount(forItem item: Any?) -> Int {
-        guard let studyID = localStudyObjectID(forItem: item), let database = BrowserController.currentBrowser()?.database else {
+        guard let studyID = localStudyObjectID(forItem: item), workerGraph?.browserDatabase != nil else {
             return 0
         }
 
         let node = item as AnyObject?
         let series = node.map { type(of: $0) == DCMTKSeriesQueryNode.self } == true ? node?.value(forKey: "uid") as? String : nil
         do {
-            return try HorosLocalQueryReader.fileCount(ofStudy: studyID, seriesInstanceUID: series, in: database).intValue
+            return try localSeries.fileCount(ofStudy: LocalRecordIdentifier(uri: studyID.uriRepresentation()), seriesInstanceUID: series)
         } catch {
             NSLog("******** the local files of %@ could not be counted: %@", QueryController.text(node?.value(forKey: "studyInstanceUID")),
                   (error as NSError).localizedDescription)
@@ -892,22 +905,47 @@ extension QueryController {
 /// whether a refresh of the windows is waiting: the statics of the former
 /// class, which every query window shares.
 enum LocalStudyIndex {
-    private static let lock = NSLock()
-    nonisolated(unsafe) private static var byUID: [String: NSManagedObjectID]?
+    private static let byUID = Mutex<[String: NSManagedObjectID]?>(nil)
     /// One read of the index at a time.
     static let computing = NSLock()
-    /// A refresh is scheduled and not yet read.
-    nonisolated(unsafe) static var refreshScheduled = false
+    private static let scheduled = Atomic<Bool>(false)
+
+    /// A refresh is scheduled and not yet read: set on the main thread,
+    /// cleared by the read of the index, on its thread.
+    static var refreshScheduled: Bool {
+        get { scheduled.load(ordering: .sequentiallyConsistent) }
+        set { scheduled.store(newValue, ordering: .sequentiallyConsistent) }
+    }
 
     static func get() -> [String: NSManagedObjectID]? {
-        lock.lock()
-        defer { lock.unlock() }
-        return byUID
+        byUID.withLock { $0 }
     }
 
     static func set(_ index: [String: NSManagedObjectID]?) {
-        lock.lock()
-        byUID = index
-        lock.unlock()
+        byUID.withLock { $0 = index }
+    }
+}
+
+/// The completeness of each row, read once for one sort: the comparisons of a
+/// sort may run on several threads, and a row's value is read from the
+/// database and the retrieve inventory only once. Each row is kept with its
+/// value, so that a row freed meanwhile cannot hand its identity to another.
+final class FrozenCompleteness: Sendable {
+    /// A row and its value. `@unchecked Sendable`: neither is changed once
+    /// kept, and the sort only reads them.
+    private struct Entry: @unchecked Sendable {
+        let row: AnyObject
+        let value: LocalCompleteness
+    }
+
+    private let values = Mutex<[ObjectIdentifier: Entry]>([:])
+
+    func value(of row: AnyObject) -> LocalCompleteness? {
+        values.withLock { $0[ObjectIdentifier(row)] }?.value
+    }
+
+    func keep(_ value: LocalCompleteness, of row: AnyObject) {
+        let entry = Entry(row: row, value: value)
+        values.withLock { $0[ObjectIdentifier(row)] = entry }
     }
 }

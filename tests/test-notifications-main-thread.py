@@ -53,7 +53,7 @@ viewing = read('Horos/Sources/RetrieveViewing.swift')
 if not posts_on_main(body(viewing, 'private func notify(')):
     failures.append('RetrieveViewing.notify posts on the calling thread')
 
-clean = read('Horos/Sources/DicomDatabase+Clean.swift')
+clean = read('Horos/Sources/DatabaseCleanupService.swift')
 direct = re.findall(r'NotificationCenter\.default\.post\(name: \.(?:_O2AddToDBAnyway|_O2AddToDBAnywayComplete|OsirixAddToDB|OsirixAddToDBComplete)\b', clean)
 if direct:
     failures.append(f'DicomDatabase cleaning posts {len(direct)} refresh notification(s) on the calling thread')

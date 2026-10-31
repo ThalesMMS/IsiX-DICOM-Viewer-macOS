@@ -40,6 +40,7 @@
 import Cocoa
 import IsiXDICOMNetwork
 import IsiXDICOMFile
+import IsiXPreferences
 
 /// The searches of a node: what the Query window asks for, the DICOMweb
 /// search that stands for a C-FIND, and the walk through a study's series
@@ -48,24 +49,19 @@ extension DCMTKQueryNode {
 
     // MARK: Exceptions of the Objective-C below
 
-    /// Runs `body`, which calls Objective-C that may raise. A raised exception
-    /// is logged, unless the cancellation of this thread explains it, and the
-    /// call answers false; with dontCatchExceptions it is raised again.
+    /// Whether the Objective-C a guard ran ended without `exception`, the one
+    /// HorosObjCException.caught answered. A raised exception is logged, unless
+    /// the cancellation of this thread explains it, and the call answers false;
+    /// with dontCatchExceptions it is raised again.
     @discardableResult
-    func catchingExceptions(_ body: () -> Void) -> Bool {
-        do {
-            try HorosObjCException.perform(body)
-            return true
-        } catch {
-            let exception = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-            if dontCatchExceptions, let exception { exception.raise() }
-            if !Thread.current.isCancelled {
-                let kind = exception?.name.rawValue ?? "exception"
-                NSLog("******* %@: %@\n%@", kind, exception?.reason ?? error.localizedDescription,
-                      (exception?.callStackSymbols ?? Thread.callStackSymbols).joined(separator: "\n"))
-            }
-            return false
+    func endedNormally(_ exception: NSException?) -> Bool {
+        guard let exception else { return true }
+        if dontCatchExceptions { exception.raise() }
+        if !Thread.current.isCancelled {
+            let kind = exception.name.rawValue
+            NSLog("******* %@: %@\n%@", kind, exception.reason ?? kind, exception.callStackSymbols.joined(separator: "\n"))
         }
+        return false
     }
 
     // MARK: The Query window's search
@@ -83,13 +79,13 @@ extension DCMTKQueryNode {
         lastQuerySucceededValue = false
         lastQueryNotImplementedValue = false
         synchronized {
-            catchingExceptions {
+            endedNormally(HorosObjCException.caught {
                 purgeChildren()
                 guard var identifier = given ?? queryPrototype() else {
                     NSLog("---- a query of %@ has nothing to ask", description)
                     return
                 }
-                let characterSet = UserDefaults.standard.string(forKey: "STRINGENCODING")
+                let characterSet = PreferencesSource.process.preferences[NetworkPreferences.queryCharacterSet]
                 let encoding = String.Encoding(rawValue: NSString.encoding(forDICOMCharacterSet: characterSet))
                 identifier.set(.specificCharacterSet, utf8: characterSet)
 
@@ -139,7 +135,7 @@ extension DCMTKQueryNode {
                 } else if !setupNetwork(service: .findStudyRoot, identifier: identifier) {
                     NSLog("---- SetupNetworkWithSyntax error : queryWithValues DCMTKQueryNode")
                 }
-            }
+            })
         }
     }
 
@@ -175,14 +171,13 @@ extension DCMTKQueryNode {
             _abortAssociation = false
             let success = QueryNodeShared(false)
             let done = DispatchSemaphore(value: 0)
-            let worker = Thread { [self] in
+            let wait = QueryProgressWindow(message: NSLocalizedString("DICOMweb Query...", comment: ""), showWindow: true)
+            let worker = ActivityThread.startUnlisted(name: "DICOMweb query") { [self] _ in
                 autoreleasepool {
-                    catchingExceptions { success.modify { $0 = self.queryDICOMweb(identifier) } }
+                    endedNormally(HorosObjCException.caught { success.modify { $0 = self.queryDICOMweb(identifier) } })
                     done.signal()
                 }
             }
-            let wait = QueryProgressWindow(message: NSLocalizedString("DICOMweb Query...", comment: ""), showWindow: true)
-            worker.start()
             while done.wait(timeout: .now() + .milliseconds(50)) == .timedOut {
                 wait?.run()
                 if wait?.aborted == true || _abortAssociation { worker.cancel() }
@@ -200,7 +195,7 @@ extension DCMTKQueryNode {
         let series = dataset.utf8Value(.seriesInstanceUID) ?? ""
         var elements: [(tag: DICOMTag, value: [UInt8]?)] = []
         try? dataset.enumerateElements { tag, value in elements.append((DICOMTag(rawValue: tag), value.map { [UInt8]($0) })) }
-        let encoding = NSString.encoding(forDICOMCharacterSet: UserDefaults.standard.string(forKey: "STRINGENCODING"))
+        let encoding = NSString.encoding(forDICOMCharacterSet: PreferencesSource.process.preferences[NetworkPreferences.queryCharacterSet])
         var search: DICOMwebSearch?
         switch DICOMwebSearch.make(level: level, study: study, series: series, elements: elements, decode: { bytes in
             NSString(bytes: bytes.prefix { $0 != 0 }.map { $0 }, length: bytes.prefix { $0 != 0 }.count, encoding: encoding) as String?
@@ -277,7 +272,7 @@ extension DCMTKQueryNode {
         childrenLock.unlock()
         var workers: [Thread] = []
         for _ in 0..<width {
-            let worker = Thread { [self] in
+            let worker = ActivityThread.startUnlisted(name: "DICOMweb series listing") { [self] _ in
                 autoreleasepool {
                     while true {
                         let seriesInstanceUID: String? = walk.modify { state in
@@ -288,7 +283,7 @@ extension DCMTKQueryNode {
                         guard let seriesInstanceUID else { break }
                         var ok = false, listingNotImplemented = false
                         var found: [Any] = []
-                        if !catchingExceptions({
+                        if !endedNormally(HorosObjCException.caught({
                             let listing = sibling(DCMTKStudyQueryNode.self, from: QueryIdentifiers.node(study: studyInstanceUID))
                             listing.setShowErrorMessage(false)
                             listing.query(withValues: nil, identifier: QueryIdentifiers.instanceListing(series: seriesInstanceUID,
@@ -296,7 +291,7 @@ extension DCMTKQueryNode {
                             ok = listing.lastQuerySucceeded
                             listingNotImplemented = listing.lastQueryNotImplemented
                             found = listing.children() ?? []
-                        }) {
+                        })) {
                             ok = false
                             listingNotImplemented = false
                         }
@@ -312,7 +307,6 @@ extension DCMTKQueryNode {
                 }
             }
             workers.append(worker)
-            worker.start()
         }
         while walk.read({ $0.running }) > 0 {
             if Thread.current.isCancelled { workers.forEach { $0.cancel() } }
@@ -348,7 +342,7 @@ extension DCMTKQueryNode {
         // runs; and a search purges the children of the node it is made on, so
         // searching self once per series would keep only the last one.
         let subQuery = sibling(DCMTKStudyQueryNode.self, from: QueryIdentifiers.node(study: studyInstanceUID))
-        let listed = catchingExceptions {
+        let listed = endedNormally(HorosObjCException.caught {
             // Its failures are this walk's, said or not as this node says its
             // own: a retrieve's listing says nothing, and decides what to make
             // of them once the retrieve has ended.
@@ -388,7 +382,7 @@ extension DCMTKQueryNode {
                 let ordered = plan.orderedSeries
                 seriesInstanceUIDs.sort { (ordered.firstIndex(of: $0) ?? Int.max) < (ordered.firstIndex(of: $1) ?? Int.max) }
             }
-        }
+        })
         if !listed {
             noteFailedListing(notImplemented: false)
             retrievePlan?.markSeriesListed()
@@ -412,12 +406,12 @@ extension DCMTKQueryNode {
                 break
             }
             var found: [Any] = []
-            let ok = catchingExceptions {
+            let ok = endedNormally(HorosObjCException.caught {
                 subQuery.query(withValues: nil, identifier: QueryIdentifiers.instanceListing(series: seriesInstanceUID, study: studyInstanceUID))
                 confirmed = confirmed && subQuery.lastQuerySucceeded
                 if !subQuery.lastQuerySucceeded { noteFailedListing(notImplemented: subQuery.lastQueryNotImplemented) }
                 found = subQuery.children() ?? []
-            }
+            })
             if !ok {
                 confirmed = false
                 noteFailedListing(notImplemented: false)

@@ -39,6 +39,7 @@
 
 import Foundation
 import IsiXDICOMFile
+import IsiXPreferences
 
 /// The text of a file's values: decoded in the file's character sets, cleaned
 /// for the database, and the patient identifier made of it. The rules are
@@ -107,7 +108,7 @@ import IsiXDICOMFile
 
     @objc(containsLocalizerInString:) func containsLocalizer(in str: String!) -> Bool {
         guard let str, !str.isEmpty else { return false }
-        let strings = (UserDefaults.standard.value(forKey: "NOLOCALIZER_Strings") as? NSString)?.components(separatedBy: ",") ?? []
+        let strings = PreferencesSource.process.preferences[DatabasePreferences.localizerNames]?.components(separatedBy: ",") ?? []
         for string in strings {
             var localizerString = string as NSString
             if localizerString.hasPrefix(" ") { localizerString = localizerString.substring(from: 1) as NSString }

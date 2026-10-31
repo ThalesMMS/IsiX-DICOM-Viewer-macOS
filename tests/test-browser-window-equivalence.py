@@ -8,9 +8,12 @@ IsiXDatabase module (BrowserWindowRules.swift). This compiles the Objective-C
 of those methods, cut out of BrowserController.m in the last revision that
 has it (history_reference; the tree itself while it still has it), against
 stand-ins for the app's classes, and the Swift as it stands in the app's
-files (the same functions, cut out of BrowserController+Menus.swift,
-+Interface.swift, +Thumbnails.swift, +Bonjour.swift and +Window.swift) with
-the module, against stand-ins with the same members. Both read the same
+files (the same functions, cut out of the browser's toolbar and menus,
+BrowserToolbar.swift, and of BrowserController+Menus.swift, +Interface.swift,
++Thumbnails.swift, +Bonjour.swift and +Window.swift, and the
+animation slider and the lent frame out of the database preview,
+BrowserPreviewPane.swift, which +Thumbnails.swift's selectors call) with the
+module, against stand-ins with the same members. Both read the same
 synthetic cases and write records:
 
 * -validateMenuItem: for the browser's commands: enabled, title, check mark,
@@ -40,6 +43,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import private_tmpdir  # noqa: F401,E402
 import history_reference  # noqa: E402
+import harness_defaults  # noqa: E402  the harness's preferences stay in its own process
 
 ROOT = Path(__file__).resolve().parents[1]
 BC = 'Horos/Sources/BrowserController.m'
@@ -662,11 +666,62 @@ int main(int argc, const char **argv) { @autoreleasepool {
 
 # --- the Swift, as the app has it ---------------------------------------------
 menus_swift = swift('BrowserController+Menus.swift')
+# The contextual menus and the validation of the commands: the selectors of
+# +Menus.swift hand them to the browser's BrowserToolbar, whose members run
+# here as the browser's, over the same stand-ins.
+toolbar_swift = swift('BrowserToolbar.swift')
+for selector, call in (('public func menuWillOpen(', 'browserToolbar.menuWillOpen(menu)'),
+                       ('public func validateMenuItem(', 'browserToolbar.validateMenuItem(menuItem)')):
+    if call not in swift_function(menus_swift, selector):
+        raise SystemExit('FAIL: %s no longer calls %s' % (selector, call))
+
+
+def as_browser(code):
+    """A member of BrowserToolbar, as a member of the browser it serves."""
+    for typed, plain_read in (('browser: browser', 'browser: self'),
+                              ('item.target = browser', 'item.target = self'),
+                              ('defaultTarget: browser', 'defaultTarget: self'),
+                              ('preferences: preferences', 'preferences: testDefaults'),
+                              ('processGraph.applicationMenus.workspaceMenu()', 'testWorkspaceMenu()'),
+                              ('preferences.object(forKey: RoutingRule.preferenceKey) as? [Any]',
+                               'testDefaults.array(forKey: "AUTOROUTINGDICTIONARY")'),
+                              ('browser.', 'self.')):
+        if typed not in code:
+            raise SystemExit('FAIL: BrowserToolbar no longer has %r; this test needs a new look' % typed)
+        code = code.replace(typed, plain_read)
+    return code
+
+
 interface_swift = swift('BrowserController+Interface.swift')
 thumbnails_swift = swift('BrowserController+Thumbnails.swift')
 bonjour_swift = swift('BrowserController+Bonjour.swift')
 window_swift = swift('BrowserController+Window.swift')
 outline_swift = swift('BrowserController+OutlineDataSource.swift')
+# The slider and the lent frame: the selectors of +Thumbnails.swift hand them
+# to the database preview, whose members run here on a pane of the browser.
+pane_swift = swift('BrowserPreviewPane.swift')
+for selector, call in (('func initAnimationSlider(', 'previewPane.initAnimationSlider()'),
+                       ('nonisolated func getDCMPix(fromViewerIfAvailable pathToFind: String!, frameNumber: Int32, expectedFrame',
+                        'BrowserPreviewPane.lentFrame(path: pathToFind, frame: frameNumber, expected: expectedFrame)')):
+    if call not in swift_function(thumbnails_swift, selector):
+        raise SystemExit('FAIL: %s no longer calls %s' % (selector, call))
+if 'return MainActor.assumeIsolated {' not in swift_function(pane_swift, 'nonisolated static func lentFrame(') \
+        or 'guard Thread.isMainThread else { return nil }' not in swift_function(pane_swift, 'nonisolated static func lentFrame('):
+    raise SystemExit('FAIL: BrowserPreviewPane.lentFrame no longer lends on the main thread alone')
+# -resetToDefaultDatabaseIfNecessary (+Bonjour.swift) hands the decision to
+# DatabaseOpener, which reads the typed preferences and the browser it serves:
+# its body runs here as the browser's, over the same stand-ins.
+opener_swift = swift('DatabaseOpener.swift')
+reset_swift = swift_function(opener_swift, 'func resetToDefaultIfNeeded(')
+for typed, plain_read in (('preferences[DatabasePreferences.defaultDatabaseLocation]', 'testDefaults.integer(forKey: "DEFAULT_DATABASELOCATION")'),
+                          ('preferences[DatabasePreferences.defaultDatabaseLocationURL]', 'testDefaults.string(forKey: "DEFAULT_DATABASELOCATIONURL")'),
+                          ('func resetToDefaultIfNeeded()', 'func resetToDefaultDatabaseIfNecessary()'),
+                          ('browser.', 'self.')):
+    if typed not in reset_swift:
+        raise SystemExit('FAIL: DatabaseOpener.resetToDefaultIfNeeded no longer reads %s' % typed)
+    reset_swift = reset_swift.replace(typed, plain_read)
+if 'databaseOpener.resetToDefaultIfNeeded()' not in swift_function(bonjour_swift, 'func resetToDefaultDatabaseIfNecessary('):
+    raise SystemExit('FAIL: -resetToDefaultDatabaseIfNecessary no longer hands the decision to DatabaseOpener')
 
 
 def swift_common(code):
@@ -675,28 +730,46 @@ def swift_common(code):
     return code
 
 
-state = between('/// What the browser\'s menu validation asks, read from the window when asked.', 'extension BrowserController {', menus_swift)
+state = between('/// What the browser\'s menu validation asks, read from the window when asked.', '@MainActor final class BrowserToolbar', toolbar_swift)
+for typed, plain_read in (('let preferences: any PreferenceStore', 'let preferences: TestDefaults'),
+                          ('preferences: any PreferenceStore', 'preferences: TestDefaults'),
+                          ('preferences[DatabasePreferences.commentsAutoFill]', 'preferences.bool(forKey: "COMMENTSAUTOFILL")'),
+                          ('preferences[ViewerPreferences.annotations]', 'preferences.integer(forKey: "ANNOTATIONS")')):
+    if typed not in state:
+        raise SystemExit('FAIL: the menu validation\'s state no longer has %r; this test needs a new look' % typed)
+    state = state.replace(typed, plain_read)
 glue = '\n'.join([
-    swift_function(menus_swift, 'private func boolValue('),
-    swift_function(menus_swift, 'private func rows('),
+    swift_function(toolbar_swift, 'private func boolValue('),
+    swift_function(toolbar_swift, 'private func rows('),
     state,
     swift_function(outline_swift, 'func isDistantRow('),
     swift_function(thumbnails_swift, 'private func intValue('),
     swift_function(thumbnails_swift, 'private func previewFrame('),
+    swift_function(outline_swift, 'func rowValue('),
+    swift_function(pane_swift, 'private func rowImages('),
+    swift_function(pane_swift, 'private func raiseOutOfRange('),
+    '@MainActor final class BrowserPreviewPane {\n    let browser: BrowserController\n'
+    '    init(browser: BrowserController) { self.browser = browser }\n'
+    + '\n'.join([
+        swift_function(pane_swift, 'func initAnimationSlider('),
+        swift_function(pane_swift, 'private func animate('),
+        swift_function(pane_swift, 'func disableAnimation('),
+        swift_function(pane_swift, 'private func resetPreviewToSlider('),
+        swift_function(pane_swift, 'private static func lentFrameOnMainActor(').replace('private static func', 'static func'),
+    ]).replace('BrowserController.viewerRowFrame(image, frame:', 'previewFrame(of: image, frame:') + '\n}',
 ])
 members = '\n'.join([
-    swift_function(menus_swift, 'func menuWillOpen('),
-    swift_function(menus_swift, 'func validateMenuItem('),
+    as_browser(swift_function(toolbar_swift, '    func menuWillOpen(') + '\n'
+               + swift_function(toolbar_swift, '    func validateMenuItem(')),
     swift_function(menus_swift, 'func unlockStudies('),
     swift_function(menus_swift, 'func lockStudies('),
     swift_function(interface_swift, 'static func _currentModifierFlags('),
     swift_function(interface_swift, 'override func keyDown('),
-    swift_function(thumbnails_swift, 'func initAnimationSlider('),
-    swift_function(thumbnails_swift, 'private func animate('),
-    swift_function(thumbnails_swift, 'private func disableAnimation('),
-    swift_function(thumbnails_swift, 'private func resetPreviewToSlider('),
-    swift_function(thumbnails_swift, 'nonisolated func getDCMPix(fromViewerIfAvailable pathToFind: String!, frameNumber: Int32, expectedFrame'),
-    swift_function(bonjour_swift, 'func resetToDefaultDatabaseIfNecessary('),
+    '    var previewPane: BrowserPreviewPane { BrowserPreviewPane(browser: self) }',
+    '    func initAnimationSlider() { previewPane.initAnimationSlider() }',
+    '    func getDCMPix(fromViewerIfAvailable pathToFind: String!, frameNumber: Int32, expectedFrame: PreviewFrame!) -> DCMPix! {\n'
+    '        BrowserPreviewPane.lentFrameOnMainActor(path: pathToFind, frame: frameNumber, expected: expectedFrame)\n    }',
+    reset_swift,
     swift_function(window_swift, 'private func isSubviewHidden('),
     '    func sortCase() {\n        let defaults = testDefaults\n        let outline = horos_databaseOutline\n'
     + between('        switch ListSort.restored(', '        loadSortDescriptors(nil)', window_swift) + '    }',
@@ -709,14 +782,16 @@ members = members.replace('NSApp.mainWindow?.windowController is ViewerControlle
 members = members.replace('FileManager.default.fileExists(atPath: report)', 'testFileExists(report)')
 members = members.replace('ReportImageInsertion.kind(ofReportPath: report) != .unsupported', 'testReportKind(report) != 0')
 members = members.replace('AppController.shared()?.workspaceMenu()', 'testWorkspaceMenu()')
-members = members.replace('ContextMenuPruning.hideUnavailableItems(in: menu, groups: groups as? [NSMenu] ?? [], defaultTarget: self)', 'testPrune(menu, groups)')
+members = members.replace('ContextMenuPruning.hideUnavailableItems(in: menu, groups: groups, defaultTarget: self)', 'testPrune(menu, groups)')
 members = members.replace('if let outline = horos_databaseOutline { OutlineSelectionRestore.select(first, in: outline, extending: false) }', 'testSelect(first)')
 members = re.sub(r'NSLog\("Preview: not reusing a loaded frame: %@", (.*?)\)\n', r'rec("refused " + (\1))\n', members)
 members = members.replace('NSLog("%@", pressedKeys)', '')
 glue = swift_common(glue)
 glue = glue.replace('NSApp.mainWindow?.windowController is ViewerController', 'testMainIsViewer()')
+glue = re.sub(r'NSLog\("Preview: not reusing a loaded frame: %@", (.*?)\)\n', r'rec("refused " + (\1))\n', glue)
 for name, code in (('glue', glue), ('members', members)):
-    for forbidden in ('UserDefaults.standard', 'FileManager.default.fileExists', 'NSApp.', 'AppController', 'ContextMenuPruning', 'NSLog('):
+    for forbidden in ('UserDefaults.standard', 'FileManager.default.fileExists', 'NSApp.', 'AppController', 'ContextMenuPruning', 'NSLog(',
+                      'processGraph', 'RoutingRule.', 'preferences['):
         if forbidden in code:
             sys.exit('FAIL: the Swift %s changed: cannot stand in for %s' % (name, forbidden))
 
@@ -761,8 +836,23 @@ func testMainIsViewer() -> Bool { (caseValue("mainIsViewer") as? Bool) ?? false 
     menu.addItem(withTitle: "State 1", action: NSSelectorFromString("loadState:"), keyEquivalent: "")
     return menu
 }
-func testPrune(_ menu: NSMenu, _ groups: NSMutableArray) { rec("prune \(groups.count) groups") }
+func testPrune(_ menu: NSMenu, _ groups: [NSMenu]) { rec("prune \(groups.count) groups") }
 func testSelect(_ item: Any) { rec("select \(objcText((item as AnyObject).value(forKey: "name")))") }
+
+// The guards of HorosObjCException+Guards.swift, running each body.
+enum HorosObjCException {
+    @discardableResult
+    static func caught(_ body: () -> Void) -> NSException? { body(); return nil }
+    static func caught(_ body: () -> Void, catch handler: (NSException) -> Void) { body() }
+    static func caughtWithoutAllocation(_ body: () -> Void) -> NSException? { body(); return nil }
+    @discardableResult
+    static func logged(_ function: String, stack: Bool = false, _ body: () -> Void) -> Bool { body(); return false }
+    @discardableResult
+    static func synchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T { body() }
+    @discardableResult
+    static func raisingToCaller<T>(_ body: () -> T) -> T { body() }
+    static func throwing<T, Failure: Error>(_ failure: (NSException) -> Failure, _ body: () throws -> T) throws -> T { try body() }
+}
 
 enum BrowserObjC {
     static func attempt(_ body: () -> Void) -> NSException? { body(); return nil }
@@ -1360,7 +1450,7 @@ failures = []
 with tempfile.TemporaryDirectory(prefix='horos-browser-window-') as tmp:
     tmp = Path(tmp)
     (tmp / 'cases.json').write_text(json.dumps(build_cases(random.Random(20261027))))
-    (tmp / 'reference.m').write_text(OBJC)
+    (tmp / 'reference.m').write_text(OBJC + harness_defaults.OBJC)
     (tmp / 'driver.h').write_text(DRIVER)
     if args.dump:
         args.dump.mkdir(parents=True, exist_ok=True)

@@ -45,7 +45,7 @@ import PreferencePanes
 /// user arranges custom image annotations for each modality. CIALayoutController
 /// does the work; the pane owns the nib's controls and forwards its actions.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors, the
+/// Implemented in Swift: the Objective-C name, the selectors, the
 /// outlets of OSICustomImageAnnotations.xib and OSICustomImageAnnotations.h are
 /// those of the former class. The C function compareViewTags stays in
 /// OSICustomImageAnnotations+CAPI.m, with the alert panel wrappers Swift needs.

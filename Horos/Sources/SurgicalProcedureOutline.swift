@@ -55,22 +55,57 @@ public final class SurgicalProcedureOutlineRow: NSObject {
 public final class SurgicalProcedureOutline: NSObject {
     @objc public static func hidesOrdinaryStructuredReports() -> Bool { false }
 
+    /// The studies, each patient's events after that patient's last study. The
+    /// list may be filtered, and an event whose patient it does not show stays
+    /// out. This runs at every refresh of the list, on the main thread: the
+    /// studies are read once, however many events there are.
     @objc(arrayByInsertingEvents:intoStudies:)
     public static func array(insertingEvents events: [[String: Any]], intoStudies studies: [Any]) -> [Any] {
-        var merged: [Any] = studies
-        var seen = Set(studies.compactMap(eventID(of:)))
+        var seen = Set<String>()
+        var lastStudy: [String: Int] = [:]
+        for (index, study) in studies.enumerated() {
+            if let identifier = eventID(of: study) { seen.insert(identifier) }
+            lastStudy[patientKey(of: study)] = index
+        }
+        var rowsAfter: [Int: [SurgicalProcedureOutlineRow]] = [:]
         for event in events {
             let identifier = event["eventID"] as? String ?? ""
             if identifier.isEmpty || seen.contains(identifier) { continue }
-            seen.insert(identifier)
             let row = SurgicalProcedureOutlineRow(event: event)
-            if let index = lastIndex(ofPatientID: row.patientID, in: merged) {
-                merged.insert(row, at: index + 1)
-            } else {
-                merged.append(row)
-            }
+            guard let index = lastStudy[patientKey(of: row)] else { continue }
+            seen.insert(identifier)
+            rowsAfter[index, default: []].append(row)
+        }
+        if rowsAfter.isEmpty { return studies }
+        var merged: [Any] = []
+        merged.reserveCapacity(studies.count + rowsAfter.count)
+        for (index, study) in studies.enumerated() {
+            merged.append(study)
+            merged.append(contentsOf: rowsAfter[index] ?? [])
         }
         return merged
+    }
+
+    /// The studies, less those made only to hold the report of an event whose
+    /// patient has another study here: that event is the SURG row beside it, and
+    /// its report's study is not a study more. A patient left with nothing else
+    /// keeps it, or the record would have no row at all.
+    @objc(studies:hidingReportsOfEvents:)
+    public static func studies(_ studies: [Any], hidingReportsOf events: [[String: Any]]) -> [Any] {
+        var patientOfReport: [String: String] = [:]
+        for event in events {
+            guard let study = event["reportStudyInstanceUID"] as? String, study.isEmpty == false else { continue }
+            patientOfReport[study] = patientKey(of: SurgicalProcedureOutlineRow(event: event))
+        }
+        if patientOfReport.isEmpty { return studies }
+        let uids = studies.map { studyText("studyInstanceUID", of: $0) }
+        var patientsWithStudies = Set<String>()
+        for (study, uid) in zip(studies, uids) where patientOfReport[uid] == nil {
+            patientsWithStudies.insert(patientKey(of: study))
+        }
+        return zip(studies, uids).filter { _, uid in
+            patientOfReport[uid].map(patientsWithStudies.contains) != true
+        }.map(\.0)
     }
 
     static func eventID(of item: Any) -> String? {
@@ -81,12 +116,22 @@ public final class SurgicalProcedureOutline: NSObject {
 
     static func patientID(of item: Any) -> String {
         if let row = item as? SurgicalProcedureOutlineRow { return row.patientID }
-        if let dict = item as? [String: Any] { return dict["patientID"] as? String ?? "" }
-        return (item as? NSObject)?.value(forKey: "patientID") as? String ?? ""
+        return studyText("patientID", of: item)
     }
 
-    static func lastIndex(ofPatientID patientID: String, in items: [Any]) -> Int? {
-        guard patientID.isEmpty == false else { return nil }
-        return items.indices.reversed().first { self.patientID(of: items[$0]) == patientID }
+    static func patientName(of item: Any) -> String {
+        if let row = item as? SurgicalProcedureOutlineRow { return row.patientName }
+        return studyText("name", of: item)
+    }
+
+    private static func studyText(_ key: String, of item: Any) -> String {
+        if let dict = item as? [String: Any] { return dict[key] as? String ?? "" }
+        return (item as? NSObject)?.value(forKey: key) as? String ?? ""
+    }
+
+    /// The patient ID, or the name of a patient who has none.
+    static func patientKey(of item: Any) -> String {
+        let identifier = patientID(of: item)
+        return identifier.isEmpty ? "name:\(patientName(of: item))" : "id:\(identifier)"
     }
 }

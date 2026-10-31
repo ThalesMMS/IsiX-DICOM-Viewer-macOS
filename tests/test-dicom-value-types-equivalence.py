@@ -40,7 +40,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import history_reference  # noqa: E402
-from isix_modules import build_module  # noqa: E402
+from isix_modules import build_module, link_flags  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 FRAMEWORK = 'DCM Framework'
@@ -451,7 +451,7 @@ def compile_and_run(work, host):
     executable = work / ('driver-host' if host else 'driver-alone')
     subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fmodules', '-w', '-mmacosx-version-min=15.0',
                     '-I', str(framework), '-I', str(modules), str(work / 'driver.m'), *objects,
-                    str(modules / 'libIsiXDICOMFile.a'), str(modules / 'libIsiXImaging.a'), '-L/usr/lib/swift',
+                    *link_flags('IsiXDICOMFile', modules),
                     '-framework', 'Foundation', *link, '-o', str(executable)], check=True)
     runs = {}
     for name, settings in [('plain', []),

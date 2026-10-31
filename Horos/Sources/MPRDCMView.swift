@@ -334,8 +334,7 @@ public final class MPRDCMView: DCMView {
         }
     }
 
-    @objc(checkForFrame)
-    private dynamic func checkForFrame() {
+    private func checkForFrame() {
         // NSView frames are in points; vtkCocoaRenderWindow converts to pixels.
         let frameRect = self.convert(self.bounds, to: nil)
 
@@ -345,7 +344,6 @@ public final class MPRDCMView: DCMView {
     }
 
     /// DCMView's -displayedScaleValue.
-    @objc(displayedScaleValue)
     override dynamic func displayedScaleValue() -> Float {
         let o = windowControllerIvar?.originalPix
 
@@ -353,13 +351,11 @@ public final class MPRDCMView: DCMView {
     }
 
     /// DCMView's -displayedRotation, likewise.
-    @objc(displayedRotation)
     override dynamic func displayedRotation() -> Float {
         return _camera?.rollAngle ?? 0
     }
 
-    @objc(hasCameraChanged:)
-    private dynamic func hasCameraChanged(_ currentCamera: Camera?) -> Bool {
+    private func hasCameraChanged(_ currentCamera: Camera?) -> Bool {
         if _camera?.forceUpdate ?? false {
             _camera?.forceUpdate = false
             return true
@@ -406,7 +402,6 @@ public final class MPRDCMView: DCMView {
         _vrView?.setCamera(_camera)
     }
 
-    @objc(actualSize:)
     public override dynamic func actualSize(_ sender: Any!) {
         self.setOriginX(0, y: 0)
         self.rotation = 0.0
@@ -422,7 +417,6 @@ public final class MPRDCMView: DCMView {
         self.updateViewMPR()
     }
 
-    @objc(realSize:)
     public override dynamic func realSize(_ sender: Any!) {
         let screenNumber = ((self.window?.screen?.deviceDescription as NSDictionary?)?.value(forKey: "NSScreenNumber") as AnyObject?)?.intValue ?? 0
         let display = CGDirectDisplayID(UInt32(bitPattern: Int32(truncatingIfNeeded: screenNumber)))
@@ -796,8 +790,7 @@ public final class MPRDCMView: DCMView {
                    Float(color?.blueComponent ?? 0), Float(color?.alphaComponent ?? 0))
     }
 
-    @objc(colorForView:)
-    private dynamic func colorForView(_ v: Int32) {
+    private func colorForView(_ v: Int32) {
         switch v {
         case 1:
             //roiColor4f (VIEW_1_RED, VIEW_1_GREEN, VIEW_1_BLUE, VIEW_1_ALPHA);
@@ -887,7 +880,6 @@ public final class MPRDCMView: DCMView {
         }
     }
 
-    @objc(drawTextualData::)
     public override dynamic func drawTextualData(_ size: NSRect, _ annotations: Int) {
         let copyScale = self.horos_scaleValue
         self.horos_scaleValue = 1
@@ -895,9 +887,8 @@ public final class MPRDCMView: DCMView {
         self.horos_scaleValue = copyScale
     }
 
-    @objc(subDrawRect:)
     public override dynamic func subDraw(_ r: NSRect) {
-        if self.stringID == "export" && UserDefaults.standard.bool(forKey: "exportDCMIncludeAllViews") == false {
+        if self.stringID == "export" && exportsAllViewsPreference == false {
             return
         }
 
@@ -1376,7 +1367,6 @@ public final class MPRDCMView: DCMView {
         }
     }
 
-    @objc(roiChange:)
     public override dynamic func roiChange(_ note: Notification!) {
         if dontCheckRoiChange == false {
             let r = note?.object as? ROI
@@ -1407,8 +1397,7 @@ public final class MPRDCMView: DCMView {
 
     // MARK: - Mouse Events
 
-    @objc(angleBetween:center:)
-    private dynamic func angleBetween(_ mouseLocation: NSPoint, center: NSPoint) -> Float {
+    private func angleBetween(_ mouseLocation: NSPoint, center: NSPoint) -> Float {
         var mouseLocation = mouseLocation
         mouseLocation.x -= center.x
         mouseLocation.y -= center.y
@@ -1416,8 +1405,7 @@ public final class MPRDCMView: DCMView {
         return Float(-atan2(Double(mouseLocation.x), Double(mouseLocation.y)) / Double(deg2rad))
     }
 
-    @objc(centerLines)
-    private dynamic func centerLines() -> NSPoint {
+    private func centerLines() -> NSPoint {
         var r = NSMakePoint(0, 0)
 
         // One line or no lines : find the middle of the line
@@ -1453,11 +1441,10 @@ public final class MPRDCMView: DCMView {
         return r
     }
 
-    @objc(mouseOnLines:)
-    private dynamic func mouseOnLines(_ mouseLocation: NSPoint) -> Int32 {
+    private func mouseOnLines(_ mouseLocation: NSPoint) -> Int32 {
         var mouseLocation = mouseLocation
 
-        if UserDefaults.standard.integer(forKey: "ANNOTATIONS") == annotNone {
+        if preferredAnnotationLevel == annotNone {
             return 0
         }
 
@@ -1657,14 +1644,8 @@ public final class MPRDCMView: DCMView {
 
         var clickCount = 1
 
-        do {
-            try HorosObjCException.perform {
-                if theEvent.type == .leftMouseDown || theEvent.type == .rightMouseDown || theEvent.type == .leftMouseUp || theEvent.type == .rightMouseUp {
-                    clickCount = theEvent.clickCount
-                }
-            }
-        } catch {
-            clickCount = 1
+        if theEvent.type == .leftMouseDown || theEvent.type == .rightMouseDown || theEvent.type == .leftMouseUp || theEvent.type == .rightMouseUp {
+            clickCount = theEvent.clickCount
         }
 
         if clickCount == 2 && self.horos_drawingROI == false {
@@ -1877,7 +1858,6 @@ public final class MPRDCMView: DCMView {
         dontCheckRoiChange = false
     }
 
-    @objc(mouseDraggedImageScroll:)
     public override dynamic func mouseDraggedImageScroll(_ event: NSEvent!) {
         self.checkCursor()
 
@@ -2095,8 +2075,7 @@ public final class MPRDCMView: DCMView {
 
     // MARK: - Private Methods
 
-    @objc(drawOSIROIs)
-    private dynamic func drawOSIROIs() {
+    private func drawOSIROIs() {
         var pixToSubdrawRectOpenGLTransform = [Double](repeating: 0, count: 16)
 
         if self.ROIManager() == nil {

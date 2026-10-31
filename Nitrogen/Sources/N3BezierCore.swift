@@ -46,6 +46,10 @@ import IsiXGeometry
 // N3BezierCoreRef is a BezierCore retained for the caller (N3BezierCoreRetain
 // and N3BezierCoreRelease retain and release it), and the iterators and random
 // accessors are small classes holding one.
+//
+// The functions the former plugin SDK published (tests/legacy-plugin-abi.json)
+// are @usableFromInline, so that a Release build, which has no testability,
+// exports them and dead stripping keeps them: see N3Geometry.swift.
 
 /// The BezierCore of a handle.
 func bezierCore(_ handle: OpaquePointer?) -> BezierCore {
@@ -86,45 +90,45 @@ func N3BezierCoreCreate() -> OpaquePointer? {
     retainedHandle(BezierCore())
 }
 
-@_cdecl("N3BezierCoreCreateMutable") @implementation
+@_cdecl("N3BezierCoreCreateMutable") @implementation @usableFromInline
 func N3BezierCoreCreateMutable() -> OpaquePointer? {
     retainedHandle(BezierCore())
 }
 
-@_cdecl("N3BezierCoreRetain") @implementation
+@_cdecl("N3BezierCoreRetain") @implementation @usableFromInline
 func N3BezierCoreRetain(_ handle: OpaquePointer?) -> UnsafeMutableRawPointer? {
     guard let handle else { return nil }
     _ = Unmanaged<BezierCore>.fromOpaque(UnsafeRawPointer(handle)).retain()
     return UnsafeMutableRawPointer(handle)
 }
 
-@_cdecl("N3BezierCoreRelease") @implementation
+@_cdecl("N3BezierCoreRelease") @implementation @usableFromInline
 func N3BezierCoreRelease(_ handle: OpaquePointer?) {
     guard let handle else { return }
     Unmanaged<BezierCore>.fromOpaque(UnsafeRawPointer(handle)).release()
 }
 
-@_cdecl("N3BezierCoreEqualToBezierCore") @implementation
+@_cdecl("N3BezierCoreEqualToBezierCore") @implementation @usableFromInline
 func N3BezierCoreEqualToBezierCore(_ handle1: OpaquePointer?, _ handle2: OpaquePointer?) -> Bool {
     handle1 == handle2 || bezierCore(handle1).isEqual(to: bezierCore(handle2))
 }
 
-@_cdecl("N3BezierCoreCopyDescription") @implementation
+@_cdecl("N3BezierCoreCopyDescription") @implementation @usableFromInline
 func N3BezierCoreCopyDescription(_ handle: OpaquePointer?) -> Unmanaged<CFString>? {
     Unmanaged.passRetained(n3DictionaryRepresentation(bezierCore(handle)).description as CFString)
 }
 
-@_cdecl("N3BezierCoreHasCurve") @implementation
+@_cdecl("N3BezierCoreHasCurve") @implementation @usableFromInline
 func N3BezierCoreHasCurve(_ handle: OpaquePointer?) -> Bool {
     bezierCore(handle).hasCurve
 }
 
-@_cdecl("N3BezierCoreCreateCopy") @implementation
+@_cdecl("N3BezierCoreCreateCopy") @implementation @usableFromInline
 func N3BezierCoreCreateCopy(_ handle: OpaquePointer?) -> OpaquePointer? {
     retainedHandle(bezierCore(handle).copy())
 }
 
-@_cdecl("N3BezierCoreCreateMutableCopy") @implementation
+@_cdecl("N3BezierCoreCreateMutableCopy") @implementation @usableFromInline
 func N3BezierCoreCreateMutableCopy(_ handle: OpaquePointer?) -> OpaquePointer? {
     retainedHandle(bezierCore(handle).copy())
 }
@@ -186,7 +190,7 @@ func makeBezierCore(dictionaryRepresentation dictionary: NSDictionary?) -> Bezie
     return core
 }
 
-@_cdecl("N3BezierCoreCreateDictionaryRepresentation") @implementation
+@_cdecl("N3BezierCoreCreateDictionaryRepresentation") @implementation @usableFromInline
 func N3BezierCoreCreateDictionaryRepresentation(_ handle: OpaquePointer?) -> Unmanaged<CFDictionary>? {
     Unmanaged.passRetained(n3DictionaryRepresentation(bezierCore(handle)) as CFDictionary)
 }
@@ -200,14 +204,14 @@ func N3BezierCoreCreateWithDictionaryRepresentation(_ dict: CFDictionary?) -> Op
     makeBezierCore(dictionaryRepresentation: dictionary(dict)).map(retainedHandle)
 }
 
-@_cdecl("N3BezierCoreCreateMutableWithDictionaryRepresentation") @implementation
+@_cdecl("N3BezierCoreCreateMutableWithDictionaryRepresentation") @implementation @usableFromInline
 func N3BezierCoreCreateMutableWithDictionaryRepresentation(_ dict: CFDictionary?) -> OpaquePointer? {
     makeBezierCore(dictionaryRepresentation: dictionary(dict)).map(retainedHandle)
 }
 
 // MARK: - Changing a path
 
-@_cdecl("N3BezierCoreAddSegment") @implementation
+@_cdecl("N3BezierCoreAddSegment") @implementation @usableFromInline
 func N3BezierCoreAddSegment(_ handle: OpaquePointer?, _ segmentType: N3BezierCoreSegmentType, _ control1: N3Vector,
                             _ control2: N3Vector, _ endpoint: N3Vector) {
     guard let kind = segmentType.kind else {
@@ -223,32 +227,32 @@ func N3BezierCoreSetVectorsForSegementAtIndex(_ handle: OpaquePointer?, _ index:
     bezierCore(handle).setVectors(at: index, control1: control1.vector3, control2: control2.vector3, endpoint: endpoint.vector3)
 }
 
-@_cdecl("N3BezierCoreFlatten") @implementation
+@_cdecl("N3BezierCoreFlatten") @implementation @usableFromInline
 func N3BezierCoreFlatten(_ handle: OpaquePointer?, _ flatness: CGFloat) {
     bezierCore(handle).flatten(flatness)
 }
 
-@_cdecl("N3BezierCoreSubdivide") @implementation
+@_cdecl("N3BezierCoreSubdivide") @implementation @usableFromInline
 func N3BezierCoreSubdivide(_ handle: OpaquePointer?, _ maxSegmentLength: CGFloat) {
     bezierCore(handle).subdivide(maxSegmentLength)
 }
 
-@_cdecl("N3BezierCoreApplyTransform") @implementation
+@_cdecl("N3BezierCoreApplyTransform") @implementation @usableFromInline
 func N3BezierCoreApplyTransform(_ handle: OpaquePointer?, _ transform: N3AffineTransform) {
     bezierCore(handle).apply(transform)
 }
 
-@_cdecl("N3BezierCoreAppendBezierCore") @implementation
+@_cdecl("N3BezierCoreAppendBezierCore") @implementation @usableFromInline
 func N3BezierCoreAppendBezierCore(_ handle: OpaquePointer?, _ appended: OpaquePointer?, _ connectPaths: Bool) {
     bezierCore(handle).append(bezierCore(appended), connectingPaths: connectPaths)
 }
 
-@_cdecl("N3BezierCoreCreateFlattenedCopy") @implementation
+@_cdecl("N3BezierCoreCreateFlattenedCopy") @implementation @usableFromInline
 func N3BezierCoreCreateFlattenedCopy(_ handle: OpaquePointer?, _ flatness: CGFloat) -> OpaquePointer? {
     retainedHandle(bezierCore(handle).flattenedCopy(flatness))
 }
 
-@_cdecl("N3BezierCoreCreateFlattenedMutableCopy") @implementation
+@_cdecl("N3BezierCoreCreateFlattenedMutableCopy") @implementation @usableFromInline
 func N3BezierCoreCreateFlattenedMutableCopy(_ handle: OpaquePointer?, _ flatness: CGFloat) -> OpaquePointer? {
     retainedHandle(bezierCore(handle).flattenedCopy(flatness))
 }
@@ -275,22 +279,22 @@ func N3BezierCoreCreateTransformedMutableCopy(_ handle: OpaquePointer?, _ transf
 
 // MARK: - Reading a path
 
-@_cdecl("N3BezierCoreSegmentCount") @implementation
+@_cdecl("N3BezierCoreSegmentCount") @implementation @usableFromInline
 func N3BezierCoreSegmentCount(_ handle: OpaquePointer?) -> CFIndex {
     bezierCore(handle).count
 }
 
-@_cdecl("N3BezierCoreSubpathCount") @implementation
+@_cdecl("N3BezierCoreSubpathCount") @implementation @usableFromInline
 func N3BezierCoreSubpathCount(_ handle: OpaquePointer?) -> CFIndex {
     bezierCore(handle).subpathCount
 }
 
-@_cdecl("N3BezierCoreLength") @implementation
+@_cdecl("N3BezierCoreLength") @implementation @usableFromInline
 func N3BezierCoreLength(_ handle: OpaquePointer?) -> CGFloat {
     bezierCore(handle).length
 }
 
-@_cdecl("N3BezierCoreGetSegmentAtIndex") @implementation
+@_cdecl("N3BezierCoreGetSegmentAtIndex") @implementation @usableFromInline
 func N3BezierCoreGetSegmentAtIndex(_ handle: OpaquePointer?, _ index: CFIndex, _ control1: UnsafeMutablePointer<N3Vector>?,
                                    _ control2: UnsafeMutablePointer<N3Vector>?, _ endpoint: UnsafeMutablePointer<N3Vector>?) -> N3BezierCoreSegmentType {
     let core = bezierCore(handle)
@@ -300,7 +304,7 @@ func N3BezierCoreGetSegmentAtIndex(_ handle: OpaquePointer?, _ index: CFIndex, _
     return N3BezierCoreSegmentType(segment.kind)
 }
 
-@_cdecl("N3BezierCoreCheckDebug") @implementation
+@_cdecl("N3BezierCoreCheckDebug") @implementation @usableFromInline
 func N3BezierCoreCheckDebug(_ handle: OpaquePointer?) {
     bezierCore(handle).assertInvariants()
 }
@@ -321,7 +325,7 @@ private func iterator(_ handle: OpaquePointer?) -> BezierCoreIteratorState {
     Unmanaged<BezierCoreIteratorState>.fromOpaque(UnsafeRawPointer(handle!)).takeUnretainedValue()
 }
 
-@_cdecl("N3BezierCoreIteratorCreateWithBezierCore") @implementation
+@_cdecl("N3BezierCoreIteratorCreateWithBezierCore") @implementation @usableFromInline
 func N3BezierCoreIteratorCreateWithBezierCore(_ handle: OpaquePointer?) -> OpaquePointer? {
     OpaquePointer(Unmanaged.passRetained(BezierCoreIteratorState(bezierCore(handle))).toOpaque())
 }
@@ -333,14 +337,14 @@ func N3BezierCoreIteratorRetain(_ handle: OpaquePointer?) -> OpaquePointer? {
     return handle
 }
 
-@_cdecl("N3BezierCoreIteratorRelease") @implementation
+@_cdecl("N3BezierCoreIteratorRelease") @implementation @usableFromInline
 func N3BezierCoreIteratorRelease(_ handle: OpaquePointer?) {
     guard let handle else { return }
     Unmanaged<BezierCoreIteratorState>.fromOpaque(UnsafeRawPointer(handle)).release()
 }
 
 /// The next segment; at the end, N3EndBezierCoreSegmentType and zero vectors.
-@_cdecl("N3BezierCoreIteratorGetNextSegment") @implementation
+@_cdecl("N3BezierCoreIteratorGetNextSegment") @implementation @usableFromInline
 func N3BezierCoreIteratorGetNextSegment(_ handle: OpaquePointer?, _ control1: UnsafeMutablePointer<N3Vector>?,
                                         _ control2: UnsafeMutablePointer<N3Vector>?, _ endpoint: UnsafeMutablePointer<N3Vector>?) -> N3BezierCoreSegmentType {
     let iterator = iterator(handle)
@@ -356,7 +360,7 @@ func N3BezierCoreIteratorGetNextSegment(_ handle: OpaquePointer?, _ control1: Un
     return N3BezierCoreSegmentType(segment.kind)
 }
 
-@_cdecl("N3BezierCoreIteratorIsAtEnd") @implementation
+@_cdecl("N3BezierCoreIteratorIsAtEnd") @implementation @usableFromInline
 func N3BezierCoreIteratorIsAtEnd(_ handle: OpaquePointer?) -> Bool {
     let iterator = iterator(handle)
     return iterator.index >= iterator.core.count
@@ -396,12 +400,12 @@ private func randomAccessor(_ handle: OpaquePointer?) -> BezierCoreRandomAccesso
     Unmanaged<BezierCoreRandomAccessorState>.fromOpaque(UnsafeRawPointer(handle!)).takeUnretainedValue()
 }
 
-@_cdecl("N3BezierCoreRandomAccessorCreateWithBezierCore") @implementation
+@_cdecl("N3BezierCoreRandomAccessorCreateWithBezierCore") @implementation @usableFromInline
 func N3BezierCoreRandomAccessorCreateWithBezierCore(_ handle: OpaquePointer?) -> OpaquePointer? {
     OpaquePointer(Unmanaged.passRetained(BezierCoreRandomAccessorState(bezierCore(handle), isMutable: false)).toOpaque())
 }
 
-@_cdecl("N3BezierCoreRandomAccessorCreateWithMutableBezierCore") @implementation
+@_cdecl("N3BezierCoreRandomAccessorCreateWithMutableBezierCore") @implementation @usableFromInline
 func N3BezierCoreRandomAccessorCreateWithMutableBezierCore(_ handle: OpaquePointer?) -> OpaquePointer? {
     OpaquePointer(Unmanaged.passRetained(BezierCoreRandomAccessorState(bezierCore(handle), isMutable: true)).toOpaque())
 }
@@ -413,7 +417,7 @@ func N3BezierCoreRandomAccessorRetain(_ handle: OpaquePointer?) -> OpaquePointer
     return handle
 }
 
-@_cdecl("N3BezierCoreRandomAccessorRelease") @implementation
+@_cdecl("N3BezierCoreRandomAccessorRelease") @implementation @usableFromInline
 func N3BezierCoreRandomAccessorRelease(_ handle: OpaquePointer?) {
     guard let handle else { return }
     Unmanaged<BezierCoreRandomAccessorState>.fromOpaque(UnsafeRawPointer(handle)).release()
@@ -421,7 +425,7 @@ func N3BezierCoreRandomAccessorRelease(_ handle: OpaquePointer?) {
 
 /// The segment at index; at the segment count, N3EndBezierCoreSegmentType
 /// with the vectors left as they were.
-@_cdecl("N3BezierCoreRandomAccessorGetSegmentAtIndex") @implementation
+@_cdecl("N3BezierCoreRandomAccessorGetSegmentAtIndex") @implementation @usableFromInline
 func N3BezierCoreRandomAccessorGetSegmentAtIndex(_ handle: OpaquePointer?, _ index: CFIndex, _ control1: UnsafeMutablePointer<N3Vector>?,
                                                  _ control2: UnsafeMutablePointer<N3Vector>?, _ endpoint: UnsafeMutablePointer<N3Vector>?) -> N3BezierCoreSegmentType {
     let core = randomAccessor(handle).core
@@ -434,7 +438,7 @@ func N3BezierCoreRandomAccessorGetSegmentAtIndex(_ handle: OpaquePointer?, _ ind
     return N3BezierCoreSegmentType(segment.kind)
 }
 
-@_cdecl("N3BezierCoreRandomAccessorSetVectorsForSegementAtIndex") @implementation
+@_cdecl("N3BezierCoreRandomAccessorSetVectorsForSegementAtIndex") @implementation @usableFromInline
 func N3BezierCoreRandomAccessorSetVectorsForSegementAtIndex(_ handle: OpaquePointer?, _ index: CFIndex, _ control1: N3Vector,
                                                             _ control2: N3Vector, _ endpoint: N3Vector) {
     let accessor = randomAccessor(handle)
@@ -442,7 +446,7 @@ func N3BezierCoreRandomAccessorSetVectorsForSegementAtIndex(_ handle: OpaquePoin
     accessor.core.setVectors(at: index, control1: control1.vector3, control2: control2.vector3, endpoint: endpoint.vector3)
 }
 
-@_cdecl("N3BezierCoreRandomAccessorSegmentCount") @implementation
+@_cdecl("N3BezierCoreRandomAccessorSegmentCount") @implementation @usableFromInline
 func N3BezierCoreRandomAccessorSegmentCount(_ handle: OpaquePointer?) -> CFIndex {
     randomAccessor(handle).core.count
 }

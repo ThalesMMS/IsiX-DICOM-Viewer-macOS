@@ -32,6 +32,7 @@ python_with.require('import pydicom', 'import numpy')
 import pydicom
 from sources import is_swift, source_path
 import isix_modules
+import process_graph_stand_in
 root = Path(__file__).resolve().parents[1]
 FORMER = '440c1c1b7'
 configuration = os.environ.get('HOROS_TEST_CONFIGURATION', 'Debug')
@@ -522,7 +523,7 @@ def build(path, former, fail_empty_sequence=False):
         objects.append(obj)
 
     # The helper is Swift over the DCMTK adapter, and its rules are in the
-    # IsiXDICOMFile module, which depends on IsiXImaging.
+    # IsiXDICOMFile module, which depends on IsiXPreferences and IsiXImaging.
     adapters = root/'Horos/Sources/Adapters/DCMTK'
     includes.append('-I' + str(adapters))
     modules = path/'modules'
@@ -531,7 +532,10 @@ def build(path, former, fail_empty_sequence=False):
     # The tags are IsiXDICOMFile's in the current build, a stand-in in the former.
     includes.append('-I' + str(modules))
     flags.append('-DHARNESS_FORMER' if former else '-DHARNESS_CURRENT')
-    swift = [root/'Horos/Sources/ExportFolderNaming.swift'] + ([] if former else [anonymization, gdcm_helper])
+    # The helper reads the panels' fields through PreferencesSource: the app's
+    # own, over the stand-in graph that hands out the standard preferences.
+    swift = [root/'Horos/Sources/ExportFolderNaming.swift'] + (
+        [] if former else [anonymization, gdcm_helper, process_graph_stand_in.source(path)])
     run('xcrun', 'swiftc', '-parse-as-library', '-wmo', '-module-name', 'Horos', '-import-objc-header', common/'fixture-stubs.h',
         '-I', modules, *[a for i in includes for a in ('-Xcc', i)], '-Xcc', '-DHARNESS_FORMER' if former else '-DHARNESS_SWIFT',
         '-emit-objc-header-path', path/'Horos-Swift.h', '-c', *swift, '-o', path/'swift.o')
@@ -569,7 +573,7 @@ def build(path, former, fail_empty_sequence=False):
         objc(common/'main.m', 'objective-c', '-I' + str(path), '-DHOROS_FIXTURE_CURRENT_HELPER=1')
     libraries = [install/'lib'/f'lib{name}.a' for name in ['dcmnet', 'dcmdata', 'oflog', 'ofstd', 'oficonv']]
     if not former:
-        libraries += [modules/'libIsiXDICOMFile.a', modules/'libIsiXImaging.a']
+        libraries += isix_modules.link_flags('IsiXDICOMFile', modules)
     if former:
         libraries.append(gdcm_install/'wlib/libGDCM.a')
     run('xcrun', 'swiftc', *objects, *libraries, '-lc++', '-lz', '-lexpat', '-framework', 'Cocoa', '-o', path/'test')

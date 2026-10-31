@@ -42,7 +42,6 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-dcmtk = root / 'DCMTK'
 driver = root / 'tools/exercise-functional-group-tags.cc'
 # DicomSeries and DicomFile are Swift; the assertions read their Swift spelling.
 sys.path.insert(0, str(Path(__file__).resolve().parent))

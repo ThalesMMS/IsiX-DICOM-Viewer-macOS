@@ -81,7 +81,7 @@ public final class CPRHorizontalFillOperation: Operation, @unchecked Sendable {
     }
 
     /// -init of NSOperation left everything zero, as this does.
-    @objc public override convenience init() {
+    public override convenience init() {
         self.init(volumeData: nil, interpolationMode: 0, floatBytes: nil, width: 0, height: 0, vectors: nil, normals: nil)
     }
 
@@ -92,8 +92,7 @@ public final class CPRHorizontalFillOperation: Operation, @unchecked Sendable {
 
     public override func main() {
         autoreleasepool {
-            // The former @try/@catch (...) ended the operation quietly.
-            try? HorosObjCException.perform { self.fill() }
+            self.fill()
         }
     }
 

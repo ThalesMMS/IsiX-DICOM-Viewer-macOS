@@ -46,6 +46,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+import process_graph_stand_in  # the Metal sources read their development switches through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -734,7 +735,7 @@ def main():
             path = 'Horos/Sources/' + name
             (work/name).write_bytes(subprocess.check_output(['git','-C',str(root),'show',f'{args.revision}:{path}']) if args.revision else (root/path).read_bytes())
         command = ['xcrun', 'swiftc', '-O' if args.optimization == 'release' else '-Onone', '-D', 'METAL_SUBMISSION_TESTING', '-parse-as-library', '-suppress-warnings',
-                   *[str(work / name) for name in sources], str(work / 'Check.swift'), '-o', str(work / 'check')]
+                   *[str(work / name) for name in sources], *process_graph_stand_in.swift_flags(work / 'isix'), str(work / 'Check.swift'), '-o', str(work / 'check')]
         subprocess.run(command, check=True)
         if args.case == 'scalar-copy':
             for _ in range(2 if args.benchmark else 1):

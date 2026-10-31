@@ -40,18 +40,33 @@
 import Cocoa
 
 // What the 2D viewer's window accepts when something is dropped on it: the
-// image of another viewer (a fusion, with the sheet that asks its type), a
-// plug-in's drag, a series of the database, or files (ROI files, ROIs of a
-// series, pictures laid on the image as a layer ROI).
-
-/// The viewer a drag of an image started from, not retained.
-nonisolated(unsafe) fileprivate var draggedControllerStorage: Unmanaged<ViewerController>? = nil
+// image of another viewer (a fusion, with the sheet that asks its type, which
+// is ViewerFusion's), a plug-in's drag, a series of the database, or files
+// (ROI files, ROIs of a series, pictures laid on the image as a layer ROI).
+// The viewer a drag of an image started from is the process's
+// ViewerSyncState's.
 
 /// The pasteboard types of a list of type names, as -availableTypeFromArray:
 /// takes them. A [String] does not cast to [NSPasteboard.PasteboardType], so
 /// each name is wrapped.
 fileprivate func viewerPasteboardTypes(_ names: Any?) -> [NSPasteboard.PasteboardType] {
-    ((names as? NSArray) ?? NSArray()).compactMap { ($0 as? String).map { NSPasteboard.PasteboardType($0) } }
+    (names as? [Any] ?? []).compactMap { ($0 as? String).map { NSPasteboard.PasteboardType($0) } }
+}
+
+/// The row a database identifier of a drag names (its URI without the
+/// x-coredata scheme), read in the open main database whose store holds it:
+/// `shown`, the browser's, first, else one of `open`. The rows dropped on a
+/// viewer may come from a database the browser does not show: the series list
+/// of a viewer of a shared study beside a browser on a local database, and the
+/// reverse. The URI names its store, and a database whose coordinator has no
+/// such store finds nothing. Nil when no open database holds the row.
+func viewerDraggedRow(named xid: String, shown: DicomDatabase?, open: [Any]?) -> Any? {
+    let uri = NSManagedObject.uid(forXid: xid)
+    if let row = shown?.object(withID: uri) { return row }
+    for case let database as DicomDatabase in open ?? [] where database !== shown && database.isMainDatabase() {
+        if let row = database.object(withID: uri) { return row }
+    }
+    return nil
 }
 
 /// A plug-in that performs its own drag on a viewer.
@@ -65,81 +80,18 @@ public extension ViewerController {
     /// The viewer an image is dragged from, for the plug-ins too.
     @objc(draggedController)
     class func draggedController() -> ViewerController! {
-        return draggedControllerStorage?.takeUnretainedValue()
+        return processGraph.viewerSync.draggedViewer
     }
 
     @objc(setDraggedController:)
     class func setDraggedController(_ controller: ViewerController!) {
-        draggedControllerStorage = controller.map { Unmanaged.passUnretained($0) }
+        processGraph.viewerSync.draggedViewer = controller
     }
 
+    /// Opens the sheet that asks what to do with `vc`, dropped on this viewer.
     @objc(completeDragOperation:)
     func completeDragOperation(_ vc: ViewerController!) {
-        horosLoadViewerPanels()
-
-        // First reset all controls.
-        for view in horos_blendingTypeWindow?.contentView?.subviews ?? [] {
-            if let control = view as? NSControl {
-                control.isEnabled = true
-            }
-        }
-
-        let sameStudy = viewerSameString(studyInstanceUID(), vc?.studyInstanceUID())
-
-        // Subtraction and multiplication combine images of one matrix. Within a
-        // study they resample a series of another matrix onto this one's first.
-        if (vc?.imageView()?.curDCM?.pwidth ?? 0) != (horos_imageView?.curDCM?.pwidth ?? 0) ||
-           (vc?.imageView()?.curDCM?.pheight ?? 0) != (horos_imageView?.curDCM?.pheight ?? 0) {
-            if sameStudy == false {
-                blendingTypeMultiply?.isEnabled = false
-                blendingTypeSubtract?.isEnabled = false
-            }
-            blendingTypeRGB?.isEnabled = false
-        }
-
-        if ((vc?.pixList() as NSArray?)?.object(at: 0) as? DCMPix)?.isRGB == true {
-            blendingTypeRGB?.isEnabled = false
-        }
-
-        if sameStudy == false {
-            blendingResample?.isEnabled = false
-        }
-
-        // Prepare the menu of the fusion plug-ins.
-        let fusionPlugins = PluginManager.fusionPluginsMenu()
-        var iz = 0
-        while iz < (fusionPlugins?.numberOfItems ?? 0) {
-            let item = fusionPlugins?.item(at: iz)
-            item?.tag = -iz
-
-            if item?.hasSubmenu == true {
-                let subMenu = item?.submenu
-
-                var xz = 0
-                while xz < (subMenu?.numberOfItems ?? 0) {
-                    subMenu?.item(at: xz)?.tag = -iz
-                    subMenu?.item(at: xz)?.target = self
-                    subMenu?.item(at: xz)?.action = #selector(ViewerController.endBlendingType(_:))
-                    xz += 1
-                }
-            } else {
-                item?.target = self
-                item?.action = #selector(ViewerController.endBlendingType(_:))
-            }
-            iz += 1
-        }
-        blendingPlugins?.menu = fusionPlugins
-
-        horos_blendedWindow = vc
-
-        // What type of blending?
-        if let sheet = horos_blendingTypeWindow {
-            window?.beginSheet(sheet) { returnCode in
-                self.blendingSheetDidEnd(self.horos_blendingTypeWindow, returnCode: Int32(truncatingIfNeeded: returnCode.rawValue), contextInfo: nil)
-            }
-        }
-
-        draggedControllerStorage = nil
+        fusion.completeDragOperation(vc)
     }
 
     @objc(performDragOperation:)
@@ -155,22 +107,18 @@ public extension ViewerController {
                     return false
                 }
                 if controller !== self, let viewer = controller as? ViewerController {
-                    completeDragOperation(viewer)
+                    fusion.completeDragOperation(viewer)
                 }
             }
         } else if paste.availableType(from: viewerPasteboardTypes(DCMView.pluginPasteboardTypes())) != nil {
             // The drag operation was performed from a plug-in.
             let source = sender.draggingSource
 
-            let userInfo = NSMutableDictionary(capacity: 2)
             // "destination" should not be used anymore: the notification's
-            // object is the same (was NULL).
-            userInfo.setValue(self, forKey: "destination")
-            // "dragOperation": "NSDraggingInfo" should be used.
-            userInfo.setValue(sender, forKey: "dragOperation")
-            userInfo.setValue(sender, forKey: "id<NSDraggingInfo>")
-            NotificationCenter.default.post(name: .OsirixPerformDragOperation, object: self,
-                                            userInfo: userInfo as? [AnyHashable: Any])
+            // object is the same (was NULL). "dragOperation": "NSDraggingInfo"
+            // should be used.
+            let userInfo: [AnyHashable: Any] = ["destination": self, "dragOperation": sender, "id<NSDraggingInfo>": sender]
+            NotificationCenter.default.post(name: .OsirixPerformDragOperation, object: self, userInfo: userInfo)
 
             if let source = source as? NSObject, source.responds(to: #selector(ViewerPluginDragSource.performPluginDragOperation(_:destination:))) {
                 return unsafeBitCast(source, to: ViewerPluginDragSource.self).performPluginDragOperation(sender, destination: self)
@@ -181,14 +129,21 @@ public extension ViewerController {
             // array; the viewer's own series list writes them as data.
             // PasteboardObjectIdentifiers reads every item, in both forms.
             let xids = PasteboardObjectIdentifiers.identifiers(on: paste, types: (BrowserController.databaseObjectXIDsPasteboardTypes() as [String]?) ?? [])
-            let items = NSMutableArray()
+            // Every identifier must name a row of an open database, which the browser
+            // may not show (a missing one raised, as -addObject: of nil does).
+            let (shown, open) = (sessionGraph.processGraph.browserDatabase, DicomDatabase.allDatabases())
+            var items: [Any] = []
             for xid in xids {
-                viewerArrayAdd(BrowserController.currentBrowser()?.database?.object(withID: NSManagedObject.uid(forXid: xid)), to: items)
+                guard let item = viewerDraggedRow(named: xid, shown: shown, open: open) else {
+                    viewerRaiseNilInsertion()
+                    continue
+                }
+                items.append(item)
             }
 
-            if items.lastObject is DicomSeries {
+            if items.last is DicomSeries {
                 window?.makeKeyAndOrderFront(self)
-                loadSelectedSeries(items.lastObject, rightClick: false)
+                loadSelectedSeries(items.last, rightClick: false)
             }
         } else {
             let desiredType = paste.availableType(from: [NSPasteboard.PasteboardType("NSFilenamesPboardType")])
@@ -200,24 +155,24 @@ public extension ViewerController {
                 return false
             } else {
                 // A list of file names.
-                let fileArray = paste.propertyList(forType: NSPasteboard.PasteboardType("NSFilenamesPboardType")) as? NSArray
+                let fileArray = paste.propertyList(forType: NSPasteboard.PasteboardType("NSFilenamesPboardType")) as? [Any]
 
                 // Find a 2D viewer containing this specific file.
-                let winList = NSApp.windows as NSArray
+                let winList = NSApp.windows
                 var found = false
 
                 var i = 0
                 while i < winList.count && found == false {
-                    let controller = (winList.object(at: i) as? NSWindow)?.windowController
+                    let controller = winList[i].windowController
                     if let viewer = controller as? ViewerController {
                         if found == false {
-                            let dragged = draggedControllerStorage?.takeUnretainedValue()
+                            let dragged = sessionGraph.processGraph.viewerSync.draggedViewer
                             if viewer === dragged && dragged !== self {
-                                completeDragOperation(viewer)
+                                fusion.completeDragOperation(viewer)
                                 found = true
                             } else if dragged === self {
                                 // Myself: cancel a previous fusion.
-                                activateBlending(nil)
+                                fusion.activateBlending(nil)
                             }
                         }
                     }
@@ -227,7 +182,7 @@ public extension ViewerController {
                 if found == false {
                     // Is it an image? A layer ROI.
                     var roiFiles: [String] = []
-                    for case let file as NSString in fileArray ?? NSArray() {
+                    for case let file as NSString in fileArray ?? [] {
                         let pathExtension = file.pathExtension.lowercased()
                         if pathExtension == "roi" {
                             roiFiles.append(file as String)
@@ -252,7 +207,7 @@ public extension ViewerController {
                                 let centroid = theNewROI?.centroid() ?? .zero
                                 let offset = NSPoint(x: imageLocation.x - centroid.x, y: imageLocation.y - centroid.y)
 
-                                for case let p as MyPoint in (theNewROI?.points as NSArray?) ?? NSArray() {
+                                for case let p as MyPoint in theNewROI?.points as? [Any] ?? [] {
                                     p.move(Float(offset.x), Float(offset.y))
                                 }
 
@@ -271,15 +226,16 @@ public extension ViewerController {
             }
         }
 
-        draggedControllerStorage = nil
+        sessionGraph.processGraph.viewerSync.draggedViewer = nil
 
         return true
     }
 
     @objc(draggingEntered:)
     func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        if draggedControllerStorage == nil {
-            draggedControllerStorage = Unmanaged.passUnretained(self)
+        let sync = sessionGraph.processGraph.viewerSync
+        if sync.draggedViewer == nil {
+            sync.draggedViewer = self
             NSLog("catched")
         }
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """The DICOM listeners' AE titles are stored on the main thread, never by the listener threads.
 
-startSTORESCP: and startSTORESCPTLS: run on threads of their own. They used to
+The listeners run on threads of their own. Their former thread entries,
+-[AppController startSTORESCP:] and startSTORESCPTLS:, used to
 store AETITLE themselves: the host's name when "Use Host Name for AETitle" is
 ticked, the title derived from the computer's name the first time, and a title
 cut to 16 characters. The Listener preferences bind AETITLE, and a default
@@ -14,16 +15,17 @@ background thread".
 
 What must stay true:
 
-- the listener threads read the defaults and write none;
-- -restartSTORESCP, on the main thread, stores the titles before it detaches
-  the threads that read them;
+- the listener threads neither read nor write the defaults: they are given
+  the settings read on the main thread;
+- the restart, on the main thread, stores the titles before it reads the
+  settings it hands to the threads it starts;
 - the host's name becomes the title up to its first dot, at most 16
   characters, ISIX when there is none; a stored title longer than 16
   characters is cut to 16 without splitting a character; the title is written
   only when it changes, so a listener restarted with the same title notifies
   nothing.
 
-AppController is Swift: its part is read in the Swift spelling.
+The life cycle is DICOMListenerController's, read in the Swift spelling.
 """
 from pathlib import Path
 import json
@@ -37,7 +39,7 @@ root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_text  # noqa: E402
 failures = []
-controller = source_text('AppController')
+controller = source_text('DICOMListenerController')
 
 
 def body(source, signature):
@@ -61,38 +63,38 @@ def check(condition, message):
         failures.append(message)
 
 
-writes = re.compile(r'\.set\(|setValue\(|removeObject\(forKey|setAETitleToHostname|storeListenerTitles')
-for signature in ('@objc(startSTORESCP:) nonisolated public func startSTORESCP(',
-                  '@objc(startSTORESCPTLS:) nonisolated public func startSTORESCPTLS('):
-    thread = body(controller, signature)
-    check(thread, f'{signature} not found')
-    found = writes.findall(thread)
-    check(not found, f'{signature.split(" func ")[1]}...) writes defaults on the listener thread: {found}')
-    check('UserDefaults.standard.string(forKey: "' in thread, f'{signature} no longer reads its title from the defaults')
+writes = re.compile(r'\.set\(|setValue\(|removeObject\(forKey|\.remove\(|setAETitleToHostname|storeListenerTitles')
+thread = body(controller, 'private nonisolated func serve(tls: Bool, settings: ListenerSettings)')
+check(thread, 'the listener thread (serve) not found')
+found = writes.findall(thread)
+check(not found, f'the listener thread writes defaults: {found}')
+check('preferences' not in thread and 'UserDefaults' not in thread, 'the listener thread reads the defaults itself')
+check('settings.tlsAETitle : settings.aeTitle' in thread and 'settings.tlsPort : settings.port' in thread,
+      'the listener thread does not take its title and port from the settings it was given')
 
-host = re.search(r'(@objc[^\n]*) func setAETitleToHostname\(\)', controller)
+host = re.search(r'\n(    [^\n]*)func setAETitleToHostname\(\)', controller)
 check(host is not None and 'nonisolated' not in host.group(1),
       'setAETitleToHostname is nonisolated: a listener thread could call it again')
 hostname = body(controller, 'func setAETitleToHostname()')
 check('ListenerAETitle.fromHostName(' in hostname, 'setAETitleToHostname does not take the title from ListenerAETitle')
-check(re.search(r'if UserDefaults\.standard\.string\(forKey: "AETITLE"\) != title \{\s*UserDefaults\.standard\.set\(title, forKey: "AETITLE"\)', hostname),
+check(re.search(r'if preferences\[NetworkPreferences\.aeTitle\] != title \{\s*preferences\.set\(title, for: NetworkPreferences\.aeTitle\)', hostname),
       'setAETitleToHostname writes AETITLE even when it does not change')
 
 store = body(controller, 'private func storeListenerTitles()')
 check(store, 'storeListenerTitles not found')
-check(re.search(r'if defaults\.bool\(forKey: "UseHostNameForAETitle"\) \{\s*setAETitleToHostname\(\)', store),
+check(re.search(r'if preferences\[ListenerPreferences\.usesHostNameForAETitle\] \{\s*setAETitleToHostname\(\)', store),
       'storeListenerTitles does not take the host name when asked to')
-check('persistentDomain(forName:' in store and 'defaults.set(derived, forKey: "AETITLE")' in store,
+check('persistentDomain(forName:' in store and 'preferences.set(derived, for: aeTitle)' in store,
       'storeListenerTitles no longer stores the derived title the first time')
-check('for key in ["AETITLE", "TLSStoreSCPAETITLE"]' in store and 'ListenerAETitle.limited(title)' in store
+check('for key in [aeTitle, ListenerPreferences.tlsAETitle]' in store and 'ListenerAETitle.limited(title)' in store
       and 'limited != title' in store, 'storeListenerTitles does not cut both titles to 16 characters, only when they are longer')
 
-restart = body(controller, '@objc public func restartSTORESCP()')
-check(restart, 'restartSTORESCP not found')
+restart = body(controller, 'func restart()')
+check(restart, 'restart not found')
 stored = restart.find('storeListenerTitles()')
-for selector in ('#selector(AppController.startSTORESCP(_:))', '#selector(AppController.startSTORESCPTLS(_:))'):
-    detached = restart.find(selector)
-    check(-1 < stored < detached, f'restartSTORESCP does not store the titles before it detaches {selector}')
+read = restart.find('let settings = ListenerSettings(preferences: preferences)')
+started = restart.find('start(tls: false, settings: settings)')
+check(-1 < stored < read < started, 'restart does not store the titles before it reads the settings the listener threads get')
 check(restart.find('ProtectedMode.isActive') < stored, 'the titles are stored even in protected mode, where no listener starts')
 
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()

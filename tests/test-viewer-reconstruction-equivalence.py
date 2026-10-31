@@ -50,6 +50,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import private_tmpdir  # noqa: F401,E402  - its own TMPDIR for the tools it runs
 import history_reference  # noqa: E402
+import harness_defaults  # noqa: E402  the harness's preferences stay in its own process
 
 ROOT = Path(__file__).resolve().parents[1]
 VC = 'Horos/Sources/ViewerController.m'
@@ -58,7 +59,7 @@ SWIFT_FILES = ['ViewerController+%s.swift' % name for name in
                ('ImagePipelineSupport', 'VolumeData', 'ROIVolume', 'ReconstructionChecks', 'ThreeDViewers', 'KeyImages')]
 HELPERS = ['FourDSeriesGuard.swift', 'MPROpenGeometry.swift', 'ROIVolumeGeometry.swift', 'ROIIntersliceGeometry.swift']
 # IsiXLogging first: the others that log write through it.
-MODULES = ['IsiXLogging', 'IsiXImaging', 'IsiXROI']
+MODULES = ['IsiXLogging', 'IsiXPreferences', 'IsiXImaging', 'IsiXROI']
 SCENARIOS = ['volume', 'fourd', 'open3d', 'keyimages']
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -138,6 +139,8 @@ extern NSInteger informationalResponse;
     float maxValue;
 }
 @property(nonatomic) long pwidth, pheight;
+// The pixels; DCMPix.swift names the setter setfImage:.
+@property(nonatomic, setter=setfImage:) float *fImage;
 @property(readonly) double originX, originY, originZ;
 @property(readonly) double pixelSpacingX, pixelSpacingY;
 @property(readonly) double spacingBetweenSlices;
@@ -187,11 +190,24 @@ extern NSInteger informationalResponse;
 - (NSSet*) keyImages;
 @end
 
+// The study date a file's series gives, as the typed DicomImage reads it
+// (image.series.study.date): the same value as its "series.study.date" key.
+@interface FileStudyStub : NSObject
+@property(retain, nullable) NSDate *date;
+@end
+
+@interface FileSeriesStub : NSObject
+@property(retain, nullable) FileStudyStub *study;
+@end
+
 @interface FileStub : NSManagedObject {
 @public
     NSMutableDictionary *values;
 }
+@property(readonly, nullable) FileSeriesStub *series;
 @end
+// The files of the viewer are DicomImage objects in the app.
+@compatibility_alias DicomImage FileStub;
 
 @interface DCMView : NSView {
 @public
@@ -327,6 +343,15 @@ extern NSInteger informationalResponse;
 
 @interface DicomDatabase : NSObject
 - (BOOL) save:(NSError**) err NS_SWIFT_NOTHROW;
+- (BOOL) isMainDatabase;
+@property(readonly, nullable) id mainDatabase;
+@end
+
+// The context of the viewer's files, whose database the key images tell of a
+// mark and save: the stand-in's files are rows of the database the browser
+// shows, where the Objective-C told it and which it saved.
+@interface N2ManagedObjectContext : NSManagedObjectContext
+@property(readonly, nullable) DicomDatabase *database;
 @end
 
 @interface RemoteDicomDatabase : DicomDatabase
@@ -371,6 +396,8 @@ NS_SWIFT_UI_ACTOR
 - (short) maxMovieIndex;
 - (short) curMovieIndex;
 - (void) setMovieIndex: (short) i;
+// ViewerController+SeriesNavigation.swift: the slices of a movie frame.
+- (NSMutableArray*) pixList: (long) i;
 - (void) checkEverythingLoaded;
 - (BOOL) isDataVolumicIn4D:(BOOL) check4D;
 - (float) computeInterval;
@@ -539,7 +566,7 @@ NSInteger HorosRunCriticalAlertPanel(NSString *title, NSString *format, NSString
 @end
 
 @implementation DCMPix
-@synthesize pwidth, pheight, minValueOfSeries, maxValueOfSeries, SUVConverted;
+@synthesize pwidth, pheight, fImage, minValueOfSeries, maxValueOfSeries, SUVConverted;
 - (double) originX { return ox; }
 - (double) originY { return oy; }
 - (double) originZ { return oz; }
@@ -601,7 +628,25 @@ NSInteger HorosRunCriticalAlertPanel(NSString *title, NSString *format, NSString
 }
 @end
 
+@implementation FileStudyStub
+@end
+
+@implementation FileSeriesStub
+@end
+
 @implementation FileStub
+- (FileSeriesStub*) series {
+    FileStudyStub *study = [[FileStudyStub new] autorelease];
+    study.date = values[@"series.study.date"];
+    FileSeriesStub *series = [[FileSeriesStub new] autorelease];
+    series.study = study;
+    return series;
+}
+- (NSManagedObjectContext*) managedObjectContext {
+    static N2ManagedObjectContext *context;
+    if (!context) context = [[N2ManagedObjectContext alloc] initWithConcurrencyType: NSMainQueueConcurrencyType];
+    return context;
+}
 - (id) valueForKey:(NSString *) key { return values[key]; }
 - (id) valueForKeyPath:(NSString *) key { return values[key]; }
 - (void) setValue:(id) value forKey:(NSString *) key {
@@ -829,6 +874,12 @@ static int created;
 
 @implementation DicomDatabase
 - (BOOL) save:(NSError**) err { Record(@"database save"); return YES; }
+- (BOOL) isMainDatabase { return YES; }
+- (id) mainDatabase { return nil; }
+@end
+
+@implementation N2ManagedObjectContext
+- (id) database { return [BrowserController currentBrowser].database; }
 @end
 
 @implementation RemoteDicomDatabase
@@ -902,6 +953,12 @@ static NSMutableDictionary *seriesContent;
 - (short) curMovieIndex { return curMovieIndex; }
 - (void) setMovieIndex: (short) i { curMovieIndex = i; Record([NSString stringWithFormat: @"%@ setMovieIndex %d", Name(self), i]); }
 - (NSMutableArray*) pixList { return pixList[curMovieIndex]; }
+// As ViewerController+SeriesNavigation.swift: the index wraps into the frames there are.
+- (NSMutableArray*) pixList: (long) i {
+    long count = maxMovieIndex, index = 0;
+    if (count > 0) { index = i % count; if (index < 0) index += count; }
+    return pixList[index];
+}
 - (void) checkEverythingLoaded { Record([NSString stringWithFormat: @"%@ checkEverythingLoaded", Name(self)]); }
 - (BOOL) isDataVolumicIn4D:(BOOL) check4D {
     Record([NSString stringWithFormat: @"%@ isDataVolumicIn4D %d", Name(self), check4D]);
@@ -1633,7 +1690,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-reconstruction-') as tmp:
     (folder / 'Harness.h').write_text(HEADER)
     (folder / 'Reconstruction.h').write_text('#import "Harness.h"\n' + RECONSTRUCTION)
     (folder / 'Stubs.m').write_text(STUBS)
-    (folder / 'Driver.m').write_text('#import "Reconstruction.h"\n' + DRIVER)
+    (folder / 'Driver.m').write_text('#import "Reconstruction.h"\n' + DRIVER + harness_defaults.OBJC)
     for name in ('HorosObjCException.h', 'HorosObjCException.m'):
         (folder / name).write_bytes((ROOT / 'Horos/Sources' / name).read_bytes())
     frameworks = ['-framework', 'Cocoa', '-framework', 'CoreData']
@@ -1676,14 +1733,56 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-reconstruction-') as tmp:
             (swift / name).write_bytes(text)
             sources.append(str(swift / name))
         sources += helpers(swift / 'helpers', args.current)
+        # The opening of the 3D viewers and the checks before it, once they
+        # left the extensions: ThreeDViewerLauncher, which finds the viewers
+        # open on a series through the arrangement of the windows.
+        launcher = read(args.current, 'Horos/Sources/ThreeDViewerLauncher.swift')
+        if launcher is not None:
+            (swift / 'ThreeDViewerLauncher.swift').write_bytes(launcher)
+            sources.append(str(swift / 'ThreeDViewerLauncher.swift'))
+        # The ROI volume is ViewerROIVolume's, once it left the extension: with the
+        # slice lists it reads, the announcement of a morphed ROI and the
+        # preferences of the viewer's graph.
+        measure = read(args.current, 'Horos/Sources/ViewerROIVolume.swift')
+        moved = ''
+        if measure is not None:
+            (swift / 'ViewerROIVolume.swift').write_bytes(measure)
+            sources.append(str(swift / 'ViewerROIVolume.swift'))
+            state = read(args.current, 'Horos/Sources/ViewerController+ROIState.swift').decode('utf-8')
+            retrieve = read(args.current, 'Horos/Sources/ViewerController+RetrieveAndView.swift').decode('utf-8')
+            moved = (state[state.index('/// The ROI lists of one time point of a viewer'):]
+                     + re.search(r'\nfunc postViewerNotification\(.*?\n}\n', retrieve, re.S).group(0))
         # The NSString comparison the blocks share with the window level block.
-        level = read(args.current, 'Horos/Sources/ViewerController+WindowLevel.swift').decode('utf-8')
+        # ViewerWindowLevel.swift has it, or the viewer's window level file in a revision before it.
+        level = (read(args.current, 'Horos/Sources/ViewerWindowLevel.swift')
+                 or read(args.current, 'Horos/Sources/ViewerController+WindowLevel.swift')).decode('utf-8')
         helper = re.search(r'func viewerIsEqualToString\(.*?\n}\n', level, re.S).group(0)
         # NSSound.beep() of the AppKit overlay calls AppKit's NSBeep from its own
         # library, past the stand-in that records the Objective-C's NSBeep():
         # the harness's own NSSound.beep() records it the same way.
-        (swift / 'Helpers.swift').write_text('import AppKit\n\n' + helper
-                                             + '\nextension NSSound {\n    static func beep() { Record("beep") }\n}\n')
+        # The graphs the key images reach the browser over: the stand-in's +currentBrowser.
+        # The arrangement of the windows finds the 3D viewers as the stand-in's
+        # -FindViewer:: and -FindRelatedViewers: do.
+        arranger = ('@MainActor final class ViewerWindowArranger {\n'
+                    '    func findViewer(nibName: String?, pixList: AnyObject?) -> NSWindowController? {\n'
+                    '        AppController.shared().FindViewer(nibName, pixList) as? NSWindowController\n    }\n'
+                    '    func findRelatedViewers(pixList: AnyObject?) -> [NSWindowController] {\n'
+                    '        (AppController.shared().FindRelatedViewers(pixList) ?? []).compactMap { $0 as? NSWindowController }\n    }\n}\n'
+                    if launcher is not None else '')
+        graphs = (arranger + 'final class ProcessGraph: Sendable {\n    static let harness = ProcessGraph()\n'
+                  '    @MainActor var currentBrowser: BrowserController? { BrowserController.currentBrowser() }\n'
+                  + ('    @MainActor var windowArranger: ViewerWindowArranger { ViewerWindowArranger() }\n' if launcher is not None else '') + '}\n'
+                  '@MainActor final class ViewerSessionGraph {\n    let processGraph = ProcessGraph.harness\n'
+                  + ('    var preferences: any PreferenceStore { UserDefaults.standard }\n' if measure is not None else '') + '}\n'
+                  'extension ViewerController {\n    var sessionGraph: ViewerSessionGraph! { ViewerSessionGraph() }\n}\n')
+        # The shared database a file is a row of, once the key images ask RemoteDicomDatabase for it.
+        remote = read(args.current, 'Horos/Sources/RemoteDicomDatabase.swift').decode('utf-8')
+        row = re.search(r'\n    static func database\(of object: NSManagedObject\?\).*?\n    }\n', remote, re.S)
+        if row:
+            moved += '\nextension RemoteDicomDatabase {' + row.group(0) + '}\n'
+        (swift / 'Helpers.swift').write_text('import AppKit\n' + ('import IsiXPreferences\n' if measure is not None else '') + '\n' + helper + moved
+                                             + '\nextension NSSound {\n    static func beep() { Record("beep") }\n}\n'
+                                             + (graphs if measure is not None or 'sessionGraph' in read(args.current, 'Horos/Sources/ViewerController+KeyImages.swift').decode('utf-8') else ''))
         sources.append(str(swift / 'Helpers.swift'))
         libraries = []
         for module in MODULES:

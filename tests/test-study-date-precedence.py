@@ -26,7 +26,7 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-# DicomDatabase is Swift: the import is DicomDatabase+Import.swift. The DICOM
+# DicomDatabase is Swift: the import is DicomFileIndexer.swift. The DICOM
 # reading is Swift too (DicomFile+DICOMReading.swift).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources  # noqa: E402
@@ -62,7 +62,11 @@ else:
                         'is indistinguishable from a study that never carried one')
 
 # --- and the marker must never reach the database ----------------------------
-if 'if let studyDate = curDict.object(forKey: "studyDate") as? Date, studyDate != defaultDate {' not in database:
+# The study takes the date through IsiXDatabase's ImportMatching, which never
+# takes the marker (the undefined date).
+matching = (root / 'Modules/IsiXDatabase/Sources/DatabaseImportRules.swift').read_text()
+if ('ImportMatching.takesStudyDate(studyDate, over: study?.date, undefined: defaultDate)' not in database
+        or 'guard let arriving, arriving != undefined else { return false }' not in matching):
     failures.append('the importer no longer refuses the no-date marker, so studies would be filed '
                     'under 1901')
 if 'if importedDate == defaultDate { importedDate = nil }' not in database:
@@ -73,8 +77,14 @@ for entity in ('seriesTable', 'image'):
 
 # --- databases filed by builds that could not read fractional times ----------
 # Opening a local database reads again the headers of its undated images, once.
-if 'self.repairDatesLostToFractionalTimesUnlessDone()' not in database:
+if 'repairDatesLostToFractionalTimesUnlessDone()' not in database:
     failures.append('opening a database no longer gives back the dates lost to fractional times')
+# On a thread of its own, which Activity lists only once there is something to read.
+repairs = (root / 'Horos/Sources/DatabaseStartupRepairs.swift').read_text()
+if 'ActivityThread.startUnlisted(' not in repairs or 'listInActivity' not in repairs:
+    failures.append('the repair of the dates does not start unlisted')
+if 'guard !undated.isEmpty else { return 0 }\n        found()' not in repairs:
+    failures.append('Activity lists the repair of the dates before it knows there is work')
 
 # --- no clinical date may come from the file system --------------------------
 code = re.sub(r'//[^\n]*', '', parser)

@@ -41,98 +41,28 @@ import AppKit
 
 // The comments and the status of the 2D viewer's series and study (the
 // comments sheet, the status pop-up), the database window and the query of
-// the study. The selectors are those of the former Objective-C methods. A
-// message to nil answered nil, 0 or NO: the optional chains below answer the
-// same.
-
-/// [a isEqualToString: b]: NO when either is nil.
-private func objcEqual(_ a: String?, _ b: String) -> Bool {
-    guard let a else { return false }
-    return (a as NSString).isEqual(to: b)
-}
+// the study: the selectors of the former Objective-C methods, as a façade over
+// StudyAnnotationEditor.
 
 public extension ViewerController {
 
-    /// The file of the image shown: [fileList[curMovieIndex] objectAtIndex: [imageView curImage]].
-    private func horosFileShown() -> NSManagedObject? {
-        return horos_fileList(at: Int(horos_curMovieIndex))?.object(at: Int(horos_imageView?.curImage ?? 0)) as? NSManagedObject
-    }
-
-    /// Writes `value` at `keyPath` of the file shown, through the remote
-    /// database too when the browser shows one.
-    private func horosWriteToFileShown(_ value: Any?, forKeyPath keyPath: String) {
-        horosFileShown()?.setValue(value, forKeyPath: keyPath)
-
-        let browser = BrowserController.currentBrowser()
-        if browser?.isCurrentDatabaseBonjour ?? false {
-            (browser?.database as? RemoteDicomDatabase)?.object(horosFileShown(), setValue: value, forKey: keyPath)
-        }
-    }
-
     /// Closes the comments sheet; its tag says where the comment goes (1 the
-    /// series, 2 the study). The comment button shows the series comment, or
-    /// else the study's.
+    /// series, 2 the study).
     @objc(endSetComments:)
     func endSetComments(_ sender: Any!) {
-        horos_CommentsWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(ViewerSender.tag(sender)))
-
-        if ViewerSender.tag(sender) == 1 { // series
-            horosWriteToFileShown(horos_CommentsEditField?.stringValue, forKeyPath: "series.comment")
-
-            BrowserController.currentBrowser()?.databaseOutline?.reloadData()
-
-            buildMatrixPreview(false)
-        } else if ViewerSender.tag(sender) == 2 { // study
-            horosWriteToFileShown(horos_CommentsEditField?.stringValue, forKeyPath: "series.study.comment")
-
-            BrowserController.currentBrowser()?.databaseOutline?.reloadData()
-
-            buildMatrixPreview(false)
-        }
-
-        var com = horosFileShown()?.value(forKeyPath: "series.comment") as? String
-
-        if com == nil || objcEqual(com, "") {
-            com = horosFileShown()?.value(forKeyPath: "series.study.comment") as? String
-        }
-
-        if com == nil || objcEqual(com, "") {
-            horos_CommentsField?.title = NSLocalizedString("Add a comment", comment: "")
-        } else {
-            horos_CommentsField?.title = com ?? ""
-        }
+        studyAnnotations.endComments(tag: ViewerSender.tag(sender))
     }
 
     /// Opens the comments sheet with the comment shown.
     @objc(setComments:)
     func setComments(_ sender: Any!) {
-        horosLoadViewerPanels()
-
-        if objcEqual(horos_CommentsField?.title, NSLocalizedString("Add a comment", comment: "")) {
-            horos_CommentsEditField?.stringValue = ""
-        } else {
-            horos_CommentsEditField?.stringValue = horos_CommentsField?.title ?? ""
-        }
-
-        horos_CommentsEditField?.selectText(self)
-
-        if let sheet = horos_CommentsWindow {
-            window?.beginSheet(sheet, completionHandler: nil)
-        }
+        studyAnnotations.beginComments()
     }
 
     /// Writes the status chosen (none is -1) to the study.
     @objc(applyStatusValue)
     func applyStatusValue() {
-        let value = horos_statusValueToApply
-        if value != -1 {
-            horosWriteToFileShown(NSNumber(value: value), forKeyPath: "series.study.stateText")
-
-            horos_StatusPopup?.selectItem(withTag: Int(value))
-
-            BrowserController.currentBrowser()?.databaseOutline?.reloadData()
-            buildMatrixPreview(false)
-        }
+        studyAnnotations.applyStatus()
     }
 
     @objc(setStatusValue:)
@@ -152,11 +82,11 @@ public extension ViewerController {
         if !(NSApplication.shared.currentEvent?.modifierFlags.contains(.shift) ?? false) {
             ViewerController.closeAllWindows()
         }
-        BrowserController.currentBrowser()?.showDatabase(self)
+        BrowserStudyAnnotations(processGraph: sessionGraph.processGraph).showDatabase(self)
     }
 
     @objc(querySelectedStudy:)
     func querySelectedStudy(_ sender: Any!) {
-        BrowserController.currentBrowser()?.querySelectedStudy(self)
+        BrowserStudyAnnotations(processGraph: sessionGraph.processGraph).querySelectedStudy(self)
     }
 }

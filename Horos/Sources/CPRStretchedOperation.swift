@@ -104,7 +104,7 @@ public final class CPRStretchedOperation: CPRGeneratorOperation, @unchecked Send
         super.init(request: request, volumeData: volumeData)
     }
 
-    @objc public override var request: CPRStretchedGeneratorRequest? {
+    public override var request: CPRStretchedGeneratorRequest? {
         return super.request as? CPRStretchedGeneratorRequest
     }
 
@@ -120,7 +120,7 @@ public final class CPRStretchedOperation: CPRGeneratorOperation, @unchecked Send
         return operationFinished.load(ordering: .acquiring)
     }
 
-    @objc public override var didFail: Bool {
+    public override var didFail: Bool {
         return operationFailed.load(ordering: .acquiring)
     }
 
@@ -153,12 +153,7 @@ public final class CPRStretchedOperation: CPRGeneratorOperation, @unchecked Send
 
     public override func main() {
         autoreleasepool {
-            do {
-                try HorosObjCException.perform { self.fill() }
-            } catch {
-                // The former @catch (...): the operation ends without a volume.
-                self.finish()
-            }
+            self.fill()
         }
     }
 

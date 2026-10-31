@@ -39,26 +39,19 @@
 
 import Cocoa
 import IsiXImaging
+import IsiXPreferences
 
 // The geometry, transforms and presentation state of DCMView are implemented
 // in Swift: an extension of DCMView, with the same
 // selectors. Scale,
-// pan, rotation and flips, the orientation as shown, the fit to the view, the
+// pan, rotation and flips (the view's ViewportState, restored by
+// ViewportRestoration), the orientation as shown, the fit to the view, the
 // slice intersections, the window sizes, fusion's alpha and colour tables,
 // SUV, the study colours and the presentation saved with the series. The
 // setters of the class's properties (scaleValue, rotation, origin, the
 // flips, blendingMode) and -reshape, in DCMView.swift, call the horos* methods
-// here. The arithmetic is in IsiXImaging (ViewGeometry).
-
-/// Runs `body` as an @try block: the NSException it raises is returned.
-private func geometryTry(_ body: () -> Void) -> NSException? {
-    do {
-        try HorosObjCException.perform(body)
-    } catch {
-        return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    return nil
-}
+// here. The arithmetic is in IsiXImaging (ViewGeometry); the presentation
+// saved with the series and the image is written by ImagePresentationStore.
 
 /// The viewers by the date of their study, newest first; the order of two
 /// without a date is left to the sort (studyCompare of the Objective-C).
@@ -99,7 +92,7 @@ extension DCMView {
                                                  _ pn2: UnsafeMutablePointer<Float>!, _ pv2: UnsafeMutablePointer<Float>!,
                                                  _ u: UnsafeMutablePointer<Float>!, _ iP: UnsafeMutablePointer<Float>!) -> Int16 {
         PlaneGeometry.twoPlanesDirection(n1: pn1, n2: pn2, u: u)
-        if PlaneGeometry.angle(pn1, pn2) < UserDefaults.standard.float(forKey: "PARALLELPLANETOLERANCE") {
+        if PlaneGeometry.angle(pn1, pn2) < PreferencesSource.process.preferences[ViewerPreferences.parallelPlaneTolerance] {
             return -1
         }
         PlaneGeometry.twoPlanesLine(n1: pn1, p1: pv1, n2: pn2, p2: pv2, u: u, point: iP)
@@ -148,16 +141,15 @@ extension DCMView {
 
     private var viewer: ViewerController? { self.windowController() as? ViewerController }
 
-    /// Writes `value` under `key` in the series and, unless the settings are
-    /// copied to the whole series, in the image shown (nil otherwise).
-    private func savePresentation(_ value: Any?, forKey key: String, imageValue: Any?? = .none) {
-        (self.seriesObj() as NSObject?)?.setValue(value, forKey: key)
-        let image = self.imageObj() as NSObject?
-        if self.horos_curImage >= 0 && !self.horos_COPYSETTINGSINSERIES {
-            image?.setValue(imageValue ?? value, forKey: key)
-        } else {
-            image?.setValue(nil, forKey: key)
-        }
+    /// Where the view saves its presentation: the series and the image shown.
+    private var presentationStore: ImagePresentationStore {
+        ImagePresentationStore(series: self.seriesObj(), image: self.imageObj())
+    }
+
+    /// Whether the image shown keeps its own presentation: it is shown, and the
+    /// settings are not copied to the whole series.
+    private var imageKeepsPresentation: Bool {
+        self.horos_curImage >= 0 && !self.horos_COPYSETTINGSINSERIES
     }
 
     // MARK: - Scale
@@ -165,12 +157,9 @@ extension DCMView {
     /// -setScaleValue:, the body of the property's setter (DCMView.swift); the setter
     /// is what subclasses override and Objective-C sends, so this is called directly.
     final func horosSetScaleValue(_ value: Float) {
-        var x = value
-        if x.isNaN { return }
+        guard let x = ViewportState.boundedScale(value) else { return }
         if self.horos_curImage < 0 { return }
         if self.curDCM == nil { return }
-        if x < 0.01 { x = 0.01 }
-        if x > 100 { x = 100 }
 
         if self.horos_scaleValue != x {
             self.horos_scaleValue = x
@@ -183,9 +172,7 @@ extension DCMView {
 
             if self.is2DViewer() && self.horos_firstTimeDisplay {
                 if viewer?.isPostprocessed() == false {
-                    if let e = geometryTry({ self.saveScale() }) {
-                        _N2LogExceptionImpl(e, true, "-[DCMView setScaleValue:]")
-                    }
+                    HorosObjCException.logged("-[DCMView setScaleValue:]") { self.saveScale() }
                 }
             }
 
@@ -196,43 +183,23 @@ extension DCMView {
 
     /// The scale with the series (relative to the view's size) and the image.
     private func saveScale() {
-        let series = self.seriesObj() as NSObject?
-        if !self.isScaledFit() {
-            series?.setValue(NSNumber(value: ViewTransform.seriesScale(self.horos_scaleValue, frameSize: self.frame.size)), forKey: "scale")
-        } else {
-            series?.setValue(nil, forKey: "scale")
-        }
-        series?.setValue(NSNumber(value: Int32(3)), forKey: "displayStyle")
-
-        let image = self.imageObj() as NSObject?
-        if self.horos_curImage >= 0 && !self.horos_COPYSETTINGSINSERIES && !self.isScaledFit() {
-            image?.setValue(NSNumber(value: self.horos_scaleValue), forKey: "scale")
-        } else {
-            image?.setValue(nil, forKey: "scale")
-        }
+        self.presentationStore.storeScale(self.horos_scaleValue, frameSize: self.frame.size, fitted: self.isScaledFit(),
+                                          imageKeeps: self.imageKeepsPresentation)
     }
 
     /// The scale, the pan scaled with it so that the centre of the view
     /// stays on the same point of the image.
     @objc(setScaleValueCentered:)
     public dynamic func setScaleValueCentered(_ x: Float) {
-        if x < 0.01 { return }
-        if x > 100 { return }
-        if x.isNaN { return }
+        if !ViewportState.acceptsCentredScale(x) { return }
         if self.horos_curImage < 0 { return }
 
         if x != self.horos_scaleValue {
-            if self.horos_scaleValue != 0 {
-                let origin = self.horos_origin
-                self.setOriginX(Float((origin.x * CGFloat(x)) / CGFloat(self.horos_scaleValue)),
-                                y: Float((origin.y * CGFloat(x)) / CGFloat(self.horos_scaleValue)))
+            if let origin = self.viewport.centredOrigin(forScale: x) {
+                self.setOriginX(origin.x, y: origin.y)
             }
 
             self.horos_scaleValue = x
-
-            if self.horos_scaleValue < 0.01 { self.horos_scaleValue = 0.01 }
-            if self.horos_scaleValue > 100 { self.horos_scaleValue = 100 }
-            if self.horos_scaleValue.isNaN { self.horos_scaleValue = 100 }
 
             if self.softwareInterpolation() || self.horos_blending?.softwareInterpolation() == true {
                 self.loadTextures()
@@ -241,20 +208,7 @@ extension DCMView {
             }
 
             if self.is2DViewer() {
-                let series = self.seriesObj() as NSObject?
-                if !self.isScaledFit() {
-                    series?.setValue(NSNumber(value: ViewTransform.seriesScale(self.horos_scaleValue, frameSize: self.frame.size)), forKey: "scale")
-                } else {
-                    series?.setValue(nil, forKeyPath: "scale")
-                }
-                series?.setValue(NSNumber(value: Int32(3)), forKey: "displayStyle")
-
-                let image = self.imageObj() as NSObject?
-                if self.horos_curImage >= 0 && !self.horos_COPYSETTINGSINSERIES && !self.isScaledFit() {
-                    image?.setValue(NSNumber(value: self.horos_scaleValue), forKey: "scale")
-                } else {
-                    image?.setValue(nil, forKey: "scale")
-                }
+                self.saveScale()
             }
 
             self.updateTilingViews()
@@ -436,8 +390,8 @@ extension DCMView {
         if self.horos_curImage < 0 { return }
         if self.curDCM == nil { return }
 
-        let x: Float = value > -100000 && value < 100000 ? value : 0
-        let y: Float = yValue > -100000 && yValue < 100000 ? yValue : 0
+        let x = ViewportState.boundedOffset(value)
+        let y = ViewportState.boundedOffset(yValue)
 
         let origin = self.horos_origin
         if origin.x != CGFloat(x) || origin.y != CGFloat(y) {
@@ -446,18 +400,7 @@ extension DCMView {
             self.needsDisplay = true
 
             if self.is2DViewer() && viewer?.isPostprocessed() == false {
-                let series = self.seriesObj() as NSObject?
-                series?.setValue(NSNumber(value: x), forKey: "xOffset")
-                series?.setValue(NSNumber(value: y), forKey: "yOffset")
-
-                let image = self.imageObj() as NSObject?
-                if self.horos_curImage >= 0 && !self.horos_COPYSETTINGSINSERIES {
-                    image?.setValue(NSNumber(value: x), forKey: "xOffset")
-                    image?.setValue(NSNumber(value: y), forKey: "yOffset")
-                } else {
-                    image?.setValue(nil, forKey: "xOffset")
-                    image?.setValue(nil, forKey: "yOffset")
-                }
+                self.presentationStore.storeOffset(x: x, y: y, imageKeeps: self.imageKeepsPresentation)
             }
         }
     }
@@ -468,12 +411,10 @@ extension DCMView {
     /// is what subclasses override and Objective-C sends, so this is called directly.
     final func horosSetRotation(_ x: Float) {
         if self.horos_rotation != x {
-            var rotation = x
-            if rotation < 0 { rotation += 360 }
-            if rotation > 360 { rotation -= 360 }
+            let rotation = ViewportState.normalizedRotation(x)
             self.horos_rotation = rotation
 
-            self.savePresentation(NSNumber(value: rotation), forKey: "rotationAngle")
+            self.presentationStore.storeRotation(rotation, imageKeeps: self.imageKeepsPresentation)
 
             self.updateTilingViews()
             self.needsDisplay = true
@@ -481,34 +422,22 @@ extension DCMView {
     }
 
     /// -setXFlipped:, called by the property's setter (DCMView.swift).
-    @objc(horosSetXFlipped:)
-    public dynamic func horosSetXFlipped(_ v: Bool) {
+    public func horosSetXFlipped(_ v: Bool) {
         self.horos_xFlipped = v
-        self.saveFlip(v, forKey: "xFlipped", function: "-[DCMView setXFlipped:]")
+        self.saveFlip(v, horizontal: true, function: "-[DCMView setXFlipped:]")
     }
 
     /// -setYFlipped:, called by the property's setter (DCMView.swift).
-    @objc(horosSetYFlipped:)
-    public dynamic func horosSetYFlipped(_ v: Bool) {
+    public func horosSetYFlipped(_ v: Bool) {
         self.horos_yFlipped = v
-        self.saveFlip(v, forKey: "yFlipped", function: "-[DCMView setYFlipped:]")
+        self.saveFlip(v, horizontal: false, function: "-[DCMView setYFlipped:]")
     }
 
-    private func saveFlip(_ v: Bool, forKey key: String, function: StaticString) {
+    private func saveFlip(_ v: Bool, horizontal: Bool, function: String) {
         if self.is2DViewer() && viewer?.isPostprocessed() == false {
-            if let e = geometryTry({
-                (self.seriesObj() as NSObject?)?.setValue(NSNumber(value: v), forKey: key)
-                let image = self.imageObj() as NSObject?
-                if self.horos_curImage >= 0 && (self.horos_dcmFilesList?.count ?? 0) > Int(self.horos_curImage)
-                    && !self.horos_COPYSETTINGSINSERIES {
-                    image?.setValue(NSNumber(value: v), forKey: key)
-                } else {
-                    image?.setValue(nil, forKey: key)
-                }
-            }) {
-                function.withUTF8Buffer { buffer in
-                    buffer.withMemoryRebound(to: CChar.self) { _N2LogExceptionImpl(e, true, $0.baseAddress) }
-                }
+            HorosObjCException.logged(function) {
+                let imageKeeps = self.imageKeepsPresentation && (self.horos_dcmFilesList?.count ?? 0) > Int(self.horos_curImage)
+                self.presentationStore.storeFlip(v, horizontal: horizontal, imageKeeps: imageKeeps)
             }
         }
         self.updateTilingViews()
@@ -549,8 +478,8 @@ extension DCMView {
         var transform = N3AffineTransformIdentity
         transform = N3AffineTransformConcat(transform, N3AffineTransformMakeTranslation(CGFloat(self.curDCM?.pwidth ?? 0) * -0.5,
                                                                                          CGFloat(self.curDCM?.pheight ?? 0) * -0.5, 0))
-        transform = N3AffineTransformConcat(transform, N3AffineTransformMakeScale(CGFloat(self.horos_scaleValue),
-                                                                                   CGFloat(self.horos_scaleValue), 1))
+        let scale = CGFloat(self.viewport.scale)
+        transform = N3AffineTransformConcat(transform, N3AffineTransformMakeScale(scale, scale, 1))
         transform.m14 = 0.0
         transform.m24 = 0.0
         transform.m34 = 0.0
@@ -562,13 +491,13 @@ extension DCMView {
     @objc(applyImageTransformation)
     public dynamic func applyImageTransformation() {
         let canvas = ROICanvas.current
-        let size = self.horos_drawingFrameRect.size
+        let t = ViewTransform.canvasTransform(viewport: self.viewport, drawingSize: self.horos_drawingFrameRect.size,
+                                              pixelRatio: self.curDCM?.pixelRatio ?? 0)
         canvas?.loadIdentity()
-        canvas?.scale(x: Double(Float(2.0 / (self.horos_xFlipped ? -size.width : size.width))),
-                      y: Double(Float(-2.0 / (self.horos_yFlipped ? -size.height : size.height))), z: 1)
-        canvas?.rotate(Double(self.horos_rotation))
-        canvas?.translate(x: Double(Float(self.horos_origin.x)), y: Double(Float(-self.horos_origin.y)), z: 0)
-        canvas?.scale(x: 1, y: Double(Float(self.curDCM?.pixelRatio ?? 0)), z: 1)
+        canvas?.scale(x: t.scaleX, y: t.scaleY, z: 1)
+        canvas?.rotate(t.rotation)
+        canvas?.translate(x: t.translateX, y: t.translateY, z: 0)
+        canvas?.scale(x: 1, y: t.pixelRatio, z: 1)
     }
 
     // MARK: - Slice intersection
@@ -612,7 +541,7 @@ extension DCMView {
         let rect = self.frame
         let previous = self.horos_previousViewSize
 
-        if UserDefaults.standard.bool(forKey: "AlwaysScaleToFit") && is2DViewer {
+        if PreferencesSource.process.preferences[ViewerPreferences.alwaysScaleToFit] && is2DViewer {
             if !NSEqualSizes(previous, rect.size) {
                 viewer?.setUpdateTilingViewsValue(true)
 
@@ -621,15 +550,12 @@ extension DCMView {
                 if self.horos_curImage >= 0 && !self.horos_COPYSETTINGSINSERIES, let v = viewer {
                     for i in 0..<Int(v.maxMovieIndex()) {
                         for case let pix as DCMPix in v.pixList(i) ?? [] where pix !== self.curDCM {
-                            let image = pix.imageObj() as NSObject?
-                            image?.setValue(nil, forKey: "scale")
                             var o = NSPoint.zero
                             if pix.shutterEnabled, let shown = self.curDCM {
                                 o = ViewTransform.shutterOrigin(width: shown.pwidth, height: shown.pheight, shutter: shown.shutterRect,
                                                                 scale: self.horos_scaleValue, pixelRatio: nil)
                             }
-                            image?.setValue(NSNumber(value: Float(o.x)), forKey: "xOffset")
-                            image?.setValue(NSNumber(value: Float(o.y)), forKey: "yOffset")
+                            ImagePresentationStore(series: nil, image: pix.imageObj()).storeFitted(offset: o)
                         }
                     }
                 }
@@ -650,13 +576,7 @@ extension DCMView {
                    (v.imageViews() as NSArray?)?.firstObject as AnyObject? === self {
                     for i in 0..<Int(v.maxMovieIndex()) {
                         for case let pix as DCMPix in v.pixList(i) ?? [] where pix !== self.curDCM {
-                            let image = pix.imageObj() as NSObject?
-                            let s = (image?.value(forKey: "scale") as? NSNumber)?.floatValue ?? 0
-                            if s != 0 {
-                                image?.setValue(NSNumber(value: s * yChanged), forKey: "scale")
-                            } else {
-                                image?.setValue(nil, forKeyPath: "scale")
-                            }
+                            ImagePresentationStore(series: nil, image: pix.imageObj()).storeResized(by: yChanged)
                         }
                     }
                 }
@@ -760,7 +680,7 @@ extension DCMView {
             if self.horos_curImage < 0 {
             } else if self.horos_COPYSETTINGSINSERIES {
                 if aView.curWL != 0 && aView.curWW != 0 {
-                    if self.horos_curWL != aView.curWL || self.horos_curWW != aView.curWW {
+                    if self.windowLevelState.level != aView.curWL || self.windowLevelState.width != aView.curWW {
                         self.setWLWW(aView.curWL, aView.curWW)
                     }
                 }
@@ -814,188 +734,72 @@ extension DCMView {
     /// is fitted.
     @objc(updatePresentationStateFromSeriesOnlyImageLevel:scale:offset:)
     public dynamic func updatePresentationState(fromSeriesOnlyImageLevel onlyImage: Bool, scale: Bool, offset: Bool) {
-        guard let series = self.seriesObj() as NSObject? else { return }
-        let image = self.imageObj() as NSObject?
-        let defaults = UserDefaults.standard
-        func value(_ object: NSObject?, _ key: String) -> NSNumber? { object?.value(forKey: key) as? NSNumber }
-        let isPreview = self.horos_stringID == "previewDatabase"
-        let alwaysFit = defaults.bool(forKey: "AlwaysScaleToFit")
+        guard let series = self.seriesObj() else { return }
+        let image = self.imageObj()
+        let store = ImagePresentationStore(series: series, image: image)
+        let rule = ViewportRestoration(onlyImage: onlyImage, restoresScale: scale, restoresOffset: offset,
+                                       isPreview: self.horos_stringID == "previewDatabase",
+                                       alwaysFit: PreferencesSource.process.preferences[ViewerPreferences.alwaysScaleToFit],
+                                       copiesSettingsInSeries: self.horos_COPYSETTINGSINSERIES)
 
-        if let flipped = value(image, "xFlipped") {
-            self.xFlipped = flipped.boolValue
-        } else if !onlyImage {
-            self.xFlipped = value(series, "xFlipped")?.boolValue ?? false
-        } else {
-            self.xFlipped = false
+        // Each step reads what is saved when it comes: the one before wrote
+        // the presentation again, and the other views of the series took it.
+        self.xFlipped = rule.flip(image: store.imageFlips.x, series: store.seriesFlips.x)
+        self.yFlipped = rule.flip(image: store.imageFlips.y, series: store.seriesFlips.y)
+
+        let seriesScale = store.seriesScale
+        switch rule.scale(image: store.imageScale, series: seriesScale.scale, displayStyle: seriesScale.displayStyle,
+                          frameSize: self.frame.size) {
+        case .fit: self.scaleToFit()
+        case .value(let restored): self.scaleValue = restored
         }
 
-        if let flipped = value(image, "yFlipped") {
-            self.yFlipped = flipped.boolValue
-        } else if !onlyImage {
-            self.yFlipped = value(series, "yFlipped")?.boolValue ?? false
-        } else {
-            self.yFlipped = false
-        }
+        let rotations = store.rotations
+        self.rotation = rule.rotation(image: rotations.image, series: rotations.series)
 
-        if !isPreview {
-            if (scale && !alwaysFit) || !self.horos_COPYSETTINGSINSERIES {
-                if let imageScale = value(image, "scale") {
-                    if imageScale.floatValue != 0 {
-                        self.scaleValue = imageScale.floatValue
-                    } else {
-                        self.scaleToFit()
-                    }
-                } else if !onlyImage {
-                    if let seriesScale = value(series, "scale"), seriesScale.floatValue != 0 {
-                        self.scaleValue = ViewTransform.restoredScale(seriesScale.floatValue,
-                                                                      displayStyle: Int(value(series, "displayStyle")?.int32Value ?? 0),
-                                                                      frameSize: self.frame.size)
-                    } else {
-                        self.scaleToFit()
-                    }
-                } else {
-                    self.scaleToFit()
-                }
-            } else {
-                self.scaleToFit()
-            }
-        } else {
-            self.scaleToFit()
-        }
-
-        if let angle = value(image, "rotationAngle") {
-            self.rotation = angle.floatValue
-        } else if !onlyImage {
-            self.rotation = value(series, "rotationAngle")?.floatValue ?? 0
-        } else {
-            self.rotation = 0
-        }
-
-        if !isPreview {
-            if (offset && !alwaysFit) || !self.horos_COPYSETTINGSINSERIES {
-                var o = NSPoint(x: CGFloat(Float.infinity), y: CGFloat(Float.infinity))
-                if let x = value(image, "xOffset") { o.x = CGFloat(x.floatValue) } else if !onlyImage { o.x = CGFloat(value(series, "xOffset")?.floatValue ?? 0) }
-                if let y = value(image, "yOffset") { o.y = CGFloat(y.floatValue) } else if !onlyImage { o.y = CGFloat(value(series, "yOffset")?.floatValue ?? 0) }
-                if o.x != CGFloat(Float.infinity) && o.y != CGFloat(Float.infinity) {
-                    self.origin = o
-                }
+        if rule.restoresOrigin {
+            let offsets = store.offsets
+            if let o = rule.origin(image: offsets.image, series: offsets.series) {
+                self.origin = o
             }
         }
 
-        var ww: Float = 0, wl: Float = 0
-        if let width = value(image, "windowWidth") {
-            ww = width.floatValue
-        } else if !onlyImage, let width = value(series, "windowWidth") {
-            ww = width.floatValue
-        } else if !self.is2DViewer() {
-            ww = self.horos_curWW
-        }
-
-        if let level = value(image, "windowLevel") {
-            wl = self.curDCM?.calibratedWindowLevel(forStoredLevel: level.floatValue) ?? 0
-        } else if !onlyImage, let level = value(series, "windowLevel") {
-            wl = self.curDCM?.calibratedWindowLevel(forStoredLevel: level.floatValue) ?? 0
-        } else if !self.is2DViewer() {
-            wl = self.horos_curWL
-        }
+        // The window kept by the image, else by the series; a viewer other than
+        // the 2D one keeps its own when neither has one.
+        let kept = store.storedWindow(imageOnly: onlyImage)
+        var ww = kept.width ?? (self.is2DViewer() ? 0 : self.windowLevelState.width)
+        var wl = kept.storedLevel.map { self.curDCM?.calibratedWindowLevel(forStoredLevel: $0) ?? 0 } ?? (self.is2DViewer() ? 0 : self.windowLevelState.level)
 
         if ww == 0 {
             if self.horos_curImage >= 0 || !self.horos_COPYSETTINGSINSERIES || !self.is2DViewer() {
                 ww = self.curDCM?.savedWW ?? 0
                 wl = self.curDCM?.savedWL ?? 0
             } else {
-                let list = self.horos_dcmPixList as NSArray
-                let middle = list.object(at: list.count / 2) as? DCMPix
+                let middle = self.horos_dcmPixList.object(at: self.horos_dcmPixList.count / 2) as? DCMPix
                 ww = middle?.savedWW ?? 0
                 wl = middle?.savedWL ?? 0
             }
         }
 
         let modality = (self.horos_dcmFilesList as NSArray?).map { ($0.object(at: Int(self.horos_curImage)) as? NSObject)?.value(forKey: "modality") as? String } ?? nil
-        let petLike = modality == "PT" || (defaults.bool(forKey: "mouseWindowingNM") && modality == "NM")
-        let maximum = self.curDCM?.maxValueOfSeries ?? 0
-        let suvConverted = self.curDCM?.suvConverted ?? false
-
-        if ww != 0 || wl != 0 {
-            if ww != 0 {
-                if petLike {
-                    switch defaults.integer(forKey: "DEFAULTPETWLWW") {
-                    case 0:
-                        if !suvConverted {
-                            self.horos_curWW = ww
-                            self.horos_curWL = wl
-                        } else if self.is2DViewer() {
-                            let factor = viewer?.factorPET2SUV() ?? 0
-                            self.horos_curWW = ww * factor
-                            self.horos_curWL = wl * factor
-                        }
-                    case 1:
-                        let from = ViewTransform.percentOfMaximum(maximum, defaults.float(forKey: "PETWLWWFROM"))
-                        let to = ViewTransform.percentOfMaximum(maximum, defaults.float(forKey: "PETWLWWTO"))
-                        if to - from != 0 {
-                            let window = ViewTransform.window(from: from, to: to)
-                            self.horos_curWW = window.width
-                            self.horos_curWL = window.level
-                        }
-                    case 2:
-                        if suvConverted {
-                            let from = defaults.float(forKey: "PETWLWWFROMSUV")
-                            let to = defaults.float(forKey: "PETWLWWTOSUV")
-                            if to - from != 0 {
-                                let window = ViewTransform.window(from: from, to: to)
-                                self.horos_curWW = window.width
-                                self.horos_curWL = window.level
-                            }
-                        } else {
-                            self.horos_curWW = ww
-                            self.horos_curWL = wl
-                        }
-                    default:
-                        break
-                    }
-                } else {
-                    self.horos_curWW = ww
-                    self.horos_curWL = wl
-                }
-                self.setWLWW(self.horos_curWL, self.horos_curWW)
-            }
-        } else if !onlyImage {
-            if petLike {
-                self.horos_curWW = ww
-                self.horos_curWL = wl
-
-                switch defaults.integer(forKey: "DEFAULTPETWLWW") {
-                case 1:
-                    let from = ViewTransform.percentOfMaximum(maximum, defaults.float(forKey: "PETWLWWFROM"))
-                    let to = ViewTransform.percentOfMaximum(maximum, defaults.float(forKey: "PETWLWWTO"))
-                    let window = ViewTransform.window(from: from, to: to)
-                    self.horos_curWW = window.width
-                    self.horos_curWL = window.level
-                case 2:
-                    if suvConverted {
-                        let from = defaults.float(forKey: "PETWLWWFROMSUV")
-                        let to = defaults.float(forKey: "PETWLWWTOSUV")
-                        let window = ViewTransform.window(from: from, to: to)
-                        self.horos_curWW = window.width
-                        self.horos_curWL = window.level
-                    } else {
-                        self.horos_curWW = ww
-                        self.horos_curWL = wl
-                    }
-                default:
-                    break
-                }
-
-                self.setWLWW(self.horos_curWL, self.horos_curWW)
-            }
+        let (petLike, windowing) = DCMViewSettings.petWindowing(forModality: modality)
+        let current = (level: self.windowLevelState.level, width: self.windowLevelState.width)
+        let restored = windowing.restored(stored: (wl, ww), current: current, petLike: petLike,
+                                          suvConverted: self.curDCM?.suvConverted ?? false, seriesMaximum: self.curDCM?.maxValueOfSeries ?? 0,
+                                          imageOnly: onlyImage) {
+            self.is2DViewer() ? (self.viewer?.factorPET2SUV() ?? 0) : nil
+        }
+        if let restored {
+            self.windowLevelState.level = restored.level
+            self.windowLevelState.width = restored.width
+            self.setWLWW(restored.level, restored.width)
         }
     }
 
     // MARK: - Fusion
 
     /// -setBlendingMode:, called by the property's setter (DCMView.swift).
-    @objc(horosSetBlendingMode:)
-    public dynamic func horosSetBlendingMode(_ f: Int) {
+    public func horosSetBlendingMode(_ f: Int) {
         self.horos_blendingMode = f
 
         if self.horos_blending?.blendingMode != f {
@@ -1010,7 +814,7 @@ extension DCMView {
     /// The fusion's alpha ramp for blending factor `a`, in the view's mode.
     @objc(setAlpha:)
     public dynamic func setAlpha(_ a: Float) {
-        let table = ViewTransform.alphaTable(mode: self.horos_blendingMode, alpha: a)
+        let table = self.fusionBlend.alphaTable(alpha: a)
         let alpha = self.horos_alphaTable!
         for i in 0..<256 { alpha[i] = table[i] }
     }
@@ -1019,10 +823,7 @@ extension DCMView {
     /// on the viewer's slider.
     @objc(setBlendingFactor:)
     public dynamic func setBlendingFactor(_ f: Float) {
-        var factor = f
-        if factor < -256 { factor = -256 }
-        if factor > 256 { factor = 256 }
-        self.horos_blendingFactor = factor
+        let factor = self.fusionBlend.setBoundedFactor(f)
 
         self.horos_blending?.setAlpha(factor)
         self.loadTextures()
@@ -1060,11 +861,11 @@ extension DCMView {
     @objc(blendingColorTables::::)
     public dynamic func blendingColorTables(_ a: UnsafeMutablePointer<UnsafeMutablePointer<UInt8>?>!, _ r: UnsafeMutablePointer<UnsafeMutablePointer<UInt8>?>!,
                                             _ g: UnsafeMutablePointer<UnsafeMutablePointer<UInt8>?>!, _ b: UnsafeMutablePointer<UnsafeMutablePointer<UInt8>?>!) {
-        if UserDefaults.standard.string(forKey: "PET Clut Mode") == "B/W Inverse" {
+        if PETBlendingTables.drawFusedSeries {
             a.pointee = self.horos_alphaTable
-            r.pointee = DCMView.horos_static_PETredTable
-            g.pointee = DCMView.horos_static_PETgreenTable
-            b.pointee = DCMView.horos_static_PETblueTable
+            r.pointee = PETBlendingTables.redTable
+            g.pointee = PETBlendingTables.greenTable
+            b.pointee = PETBlendingTables.blueTable
         } else {
             self.horos_blending?.colorTables(a, r, g, b)
         }
@@ -1088,8 +889,7 @@ extension DCMView {
 
     /// This view's image with the fused one over it, both as shown, at the
     /// full resolution of this one.
-    @objc(mergeFused)
-    public dynamic func mergeFused() -> DCMPix! {
+    public func mergeFused() -> DCMPix! {
         guard let blending = self.horos_blending else { return nil }
         let deg2rad = DCMView.horos_static_deg2rad
         let oScale: Float = 1.0 // the back image at full resolution
@@ -1101,25 +901,12 @@ extension DCMView {
         let originalPix = self.curDCM?.render(withRotation: self.rotation, scale: oScale, xFlipped: self.xFlipped,
                                               yFlipped: self.yFlipped)
 
-        var oo = blending.origin
-        oo.x *= CGFloat(scaleRatio)
-        oo.y *= CGFloat(scaleRatio)
-        if blending.xFlipped { oo.x = -oo.x }
-        if blending.yFlipped { oo.y = -oo.y }
-        oo = DCMPix.rotatePoint(oo, aroundPoint: .zero, angle: Float(Double(-blending.rotation) * deg2rad))
-
-        var cc = self.origin
-        cc.x *= CGFloat(scaleRatio)
-        cc.y *= CGFloat(scaleRatio)
-        if self.xFlipped { cc.x = -cc.x }
-        if self.yFlipped { cc.y = -cc.y }
-        cc = DCMPix.rotatePoint(cc, aroundPoint: .zero, angle: Float(Double(-self.rotation) * deg2rad))
-
-        oo.x -= cc.x
-        oo.y -= cc.y
-        oo.y = -oo.y
-
-        return originalPix?.merge(with: fusedPix, offset: oo)
+        let offset = FusionBlend.mergeOffset(
+            image: FusionBlend.Placement(origin: self.origin, rotation: self.rotation, xFlipped: self.xFlipped, yFlipped: self.yFlipped),
+            fused: FusionBlend.Placement(origin: blending.origin, rotation: blending.rotation, xFlipped: blending.xFlipped,
+                                         yFlipped: blending.yFlipped),
+            scaleRatio: scaleRatio, deg2rad: deg2rad)
+        return originalPix?.merge(with: fusedPix, offset: offset)
     }
 
     /// A new viewer with the fused images (every slice when both series
@@ -1200,7 +987,7 @@ extension DCMView {
     @objc(computeColor)
     public dynamic func computeColor() {
         if !self.is2DViewer() { return }
-        if let e = geometryTry({ self.computeStudyColours() }) {
+        if let e = HorosObjCException.caught({ self.computeStudyColours() }) {
             NSLog("**** computeColor exception: %@", e)
         }
     }
@@ -1221,12 +1008,10 @@ extension DCMView {
             PreviousStudyMark.setPrevious(previous.contains(i), for: v)
         }
 
-        var studies: [NSObject] = []
-        var colorsStudy: [String: NSColor] = [:]
-
+        var colouredStudies: [String?] = []
         for v in viewers {
             if let study = v.currentStudy(), v.currentSeries() != nil {
-                studies.append(study)
+                colouredStudies.append(study.studyInstanceUID)
             }
             for case let view as DCMView in (v.imageViews() as NSArray?) ?? [] {
                 view.studyColorR = 0
@@ -1237,9 +1022,9 @@ extension DCMView {
             }
         }
 
-        guard !studies.isEmpty else { return }
+        guard !colouredStudies.isEmpty else { return }
         let study = self.studyObj()
-        var allStudies: NSArray?
+        var allStudies: [Any]?
 
         // The browser's history, with the distant studies, when it is this patient's.
         let browser = BrowserController.currentBrowser()
@@ -1247,45 +1032,34 @@ extension DCMView {
         if let comparativeUID, let patientUID = study?.patientUID,
            comparativeUID.compare(patientUID, options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive]) == .orderedSame,
            browser?.comparativeStudies != nil {
-            allStudies = browser?.comparativeStudies as NSArray?
+            allStudies = browser?.comparativeStudies
         } else if let db = browser?.database {
             // Every study of this patient.
-            var search = (study as NSObject?)?.value(forKey: "patientUID") as? String
+            var search = study?.patientUID
             let predicate: NSPredicate
             if (search?.count ?? 0) == 0 || search == "0" {
-                search = (study as NSObject?)?.value(forKey: "name") as? String
+                search = study?.name
                 predicate = NSPredicate(format: "(name == %@)", argumentArray: [search as Any])
             } else {
                 predicate = NSPredicate(format: "(patientUID BEGINSWITH[cd] %@)", argumentArray: [search as Any])
             }
-            let found = db.objects(forEntity: db.studyEntity(), predicate: predicate) as NSArray?
-            allStudies = found?.sortedArray(using: [NSSortDescriptor(key: "date", ascending: false)]) as NSArray?
+            let found = db.objects(forEntity: db.studyEntity(), predicate: predicate) as [Any]?
+            allStudies = (found as NSArray?)?.sortedArray(using: [NSSortDescriptor(key: "date", ascending: false)])
         }
 
-        let studyUIDs = (allStudies?.value(forKey: "studyInstanceUID") as? NSArray) ?? []
-        let colors = ViewerController.studyColors() as NSArray? ?? []
-
-        // A colour for each study.
-        for study in studies {
-            guard let uid = study.value(forKey: "studyInstanceUID") as? String, colorsStudy[uid] == nil else { continue }
-            var color = studyUIDs.index(of: uid)
-            if color != NSNotFound {
-                if color >= colors.count { color = colors.count - 1 }
-                colorsStudy[uid] = colors.object(at: color) as? NSColor
-            }
-        }
-
-        if studyUIDs.count > 1 {
-            for v in viewers {
-                let uid = v.studyInstanceUID()
-                let boxColor = uid.flatMap { colorsStudy[$0] }
-                for case let view as DCMView in (v.imageViews() as NSArray?) ?? [] {
-                    view.studyColorR = Float(boxColor?.redComponent ?? 0)
-                    view.studyColorG = Float(boxColor?.greenComponent ?? 0)
-                    view.studyColorB = Float(boxColor?.blueComponent ?? 0)
-                    view.studyDateIndex = UInt(bitPattern: uid.map { studyUIDs.index(of: $0) } ?? NSNotFound)
-                    view.needsDisplay = true
-                }
+        // The distant studies of the history are not database objects: their UIDs are read by key.
+        let patientStudies = (allStudies ?? []).map { ($0 as AnyObject).value(forKey: "studyInstanceUID") as? String }
+        let colors: [Any] = ViewerController.studyColors()?.map { $0 } ?? []
+        guard let marks = StudyColour.marks(viewerStudies: viewers.map { $0.studyInstanceUID() }, colouredStudies: colouredStudies,
+                                            patientStudies: patientStudies, colourCount: colors.count) else { return }
+        for (v, mark) in zip(viewers, marks) {
+            let boxColor = mark.colourIndex.map { colors[$0] as? NSColor } ?? nil
+            for case let view as DCMView in (v.imageViews() as NSArray?) ?? [] {
+                view.studyColorR = Float(boxColor?.redComponent ?? 0)
+                view.studyColorG = Float(boxColor?.greenComponent ?? 0)
+                view.studyColorB = Float(boxColor?.blueComponent ?? 0)
+                view.studyDateIndex = UInt(bitPattern: mark.dateIndex ?? NSNotFound)
+                view.needsDisplay = true
             }
         }
     }

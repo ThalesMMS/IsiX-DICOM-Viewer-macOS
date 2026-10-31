@@ -28,7 +28,12 @@ everything they produce:
 * gantry: the correction of a tilted series, of slices of another
   orientation, of a slice the transform cannot reorient, and an exception;
 * loading: +loadImageData: of plain and compressed series, of a CD, with the
-  content bounds asked for, cancelled before it starts, with an exception.
+  content bounds asked for, cancelled before it starts, with an exception,
+  in the revisions that still have it. Since then the viewer's series is
+  decoded by SeriesImageLoader, an actor whose result its ViewerSeriesLoad
+  accepts on the main actor: tests/test-viewer-loading-lifetime.py executes
+  that load, and this scenario is not run against a tree without
+  ViewerController+ImageLoading.swift.
 
 The pixels of each slice are compared by a checksum of their bytes, the
 geometry to the last bit.
@@ -47,9 +52,12 @@ records must be identical.
 """
 import argparse
 import difflib
+import os
 import re
 import subprocess
 import sys
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+import objc_exception_guards
 import tempfile
 from pathlib import Path
 
@@ -62,6 +70,9 @@ VC = 'Horos/Sources/ViewerController.m'
 MARK = '-(BOOL) processReslice:(long) directionm :(BOOL) newViewer'
 SWIFT_FILES = ['ViewerController+%s.swift' % name for name in
                ('Reslice', 'SeriesTransforms', 'Orientation', 'GantryTilt', 'VolumeCheck', 'ImageLoading')]
+# The new series of a reslice, which -processReslice:: puts in the viewer, in
+# the revisions that have it.
+RESLICE_BUILDER = 'ViewerSeriesReslice.swift'
 # IsiXLogging first: the others that log write through it.
 MODULES = ['IsiXLogging', 'IsiXImaging']
 SCENARIOS = ['reslice', 'transforms', 'orientation', 'volumic', 'gantry', 'loading']
@@ -71,6 +82,13 @@ parser.add_argument('--reference')
 parser.add_argument('--current')
 parser.add_argument('--dump', type=Path, help='write the programs and the records of both to this folder')
 args = parser.parse_args()
+
+# The tree (or --current) without +loadImageData: decodes the series with SeriesImageLoader.
+if not (Path(ROOT / 'Horos/Sources/ViewerController+ImageLoading.swift').is_file() if args.current is None else
+        subprocess.run(['git', '-C', str(ROOT), 'cat-file', '-e', '%s:Horos/Sources/ViewerController+ImageLoading.swift' % args.current],
+                       capture_output=True).returncode == 0):
+    SWIFT_FILES.remove('ViewerController+ImageLoading.swift')
+    SCENARIOS.remove('loading')
 
 HEADER = r'''#pragma clang diagnostic ignored "-Wnullability-completeness"
 #import <Cocoa/Cocoa.h>
@@ -179,6 +197,15 @@ NS_SWIFT_NAME(GantryTiltPolicy)
 
 @interface DicomFile : NSObject
 + (BOOL) isDICOMFile:(NSString *)file compressed:(BOOL*)compressed;
+@end
+
+// A file of the series, as the app's DicomImage: its matrix by -width and
+// -height (the Swift reads them typed, the Objective-C by key), and a
+// dictionary of its values for the rest of the harness, which names it,
+// changes its matrix by key and prints it as it printed a dictionary.
+@interface DicomImage : NSMutableDictionary
+- (NSNumber*) width;
+- (NSNumber*) height;
 @end
 
 @interface BrowserController : NSObject
@@ -354,6 +381,28 @@ DECLARED, IMPLEMENTED = accessors()
 HEADER = HEADER.replace('IVAR_ACCESSORS', DECLARED)
 
 STUBS = r'''#import "Harness.h"
+
+@implementation DicomImage {
+    NSMutableDictionary *storage;
+}
+- (instancetype) init { if ((self = [super init])) storage = [NSMutableDictionary new]; return self; }
+- (instancetype) initWithCapacity:(NSUInteger) capacity {
+    if ((self = [super init])) storage = [[NSMutableDictionary alloc] initWithCapacity: capacity];
+    return self;
+}
+- (instancetype) initWithObjects:(id const []) objects forKeys:(id<NSCopying> const []) keys count:(NSUInteger) count {
+    if ((self = [super init])) storage = [[NSMutableDictionary alloc] initWithObjects: objects forKeys: keys count: count];
+    return self;
+}
+- (void) dealloc { [storage release]; [super dealloc]; }
+- (NSUInteger) count { return storage.count; }
+- (id) objectForKey:(id) key { return [storage objectForKey: key]; }
+- (NSEnumerator*) keyEnumerator { return [storage keyEnumerator]; }
+- (void) setObject:(id) object forKey:(id<NSCopying>) key { [storage setObject: object forKey: key]; }
+- (void) removeObjectForKey:(id) key { [storage removeObjectForKey: key]; }
+- (NSNumber*) width { return storage[@"width"]; }
+- (NSNumber*) height { return storage[@"height"]; }
+@end
 #include <stdatomic.h>
 
 static NSMapTable *names;
@@ -765,7 +814,7 @@ static ViewerController *Volume(long w, long h, long count, int movies, const do
             p.units = @"BQML"; p.decayCorrection = @"START";
             p.srcFile = [NSString stringWithFormat: @"/series/m%d/s%ld.dcm", m, z];
             [pixes addObject: p];
-            [files addObject: [NSMutableDictionary dictionaryWithObjectsAndKeys: @(w), @"width", @(h), @"height", [NSString stringWithFormat: @"file m%d s%ld", m, z], @"name", nil]];
+            [files addObject: [DicomImage dictionaryWithObjectsAndKeys: @(w), @"width", @(h), @"height", [NSString stringWithFormat: @"file m%d s%ld", m, z], @"name", nil]];
             Register(files.lastObject, [NSString stringWithFormat: @"file m%d s%ld of %@", m, z, Name(v)]);
         }
         v->pixList[m] = [pixes retain];
@@ -1203,6 +1252,36 @@ def objc_shim(text):
     return '#import "Harness.h"\n@implementation ViewerController (SeriesOperations)\n' + text[a:method_end(text, a)] + '\n@end\n'
 
 
+# Where the Swift does not do what the Objective-C did, on purpose: each
+# defect of the Objective-C the Swift corrects, the text of the reference that
+# has it and the text it is compiled with instead, so the records compared are
+# those of the corrected reference. Each must be found exactly once, and is
+# printed with the results: the difference is stated here rather than left out
+# of the comparison.
+REFERENCE_CORRECTIONS = [
+    ('the Y reslice of an odd stack scales only the rows it gathered',
+     # -resliceThread: gathers the columns of the even number of slices of
+     # the stack (its `count`, 12 of 13) into the rows of a new slice, then
+     # scaled as many rows as the stack has slices. The row of the slice left
+     # out was never written: what the new volume held there was scaled into
+     # the slice, garbage near its last rows or, for a NaN, NaN everywhere,
+     # and it changed from run to run. The X reslice scaled the rows it
+     # gathered, and so does the Swift in both directions.
+     '        srcVimage.height =  [pixList[ j] count];\n',
+     '        srcVimage.height =  count;\n'),
+]
+
+
+def corrected(text):
+    """The Objective-C with REFERENCE_CORRECTIONS applied."""
+    for what, wrong, right in REFERENCE_CORRECTIONS:
+        if text.count(wrong) != 1:
+            sys.exit('FAIL: the Objective-C has %d of the text corrected so that %s, not one'
+                     % (text.count(wrong), what))
+        text = text.replace(wrong, right)
+    return text
+
+
 reference = args.reference
 if reference is None:
     head = read('HEAD', VC)
@@ -1249,7 +1328,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-series-') as tmp:
         work.mkdir()
         source = work / 'Blocks.m'
         # ViewerController.m is read as Latin-1: its bytes are written back as they were.
-        source.write_bytes(objc_blocks(vc_text).encode('latin1'))
+        source.write_bytes(objc_blocks(corrected(vc_text)).encode('latin1'))
         blocks = clang(source)
         program = folder / ('%s-program' % name)
         run(['xcrun', 'clang', *common, blocks, *frameworks, '-o', str(program)], '%s does not link' % name)
@@ -1273,11 +1352,28 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-series-') as tmp:
                 sys.exit('FAIL: no Horos/Sources/%s' % name)
             (swift / name).write_bytes(text)
             sources.append(str(swift / name))
-        # [sender tag] as the blocks send it, and the @try of the blocks.
+        builder = read(args.current, 'Horos/Sources/' + RESLICE_BUILDER)
+        if builder is not None:
+            (swift / RESLICE_BUILDER).write_bytes(builder)
+            sources.append(str(swift / RESLICE_BUILDER))
+            # The process's reslice worker, which the viewer reaches through its graph.
+            (swift / 'SessionGraph.swift').write_text(
+                'import AppKit\nimport IsiXImaging\n\n'
+                'final class HarnessProcessGraph: Sendable {\n'
+                '    static let process = HarnessProcessGraph()\n'
+                '    let seriesResliceWorker = SeriesResliceWorker()\n}\n\n'
+                '@MainActor final class HarnessSessionGraph {\n'
+                '    var processGraph: HarnessProcessGraph { HarnessProcessGraph.process }\n}\n\n'
+                'extension ViewerController {\n'
+                '    var sessionGraph: HarnessSessionGraph { HarnessSessionGraph() }\n}\n')
+            sources.append(str(swift / 'SessionGraph.swift'))
+        # [sender tag] as the blocks send it, the @try of the blocks, and the
+        # viewer's slices of a time point as an array.
         support = read(args.current, 'Horos/Sources/ViewerController+ImagePipelineSupport.swift').decode('utf-8')
         sender = re.search(r'\nenum ViewerSender \{.*?\n}\n', support, re.S).group(0)
-        attempt = re.search(r'\n/// Runs `body` as an @try block.*?\nfunc viewerObjCTry.*?\n}\n', support, re.S).group(0)
-        (swift / 'Helpers.swift').write_text('import AppKit\n' + sender + attempt)
+        attempt = (lambda found: found.group(0) if found else objc_exception_guards.source(read(args.current, objc_exception_guards.PATH) or '', log=False) + '\n// The former helper, for a base revision that calls it.\nfunc viewerObjCTry(_ body: () -> Void) -> NSException? { HorosObjCException.caught(body) }\n')(re.search(r'\n/// Runs `body` as an @try block.*?\nfunc viewerObjCTry.*?\n}\n', support, re.S))
+        pix_array = re.search(r'\n    /// The DCMPix of movie frame `index`.*?\n    func horos_pixArray.*?\n    }\n', support, re.S).group(0)
+        (swift / 'Helpers.swift').write_text('import AppKit\n' + sender + attempt + '\nextension ViewerController {' + pix_array + '}\n')
         sources.append(str(swift / 'Helpers.swift'))
         libraries = []
         for module in MODULES:
@@ -1304,12 +1400,26 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-series-') as tmp:
         for program in (reference_program, current_program):
             (args.dump / program.name).write_bytes(program.read_bytes())
             (args.dump / program.name).chmod(0o755)
+    # Memory nobody wrote must not decide the comparison. The Objective-C
+    # once scaled a row it never wrote (see REFERENCE_CORRECTIONS): what that
+    # row held was whatever the block malloc handed back held before, which
+    # changes with the threads and the load of the machine, and a NaN there
+    # turned a whole slice to NaN in one program and not in the other. Both
+    # programs run with MallocScribble, which fills every allocation with
+    # 0xAA (and every freed block with 0x55), so a read like that gives the
+    # same bytes on both sides and the result does not depend on timing.
+    # MallocPreScribble is not enough: alone it leaves a reused block as it
+    # was, and next to MallocScribble it turns the fill off again.
+    environment = {name: value for name, value in os.environ.items() if name != 'MallocPreScribble'}
+    environment['MallocScribble'] = '1'
+    for what, wrong, right in REFERENCE_CORRECTIONS:
+        print('reference corrected: %s (%s -> %s)' % (what, wrong.strip(), right.strip()))
     failures = 0
     for scenario in SCENARIOS:
         results = {}
         for label, program in (('reference', reference_program), ('current', current_program)):
             try:
-                result = subprocess.run([str(program), scenario], capture_output=True, text=True, timeout=60)
+                result = subprocess.run([str(program), scenario], capture_output=True, text=True, timeout=60, env=environment)
             except subprocess.TimeoutExpired:
                 sys.exit('FAIL: %s %s did not end in 60 s' % (label, scenario))
             if result.returncode:
@@ -1328,4 +1438,4 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-series-') as tmp:
                 print('  ' + line)
     if failures:
         sys.exit(1)
-    print('PASS: the reslice, flips, rotations, orientation tool, gantry tilt correction, volumic checks and loading of the series are identical to the Objective-C in every scenario')
+    print('PASS: the reslice, flips, rotations, orientation tool, gantry tilt correction, volumic checks%s are identical to the Objective-C in every scenario' % (' and loading of the series' if 'loading' in SCENARIOS else ''))

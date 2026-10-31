@@ -124,7 +124,7 @@ assert 'NSWindow.willCloseNotification' in controller and 'releaseVolume()' in c
 assert 'toggleMPRMetal' not in bridge and 'HorosMPRMetal"' not in bridge, \
     'no preference or per-window switch leads back to the original renderer'
 assert 'menuForEvent' not in bridge, 'the MPR options live in Settings → 3D, not in a contextual menu'
-assert 'UserDefaults.standard.addObserver(observer, forKeyPath: preferenceKey' in controller \
+assert 'preferences.addObserver(observer, forKeyPath: ReconstructionPreferences.mprCubicDisplay.name' in controller \
     and '(window.windowController as? MPRController)?.horosMPRReconstructPlanes()' in controller, \
     'an open MPR follows a change of its cubic display preference'
 pane = (root / 'Preference Panes/OSI3DPreferencePane/Base.lproj/OSI3DPreferencePanePref.xib').read_text()
@@ -137,7 +137,7 @@ assert '@objc(horosMPRCopyImageWidth:height:)' in header
 assert 'horosMPRReplacePixels' not in view + bridge
 
 # NSView frames remain in points; VTK owns the sole backing-pixel conversion.
-frame = view[view.index('@objc(checkForFrame)'):view.index('@objc(displayedScaleValue)')]
+frame = view[view.index('private func checkForFrame()'):view.index('override dynamic func displayedScaleValue()')]
 assert 'convertRectToBacking' not in frame and 'convertToBacking' not in frame
 assert 'self.convert(self.bounds, to: nil)' in frame
 

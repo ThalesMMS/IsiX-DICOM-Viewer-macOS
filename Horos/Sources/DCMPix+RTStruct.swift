@@ -41,16 +41,18 @@ import AppKit
 import CoreData
 import Foundation
 import IsiXDICOMDataset
+import IsiXPreferences
 import IsiXROI
 
 /// The ROIs an RT structure set describes, made on the images of the series
 /// it refers to and saved with them, as the ROIs drawn on those images are.
 extension DCMPix {
     /// Converts the RT STRUCT `dcmObject` in ROIs on a thread of its own, shown
-    /// in the activity window. Refused for a database shared over Bonjour.
+    /// in the activity window. Refused when this image's database is one shared
+    /// over Bonjour, whichever database the browser shows.
     @objc(createROIsFromRTSTRUCT:)
     public dynamic func createROIs(fromRTSTRUCT dcmObject: DCMObject!) {
-        if BrowserController.currentBrowser()?.isCurrentDatabaseBonjour == true {
+        if databaseOfImage()?.isLocal() == false {
             NSLog("Can't (or shouldn't?) export ROIs to Bonjour mounted Database")
             return
         }
@@ -63,11 +65,11 @@ extension DCMPix {
         ThreadsManager.default().addThreadAndStart(thread)
     }
 
-    /// The thread's work: the referenced images are read on a private-queue
-    /// context, on its queue.
+    /// The thread's work: the referenced images are read in this image's
+    /// database, on a private-queue context of it, on its queue.
     @objc(createROIsFromRTSTRUCTThread:)
     public dynamic func createROIs(fromRTSTRUCTThread dict: NSDictionary!) {
-        guard let database = privateQueueDatabase(BrowserController.currentBrowser()?.database) else { return }
+        guard let database = privateQueueDatabase(databaseOfImage()) else { return }
         database.performBlockAndWait {
             self.createROIs(fromRTSTRUCT: dict, in: database)
         }
@@ -248,7 +250,7 @@ private struct RTStructConversion {
                     roi.opacity = 1.0
                     roi.thickness = 1.0
                     roi.isSpline = false
-                    if UserDefaults.standard.bool(forKey: "RSTRUCTConvertToBrush"), let brush = brushROI(of: roi, image: imageObject, plane: plane) {
+                    if PreferencesSource.process.preferences[ViewerPreferences.rtStructConvertsToBrush], let brush = brushROI(of: roi, image: imageObject, plane: plane) {
                         roi = brush
                     }
                     rois[images.firstIndex(of: image) ?? index].append(roi)
@@ -273,7 +275,7 @@ private struct RTStructConversion {
             newFiles.add(path as Any)
         }
         if newFiles.count > 0 {
-            _ = database?.addFiles(atPaths: newFiles as? [Any], postNotifications: true, dicomOnly: true, rereadExistingItems: true, generatedByOsiriX: true)
+            if let database { DatabaseIngest.process.index(newFiles as? [Any], preset: .generated, in: database) }
         }
         return nil
     }

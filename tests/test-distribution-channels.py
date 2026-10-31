@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import uuid
 import harness_defaults  # the harness's preferences stay in its own process
+import process_graph_stand_in
 
 root = Path(__file__).resolve().parents[1]
 sources = root / 'Horos/Sources'
@@ -63,6 +64,7 @@ print("channel behavior passed: \\(store ? "appstore" : "github")")
             'CFBundleExecutable': 'test', 'CFBundlePackageType': 'APPL'}))
         program = app / 'Contents/MacOS/test'
         command = ['xcrun', 'swiftc', '-swift-version', '6', '-target', 'arm64-apple-macos26.0',
+                   *process_graph_stand_in.swift_flags(work / 'isix', ['-target', 'arm64-apple-macos26.0']),
                    str(sources / 'DistributionChannel.swift'), str(sources / 'SandboxFileAccess.swift'),
                    str(stub), str(main), '-o', str(program)]
         if channel == 'appstore':

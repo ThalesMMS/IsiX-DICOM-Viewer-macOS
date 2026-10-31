@@ -14,6 +14,8 @@ import json
 import subprocess
 import sys
 import tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import retrieve_inventory_harness  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 
@@ -99,7 +101,7 @@ precondition(value.sortValue < 1 && !value.isComplete)
 with tempfile.TemporaryDirectory(prefix='horos-unsendable-') as directory:
     p = Path(directory)
     (p/'main.swift').write_text(driver)
-    subprocess.run(['xcrun', 'swiftc', str(root/'Horos/Sources/RetrieveInventory.swift'), str(p/'main.swift'),
+    subprocess.run(['xcrun', 'swiftc', *retrieve_inventory_harness.swiftc_arguments(p/'harness'), str(p/'main.swift'),
                     '-o', str(p/'inventory')], check=True)
     run = subprocess.run([str(p/'inventory'), directory], check=True, capture_output=True, text=True, timeout=20)
     manifest = json.loads(Path(run.stdout.strip()).read_text())

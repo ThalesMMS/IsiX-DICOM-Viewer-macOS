@@ -74,19 +74,19 @@ extension BrowserController: @MainActor PatientListAlbumHost {
 
         var candidates: [[String: Any]] = []
         N2ManagedObjectContextPerformAndWait(context) {
-            if let exception = BrowserObjC.attempt({
+            if let exception = HorosObjCException.caught({
                 let found = (database.objects(forEntity: database.studyEntity(),
-                                              predicate: NSCompoundPredicate(orPredicateWithSubpredicates: predicates)) as NSArray?) ?? []
-                let patients = NSMutableSet(), studies = NSMutableSet(array: found as? [Any] ?? [])
-                for case let study as DicomStudy in found where ((study.patientUID as NSString?)?.length ?? 0) > 0 {
-                    patients.add(study.patientUID as Any)
-                }
+                                              predicate: NSCompoundPredicate(orPredicateWithSubpredicates: predicates)) ?? [])
+                    .compactMap { $0 as? DicomStudy }
+                var studies = Set(found)
+                let patients = Set(found.compactMap(\.patientUID).filter { !$0.isEmpty })
                 // The patient's other studies, as the browser gathers them.
-                if patients.count > 0 {
-                    studies.addObjects(from: (database.objects(forEntity: database.studyEntity(),
-                                                               predicate: NSPredicate(format: "patientUID IN %@", patients)) as NSArray? as? [Any]) ?? [])
+                if !patients.isEmpty {
+                    studies.formUnion((database.objects(forEntity: database.studyEntity(),
+                                                        predicate: NSPredicate(format: "patientUID IN %@", Array(patients))) ?? [])
+                        .compactMap { $0 as? DicomStudy })
                 }
-                for case let study as DicomStudy in studies {
+                for study in studies {
                     candidates.append(["objectID": study.objectID,
                                        "patientUID": study.patientUID ?? "",
                                        "patientID": study.patientID ?? "",
@@ -111,7 +111,7 @@ extension BrowserController: @MainActor PatientListAlbumHost {
         var album: DicomAlbum?
         if let database = self.database, let context = database.managedObjectContext {
             N2ManagedObjectContextPerformAndWait(context) {
-                if let exception = BrowserObjC.attempt({
+                if let exception = HorosObjCException.caught({
                     // What the user reviewed must still be what is stored: another
                     // import, a merge or an edit may have changed a study since.
                     var studies: [DicomStudy] = []
@@ -129,8 +129,7 @@ extension BrowserController: @MainActor PatientListAlbumHost {
                     }
                     guard problem == nil else { return }
 
-                    let names = ((database.objects(forEntity: database.albumEntity()) as NSArray?)?.value(forKey: "name") as? [Any] ?? [])
-                        .compactMap { $0 as? String }
+                    let names = (database.objects(forEntity: database.albumEntity()) ?? []).compactMap { ($0 as? DicomAlbum)?.name }
                     let unique = AlbumNaming.uniqueName(for: name, existing: names)
                     let newAlbum = NSEntityDescription.insertNewObject(forEntityName: "Album", into: context) as? DicomAlbum
                     newAlbum?.name = unique
@@ -149,17 +148,13 @@ extension BrowserController: @MainActor PatientListAlbumHost {
         }
         refreshAlbums()
         if let album {
-            let index = ((albumArray() as NSArray?) ?? []).index(of: album)
-            if index != NSNotFound {
-                horos_albumTable?.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
-            }
+            studyList.selectAlbumRow(album)
         }
         outlineViewRefresh()
         return created
     }
 
     /// The Query/Retrieve window on the patient: by identifier, else by name.
-    @objc(patientListQueryPACSWithIdentifier:name:)
     public func patientListQueryPACS(identifier: String?, name: String) {
         if QueryController.current() == nil {
             // The controller keeps itself as the current one.

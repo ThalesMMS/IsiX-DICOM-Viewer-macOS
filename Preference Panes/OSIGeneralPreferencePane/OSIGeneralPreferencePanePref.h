@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// OSIGeneralPreferencePanePref is implemented in Swift since #711 (Preference
+// OSIGeneralPreferencePanePref is implemented in Swift (Preference
 // Panes/OSIGeneralPreferencePane/OSIGeneralPreferencePanePref.swift). This header keeps
 // OSIGeneralPreferencePanePref.h: it brings in the generated interface, which declares the same
 // class name and selectors.

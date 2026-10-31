@@ -17,6 +17,7 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 import roi_harness  # noqa: E402
+import process_graph_stand_in  # noqa: E402  - the 2D viewer's sources read the catalog's keys through PreferencesSource
 
 measure = (root / 'Horos/Sources/VRView+Measure.swift').read_text()
 actors = (root / 'Horos/Sources/Adapters/VTK/IsiXVTKVolumeActors.mm').read_bytes().decode('latin1')
@@ -65,7 +66,8 @@ with tempfile.TemporaryDirectory(prefix='horos-vr-label-') as directory:
     work = Path(directory)
     (work / 'main.swift').write_text(swift)
     built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', str(work / 'main.swift'),
-                            str(root / 'Horos/Sources/LengthPresentation.swift'), '-o', str(work / 'label')],
+                            str(root / 'Horos/Sources/LengthPresentation.swift'), *process_graph_stand_in.swift_flags(work / 'isix'),
+                            '-o', str(work / 'label')],
                            capture_output=True, text=True)
     if built.returncode:
         raise SystemExit('FAIL: the VR label does not build:\n' + built.stderr[-3000:])

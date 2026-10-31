@@ -46,8 +46,8 @@ import AppKit
 // Swift extension of the class, with the same selectors; the buffers the view
 // owns are malloc'ed and retained as before, by hand.
 //
-// The @try of -setPixSource:: and of -movieChangeSource:showWait: are
-// HorosObjCException, with the same logs and outcome.
+// The @try of -setPixSource:: is HorosObjCException, with the same log and
+// outcome.
 
 /// The 16-bit range a volume is spread over.
 private let maxDynamicValue = 32000.0
@@ -193,7 +193,7 @@ extension VRView {
             opacityAdapter = horos_superSampling
         }
 
-        let invertedPolarity = vrDisplayUsesInvertedPolarity()
+        let invertedPolarity = vrDisplayUsesInvertedPolarity(processGraph.preferences)
 
         if buildFailed({ try vtk.makeTransferFunctionsRGB(isRGB, invertedPolarity: invertedPolarity, opacityAdapter: opacityAdapter) }) {
             return -1
@@ -342,7 +342,6 @@ extension VRView {
 
     // The orientation cube is drawn over the volume by HorosVROverlay;
     // VTK's marker widget drew it in OpenGL.
-    @objc(initAnnotatedCubeActor)
     func initAnnotatedCubeActor() {
         horos_orientationCubeShown = true
     }
@@ -360,11 +359,7 @@ extension VRView {
             www?.start()
         }
 
-        if let e = HorosObjCException.caught({
-            self.changeSource(volumeData, previousLOD: previousLOD, previousLowResLODFactor: previousLowResLODFactor)
-        }) {
-            NSLog("movieChangeSource exception: %@", e)
-        }
+        changeSource(volumeData, previousLOD: previousLOD, previousLowResLODFactor: previousLowResLODFactor)
 
         if showWait {
             www?.end()
@@ -372,7 +367,8 @@ extension VRView {
         }
     }
 
-    /// The body of the @try of -movieChangeSource:showWait:.
+    /// The volume, and the fused one, of -movieChangeSource:showWait: replaced
+    /// by `volumeData` in the VTK pipeline and the engines.
     private func changeSource(_ volumeData: UnsafeMutablePointer<Float>!, previousLOD: Float, previousLowResLODFactor: Float) {
         let vtk = horos_vtk
         horos_data = volumeData

@@ -11,9 +11,10 @@ What must stay true:
 - no sleep in the handler;
 - a session whose listener was not stopped, and is not to be restarted,
   returns at once;
-- otherwise the wait for the other session to give up the ports is a delayed
-  block, the session stays inactive for its readers until then, and a session
-  that resigned again meanwhile drops the restart.
+- otherwise the wait for the other session to give up the ports is a timer
+  of the main run loop (the restart may show an alert, which a block of the
+  main queue must not), the session stays inactive for its readers until then,
+  and a session that resigned again meanwhile drops the restart.
 
 Leaving the session stops the listener in this order: abort the listeners,
 abort the DICOM processes, then wait for each listener to leave its loop, which
@@ -23,7 +24,9 @@ held the main thread until the connection timed out. Quitting the application
 aborts the listeners too, and waits for their threads to end before exit()
 destroys the DCMTK loggers they read.
 
-AppController is Swift: its part is read in the Swift spelling.
+The session switch and the listener's stop are DICOMListenerController's,
+quitting is ApplicationLifecycle's (ApplicationLifecycle.swift), AppController's;
+both are read in the Swift spelling.
 """
 from pathlib import Path
 import re
@@ -31,10 +34,11 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
+from sources import source_text, class_text  # noqa: E402
 
 failures = []
-controller = source_text('AppController')
+application = class_text('AppController')
+controller = source_text('DICOMListenerController')
 
 
 def body(source, signature):
@@ -58,40 +62,48 @@ def check(condition, message):
         failures.append(message)
 
 
-handler = body(controller, 'func switchHandler(')
-check(handler, 'switchHandler not found')
+handler = body(controller, 'private func sessionSwitched(_ name: Notification.Name)')
+check(handler, 'sessionSwitched not found')
 check('Thread.sleep' not in handler and 'usleep' not in handler, 'the session handler still sleeps')
+observing = body(controller, 'func observeSessionSwitches()')
+check('NSWorkspace.sessionDidBecomeActiveNotification' in observing and 'NSWorkspace.sessionDidResignActiveNotification' in observing
+      and 'sessionSwitched(name)' in observing, 'the switches of the session are not followed')
+check('dicomListener.observeSessionSwitches()' in body(application, 'func didFinishLaunching() {'),
+      'the application does not follow the switches of the session')
 
 at = handler.find('NSWorkspace.sessionDidBecomeActiveNotification')
 check(at > 0, 'the handler does not look at the session becoming active')
 resigned, active = handler[:at], handler[at:]
 
 # Leaving the session: the listener is stopped, and the session marked, only on request.
-stop = re.search(r'if UserDefaults\.standard\.bool\(forKey: "RunListenerOnlyIfActive"\) \{(.*?)\n            \}', resigned, re.S)
-check(stop and 'killDICOMListenerWait(true)' in stop.group(1) and 'isSessionInactive = true' in stop.group(1),
+stop = re.search(r'if preferences\[NetworkPreferences\.runListenerOnlyIfActive\] \{(.*?)\n            \}', resigned, re.S)
+check(stop and 'stopListeners(wait: true)' in stop.group(1) and 'isSessionInactive = true' in stop.group(1),
       'the listener is not stopped, or the session not marked inactive, under the setting alone')
 
 # Coming back: nothing to wait for unless a listener was stopped or is to be started.
-guard = active.find('guard isSessionInactive || UserDefaults.standard.bool(forKey: "RunListenerOnlyIfActive") else { return }')
-delayed = active.find('DispatchQueue.main.asyncAfter(deadline: .now() + AppController.sessionPortHandover)')
+guard = active.find('guard isSessionInactive || preferences[NetworkPreferences.runListenerOnlyIfActive] else { return }')
+delayed = active.find('Timer(timeInterval: Self.sessionPortHandover, repeats: false)')
 check(guard > 0, 'a session with nothing stopped does not return at once')
-check(delayed > guard > 0, 'the wait for the ports is not a delayed block after the early return')
+check(delayed > guard > 0, 'the wait for the ports is not a timer after the early return')
+check('RunLoop.main.add(handover, forMode: .common)' in active[delayed:], 'the wait for the ports is not a timer of the main run loop')
 check('isSessionInactive = false' not in active[:delayed],
       'the session is marked active before its listeners are started')
 later = active[delayed:]
-check(re.search(r'sessionSwitches == awaited else \{ return \}.*isSessionInactive = false.*restartSTORESCP\(\)', later, re.S),
+check(re.search(r'sessionSwitches == awaited else \{ return \}.*isSessionInactive = false.*restart\(\)', later, re.S),
       'the delayed block does not check the switch, mark the session active and start the listeners, in that order')
 check(handler.count('sessionSwitches += 1') == 2, 'each switch of the session is not counted')
 check(re.search(r'sessionPortHandover: TimeInterval = 4\b', controller), 'the port handover is no longer four seconds')
 
 # Leaving the session: abort, then wait for the loop to end; no C-ECHO to wake it.
-stopping = body(controller, 'public func killDICOMListenerWait(_ w: Bool)')
-check(stopping, 'killDICOMListenerWait not found')
+stopping = body(controller, 'func stopListeners(wait: Bool)')
+check(stopping, 'stopListeners(wait:) not found')
+check('dicomListener.stopListeners(wait: w)' in body(application, 'public func killDICOMListenerWait(_ w: Bool)'),
+      '-killDICOMListenerWait: does not stop the listeners through the listener controller')
 check('QueryController.echo' not in stopping and 'echoServer' not in stopping,
       'the listener stop still sends a C-ECHO to its own port')
-order = [stopping.find(step) for step in ('listeners.plain?.abort()', 'listeners.tls?.abort()', 'self.killAllStoreSCU(self)',
-                                          'while AppController.listeners().plain?.running()', 'while AppController.listeners().tls?.running()',
-                                          'dcmtkQRSCP = nil')]
+order = [stopping.find(step) for step in ('listeners.plain?.abort()', 'listeners.tls?.abort()', 'abortIncomingTransfers()',
+                                          'while self.listeners().plain?.running()', 'while self.listeners().tls?.running()',
+                                          '$0.plain = nil')]
 check(all(at > 0 for at in order) and order == sorted(order),
       'the listeners are not aborted, the processes stopped and the loops awaited, in that order')
 # The listener is Swift and serves through its DCMTK adapter, which waits a
@@ -103,8 +115,8 @@ check(re.search(r'while \(!stop\(\)\) \{.*?if \(!stop\(\)\) \[self acceptConnect
       'the listener loop does not look at the abort before each wait')
 scp = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.swift').read_text()
 check('listener.serve(until: { [unowned self] in self.isAborted })' in scp, 'the listener does not serve until it is aborted')
-quitting = body(controller, 'func finishTermination(_ sender: Any!)')
-check('AppController.stopListeners(before: Date(timeIntervalSinceNow: 10))' in quitting, 'quitting no longer stops the listeners')
+quitting = body(application, 'func finishTermination(_ sender: Any?) {')
+check('dicomListener.stopListeners(before: Date(timeIntervalSinceNow: 10))' in quitting, 'quitting no longer stops the listeners')
 # exit() destroys DCMTK's static loggers: a listener thread still in its
 # one-second wait for an association crashed reading them. Quitting waits for
 # the listener threads to end, not for a fixed pause shorter than that wait.

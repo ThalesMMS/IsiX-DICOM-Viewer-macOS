@@ -31,7 +31,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from isix_modules import build_module  # noqa: E402
+from isix_modules import build_module, dependencies  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -50,6 +50,11 @@ SWIFT = ['O2DicomPredicateEditor', 'O2DicomPredicateEditorView', 'O2DicomPredica
 if revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
                                        f'{revision}:Horos/Sources/IdentityToken.swift']).returncode == 0:
     SWIFT.append('IdentityToken')
+# The guards of HorosObjCException (caught, logged, ...), where the revision has them.
+if revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
+                                       f'{revision}:Horos/Sources/HorosObjCException+Guards.swift'],
+                                      capture_output=True).returncode == 0:
+    SWIFT.append('HorosObjCException+Guards')
 # The main-actor hop the view's KVO override takes, where the revision has it.
 if revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
                                        f'{revision}:Horos/Sources/MainActorCallbacks.swift']).returncode == 0:
@@ -398,7 +403,10 @@ with tempfile.TemporaryDirectory(prefix='horos-smart-album-reopen-') as tmp:
     if not failures:
         build = subprocess.run(['xcrun', 'swiftc', '-import-objc-header', str(p / 'Bridge.h'), '-I', str(p),
                                 *modules, *sources, str(p / 'main.swift'), *objects,
-                                *(['-L', str(p / 'modules'), '-lIsiXDICOMFile', '-lIsiXImaging'] if uses_module else []),
+                                # IsiXDICOMFile and the modules it depends on (IsiXPreferences,
+                                # IsiXImaging...), which build_module built beside it.
+                                *(['-L', str(p / 'modules'), '-lIsiXDICOMFile',
+                                   *(f'-l{each}' for each in dependencies('IsiXDICOMFile')[::-1])] if uses_module else []),
                                 *(['-lIsiXDICOMDataset'] if uses_dataset_module else []),
                                 *(['-L', str(p / 'modules'), '-lIsiXLogging'] if uses_logging else []),
                                 '-o', str(p / 'test')],

@@ -31,11 +31,13 @@ if '@selector(mergeBrushROI:))' in viewer:
     block = viewer[start:viewer.index('else if(', start + 10)]
     rule, assigned = 'HorosROIMenuEnablement', ('valid = YES', 'valid = NO')
 else:
-    # -validateMenuItem: is Swift (ViewerController+MenuValidation.swift).
-    menus = (root / 'Horos/Sources/ViewerController+MenuValidation.swift').read_text()
+    # -validateMenuItem: is Swift: the viewer's ViewerMenuValidation
+    # (ViewerController+MenuValidation.swift before).
+    path = root / 'Horos/Sources/ViewerMenuValidation.swift'
+    menus = (path if path.exists() else root / 'Horos/Sources/ViewerController+MenuValidation.swift').read_text()
     start = menus.index('case #selector(ViewerController.mergeBrushROI(_:)):')
     block = menus[start:menus.index('\n        case ', start + 10)]
-    rule, assigned = 'ROIMenuEnablement.mayMergeBrushROIs', ('valid = true', 'valid = false')
+    rule, assigned = 'ROIMenuEnablement.mayMergeBrushROIs', ('valid = true', 'valid = false', 'isEnabled = true', 'isEnabled = false')
 if rule not in block:
     failures.append('validateMenuItem: no longer asks HorosROIMenuEnablement about the brush merge')
 if any(a in block for a in assigned):

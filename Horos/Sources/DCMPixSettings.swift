@@ -38,42 +38,71 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Foundation
+import IsiXPreferences
 import Synchronization
 
 /// What every DCMPix reads from the preferences, once and again on request
 /// (+checkUserDefaults:), the protected mode in which no image is loaded, and
-/// the count of decoded frames. The Objective-C kept these in globals of
-/// DCMPix.m; they are read and set from the loading threads as they were.
+/// the count of decoded frames. The loading threads read them, the main thread
+/// reads the preferences again when they change: the preferences are a
+/// snapshot replaced whole, the protected mode an atomic flag.
 enum DCMPixSettings {
-    nonisolated(unsafe) static var isRead = false
-    nonisolated(unsafe) static var useShutter = false
-    nonisolated(unsafe) static var displayDICOMOverlays = true
-    nonisolated(unsafe) static var useVOILUT = false
-    nonisolated(unsafe) static var suvAcquisitionTimeField: Int32 = 0
-    /// The annotation templates by modality, from the preferences; locked by itself.
-    nonisolated(unsafe) static var customImageAnnotations: NSMutableDictionary?
-    nonisolated(unsafe) static var protectedMode = false
+    /// What was read of the preferences, with the annotation templates as the
+    /// images look them up.
+    struct Reading: @unchecked Sendable {
+        // @unchecked: `templates` is an immutable dictionary made once at the
+        // read and never changed, which Foundation lets any thread read.
+        var settings = ImageLoadingSettings()
+        /// The annotation templates by modality, from the preferences.
+        var templates: NSDictionary?
+        /// False until the preferences are read, and again when +resetUserDefaults asks.
+        var isRead = false
+
+        init() {}
+
+        init(preferences store: any PreferenceStore) {
+            settings = ImageLoadingSettings(preferences: store)
+            // Read, the templates are a dictionary, empty when the preferences have none.
+            templates = .init(dictionary: (settings.customImageAnnotations ?? [:]).mapValues(\.object))
+            isRead = true
+        }
+    }
+
+    private static let snapshot = PreferenceSnapshot(Reading())
+    private static let protectedModeFlag = Atomic<Bool>(false)
 
     /// The preferences, read the first time and when `update` asks: reading
     /// the defaults is slow away from the main thread.
-    static func read(update: Bool) {
+    static func read(update: Bool, from source: PreferencesSource = .process) {
         if update { isRead = false }
         guard !isRead else { return }
-        isRead = true
+        snapshot.replace(Reading(preferences: source.preferences))
+    }
 
-        let defaults = UserDefaults.standard
-        useShutter = defaults.bool(forKey: "UseShutter")
-        displayDICOMOverlays = defaults.bool(forKey: "DisplayDICOMOverlays")
-        useVOILUT = defaults.bool(forKey: "UseVOILUT")
-        suvAcquisitionTimeField = Int32(truncatingIfNeeded: defaults.integer(forKey: "SUVAcquisitionTimeField"))
+    /// Whether the preferences were read; set to false, the next read reads them again.
+    static var isRead: Bool {
+        get { snapshot.read { $0.isRead } }
+        set { snapshot.update { $0.isRead = newValue } }
+    }
 
-        if customImageAnnotations == nil { customImageAnnotations = NSMutableDictionary() }
-        if let templates = customImageAnnotations {
-            objc_sync_enter(templates)
-            templates.removeAllObjects()
-            if let stored = defaults.dictionary(forKey: "CUSTOM_IMAGE_ANNOTATIONS") { templates.addEntries(from: stored) }
-            objc_sync_exit(templates)
-        }
+    static var useShutter: Bool { snapshot.read { $0.settings.usesShutter } }
+    static var displayDICOMOverlays: Bool { snapshot.read { $0.settings.displaysDICOMOverlays } }
+    static var useVOILUT: Bool { snapshot.read { $0.settings.usesVOILUT } }
+    static var suvAcquisitionTimeField: Int32 { Int32(truncatingIfNeeded: snapshot.read { $0.settings.suvAcquisitionTimeField }) }
+    /// The annotation templates by modality, from the preferences.
+    static var customImageAnnotations: NSDictionary? { snapshot.value.templates }
+
+    /// Turns the VOI LUT off, for every image from now on and in the preferences:
+    /// what an image whose table is corrupted does.
+    static func turnOffVOILUT(in source: PreferencesSource = .process) {
+        snapshot.update { $0.settings.usesVOILUT = false }
+        source.preferences.set(false, for: ViewerPreferences.useVOILUT)
+    }
+
+    /// No image is loaded in the protected mode.
+    static var protectedMode: Bool {
+        get { protectedModeFlag.load(ordering: .relaxed) }
+        set { protectedModeFlag.store(newValue, ordering: .relaxed) }
     }
 
     /// The threads a computation over an image is split into: the processors, up to 12.

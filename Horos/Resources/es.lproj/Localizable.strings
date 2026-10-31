@@ -457,6 +457,7 @@
 "Background Color" = "Fondo Color";
 "Background Operations" = "Fondo operaciones";
 "Background operations are currently running. Are you sure you want to quit now? These operations will be cancelled." = "Hay operaciones en segundo plano. ¿Seguro que quieres salir ahora? Se cancelarán.";
+"The database index is being rebuilt, and quitting now would leave it incomplete. Quitting goes on once the rebuild has ended." = "El índice de la base de datos se está reconstruyendo, y salir ahora lo dejaría incompleto. La salida continuará cuando termine la reconstrucción.";
 "Background: red:%.0f%%, green:%.0f%%, blue:%.0f%%" = "Background: red:%1$.0f%%, green:%2$.0f%%, blue:%3$.0f%%";
 "Basic (No Name)" = "Básicas (sin nombre)";
 "Basics" = "Opciones básicas";
@@ -722,6 +723,19 @@
 "Database maintenance stopped: %@" = "El mantenimiento de la base de datos se detuvo: %@";
 "Database only" = "Base de datos solo";
 "Database reconstruction stopped before the index could be backed up: %@" = "La reconstrucción de la base de datos se detuvo antes de respaldar el índice: %@";
+"The database index was rebuilt in its former model and stays closed. Its upgrade will be tried again the next time this database opens." = "El índice de la base de datos se reconstruyó en su modelo anterior y sigue cerrado. Su actualización se intentará de nuevo la próxima vez que se abra esta base de datos.";
+"The database index was not rebuilt and has not changed: %@\nA complete rebuild (Rebuild Entire Database...) can index the image files again." = "El índice de la base de datos no se reconstruyó y no ha cambiado: %@\nUna reconstrucción completa (Reconstruir toda la base de datos...) puede volver a indexar los archivos de imagen.";
+"The former database index was damaged, and the image files were indexed again. What only the index held, such as comments, stays in the former index, kept in: %@" = "El índice anterior de la base de datos estaba dañado, y los archivos de imagen se indexaron de nuevo. Lo que solo guardaba el índice, como los comentarios, sigue en el índice anterior, conservado en: %@";
+"The new database index could not be put in place (%@), and the files beside the former index could not be moved back. The index is in its place, and they are in: %@" = "El nuevo índice de la base de datos no se pudo colocar en su lugar (%@), y los archivos junto al índice anterior no se pudieron devolver. El índice está en su lugar, y ellos están en: %@";
+"the table %@ has a page that cannot be read, and its rows after that page would be lost." = "la tabla %@ tiene una página que no se puede leer, y sus filas posteriores a esa página se perderían.";
+"sqlite3 could not read the index." = "sqlite3 no pudo leer el índice.";
+"sqlite3 could not load the contents of the index into a new file." = "sqlite3 no pudo cargar el contenido del índice en un archivo nuevo.";
+"the file cannot be read as a database index." = "el archivo no se puede leer como índice de base de datos.";
+"the file is not a SQLite database." = "el archivo no es una base de datos SQLite.";
+"the new index could not be put in place (%@)." = "el nuevo índice no se pudo colocar en su lugar (%@).";
+"the new index does not have the table %@." = "el nuevo índice no tiene la tabla %@.";
+"the new index failed its integrity check." = "el nuevo índice no superó la comprobación de integridad.";
+"the new index would keep %ld rows of the table %@, and the damaged one can still give %ld." = "el nuevo índice conservaría %ld filas de la tabla %@, y el dañado aún puede dar %ld.";
 "Database reconstruction stopped: %@\nRecovery files: %@" = "La reconstrucción se detuvo: %@\nArchivos de recuperación: %@";
 "The albums of the former database index could not be read, and the default albums were created again. The former index is kept in: %@" = "No se pudieron leer los álbumes del índice anterior de la base de datos, y se volvieron a crear los álbumes predeterminados. El índice anterior se conserva en: %@";
 "Database Update" = "Base de datos Actualización";
@@ -955,6 +969,8 @@
 "ELBOW" = "ELBOW";
 "Email" = "Correo electrónico";
 "Email Export Failed" = "La exportación por correo falló";
+"IsiX DICOM Viewer: images in a password-protected ZIP" = "IsiX DICOM Viewer: imágenes en un ZIP protegido con contraseña";
+"IsiX DICOM Viewer: images exported as JPEG" = "IsiX DICOM Viewer: imágenes exportadas como JPEG";
 "Email this image" = "Enviar esta imagen por correo";
 "Empty" = "Vacío";
 "empty" = "vacío";
@@ -2443,6 +2459,9 @@
 "The update server returned HTTP %ld. Try again later." = "El servidor de actualizaciones devolvió HTTP %ld. Inténtalo más tarde.";
 "The update server's certificate could not be verified. A secure connection is required." = "No se pudo verificar el certificado del servidor de actualizaciones. Se requiere una conexión segura.";
 "The upgrade encountered %d errors. These corrupted studies have been removed: %@" = "La actualización encontró %1$d errores. Se eliminaron estos estudios dañados: %2$@";
+"The upgrade could not copy some series or images. These studies stay in the database without them, and their files were not removed: %@" = "La actualización no pudo copiar algunas series o imágenes. Estos estudios siguen en la base de datos sin ellas, y sus archivos no se eliminaron: %@";
+"%@ (%d series, %d images)" = "%1$@ (%2$d series, %3$d imágenes)";
+"A complete rebuild undoes series splits made by hand: their images return to the series recorded in their files. No images are lost." = "La reconstrucción completa deshace las divisiones manuales de series: las imágenes vuelven a la serie registrada en sus archivos. No se pierde ninguna imagen.";
 "The validator is missing from the application bundle." = "El validador no está en el paquete de la aplicación.";
 "The validator produced no output." = "El validador no produjo salida.";
 "The video is %d by %d, not %d by %d" = "El vídeo es de %d por %d, no de %d por %d";
@@ -2817,6 +2836,9 @@
 
 /* No comment provided by engineer. */
 "The surgical procedure records could not be written: %@" = "No se pudieron escribir los registros de procedimientos quirúrgicos: %@";
+"The surgical procedure records could not be moved into the database folder, and nothing was imported: %@" = "No se pudieron mover los registros de procedimientos quirúrgicos a la carpeta de la base de datos y no se importó nada: %@";
+"%1$ld of %2$ld surgical procedure records could not be added to the database and were left out. Import the log again to retry them." = "%1$ld de %2$ld registros de procedimientos quirúrgicos no se pudieron añadir a la base de datos y quedaron fuera. Importe el registro de nuevo para reintentarlo.";
+"The surgical procedure records are in the database folder, but the database could not be saved. Rebuilding the database will bring them in." = "Los registros de procedimientos quirúrgicos están en la carpeta de la base de datos, pero la base de datos no se pudo guardar. Al reconstruir la base de datos se incorporarán.";
 
 /* No comment provided by engineer. */
 "Numbers is not installed (error %ld). Export the surgical log as CSV and import that file." = "Numbers no está instalado (error %ld). Exporta el registro quirúrgico en CSV e importa ese archivo.";
@@ -2948,6 +2970,7 @@
 "The files were not sent to the shared database. Check the other computer and send them again." = "Los archivos no se enviaron a la base de datos compartida. Compruebe el otro ordenador y vuelva a enviarlos.";
 "The shared-database operation did not complete. Check the other computer before repeating it." = "La operación en la base de datos compartida no se completó. Compruebe el otro ordenador antes de repetirla.";
 "This graphics device has no Metal 4; the viewer is using the existing renderer." = "Esta tarjeta gráfica no tiene Metal 4; el visor usa el renderizador existente.";
+"The remote database index could not be written to a temporary file." = "No se pudo escribir el índice de la base de datos remota en un archivo temporal.";
 "The remote database index is 4 GB or larger and cannot be transferred by database sharing." = "El índice de la base de datos remota tiene 4 GB o más y no se puede transferir compartiendo la base de datos.";
 "The report could not be converted to PDF. The original report has been left unchanged." = "No se pudo convertir el informe a PDF. El informe original no se modificó.";
 "The report could not be read as %@: %@" = "No se pudo leer el informe como %@: %@";
@@ -3393,3 +3416,11 @@
 "Send by Email…" = "Enviar por correo…";
 "Open an Issue on GitHub…" = "Abrir una incidencia en GitHub…";
 "Show Report in Finder" = "Mostrar el informe en el Finder";
+"Reading undated study headers again" = "Releyendo encabezados de estudios sin fecha";
+"1 added to the database" = "1 archivo añadido a la base de datos";
+"%ld added to the database" = "%ld archivos añadidos a la base de datos";
+"1 handed to the import folder" = "1 archivo entregado a la carpeta de importación";
+"%ld handed to the import folder" = "%ld archivos entregados a la carpeta de importación";
+"%1$@ could not be downloaded: %2$@" = "No se pudo descargar %1$@: %2$@";
+"%1$@ is not something this database can take: %2$@" = "%1$@ no es algo que esta base de datos pueda aceptar: %2$@";
+"The database cannot be opened for this import." = "No se puede abrir la base de datos para esta importación.";

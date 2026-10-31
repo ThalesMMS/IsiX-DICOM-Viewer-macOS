@@ -35,7 +35,7 @@ def block(text, start, end):
 
 
 failures = []
-wado = block(code, 'objcIsEqualToString(contentType, "video/mpeg")', 'self.generateMovie(dict)')
+wado = block(code, 'objcIsEqualToString(contentType, "video/mpeg")', 'self.makeMovie(dict)')
 if not wado:
     failures.append('the WADO video/mpeg branch is not where it was')
 else:
@@ -48,7 +48,7 @@ else:
     if not clean or not joined or clean.group(1) != joined.group(1) or clean.start() > joined.start():
         failures.append('the WADO movie path is cleaned as a whole, not only its name')
 
-for route in ('processStudyListHtml()', 'processStudyListJson()'):
+for route in ('studyListPage()', 'processStudyListJson()'):
     body = block(code, f'func {route}', 'studyList_requestedStudies(')
     if 'studyList_requestsUnknownAlbum()' not in body or 'setStatusCode(404)' not in body:
         failures.append(f'{route} does not answer 404 for an unknown album before listing')

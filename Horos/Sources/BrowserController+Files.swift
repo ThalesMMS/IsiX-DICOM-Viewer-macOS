@@ -38,10 +38,12 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXDatabase
+import IsiXPreferences
 
-// Files and media of the browser: ZIP archives expanded with /usr/bin/unzip,
-// CDs and DICOMDIRs, aliases, revealing a file in the Finder and ejecting a
-// disk.
+// Files and media of the browser: aliases, revealing a file in the Finder
+// and ejecting a disk. ZIP archives, CDs and DICOMDIRs are ArchiveImport
+// (ArchiveImport.swift); their selectors stay here as forwarding methods.
 
 /// The destination of an alias file; nil when the path is not an alias.
 private func aliasDestination(_ path: String?) -> String? {
@@ -53,7 +55,7 @@ private func aliasDestination(_ path: String?) -> String? {
 
 extension BrowserController {
 
-    // MARK: ZIP archives
+    // MARK: ZIP archives (ArchiveImport)
 
     @objc(unzipFile:withPassword:destination:)
     class func unzipFile(_ file: String!, withPassword pass: String!, destination: String!) -> Bool {
@@ -65,154 +67,30 @@ extension BrowserController {
         return BrowserController.unzipFile(file, withPassword: pass, destination: destination, showGUI: showGUI, terminationStatus: nil)
     }
 
-    /// Expands `file` into `destination`, a new private folder, and answers
-    /// whether it holds a file of some content. `status` gets unzip's
-    /// termination status, -1 when it did not run. On the main thread with
-    /// `showGUI`, a progress window stays responsive while unzip runs; a
-    /// cancelled thread stops unzip. An archive unzip expanded whole with
-    /// warnings counts as expanded (HorosArchiveImportLedger).
+    /// Expands `file` into `destination` (ArchiveImport.unzip); on the main
+    /// thread with `showGUI`, offers to delete an archive that expanded.
     @objc(unzipFile:withPassword:destination:showGUI:terminationStatus:)
     nonisolated class func unzipFile(_ file: String!, withPassword pass: String!, destination: String!, showGUI: Bool,
                                      terminationStatus status: UnsafeMutablePointer<Int32>!) -> Bool {
-        status?.pointee = -1
-        if Thread.current.isCancelled { return false }
-        let files = FileManager.default
-        try? files.removeItem(atPath: destination)
-        guard (try? files.createDirectory(atPath: destination, withIntermediateDirectories: true,
-                                          attributes: [.posixPermissions: 0o700])) != nil else { return false }
-
-        // Only the main thread may show the progress window.
-        nonisolated(unsafe) var wait: WaitRendering?
-        nonisolated(unsafe) var session: NSApplication.ModalSession?
-        if Thread.isMainThread && showGUI {
-            MainActor.assumeIsolated {
-                wait = WaitRendering(NSLocalizedString("Decompressing the files...", comment: ""))
-                wait?.showWindow(self)
-                if let window = wait?.window { session = NSApp.beginModalSession(for: window) }
-            }
-        }
-
-        var succeeded = false
-        let task = Process()
-        if let exception = BrowserObjC.attempt({
-            task.launchPath = "/usr/bin/unzip"
-            task.currentDirectoryPath = files.tmpDirPath()
-            if let pass {
-                task.arguments = ["-qq", "-o", "-d", destination, "-P", pass, file]
-            } else {
-                task.arguments = ["-qq", "-o", "-d", destination, file]
-            }
-            task.standardInput = FileHandle.nullDevice
-            task.launch()
-            while task.isRunning {
-                // The progress window keeps responding while other windows
-                // stay modal: waiting for unzip must not stop the event loop.
-                if Thread.current.isCancelled {
-                    task.terminate()
-                    task.waitUntilExit()
-                    break
-                }
-                if session != nil {
-                    MainActor.assumeIsolated { _ = NSApp.runModalSession(session!) }
-                }
-                Thread.sleep(forTimeInterval: 0.02)
-            }
-            status?.pointee = task.terminationStatus
-            succeeded = !Thread.current.isCancelled
-                && ArchiveImportLedger.unzipExpandedWholeArchive(file, status: task.terminationStatus, into: destination)
-            if succeeded && task.terminationStatus != 0 {
-                NSLog("---- unzip: %@ expanded whole, with warnings (status %d)", (file as NSString).lastPathComponent, task.terminationStatus)
-            }
-        }) {
-            BrowserObjC.log(exception, stack: true, "+[BrowserController unzipFile:withPassword:destination:showGUI:terminationStatus:]")
-        }
-        if session != nil {
-            MainActor.assumeIsolated { NSApp.endModalSession(session!) }
-        }
-        if wait != nil {
-            MainActor.assumeIsolated { wait?.close() }
-        }
-        guard succeeded else { return false }
-
-        // Something of some content came out.
-        var fileExists = false
-        if let enumerator = files.enumerator(atPath: destination) {
-            while let item = enumerator.nextObject() as? String {
-                var isDirectory: ObjCBool = false
-                let path = (destination as NSString).appendingPathComponent(item)
-                if files.fileExists(atPath: path, isDirectory: &isDirectory), !isDirectory.boolValue,
-                   ((try? files.attributesOfItem(atPath: path))?[.size] as? NSNumber)?.int64Value ?? 0 > 0 {
-                    fileExists = true
-                    break
-                }
-            }
-        }
-        if fileExists && Thread.isMainThread && showGUI {
+        let expanded = ArchiveImport.unzip(file, password: pass, into: destination, showingProgress: showGUI, status: status)
+        if expanded && Thread.isMainThread && showGUI {
             MainActor.assumeIsolated { BrowserController.offer(toDeleteZIPFile: file) }
         }
-        return fileExists
+        return expanded
     }
 
-    /// After an import, deletes the archive if the user says so, or as the
-    /// preferences say once the question is suppressed.
     @objc(offerToDeleteZIPFile:)
     class func offer(toDeleteZIPFile file: String!) {
-        guard let file, FileManager.default.isWritableFile(atPath: file) else { return }
-        let defaults = UserDefaults.standard
-        if !defaults.bool(forKey: "HideZIPSuppressionMessage") {
-            let alert = NSAlert()
-            alert.messageText = NSLocalizedString("Delete ZIP file", comment: "")
-            alert.informativeText = NSLocalizedString("The ZIP file was successfully decompressed and queued for import. Should I delete the ZIP file?", comment: "")
-            alert.showsSuppressionButton = true
-            alert.addButton(withTitle: NSLocalizedString("Yes", comment: ""))
-            alert.addButton(withTitle: NSLocalizedString("No", comment: ""))
-            let answer: (NSApplication.ModalResponse) -> Void = { result in
-                let deleteArchive = result == .alertFirstButtonReturn
-                defaults.set(deleteArchive, forKey: "deleteZIPfile")
-                if alert.suppressionButton?.state == .on {
-                    defaults.set(true, forKey: "HideZIPSuppressionMessage")
-                }
-                if deleteArchive {
-                    try? FileManager.default.removeItem(atPath: file)
-                }
-            }
-            if let window = BrowserController.currentBrowser()?.window {
-                alert.beginSheetModal(for: window, completionHandler: answer)
-            } else {
-                answer(alert.runModal())
-            }
-            return
-        }
-        if defaults.bool(forKey: "deleteZIPfile") {
-            try? FileManager.default.removeItem(atPath: file)
-        }
+        ArchiveImport.offerToDelete(file, in: BrowserController.currentBrowser()?.window, preferences: PreferencesSource.process.preferences)
     }
 
-    /// Expands an encrypted archive, asking for its password in the CD
-    /// password sheet until it opens or the user cancels; NSModalResponseStop
-    /// when expanded.
     @objc(askForZIPPassword:destination:)
     @discardableResult
     func askForZIPPassword(_ file: String!, destination: String!) -> Int32 {
-        // First without a password.
-        guard !BrowserController.unzipFile(file, withPassword: nil, destination: destination) else {
-            return Int32(NSApplication.ModalResponse.stop.rawValue)
-        }
-        self.pathToEncryptedFile = String(format: NSLocalizedString("File: %@", comment: ""), file ?? "(null)")
-        self.cDpassword = ""
-        var result = NSApplication.ModalResponse.stop
-        repeat {
-            guard let sheet = horos_CDpasswordWindow else { break }
-            window?.beginSheet(sheet, completionHandler: nil)
-            result = NSApp.runModal(for: sheet)
-            sheet.makeFirstResponder(nil)
-            sheet.sheetParent?.endSheet(sheet)
-            sheet.orderOut(self)
-        } while result == .stop && !BrowserController.unzipFile(file, withPassword: self.cDpassword, destination: destination)
-        return Int32(result.rawValue)
+        return archiveImport.askForPassword(file, destination: destination)
     }
 
-    // MARK: CDs and DICOMDIRs
+    // MARK: CDs and DICOMDIRs (ArchiveImport)
 
     @available(*, deprecated)
     @objc(_findFirstDicomdirOnCDMedia:)
@@ -220,17 +98,9 @@ extension BrowserController {
         return findFirstDicomdir(inFolder: startDirectory)
     }
 
-    /// The first DICOMDIR among the files under the folder.
     @objc(findFirstDicomdirInFolder:)
     nonisolated class func findFirstDicomdir(inFolder startDirectory: String!) -> String! {
-        var found: String?
-        if let exception = BrowserObjC.attempt({
-            let files = (FileManager.default.enumerator(atPath: startDirectory, filesOnly: true).allObjects as? [String]) ?? []
-            found = DicomDatabase._findDicomdir(in: (startDirectory as NSString?)?.strings(byAppendingPaths: files))
-        }) {
-            BrowserObjC.log(exception, "+[BrowserController findFirstDicomdirInFolder:]")
-        }
-        return found
+        return ArchiveImport.firstDicomdir(inFolder: startDirectory)
     }
 
     @available(*, deprecated)
@@ -238,29 +108,9 @@ extension BrowserController {
     func readDicomCDRom(_ sender: Any!) {
     }
 
-    /// Whether the path is on a removable volume that holds a DICOMDIR, or
-    /// the encryptedDICOM.zip of a CD burnt by the application.
     @objc(isItCD:)
     nonisolated class func isItCD(_ path: String!) -> Bool {
-        guard let path else { return false }
-        let components = (path as NSString).pathComponents
-        guard components.count > 2, (components[1] as NSString).uppercased == "VOLUMES" else { return false }
-        let volumes = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: [.volumeIsRemovableKey], options: []) ?? []
-        for volume in volumes {
-            let mediaPath = volume.path
-            guard (mediaPath as NSString).isEqual(to: (mediaPath as NSString).commonPrefix(with: path, options: .caseInsensitive)) else { continue }
-            guard (try? volume.resourceValues(forKeys: [.volumeIsRemovableKey]))?.volumeIsRemovable == true else { continue }
-            let folder = FileManager.default.enumerator(atPath: mediaPath) == nil ? "/Volumes/Untitled" : mediaPath
-            // encryptedDICOM.zip: see BurnerWindowController.
-            for item in (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []
-            where ((item as NSString).lastPathComponent as NSString).isEqual(to: "encryptedDICOM.zip") {
-                return true
-            }
-            if let dicomdir = findFirstDicomdir(inFolder: folder), FileManager.default.fileExists(atPath: dicomdir) {
-                return true
-            }
-        }
-        return false
+        return ArchiveImport.isOnCD(path)
     }
 
     // MARK: Aliases
@@ -272,13 +122,11 @@ extension BrowserController {
     }
 
     @available(*, deprecated)
-    @objc(isAliasPath:)
     func isAliasPath(_ inPath: String!) -> Bool {
         return aliasDestination(inPath) != nil
     }
 
     @available(*, deprecated)
-    @objc(resolveAliasPath:)
     func resolveAliasPath(_ inPath: String!) -> String! {
         return aliasDestination(inPath) ?? inPath
     }
@@ -330,7 +178,6 @@ extension BrowserController {
     }
 
     /// Ejects the disk, trying five times a second apart.
-    @objc(unmountPath:)
     func unmountPath(_ path: String!) {
         horos_sourcesTableView?.display()
         var attempts = 0

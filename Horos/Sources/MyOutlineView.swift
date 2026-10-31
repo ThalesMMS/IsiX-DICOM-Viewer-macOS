@@ -73,12 +73,6 @@ fileprivate func objcFloatValue(_ value: Any?) -> Float {
     return 0
 }
 
-/// [[[BrowserController currentBrowser] database] isReadOnly]: NO when there
-/// is no browser or no database, as the messages to nil answered.
-@MainActor fileprivate func currentDatabaseIsReadOnly() -> Bool {
-    return BrowserController.currentBrowser()?.database?.isReadOnly ?? false
-}
-
 /// OutlineView for BrowserController.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
@@ -86,6 +80,18 @@ fileprivate func objcFloatValue(_ value: Any?) -> Float {
 /// uses the name as customClass.
 @objc(MyOutlineView)
 public final class MyOutlineView: NSOutlineView {
+
+    /// The graph of the database window this outline is in, which hands it
+    /// the browser and the database it shows; nil outside that window.
+    private var browserWindow: BrowserWindowGraph? {
+        PreferencesSource.process.processGraph.browserWindow(of: window)
+    }
+
+    /// Whether the database the window shows is read-only: NO when there is no
+    /// browser or no database, as the messages to nil answered.
+    private func currentDatabaseIsReadOnly() -> Bool {
+        return browserWindow?.database?.isReadOnly ?? false
+    }
 
     public override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         return true
@@ -304,8 +310,8 @@ public final class MyOutlineView: NSOutlineView {
                 if FileManager.default.fileExists(atPath: first.appendingPathComponent("Database.sql")) {
                     // A Horos database is opened only after the user has read
                     // what that does to it; importing or cancelling ends here.
-                    if ForeignDatabaseChoice.confirmOpening(path: first as String) {
-                        BrowserController.currentBrowser()?.database = DicomDatabase(atPath: first.deletingLastPathComponent)
+                    if ForeignDatabaseChoice.confirmOpening(path: first as String, browserWindow: browserWindow) {
+                        browserWindow?.browser.database = DicomDatabase(atPath: first.deletingLastPathComponent)
                     }
                     done = true
                 }
@@ -314,12 +320,12 @@ public final class MyOutlineView: NSOutlineView {
 
         if !done {
             if count == 1, let first, first.pathExtension == "sql" { // It's a database file !
-                guard ForeignDatabaseChoice.confirmOpening(path: first as String) else { return }
-                BrowserController.currentBrowser()?.database = DicomDatabase(atPath: first.deletingLastPathComponent)
+                guard ForeignDatabaseChoice.confirmOpening(path: first as String, browserWindow: browserWindow) else { return }
+                browserWindow?.browser.database = DicomDatabase(atPath: first.deletingLastPathComponent)
             } else if count == 1, let first, first.pathExtension == "albums" { // It's a database albums file !
-                BrowserController.currentBrowser()?.addAlbumsFile(first as String)
+                browserWindow?.browser.addAlbumsFile(first as String)
             } else {
-                BrowserController.currentBrowser()?.addFilesAndFolder(toDatabase: fileArray as? [Any])
+                browserWindow?.browser.addFilesAndFolder(toDatabase: fileArray as? [Any])
             }
         }
     }

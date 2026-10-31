@@ -39,120 +39,93 @@
 
 import Foundation
 
-// The presets of the image menus: window levels, convolution kernels, opacity
-// tables, colour tables, and the shadings of the 3D viewers.
-extension DefaultPreferences {
-    static func addImagePresets(to values: NSMutableDictionary, viewer: Bool) {
-        values["WLWW3"] = windowLevelPresets()
-        values["Convolution"] = convolutionPresets()
-        values["OPACITY"] = opacityTables()
-        if viewer {
-            values["CLUT"] = colourTables()
-        }
-    }
-
+// The factory presets of the image menus: window levels, convolution kernels,
+// opacity tables, colour tables, and the shadings of the 3D viewers.
+extension ImagePresetPreferences {
     // ** WLWW PRESETS: [level, width].
-    private static func windowLevelPresets() -> NSMutableDictionary {
-        let presets = NSMutableDictionary()
-        for (name, level, width): (String, Float, Float) in [("CT - Pulmonary", -500, 1400), ("CT - Bone", 300, 1500),
-                                                               ("CT - Brain", 50, 100), ("CT - Abdomen", 40, 350),
-                                                               ("VR - Endoscopy", -300, 700)] {
-            presets[name] = [NSNumber(value: level), NSNumber(value: width)] as NSArray
-        }
-        return presets
-    }
+    static let factoryWindowLevels: [String: WindowLevelPreset] = [
+        "CT - Pulmonary": WindowLevelPreset(level: -500, width: 1400), "CT - Bone": WindowLevelPreset(level: 300, width: 1500),
+        "CT - Brain": WindowLevelPreset(level: 50, width: 100), "CT - Abdomen": WindowLevelPreset(level: 40, width: 350),
+        "VR - Endoscopy": WindowLevelPreset(level: -300, width: 700),
+    ]
 
     // ** CONVOLUTION PRESETS
-    private static func convolutionPresets() -> NSMutableDictionary {
-        let filters = NSMutableDictionary()
-        // The first two carry their normalisation; the others the sum of their kernel.
-        addConvolutionFilter(3, [-1, -1, -1, -1, 9, -1, -1, -1, -1], "Bone Filter 3x3", normalization: 1, to: filters)
-        addConvolutionFilter(5, [1, 1, 1, 1, 1,
-                                 1, 4, 4, 4, 1,
-                                 1, 4, 12, 4, 1,
-                                 1, 4, 4, 4, 1,
-                                 1, 1, 1, 1, 1], "Basic Smooth 5x5", normalization: 60, to: filters)
-        addConvolutionFilter(3, [1, 2, 1, 2, 4, 2, 1, 2, 1], "Blur 3x3", to: filters)
-        addConvolutionFilter(5, [1, 1, 2, 1, 1, 1, 2, 3, 2, 1, 2, 3, 4, 3, 2, 1, 2, 3, 2, 1, 1, 1, 2, 1, 1], "Blur 5x5", to: filters)
-        addConvolutionFilter(5, [3, 3, 2, 3, 3, 3, 2, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 2, 3, 3, 3, 2, 3, 3], "Inverted blur", to: filters)
-        addConvolutionFilter(5, [0, 0, -1, 0, 0, 0, -1, -2, -1, 0, -1, -2, -3, -2, -1, 0, -1, -2, -1, 0, 0, 0, -1, 0, 0],
-                             "Negative blur", to: filters)
-        addConvolutionFilter(3, [1, 2, 1, 0, 0, 0, -1, -2, -1], "Emboss north", to: filters)
-        addConvolutionFilter(3, [1, 0, -1, 2, 0, -2, 1, 0, -1], "Emboss west", to: filters)
-        addConvolutionFilter(3, [0, 1, 0, -1, 0, 1, 0, -1, 0], "Emboss diagonal", to: filters)
-        addConvolutionFilter(3, [-1, -1, -1, -1, 8, -1, -1, -1, -1], "Laplacian 8", to: filters)
-        addConvolutionFilter(3, [0, -1, 0, -1, 4, -1, 0, -1, 0], "Laplacian 4", to: filters)
-        addConvolutionFilter(3, [-1, 0, -1, 0, 7, 0, -1, 0, -1], "Sharpen 3x3", to: filters)
-        addConvolutionFilter(3, [-1, 0, 0, 0, 0, 0, 0, 0, 1], "Emboss", to: filters)
-        addConvolutionFilter(3, [-1, -1, 0, -1, 0, 1, 0, 1, 1], "Emboss heavy", to: filters)
-        addConvolutionFilter(3, [1, 1, 1, 1, 1, 1, 1, 1, 1], "Lowpass", to: filters)
-        addConvolutionFilter(3, [1, -2, 1, -2, 4, -2, 1, -2, 1], "Edge 3x3", to: filters)
-        addConvolutionFilter(5, [0, -1, -1, -1, 0, -1, 2, -4, 2, -1, -1, -4, 13, -4, -1, -1, 2, -4, 2, -1, 0, -1, -1, -1, 0],
-                             "Highpass 5x5", to: filters)
-        addConvolutionFilter(5, [1, 1, 2, 1, 1, 1, 2, 4, 2, 1, 2, 4, 8, 4, 2, 1, 2, 4, 2, 1, 1, 1, 2, 1, 1], "Gaussian blur", to: filters)
-        addConvolutionFilter(5, [0, 0, -1, 0, 0, 0, -1, -2, -1, 0, -1, -2, 16, -2, -1, 0, -1, -2, -1, 0, 0, 0, -1, 0, 0], "Hat", to: filters)
-        addConvolutionFilter(5, [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 24, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-                             "Laplacian", to: filters)
-        addConvolutionFilter(5, [-1, -1, -1, -1, -1, -1, 2, 2, 2, -1, -1, 2, 8, 2, -1, -1, 2, 2, 2, -1, -1, -1, -1, -1, -1],
-                             "Sharpen 5x5", to: filters)
-        addConvolutionFilter(3, [1, 1, 1, 1, -7, 1, 1, 1, 1], "Excessive edges", to: filters)
-        return filters
-    }
-
-    private static func addConvolutionFilter(_ size: Int, _ kernel: [Int], _ name: String, normalization: Int? = nil,
-                                             to filters: NSMutableDictionary) {
-        let filter = NSMutableDictionary()
-        filter["Size"] = NSNumber(value: size)
-        filter["Normalization"] = NSNumber(value: normalization ?? kernel.reduce(0, +))
-        filter["Matrix"] = NSMutableArray(array: kernel.map { NSNumber(value: $0) })
-        filters[name] = filter
-    }
+    // The first two carry their normalisation; the others the sum of their kernel.
+    static let factoryConvolutions: [String: ConvolutionPreset] = [
+        "Bone Filter 3x3": ConvolutionPreset(size: 3, matrix: [-1, -1, -1, -1, 9, -1, -1, -1, -1], normalization: 1),
+        "Basic Smooth 5x5": ConvolutionPreset(size: 5, matrix: [1, 1, 1, 1, 1,
+                                                                1, 4, 4, 4, 1,
+                                                                1, 4, 12, 4, 1,
+                                                                1, 4, 4, 4, 1,
+                                                                1, 1, 1, 1, 1], normalization: 60),
+        "Blur 3x3": ConvolutionPreset(size: 3, matrix: [1, 2, 1, 2, 4, 2, 1, 2, 1]),
+        "Blur 5x5": ConvolutionPreset(size: 5, matrix: [1, 1, 2, 1, 1, 1, 2, 3, 2, 1, 2, 3, 4, 3, 2, 1, 2, 3, 2, 1, 1, 1, 2, 1, 1]),
+        "Inverted blur": ConvolutionPreset(size: 5, matrix: [3, 3, 2, 3, 3, 3, 2, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 2, 3, 3, 3, 2, 3, 3]),
+        "Negative blur": ConvolutionPreset(size: 5, matrix: [0, 0, -1, 0, 0, 0, -1, -2, -1, 0, -1, -2, -3, -2, -1, 0, -1, -2, -1, 0,
+                                                             0, 0, -1, 0, 0]),
+        "Emboss north": ConvolutionPreset(size: 3, matrix: [1, 2, 1, 0, 0, 0, -1, -2, -1]),
+        "Emboss west": ConvolutionPreset(size: 3, matrix: [1, 0, -1, 2, 0, -2, 1, 0, -1]),
+        "Emboss diagonal": ConvolutionPreset(size: 3, matrix: [0, 1, 0, -1, 0, 1, 0, -1, 0]),
+        "Laplacian 8": ConvolutionPreset(size: 3, matrix: [-1, -1, -1, -1, 8, -1, -1, -1, -1]),
+        "Laplacian 4": ConvolutionPreset(size: 3, matrix: [0, -1, 0, -1, 4, -1, 0, -1, 0]),
+        "Sharpen 3x3": ConvolutionPreset(size: 3, matrix: [-1, 0, -1, 0, 7, 0, -1, 0, -1]),
+        "Emboss": ConvolutionPreset(size: 3, matrix: [-1, 0, 0, 0, 0, 0, 0, 0, 1]),
+        "Emboss heavy": ConvolutionPreset(size: 3, matrix: [-1, -1, 0, -1, 0, 1, 0, 1, 1]),
+        "Lowpass": ConvolutionPreset(size: 3, matrix: [1, 1, 1, 1, 1, 1, 1, 1, 1]),
+        "Edge 3x3": ConvolutionPreset(size: 3, matrix: [1, -2, 1, -2, 4, -2, 1, -2, 1]),
+        "Highpass 5x5": ConvolutionPreset(size: 5, matrix: [0, -1, -1, -1, 0, -1, 2, -4, 2, -1, -1, -4, 13, -4, -1, -1, 2, -4, 2, -1,
+                                                            0, -1, -1, -1, 0]),
+        "Gaussian blur": ConvolutionPreset(size: 5, matrix: [1, 1, 2, 1, 1, 1, 2, 4, 2, 1, 2, 4, 8, 4, 2, 1, 2, 4, 2, 1, 1, 1, 2, 1, 1]),
+        "Hat": ConvolutionPreset(size: 5, matrix: [0, 0, -1, 0, 0, 0, -1, -2, -1, 0, -1, -2, 16, -2, -1, 0, -1, -2, -1, 0, 0, 0, -1, 0, 0]),
+        "Laplacian": ConvolutionPreset(size: 5, matrix: [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 24, -1, -1, -1, -1, -1, -1, -1,
+                                                         -1, -1, -1, -1, -1]),
+        "Sharpen 5x5": ConvolutionPreset(size: 5, matrix: [-1, -1, -1, -1, -1, -1, 2, 2, 2, -1, -1, 2, 8, 2, -1, -1, 2, 2, 2, -1,
+                                                           -1, -1, -1, -1, -1]),
+        "Excessive edges": ConvolutionPreset(size: 3, matrix: [1, 1, 1, 1, -7, 1, 1, 1, 1]),
+    ]
 
     // ** OPACITY TABLES: points of 1000 + the grey level, as NSStringFromPoint writes them.
-    private static func opacityTables() -> NSMutableDictionary {
-        func table(_ points: [NSPoint]) -> NSMutableDictionary {
-            let table = NSMutableDictionary()
-            table["Points"] = NSMutableArray(array: points.map { NSStringFromPoint($0) })
-            return table
-        }
-        let tables = NSMutableDictionary()
+    static func factoryOpacityTables() -> [String: OpacityTablePreset] {
         // 1 + level / 255 * 9 in one fused multiply-add, as clang contracted it.
-        tables["Logarithmic Table"] = table((0..<256).map { i in
-            NSPoint(x: CGFloat(1000 + i), y: log10((1.0).addingProduct(Double(i) / 255, 9)))
-        })
-        tables["Logarithmic Inverse Table"] = table((0..<256).map { i in
-            NSPoint(x: CGFloat(1000 + i), y: 1 - log10((1.0).addingProduct(Double(255 - i) / 255, 9)))
-        })
-        tables["Smooth Table"] = table([NSPoint(x: 1000 + 180, y: 0.05)])
-        return tables
+        [
+            "Logarithmic Table": OpacityTablePreset(points: (0..<256).map { i in
+                CGPoint(x: CGFloat(1000 + i), y: log10((1.0).addingProduct(Double(i) / 255, 9)))
+            }),
+            "Logarithmic Inverse Table": OpacityTablePreset(points: (0..<256).map { i in
+                CGPoint(x: CGFloat(1000 + i), y: 1 - log10((1.0).addingProduct(Double(255 - i) / 255, 9)))
+            }),
+            "Smooth Table": OpacityTablePreset(points: [CGPoint(x: 1000 + 180, y: 0.05)]),
+        ]
     }
 
     // ** CLUT PRESETS: 256 levels of each channel, and the points and colours
     // the editor shows; then the tables the application ships as plists.
-    private static func colourTables() -> NSMutableDictionary {
-        let tables = NSMutableDictionary()
-        tables["PET"] = colourTable(red: (0..<256).map { $0 < 128 ? $0 * 2 : 255 },
-                                    green: (0..<256).map { $0 < 128 ? 0 : ($0 < 192 ? ($0 - 128) * 4 : 255) },
-                                    blue: (0..<256).map { $0 < 192 ? 0 : ($0 - 192) * 4 },
-                                    points: [0, 128, 192, 256], colours: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [1, 1, 1]])
+    static func factoryColourTables() -> [String: ColourTablePreset] {
+        var tables: [String: ColourTablePreset] = [:]
+        tables["PET"] = ColourTablePreset(red: (0..<256).map { $0 < 128 ? $0 * 2 : 255 },
+                                          green: (0..<256).map { $0 < 128 ? 0 : ($0 < 192 ? ($0 - 128) * 4 : 255) },
+                                          blue: (0..<256).map { $0 < 192 ? 0 : ($0 - 192) * 4 },
+                                          points: [0, 128, 192, 256], colours: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [1, 1, 1]])
         let inverse = (0..<256).map { 255 - $0 }
-        tables["B/W Inverse"] = colourTable(red: inverse, green: inverse, blue: inverse,
-                                            points: [0, 256], colours: [[1, 1, 1], [0, 0, 0]])
+        tables["B/W Inverse"] = ColourTablePreset(red: inverse, green: inverse, blue: inverse,
+                                                  points: [0, 256], colours: [[1, 1, 1], [0, 0, 0]])
         // The level times a fraction, truncated toward zero as a C long.
-        tables["Endoscopy"] = colourTable(red: (0..<256).map { Int(240 + Double($0) * 0.02) },
-                                          green: (0..<256).map { Int(187 - Double($0) * 0.26) },
-                                          blue: (0..<256).map { Int(195 - Double($0) * 0.26) },
-                                          points: [0, 255], colours: [[1, 1, 1], [0, 0, 0]])
+        tables["Endoscopy"] = ColourTablePreset(red: (0..<256).map { Int(240 + Double($0) * 0.02) },
+                                                green: (0..<256).map { Int(187 - Double($0) * 0.26) },
+                                                blue: (0..<256).map { Int(195 - Double($0) * 0.26) },
+                                                points: [0, 255], colours: [[1, 1, 1], [0, 0, 0]])
         // These two tables were written as red, green and blue arrays and stored
         // with the red and blue channels exchanged; the stored order is kept.
-        tables["French"] = colourTable(red: frenchBlue, green: frenchGreen, blue: frenchRed,
-                                       points: [0, 255], colours: [[1, 1, 1], [0, 0, 0]])
-        tables["Perfusion"] = colourTable(red: perfusionBlue, green: perfusionGreen, blue: perfusionRed,
-                                          points: [0, 255], colours: [[1, 1, 1], [0, 0, 0]])
+        tables["French"] = ColourTablePreset(red: frenchBlue, green: frenchGreen, blue: frenchRed,
+                                             points: [0, 255], colours: [[1, 1, 1], [0, 0, 0]])
+        tables["Perfusion"] = ColourTablePreset(red: perfusionBlue, green: perfusionGreen, blue: perfusionRed,
+                                                points: [0, 255], colours: [[1, 1, 1], [0, 0, 0]])
         for name in ["VR Muscles-Bones", "VR Bones", "VR Red Vessels", "BlackBody", "Flow", "GEcolor", "Spectrum", "NIH",
                      "HotIron", "GrayRainbow", "UCLA", "Stern", "Ratio", "Rainbow3", "Rainbow2", "Rainbow", "ired", "Hue1",
                      "Hue2", "HotMetal", "HotGreen", "Jet", "PPU Inferno", "PPU Magma", "PPU Plasma", "PPU Viridis"] {
-            if let path = Bundle.main.path(forResource: name, ofType: "plist"), let table = NSDictionary(contentsOfFile: path) {
+            if let path = Bundle.main.path(forResource: name, ofType: "plist"), let data = FileManager.default.contents(atPath: path),
+               let object = try? PropertyListSerialization.propertyList(from: data, format: nil),
+               let table = ColourTablePreset.reading(present: object) {
                 tables[name] = table
             } else {
                 NSLog("CLUT plist not found: %@", name)
@@ -161,34 +134,13 @@ extension DefaultPreferences {
         return tables
     }
 
-    private static func colourTable(red: [Int], green: [Int], blue: [Int], points: [Int], colours: [[Float]]) -> NSMutableDictionary {
-        func numbers(_ values: [Int]) -> NSMutableArray { NSMutableArray(array: values.map { NSNumber(value: $0) }) }
-        let table = NSMutableDictionary()
-        table["Red"] = numbers(red)
-        table["Green"] = numbers(green)
-        table["Blue"] = numbers(blue)
-        table["Colors"] = NSMutableArray(array: colours.map { colour in colour.map { NSNumber(value: $0) } as NSArray })
-        table["Points"] = numbers(points)
-        return table
-    }
-
     /// The shadings of the 3D viewers' menu.
-    static func shadingPresets() -> NSMutableArray {
-        let presets = NSMutableArray()
-        for (name, ambient, diffuse, specular, power) in [("Default", "0.15", "0.9", "0.3", "15"),
-                                                          ("Glossy Vascular", "0.15", "0.28", "1.42", "50"),
-                                                          ("Glossy Bone", "0.15", "0.24", "1.17", "6.98"),
-                                                          ("Endoscopy", "0.12", "0.64", "0.73", "50")] {
-            let shading = NSMutableDictionary()
-            shading["name"] = name
-            shading["ambient"] = ambient
-            shading["diffuse"] = diffuse
-            shading["specular"] = specular
-            shading["specularPower"] = power
-            presets.add(shading)
-        }
-        return presets
-    }
+    static let factoryShadings: [ShadingPreset] = [
+        ShadingPreset(name: "Default", ambient: "0.15", diffuse: "0.9", specular: "0.3", specularPower: "15"),
+        ShadingPreset(name: "Glossy Vascular", ambient: "0.15", diffuse: "0.28", specular: "1.42", specularPower: "50"),
+        ShadingPreset(name: "Glossy Bone", ambient: "0.15", diffuse: "0.24", specular: "1.17", specularPower: "6.98"),
+        ShadingPreset(name: "Endoscopy", ambient: "0.12", diffuse: "0.64", specular: "0.73", specularPower: "50"),
+    ]
 
     private static let frenchRed = [0,0,2,4,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,32,34,36,36,38,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,38,36,36,34,32,32,30,28,28,26,24,24,22,20,20,18,16,16,14,12,12,10,10,10,8,8,8,6,6,6,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,148,168,176,184,192,200,208,214,220,224,226,248,250,252,254,254,254,254,254,254,254,254,254,254,254,254,254,254,254,254,254,254,252,250,250,248,246,246,242,240,238,236,234,232,230,228,226,224,220,218,216,214,214,214,214,214,214,214,214,214,214,214,214,214,214,214,214,214,214,216,216,216,218,216,216,214,214,214,214,212,212,212,210,210,210,208,208,208,206,206,206,206,206,206,206,206,206,206,206,206,206,206,206,206,206,206,206,204,204,204,204,204,204,204,204,204,206,208,210,210,214,216,218,222,226,230,232,236,238,240,240,240,240,240,240,240,240,240]
     private static let frenchGreen = [0,2,4,6,8,10,12,14,16,18,20,22,24,28,30,32,36,38,40,44,46,48,52,54,56,60,62,64,68,70,72,76,78,80,84,86,88,92,94,96,100,102,104,108,110,112,116,118,120,124,126,128,132,134,136,140,142,144,146,148,150,152,154,156,158,160,162,162,162,162,162,162,162,162,162,162,160,158,158,156,154,154,152,150,150,148,146,146,144,142,142,140,140,140,130,128,128,126,126,126,126,126,126,128,128,130,130,134,138,142,148,152,158,164,168,174,180,184,190,196,202,206,212,218,222,228,234,238,250,250,250,250,250,250,250,250,250,250,250,250,250,250,250,250,250,250,250,250,250,250,226,218,210,202,194,186,178,170,162,154,146,138,130,122,114,106,98,90,82,74,66,58,50,42,34,26,18,10,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,4,4,4,6,6,6,8,8,8,10,10,10,12,14,14,16,18,18,62,34,42,50,58,66,74,82,90,98,106,114,122,130,138,144,152,160,168,176,184,192,200,208,216,224,232,240,248,254]

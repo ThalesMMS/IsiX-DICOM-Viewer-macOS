@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Wheel and click-drag walk the series the same way in every configuration.
 
-The wheel is Swift, in DCMView+Scrolling.swift, with IsiXImaging's
-WheelSteps; -mouseDraggedImageScroll: in DCMView+MouseDragging.swift. The
-drag and the wheel's step without modifiers are compiled as they are, with
-xcrun swiftc, as an extension of the Objective-C double of DCMView, which
-reaches the ivars through the same horos_* accessors as DCMView+SwiftIvars.h;
+The wheel is Swift, in DCMView+Scrolling.swift, and the drag,
+-mouseDraggedImageScroll:, in DCMView+MouseDragging.swift; both move the
+view's StackNavigation (IsiXImaging). The drag and the wheel's step without
+modifiers are compiled as they are, with xcrun swiftc, as an extension of the
+Objective-C double of DCMView, which reaches the ivars through the same
+horos_* accessors as DCMView+SwiftIvars.h and answers the StackNavigation over them;
 the messages to the window controller go through the production
 msg/windowControllerOf helpers.
 """
@@ -26,6 +27,12 @@ a=wheel.index('} else if modifiers.contains(.shift) {')
 branch='if'+wheel[a+len('} else if'):wheel.index('\n        } else if abs(Double(deltaX)) > 0.7 {',a)]
 drag=swift.index('    @objc(mouseDraggedImageScroll:)')
 helpers=swift[swift.index('@inline(__always)\nprivate func msg('):swift.index('/// [NSUserDefaults standardUserDefaults].')]
+# The view's StackNavigation, over the double's index and drag start.
+stack='''    var stackNavigation: StackNavigation {
+        get { StackNavigation(current: self.horos_curImage, start: self.horos_startImage) }
+        set { self.horos_curImage = newValue.current; self.horos_startImage = newValue.start }
+    }
+'''
 extension='''import Cocoa
 import IsiXImaging
 // The selectors of DCMViewDraggingMessages the drag sends.
@@ -33,7 +40,7 @@ import IsiXImaging
     @objc(windowController) func draggingWindowController() -> AnyObject?
     @objc(adjustSlider) func draggingAdjustSlider()
 }
-'''+helpers+'extension DCMView {\n'+swift[drag:swift.index('    @objc(mouseDraggedBlending:)',drag)]+'''
+'''+helpers+'extension DCMView {\n'+stack+swift[drag:swift.index('    @objc(mouseDraggedBlending:)',drag)]+'''
     // A wheel event without modifiers from `from`, as scrollWheel: steps it.
     @objc(wheelStepFrom:delta:naturalScrolling:normalized:)
     func wheelStep(from: Int, delta: Float, naturalScrolling natural: Bool, normalized: Bool) -> Int {

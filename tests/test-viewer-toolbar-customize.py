@@ -55,6 +55,9 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import process_graph_stand_in  # noqa: E402  - the 2D viewer's sources read the catalog's keys through PreferencesSource
+
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 LOCALES = ('en', 'ja-JP')
@@ -392,7 +395,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-toolbar-customize-') as fo
     swift.write_text(code)
     binary = work / 'test'
     subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', *map(str, SWIFT_SOURCES), str(swift),
-                    '-framework', 'AppKit', '-o', str(binary)],
+                    *process_graph_stand_in.swift_flags(work / 'isix'), '-framework', 'AppKit', '-o', str(binary)],
                    check=True, capture_output=True)
     result = subprocess.run([str(binary), ','.join(DEFAULTS), *map(str, nibs)], capture_output=True, text=True)
     sys.stdout.write(result.stdout)

@@ -11,6 +11,7 @@ import xml.etree.ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import is_swift  # noqa: E402
+import isix_modules  # noqa: E402  - the policy reads the catalog's key
 
 root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -195,11 +196,13 @@ int main(void) { @autoreleasepool {
 } }
 """
 
-# The DCMView category is a Swift extension: the production policy,
-# a private Swift function, is compiled with the reslicer under a C name the
-# Objective-C driver calls.
+# The DCMView category is a Swift extension; the production policy is
+# IsiXPreferences' ScrollSettings.showsPositionPreview, which the extension
+# asks, compiled with the reslicer under a C name the Objective-C driver calls.
 assert is_swift('ScrollPositionPreview'), 'ScrollPositionPreview is expected in Swift'
 preview = (root/'Horos/Sources/ScrollPositionPreview.swift').read_text()
+assert '!ScrollSettings.showsPositionPreview(preferences: PreferencesSource.process.preferences) { return }' in preview, \
+    'the preview no longer asks ScrollSettings whether it is on'
 # The Viewer preferences show the switch, and it starts on.
 for language in ('Base','ja-JP'):
     tree = ET.parse(root/f'Preference Panes/OSIViewerPreferencePane/{language}.lproj/OSIViewerPreferencePanePref.xib')
@@ -207,9 +210,11 @@ for language in ('Base','ja-JP'):
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import default_preferences  # noqa: E402
 assert default_preferences.registered().get('ShowScrollPositionPreview') == '1'
-start = preview.index('private func HorosScrollPreviewIsEnabled(')
-policy_swift = ('import Foundation\n@_cdecl("HorosScrollPreviewIsEnabled")\npublic '
-                + preview[start + len('private '):preview.index('\n}\n', start) + 3])
+# The policy reads a preference store; the C driver hands it UserDefaults.
+policy_swift = ('import Foundation\nimport IsiXPreferences\n'
+                + '@_cdecl("HorosScrollPreviewIsEnabled")\n'
+                + 'public func horosScrollPreviewIsEnabledForC(_ defaults: UserDefaults) -> Bool {\n'
+                + '    ScrollSettings.showsPositionPreview(preferences: defaults)\n}\n')
 policy = 'BOOL HorosScrollPreviewIsEnabled(NSUserDefaults *defaults);\n'
 if args.keep: args.keep.mkdir(parents=True, exist_ok=True)
 with (contextlib.nullcontext(str(args.keep)) if args.keep else tempfile.TemporaryDirectory(prefix='horos-preview-reslice-')) as folder:
@@ -225,7 +230,7 @@ with (contextlib.nullcontext(str(args.keep)) if args.keep else tempfile.Temporar
                     '-emit-objc-header','-emit-objc-header-path',str(folder/'Horos-Swift.h'),
                     '-emit-module-path',str(folder/'Horos.swiftmodule'),
                     '-c',str(folder/'OrthogonalReslice.swift'),str(root/'Horos/Sources/ResliceCacheLayout.swift'),
-                    str(folder/'policy.swift'),
+                    str(folder/'policy.swift'), *isix_modules.module_flags('IsiXPreferences', folder/'isix'),
                     '-o',str(folder/'reslice.o')],check=True)
     subprocess.run(['xcrun','clang','-fno-objc-arc','-Wno-incompatible-pointer-types','-Wno-deprecated-declarations',
                     '-c',str(folder/'test.m'),'-I',str(folder),'-o',str(folder/'test.o'),
@@ -233,6 +238,7 @@ with (contextlib.nullcontext(str(args.keep)) if args.keep else tempfile.Temporar
     subprocess.run(['xcrun','clang','-fobjc-arc','-c',str(root/'Horos/Sources/HorosObjCException.m'),
                     '-I',str(root/'Horos/Sources'),'-o',str(folder/'exception.o')],check=True)
     subprocess.run(['xcrun','swiftc',str(folder/'reslice.o'),str(folder/'test.o'),str(folder/'exception.o'),
+                    *isix_modules.module_flags('IsiXPreferences', folder/'isix'),
                     '-framework','Cocoa',*sanitize_swift,'-o',str(folder/'test')],check=True)
     for _ in range(2 if args.benchmark else 1):
         subprocess.run([str(folder/'test')],check=True)

@@ -830,6 +830,7 @@
 "Background Color" = "배경 색깔";
 "Background Operations" = "백그라운드 작업";
 "Background operations are currently running. Are you sure you want to quit now? These operations will be cancelled." = "백그라운드 작업이 실행 중입니다. 지금 종료하시겠습니까? 이 작업은 취소됩니다.";
+"The database index is being rebuilt, and quitting now would leave it incomplete. Quitting goes on once the rebuild has ended." = "데이터베이스 인덱스를 다시 만드는 중이며, 지금 종료하면 인덱스가 불완전하게 남습니다. 다시 만들기가 끝나면 종료가 계속됩니다.";
 "Background:" = "배경:";
 "Background: red:%.0f%%, green:%.0f%%, blue:%.0f%%" = "Background: red:%1$.0f%%, green:%2$.0f%%, blue:%3$.0f%%";
 "Based on DICOM Validator - dciodvfy, by David A. Clunie :" = "DICOM 검증기 기반 - dciodvfy, David A. Clunie :";
@@ -1300,6 +1301,19 @@
 "Database maintenance stopped: %@" = "데이터베이스 유지 보수 중단: %@";
 "Database only" = "데이터베이스만";
 "Database reconstruction stopped before the index could be backed up: %@" = "인덱스를 백업하기 전에 데이터베이스 재구성이 중단되었습니다: %@";
+"The database index was rebuilt in its former model and stays closed. Its upgrade will be tried again the next time this database opens." = "데이터베이스 인덱스가 이전 모델로 재구축되었으며 닫힌 상태로 유지됩니다. 업그레이드는 다음에 이 데이터베이스를 열 때 다시 시도됩니다.";
+"The database index was not rebuilt and has not changed: %@\nA complete rebuild (Rebuild Entire Database...) can index the image files again." = "데이터베이스 인덱스는 재구축되지 않았으며 변경되지 않았습니다: %@\n완전한 재구축(전체 데이터베이스 재구축 ...)으로 이미지 파일을 다시 인덱싱할 수 있습니다.";
+"The former database index was damaged, and the image files were indexed again. What only the index held, such as comments, stays in the former index, kept in: %@" = "이전 데이터베이스 인덱스가 손상되어 이미지 파일을 다시 인덱싱했습니다. 주석처럼 인덱스에만 있던 내용은 이전 인덱스에 남아 있으며, 위치: %@";
+"The new database index could not be put in place (%@), and the files beside the former index could not be moved back. The index is in its place, and they are in: %@" = "새 데이터베이스 인덱스를 제자리에 놓을 수 없었고(%@), 이전 인덱스 옆의 파일도 되돌릴 수 없었습니다. 인덱스는 제자리에 있으며, 파일 위치: %@";
+"the table %@ has a page that cannot be read, and its rows after that page would be lost." = "테이블 %@에 읽을 수 없는 페이지가 있어 그 페이지 뒤의 행이 손실됩니다.";
+"sqlite3 could not read the index." = "sqlite3가 인덱스를 읽을 수 없었습니다.";
+"sqlite3 could not load the contents of the index into a new file." = "sqlite3가 인덱스 내용을 새 파일로 불러올 수 없었습니다.";
+"the file cannot be read as a database index." = "파일을 데이터베이스 인덱스로 읽을 수 없습니다.";
+"the file is not a SQLite database." = "파일이 SQLite 데이터베이스가 아닙니다.";
+"the new index could not be put in place (%@)." = "새 인덱스를 제자리에 놓을 수 없었습니다(%@).";
+"the new index does not have the table %@." = "새 인덱스에 테이블 %@이(가) 없습니다.";
+"the new index failed its integrity check." = "새 인덱스가 무결성 검사를 통과하지 못했습니다.";
+"the new index would keep %ld rows of the table %@, and the damaged one can still give %ld." = "새 인덱스에는 %ld개 행만 남으며(테이블 %@), 손상된 인덱스에서는 아직 %ld개를 읽을 수 있습니다.";
 "Database reconstruction stopped: %@\nRecovery files: %@" = "데이터베이스 재구성 중단: %@\n복구 파일: %@";
 "Database updating failed... The database SQL index file is probably corrupted... The database will be reconstructed." = "데이터베이스 업데이트 실패... 데이터베이스 SQL 인덱스 파일이 손상되었을 수 있습니다... 데이터베이스가 재구성됩니다.";
 "Database: %@" = "데이터베이스: %@";
@@ -1494,6 +1508,8 @@
 "Email Address:" = "이메일 주소:";
 "Email Engine:" = "이메일 엔진:";
 "Email Export Failed" = "이메일 내보내기 실패";
+"IsiX DICOM Viewer: images in a password-protected ZIP" = "IsiX DICOM Viewer: 암호로 보호된 ZIP의 이미지";
+"IsiX DICOM Viewer: images exported as JPEG" = "IsiX DICOM Viewer: JPEG로 내보낸 이미지";
 "Email this image" = "이 영상 이메일로 보내기";
 "Email:" = "이메일:";
 "Emails (requires the Mail application to be correctly configured on this computer)" = "이메일(이 컴퓨터에서 Mail 앱이 올바르게 설정되어 있어야 함)";
@@ -3727,6 +3743,7 @@
 "The query cannot be encoded in current character set. Should I switch to UTF-8 (ISO_IR 192) encoding?" = "쿼리는 현재 문자 집합에서 인코딩 할 수 없습니다. UTF-8 (ISO_IR 192) 인코딩으로 전환해야합니까?";
 "The reconstructed database index could not be opened." = "재구성 된 데이터베이스 인덱스는 열 수 없습니다.";
 "The registered comparison could not be copied to the clipboard." = "정합된 비교를 클립보드에 복사할 수 없습니다.";
+"The remote database index could not be written to a temporary file." = "원격 데이터베이스 인덱스를 임시 파일에 쓸 수 없습니다.";
 "The remote database index is 4 GB or larger and cannot be transferred by database sharing." = "원격 데이터베이스 인덱스는 4 GB 이상이며 데이터베이스 공유로 전송할 수 없습니다.";
 "The remote database index is empty." = "원격 데이터베이스 인덱스가 비어 있습니다.";
 "The report PDF is missing or unreadable. The original report has been left unchanged." = "보고서 PDF가 누락되거나 읽을 수 없습니다. 원본 보고서는 변경되지 않았습니다.";
@@ -3765,6 +3782,9 @@
 "The study is not available in the local Database, you cannot modify or set the comments/status fields." = "이 검사는 로컬 데이터베이스에 없으므로 코멘트/상태 필드를 수정하거나 설정할 수 없습니다.";
 "The surgical log could not be read." = "수술 로그는 읽을 수 없습니다.";
 "The surgical procedure records could not be written: %@" = "수술 기록을 작성할 수 없습니다: %@";
+"The surgical procedure records could not be moved into the database folder, and nothing was imported: %@" = "수술 기록을 데이터베이스 폴더로 옮길 수 없어 아무것도 가져오지 않았습니다: %@";
+"%1$ld of %2$ld surgical procedure records could not be added to the database and were left out. Import the log again to retry them." = "수술 기록 %2$ld개 중 %1$ld개를 데이터베이스에 추가할 수 없어 제외했습니다. 다시 시도하려면 로그를 다시 가져오십시오.";
+"The surgical procedure records are in the database folder, but the database could not be saved. Rebuilding the database will bring them in." = "수술 기록은 데이터베이스 폴더에 있지만 데이터베이스를 저장할 수 없습니다. 데이터베이스를 재구축하면 포함됩니다.";
 "The surgical procedure records could not be written: the database changed after this preview was created." = "수술 기록을 작성할 수 없습니다. 이 미리보기가 생성된 후 데이터베이스가 변경되었습니다.";
 "The syntax is similar to smart albums. For example:\n(referringPhysician CONTAINS[cd] 'Prof. ROSSET')\n(YES == NO) for an empty list." = "구문은 스마트 앨범과 유사합니다. 예:\n(referringPhysician CONTAINS[cd] 'Prof. ROSSET')\n빈 목록은 (YES == NO)";
 "The table is missing required columns: %@" = "테이블에 필요한 열이 없습니다: %@";
@@ -3777,6 +3797,9 @@
 "The update server returned HTTP %ld. Try again later." = "업데이트 서버 응답: HTTP %ld. 나중에 다시 시도하십시오.";
 "The update server's certificate could not be verified. A secure connection is required." = "업데이트 서버의 인증서가 확인되지 않았습니다. 보안 연결이 필요합니다.";
 "The upgrade encountered %d errors. These corrupted studies have been removed: %@" = "업그레이드 중 오류 %1$d개가 발생했습니다. 손상된 다음 검사가 제거되었습니다: %2$@";
+"The upgrade could not copy some series or images. These studies stay in the database without them, and their files were not removed: %@" = "업그레이드 중 일부 시리즈 또는 영상을 복사하지 못했습니다. 다음 검사는 해당 항목 없이 데이터베이스에 남아 있으며 파일은 제거되지 않았습니다: %@";
+"%@ (%d series, %d images)" = "%1$@(시리즈 %2$d개, 영상 %3$d개)";
+"A complete rebuild undoes series splits made by hand: their images return to the series recorded in their files. No images are lost." = "완전한 재구축은 수동으로 나눈 시리즈를 되돌립니다. 영상은 파일에 기록된 시리즈로 돌아가며, 손실되는 영상은 없습니다.";
 "The validator is missing from the application bundle." = "응용 프로그램 번들에 검증기가 없습니다.";
 "The validator produced no output." = "검증기가 아무것도 출력하지 않았습니다.";
 "The video is %d by %d, not %d by %d" = "비디오 크기는 %d×%d이며, %d×%d이 아닙니다";
@@ -4744,3 +4767,11 @@
 "Send by Email…" = "이메일로 보내기…";
 "Open an Issue on GitHub…" = "GitHub에 이슈 열기…";
 "Show Report in Finder" = "Finder에서 보고서 보기";
+"Reading undated study headers again" = "날짜 없는 검사의 헤더를 다시 읽는 중";
+"1 added to the database" = "파일 1개를 데이터베이스에 추가했습니다";
+"%ld added to the database" = "파일 %ld개를 데이터베이스에 추가했습니다";
+"1 handed to the import folder" = "파일 1개를 가져오기 폴더로 넘겼습니다";
+"%ld handed to the import folder" = "파일 %ld개를 가져오기 폴더로 넘겼습니다";
+"%1$@ could not be downloaded: %2$@" = "%1$@을(를) 다운로드할 수 없습니다: %2$@";
+"%1$@ is not something this database can take: %2$@" = "이 데이터베이스는 %1$@을(를) 받을 수 없습니다: %2$@";
+"The database cannot be opened for this import." = "이 가져오기를 위해 데이터베이스를 열 수 없습니다.";

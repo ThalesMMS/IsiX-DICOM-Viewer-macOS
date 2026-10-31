@@ -115,10 +115,10 @@ public final class DCMTKStoreSCU: NSObject, @unchecked Sendable {
         tls = TLSNodeSettings(extraParameters: extraParameters)
 
         // Absent paths stay in the inventory: the send records their read
-        // failure with the other per-file outcomes.
-        let files = NSMutableArray(array: filesToSend ?? [])
-        files.removeDuplicatedStrings()
-        self.filesToSend = files.compactMap { $0 as? String }
+        // failure with the other per-file outcomes. Each path once, compared
+        // as -isEqualToString: does, by its UTF-16 code units.
+        var seen = Set<[UInt16]>()
+        self.filesToSend = (filesToSend ?? []).compactMap { $0 as? String }.filter { seen.insert(Array($0.utf16)).inserted }
         numberOfFiles = self.filesToSend.count
         super.init()
         if let first = self.filesToSend.first { readNames(ofFileAtPath: first) }
@@ -149,29 +149,49 @@ public final class DCMTKStoreSCU: NSObject, @unchecked Sendable {
 
     @objc(run:)
     public func run(_ operation: Operation?) {
+        do {
+            try sendFiles(operation)
+        } catch let failure as StoreSendFailure {
+            NSException(name: NSExceptionName(failure.name), reason: failure.reason, userInfo: nil).raise()
+        } catch {
+            NSException(name: .genericException, reason: error.localizedDescription, userInfo: nil).raise()
+        }
+    }
+
+    /// The send of -run:, which throws the StoreSendFailure that ended it
+    /// where -run: raises it.
+    func sendFiles(_ operation: Operation? = nil) throws {
+        if let failure = sendReportingFailure(operation) {
+            throw failure
+        }
+    }
+
+    /// The send of -run:, with what ended it returned instead of raised, for
+    /// a caller that tells the user itself. Without an operation, the thread
+    /// it runs on is cancelled to stop it.
+    func sendReportingFailure(_ operation: Operation? = nil) -> StoreSendFailure? {
         var failure: StoreSendFailure?
         let files = StoreTemporaryFiles()
         autoreleasepool {
             failure = send(operation, temporaryFiles: files)
         }
         files.remove()
-        if let failure {
-            NSException(name: NSExceptionName(failure.name), reason: failure.reason, userInfo: nil).raise()
-        }
+        return failure
     }
 
     /// The send itself; the failure -run: raises, if any.
     private func send(_ operation: Operation?, temporaryFiles: StoreTemporaryFiles) -> StoreSendFailure? {
-        AppController.shared()?.notificationTitle(
-            NSLocalizedString("DICOM Send", comment: ""),
+        let notifications = PreferencesSource.process.processGraph.userNotifications
+        notifications.post(
+            title: NSLocalizedString("DICOM Send", comment: ""),
             description: String(format: NSLocalizedString("Sending %@...\rTo: %@ - %@", comment: ""),
                                 storeSCUCount(filesToSend.count, NSLocalizedString("file", comment: ""), NSLocalizedString("files", comment: "")),
                                 calledAET ?? "(null)", hostname ?? "(null)"),
             name: "send")
 
-        // Never verbose: the setting is cleared before it is read.
-        UserDefaults.standard.set(false, forKey: "verbose_dcmtkStoreScu")
-        let verbose = UserDefaults.standard.bool(forKey: "verbose_dcmtkStoreScu")
+        // Never verbose: the send used to clear verbose_dcmtkStoreScu and then
+        // read it back, and nothing else reads that setting.
+        let verbose = false
         let network = StoreSendSyntax.network(forSetting: Int(transferSyntax))
         IsiXDCMTKAssociation.configureForSending(verbose: verbose, deflateLevel: Int(compression),
                                                         deflated: network.transferSyntax == TransferSyntaxUID.deflatedExplicitLittleEndian)
@@ -191,13 +211,12 @@ public final class DCMTKStoreSCU: NSObject, @unchecked Sendable {
         Thread.sleep(forTimeInterval: 1)
         if let closing = link.close() { recorded = closing }
 
-        var userInfo: [String: Any] = ["SendTotal": numberOfFiles, "NumberSent": numberSent, "ErrorCount": numberErrors, "Sent": 0]
+        let message: String
         if numberSent != numberOfFiles || recorded != nil {
-            userInfo["Message"] = cancelled(operation) ? "Aborted" : "Incomplete"
+            message = cancelled(operation) ? "Aborted" : "Incomplete"
             numberErrors = numberOfFiles - numberSent
-            userInfo["ErrorCount"] = numberErrors
-            AppController.shared()?.notificationTitle(
-                NSLocalizedString("DICOM Send", comment: ""),
+            notifications.post(
+                title: NSLocalizedString("DICOM Send", comment: ""),
                 description: String(format: NSLocalizedString("Errors ! %@ of %@ generated errors.", comment: ""),
                                     NumberFormatter.localizedString(from: NSNumber(value: numberErrors), number: .decimal),
                                     storeSCUCount(numberOfFiles, NSLocalizedString("file", comment: ""), NSLocalizedString("files", comment: ""))),
@@ -209,9 +228,9 @@ public final class DCMTKStoreSCU: NSObject, @unchecked Sendable {
             // of a released application.
             if recorded == nil { recorded = StoreSendFailure(name: StoreSendFailure.store, reason: report.detail(limit: 5)) }
         } else {
-            userInfo["Message"] = "Complete"
+            message = "Complete"
         }
-        updateLogEntry(NSMutableDictionary(dictionary: userInfo))
+        updateLogEntry(message: message)
         if numberOfFiles >= 1 {
             let extraInfo = tls.enabled ? " (TLS Activated)" : ""
             Thread.current.status = String(format: NSLocalizedString("%@%@", comment: ""),
@@ -250,10 +269,7 @@ public final class DCMTKStoreSCU: NSObject, @unchecked Sendable {
                 }
             }
 
-            let userInfo = NSMutableDictionary(dictionary: ["SendTotal": numberOfFiles, "NumberSent": numberSent,
-                                                            "ErrorCount": numberErrors, "Sent": 0, "Message": "In Progress"])
-            if cancelled(operation) { userInfo["Message"] = "Incomplete" }
-            updateLogEntry(userInfo)
+            updateLogEntry(message: cancelled(operation) ? "Incomplete" : "In Progress")
             if numberOfFiles >= 1 {
                 let extraInfo = tls.enabled ? NSLocalizedString(" (TLS)", comment: "don't remove leading space") : ""
                 let remaining = numberOfFiles - numberSent
@@ -270,10 +286,10 @@ public final class DCMTKStoreSCU: NSObject, @unchecked Sendable {
         try link.end(after: condition)
     }
 
-    /// The entry of this send in the network log, when the log is on.
-    @objc(updateLogEntry:)
-    public func updateLogEntry(_ userInfo: NSMutableDictionary) {
-        guard BrowserController.currentBrowser()?.isNetworkLogsActive() == true else { return }
+    /// The entry of this send in the network log, when the log is on, with
+    /// `message` as its state.
+    private func updateLogEntry(message: String) {
+        guard BrowserDatabaseSource.process.processGraph.networkLogsActive else { return }
         if logEntry == nil {
             let entry = NSMutableDictionary()
             entry.setValue(String(format: "%lf", Date().timeIntervalSince1970), forKey: "logUID")
@@ -290,7 +306,7 @@ public final class DCMTKStoreSCU: NSObject, @unchecked Sendable {
         logEntry.setValue(NSNumber(value: numberSent), forKey: "logNumberReceived")
         logEntry.setValue(NSNumber(value: numberErrors), forKey: "logNumberError")
         logEntry.setValue(Date(), forKey: "logEndTime")
-        logEntry.setValue(userInfo.value(forKey: "Message"), forKey: "logMessage")
+        logEntry.setValue(message, forKey: "logMessage")
         (LogManager.currentLogManager() as? LogManager)?.addLogLine(logEntry)
     }
 }
@@ -305,7 +321,7 @@ final class StoreTemporaryFiles {
     /// The path of the next copy; nil when it would be too long for DCMTK.
     func nextPath() -> String? {
         if folder == nil {
-            folder = FileManager.default.tmpDirectoryPath(inDir: DicomDatabase.activeLocal()?.tempDirPath())
+            folder = FileManager.default.tmpDirectoryPath(inDir: BrowserDatabaseSource.process.activeLocalDatabase?.tempDirPath())
         }
         let path = "\(folder ?? "(null)")/\(seed).dcm"
         seed += 1

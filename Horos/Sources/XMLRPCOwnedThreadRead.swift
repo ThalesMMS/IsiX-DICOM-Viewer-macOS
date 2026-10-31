@@ -24,22 +24,28 @@ import Foundation
 /// `getDisplayed2DViewers`: the 2D UI already runs on main.
 @objc(HorosXMLRPCOwnedThreadRead)
 public final class XMLRPCOwnedThreadRead: NSObject {
-    private final class Box: NSObject {
-        let work: () -> Any
-        var result: Any = NSNull()
-        init(_ work: @escaping () -> Any) { self.work = work }
-        @objc func run() { result = work() }
-    }
-
     /// Runs `work` on the main thread and waits. Already there: runs in place,
     /// so a caller that is already on main does not deadlock. The connection
     /// thread keeps the result and replies itself.
+    ///
+    /// The work runs from the main run loop, in its common modes, as a
+    /// perform on the main thread did: not from a block of the main queue,
+    /// which a modal panel the work may open would hold. The waiting thread
+    /// hands the work over and takes the answer back only after the main
+    /// thread has signalled, so neither is used by both threads at once.
     @objc(onMainAndWait:)
     public static func onMainAndWait(_ work: @escaping @convention(block) () -> Any) -> Any {
         if Thread.isMainThread { return work() }
-        let box = Box(work)
-        box.perform(#selector(Box.run), on: Thread.main, with: nil as Any?, waitUntilDone: true)
-        return box.result
+        var result: Any = NSNull()
+        let done = DispatchSemaphore(value: 0)
+        let mainRunLoop = CFRunLoopGetMain()
+        CFRunLoopPerformBlock(mainRunLoop, CFRunLoopMode.commonModes.rawValue) {
+            result = work()
+            done.signal()
+        }
+        CFRunLoopWakeUp(mainRunLoop)
+        done.wait()
+        return result
     }
 
     /// Attributes a caller may put in an XML-RPC struct: strings, numbers and

@@ -25,6 +25,8 @@ import sys
 import tempfile
 import threading
 import harness_defaults  # the harness's preferences stay in its own process
+import isix_modules  # the downloader's rules are in IsiXDICOMNetwork
+import ingest_standin  # what the downloader asks of the single entry
 from urllib.parse import parse_qs
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
 from local_http import ThreadingLocalHTTPServer  # a fixture binds without the DNS
@@ -38,8 +40,12 @@ failures = []
 
 # --- source -----------------------------------------------------------------
 download = (ROOT / 'Horos/Sources/WADODownload.swift').read_text()
-if 'WADOOriginalSyntax.request(for: url as URL)' not in download:
+if 'WADOOriginalSyntax.request(for: url, withoutWildcard: self.passWithoutWildcard)' not in download:
     failures.append('the pass does not send the rewritten URL')
+# The wildcard rule is in IsiXDICOMNetwork.
+syntax_rule = (ROOT / 'Modules/IsiXDICOMNetwork/Sources/WADOOriginalSyntax.swift').read_text()
+if 'return pass && carriesWildcard(url) ? withoutWildcard(url) : request(for: url)' not in syntax_rule:
+    failures.append('the pass that asks again still sends the wildcard')
 # The query node takes its WADO-URI syntax from IsiXDICOMNetwork.
 query = (ROOT / 'Modules/IsiXDICOMNetwork/Sources/RetrieveRules.swift').read_text()
 if 'return ("&transferSyntax=*&useOrig=true", 100)' not in query:
@@ -63,6 +69,16 @@ EXPLICIT = '&transferSyntax=1.2.840.10008.1.2.1'
 
 DRIVER = r'''
 import Cocoa
+import IsiXDICOMNetwork
+// The process graph the downloader reads its preferences from.
+final class ProcessGraph: Sendable {
+    static let process = ProcessGraph()
+    var databaseIngest: DatabaseIngest { DatabaseIngest() }
+    var preferences: UserDefaults { UserDefaults.standard }
+    // The browser's network-log switch and database, which LogManager reads.
+    var networkLogsActive: Bool { BrowserController.currentBrowser()?.isNetworkLogsActive() ?? false }
+    var browserDatabase: DicomDatabase? { BrowserController.currentBrowser()?.database }
+}
 final class HorosAlertPanel {
     static func runCritical(title: String?, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) {}
 }
@@ -135,6 +151,7 @@ with tempfile.TemporaryDirectory(prefix='wado-original-syntax-') as directory:
     (work / 'harness.h').write_text(values['HEADER'])
     (work / 'doubles.m').write_text(values['DOUBLES'] + harness_defaults.OBJC)
     (work / 'driver.swift').write_text(DRIVER)
+    (work / 'ingest.swift').write_text(ingest_standin.SWIFT)
 
     def run(command, **kwargs):
         result = subprocess.run(command, capture_output=True, text=True, timeout=300, **kwargs)
@@ -146,11 +163,11 @@ with tempfile.TemporaryDirectory(prefix='wado-original-syntax-') as directory:
              str(work / (name + '.m')), '-o', str(work / (name + '.o'))])
     executable = work / 'test'
     run(['xcrun', 'swiftc', '-suppress-warnings', '-swift-version', '5', '-parse-as-library', '-module-name', 'Horos',
-         '-import-objc-header', str(work / 'harness.h'),
+         '-import-objc-header', str(work / 'harness.h'), *isix_modules.module_flags('IsiXDICOMNetwork', work / 'modules'),
          *[str(ROOT / 'Horos/Sources' / name) for name in ('WADODownload.swift', 'ActivityProgressCount.swift', 'IdentityToken.swift', 'WADOCredentials.swift', 'DICOMwebCredentials.swift',
-                                                         'NonInteractiveKeychainRead.swift', 'RetrieveManifest.swift', 'LogManager.swift',
+                                                         'NonInteractiveKeychainRead.swift', 'RetrieveManifest.swift', 'LogManager.swift', 'HorosObjCException+Guards.swift',
                                                          'NodeRequestLimiter.swift', 'RetrievePlan.swift')],
-         str(work / 'driver.swift'), str(work / 'HorosObjCException.o'), str(work / 'doubles.o'),
+         str(work / 'ingest.swift'), str(work / 'driver.swift'), str(work / 'HorosObjCException.o'), str(work / 'doubles.o'),
          '-framework', 'Cocoa', '-framework', 'CoreData', '-o', str(executable)])
 
     server = ThreadingLocalHTTPServer(('127.0.0.1', 0), Handler)

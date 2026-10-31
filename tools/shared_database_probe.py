@@ -29,10 +29,15 @@ PROBE_SOURCE = ROOT / "tools/probe-shared-database-server.m"
 # the one before, so a revision of BonjourPublisher.m from before it still links.
 OBJECTS = ["BonjourPublisher", "N2Connection", "N2ConnectionListener", "N2Locker", "N2Debug", "NSException+N2",
            "SharedDatabaseAuthorization", "SharedDatabaseWire", "SharedDatabaseRequests", "HorosDatabaseServer",
+           # The process graph the publisher's connections receive their dependencies from.
+           "ProcessGraph",
            # N2ConnectionListener and N2Locker are Swift: the listener's
            # notification constants stay in its +CAPI.o, and it catches
            # Objective-C exceptions through HorosObjCException.
            "N2ConnectionListener+CAPI", "HorosObjCException",
+           # The guards the Swift objects name (HorosObjCException.caught,
+           # .throwing, .logged...), Swift members of the same class.
+           "HorosObjCException+Guards",
            # N2Debug and NSException+N2 are Swift: N2Debug.o defines
            # _N2LogExceptionImpl, which the publisher logs through, and the
            # stack trace message it writes with NSException+N2.o. The variadic
@@ -42,6 +47,13 @@ OBJECTS = ["BonjourPublisher", "N2Connection", "N2ConnectionListener", "N2Locker
 # The earlier listener and its connection left the app with their last callers:
 # a build without them links the current server alone.
 EARLIER_LISTENER = {"N2Connection", "N2ConnectionListener", "N2ConnectionListener+CAPI"}
+# The wire rules left the app for IsiXDICOMNetwork, and the process graph came
+# with the publisher that reads it: a build has one or the other, and a
+# publisher that needs neither links without them.
+OPTIONAL = {"SharedDatabaseWire", "ProcessGraph", "HorosObjCException+Guards"}
+# The protocol's rules (IsiXDICOMNetwork), built from the module's sources and
+# linked statically, as the app links the package's product.
+PROTOCOL_MODULE = "IsiXDICOMNetwork"
 # The Swift BonjourPublisher.o names HorosBonjourAdvertisement and
 # HorosListenBindFailure by their Swift symbols, so their own objects are linked,
 # not the probe's stand-ins. A revision's BonjourPublisher.m does not. It also
@@ -67,31 +79,116 @@ import Foundation
     @_silgen_name("$s5Horos13AppControllerC16bonjourPublisherAA07BonjourE0CSgvg")
     public func bonjourPublisherStandIn() -> AnyObject? { return AppController.publisher }
     public func reportListenBindFailure(forService service: String!, port: Int, errnoCode code: Int32) {}
+    // Where ProcessGraph.o finds the stored properties it reads by their field
+    // offsets (APP_CONTROLLER_FIELD_OFFSETS): nil, as before the nib loads.
+    private var browserWindowSlot: AnyObject? = nil
+    private var recentStudiesMenuSlot: AnyObject? = nil
+    private var receivingIndicatorSlot: AnyObject? = nil
+}
+"""
+# ProcessGraph.o makes the viewers' registry, caches and sync state, and keeps
+# the places of the menus, the window arranger and the DICOM listener it makes
+# on first use: their classes, empty, stand in for them, because the real ones
+# bring the viewer with them. The server path uses none of them.
+PROCESS_GRAPH_MEMBERS_STAND_IN = """
+public final class ViewerRegistry { public init() {} }
+public final class PresetMenuCache { public init() {} }
+public final class ColourTableCache { public init() {} }
+public final class ViewerSyncState { public init() {} }
+public final class ApplicationMenus {}
+public final class ViewerWindowArranger {}
+public final class DICOMListenerController {}
+"""
+# ProcessGraph.o also makes the Notification Center delivery and the PACS
+# On-Demand nodes as it is made: their stand-ins keep the initializers, the
+# conformance and the defaults it calls, and nothing of the notifications or
+# the DCMTK queries the real ones bring.
+PROCESS_GRAPH_VALUES_STAND_IN = """
+import Foundation
+import IsiXDatabase
+import IsiXInstallation
+import IsiXPreferences
+// Public, so that the initializers are exported; ProcessGraph.o asks for the
+// initializer's default arguments by their own symbols, which these are.
+public final class UserNotificationDelivery {
+    public typealias Deliver = @MainActor @Sendable (_ title: String?, _ body: String?, _ kind: String, _ sound: Bool) -> Void
+    public nonisolated init(policy: NotificationBurstPolicy, deliver: @escaping Deliver) {}
+}
+@_silgen_name("$s5Horos24UserNotificationDeliveryC6policy7deliverAC16IsiXInstallation0C11BurstPolicyV_ySSSg_AISSSbtYbScMYcctcfcfA_")
+public func probeDefaultNotificationPolicy() -> NotificationBurstPolicy { NotificationBurstPolicy() }
+@_silgen_name("$s5Horos24UserNotificationDeliveryC6policy7deliverAC16IsiXInstallation0C11BurstPolicyV_ySSSg_AISSSbtYbScMYcctcfcfA0_")
+public func probeDefaultNotificationDelivery() -> UserNotificationDelivery.Deliver { { _, _, _, _ in } }
+public struct QueryControllerDistantStudies: DistantStudyQuerying {
+    public let preferences: any PreferenceStore
+    public init(preferences: any PreferenceStore) { self.preferences = preferences }
+    public func studies(matching filters: [String: PropertyListValue], activity: String) async -> [DistantStudySummary] { [] }
+    public func patientStudies(of patient: Int, activity: String) async -> [DistantStudySummary] { [] }
+}
+"""
+# ProcessGraph.o reads stored properties of the final AppController directly,
+# through the field offsets Swift exports for them. These are those offsets,
+# pointing at the stand-in's slots, which the runtime places, so they are read
+# from its instance variables once the classes are loaded. The browser's window
+# graph, the Recent Studies menu and the Dock's receiving indicator stay nil:
+# the server path reads none of them.
+APP_CONTROLLER_FIELD_OFFSETS = r"""
+#import <Foundation/Foundation.h>
+#import <objc/runtime.h>
+long ProbeBrowserWindowOffset __asm__("_$s5Horos13AppControllerC13browserWindowAA07BrowserE5GraphCSgvpWvd");
+long ProbeRecentStudiesMenuOffset __asm__("_$s5Horos13AppControllerC17recentStudiesMenuSo6NSMenuCSgvpWvd");
+long ProbeReceivingIndicatorOffset __asm__("_$s5Horos13AppControllerC18receivingIndicatorAA09ReceivingE0CvpWvd");
+long ProbeBrowserWindowOffset, ProbeRecentStudiesMenuOffset, ProbeReceivingIndicatorOffset;
+static long ProbeSlot(Class cls, const char *name) {
+    Ivar ivar = class_getInstanceVariable(cls, name);
+    return ivar ? (long)ivar_getOffset(ivar) : 0;
+}
+__attribute__((constructor)) static void ProbeAppControllerFieldOffsets(void) {
+    Class cls = objc_getClass("SharedDatabaseProbeAppController");
+    ProbeBrowserWindowOffset = ProbeSlot(cls, "browserWindowSlot");
+    ProbeRecentStudiesMenuOffset = ProbeSlot(cls, "recentStudiesMenuSlot");
+    ProbeReceivingIndicatorOffset = ProbeSlot(cls, "receivingIndicatorSlot");
 }
 """
 # DCMTKStoreSCU is Swift too: the publisher builds a send and asks for the
 # listener's send syntax by their Swift symbols. The stand-in sends nothing and
-# hands the syntax back as it is, like the probe's Objective-C stand-in.
+# hands the syntax back as it is, like the probe's Objective-C stand-in. A
+# publisher that queues a client's send itself, instead of handing it to the
+# application's publisher by message, makes the send here: the stand-in
+# records it as the probe's publisher records the order it is handed.
 STORE_SCU_STAND_IN = """
 public final class DCMTKStoreSCU {
     public init(callingAET: String?, calledAET: String?, hostname: String?, port: Int32, filesToSend: [Any]?,
-                transferSyntax: Int32, compression: Float, extraParameters: [AnyHashable: Any]?) {}
+                transferSyntax: Int32, compression: Float, extraParameters: [AnyHashable: Any]?) {
+        let todo: [String: Any] = ["AETitle": calledAET ?? NSNull(), "Address": hostname ?? NSNull(),
+                                   "Port": String(port), "TransferSyntax": String(transferSyntax),
+                                   "Files": filesToSend ?? []]
+        let recorder = (NSClassFromString("ProbePublisher") as? NSObject.Type)?.init()
+        _ = recorder?.perform(NSSelectorFromString("sendDICOMFilesToOsiriXNode:"), with: todo)
+    }
     public func run(_ operation: Operation?) {}
+    func sendFiles(_ operation: Operation? = nil) throws {}
     public static func sendSyntax(forListenerSyntax syntax: Int32) -> Int32 { return syntax }
+}
+// What a send that failed throws, declared as the application declares it.
+struct StoreSendFailure: Error {
+    let name: String
+    let reason: String
+    var recorded = true
 }
 """
 # BrowserController is Swift too: the publisher takes the class from its Swift
 # type metadata accessor, then sends it Objective-C messages (+currentBrowser,
 # +DefaultFolderSizeForDB, -database, -refreshDatabase:). This class of module
 # Horos defines the accessor and answers them as the probe's Objective-C
-# stand-in does, with the probe's database recorder.
+# stand-in does, with the probe's database recorder (the default one, or the
+# other local database HOROS_PROBE_SHOWN_DATABASE names).
 BROWSER_STAND_IN = """
 @objc(SharedDatabaseProbeBrowserController) public class BrowserController: NSObject {
     private static let instance = BrowserController()
     @objc public dynamic class func currentBrowser() -> BrowserController! { return instance }
     @objc(DefaultFolderSizeForDB) public class func defaultFolderSizeForDB() -> Int32 { return 10000 }
     @objc public dynamic var database: NSObject? {
-        return (NSClassFromString("DicomDatabase") as? NSObject.Type)?.perform(NSSelectorFromString("defaultDatabase"))?
+        return (NSClassFromString("DicomDatabase") as? NSObject.Type)?.perform(NSSelectorFromString("shownDatabase"))?
             .takeUnretainedValue() as? NSObject
     }
     @objc(refreshDatabase:) public func refreshDatabase(_ sender: Any?) {}
@@ -130,7 +227,7 @@ def app_objects(configuration: str = "Debug", objects_root: Path = ROOT, swift_p
     found = []
     for name in OBJECTS + (SWIFT_PUBLISHER_OBJECTS if swift_publisher else []):
         obj = object_probe.app_object(name, configuration, objects_root)
-        if obj is None and name in EARLIER_LISTENER and swift_publisher:
+        if obj is None and (name in OPTIONAL or name in EARLIER_LISTENER and swift_publisher):
             continue
         if obj is None:
             raise MissingObject(name, configuration, objects_root)
@@ -149,7 +246,7 @@ def _stand_ins(work: Path) -> list[Path]:
         made.append(work / "DicomDatabaseMetadata.o")
     if sources.is_swift("AppController"):
         stand_in = work / "AppControllerStandIn.swift"
-        stand_in.write_text(APP_CONTROLLER_STAND_IN +
+        stand_in.write_text(APP_CONTROLLER_STAND_IN + PROCESS_GRAPH_MEMBERS_STAND_IN +
                             (STORE_SCU_STAND_IN if sources.is_swift("DCMTKStoreSCU") else "") +
                             (BROWSER_STAND_IN if sources.is_swift("BrowserController") else ""))
         # With the module's own NSLog, which the Swift objects call, and the
@@ -160,8 +257,39 @@ def _stand_ins(work: Path) -> list[Path]:
                         *flags[:2], str(stand_in), *map(str, support),
                         "-o", str(work / "AppControllerStandIn.o")], check=True, capture_output=True)
         made.append(work / "AppControllerStandIn.o")
+        values = work / "ProcessGraphValuesStandIn.swift"
+        values.write_text(PROCESS_GRAPH_VALUES_STAND_IN)
+        modules = work / "ingest-modules"  # linked with the ingest's modules, by link()
+        target = ["-target", "arm64-apple-macos26.0"]
+        for name in ("IsiXDatabase", "IsiXInstallation", "IsiXPreferences"):
+            object_probe.build_internal_module(name, modules, "arm64-apple-macos26.0")
+        subprocess.run(["xcrun", "swiftc", "-module-name", "Horos", "-parse-as-library", "-suppress-warnings", "-wmo", "-c",
+                        *target, "-I", str(modules), str(values), "-o", str(work / "ProcessGraphValuesStandIn.o")],
+                       check=True, capture_output=True)
+        made.append(work / "ProcessGraphValuesStandIn.o")
+        offsets = work / "AppControllerFieldOffsets.m"
+        offsets.write_text(APP_CONTROLLER_FIELD_OFFSETS)
+        subprocess.run(["xcrun", "clang", "-c", "-fno-objc-arc", str(offsets), "-o", str(work / "AppControllerFieldOffsets.o")],
+                       check=True, capture_output=True)
+        made.append(work / "AppControllerFieldOffsets.o")
         made += [work / "support" / f"lib{flag[2:]}.a" for flag in flags if flag.startswith("-l")]
     return made
+
+
+def _protocol_module(work: Path, optimized: bool) -> list[Path]:
+    """The static library of the protocol's module, for a publisher that imports it,
+    optimized as the app builds it for a Release publisher."""
+    if f"import {PROTOCOL_MODULE}" not in sources.source_text("BonjourPublisher"):
+        return []
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("isix_modules", ROOT / "tests/isix_modules.py")
+    isix_modules = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(isix_modules)
+    folder = work / ("protocol-module-optimized" if optimized else "protocol-module")
+    library = isix_modules.build_module(PROTOCOL_MODULE, folder,
+                                        ["-target", "arm64-apple-macos26.0"] + (["-O"] if optimized else []))
+    # With the internal modules it depends on, built beside it.
+    return [library] + [folder / f"lib{each}.a" for each in isix_modules.dependencies(PROTOCOL_MODULE)]
 
 
 def _probe_source(work: Path) -> tuple[Path, list[Path]]:
@@ -210,8 +338,17 @@ def link(objects: list[Path], swift_publisher: bool, work: Path, output: Path, o
     probe_source = PROBE_SOURCE
     if swift_publisher:
         objects += _stand_ins(work)
+        if "DatabaseIngest." in sources.source_text("BonjourPublisher"):
+            modules = work / "ingest-modules"
+            objects.append(object_probe.ingest_stand_in(work, modules, "arm64-apple-macos26.0"))
+            # ProcessGraph.o makes the scheduler of the incoming files.
+            object_probe.build_internal_module("IsiXDatabase", modules, "arm64-apple-macos26.0")
+            # ... and the worker that reslices the series of the viewers.
+            object_probe.build_internal_module("IsiXImaging", modules, "arm64-apple-macos26.0")
+            objects += sorted(modules.glob("lib*.a"))
         probe_source, helpers = _probe_source(work)
         objects += helpers
+        objects += _protocol_module(work, "/Release/" in str(objects[0]))
     sdk = subprocess.run(["xcrun", "--show-sdk-path"], capture_output=True, text=True, check=True).stdout.strip()
     subprocess.run(["xcrun", "clang", "-fno-objc-arc", optimization, "-g0", "-mmacosx-version-min=26.0"] +
                    (["-DHOROS_PROBE_SWIFT_PUBLISHER"] if swift_publisher else []) +

@@ -41,24 +41,8 @@
 #import "DCMPix+CAPI.h"
 #import "AppController.h"
 #import "ThickSlabController.h"
-#import "BrowserController.h"
-#import "DicomDatabase.h"
 
 NSString * const DCMPixAnnotationPatientNamePrefix = @"\x1EPatientName\x1E";
-
-NSString *HorosDCMPixLocalPathForBonjourImage(NSManagedObjectID *imageID)
-{
-    if( [NSThread isMainThread])
-        return [[BrowserController currentBrowser] getLocalDCMPath: [[[BrowserController currentBrowser] database] objectWithID: imageID] :0];
-
-    // On a private-queue context of the shared database, on its queue.
-    DicomDatabase *database = [[[BrowserController currentBrowser] database] privateQueueIndependentDatabase];
-    __block NSString *path = nil;
-    [database performBlockAndWait:^{
-        path = [[[BrowserController currentBrowser] getLocalDCMPath: [database objectWithID: imageID] :0] retain];
-    }];
-    return [path autorelease];
-}
 
 unsigned char *HorosDCMPixRenderThickSlab(ThickSlabController *slab, float *source, long count, float level, float width)
 {

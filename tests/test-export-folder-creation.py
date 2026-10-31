@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run each production export folder creation guard with a non-directory parent.
 
-The DICOM export is Swift (BrowserController+DICOMExport.swift): its patient,
+The DICOM export is Swift (DICOMFolderExport.swift): its patient,
 study and series folder creations run here as they are.
 """
 from pathlib import Path
@@ -9,8 +9,8 @@ import re
 import subprocess
 import tempfile
 root=Path(__file__).resolve().parent.parent
-source=(root/'Horos/Sources/BrowserController+DICOMExport.swift').read_text()
-start=source.index('    nonisolated private func exportDICOMFiles(')
+source=(root/'Horos/Sources/DICOMFolderExport.swift').read_text()
+start=source.index('    private func export(')
 blocks=re.findall(r'do \{\n\s+try files\.createDirectory\(atPath: tempPath, withIntermediateDirectories: true, attributes: nil\)\n'
                   r'\s+\} catch let failure \{\n\s+exportError = failure as NSError\n\s+exportAborted = true\n\s+break\n\s+\}',source[start:])
 assert len(blocks)==3, 'Patient, study and series creation must propagate failure'

@@ -79,7 +79,8 @@ public final class ImageAndTextCell: NSTextFieldCell {
                     controlView.display()
                 }
 
-                BrowserController.currentBrowser()?.alternateButtonPressed(nil)
+                // The eject of a source, in the database window the cell is in.
+                PreferencesSource.process.processGraph.browserWindow(of: controlView.window)?.browser.alternateButtonPressed(nil)
             } else {
                 if clickedInLastImageStorage == true {
                     let im = self.lastImage

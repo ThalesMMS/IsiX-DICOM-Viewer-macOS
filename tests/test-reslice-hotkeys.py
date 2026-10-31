@@ -9,7 +9,9 @@ on an instance made without its nib, with preferences held in memory.
 The reslice dispatch of -[DCMView actionForHotKey:] is Swift
 (DCMView+HotKeys.swift): its case is extracted and compiled with swiftc into a
 stand-in view that has the members it uses (NSApp's current event, the window,
-the window controller), and driven from the same checks.
+the window controller), and driven from the same checks. Which command a hot
+key action runs is IsiXImaging's ViewerKeyCommand.HotKey, which the stand-in
+imports.
 """
 from pathlib import Path
 import subprocess
@@ -20,6 +22,7 @@ root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 sys.path.insert(0, str(root / 'tools'))
 from sources import source_path, source_text  # noqa: E402
+import isix_modules  # noqa: E402
 import object_probe  # noqa: E402
 
 read = lambda p: (root / p).read_text()
@@ -36,10 +39,12 @@ def between(text, start, end):
 
 actionForHotKey = between(view, '    @objc(actionForHotKey:)', '    @objc(')
 # The case reads the window controller the switch declares for every case.
-if '                let windowController = self.windowController() as AnyObject?\n' not in actionForHotKey:
+if '        let windowController = self.windowController() as AnyObject?\n' not in actionForHotKey:
     raise SystemExit('FAIL: actionForHotKey: no longer sends the reslice to its window controller')
-dispatch = between(actionForHotKey, '                case ResliceAxialHotKeyAction.rawValue,',
-                   '                case SetKeyImageAction.rawValue:')
+if 'guard let command = ViewerKeyCommand.HotKey(action: action) else { return false }' not in actionForHotKey:
+    raise SystemExit('FAIL: actionForHotKey: no longer runs the command of the hot key action')
+dispatch = between(actionForHotKey, '        case .reslice(let orientation):',
+                   '        case .setKeyImage:')
 # The registered hot keys, as an Objective-C literal.
 def objc_string(value):
     return '@"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
@@ -151,6 +156,7 @@ DEFAULTS
 '''
 STANDINS = r'''
 import Cocoa
+import IsiXImaging
 
 // What the extracted case of -actionForHotKey: reaches, and nothing more: NSApp's
 // current event, the view's window (key or not, and its first responder) and
@@ -180,9 +186,9 @@ let NSApp = ProbeApplication.shared
     @objc(windowController) var controller: ProbeController?
 
     @objc(dispatch:) func dispatch(_ value: Int32) -> Bool {
-        let key = unichar(truncatingIfNeeded: value)
+        guard let command = ViewerKeyCommand.HotKey(action: value) else { return false }
         let windowController = self.controller as AnyObject?
-        switch UInt32(key) {
+        switch command {
 DISPATCH
         default: return false
         }
@@ -199,11 +205,13 @@ with tempfile.TemporaryDirectory(prefix='horos-reslice-hotkeys-') as folder:
     bridging = p / 'bridging.h'
     bridging.write_text('#import <Cocoa/Cocoa.h>\n' + enum + '\n')
     (p / 'dispatch.swift').write_text(STANDINS.replace('DISPATCH', dispatch))
-    # The pane's main-actor callbacks.
+    # The pane's main-actor callbacks; the dispatch's commands are IsiXImaging's.
+    imaging = isix_modules.module_flags('IsiXImaging', p / 'modules', ['-target', 'arm64-apple-macos26.0'])
     library = object_probe.swift_dylib([pane, pane.parent / 'HotKeyArrayController.swift', p / 'dispatch.swift',
                                         source_path('MainActorCallbacks')], [],
                                        p / 'libHotKeysPane.dylib',
-                                       bridging_header=bridging, frameworks=('Cocoa', 'PreferencePanes'))
+                                       bridging_header=bridging, frameworks=('Cocoa', 'PreferencePanes'),
+                                       flags=imaging)
     (p/'test.m').write_text(code)
     object_probe.link_probe(p / 'test.m', [library], p / 'test', frameworks=('Cocoa', 'PreferencePanes'),
                             optimization='-O0')

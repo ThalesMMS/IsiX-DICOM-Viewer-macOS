@@ -29,7 +29,18 @@ if not match:
 else:
     encoded = match.group(1)
 
-sdk = subprocess.check_output(['xcrun', '--show-sdk-version'], text=True).strip()
+# The project builds against SDKROOT = macosx, so ask for that SDK by name: xcrun
+# without --sdk can pick the Command Line Tools SDK while the developer directory
+# is Xcode, and then fails to read its version. A machine where neither answers
+# has no toolchain this test can compare against: skipped, not failed.
+try:
+    sdk = subprocess.run(['xcrun', '--sdk', 'macosx', '--show-sdk-version'], capture_output=True,
+                         text=True, timeout=60).stdout.strip()
+except (OSError, subprocess.TimeoutExpired):
+    sdk = ''
+if not re.fullmatch(r'\d+(\.\d+)*', sdk):
+    print('skipped: needs a readable macOS SDK version (xcrun --sdk macosx --show-sdk-version)', file=sys.stderr)
+    raise SystemExit(2)
 sdk_major = int(sdk.split('.')[0])
 encoded_major = int(encoded.split('.')[0])
 if encoded_major > sdk_major:

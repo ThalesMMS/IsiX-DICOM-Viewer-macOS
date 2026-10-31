@@ -35,6 +35,8 @@ import subprocess
 import sys
 import tempfile
 
+import process_graph_stand_in  # the other studies read the preferences through PreferencesSource
+
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
@@ -57,11 +59,12 @@ def between(text, start, end, name):
 response = read('Horos/Sources/WebPortalResponse.swift')
 connection = read('Horos/Sources/WebPortalConnection.swift')
 parameter_helpers = '\n'.join(between(connection, signature, '\n}\n', signature) + '\n}\n' for signature in (
-    'private func messagePercentEscaped(', 'private func setObject(', 'private func addObject('))
+    'private func messagePercentEscaped(', 'private func setObject(', 'private func addObject(')
+    + (('func raiseInvalidArgument(',) if '\nfunc raiseInvalidArgument(' in connection else ()))
 parameter_codec = between(connection, '    @objc(FormatParams:)', '    @objc(alive:)', 'portal parameter codec')
 portal_data = read('Horos/Sources/WebPortalConnection+Data.swift')
-destination_decode = between(portal_data, '                let dicomDestinationArray =',
-                             '                if (dicomDestinationArray', 'nested destination decoder').replace(
+destination_decode = between(portal_data, '            let dicomDestinationArray =',
+                             '            if (dicomDestinationArray', 'nested destination decoder').replace(
                                  'self.stringParameter("dicomDestination")', 'formDestination')
 user = read('Horos/Sources/WebPortalUser.swift')
 # The lock is an NSRecursiveLock; an earlier revision names it otherwise.
@@ -189,12 +192,16 @@ for (template, expected) in cases {
 '''.replace('DESTINATION_DECODE', destination_decode).replace('PARAMETER_HELPERS', parameter_helpers).replace('PARAMETER_CODEC', parameter_codec).replace('HELPERS', helpers).replace('ENGINE', engine)
 
 # The cache is made once, where it was a lazy optional before.
-cache_declaration = ('    private static let otherStudiesForThisPatientCache = NSMutableDictionary()'
+cache_declaration = ('    private static let otherStudiesForThisPatientCache = PatientStudiesCache()\n'
+                     '    private final class PatientStudiesCache: @unchecked Sendable { let studies = NSMutableDictionary() }'
+                     if 'PatientStudiesCache()' in response
+                     else '    private static let otherStudiesForThisPatientCache = NSMutableDictionary()'
                      if 'static let otherStudiesForThisPatientCache' in response
                      else '    private static var otherStudiesForThisPatientCache: NSMutableDictionary?')
 CACHE_MAIN = r'''
 import CoreData
 import Foundation
+import IsiXPreferences
 
 HELPERS
 
@@ -244,6 +251,11 @@ USER_HELPERS
 final class BrowserController: NSObject {
     class func comparativeServers() -> [Any]! { ["PACS"] }
 }
+/// The PACS On-Demand nodes of the graph, which the other studies ask for
+/// the servers; an earlier revision asks BrowserController.
+final class PACSOnDemandNodes: Sendable { func comparativeServers() -> [Any]! { ["PACS"] } }
+final class PACSOnDemandStandIn: Sendable { let nodes = PACSOnDemandNodes() }
+extension ProcessGraph { var pacsOnDemand: PACSOnDemandStandIn { PACSOnDemandStandIn() } }
 final class QueryController: NSObject {
     class func queryStudies(forPatient study: DicomStudy!, usePatientID: Bool, usePatientName: Bool, usePatientBirthDate: Bool, servers: [Any]!, showErrors: Bool) -> [Any]! {
         distantStudies
@@ -295,9 +307,13 @@ print("no patient ID: \(transformer.run(localStudies[0]))")
 
 def build_and_run(tmp, name, main):
     p = Path(tmp)
-    (p / f'{name}.swift').write_text(main)
+    # main.swift beside the preferences stand-in, which the other studies read.
+    source = p / f'{name}-source' / 'main.swift'
+    source.parent.mkdir()
+    source.write_text(main)
     build = subprocess.run(['xcrun', 'swiftc', '-module-name', 'Horos', '-import-objc-header', str(p / 'bridging.h'),
-                            '-Xcc', '-I' + str(root / 'Horos/Sources'), str(p / f'{name}.swift'),
+                            '-Xcc', '-I' + str(root / 'Horos/Sources'), *process_graph_stand_in.swift_flags(p / 'isix'),
+                            str(source),
                             str(p / 'HorosObjCException.o'), '-o', str(p / name)], capture_output=True, text=True)
     if build.returncode != 0:
         print(build.stderr[-4000:])

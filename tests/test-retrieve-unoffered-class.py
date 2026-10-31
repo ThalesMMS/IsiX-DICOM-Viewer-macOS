@@ -18,6 +18,8 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import retrieve_inventory_harness  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -60,7 +62,7 @@ if 'QueryIdentifiers.instanceListing(' not in walk or 'requestReturn(.sopClassUI
 if 'dataset.latin1Value(.sopClassUID)' not in read('Horos/Sources/DCMTKImageQueryNode.swift').decode('utf-8', 'replace'):
     failures.append('the image node does not keep the SOP class it was answered with')
 begin = block(node, 'func beginRetrieveInventory(forCGET')
-if 'storageClassesOfferedByCGET' not in begin or 'instance["offered"] = "NO"' not in begin:
+if 'storageClassesOfferedByCGET' not in begin or 'instance.offered = false' not in begin:
     failures.append('the inventory does not mark instances of classes the C-GET does not offer')
 get = block(node, 'private func getSCU(')
 if '!completion.everythingArrived && onlyUnoffered' not in get:
@@ -121,9 +123,8 @@ print("ok")
 
 with tempfile.TemporaryDirectory(prefix='horos-unoffered-') as directory:
     work = Path(directory)
-    (work / 'RetrieveInventory.swift').write_bytes(read('Horos/Sources/RetrieveInventory.swift'))
     (work / 'main.swift').write_text(driver)
-    build = subprocess.run(['xcrun', 'swiftc', str(work / 'RetrieveInventory.swift'), str(work / 'main.swift'),
+    build = subprocess.run(['xcrun', 'swiftc', *retrieve_inventory_harness.swiftc_arguments(work / 'harness'), str(work / 'main.swift'),
                             '-o', str(work / 'check')], capture_output=True, text=True)
     if build.returncode:
         lines = build.stderr.strip().splitlines()

@@ -40,16 +40,36 @@
 import AppKit
 
 // The navigator (the thumbnails of every slice and frame of a 4D series) and
-// the 3D position panel of the 2D viewer. The selectors are those of the
-// former Objective-C methods.
+// the 3D position panel of the 2D viewer: ViewerNavigatorPanels opens them for
+// the viewer or hands them the viewer, and tiles the windows through the
+// viewer's graph. The selectors are those of the former Objective-C methods,
+// kept as a façade.
 
 public extension ViewerController {
 
-    /// Opens the navigator for this viewer, or gives it this viewer. It needs
-    /// a volume of identical matrices, not RGB.
     @objc(navigator:)
     func navigator(_ sender: Any!) {
-        if horos_imageView?.curDCM?.isRGB ?? false {
+        ViewerNavigatorPanels.openNavigator(for: self)
+    }
+
+    @objc(threeDPanel:)
+    func threeDPanel(_ sender: Any!) {
+        ViewerNavigatorPanels.openThreeDPanel(for: self)
+    }
+
+    @objc(updateNavigator)
+    func updateNavigator() {
+        ViewerNavigatorPanels.follow(self)
+    }
+}
+
+/// The navigator and the 3D position panel of the 2D viewers.
+@MainActor enum ViewerNavigatorPanels {
+
+    /// Opens the navigator for `viewer`, or gives it `viewer`. It needs a
+    /// volume of identical matrices, not RGB.
+    static func openNavigator(for viewer: ViewerController) {
+        if viewer.horos_imageView?.curDCM?.isRGB ?? false {
             HorosAlertPanel.run(title: NSLocalizedString("Data Error", comment: ""),
                                 message: NSLocalizedString("This tool currently does not work with RGB data series.", comment: ""),
                                 defaultButton: nil, alternateButton: nil, otherButton: nil)
@@ -57,56 +77,54 @@ public extension ViewerController {
         }
 
         if NavigatorWindowController.navigatorWindowController() == nil {
-            if !isDataVolumicIn4D(true) {
+            if !viewer.isDataVolumicIn4D(true) {
                 HorosAlertPanel.run(title: NSLocalizedString("Data Error", comment: ""),
                                     message: NSLocalizedString("This tool works only with 3D data series with identical matrix sizes.", comment: ""),
                                     defaultButton: nil, alternateButton: nil, otherButton: nil)
                 return
             }
 
-            let navigatorWindowController = NavigatorWindowController(viewer: self)
+            let navigatorWindowController = NavigatorWindowController(viewer: viewer)
             // It lives until its window closes, which releases it.
             _ = Unmanaged.passRetained(navigatorWindowController)
-            navigatorWindowController.showWindow(self)
-            AppController.shared()?.tileWindows(nil)
+            navigatorWindowController.showWindow(viewer)
+            viewer.sessionGraph.processGraph.appController?.tileWindows(nil)
         } else {
-            NavigatorWindowController.navigatorWindowController()?.setViewer(self)
+            NavigatorWindowController.navigatorWindowController()?.setViewer(viewer)
         }
     }
 
-    /// Opens the 3D position panel for this viewer, or gives it this viewer.
-    /// It needs a volume of identical matrices.
-    @objc(threeDPanel:)
-    func threeDPanel(_ sender: Any!) {
+    /// Opens the 3D position panel for `viewer`, or gives it `viewer`. It
+    /// needs a volume of identical matrices.
+    static func openThreeDPanel(for viewer: ViewerController) {
         if ThreeDPositionController.threeDPositionController() == nil {
-            if !isDataVolumicIn4D(true) {
+            if !viewer.isDataVolumicIn4D(true) {
                 HorosAlertPanel.run(title: NSLocalizedString("Data Error", comment: ""),
                                     message: NSLocalizedString("This tool works only with 3D data series with identical matrix sizes.", comment: ""),
                                     defaultButton: nil, alternateButton: nil, otherButton: nil)
                 return
             }
 
-            let threeDPositionController = ThreeDPositionController(viewer: self)
+            let threeDPositionController = ThreeDPositionController(viewer: viewer)
             // It lives until its window closes, which releases it.
             _ = Unmanaged.passRetained(threeDPositionController)
-            threeDPositionController.showWindow(self)
+            threeDPositionController.showWindow(viewer)
         } else {
-            ThreeDPositionController.threeDPositionController()?.setViewer(self)
+            ThreeDPositionController.threeDPositionController()?.setViewer(viewer)
         }
     }
 
-    /// Gives the navigator and the 3D position panel this viewer, the
-    /// navigator across the whole width of the viewer's screen.
-    @objc(updateNavigator)
-    func updateNavigator() {
-        ThreeDPositionController.threeDPositionController()?.setViewer(self)
+    /// Gives the navigator and the 3D position panel `viewer`, the navigator
+    /// across the whole width of the viewer's screen.
+    static func follow(_ viewer: ViewerController) {
+        ThreeDPositionController.threeDPositionController()?.setViewer(viewer)
 
-        NavigatorWindowController.navigatorWindowController()?.setViewer(self)
+        NavigatorWindowController.navigatorWindowController()?.setViewer(viewer)
 
         let navigatorWindow = NavigatorWindowController.navigatorWindowController()?.window
         var navigatorFrame = navigatorWindow?.frame ?? .zero
-        navigatorFrame.origin.x = window?.screen?.visibleFrame.origin.x ?? 0
-        navigatorFrame.size.width = window?.screen?.visibleFrame.size.width ?? 0
+        navigatorFrame.origin.x = viewer.window?.screen?.visibleFrame.origin.x ?? 0
+        navigatorFrame.size.width = viewer.window?.screen?.visibleFrame.size.width ?? 0
         navigatorWindow?.setFrame(navigatorFrame, display: true)
     }
 }

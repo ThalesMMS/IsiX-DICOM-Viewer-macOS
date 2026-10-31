@@ -3,20 +3,20 @@
 filters, and a save writes all of them.
 
 The automatic Query window holds several instances, each a preset with a name,
-an interval and the results of its last query. Once a second the timer counts
-every instance down and starts the query of each one whose time has come. That
-loop used to read the first instance on every turn and step by two: the
-instances of odd index never counted, and those of even index queried with the
-first one's filters. The save, for its part, stripped the results from the
-mutable instances only, so an instance read from the preferences, immutable
-until it is shown, went to the preferences with its results; and a query of
-such an instance, which the query keeps through a cast to a mutable dictionary,
-lost its results.
+an interval and the answers of its last query. Once a second every instance
+counts down, and the query of each one whose time has come starts. That loop
+used to read the first instance on every turn and step by two: the instances
+of odd index never counted, and those of even index queried with the first
+one's filters. The save, for its part, wrote the results of an instance read
+from the preferences into the preferences.
 
-This compiles the production -autoQueryTimerFunction:, -saveSettings, the
-countdown display and the keeping of a query's results, taken from the Swift of the Query window, with the window's
-filters, the thread manager, the notifications and the preferences substituted,
-and runs them without a network: the workers record what they were given.
+The countdown, the queue of runs and the instances now live in
+IsiXDICOMNetwork (AutoQueryScheduler, AutoQueryInstance), with their module
+tests; the window keeps the instances and hands them over. This compiles the
+module with a driver that replays the old case through stand-ins of the ports
+- four instances, one that does not refresh - and the save of instances read
+from the preferences, and checks that the window hands every change over and
+saves through the module, with no thread or timer of its own left.
 """
 from pathlib import Path
 import shutil
@@ -25,238 +25,126 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/QueryController+AutoQuery.swift').read_text(encoding='utf-8')
+sys.path.insert(0, str(root / 'tests'))
+import isix_modules  # noqa: E402
+
 failures = []
 
 if not shutil.which('xcrun'):
     print('skipped: no xcrun here')
     sys.exit(2)
 
+# --- the window hands its instances over ---------------------------------------
+auto = (root / 'Horos/Sources/QueryController+AutoQuery.swift').read_text(encoding='utf-8')
+window = (root / 'Horos/Sources/QueryController.swift').read_text(encoding='utf-8')
+for pattern in ('Thread(target:', 'perform(#selector', 'Timer.scheduledTimer', 'autoQueryRemainingSecs', 'synchronized(',
+                'NSMutableArray'):
+    if pattern in auto:
+        failures.append('the automatic query still uses %s' % pattern)
+if 'var autoQRInstances: [AutoQueryInstance]' not in window or 'didSet { autoQueryInstancesDidChange() }' not in window:
+    failures.append('the instances are not typed, or a change of them is not handed to the scheduler')
+loaded = window.find('AutoQueryInstanceStore.load(from: NodePreferences(processGraph: processGraph)')
+if loaded < 0:
+    failures.append('the instances are not read from the preferences through AutoQueryInstanceStore')
+# An initializer does not run didSet: the instances read there are handed over
+# explicitly, or the scheduler would count none of them.
+elif 'autoQueryInstancesDidChange()' not in window[loaded:window.find('didChangeValue(forKey: "instancesMenuList")', loaded)]:
+    failures.append('the instances read when the window is made are not handed to the scheduler')
+if 'AutoQueryInstanceStore.save(autoQRInstances, to: NodePreferences(processGraph: processGraph))' not in auto:
+    failures.append('the save does not write every instance through AutoQueryInstanceStore')
+if 'await $0.setInstances(instances)' not in auto:
+    failures.append('the window does not hand its instances to the scheduler')
+if 'autoQRInstances.first(where: { $0.id == instance.id })' not in auto:
+    failures.append('a run does not query with the settings of its own instance')
 
-def body_end(at):
-    opening = source.index('{', at)
-    depth = 0
-    for index in range(opening, len(source)):
-        if source[index] == '{':
-            depth += 1
-        elif source[index] == '}':
-            depth -= 1
-            if depth == 0:
-                return index + 1
-    raise ValueError('unbalanced braces')
-
-
-def member(signature):
-    """The declaration of `signature`, with the attributes above it."""
-    at = source.find(signature)
-    if at < 0:
-        failures.append('%s is gone' % signature)
-        return ''
-    line = source.rfind('\n', 0, at) + 1
-    while line > 0:
-        previous = source.rfind('\n', 0, line - 1) + 1
-        if not source[previous:line].strip().startswith('@'):
-            break
-        line = previous
-    return source[line:body_end(at)]
-
-
-methods = '\n'.join(member(signature) for signature in (
-    'public func saveSettings()',
-    'public func autoQueryTimerFunction(_ t: Timer?)',
-    'private func showRemainingTime()',
-    'nonisolated func keepResults(_ results: NSArray, inInstanceAt index: Int) -> Bool',
-))
-
-HARNESS = r'''
-import AppKit
-
-// What the production methods use of the rest of the app. The preferences are
-// a dictionary here, so the test writes none of the real ones; the thread
-// manager runs the worker's entry point on the spot, and the worker records
-// what it was given instead of querying.
-final class UserDefaults {
-    nonisolated(unsafe) static let standard = UserDefaults()
-    var values: [String: Any] = [:]
-    func set(_ value: Any?, forKey key: String) { values[key] = value }
-}
-enum HorosObjCException {
-    static func perform(_ body: () -> Void) throws { body() }
-}
-final class AppController: NSObject {
-    static func shared() -> AppController? { AppController() }
-    func notificationTitle(_ title: String, description: String, name: String) {}
-}
-final class ThreadsManager: NSObject {
-    nonisolated(unsafe) static let shared = ThreadsManager()
-    static func `default`() -> ThreadsManager? { shared }
-    var names: [String] = []
-    func addThreadAndStart(_ thread: Thread) { names.append(thread.name ?? ""); thread.main() }
-}
-extension Thread {
-    var supportsCancel: Bool { get { false } set {} }
-}
-
-@MainActor public final class QueryController: NSObject {
-    nonisolated static let maximumInstances = 40
-    nonisolated(unsafe) var autoQueryValue = true
-    nonisolated(unsafe) var queryButtonPressed = false
-    nonisolated(unsafe) var DatabaseIsEdited = false
-    nonisolated(unsafe) var autoQRInstances: NSMutableArray?
-    nonisolated(unsafe) var currentAutoQRValue: Int32 = 0
-    nonisolated(unsafe) var autoQueryRemainingSecs = [Int](repeating: 0, count: QueryController.maximumInstances)
-    nonisolated let autoQueryLock = NSRecursiveLock()
-    nonisolated(unsafe) var autoRefreshQueryResults = 0
-    var autoQueryCounter: NSTextField! = NSTextField()
-    nonisolated(unsafe) var errors: [String] = []
-    /// What each worker was given.
-    nonisolated(unsafe) var started: [NSDictionary] = []
-    /// The filters of the window, which the instance shown takes on save.
-    func savePresetInDictionary(withDICOMNodes includeDICOMNodes: Bool) -> NSMutableDictionary! {
-        return NSMutableDictionary(dictionary: ["windowFilter": "shown"])
-    }
-    func captureWindowState() {}
-    @objc(autoQueryThread:)
-    public nonisolated func autoQueryThread(_ dictionary: NSDictionary!) { started.append(dictionary) }
-
-    nonisolated static func int32(_ value: Any?) -> Int32 {
-        if let number = value as? NSNumber { return number.int32Value }
-        if let string = value as? NSString { return string.intValue }
-        return 0
-    }
-    nonisolated static func synchronized<T>(_ object: AnyObject?, _ body: () throws -> T) rethrows -> T {
-        guard let object else { return try body() }
-        objc_sync_enter(object)
-        defer { objc_sync_exit(object) }
-        return try body()
-    }
-    nonisolated static func log(_ error: Error, _ function: String) { print("logged: \(function) \(error)") }
-}
-
-extension QueryController {
-METHODS
-}
-'''
-
+# --- the scheduler, run --------------------------------------------------------
 DRIVER = r'''
-import AppKit
+import Foundation
+import IsiXContracts
 
-@MainActor func check(_ condition: Bool, _ what: String) { if !condition { print("FAIL: " + what); exit(1) } }
+func check(_ condition: Bool, _ what: String) { if !condition { print("FAIL: " + what); exit(1) } }
 
-/// An instance as the preferences give it back: immutable.
-func stored(_ name: String, _ refresh: Int, _ modality: String, results: [String]? = nil) -> NSDictionary {
-    var values: [String: Any] = ["instanceName": name, "autoRefreshQueryResults": refresh, "modality": modality]
+actor Queries: AutoQueryRunning {
+    var runs: [AutoQueryInstance] = []
+    func runQuery(of instance: AutoQueryInstance) async throws -> [AutoQueryStudy] { runs.append(instance); return [] }
+    func studies(ofPatientID patientID: String) async -> [AutoQueryStudy] { [] }
+}
+struct NoRetrieve: AutoRetrieveStarting {
+    func mayStartRetrieve() async -> Bool { false }
+    func retrieveInventory(of study: AutoQueryStudy) async -> AutoQueryRetrieveInventory? { nil }
+    func claimTransfer(of study: AutoQueryStudy, expectedFiles: Int) async -> Bool { false }
+    func startRetrieve(of studies: [AutoQueryStudy], for instance: AutoQueryInstance) async {}
+}
+struct Nothing: LocalStudyReading {
+    func studies(withInstanceUIDs studyInstanceUIDs: Set<String>) async throws -> [LocalStudySnapshot] { [] }
+}
+
+/// An instance as the preferences give it back.
+func stored(_ name: String, _ refresh: Int, _ modality: String, results: [String]? = nil) -> [String: Any] {
+    var values: [String: Any] = ["instanceName": name, "autoRefreshQueryResults": refresh, "modalityStrings": [modality]]
     if let results { values["resultArray"] = results }
-    return NSDictionary(dictionary: values)
+    return values
 }
 
-MainActor.assumeIsolated {
-    // --- the countdown of each instance -------------------------------------
-    // Negative intervals are seconds. The second instance is shown; the third
-    // does not refresh.
-    let c = QueryController()
-    let instances = NSMutableArray(array: [stored("A", -3, "CT"), stored("B", -5, "MR"), stored("C", 0, "US"), stored("D", -2, "CR")])
-    c.autoQRInstances = instances
-    c.currentAutoQRValue = 1
-    for i in 0..<instances.count {
-        let refresh = Int(QueryController.int32((instances[i] as AnyObject).value(forKey: "autoRefreshQueryResults")))
-        c.autoQueryRemainingSecs[i] = refresh >= 0 ? 60 * refresh : -refresh
+let queries = Queries()
+let scheduler = AutoQueryScheduler(querying: queries, retrieving: NoRetrieve(), localStudies: Nothing(),
+                                   rules: { AutoRetrieveRules() })
+// Negative intervals are seconds. The third does not refresh.
+let instances = [stored("A", -3, "CT"), stored("B", -5, "MR"), stored("C", 0, "US"), stored("D", -2, "CR")]
+    .compactMap { AutoQueryInstance(propertyList: $0) }
+await scheduler.setInstances(instances)
+var launches: [String] = []
+for second in 1...6 {
+    let before = await queries.runs.count
+    await scheduler.tick()
+    for _ in 0..<5000 where await !scheduler.pending.isEmpty { await Task.yield() }
+    for run in await queries.runs[before...] {
+        let own = instances.first { $0.id == run.id }
+        check(own?.name == run.name && own?.modalities == run.modalities, "\(run.name ?? "?") queried with another instance's filters")
+        launches.append("\(second):\(run.name ?? "?")")
     }
-    var launches: [String] = []
-    for second in 1...6 {
-        c.started.removeAll()
-        c.autoQueryTimerFunction(nil)
-        for work in c.started {
-            let index = Int(QueryController.int32(work.object(forKey: "index")))
-            let instance = work.object(forKey: "instance") as? NSDictionary
-            let name = instance?.object(forKey: "instanceName") as? String ?? "?"
-            let own = instances[index] as? NSDictionary
-            check(own?.object(forKey: "instanceName") as? String == name,
-                  "instance \(index) queries with the filters of \(name)")
-            check(instance?.object(forKey: "modality") as? String == own?.object(forKey: "modality") as? String,
-                  "instance \(name) queries with another modality")
-            launches.append("\(second):\(name)")
-        }
-    }
-    let expected = ["2:D", "3:A", "4:D", "5:B", "6:A", "6:D"]
-    check(launches == expected, "the instances started \(launches), expected \(expected)")
-    check(ThreadsManager.shared.names.allSatisfy { $0.contains("(") }, "a worker is not named after its instance: \(ThreadsManager.shared.names)")
-    check(ThreadsManager.shared.names.contains { $0.contains("(B)") }, "the worker of B is not named after it")
-    // The instance shown took the window's filters when its time came.
-    check((instances[1] as? NSDictionary)?.object(forKey: "windowFilter") as? String == "shown", "the instance shown was not saved before its query")
-    check((instances[0] as? NSDictionary)?.object(forKey: "windowFilter") == nil, "an instance not shown took the window's filters")
-    print("PASS: each instance counts its own interval and queries with its own filters")
-
-    // --- the save -----------------------------------------------------------
-    let s = QueryController()
-    let shown = NSMutableDictionary(dictionary: ["instanceName": "A", "autoRefreshQueryResults": 1, "resultArray": ["a1", "a2"]])
-    let saving = NSMutableArray(array: [shown, stored("B", 2, "MR", results: ["b1"]), stored("C", 3, "US"),
-                                        NSMutableDictionary(dictionary: ["instanceName": "D", "resultArray": ["d1"]])])
-    s.autoQRInstances = saving
-    s.currentAutoQRValue = 0
-    for pass in 1...2 {
-        UserDefaults.standard.values = [:]
-        s.saveSettings()
-        let written = UserDefaults.standard.values["savedAutoDICOMQuerySettingsArray"] as? [NSDictionary] ?? []
-        check(written.map { $0.object(forKey: "instanceName") as? String ?? "?" } == ["A", "B", "C", "D"],
-              "save \(pass) wrote \(written.map { $0.object(forKey: "instanceName") ?? "?" })")
-        check(written.allSatisfy { $0.object(forKey: "resultArray") == nil }, "save \(pass) wrote results to the preferences")
-        check(written.first?.object(forKey: "windowFilter") as? String == "shown", "save \(pass) did not keep the filters shown")
-        let results = (0..<saving.count).map { (saving[$0] as? NSDictionary)?.object(forKey: "resultArray") as? [String] }
-        check(results == [["a1", "a2"], ["b1"], nil, ["d1"]], "save \(pass) lost results: \(results)")
-        check((0..<saving.count).allSatisfy { saving[$0] is NSMutableDictionary }, "save \(pass) left an immutable instance")
-    }
-    // An instance that was immutable keeps the next results given to it.
-    (saving[2] as? NSMutableDictionary)?.setObject(["c1"], forKey: "resultArray" as NSString)
-    check((saving[2] as? NSDictionary)?.object(forKey: "resultArray") as? [String] == ["c1"], "a former stored instance cannot keep results")
-    print("PASS: a save writes every instance without results and keeps the results in them")
-
-    // --- the results of a query ---------------------------------------------
-    // An instance read from the preferences and never saved since is immutable;
-    // the results of its query are kept in a mutable copy put in its place.
-    let k = QueryController()
-    let first = NSMutableDictionary(dictionary: ["instanceName": "A", "resultArray": ["a1"]])
-    let kept = NSMutableArray(array: [first, stored("B", 2, "MR"), stored("C", 3, "US")])
-    k.autoQRInstances = kept
-    check(k.keepResults(["b1", "b2"] as NSArray, inInstanceAt: 1), "an instance in range was refused")
-    check((kept[1] as? NSDictionary)?.object(forKey: "resultArray") as? [String] == ["b1", "b2"],
-          "the results of an immutable instance were lost")
-    check(kept[1] is NSMutableDictionary, "the immutable instance was not replaced by a mutable copy")
-    check((kept[1] as? NSDictionary)?.object(forKey: "modality") as? String == "MR", "the copy lost the instance's filters")
-    check(k.keepResults(["a2"] as NSArray, inInstanceAt: 0), "a mutable instance was refused")
-    check(kept[0] as AnyObject === first, "a mutable instance was replaced")
-    check(first.object(forKey: "resultArray") as? [String] == ["a2"], "a mutable instance did not take its results")
-    check((kept[2] as? NSDictionary)?.object(forKey: "resultArray") == nil && !(kept[2] is NSMutableDictionary),
-          "another instance changed")
-    check(!k.keepResults(["x"] as NSArray, inInstanceAt: 3) && !k.keepResults(["x"] as NSArray, inInstanceAt: -1),
-          "an index out of range was accepted")
-    print("PASS: a query keeps its results in its instance, immutable or not")
 }
+check(launches == ["2:D", "3:A", "4:D", "5:B", "6:A", "6:D"], "the instances started \(launches)")
+print("PASS: each instance counts its own interval and queries with its own filters")
+
+// The save: every instance, those read from the preferences included, goes
+// back without results, with its own values.
+/// Preferences in memory: the driver touches no preferences domain.
+final class Memory: DICOMNodePreferences, @unchecked Sendable {
+    var values: [String: Any] = [:]
+    func object(forKey key: String) -> Any? { values[key] }
+    func bool(forKey key: String) -> Bool { (values[key] as? NSNumber)?.boolValue ?? false }
+    func string(forKey key: String) -> String? { values[key] as? String }
+    func set(_ value: Any?, forKey key: String) { values[key] = value }
+    func isGivenAsLaunchArgument(_ key: String) -> Bool { false }
+}
+let defaults = Memory()
+let read = [stored("A", 1, "CT", results: ["a1"]), stored("B", 2, "MR", results: ["b1"])].compactMap { AutoQueryInstance(propertyList: $0) }
+var shown = read
+shown[0] = shown[0].adding(["windowFilter": "shown", "resultArray": ["x"]])
+AutoQueryInstanceStore.save(shown, to: defaults)
+let written = defaults.object(forKey: "savedAutoDICOMQuerySettingsArray") as? [[String: Any]] ?? []
+check(written.count == 2 && written.allSatisfy { $0["resultArray"] == nil }, "a saved instance kept its results: \(written)")
+check(written.map { $0["instanceName"] as? String } == ["A", "B"], "the instances were not all saved, in order")
+check(written[0]["windowFilter"] as? String == "shown" && written[1]["windowFilter"] == nil, "the window's filters went to the wrong instance")
+check((written[1]["modalityStrings"] as? [String]) == ["MR"], "an instance not shown lost its own filters")
+print("PASS: a save writes every instance, without results")
 '''
 
-harness = HARNESS.replace('METHODS', methods)
-if not failures:
-    with tempfile.TemporaryDirectory(prefix='horos-auto-query-') as directory:
-        path = Path(directory)
-        (path / 'Harness.swift').write_text(harness)
-        (path / 'main.swift').write_text(DRIVER)
-        built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-swift-version', '6',
-                                str(path / 'Harness.swift'), str(path / 'main.swift'), '-o', str(path / 'test')],
-                               capture_output=True, text=True, timeout=300)
-        if built.returncode:
-            failures.append('the Swift automatic query methods do not compile in the harness:\n' + built.stderr[-4000:])
-        else:
-            try:
-                run = subprocess.run([str(path / 'test')], capture_output=True, text=True, timeout=60)
-                if run.returncode:
-                    failures.append('the harness says: ' + (run.stdout + run.stderr).strip()[-2000:])
-                else:
-                    print(run.stdout.strip())
-            except subprocess.TimeoutExpired:
-                failures.append('the automatic query harness did not finish within 60 s')
+with tempfile.TemporaryDirectory(prefix='horos-auto-query-') as folder:
+    try:
+        binary = isix_modules.module_driver('IsiXDICOMNetwork', DRIVER, Path(folder) / 'driver')
+    except subprocess.CalledProcessError as error:
+        failures.append('the driver did not compile:\n%s' % (error.stderr or '')[-3000:])
+    else:
+        result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=120)
+        print(result.stdout, end='')
+        if result.returncode != 0:
+            failures.append('the scheduler or the save failed (status %d): %s' % (result.returncode, result.stderr[-2000:]))
 
-for failure in failures:
-    print('FAIL: %s' % failure)
 if failures:
+    print('FAIL')
+    for failure in failures:
+        print(' -', failure)
     sys.exit(1)
-print('ok: every instance of the automatic query keeps its own interval, filters and results, and every one is saved')
+print('ok: each instance of the automatic query keeps its own interval and filters, and a save writes all of them')

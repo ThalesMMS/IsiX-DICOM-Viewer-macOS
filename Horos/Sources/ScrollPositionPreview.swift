@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Cocoa
+import IsiXPreferences
 
 // The DCMView (HorosScrollPositionPreview) category is implemented in Swift:
 // the extension at the end of this file declares its selectors,
@@ -18,13 +19,6 @@ import Cocoa
 // interface. The preview itself, HorosScrollPositionPreview, is private to it.
 
 private let previewKey = IdentityToken()
-
-private func HorosScrollPreviewIsEnabled(_ defaults: UserDefaults) -> Bool {
-    // The argument domain stores command-line YES/NO as strings. Read using
-    // the defaults boolean conversion, while keeping absence enabled.
-    return defaults.object(forKey: "ShowScrollPositionPreview") == nil ||
-           defaults.bool(forKey: "ShowScrollPositionPreview")
-}
 
 /// A BOOL method of an object typed `id`, sent by its selector as the former
 /// code did (-[ViewerController windowWillClose]).
@@ -75,7 +69,6 @@ final class HorosScrollPositionPreview: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { return nil }
     override var acceptsFirstResponder: Bool { return false }
 
-    @objc(clearVolume)
     private func clearVolume() {
         _reslicer = nil
         _slices = nil
@@ -126,7 +119,6 @@ final class HorosScrollPositionPreview: NSView {
     // Validate once for this slice list. The existing orthogonal reslicer requires
     // a loaded, regular parallel stack. Never trigger decoding during scrolling,
     // repair the source series, or present a misleading scout for mixed geometry.
-    @objc(prepareVolume)
     private func prepareVolume() -> Bool {
         let slices: NSMutableArray? = _host?.dcmPixList
         if slices === _slices { return _reslicer != nil }
@@ -170,7 +162,6 @@ final class HorosScrollPositionPreview: NSView {
         return true
     }
 
-    @objc(scheduleUpdate)
     private func scheduleUpdate() {
         if _pending { return }
         _pending = true
@@ -304,7 +295,7 @@ extension DCMView {
     @objc(horosShowScrollPreviewAtWindowPoint:)
     public func horosShowScrollPreview(atWindowPoint point: NSPoint) {
         if !self.is2DViewer() || (self.dcmPixList?.count ?? 0) < 2 ||
-            !HorosScrollPreviewIsEnabled(UserDefaults.standard) { return }
+            !ScrollSettings.showsPositionPreview(preferences: PreferencesSource.process.preferences) { return }
         var preview = objc_getAssociatedObject(self, previewKey.key) as? HorosScrollPositionPreview
         if preview == nil {
             let created = HorosScrollPositionPreview(host: self)

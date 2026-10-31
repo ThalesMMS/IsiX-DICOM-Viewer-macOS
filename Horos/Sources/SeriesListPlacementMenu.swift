@@ -65,7 +65,7 @@ extension ViewerController {
     public func setSeriesListPlacement(_ sender: Any?) {
         // The items' tags are the four placements; any other tag counts as left.
         let placement = SeriesListPlacement(rawValue: (sender as AnyObject?)?.tag ?? 0) ?? .left
-        SeriesListLayout.store(placement, in: UserDefaults.standard)
+        SeriesListLayout.store(placement, in: PreferencesSource.process.preferences)
         // Each viewer re-places its list in its own dock, and finds that dock
         // from where the list is. A list lent to a floating panel is in neither
         // pane: the panel would be left showing nothing, and with the dock on

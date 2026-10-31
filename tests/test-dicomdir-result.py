@@ -134,6 +134,7 @@ with tempfile.TemporaryDirectory(prefix='horos-dicomdir-result-') as folder:
                             '-import-objc-header', str(work / 'bridge.h'), '-I', str(modules),
                             *[a for i in includes for a in ('-Xcc', i)], '-c',
                             str(root / 'Horos/Sources/DicomDir.swift'), str(root / 'Horos/Sources/ExportArchive.swift'),
+                            str(root / 'Horos/Sources/HorosObjCException+Guards.swift'),
                             '-o', str(work / 'swift.o')], capture_output=True, text=True)
     if built.returncode:
         print(built.stderr[-4000:])

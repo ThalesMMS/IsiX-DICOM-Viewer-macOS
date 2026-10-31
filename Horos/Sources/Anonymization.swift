@@ -40,6 +40,7 @@
 import Cocoa
 import Synchronization
 import IsiXDICOMFile
+import IsiXPreferences
 
 /// What a panel shown by Anonymization carries until it ends: where to save
 /// the configuration and whom to tell.
@@ -142,80 +143,65 @@ public final class Anonymization: NSObject {
     }
 
     @objc(tagsValuesArrayFromDictionary:)
-    public class func tagsValuesArray(from dic: NSDictionary?) -> NSArray {
-        let out = NSMutableArray(capacity: dic?.count ?? 0)
+    public class func tagsValuesArray(from dic: [AnyHashable: Any]?) -> [Any] {
+        var out: [Any] = []
+        out.reserveCapacity(dic?.count ?? 0)
 
-        for key in dic?.allKeys ?? [] {
-            var v: Any? = dic?.object(forKey: key)
-
+        for (key, value) in dic ?? [:] {
             guard let tag = self.tag(from: key as? String) else {
                 continue
             }
 
-            if v is NSNull {
-                v = nil
+            // if the value is null then the pair holds the tag only
+            if value is NSNull {
+                out.append([tag] as [Any])
+            } else {
+                out.append([tag, value] as [Any])
             }
-
-            // if v is null then array contains only 1 object
-            out.add(v.map { NSArray(objects: tag, $0) } ?? NSArray(object: tag))
         }
 
         return out
     }
 
     @objc(tagsValuesDictionaryFromArray:)
-    public class func tagsValuesDictionary(from arr: NSArray?) -> NSDictionary {
-        let out = NSMutableDictionary(capacity: arr?.count ?? 0)
+    public class func tagsValuesDictionary(from arr: [Any]?) -> [String: Any] {
+        var out: [String: Any] = [:]
 
-        for case let a as NSArray in arr ?? [] {
-            let tag = a.object(at: 0) as! DICOMAttributeTag
-            let v = a.count > 1 ? a.object(at: 1) : ""
+        for case let a as [Any] in arr ?? [] {
+            let tag = a[0] as! DICOMAttributeTag
+            let v = a.count > 1 ? a[1] : ""
 
             let k: String = tag.name ?? tag.stringValue
 
-            out.setObject(v, forKey: k as NSString)
+            out[k] = v
         }
 
         return out
     }
 
     @objc(tagsArrayFromStringsArray:)
-    public class func tagsArray(fromStringsArray strings: NSArray?) -> NSArray {
-        let out = NSMutableArray(capacity: strings?.count ?? 0)
-
-        for s in strings ?? [] {
-            if let tag = self.tag(from: s as? String) {
-                out.add(tag)
-            }
-        }
-
-        return out.copy() as! NSArray
+    public class func tagsArray(fromStringsArray strings: [Any]?) -> [Any] {
+        return (strings ?? []).compactMap { self.tag(from: $0 as? String) }
     }
 
     @objc(stringArrayFromTagsArray:)
-    class func stringArray(fromTagsArray tags: NSArray?) -> NSArray {
-        let out = NSMutableArray(capacity: tags?.count ?? 0)
-
-        for case let tag as DICOMAttributeTag in tags ?? [] {
-            out.add(tag.stringValue!)
-        }
-
-        return out.copy() as! NSArray
+    class func stringArray(fromTagsArray tags: [Any]?) -> [String] {
+        return (tags ?? []).compactMap { ($0 as? DICOMAttributeTag)?.stringValue }
     }
 
     @objc(tagsValues:isEqualTo:)
-    public class func tagsValues(_ a1: NSArray?, isEqualTo a2: NSArray?) -> Bool {
+    public class func tagsValues(_ a1: [Any]?, isEqualTo a2: [Any]?) -> Bool {
         if (a1?.count ?? 0) != (a2?.count ?? 0) {
             return false
         }
-        for case let a as NSArray in a1 ?? [] {
-            let atag = a.object(at: 0) as AnyObject
+        for case let a as [Any] in a1 ?? [] {
+            let atag = a[0] as AnyObject
             var found = false
-            for case let b as NSArray in a2 ?? [] {
-                let btag = b.object(at: 0)
+            for case let b as [Any] in a2 ?? [] {
+                let btag = b[0]
                 if atag.isEqual(btag) {
-                    let aval = (a.count > 1 ? a.object(at: 1) : "") as AnyObject
-                    let bval = (b.count > 1 ? b.object(at: 1) : "") as AnyObject
+                    let aval = (a.count > 1 ? a[1] : "") as AnyObject
+                    let bval = (b.count > 1 ? b[1] : "") as AnyObject
 
                     found = true
 
@@ -260,13 +246,17 @@ public final class Anonymization: NSObject {
             }
         }
 
-        let defaults = NSUserDefaultsController.shared
-        let values = Anonymization.tagsValuesArray(from: defaults.dictionary(forKey: defaultsKey) as NSDictionary?)
-        let tags = self.tagsArray(fromStringsArray: defaults.array(forKey: "\(defaultsKey ?? "(null)")All") as NSArray?)
+        // The panel's key, which a former plugin may choose; with none, nothing is read
+        // for the values and the list is the one saved under "(null)All", as before.
+        let preferences = PreferencesSource.process.preferences
+        let saved = defaultsKey.flatMap { preferences[DatabasePreferences.anonymizationFields(forPanel: $0)] }
+        let values = Anonymization.tagsValuesArray(from: saved?.values.mapValues(\.object))
+        let shown = preferences[DatabasePreferences.anonymizationFieldList(forPanel: defaultsKey ?? "(null)")]
+        let tags = self.tagsArray(fromStringsArray: shown?.tags)
 
         let panelController: AnonymizationPanelController = ObjectIdentifier(c) == ObjectIdentifier(AnonymizationSavePanelController.self)
-            ? AnonymizationSavePanelController(tags: tags as? [Any], values: values as? [Any])
-            : AnonymizationPanelController(tags: tags as? [Any], values: values as? [Any])
+            ? AnonymizationSavePanelController(tags: tags, values: values)
+            : AnonymizationPanelController(tags: tags, values: values)
         let ro = AnonymizationPanelRepresentation()
         ro.defaultsKey = defaultsKey
         ro.representedObject = representedObject
@@ -315,8 +305,15 @@ public final class Anonymization: NSObject {
 
         if panelController.end != 0 { // save config
             let viewController = panelController.anonymizationViewController
-            UserDefaults.standard.set(stringArray(fromTagsArray: viewController?.tags), forKey: "\(ro?.defaultsKey ?? "(null)")All")
-            UserDefaults.standard.set(tagsValuesDictionary(from: viewController?.tagsValues() as NSArray?), forKey: ro?.defaultsKey ?? "")
+            let preferences = PreferencesSource.process.preferences
+            let tags = stringArray(fromTagsArray: viewController?.tags as? [Any])
+            preferences.set(AnonymizationFieldList(tags), for: DatabasePreferences.anonymizationFieldList(forPanel: ro?.defaultsKey ?? "(null)"))
+            let values = tagsValuesDictionary(from: viewController?.tagsValues())
+            if let fields = PropertyListValue(values).flatMap(AnonymizationFieldValues.init(propertyList:)) {
+                preferences.set(fields, for: DatabasePreferences.anonymizationFields(forPanel: ro?.defaultsKey ?? ""))
+            } else {
+                NSLog("Anonymization: a value of the fields is not one the preferences can keep; the fields were not saved")
+            }
         }
 
         panel?.close()

@@ -39,6 +39,7 @@
 
 import AppKit
 import IsiXVolumeRendering
+import IsiXPreferences
 
 // The measurements of VRView: the length lines (the active one and the stored
 // ones, their texts and their projections as the camera moves), the angle of
@@ -97,12 +98,10 @@ extension VRView {
 
     // MARK: - Lines
 
-    @objc(captureCurrentLineProjection)
     func captureCurrentLineProjection() {
         horos_vtk.captureLineProjection()
     }
 
-    @objc(updateLineMeasurementProjections)
     func updateLineMeasurementProjections() {
         var wasVisible: ObjCBool = false, visible: ObjCBool = false
         var length: Double = 0
@@ -124,7 +123,6 @@ extension VRView {
 
     // MARK: - Angle
 
-    @objc(updateAngleMeasurementProjection)
     func updateAngleMeasurementProjection() {
         let vtk = horos_vtk
         if !vtk.hasAngleActors { return }
@@ -161,7 +159,6 @@ extension VRView {
         }
     }
 
-    @objc(clearAngleMeasurement)
     func clearAngleMeasurement() {
         horos_angleMeasurementCount = 0
         horos_measureAngle = 0
@@ -170,7 +167,6 @@ extension VRView {
 
     /// The patient point (in millimetres) of the volume's surface under a
     /// display point, when there is one.
-    @objc(patientPointAtDisplayX:Y:into:)
     func patientPointAtDisplayX(_ x: Float, y: Float, into point: UnsafeMutablePointer<Double>) -> Bool {
         var pix = [Int](repeating: 0, count: 3)
         var pos = [Float](repeating: 0, count: 3)
@@ -207,12 +203,10 @@ extension VRView {
         needsDisplay = true
     }
 
-    @objc(storeCurrentLineMeasurement)
     func storeCurrentLineMeasurement() {
         horos_vtk.storeActiveLine()
     }
 
-    @objc(clearStoredLineMeasurements)
     func clearStoredLineMeasurements() {
         horos_vtk.clearStoredLines()
     }
@@ -226,7 +220,6 @@ extension VRView {
                                                tolerance: convertToBacking(NSSize(width: 8, height: 8)).width)
     }
 
-    @objc(selectStoredLineMeasurementAt:)
     func selectStoredLineMeasurement(at point: NSPoint) {
         let vtk = horos_vtk
         var first = [Double](repeating: 0, count: 3), second = [Double](repeating: 0, count: 3)
@@ -247,7 +240,6 @@ extension VRView {
         }
     }
 
-    @objc(adaptLine2DToResize:before:cameraZoom:)
     func adaptLine2D(toResize newFrame: NSRect, before beforeFrame: NSRect, cameraZoom: Double) {
         // Line points are VTK display pixels. Preserve their projected world
         // positions as the parallel camera's viewport changes, also for export.
@@ -262,7 +254,6 @@ extension VRView {
 
     /// The line's length, the oval's statistics and the hover field, after a
     /// change of a measurement or of the camera.
-    @objc(computeLength)
     func computeLength() {
         let vtk = horos_vtk
         updateLineMeasurementProjections()
@@ -394,7 +385,6 @@ extension VRView {
 
     /// The scissors' outline from the clicked points, a spline through them
     /// when the preference asks for it.
-    @objc(generateROI)
     func generateROI() {
         let outline = NSMutableData()
         let roiPoints = horos_ROIPoints
@@ -408,7 +398,7 @@ extension VRView {
         }
 
         let count = roiPoints?.count ?? 0
-        if UserDefaults.standard.bool(forKey: "SplineForScissors") && count >= 3 { // Spline
+        if processGraph.preferences[VolumeRenderingPreferences.splineForScissors] && count >= 3 { // Spline
             let nb = Int32(truncatingIfNeeded: count + 1)
 
             let nspts = calloc(Int(nb), MemoryLayout<NSPoint>.size)!.assumingMemoryBound(to: NSPoint.self)

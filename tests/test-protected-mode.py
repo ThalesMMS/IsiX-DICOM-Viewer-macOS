@@ -124,7 +124,7 @@ if 'message: ProtectedMode.alertMessage' not in init:
     failures.append('the browser does not show the protected mode alert that lists what is off')
 
 # --- every start point asks --------------------------------------------------
-app = source_text('AppController')
+app = class_text('AppController')
 
 
 def method(text, signature, end):
@@ -132,17 +132,23 @@ def method(text, signature, end):
     return text[start:text.index(end, start + len(signature))]
 
 
-restart = method(app, 'public func restartSTORESCP()', 'Is called restart')
+# Every start of the listeners goes through DICOMListenerController's restart.
+lifecycle = source_text('DICOMListenerController')
+restart = method(lifecycle, '    func restart() {', 'storeListenerTitles()')
 if 'ProtectedMode.isActive' not in restart or 'return' not in restart:
-    failures.append('restartSTORESCP starts the listeners in protected mode')
+    failures.append('the restart starts the listeners in protected mode')
+if 'dicomListener.restart()' not in method(app, 'public func restartSTORESCP()', '\n    }\n'):
+    failures.append('restartSTORESCP does not go through the listener controller')
 at = app.index('xmlrpcServer = XMLRPCInterface()')
-if 'ProtectedMode.isActive' not in app[app.rindex('"httpXMLRPCServer"', 0, at):at]:
+if 'ProtectedMode.isActive' not in app[app.rindex('NetworkPreferences.xmlrpcServer', 0, at):at]:
     failures.append('the XML-RPC server starts in protected mode')
-launch = method(app, 'func applicationDidFinishLaunching(', 'DistributionChannel.configureMenu')
+launch = method(app, 'func didFinishLaunching() {', 'DistributionChannel.configureMenu')
 updates = launch[launch.index('#if !MACAPPSTORE'):]
 if not re.match(r'#if !MACAPPSTORE\s+if ProtectedMode\.isActive', updates):
     failures.append('automatic update checks start in protected mode')
-for marker in ('checkForUpdatesPlugins', 'AppController.checkForUpdates(_:)'):
+if 'updateCheckScheduler.startAtLaunch(' not in updates:
+    failures.append('the launch no longer starts the automatic update checks where protected mode is checked')
+for marker in ('checkForUpdatesPlugins', 'updateCheckScheduler.startAtLaunch('):
     if marker in updates and updates.index(marker) < updates.index('} else {'):
         failures.append('%s runs before the protected mode check' % marker)
 
@@ -159,14 +165,15 @@ toggle = method(publisher, 'public func toggleSharing(_ activate: Bool)', 'Horos
 if 'ProtectedMode.isActive' not in toggle:
     failures.append('Bonjour database sharing starts in protected mode')
 
-clean = (root / 'Horos/Sources/DicomDatabase+Clean.swift').read_text()
-timer = method(clean, 'private class func _cleanTimerCallback', 'initiateCleanUnlessAlreadyCleaning')
+clean = (root / 'Horos/Sources/DatabaseCleanupService.swift').read_text()
+timer = method(clean, 'private static func timerPass', 'initiateCleanUnlessAlreadyCleaning')
 if 'ProtectedMode.isActive' not in timer:
     failures.append('automatic cleaning runs in protected mode')
 
-database = (root / 'Horos/Sources/DicomDatabase+Import.swift').read_text()  # DicomDatabase is Swift
-routing = re.search(r'if self\.isLocal\(\) && returnArray && UserDefaults\.standard\.'
-                    r'bool\(forKey: "AUTOROUTINGACTIVATED"\)[^\n]*', database)
+database = (root / 'Horos/Sources/DicomFileIndexer.swift').read_text()  # DicomDatabase is Swift
+# The indexer reaches the database as `database` and reads the preferences it is given.
+routing = re.search(r'if database\.isLocal\(\) && returnArray && '
+                    r'preferences\[NetworkPreferences\.autoroutingActivated\][^\n]*', database)
 if not routing or '!ProtectedMode.isActive' not in routing.group():
     failures.append('auto-routing runs in protected mode')
 
@@ -181,7 +188,7 @@ if 'guard DCMPix.isRunOsiriXInProtectedModeActivated() == false else' not in ver
 
 # --- the crash offer: before the plugins, whatever hideListenerError says ----
 offer_at = app.index('NSLocalizedString("IsiX DICOM Viewer crashed during last startup"')
-plugins_at = app.index('State.pluginManager = PluginManager()')
+plugins_at = app.index('Once.pluginManager = PluginManager()')
 if offer_at > plugins_at:
     failures.append('Protected Mode chosen after a failed start comes after the plugins are loaded')
 offer = app[app.rindex('if !DatabaseFirstUse.hasPendingChoice', 0, offer_at):offer_at]

@@ -44,29 +44,6 @@ import AppKit
 // and the variadic logging functions of N2Debug.h.
 enum BrowserObjC {
 
-    /// Runs `body` as an @try block: the NSException it raises is returned.
-    static func attempt(_ body: () -> Void) -> NSException? {
-        do {
-            try HorosObjCException.perform(body)
-        } catch {
-            return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-        }
-        return nil
-    }
-
-    /// `@synchronized (object) { … }`: the same recursive lock, taken on
-    /// nothing when the object is nil, and left before an exception raised
-    /// inside goes on.
-    static func synchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T {
-        guard let object else { return body() }
-        objc_sync_enter(object)
-        var result: T?
-        let raised = attempt { result = body() }
-        objc_sync_exit(object)
-        if let raised { raised.raise() }
-        return result!
-    }
-
     /// N2LogException(e) and N2LogExceptionWithStackTrace(e), naming the
     /// former Objective-C method.
     static func log(_ exception: NSException, stack: Bool = false, _ function: String) {
@@ -76,7 +53,7 @@ enum BrowserObjC {
     /// N2LogStackTrace(message): the message with the stack of an exception
     /// raised for the purpose.
     static func logStackTrace(_ message: String) {
-        if let exception = attempt({ NSException(name: .genericException, reason: "", userInfo: nil).raise() }) {
+        if let exception = HorosObjCException.caught({ NSException(name: .genericException, reason: "", userInfo: nil).raise() }) {
             NSLog("%@", message)
             _N2LogExceptionImpl(exception, true, "")
         }
@@ -85,19 +62,6 @@ enum BrowserObjC {
     /// N2LogError(message) in the former Objective-C method.
     static func logError(_ message: String, _ function: String, file: String = #file, line: Int = #line) {
         DicomDatabaseLogError(function, file, Int32(line), message)
-    }
-
-    /// `[NSDictionary dictionaryWithObjectsAndKeys: …, nil]`: the list ends at
-    /// the first nil.
-    static func dictionary(_ pairs: Any?...) -> NSDictionary {
-        let dictionary = NSMutableDictionary()
-        var index = 0
-        while index + 1 < pairs.count {
-            guard let object = pairs[index], let key = pairs[index + 1] as? NSCopying else { break }
-            dictionary.setObject(object, forKey: key)
-            index += 2
-        }
-        return dictionary
     }
 
     /// `[value intValue]` of a number or a string; 0 for nil and the rest.

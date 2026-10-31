@@ -44,26 +44,9 @@ import AppKit
 // The state the category used is the class's (BrowserState.swift and
 // BrowserOutlets.swift), read through its accessors.
 //
-// Every @synchronized on the threads controller is objcSynchronized below, the
-// same recursive lock on the same object.
-
-/// `@synchronized (object) { … }`: the same recursive lock, taken on nothing
-/// when the object is nil, and left before an exception raised inside goes on.
-@inline(__always)
-fileprivate func objcSynchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T {
-    guard let object else { return body() }
-    objc_sync_enter(object)
-    var result: T?
-    var raised: NSException?
-    do {
-        try HorosObjCException.perform { result = body() }
-    } catch {
-        raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    objc_sync_exit(object)
-    if let raised { raised.raise() }
-    return result!
-}
+// Every @synchronized on the threads controller is the same recursive lock on
+// the same object: HorosObjCException.synchronized where KVC, a cell's cleanup
+// or AppKit may raise, objc_sync_enter/objc_sync_exit with defer elsewhere.
 
 /// `[NSArray arrayWithObjects: a, b, …, nil]`: the list ends at the first nil.
 fileprivate func objcArray(_ items: Any?...) -> NSArray {
@@ -172,9 +155,10 @@ public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTab
 
     /// Every bar of the list in its thread's state.
     @objc public func syncProgressIndicators() {
-        objcSynchronized(ThreadsManager.default().threadsController) {
-            for case let cell as ThreadCell in _cells { cell.syncProgressIndicator() }
-        }
+        let lock: NSArrayController = ThreadsManager.default().threadsController
+        objc_sync_enter(lock)
+        defer { objc_sync_exit(lock) }
+        for case let cell as ThreadCell in _cells { cell.syncProgressIndicator() }
     }
 
     nonisolated deinit {
@@ -184,14 +168,15 @@ public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTab
 
     @objc(cellForThread:)
     public func cell(for thread: Thread!) -> NSCell! {
-        return objcSynchronized(ThreadsManager.default().threadsController) { () -> NSCell? in
-            for case let cell as ThreadCell in _cells {
-                if cell.thread === thread {
-                    return cell
-                }
+        let lock: NSArrayController = ThreadsManager.default().threadsController
+        objc_sync_enter(lock)
+        defer { objc_sync_exit(lock) }
+        for case let cell as ThreadCell in _cells {
+            if cell.thread === thread {
+                return cell
             }
-            return nil
         }
+        return nil
     }
 
     @objc(_observeValueForKeyPathOfObjectChangeContext:)
@@ -211,7 +196,7 @@ public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTab
 
         if context == BrowserActivityHelperContext.pointer {
             let arrangedObjects = (object as? NSArrayController)?.arrangedObjects as? [Any]
-            objcSynchronized(ThreadsManager.default().threadsController) {
+            HorosObjCException.synchronized(ThreadsManager.default().threadsController) {
                 // we are looking for removed threads
                 let threadsThatHaveCellsToRemove = ((_cells.value(forKey: "thread") as? NSArray)?.mutableCopy() as? NSMutableArray) ?? NSMutableArray()
                 threadsThatHaveCellsToRemove.removeObjects(in: arrangedObjects ?? [])
@@ -259,18 +244,20 @@ public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTab
 
     @objc(tableView:dataCellForTableColumn:row:)
     public func tableView(_ tableView: NSTableView, dataCellFor tableColumn: NSTableColumn?, row: Int) -> NSCell? {
-        return objcSynchronized(ThreadsManager.default().threadsController) { () -> NSCell? in
-            // -objectAtIndex: raised out of range, and the @catch returned NULL.
-            guard row >= 0 && row < _cells.count else { return nil }
-            return _cells.object(at: row) as? NSCell
-        }
+        let lock: NSArrayController = ThreadsManager.default().threadsController
+        objc_sync_enter(lock)
+        defer { objc_sync_exit(lock) }
+        // -objectAtIndex: raised out of range, and the @catch returned NULL.
+        guard row >= 0 && row < _cells.count else { return nil }
+        return _cells.object(at: row) as? NSCell
     }
 
     @objc(numberOfRowsInTableView:)
     public func numberOfRows(in aTableView: NSTableView) -> Int {
-        return objcSynchronized(ThreadsManager.default().threadsController) {
-            _cells.count
-        }
+        let lock: NSArrayController = ThreadsManager.default().threadsController
+        objc_sync_enter(lock)
+        defer { objc_sync_exit(lock) }
+        return _cells.count
     }
 
     @objc(tableView:willDisplayCell:forTableColumn:row:)
@@ -279,7 +266,7 @@ public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTab
         if let tableColumn { frame = tableView.frameOfCell(atColumn: (tableView.tableColumns as NSArray).index(of: tableColumn), row: row) }
         else { frame = tableView.rect(ofRow: row) }
 
-        objcSynchronized(ThreadsManager.default().threadsController) {
+        HorosObjCException.synchronized(ThreadsManager.default().threadsController) {
             if let cell = cellObject as? ThreadCell, _cells.contains(cell) {
                 let activityName = cell.thread?.name ?? NSLocalizedString("Unspecified Task", comment: "")
                 cell.cancelButton?.setAccessibilityElement(true)

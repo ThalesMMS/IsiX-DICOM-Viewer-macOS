@@ -38,10 +38,10 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
-import IsiXDatabase
 
-// The DICOM network actions of the browser: sending the selection to a node,
-// opening Query/Retrieve on it, and linking studies to web portal users.
+// The DICOM network actions of the browser: sending the selection to a node
+// (SendController), opening Query/Retrieve on it (QueryController), and
+// linking studies to web portal users (PortalStudyLinks).
 
 extension BrowserController {
 
@@ -62,13 +62,7 @@ extension BrowserController {
     @objc(export2PACS:)
     func export2PACS(_ sender: Any!) {
         window?.makeKeyAndOrderFront(sender)
-        let objects = NSMutableArray()
-        if isThumbnailMenuItem(sender) || window?.firstResponder === horos_oMatrix {
-            _ = files(forDatabaseMatrixSelection: objects, onlyImages: false)
-        } else {
-            _ = files(forDatabaseOutlineSelection: objects, onlyImages: false)
-        }
-        selectServer(objects as? [Any])
+        selectServer(SelectedFiles(of: self, thumbnails: isThumbnailMenuItem(sender) || window?.firstResponder === horos_oMatrix, onlyImages: false).objects)
     }
 
     #if !OSIRIX_LIGHT
@@ -85,9 +79,9 @@ extension BrowserController {
 
         guard let outline = horos_databaseOutline else { return }
         let row = outline.selectedRowIndexes.first ?? NSNotFound
-        guard row != NSNotFound, let item = outline.item(atRow: row) as AnyObject? else { return }
-        let study = BrowserObjC.literallyEqual(item.value(forKey: "type") as? String, "Study") ? item : item.value(forKey: "study") as AnyObject?
-        QueryController.current()?.queryPatientID(study?.value(forKey: "patientID") as? String)
+        guard row != NSNotFound, let item = outline.item(atRow: row) else { return }
+        let study = (item as? DicomStudy) ?? (item as? DicomSeries)?.study
+        QueryController.current()?.queryPatientID(study?.patientID)
     }
 
     /// Query/Retrieve (tag 0) or the automatic query (tag 1); with Shift,
@@ -122,58 +116,10 @@ extension BrowserController {
 
     #if !OSIRIX_LIGHT
 
-    /// Links the selected studies to the web portal users chosen in the sheet,
-    /// those not linked yet (IsiXDatabase's WebPortalStudyLink).
+    /// Links the selected studies to the web portal users chosen in the sheet.
     @objc(addStudiesToUser:)
     func addStudiesToUser(_ sender: Any!) {
-        guard let sheet = horos_addStudiesToUserWindow, let users = horos_notificationEmailArrayController else { return }
-        users.setSelectionIndexes(IndexSet())
-        window?.beginSheet(sheet, completionHandler: nil)
-        let result = NSApp.runModal(for: sheet)
-        sheet.makeFirstResponder(nil)
-
-        if result == .stop {
-            if users.selectedObjects.isEmpty {
-                _ = HorosAlertPanel.runCritical(title: NSLocalizedString("Error", comment: ""),
-                                                message: NSLocalizedString("No user(s) selected, no studies will be added.", comment: ""),
-                                                defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-            } else if let exception = BrowserObjC.attempt({ self.link(databaseSelection() ?? [], toUsers: users.selectedObjects) }) {
-                BrowserObjC.log(exception, stack: true, "-[BrowserController addStudiesToUser:]")
-            }
-        }
-        sheet.sheetParent?.endSheet(sheet)
-        sheet.orderOut(self)
-    }
-
-    private func link(_ selection: [Any], toUsers users: [Any]) {
-        for case let user as NSManagedObject in users {
-            func linked(_ key: String) -> [Any] {
-                ((user.value(forKey: "studies") as? NSSet)?.allObjects as NSArray?)?.value(forKey: key) as? [Any] ?? []
-            }
-            var studyUIDs = linked("studyInstanceUID")
-            var patientUIDs = linked("patientUID")
-            for case var study as NSObject in selection {
-                if BrowserObjC.literallyEqual(study.value(forKey: "type") as? String, "Series"), let parent = study.value(forKey: "study") as? NSObject {
-                    study = parent
-                }
-                let studyUID = study.value(forKey: "studyInstanceUID") as? String
-                let patientUID = study.value(forKey: "patientUID") as? String
-                guard WebPortalStudyLink.needsLink(studyUID: studyUID, patientUID: patientUID,
-                                                   linkedStudyUIDs: studyUIDs, linkedPatientUIDs: patientUIDs),
-                      let context = user.managedObjectContext else { continue }
-                let link = NSEntityDescription.insertNewObject(forEntityName: "Study", into: context)
-                link.setValue(studyUID, forKey: "studyInstanceUID")
-                link.setValue(patientUID, forKey: "patientUID")
-                link.setValue(user, forKey: "user")
-                if let exception = BrowserObjC.attempt({ _ = WebPortal.default()?.database?.save() }) {
-                    BrowserObjC.log(exception, stack: true, "-[BrowserController addStudiesToUser:]")
-                }
-                studyUIDs = linked("studyInstanceUID")
-                patientUIDs = linked("patientUID")
-                WebPortal.default()?.updateLogEntry(forStudy: study as? NSManagedObject, withMessage: "Add Study to User",
-                                                    forUser: user.value(forKey: "name") as? String, ip: nil)
-            }
-        }
+        PortalStudyLinks.addSelection(of: self)
     }
 
     #endif

@@ -12,6 +12,7 @@
 
 import AppKit
 import IsiXDICOMNetwork
+import IsiXPreferences
 import os
 
 /// Why the XML-RPC listener turned a request away before reading it.
@@ -44,7 +45,7 @@ public enum RISRefusal: Int {
 @objc(HorosRISRequestAlert)
 public final class RISRequestAlert: NSObject {
     /// Whether failed requests are shown in an alert, beyond the log.
-    @objc public static let showAlertsKey = "httpXMLRPCServerShowFailureAlerts"
+    @objc public static let showAlertsKey = NetworkPreferences.xmlrpcServerShowsFailureAlerts.name
 
     // MARK: Messages
 
@@ -125,7 +126,7 @@ public final class RISRequestAlert: NSObject {
     @objc(reportMessage:code:)
     public static func report(_ message: String, code: Int) {
         NSLog("RIS request failed (%d): %@", code, message)
-        guard UserDefaults.standard.bool(forKey: showAlertsKey) else { return }
+        guard PreferencesSource.process.preferences[NetworkPreferences.xmlrpcServerShowsFailureAlerts] else { return }
         show(text(message, code: code))
     }
 
@@ -207,10 +208,11 @@ public final class RISRequestAlert: NSObject {
     /// The text of the alert on screen, for checks run against the app.
     @MainActor @objc public private(set) static var shownText: String?
 
+    /// From the main run loop: the alert is modal, and the main queue goes on
+    /// while it is open. A failure met meanwhile reaches `present` too, which
+    /// keeps it for the next alert.
     private static func show(_ text: String) {
-        DispatchQueue.main.async {
-            MainActor.assumeIsolated { present(text) }
-        }
+        onMainRunLoop { present(text) }
     }
 
     @MainActor private static func present(_ text: String) {

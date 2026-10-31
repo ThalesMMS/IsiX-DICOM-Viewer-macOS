@@ -63,18 +63,19 @@ bridge = (root / 'Horos/Sources/DCMView+PlanarHost.swift').read_text()
 pixels = bridge[bridge.index('func horosPlanarPixelsWidth('):bridge.index('class func horosResetCaptureFailure()')]
 check('if pixels == nil && curDCM != nil' in pixels and 'if Self.captureFailure == nil { Self.captureFailure = reason }' in pixels,
       'a view with an image and no picture does not record why')
-export = source_text('ViewerController+Export')
-image_export = export[export.index('func endExportImage('):]
+# The image and DICOM export of the 2D viewer is ViewerImageExporter.swift.
+export = source_text('ViewerImageExporter')
+image_export = export[export.index('func endImageSheet('):]
 loop = image_export[image_export.index('DCMView.horosResetCaptureFailure()'):]
 check(loop.find('if DCMView.horosCaptureFailure() != nil { break }') < loop.find('representationOfImageReps'),
       'the image export encodes a capture before asking whether it failed')
 check('if let reason = DCMView.horosCaptureFailure()' in image_export, 'the image export does not say that a capture failed')
-dicom = export[export.index('func exportDICOMFileInt(_ screenCapture: Int32, withName name: String!, allViewers: Bool)'):]
-dicom = dicom[:dicom.index('func findPlayStopButton')]
+dicom = export[export.index('func writeDICOM(format: Int32, name: String?, allViewers: Bool, to destination: String? = nil)'):]
+dicom = dicom[:dicom.index('private static func sameText(')]
 check(dicom.find('DCMView.horosResetCaptureFailure()') < dicom.find('getRawPixelsWidth('), 'the DICOM export does not start from no failure')
 failed = dicom.find('let reason = DCMView.horosCaptureFailure()')
 check(0 < failed < dicom.find('writeDCMFile(') and 'free(failed)' in dicom, 'the DICOM export writes the file of a failed capture')
-check(export.count('reportDICOMExportCaptureFailure()') == 3, 'the DICOM exports do not say, once, that a capture failed')
+check(export.count('reportCaptureFailure()') == 3, 'the DICOM exports do not say, once, that a capture failed')
 # -copy: is DCMView+ROIEditing.swift's.
 view = (root / 'Horos/Sources/DCMView+ROIEditing.swift').read_text()
 copy = view[view.index('public dynamic func copy(_ sender: Any!)'):]

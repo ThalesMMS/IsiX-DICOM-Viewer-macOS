@@ -2,7 +2,7 @@
 """The scan of a medium decodes a DICOMDIR's names in the character set it states.
 
 A DICOMDIR record carries Specific Character Set (0008,0005) when its texts are
-not in the default repertoire. The scan (DicomDatabase+DicomDir.swift) took the
+not in the default repertoire. The scan (DicomdirReader.swift) took the
 element out of the record and decoded every name in the encodings of no
 character set, so a medium whose DICOMDIR says ISO_IR 100, ISO 2022 IR 87 or
 ISO_IR 192 showed its patients and studies with wrong characters until the
@@ -13,16 +13,16 @@ DicomFile uses for the files' own texts.
 The test writes, with pydicom, a medium of four studies in four character sets
 (ISO_IR 100, ISO 2022 IR 87 with ideographic and phonetic names, ISO_IR 144,
 ISO_IR 192) and its DICOMDIR, whose records state the character set of their
-study. It compiles DicomDatabase+DicomDir.swift as it is written, with the
+study. It compiles DicomdirReader.swift as it is written, with the
 IsiXDICOMFile and IsiXDatabase modules, the DICOMDIR adapter
 (IsiXDCMTKDicomDir, against the DCMTK of the Debug build: exit 2 without it),
-DicomFile's decoding as written in DicomFile+Text.swift, and stand-ins for the
-database that receives the entries. The patient name and study description of
-each entry the scan hands to the database must be those of its file, as pydicom
-reads them and as the import cleans text.
+DicomFile's decoding as written in DicomFile+Text.swift, and stand-ins for what
+of the application it consults. The patient name and study description of each
+entry the reader gives must be those of its file, as pydicom reads them and as
+the import cleans text.
 
-`<git revision>` as an optional argument reads DicomDatabase+DicomDir.swift from
-that revision, the negative control. Exit 2 without a Python with pydicom
+`<git revision>` as an optional argument reads the reader from that revision,
+under the name it had there, the negative control. Exit 2 without a Python with pydicom
 (HOROS_PYTHON or the local venvs).
 """
 import json
@@ -35,10 +35,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import isix_modules  # noqa: E402
+import process_graph_stand_in  # noqa: E402  - the scan reads the preferences through the process graph
 from dcmtk_build import ROOT, dcmtk_flags  # noqa: E402
 
 revision = sys.argv[1] if len(sys.argv) > 1 else None
-SCAN = 'Horos/Sources/DicomDatabase+DicomDir.swift'
+SCAN = 'Horos/Sources/DicomdirReader.swift'
+FORMER_SCAN = 'Horos/Sources/DicomDatabase+DicomDir.swift'
 ADAPTERS = ROOT / 'Horos/Sources/Adapters/DCMTK'
 
 flags = dcmtk_flags('dcmnet', 'dcmjpeg', 'ijg8', 'ijg12', 'ijg16', 'dcmimage', 'dcmimgle')
@@ -109,8 +111,8 @@ BRIDGE = r'''
 #import "IsiXDCMTKDicomDir.h"
 '''
 
-# The database receiving the entries, and what of the application the scan
-# consults beside it, standing in.
+# What of the application the reader consults, standing in; in a revision
+# where it was an extension, the database receiving the entries too.
 STUBS = r'''
 import Foundation
 import IsiXDICOMFile
@@ -162,11 +164,10 @@ let folder = CommandLine.arguments[1]
 let expected = try! JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2])))
     as! [String: [String: String]]
 let paths = FileManager.default.enumerator(atPath: folder)!.compactMap { $0 as? String }.map { folder + "/" + $0 }
-let database = DicomDatabase()
-_ = database.scanDicomdir(at: folder + "/DICOMDIR", withPaths: paths as NSArray, pathsToScanAnyway: NSMutableArray())
+READ
 var failed = false
 var seen = 0
-for case let entry as NSDictionary in database.described {
+for case let entry as NSDictionary in entries {
     guard let uid = entry["SOPUID"] as? String, let file = expected[uid] else { continue }
     seen += 1
     for key in ["patientName", "studyDescription"] {
@@ -186,9 +187,20 @@ exit(failed ? 1 : 0)
 
 def scan_source():
     if revision:
-        return subprocess.run(['git', '-C', str(ROOT), 'show', '%s:%s' % (revision, SCAN)], check=True,
-                              capture_output=True).stdout.decode('utf-8')
+        for path in (SCAN, FORMER_SCAN):
+            shown = subprocess.run(['git', '-C', str(ROOT), 'show', '%s:%s' % (revision, path)], capture_output=True)
+            if shown.returncode == 0:
+                return shown.stdout.decode('utf-8')
+        raise SystemExit('FAIL: %s has neither %s nor %s' % (revision, SCAN, FORMER_SCAN))
     return (ROOT / SCAN).read_text(encoding='utf-8')
+
+
+READERS = {
+    'current': 'let entries = DicomdirReader().read(at: folder + "/DICOMDIR", withPaths: paths).entries',
+    'former': 'let database = DicomDatabase()\n'
+              '_ = database.scanDicomdir(at: folder + "/DICOMDIR", withPaths: paths as NSArray, pathsToScanAnyway: NSMutableArray())\n'
+              'let entries = database.described',
+}
 
 
 def decoding():
@@ -210,7 +222,8 @@ with tempfile.TemporaryDirectory(prefix='isix-dicomdir-charset-') as directory:
     (work / 'expected.json').write_text(made.stdout)
     (work / 'scan.swift').write_text(scan_source(), encoding='utf-8')
     (work / 'stubs.swift').write_text(STUBS.replace('DECODING', decoding()), encoding='utf-8')
-    (work / 'main.swift').write_text(DRIVER)
+    reader = 'current' if 'struct DicomdirReader' in scan_source() else 'former'
+    (work / 'main.swift').write_text(DRIVER.replace('READ', READERS[reader]))
     (work / 'bridge.h').write_text(BRIDGE)
     modules = work / 'modules'
     module_flags = isix_modules.module_flags('IsiXDICOMFile', modules) + isix_modules.module_flags('IsiXDatabase', modules)[4:]
@@ -227,7 +240,8 @@ with tempfile.TemporaryDirectory(prefix='isix-dicomdir-charset-') as directory:
     built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-module-name', 'Horos',
                             '-import-objc-header', str(work / 'bridge.h'),
                             *[part for flag in includes for part in ('-Xcc', flag)], *module_flags,
-                            str(work / 'scan.swift'), str(work / 'stubs.swift'), str(work / 'main.swift'), *objects,
+                            str(work / 'scan.swift'), str(work / 'stubs.swift'), str(work / 'main.swift'),
+                            str(process_graph_stand_in.source(work)), *objects,
                             *flags[2:], '-Xlinker', '-lc++', '-framework', 'Cocoa', '-o', str(work / 'check')],
                            capture_output=True, text=True, timeout=600)
     if built.returncode:

@@ -194,21 +194,26 @@ finally:
 session = (root / 'Horos/Sources/DCMTKQueryNode+DICOMweb.swift').read_text()
 retrieve = session[session.index('func retrieveDICOMweb() -> Bool'):]
 retrieve = retrieve[:retrieve.index('\n    }\n')]
+# What a cut is, the requests kept to be resumed and the fallback flag are the
+# module's queue of the retrieve's requests.
+queue = (root / 'Modules/IsiXDICOMNetwork/Sources/DICOMwebRetrieveQueue.swift').read_text()
+port = (root / 'Modules/IsiXDICOMNetwork/Sources/DICOMwebRetrieving.swift').read_text()
 listed = retrieve.index('inventory.confirm(instances: instances')
-turn = retrieve.find('session.fallbackOnly.modify { $0 = true }')
+turn = retrieve.find('session.queue.useFallbackOnly()')
 second = retrieve.find('for (seriesUID, uids) in inventory.unreceivedSeries {')
 check(listed < turn < second, 'the fallback is decided once the listing has ended and before the second pass')
 guard = retrieve[retrieve.rfind('if let cut', 0, turn):turn]
-check('succeeded' in guard and 'client.retrieveFallbackTransferSyntax' in guard and 'HorosDICOMwebObjectsHandedOver' in guard
-      and 'kind == .network' in guard and 'kind == .invalidResponse' in guard and '!session.failed' in guard,
+check('succeeded' in guard and 'client.retrieveFallbackTransferSyntax' in guard and 'cut.isCutAfterObjects' in guard
+      and '(kind == .network || kind == .invalidResponse) && objectsHandedOver > 0' in port and '!session.failed' in guard,
       'only a cut after some objects, with a listing and a fallback syntax, turns the pass for what is missing to that syntax')
-check('let cut = session.pool.read { $0.interrupted.first?.error }' in retrieve
-      and 'pool.modify { $0.interrupted.append(again) }' in session,
+check('if let cut = session.queue.firstCut' in retrieve and '$0.interrupted.first?.failure' in queue
+      and 'state.interrupted.append(again)' in queue,
       'a cut is a request kept to be resumed, not an error that stops the retrieve')
 check('(whole || fallbackOnly || !asked.contains(uid))' in retrieve[second:], 'that pass asks again for what was asked before the cut')
-check('fallback: fallbackOnly.current))' in session and 'fallbackOnly: request.fallback, objectHandler: queue' in session,
+check('fallback: fallbackOnly))' in queue and 'fallbackOnly: request.fallback, handler: handler)' in queue
+      and 'queue.perform(request, with: client, stagingDirectory: staging, handler: handler)' in session,
       'its requests ask the client for the fallback syntax alone')
-check(session.count('fallbackOnly.modify { $0 = true }') == 1, 'the fallback pass runs once per retrieve')
+check(session.count('useFallbackOnly()') == 1, 'the fallback pass runs once per retrieve')
 
 for failure in failures:
     print('FAIL:', failure)

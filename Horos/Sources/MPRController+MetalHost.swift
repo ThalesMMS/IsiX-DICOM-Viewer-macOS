@@ -10,6 +10,7 @@
 
 import AppKit
 import IsiXImaging
+import IsiXPreferences
 import ObjectiveC
 
 /// What an MPR window holds for its Metal planes: the reslicers of its
@@ -33,11 +34,10 @@ import ObjectiveC
 /// on first use and kept for the life of the app; the defaults do not retain
 /// it, and it is never removed.
 final class MPRCubicDisplayObserver: NSObject, @unchecked Sendable {
-    static let preferenceKey = "HorosMPRCubicDisplay"
-
     private static let shared: MPRCubicDisplayObserver = {
         let observer = MPRCubicDisplayObserver()
-        UserDefaults.standard.addObserver(observer, forKeyPath: preferenceKey, options: [], context: nil)
+        PreferencesSource.process.preferences.addObserver(observer, forKeyPath: ReconstructionPreferences.mprCubicDisplay.name,
+                                                     options: [], context: nil)
         return observer
     }()
 
@@ -102,7 +102,7 @@ extension MPRController {
     /// preference (Settings → 3D), off by default.
     @objc(horosMPRCubicDisplay)
     func horosMPRCubicDisplay() -> Bool {
-        UserDefaults.standard.bool(forKey: MPRCubicDisplayObserver.preferenceKey)
+        self.preferenceStore[ReconstructionPreferences.mprCubicDisplay]
     }
 
     /// Wall milliseconds of the last synchronous Metal reslice, or -1 if none ran.

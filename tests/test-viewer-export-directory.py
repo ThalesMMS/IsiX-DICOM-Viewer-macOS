@@ -1,27 +1,30 @@
 #!/usr/bin/env python3
 """Execute the viewer's real per-export directory creation block twice.
 
--endExportImage: is Swift (ViewerController+Export.swift): the block
-is copied out of that method and compiled with xcrun swiftc against a stand-in
-browser database and alert panel, as it was with clang.
+The image export of the 2D viewer is ViewerImageExporter.swift: the block is
+copied out of its endImageSheet and compiled with xcrun swiftc against a
+stand-in process graph, browser database and alert panel, as it was with clang.
 """
 import private_tmpdir  # noqa: F401  (swiftc leaves folders in TMPDIR)
 from pathlib import Path
 import subprocess,tempfile
 import sources
-s=sources.source_text('ViewerController+Export')
-m=s.index('@objc(endExportImage:)');e=s.index('@objc(',m+len('@objc(endExportImage:)'))
-a=s.index('                let sharedExportRoot = ',m);b=s.index('                let mailExportFiles = NSMutableArray()',a)
-assert b<e,'the directory block is no longer in -endExportImage:'
+s=sources.source_text('ViewerImageExporter')
+m=s.index('    func endImageSheet(');e=s.index('\n    }\n',m)
+a=s.index('        let sharedExportRoot = ',m);b=s.index('        var mailExportFiles: [String] = []',a)
+assert b<e,'the directory block is no longer in endImageSheet'
 code=r'''
 import Foundation
 var testRoot = ""
 let created = NSMutableArray()
 final class BrowserController: NSObject {
-    static func currentBrowser() -> BrowserController? { return BrowserController() }
     var database: BrowserController? { return self }
     func tempDirPath() -> String! { return testRoot }
 }
+final class ProcessGraph {
+    var currentBrowser: BrowserController? { return BrowserController() }
+}
+let processGraph = ProcessGraph()
 enum HorosAlertPanel {
     @discardableResult static func run(title: String, message: String, defaultButton: String, alternateButton: String?, otherButton: String?) -> Int { return 1 }
 }

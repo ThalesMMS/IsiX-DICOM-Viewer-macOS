@@ -7,9 +7,11 @@ CurvedMPRPathAssistant is compiled with CurvedMPRPath.swift and run:
   point of an old or empty centerline (the volume's origin);
 - the cheapest node to remove is none when every cost is NaN or MAXFLOAT,
   where the first node went;
-- the simplification target is counted signed, so a centerline of fewer than
-  3 points does not wrap, and the simplification stops when a step changes
-  nothing, where it looped forever.
+- the simplification target is counted signed, so a path of fewer than
+  3 nodes does not wrap; at 100 % it is the whole path, the nodes there and
+  those removed, where it was the centerline of the assistant's last
+  segment; and the simplification stops when a step changes nothing, where
+  it looped forever.
 CPRController is read for the rest:
 - -addMoviePixList:: stores a time after the last one, within MAX4D, where it
   wrote over the first;
@@ -108,11 +110,17 @@ expect(CurvedMPRPathAssistant.cheapestRemovableNode(costs: [maxFloat, .nan, .nan
        "NaN costs remove no node, not the first")
 expect(CurvedMPRPathAssistant.cheapestRemovableNode(costs: []) == nil, "no cost, no node")
 
-expect(CurvedMPRPathAssistant.simplificationTarget(centerlineCount: 23, sliderPercent: 100) == 23, "100 % keeps every point")
-expect(CurvedMPRPathAssistant.simplificationTarget(centerlineCount: 23, sliderPercent: 0) == 3, "0 % keeps 3 nodes")
-expect(CurvedMPRPathAssistant.simplificationTarget(centerlineCount: 23, sliderPercent: 50) == 13, "50 % keeps half")
-let short = CurvedMPRPathAssistant.simplificationTarget(centerlineCount: 1, sliderPercent: 100)
-expect(short == 1, "a one-point centerline asks for 1 node, not a wrapped count: \(short)")
+expect(CurvedMPRPathAssistant.simplificationTarget(pathNodeCount: 23, removedNodeCount: 0, sliderPercent: 100) == 23, "100 % keeps every node")
+expect(CurvedMPRPathAssistant.simplificationTarget(pathNodeCount: 23, removedNodeCount: 0, sliderPercent: 0) == 3, "0 % keeps 3 nodes")
+expect(CurvedMPRPathAssistant.simplificationTarget(pathNodeCount: 23, removedNodeCount: 0, sliderPercent: 50) == 13, "50 % keeps half")
+let short = CurvedMPRPathAssistant.simplificationTarget(pathNodeCount: 1, removedNodeCount: 0, sliderPercent: 100)
+expect(short == 1, "a one-node path asks for 1 node, not a wrapped count: \(short)")
+// A path of 41 nodes the slider took down to 10: 100 % asks for the 41, not
+// for the 21 points of the centerline of the assistant's last segment.
+let whole = CurvedMPRPathAssistant.simplificationTarget(pathNodeCount: 10, removedNodeCount: 31, sliderPercent: 100)
+expect(whole == 41, "100 % after 31 removals asks for \(whole) nodes, not the 41 of the whole path")
+let half = CurvedMPRPathAssistant.simplificationTarget(pathNodeCount: 10, removedNodeCount: 31, sliderPercent: 50)
+expect(half == 22, "50 % of a path of 41 nodes asks for \(half) nodes, not 22")
 
 // A path of 6 nodes, of which 2 can go, with 1 removal to undo.
 var nodes = 6, removable = 2, undoable = 1, steps = 0

@@ -39,29 +39,43 @@
 
 import Cocoa
 import CoreData
+import IsiXDICOMNetwork
+import IsiXPreferences
 
 // BY DEFAULT OSIRIX USES 8780 PORT
 
 /// Shares DB with Bonjour
+///
+/// Confined to the main actor, where everything reaches it: the preferences it
+/// follows, the listener's reports and the advertisement it publishes. What is
+/// announced, and the protocol the shared database speaks, are the rules of
+/// IsiXDICOMNetwork; the connections run on the listener's workers and receive
+/// what they need from here (`SharedDatabaseServing`).
+@MainActor
 @objc(BonjourPublisher)
-public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabaseServerDelegate {
+public final class BonjourPublisher: NSObject, @preconcurrency NetServiceDelegate, @preconcurrency HorosDatabaseServerDelegate {
+    private let processGraph: ProcessGraph
+    private let sender: SharedDatabaseDICOMSender
+
     private var _listener: HorosDatabaseServer? // the Network.framework listener
 
     private var _bonjour: NetService?
     private var _advertisement: BonjourAdvertisement?
 
-    private var dicomSendLock: NSLock?
-
-    //@property(retain) NSString* serviceName;
-    //@property(retain, readonly) NSNetService* netService;
-
     @available(*, deprecated, message: "use -[[AppController sharedAppController] bonjourPublisher]")
     @objc(currentPublisher)
-    public class func currentPublisher() -> BonjourPublisher? {
-        return AppController.shared()?.bonjourPublisher
+    public nonisolated class func currentPublisher() -> BonjourPublisher? {
+        return ProcessGraph.process.bonjourPublisher
     }
 
-    public override init() {
+    /// The publisher of the process, which the application controller makes at launch.
+    public override convenience init() {
+        self.init(processGraph: ProcessGraph.process)
+    }
+
+    init(processGraph: ProcessGraph) {
+        self.processGraph = processGraph
+        sender = SharedDatabaseDICOMSender(processGraph: processGraph)
         super.init()
         let controller = NSUserDefaultsController.shared
         controller.addObserver(self, forValuesKey: OsirixBonjourSharingIsActiveDefaultsKey, options: .initial, context: nil)
@@ -70,35 +84,32 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
         controller.addObserver(self, forValuesKey: OsirixBonjourSharingPasswordDefaultsKey, options: .initial, context: nil)
     }
 
-    deinit {
+    isolated deinit {
         let controller = NSUserDefaultsController.shared
         controller.removeObserver(self, forValuesKey: OsirixBonjourSharingIsActiveDefaultsKey)
         controller.removeObserver(self, forValuesKey: OsirixBonjourSharingNameDefaultsKey)
         controller.removeObserver(self, forValuesKey: OsirixBonjourSharingIsPasswordProtectedDefaultsKey)
         controller.removeObserver(self, forValuesKey: OsirixBonjourSharingPasswordDefaultsKey)
 
-        dicomSendLock = nil
-        //	self.serviceName = NULL;
-
         _listener?.delegate = nil
         _listener?.stop()
         _listener = nil
-        // The advertisement is the main queue's (BonjourDiscovery.swift).
-        if let advertisement = _advertisement { onMainActor { advertisement.stop() } }
+        _advertisement?.stop()
         _advertisement = nil
         _bonjour = nil
     }
 
-    public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        var keyPath = keyPath
-        if (object as AnyObject?) === NSUserDefaultsController.shared {
-            keyPath = keyPath.map { ($0 as NSString).substring(from: 7) }
+    // The shared user defaults controller reports a preference on the thread
+    // that wrote it: the change is handled on the main actor.
+    public nonisolated override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
+        if object is NSUserDefaultsController {
+            let keyPath = keyPath.map { ($0 as NSString).substring(from: 7) }
             if Self.isEqual(keyPath, OsirixBonjourSharingIsActiveDefaultsKey) {
-                toggleSharing(UserDefaults.bonjourSharingIsActive())
+                onMainActor { self.toggleSharing(UserDefaults.bonjourSharingIsActive()) }
                 return
             } else if Self.isEqual(keyPath, OsirixBonjourSharingNameDefaultsKey) {
                 // The advertisement carries the name: a new one replaces it (-updateBonjour).
-                updateBonjour()
+                onMainActor { self.updateBonjour() }
                 return
             } else if Self.isEqual(keyPath, OsirixBonjourSharingIsPasswordProtectedDefaultsKey) {
                 return
@@ -111,15 +122,15 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
     }
 
     /// -[NSString isEqualToString:]: a literal comparison, and NO for nil.
-    private static func isEqual(_ string: String?, _ other: String?) -> Bool {
+    private nonisolated static func isEqual(_ string: String?, _ other: String?) -> Bool {
         guard let string, let other else { return false }
         return (string as NSString).isEqual(to: other)
     }
 
     @available(*, deprecated, message: "use -[[[AppController sharedAppController] bonjourPublisher] port]")
     @objc(OsiriXDBCurrentPort)
-    public func osiriXDBCurrentPort() -> Int32 {
-        return Int32(truncatingIfNeeded: _listener?.port ?? 0)
+    public nonisolated func osiriXDBCurrentPort() -> Int32 {
+        return onMainActorSync { Int32(truncatingIfNeeded: self._listener?.port ?? 0) }
     }
 
     @objc(toggleSharing:)
@@ -128,31 +139,27 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
             ProtectedMode.skip("Bonjour database sharing")
             return
         }
-        do {
-            try HorosObjCException.perform {
-                if activate && self._listener == nil {
-                    // The listener reports ready or failed on the main queue; the advertisement is published
-                    // only once it is ready (-databaseServerDidStart:), never for a port nothing listens on.
-                    let listener = HorosDatabaseServer(port: 8780) { peer in
-                        O2DatabaseConnection.serve(peer)
-                    }
-                    self._listener = listener
-                    listener.delegate = self
-                    listener.start()
+        // NSNetService and the direct-transfer service, reached by selector, are Objective-C.
+        HorosObjCException.logged("-[BonjourPublisher toggleSharing:]", stack: true) {
+            if activate && self._listener == nil {
+                // The listener reports ready or failed on the main queue; the advertisement is published
+                // only once it is ready (-databaseServerDidStart:), never for a port nothing listens on.
+                let serving = SharedDatabaseServing(processGraph: self.processGraph, sender: self.sender)
+                let listener = HorosDatabaseServer(port: SharedDatabaseAnnouncement.port) { peer in
+                    O2DatabaseConnection.serve(peer, serving: serving)
                 }
-
-                if !activate, let listener = self._listener {
-                    listener.delegate = nil
-                    listener.stop()
-                    self._listener = nil
-                }
-
-                self.updateBonjour()
+                self._listener = listener
+                listener.delegate = self
+                listener.start()
             }
-        } catch {
-            if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                _N2LogExceptionImpl(e, true, "-[BonjourPublisher toggleSharing:]")
+
+            if !activate, let listener = self._listener {
+                listener.delegate = nil
+                listener.stop()
+                self._listener = nil
             }
+
+            self.updateBonjour()
         }
     }
 
@@ -167,9 +174,9 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
         NSLog("Warning: unable to share the Horos database on port 8780: %@", description)
         // The server stopped itself. Without a listener the advertisement goes: the
         // user is told why, and turning sharing off and on again tries the port once more.
-        AppController.shared()?.reportListenBindFailure(forService: ListenBindFailure.databaseSharingService,
-                                                                    port: 8780,
-                                                                    errnoCode: posixError)
+        processGraph.appController?.reportListenBindFailure(forService: ListenBindFailure.databaseSharingService,
+                                                           port: 8780,
+                                                           errnoCode: posixError)
         _listener?.delegate = nil
         _listener = nil
         updateBonjour()
@@ -186,11 +193,13 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
         // Drop inactive/stale advertisements and create one only for a listener that is ready,
         // under the name the preferences hold now.
         let listenerPort = _listener?.port ?? 0
-        if listenerPort == 0 || (_bonjour != nil && (_bonjour!.port != listenerPort || !Self.isEqual(_bonjour!.name, UserDefaults.bonjourSharingName()))) {
+        let name = UserDefaults.bonjourSharingName()
+        if SharedDatabaseAnnouncement.mustWithdraw(advertisedPort: _bonjour?.port, advertisedName: _bonjour?.name,
+                                                   listenerPort: listenerPort, name: name) {
             _bonjour?.delegate = nil
             _bonjour?.stop()
             _bonjour = nil
-            if let advertisement = _advertisement { onMainActorSync { advertisement.stop() } }
+            _advertisement?.stop()
             _advertisement = nil
         }
         if listenerPort == 0 {
@@ -206,21 +215,16 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
             // listener is on, takes the name the daemon gives it on a collision, and
             // retries only a transient daemon failure. The deprecated -netService
             // accessor keeps returning an NSNetService for its remaining callers.
-            let port = listener.port
-            // Made and published on the main queue, where it is scheduled.
-            _advertisement = onMainActorSync {
-                BonjourAdvertisement(name: UserDefaults.bonjourSharingName() ?? "", type: "_osirixdb._tcp.", port: port)
-            }
-            _bonjour = NetService(domain: "", type: "_osirixdb._tcp.", name: UserDefaults.bonjourSharingName() ?? "", port: Int32(truncatingIfNeeded: listener.port))
+            _advertisement = BonjourAdvertisement(name: name ?? "", type: SharedDatabaseAnnouncement.serviceType, port: listener.port)
+            _bonjour = NetService(domain: "", type: SharedDatabaseAnnouncement.serviceType, name: name ?? "",
+                                  port: Int32(truncatingIfNeeded: listener.port))
             _bonjour?.delegate = self
         }
 
-        let txtrec = NSMutableDictionary()
-        txtrec.setObject(UserDefaults.standard.string(forKey: "AETITLE") ?? "OSIRIX", forKey: "AETitle" as NSString)
-        txtrec.setObject(UserDefaults.standard.string(forKey: "AEPORT") ?? "11112", forKey: "port" as NSString)
-        if let uid = AppController.uid() {
-            txtrec.setObject(uid, forKey: "UID" as NSString)
-        }
+        let preferences = processGraph.preferences
+        var announcement = SharedDatabaseAnnouncement(aeTitle: preferences[NetworkPreferences.aeTitle],
+                                                      dicomPort: preferences[NetworkPreferences.aePort],
+                                                      uid: AppController.uid())
 
         let directPolicy: AnyClass? = NSClassFromString("HorosDirectTransferPolicy")
         let directService: AnyClass? = NSClassFromString("HorosDirectTransferService")
@@ -229,32 +233,24 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
                 .takeUnretainedValue().perform(NSSelectorFromString("startIfSharingActive"))
         }
         if let directPolicy, directPolicy.responds(to: NSSelectorFromString("bonjourTXTFields")) {
-            let capability = (directPolicy as AnyObject).perform(NSSelectorFromString("bonjourTXTFields"))?.takeUnretainedValue() as? NSDictionary
-            if let version = capability?.object(forKey: "HorosDirectTransferVersion") as? NSString, version.length > 0 {
-                txtrec.setObject(version, forKey: "HorosDirectTransferVersion" as NSString)
-            }
-            if let directPort = capability?.object(forKey: "HorosDirectTransferPort") as? NSString, directPort.length > 0 {
-                txtrec.setObject(directPort, forKey: "HorosDirectTransferPort" as NSString)
-            }
+            let capability = (directPolicy as AnyObject).perform(NSSelectorFromString("bonjourTXTFields"))?
+                .takeUnretainedValue() as? [String: Any]
+            announcement.directTransferVersion = capability?["HorosDirectTransferVersion"] as? String
+            announcement.directTransferPort = capability?["HorosDirectTransferPort"] as? String
         }
 
-        if _bonjour?.setTXTRecord(Self.dataFromTXTRecordDictionary(txtrec)) != true {
+        let record = announcement.txtRecord
+        if _bonjour?.setTXTRecord(Self.dataFromTXTRecordDictionary(record)) != true {
             NSLog("Warning: Horos Bonjour net service setTXTRecordData FAILED")
         }
 
-        let advertisement = _advertisement
-        if listenerPort != 0 {
-            let record = txtrec as! [String: String]
-            onMainActorSync { advertisement?.publish(txtRecord: record) }
-        } else {
-            onMainActorSync { advertisement?.stop() }
-        }
+        _advertisement?.publish(txtRecord: record)
     }
 
     /// +[NSNetService dataFromTXTRecordDictionary:], given the values as they are
     /// (strings): the Swift overlay takes only Data values.
-    private static func dataFromTXTRecordDictionary(_ txtrec: NSDictionary) -> Data? {
-        return (NetService.self as AnyObject).perform(NSSelectorFromString("dataFromTXTRecordDictionary:"), with: txtrec)?
+    private static func dataFromTXTRecordDictionary(_ record: [String: String]) -> Data? {
+        return (NetService.self as AnyObject).perform(NSSelectorFromString("dataFromTXTRecordDictionary:"), with: record)?
             .takeUnretainedValue() as? Data
     }
 
@@ -280,89 +276,134 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
         NSLog("Horos Bonjour net service did stop")
     }
 
-    //- (void)connectionOpened:(NSNotification*)notification {
-    //	N2Connection* connection = [[notification userInfo] objectForKey:N2ConnectionListenerOpenedConnection];
-    //	[connection setDelegate:self];
-    //}
-
+    /// The TXT record of a shared database Bonjour found, as the Sources list
+    /// keeps it (SharedDatabaseServiceRecord). A text key without a value is
+    /// empty text; one that is not UTF-8 raises, as it always did.
     @objc(dictionaryFromXTRecordData:)
-    public class func dictionaryFromXTRecordData(_ data: Data?) -> NSDictionary {
+    public nonisolated class func dictionaryFromXTRecordData(_ data: Data?) -> NSDictionary {
         let d = NSMutableDictionary()
         // The Objective-C method, not the Swift overlay: a key without a value
         // comes as NSNull, which the overlay's [String: Data] cannot hold, and
         // nil raises as it did.
         guard let dict = (NetService.self as AnyObject).perform(NSSelectorFromString("dictionaryFromTXTRecordData:"), with: data)?
-                .takeUnretainedValue() as? NSDictionary else { return d }
+                .takeUnretainedValue() as? [String: Any] else { return d }
 
-        for (key, data) in dict {
-            let key = key as! NSString
-            if key.isEqual(to: "AETitle") || key.isEqual(to: "port") || key.isEqual(to: "UID") {
-                d.setObject(Self.utf8String(data, key: key), forKey: key)
-            } else {
-                d.setObject(data, forKey: key)
+        let entries = dict.mapValues { ($0 as? Data).map(SharedDatabaseServiceRecord.Value.data) ?? .none }
+        do {
+            for (key, value) in try SharedDatabaseServiceRecord.decode(entries) {
+                switch value {
+                case .text(let text): d[key] = text
+                case .data(let bytes): d[key] = bytes
+                case .none: d[key] = NSNull()
+                }
+            }
+        } catch {
+            switch error {
+            case .notUTF8(let key):
+                NSException(name: .invalidArgumentException,
+                            reason: "*** -[__NSDictionaryM setObject:forKey:]: object cannot be nil (key: \(key))", userInfo: nil).raise()
             }
         }
 
         return d
     }
 
-    /// [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding], for a value
-    /// -setObject:forKey: then stores: what raised before raises the same way.
-    private static func utf8String(_ data: Any, key: NSString) -> NSString {
-        guard let data = data as? Data else {
-            NSException(name: .invalidArgumentException,
-                        reason: "-[\(type(of: data as AnyObject)) bytes]: unrecognized selector sent to instance", userInfo: nil).raise()
-            return ""
-        }
-        guard let string = NSString(data: data, encoding: String.Encoding.utf8.rawValue) else {
-            NSException(name: .invalidArgumentException,
-                        reason: "*** -[__NSDictionaryM setObject:forKey:]: object cannot be nil (key: \(key))", userInfo: nil).raise()
-            return ""
-        }
-        return string
+    /// Sends now, after the sends the clients already ordered, and returns once
+    /// it is done.
+    @objc(sendDICOMFilesToOsiriXNode:)
+    public nonisolated func sendDICOMFiles(toOsiriXNode todo: NSDictionary) {
+        sender.sendAndWait(calledAET: todo.object(forKey: "AETitle") as? String,
+                           hostname: todo.object(forKey: "Address") as? String,
+                           port: (todo.object(forKey: "Port") as? NSString)?.intValue ?? 0,
+                           files: todo.object(forKey: "Files") as? [Any],
+                           transferSyntax: (todo.object(forKey: "TransferSyntax") as? NSString)?.intValue ?? 0)
+    }
+}
+
+/// What a connection of the shared database receives from the publisher that
+/// serves it, instead of reaching for the application's singletons.
+struct SharedDatabaseServing: Sendable {
+    let processGraph: ProcessGraph
+    let sender: SharedDatabaseDICOMSender
+
+    /// The database this app shares, and the only one a request reaches: the
+    /// default database, whichever local database the browser shows.
+    ///
+    /// A peer reads this database and no other: the index it copies (`DATAB`),
+    /// its size (`DBSIZ`) and date (`VERSI`), the files it names (`DICOM`,
+    /// `DCMSE`, `MFILE`) and the objects it changes (`SETVA`, `ADDAL`, `REMAL`).
+    /// The files it sends (`SENDD`, `SENDG`) are therefore written into this
+    /// database's folder and indexed in it, where the peer finds them. Writing
+    /// them into the folder of the database the browser shows, while the index
+    /// is this one, left them in one database and their index in another.
+    /// It needs no main actor: the browser is not asked.
+    var sharedDatabase: DicomDatabase? {
+        processGraph.defaultDatabase
+    }
+}
+
+/// The DICOM sends that clients of the shared database order (`DCMSE`), one at
+/// a time, as the publisher's lock made them.
+///
+/// The actor runs on a serial queue of its own: a send lasts as long as its
+/// transfer, and it does not hold a thread of the shared pool meanwhile. The
+/// Objective-C entry, which always returned once its send was done, waits on
+/// the same queue.
+actor SharedDatabaseDICOMSender {
+    private nonisolated let queue = DispatchSerialQueue(label: "org.horosproject.shared-database.dicom-send", qos: .utility)
+    private nonisolated let processGraph: ProcessGraph
+
+    nonisolated var unownedExecutor: UnownedSerialExecutor { queue.asUnownedSerialExecutor() }
+
+    init(processGraph: ProcessGraph) {
+        self.processGraph = processGraph
     }
 
-    @objc(sendDICOMFilesToOsiriXNode:)
-    public func sendDICOMFiles(toOsiriXNode todo: NSDictionary) {
+    /// Queues the send a client ordered and returns at once.
+    nonisolated func enqueue(_ order: SharedDatabaseSendOrder) {
+        Task { await self.send(order) }
+    }
+
+    private func send(_ order: SharedDatabaseSendOrder) {
+        Self.run(calledAET: order.aeTitle, hostname: order.address, port: order.portNumber, files: order.files,
+                 transferSyntax: order.transferSyntaxNumber, processGraph: processGraph)
+    }
+
+    /// Sends after the sends already queued, and returns once it is done.
+    nonisolated func sendAndWait(calledAET: String?, hostname: String?, port: Int32, files: [Any]?, transferSyntax: Int32) {
+        let processGraph = processGraph
+        queue.sync {
+            Self.run(calledAET: calledAET, hostname: hostname, port: port, files: files,
+                     transferSyntax: transferSyntax, processGraph: processGraph)
+        }
+    }
+
+    private nonisolated static func run(calledAET: String?, hostname: String?, port: Int32, files: [Any]?,
+                                        transferSyntax: Int32, processGraph: ProcessGraph) {
         autoreleasepool {
-            if dicomSendLock == nil {
-                dicomSendLock = NSLock()
+            guard let database = processGraph.defaultDatabase else {
+                // +[NSDictionary dictionaryWithObject:forKey:] refused the nil database.
+                _N2LogExceptionImpl(NSException(name: .invalidArgumentException,
+                                                reason: "*** +[NSDictionary dictionaryWithObject:forKey:]: object cannot be nil", userInfo: nil),
+                                    true, "-[BonjourPublisher sendDICOMFilesToOsiriXNode:]")
+                return
             }
-            let lock = dicomSendLock!
+            let storeSCU = DCMTKStoreSCU(callingAET: processGraph.preferences[NetworkPreferences.aeTitle],
+                                         calledAET: calledAET,
+                                         hostname: hostname,
+                                         port: port,
+                                         filesToSend: files,
+                                         transferSyntax: transferSyntax,
+                                         compression: 1.0,
+                                         extraParameters: ["DicomDatabase": database]) // nil == TLS not supported !
 
-            lock.lock()
-            defer { lock.unlock() }
             do {
-                try HorosObjCException.perform {
-                    guard let database = DicomDatabase.default() else {
-                        NSException(name: .invalidArgumentException,
-                                    reason: "*** +[NSDictionary dictionaryWithObject:forKey:]: object cannot be nil", userInfo: nil).raise()
-                        return
-                    }
-                    let storeSCU = DCMTKStoreSCU(callingAET: UserDefaults.standard.string(forKey: "AETITLE"),
-                                                 calledAET: todo.object(forKey: "AETitle") as? String,
-                                                 hostname: todo.object(forKey: "Address") as? String,
-                                                 port: (todo.object(forKey: "Port") as? NSString)?.intValue ?? 0,
-                                                 filesToSend: todo.value(forKey: "Files") as? [Any],
-                                                 transferSyntax: (todo.object(forKey: "TransferSyntax") as? NSString)?.intValue ?? 0,
-                                                 compression: 1.0,
-                                                 extraParameters: ["DicomDatabase": database]) // nil == TLS not supported !
-
-                    do {
-                        try HorosObjCException.perform {
-                            storeSCU.run(nil)
-                        }
-                    } catch {
-                        let ne = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-                        NSLog("Bonjour DICOM Send FAILED")
-                        NSLog("%@", (ne?.name.rawValue ?? "") as NSString)
-                        NSLog("%@", (ne?.reason as NSString?) ?? "(null)")
-                    }
-                }
+                try storeSCU.sendFiles()
             } catch {
-                if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                    _N2LogExceptionImpl(e, true, "-[BonjourPublisher sendDICOMFilesToOsiriXNode:]")
-                }
+                let failure = error as? StoreSendFailure
+                NSLog("Bonjour DICOM Send FAILED")
+                NSLog("%@", (failure?.name ?? "") as NSString)
+                NSLog("%@", (failure?.reason ?? error.localizedDescription) as NSString)
             }
         }
     }
@@ -379,66 +420,57 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
 }
 
 // How a request of O2DatabaseConnection ends early. The Objective-C class raised
-// O2NotEnoughData and O2InvalidRequest and let any other exception reach -run.
+// O2InvalidRequest and let any other exception reach -run.
 // @unchecked Sendable, which Error requires: NSException is not declared
 // Sendable. The interrupt is thrown and caught on the one worker thread that
 // runs the request, and the exception it carries is never changed after it
 // was raised.
 private enum O2Interrupt: Error, @unchecked Sendable {
-    case notEnoughData // O2NotEnoughData
     // A request that breaks the protocol: the connection is closed, nothing
     // further of it is read or executed.
     case invalidRequest(String) // O2InvalidRequest
     case exception(NSException)
 }
 
-// One request of one client. It used to be an N2Connection, whose run loop called
-// -handleData: as bytes arrived and sent what was written in the background. It now runs
-// synchronously on a worker of HorosDatabaseServer: it reads from its HorosDatabasePeer
-// until the request is complete, answers, and ends the stream. The request handlers below
-// are unchanged; the methods they called on N2Connection are provided here over the peer.
+// One request of one client. It runs synchronously on a worker of HorosDatabaseServer: it reads from its
+// HorosDatabasePeer until the request is complete, answers, and ends the stream. What the bytes say -
+// the command, its parameters, every length, count and string, and the shape of each answer - is read
+// and written by IsiXDICOMNetwork (SharedDatabaseRequestParser, SharedDatabaseReply); this class does
+// what a request asks of the database and of the files.
 @objc(O2DatabaseConnection)
 public final class O2DatabaseConnection: NSObject {
-    private enum Mode: Int {
-        case NONE = 0, DONE,
-             DATAB,
-             DBSIZ,
-             GETDI,
-             VERSI,
-             DBVER,
-             ISPWD,
-             PASWD,
-             SENDD,
-             SENDG,
-             NEWMS,
-             ADDAL,
-             REMAL,
-             SETVA,
-             MFILE,
-             DCMSE,
-             DICOM
-    }
-
-    private var _mode = Mode.NONE
-    private var _hdi = 0
-    private var _authorized = false
+    private var _parser = SharedDatabaseRequestParser()
+    private var _done = false // the request is complete and answered
     private var _closed = false // the request was refused or broke the protocol: nothing more is read or sent
-    private let _stack = NSMutableArray()
     private let _readBuffer = NSMutableData()
-    private var _readOffset = 0 // bytes of _readBuffer the handlers consumed, removed once per pass
+    private var _readOffset = 0 // bytes of _readBuffer the parser consumed, removed once per pass
     private let _peer: HorosDatabasePeer
+    private let _serving: SharedDatabaseServing
     private var _requestPaths: SharedDatabaseRequestPaths? // the folders this request's paths resolve against
     private var _linkedPaths: NSMutableSet? // its absolute paths outside them
-    private var _requestDatabase: DicomDatabase? // the index, a private-queue context of this connection
+    private var _servedPaths: [String] = [] // the files a DICOM or DCMSE request names, resolved as they come
+    private var _savedFiles: [String] = [] // the files of an upload, written as they come
+    private var _sharedDatabase: DicomDatabase? // the shared database, read once per request
+    private var _sharedDatabaseKnown = false
+    private var _requestDatabase: DicomDatabase? // its index, a private-queue context of this connection
 
+    /// A connection served with the process's own dependencies, for a caller
+    /// that is not the publisher. Its DICOM sends are queued on a queue of its own.
     @objc(servePeer:)
     public class func serve(_ peer: HorosDatabasePeer) {
-        let connection = O2DatabaseConnection(peer: peer)
+        let processGraph = ProcessGraph.process
+        serve(peer, serving: SharedDatabaseServing(processGraph: processGraph,
+                                                   sender: SharedDatabaseDICOMSender(processGraph: processGraph)))
+    }
+
+    static func serve(_ peer: HorosDatabasePeer, serving: SharedDatabaseServing) {
+        let connection = O2DatabaseConnection(peer: peer, serving: serving)
         connection.run()
     }
 
-    private init(peer: HorosDatabasePeer) {
+    private init(peer: HorosDatabasePeer, serving: SharedDatabaseServing) {
         _peer = peer
+        _serving = serving
         super.init()
     }
 
@@ -446,25 +478,18 @@ public final class O2DatabaseConnection: NSObject {
         return .invalidRequest(reason)
     }
 
-    // Everything still unconsumed in the receive buffer for the current request.
-    // Reads arrive in blocks, and a block bounds nothing about the request. This is
-    // asked for every block of an upload, so the limits are read once.
-    private static let O2MaximumFileLength = SharedDatabaseWire.maximumFileLength
-    private static let O2BufferLimitAwaitingCommand = SharedDatabaseWire.maximumBufferedBytesAwaitingCommand
-    private static let O2BufferLimitUpload = SharedDatabaseWire.maximumBufferedBytesForUpload
-    private static let O2BufferLimitOther = SharedDatabaseWire.maximumBufferedBytesForOtherRequests
-
-    private func _maximumBufferedBytes() -> Int {
-        switch _mode {
-        case .NONE: return Self.O2BufferLimitAwaitingCommand
-        case .SENDD, .SENDG: return Self.O2BufferLimitUpload
-        default: return Self.O2BufferLimitOther
-        }
+    /// Whether the server asks for a password, and which, as the preferences hold them now.
+    private static func access() -> SharedDatabaseAccess {
+        SharedDatabaseAccess(isPasswordProtected: UserDefaults.bonjourSharingIsPasswordProtected(),
+                             password: UserDefaults.bonjourSharingPassword())
     }
 
+    // Everything still unconsumed in the receive buffer for the current request.
+    // Reads arrive in blocks, and a block bounds nothing about the request.
     private func _closeIfBufferExceedsLimit() {
-        if availableSize > _maximumBufferedBytes() {
-            NSLog("Shared database: request from %@ closed: more than %ld bytes buffered", address, _maximumBufferedBytes())
+        let limit = _parser.maximumBufferedBytes
+        if availableSize > limit {
+            NSLog("Shared database: request from %@ closed: more than %ld bytes buffered", address, limit)
             close()
         }
     }
@@ -475,7 +500,7 @@ public final class O2DatabaseConnection: NSObject {
     private func run() {
         defer { _peer.cancel() }
         do {
-            while _mode != .DONE && !_closed {
+            while !_done && !_closed {
                 let ended = try autoreleasepool { () throws -> Bool in
                     let before = _readBuffer.length
                     do {
@@ -486,7 +511,7 @@ public final class O2DatabaseConnection: NSObject {
                     }
                     if _readBuffer.length == before {
                         // A client that goes away in the middle of a request never completes it.
-                        if _mode != .NONE || availableSize != 0 {
+                        if !_parser.isAwaitingCommand || availableSize != 0 {
                             NSLog("Shared database: %@ disconnected before completing its request", address)
                         }
                         return true
@@ -522,44 +547,6 @@ public final class O2DatabaseConnection: NSObject {
     private var address: String { return _peer.address }
     private var availableSize: Int { return _readBuffer.length - _readOffset }
 
-    // The unread part of the request, as a view valid until the buffer changes.
-    private var readBuffer: Data {
-        return Data(bytesNoCopy: _readBuffer.mutableBytes + _readOffset, count: _readBuffer.length - _readOffset, deallocator: .none)
-    }
-
-    /// -[NSData subdataWithRange:] and -getBytes:range: raised on a range past the end.
-    private func _checkRange(_ size: Int) throws {
-        if size < 0 || _readOffset + size > _readBuffer.length {
-            throw O2Interrupt.exception(NSException(name: .rangeException,
-                                                    reason: "*** -[NSConcreteMutableData subdataWithRange:]: range {\(_readOffset), \(UInt(bitPattern: size))} exceeds data length \(_readBuffer.length)",
-                                                    userInfo: nil))
-        }
-    }
-
-    @discardableResult
-    private func readData(_ size: Int) throws -> Data {
-        try _checkRange(size)
-        let data = _readBuffer.subdata(with: NSRange(location: _readOffset, length: size))
-        _readOffset += size
-        return data
-    }
-
-    @discardableResult
-    private func readData(_ size: Int, toBuffer buffer: UnsafeMutableRawPointer) throws -> Int {
-        try _checkRange(size)
-        _readBuffer.getBytes(buffer, range: NSRange(location: _readOffset, length: size))
-        _readOffset += size
-        return size
-    }
-
-    // The unread bytes and a step past them, for the length and string readers: a view object
-    // or a copy per string cost more than parsing it.
-    private func _unreadBytes() -> UnsafePointer<UInt8> {
-        return _readBuffer.bytes.assumingMemoryBound(to: UInt8.self) + _readOffset
-    }
-
-    private func _skipBytes(_ size: Int) { _readOffset += size }
-
     // Sends before returning, in blocks the peer waits for: a slow reader holds the request back
     // instead of an ever larger buffer. A failed send ends the request.
     private func writeData(_ data: Data?) {
@@ -574,8 +561,6 @@ public final class O2DatabaseConnection: NSObject {
         }
     }
 
-    private var writeBufferSize: Int { return 0 } // written synchronously: nothing is ever left queued
-
     // Refuses the request: nothing more of it is read or answered, and the stream is not ended
     // cleanly, so the client sees the connection close without a response.
     private func close() {
@@ -583,110 +568,101 @@ public final class O2DatabaseConnection: NSObject {
         _peer.cancel()
     }
 
+    // Reads what has arrived, as far as it goes: each uploaded file is written and each requested
+    // path resolved as soon as it is complete, and a complete request is executed and answered.
     private func handleData() throws {
-        _hdi = 0
-
         do {
-            // The request is complete and its answer may still be on its way out:
-            // anything more the client sends is not part of it, and kept it would
-            // grow the buffer for as long as the answer takes.
-            if _mode == .DONE {
-                if availableSize != 0 {
-                    try readData(availableSize)
-                }
-                return
-            }
-
-            if _mode == .NONE {
-                if availableSize < 6 {
+            while !_done && !_closed {
+                let unread = UnsafeRawBufferPointer(start: _readBuffer.bytes + _readOffset, count: availableSize)
+                let (event, consumed) = _parser.next(unread, access: Self.access)
+                _readOffset += consumed
+                switch event {
+                case .needsMoreData:
+                    _closeIfBufferExceedsLimit()
                     return
-                }
-                let protected = UserDefaults.bonjourSharingIsPasswordProtected()
-                if memcmp(_unreadBytes(), "AUTHR", 6) == 0 {
-                    let length = SharedDatabaseAuthorization.authorizedPrefixLength(readBuffer, password: UserDefaults.bonjourSharingPassword(), required: protected)
-                    if length == 0 { return }
-                    if length < 0 { close(); return }
-                    try readData(length)
-                    _authorized = true
-                }
-                var command = [CChar](repeating: 0, count: 6)
-                try command.withUnsafeMutableBytes { _ = try readData(6, toBuffer: $0.baseAddress!) }
-                if command[5] != 0 { close(); return }
-                guard let name = NSString(utf8String: command) else { close(); return }
-                if protected && !_authorized && !SharedDatabaseAuthorization.isPublicCommand(name as String) {
+                case .refused:
                     close()
                     return
-                }
-                if strcmp(command, "AUTHV") == 0 {
-                    var version = UInt32(1).bigEndian
-                    writeData(Data(bytes: &version, count: 4))
-                    _mode = .DONE
-                    return
-                }
-
-                if strcmp(command, "DATAB") == 0 {
-                    _mode = .DATAB
-                } else if strcmp(command, "DBSIZ") == 0 {
-                    _mode = .DBSIZ
-                } else if strcmp(command, "GETDI") == 0 {
-                    _mode = .GETDI
-                } else if strcmp(command, "VERSI") == 0 {
-                    _mode = .VERSI
-                } else if strcmp(command, "DBVER") == 0 {
-                    _mode = .DBVER
-                } else if strcmp(command, "ISPWD") == 0 {
-                    _mode = .ISPWD
-                } else if strcmp(command, "PASWD") == 0 {
-                    _mode = .PASWD
-                } else if strcmp(command, "SENDD") == 0 {
-                    _mode = .SENDD
-                } else if strcmp(command, "SENDG") == 0 {
-                    _mode = .SENDG
-                } else if strcmp(command, "NEWMS") == 0 {
-                    _mode = .NEWMS
-                } else if strcmp(command, "ADDAL") == 0 {
-                    _mode = .ADDAL
-                } else if strcmp(command, "REMAL") == 0 {
-                    _mode = .REMAL
-                } else if strcmp(command, "SETVA") == 0 {
-                    _mode = .SETVA
-                } else if strcmp(command, "MFILE") == 0 {
-                    _mode = .MFILE
-                } else if strcmp(command, "DCMSE") == 0 {
-                    _mode = .DCMSE
-                } else if strcmp(command, "DICOM") == 0 {
-                    _mode = .DICOM
-                }
-
-                if _mode == .NONE {
-                    close()
+                case .rejected(let reason):
+                    throw _rejectRequest(reason)
+                case .uploadedFile(let range):
+                    try _saveUploadedFile(UnsafeRawBufferPointer(rebasing: unread[range]))
+                case .requestedPaths(let paths):
+                    for path in paths {
+                        _servedPaths.append(try _servedPathForRequestedPath(path))
+                    }
+                case .complete(let request):
+                    // The handlers that read or change the index run inside its
+                    // context's queue, the objects of the request never leave it.
+                    if _parser.command?.usesIndex == true {
+                        try _onRequestDatabaseQueue { try _execute(request) }
+                    } else {
+                        try _execute(request)
+                    }
+                    _done = true
                 }
             }
-
-            // The handlers that read or change the index run inside its
-            // context's queue, the objects of the request never leave it.
-            switch _mode {
-            case .DATAB, .DBSIZ, .VERSI, .SENDD, .SENDG, .ADDAL, .REMAL, .SETVA:
-                return try _onRequestDatabaseQueue { try _handleIndexRequest() }
-            default:
-                return try _handleOtherRequest()
-            }
-        } catch O2Interrupt.notEnoughData {
-            _closeIfBufferExceedsLimit()
-            return
         } catch O2Interrupt.invalidRequest(let reason) {
             NSLog("Shared database: request from %@ closed: %@", address, reason)
             close()
-            return
         }
-        // A complete request (DONE) is answered by now: -run ends the stream.
+        // A complete request is answered by now: -run ends the stream.
+    }
+
+    private func _execute(_ request: SharedDatabaseRequest) throws {
+        switch request {
+        case .authorizationVersion:
+            writeData(SharedDatabaseReply.authorizationVersion)
+        case .database:
+            try DATAB()
+        case .databaseSize:
+            try DBSIZ()
+        case .destinationInfo:
+            try GETDI()
+        case .modificationTime:
+            try VERSI()
+        case .databaseVersion:
+            writeData(SharedDatabaseReply.databaseVersion(_serving.processGraph.preferences[DatabasePreferences.databaseVersion]))
+        case .isPasswordProtected:
+            // is this database protected by a password
+            writeData(SharedDatabaseReply.answer(UserDefaults.bonjourSharingIsPasswordProtected()))
+        case .password(let offered):
+            writeData(SharedDatabaseReply.answer(Self.access().accepts(offered)))
+        case .upload(let generatedByViewer, _):
+            try SEND(generatedByViewer: generatedByViewer)
+        case .message:
+            break // is this used ? nah
+        case .album(let adding, let parameters):
+            try ALBUM(adding: adding, parameters: parameters)
+        case .setAttribute(let objectID, let value, let key):
+            try SETVA(objectID: objectID, value: value, key: key)
+        case .fileDate(let path):
+            try MFILE(path)
+        case .dicomSend(let order):
+            try DCMSE(order)
+        case .fetch(let destinations):
+            try DICOM(destinations: destinations)
+        }
+    }
+
+    // The database of this request (SharedDatabaseServing.sharedDatabase), read once: the files of
+    // an upload are written into its folder and indexed in its index, the paths a request names
+    // resolve against its folders, and every answer describes it. Nothing reads another.
+    private func _database() throws -> DicomDatabase? {
+        if !_sharedDatabaseKnown {
+            let serving = _serving
+            _sharedDatabase = try HorosObjCException.throwing(O2Interrupt.exception) { serving.sharedDatabase }
+            _sharedDatabaseKnown = true
+        }
+        return _sharedDatabase
     }
 
     private func _requestIndexDatabase() throws -> DicomDatabase {
         if let database = _requestDatabase {
             return database
         }
-        guard let database = try objc({ DicomDatabase.default()?.privateQueueIndependentDatabase() }) as? DicomDatabase else {
+        let shared = try _database()
+        guard let database = try HorosObjCException.throwing(O2Interrupt.exception, { shared?.privateQueueIndependentDatabase() }) as? DicomDatabase else {
             throw Self.nilObject()
         }
         _requestDatabase = database
@@ -705,220 +681,31 @@ public final class O2DatabaseConnection: NSObject {
         }
     }
 
-    private func _handleIndexRequest() throws {
-        switch _mode {
-        case .DATAB:
-            return try DATAB()
-        case .DBSIZ:
-            return try DBSIZ()
-        case .VERSI:
-            return try VERSI()
-        case .SENDD, .SENDG:
-            return try SEND()
-        case .ADDAL:
-            return try ADDAL()
-        case .REMAL:
-            return try REMAL()
-        case .SETVA:
-            return try SETVA()
-        default:
-            break
-        }
-    }
-
-    private func _handleOtherRequest() throws {
-            switch _mode {
-            case .DATAB:
-                return try DATAB()
-            case .DBSIZ:
-                return try DBSIZ()
-            case .GETDI:
-                return try GETDI()
-            case .VERSI:
-                return try VERSI()
-            case .DBVER:
-                return DBVER()
-            case .ISPWD:
-                return ISPWD()
-            case .PASWD:
-                return try PASWD()
-            case .SENDD:
-                return try SEND()
-            case .SENDG:
-                return try SEND()
-            case .NEWMS:
-                return try NEWMS()
-            case .ADDAL:
-                return try ADDAL()
-            case .REMAL:
-                return try REMAL()
-            case .SETVA:
-                return try SETVA()
-            case .MFILE:
-                return try MFILE()
-            case .DCMSE:
-                return try DCMSE()
-            case .DICOM:
-                return try DICOM()
-            case .NONE, .DONE:
-                break
-            }
-    }
-
-    /// Runs Objective-C code that may raise: an exception reaches -run, as it did.
-    private func objc<T>(_ body: () -> T) throws -> T {
-        var result: T?
-        do {
-            try HorosObjCException.perform {
-                result = body()
-            }
-        } catch {
-            throw O2Interrupt.exception(Self.exception(error))
-        }
-        return result!
-    }
-
-    /// Runs what an Objective-C @try caught and logged.
-    private func logged(_ function: String, _ body: () -> Void) {
-        do {
-            try HorosObjCException.perform(body)
-        } catch {
-            _N2LogExceptionImpl(Self.exception(error), true, function)
-        }
-    }
-
-    private static func exception(_ error: Error) -> NSException {
-        return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-            ?? NSException(name: .genericException, reason: (error as NSError).localizedDescription, userInfo: nil)
-    }
-
     /// -[NSMutableArray addObject:] raised on nil.
     private static func nilObject() -> O2Interrupt {
         return .exception(NSException(name: .invalidArgumentException,
                                       reason: "*** -[__NSArrayM insertObject:atIndex:]: object cannot be nil", userInfo: nil))
     }
 
-    private func _stackObject(_ o: Any) {
-        _stack.add(o)
-        _hdi += 1
+    // Written from the receive buffer, where the parser found the file, without a copy, into the
+    // folder of the database whose index SEND adds it to.
+    private func _saveUploadedFile(_ bytes: UnsafeRawBufferPointer) throws {
+        let database = try _database()
+        let dstPath = try HorosObjCException.throwing(O2Interrupt.exception) { database?.uniquePathForNewDataFile(withExtension: "dcm") }
+
+        let data = bytes.isEmpty ? NSData()
+            : NSData(bytesNoCopy: UnsafeMutableRawPointer(mutating: bytes.baseAddress!), length: bytes.count, freeWhenDone: false)
+        // -writeToFile:atomically: answers its failure; the file is listed all the same, as it was.
+        _ = dstPath.map { data.write(toFile: $0, atomically: true) }
+
+        guard let dstPath else { throw Self.nilObject() }
+        _savedFiles.append(dstPath)
     }
 
-    private func _stackedObject() -> Any? {
-        if _stack.count <= _hdi {
-            return nil
-        }
-        let object = _stack.object(at: _hdi)
-        _hdi += 1
-        return object
-    }
-
-    private func _unstack() {
-        _hdi -= 1
-        _stack.removeObject(at: _hdi)
-    }
-
-    private func _requireDataSize(_ size: Int) throws {
-        if size < 0 {
-            throw _rejectRequest("negative data size")
-        }
-        if availableSize < size {
-            throw O2Interrupt.notEnoughData
-        }
-    }
-
-    // A 32-bit length or count, validated before anything is consumed: a negative
-    // value, or one above what the command can really carry, rejects the request.
-    private func _readLengthUpTo(_ maximum: Int, what: String) throws -> Int {
-        try _requireDataSize(4)
-
-        let raw = UnsafeRawPointer(_unreadBytes()).loadUnaligned(as: UInt32.self)
-        let value = SharedDatabaseWire.validated(raw, maximum: maximum)
-        if value < 0 {
-            throw _rejectRequest("invalid \(what) (\(Int32(bitPattern: UInt32(bigEndian: raw))))")
-        }
-        _skipBytes(4)
-
-        return value
-    }
-
-    private func _stackReadLengthUpTo(_ maximum: Int, what: String) throws -> Int {
-        if _stack.count > _hdi {
-            return (_stackedObject() as? NSNumber)?.intValue ?? 0
-        }
-
-        let value = try _readLengthUpTo(maximum, what: what)
-
-        _stackObject(NSNumber(value: value))
-
-        return value
-    }
-
-    private func _stackReadCount() throws -> Int {
-        return try _stackReadLengthUpTo(SharedDatabaseWire.maximumCount, what: "count")
-    }
-
-    // Zero length is how the client sends nil, so nil and @"" stay distinct. The
-    // length prefix is left in the buffer until the whole string has arrived: a
-    // fragment boundary anywhere inside it resumes from the same place.
-    private func _readString() throws -> String? {
-        try _requireDataSize(4)
-
-        let raw = UnsafeRawPointer(_unreadBytes()).loadUnaligned(as: UInt32.self)
-        let length = SharedDatabaseWire.validated(raw, maximum: SharedDatabaseWire.maximumStringLength)
-        if length < 0 {
-            throw _rejectRequest("invalid string length (\(Int32(bitPattern: UInt32(bigEndian: raw))))")
-        }
-
-        try _requireDataSize(length + 4)
-
-        var status = SharedDatabaseWire.StringStatus.value
-        let value = SharedDatabaseWire.decode(_unreadBytes() + 4, length: length, status: &status)
-        if status == .unterminated {
-            throw _rejectRequest("string without its terminator")
-        }
-        if status == .embeddedNull {
-            throw _rejectRequest("string with an embedded terminator")
-        }
-        if status == .invalidUTF8 {
-            throw _rejectRequest("string that is not UTF-8")
-        }
-
-        _skipBytes(length + 4)
-
-        return value as String?
-    }
-
-    // The resume stack cannot hold nil: a null string is stacked as NSNull and
-    // handed back as nil.
-    private func _stackReadString() throws -> String? {
-        if _stack.count > _hdi {
-            let value = _stackedObject()
-            return (value as AnyObject?) === NSNull() ? nil : value as? String
-        }
-        let value = try _readString()
-
-        _stackObject(value ?? NSNull())
-
-        return value
-    }
-
-    // For parameters a command cannot do without.
-    private func _stackReadRequiredString(_ what: String) throws -> String {
-        guard let value = try _stackReadString() else {
-            throw _rejectRequest("missing \(what)")
-        }
-        return value
-    }
-
-    private func _stackIndependentDatabase() throws -> DicomDatabase {
-        if _stack.count > _hdi {
-            return _stackedObject() as! DicomDatabase
-        }
-        let database = try _requestIndexDatabase()
-
-        _stackObject(database)
-
-        return database
+    // Asks the browser, on the main actor, to show what a request changed.
+    private func _refreshBrowser() {
+        let processGraph = _serving.processGraph
+        Task { @MainActor in processGraph.currentBrowser?.refreshDatabase(nil) }
     }
 
     // The file a request names. A relative path is an image of
@@ -929,11 +716,11 @@ public final class O2DatabaseConnection: NSObject {
     private func _servedPathForRequestedPath(_ requested: String) throws -> String {
         if _requestPaths == nil {
             // Once per request: a DCMSE names a path per image.
-            _requestPaths = try objc {
-                let database = DicomDatabase.default()
-                return SharedDatabaseRequestPaths(databaseDirectory: ((database?.sqlFilePath ?? "") as NSString).deletingLastPathComponent as NSString,
-                                                  dataDirectory: database?.dataDirPath() as NSString?,
-                                                  folderSize: Int(BrowserController.defaultFolderSizeForDB()))
+            let database = try _database()
+            _requestPaths = try HorosObjCException.throwing(O2Interrupt.exception) {
+                SharedDatabaseRequestPaths(databaseDirectory: ((database?.sqlFilePath ?? "") as NSString).deletingLastPathComponent as NSString,
+                                           dataDirectory: database?.dataDirPath() as NSString?,
+                                           folderSize: Int(BrowserController.defaultFolderSizeForDB()))
             }
         }
         var resolved: NSString?
@@ -958,28 +745,24 @@ public final class O2DatabaseConnection: NSObject {
         guard let linkedPaths = _linkedPaths, linkedPaths.count > 0 else {
             return
         }
-        let database = try objc { DicomDatabase.default() }
+        let database = try _database()
         var raised: NSException?
         let known = SharedDatabaseLinkedPaths.shared.containsAll(linkedPaths, indexFile: (database?.sqlFilePath ?? "") as NSString) { paths in
             // Only the paths, as dictionaries: no image is materialized.
             var found: [Any] = []
-            do {
-                try HorosObjCException.perform {
-                    // Only values come back: a private-queue context, fetched on its queue.
-                    let index = database?.privateQueueIndependentDatabase() as? DicomDatabase
-                    let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Image")
-                    request.predicate = NSPredicate(format: "pathString IN %@", paths)
-                    request.resultType = .dictionaryResultType
-                    request.propertiesToFetch = ["pathString"]
-                    // -executeFetchRequest:error:, as before (NSManagedObjectContext.fetch
-                    // sends -executeRequest:error:).
-                    let rows = (try? index?.managedObjectContext.__execute(request)) as NSArray?
-                    found = rows?.value(forKey: "pathString") as? [Any] ?? []
-                }
-            } catch {
-                // An exception of the lookup ends the request, as it did, once the
-                // shared cache is left consistent.
-                raised = Self.exception(error)
+            // An exception of the lookup ends the request, as it did, once the
+            // shared cache is left consistent.
+            raised = HorosObjCException.caught {
+                // Only values come back: a private-queue context, fetched on its queue.
+                let index = database?.privateQueueIndependentDatabase() as? DicomDatabase
+                let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Image")
+                request.predicate = NSPredicate(format: "pathString IN %@", paths)
+                request.resultType = .dictionaryResultType
+                request.propertiesToFetch = ["pathString"]
+                // -executeFetchRequest:error:, as before (NSManagedObjectContext.fetch
+                // sends -executeRequest:error:).
+                let rows = (try? index?.managedObjectContext.__execute(request)) as? [[String: Any]]
+                found = rows?.compactMap { $0["pathString"] } ?? []
             }
             return found
         }
@@ -992,33 +775,21 @@ public final class O2DatabaseConnection: NSObject {
     }
 
     private func DATAB() throws {
-        let idatabase = try _stackIndependentDatabase()
+        let idatabase = try _requestIndexDatabase()
 
-        var representationToSend: NSMutableData?
-
-        // The locker was autoreleased: it unlocked the persistentStoreCoordinator once the
-        // answer was written, when the pass's autorelease pool drained. It lives as long here.
+        // The locker keeps the persistentStoreCoordinator locked until the answer is written.
         var locker: N2Locker?
-        let lock = _stackedObject()
-        if lock == nil {
-            try objc {
-                locker = N2Locker.lock(idatabase.managedObjectContext.persistentStoreCoordinator) // this object unlocks the persistentStoreCoordinator when released
-                _stackObject(locker!)
-                idatabase.save()
-            }
+        try HorosObjCException.throwing(O2Interrupt.exception) {
+            locker = N2Locker.lock(idatabase.managedObjectContext.persistentStoreCoordinator) // this object unlocks the persistentStoreCoordinator when released
+            idatabase.save()
         }
 
-        var done = false
-
-        logged("-[O2DatabaseConnection DATAB]") {
+        var representationToSend: NSMutableData?
+        HorosObjCException.logged("-[O2DatabaseConnection DATAB]", stack: true) {
             // we send the database SQL file
             let databasePath = idatabase.sqlFilePath
 
             representationToSend = databasePath.flatMap { NSMutableData(contentsOfFile: $0) }
-            done = true
-        }
-        if done {
-            _unstack() // -> release N2Locker, unlocks the persistentStoreCoordinator (this line may not be called, so the persistentStoreCoordinator will be unlocked when this connection object is released -- when the stack is released)
         }
 
         if let representationToSend {
@@ -1027,223 +798,129 @@ public final class O2DatabaseConnection: NSObject {
 
         NSLog("Bonjour connection received from %@", address)
 
-        _mode = .DONE
         withExtendedLifetime(locker) {}
     }
 
     private func DBSIZ() throws {
-        let idatabase = try _stackIndependentDatabase()
+        let idatabase = try _requestIndexDatabase()
 
         var fileSize: UInt64 = 0
 
-        try objc { _ = idatabase.managedObjectContext.persistentStoreCoordinator?.perform(#selector(NSLocking.lock)) }
-        logged("-[O2DatabaseConnection DBSIZ]") {
+        var locker: N2Locker? = try HorosObjCException.throwing(O2Interrupt.exception) { N2Locker.lock(idatabase.managedObjectContext.persistentStoreCoordinator) }
+        HorosObjCException.logged("-[O2DatabaseConnection DBSIZ]", stack: true) {
             idatabase.save()
 
             let databasePath = idatabase.sqlFilePath ?? ""
 
-            let fattrs = (try? FileManager.default.attributesOfItem(atPath: databasePath)) as NSDictionary?
+            let fattrs = try? FileManager.default.attributesOfItem(atPath: databasePath)
 
-            fileSize = (fattrs?.object(forKey: FileAttributeKey.size) as? NSNumber)?.uint64Value ?? 0
+            fileSize = (fattrs?[FileAttributeKey.size] as? NSNumber)?.uint64Value ?? 0
         }
-        try objc { _ = idatabase.managedObjectContext.persistentStoreCoordinator?.perform(#selector(NSLocking.unlock)) }
+        try HorosObjCException.throwing(O2Interrupt.exception) {
+            withExtendedLifetime(locker) {}
+            locker = nil // unlocks the persistentStoreCoordinator
+        }
 
         // Four bytes, read unsigned by the client: an index of 4 GiB or more is
         // answered with the value that says so, never with its size wrapped.
-        var size = SharedDatabaseRequests.reply(forIndexSize: fileSize)
-        if size == SharedDatabaseRequests.indexTooLargeForReply {
+        if SharedDatabaseReply.indexSizeValue(fileSize) == SharedDatabaseReply.indexTooLargeForReply {
             NSLog("Shared database: the index (%llu bytes) is too large to be shared with %@", fileSize, address)
         }
-        size = size.bigEndian
-        writeData(Data(bytes: &size, count: MemoryLayout<UInt32>.size))
-
-        _mode = .DONE
+        writeData(SharedDatabaseReply.indexSize(fileSize))
     }
 
     private func GETDI() throws {
-        let defaults = UserDefaults.standard
-        let syntax = try objc { DCMTKStoreSCU.sendSyntax(forListenerSyntax: Int32(truncatingIfNeeded: defaults.integer(forKey: "preferredSyntaxForIncoming"))) }
-        // +dictionaryWithObjectsAndKeys: stops at the first nil object.
-        var objects: [Any] = []
-        var keys: [NSString] = []
-        for (object, key) in [(defaults.string(forKey: "AETITLE"), "AETitle"),
-                              (defaults.string(forKey: "AEPORT"), "Port"),
-                              (String(format: "%d", syntax), "TransferSyntax")] as [(String?, String)] {
-            guard let object else { break }
-            objects.append(object)
-            keys.append(key as NSString)
-        }
-        let dictionary = NSDictionary(objects: objects, forKeys: keys)
+        let preferences = _serving.processGraph.preferences
+        let syntax = DCMTKStoreSCU.sendSyntax(forListenerSyntax: Int32(truncatingIfNeeded: preferences[NetworkPreferences.preferredSyntaxForIncoming]))
+        let entries = SharedDatabaseReply.destinationInfo(aeTitle: preferences[NetworkPreferences.aeTitle],
+                                                          port: preferences[NetworkPreferences.aePort],
+                                                          transferSyntax: syntax)
+        let dictionary = NSDictionary(objects: entries.map(\.value), forKeys: entries.map { $0.key as NSString })
 
         // NSArchiver data, which released clients decode with NSUnarchiver. This
         // client reads it with SharedDatabaseDestinationInfo, which accepts a
         // dictionary of strings and nothing else.
         writeData(try HistoricalArchive.archivedData(withRootObject: dictionary))
-
-        _mode = .DONE
     }
 
     private func VERSI() throws {
-        let idatabase = try _stackIndependentDatabase()
+        let idatabase = try _requestIndexDatabase()
 
-        let val = try objc { idatabase.timeOfLastModification }
+        let val = idatabase.timeOfLastModification
 
-        var swappedValue = val.bitPattern.bigEndian
-
-        if MemoryLayout.size(ofValue: swappedValue) != 8 { NSLog("********** warning sizeof( swappedValue) != 8") }
-
-        writeData(Data(bytes: &swappedValue, count: MemoryLayout<TimeInterval>.size))
-
-        _mode = .DONE
+        writeData(SharedDatabaseReply.modificationTime(val))
     }
 
-    private func DBVER() {
-        let versString = UserDefaults.standard.string(forKey: "DATABASEVERSION")
+    private func SEND(generatedByViewer: Bool) throws {
+        let idatabase = try _requestIndexDatabase()
 
-        writeData((versString as NSString?)?.data(using: String.Encoding.ascii.rawValue))
-
-        _mode = .DONE
-    }
-
-    private func ISPWD() {
-        // is this database protected by a password
-        _ = UserDefaults.bonjourSharingPassword()
-
-        var val: UInt32 = 0
-        if UserDefaults.bonjourSharingIsPasswordProtected() {
-            val = UInt32(1).bigEndian
-        }
-
-        writeData(Data(bytes: &val, count: MemoryLayout<Int32>.size))
-
-        _mode = .DONE
-    }
-
-    private func PASWD() throws {
-        try _requireDataSize(4)
-        let length = UInt32(bigEndian: UnsafeRawPointer(_unreadBytes()).loadUnaligned(as: UInt32.self))
-        if length == 0 || length > 4097 { close(); return }
-        try _requireDataSize(Int(Int32(bitPattern: length)) + 4)
-        try readData(4)
-        let bytes = try readData(Int(length))
-        if bytes[bytes.startIndex + Int(length) - 1] != 0 { close(); return }
-        let incomingPswd = bytes.withUnsafeBytes {
-            NSString(bytes: $0.baseAddress!, length: Int(length) - 1, encoding: String.Encoding.utf8.rawValue)
-        }
-
-        // We read the string
-        var val: UInt32 = 0
-
-        let password = UserDefaults.bonjourSharingPassword() as NSString?
-        if !UserDefaults.bonjourSharingIsPasswordProtected() || ((password?.length ?? 0) > 0 && incomingPswd?.isEqual(to: password! as String) == true) {
-            val = UInt32(1).bigEndian
-        }
-
-        writeData(Data(bytes: &val, count: MemoryLayout<Int32>.size))
-
-        _mode = .DONE
-    }
-
-    private func SEND() throws {
-        let fileNo = try _stackReadCount()
-
-        var savedFiles = _stackedObject() as? NSMutableArray
-        if savedFiles == nil {
-            savedFiles = NSMutableArray()
-            _stackObject(savedFiles!)
-        }
-
-        while savedFiles!.count < fileNo {
-            let fileSize = try _stackReadLengthUpTo(Self.O2MaximumFileLength, what: "file length")
-            // A file arrives in thousands of blocks, and waiting for the rest is the
-            // usual state here: raising O2NotEnoughData for every block cost more
-            // than receiving the upload. The resume stack is left exactly as the
-            // exception would leave it.
-            if availableSize < fileSize {
-                _closeIfBufferExceedsLimit()
-                return
-            }
-
-            let dstPath = try objc { BrowserController.currentBrowser()?.database?.uniquePathForNewDataFile(withExtension: "dcm") }
-
-            let data = try readData(fileSize)
-            try objc { _ = dstPath.map { (data as NSData).write(toFile: $0, atomically: true) } }
-
-            guard let dstPath else { throw Self.nilObject() }
-            savedFiles!.add(dstPath)
-
-            _unstack()
-        }
-
-        let idatabase = try _stackIndependentDatabase()
-
-        let generatedByOsiriX = _mode == .SENDG
-        let objects = try objc { () -> [Any]? in
-            let added = idatabase.addFiles(atPaths: savedFiles as? [Any], postNotifications: true, dicomOnly: false, rereadExistingItems: true, generatedByOsiriX: generatedByOsiriX)
+        let savedFiles = _savedFiles
+        var added: [Any]?
+        let objects = try HorosObjCException.throwing(O2Interrupt.exception) { () -> [Any]? in
+            added = DatabaseIngest.process.index(savedFiles, preset: generatedByViewer ? .sharedDatabaseGenerated : .sharedDatabaseReceived, in: idatabase)
             return idatabase.objects(withIDs: added) as [Any]?
         } ?? []
-
-        let representationToSend = NSMutableData()
-        var temp = UInt32(truncatingIfNeeded: objects.count).bigEndian
-        representationToSend.append(&temp, length: 4)
-        for image in objects {
-            let number = try objc { unsafeBitCast(image as AnyObject, to: O2SharedDatabaseImage.self).pathNumber }
-            var temp = UInt32(bitPattern: number?.int32Value ?? 0).bigEndian
-            representationToSend.append(&temp, length: 4)
+        // A client writes the annotations SR of a study it shows and sends it here: it takes the place of the
+        // study's earlier ones, as one written here does, since the client cannot remove them from this index.
+        if generatedByViewer {
+            AnnotationsSRPruning.removeEarlier(than: added, in: idatabase)
         }
 
-        writeData(representationToSend as Data)
+        var pathNumbers: [Int32] = []
+        for image in objects {
+            let number = try HorosObjCException.throwing(O2Interrupt.exception) { unsafeBitCast(image as AnyObject, to: O2SharedDatabaseImage.self).pathNumber }
+            pathNumbers.append(number?.int32Value ?? 0)
+        }
 
-        _mode = .DONE
-    }
-
-    private func NEWMS() throws { // is this used ? nah
-        let size = try _stackReadLengthUpTo(SharedDatabaseWire.maximumStringLength, what: "message length")
-
-        try _requireDataSize(size)
-        if size != 0 { try readData(size) } // readData:0 would take the whole buffer
-        //    NSData* da = [self readData:size];
-
-        //    NSDictionary* d = [NSPropertyListSerialization propertyListFromData:da mutabilityOption: NSPropertyListImmutable format: nil errorDescription: nil];
-        //
-        //    if (d)
-        //    {
-        //        NSString *message = [d objectForKey:@"message"];
-        //    }
-
-        _mode = .DONE
+        writeData(SharedDatabaseReply.upload(pathNumbers: pathNumbers))
     }
 
     /// The album parameters of ADDAL and REMAL: a property list whose albumStudies
     /// and albumUID are read as -objectForKey: read them.
-    private func _albumParameters(_ object: String) throws -> (studies: AnyObject?, albumUID: AnyObject?) {
-        let d = try? PropertyListSerialization.propertyList(from: Data(object.utf8), options: [], format: nil)
-
-        guard let d = d.map({ $0 as AnyObject }) else {
+    private func _albumParameters(_ object: String) throws -> (studies: Any?, albumUID: Any?) {
+        guard let d = try? PropertyListSerialization.propertyList(from: Data(object.utf8), options: [], format: nil) else {
             throw O2Interrupt.exception(NSException(name: .genericException, reason: "can't parse parameters", userInfo: nil))
         }
-
-        return try objc {
-            (d.perform(#selector(NSDictionary.object(forKey:)), with: "albumStudies")?.takeUnretainedValue(),
-             d.perform(#selector(NSDictionary.object(forKey:)), with: "albumUID")?.takeUnretainedValue())
+        guard let parameters = d as? [String: Any] else {
+            // -objectForKey: sent to a property list that is not a dictionary.
+            throw O2Interrupt.exception(NSException(name: .invalidArgumentException,
+                                                    reason: "-[\(type(of: d as AnyObject)) objectForKey:]: unrecognized selector sent to instance",
+                                                    userInfo: nil))
         }
+        return (parameters["albumStudies"], parameters["albumUID"])
     }
 
-    private func ADDAL() throws {
-        let object = try _stackReadRequiredString("album parameters")
-
+    private func ALBUM(adding: Bool, parameters object: String) throws {
         let (studies, albumUID) = try _albumParameters(object)
 
-        let idatabase = try _stackIndependentDatabase()
+        let idatabase = try _requestIndexDatabase()
 
-        logged("-[O2DatabaseConnection ADDAL]") {
+        HorosObjCException.logged(adding ? "-[O2DatabaseConnection ADDAL]" : "-[O2DatabaseConnection REMAL]", stack: true) {
             let album = idatabase.object(withID: albumUID) as AnyObject? // [context objectWithID: [[context persistentStoreCoordinator] managedObjectIDForURIRepresentation: [NSURL URLWithString: albumUID]]];
             let albumStudies = (album as? NSObject)?.mutableSetValue(forKey: "studies")
 
             if let studies {
-                for uri in unsafeDowncast(studies, to: NSArray.self) {
+                guard let uris = studies as? [Any] else {
+                    // Fast enumeration of a value that is not a collection.
+                    NSException(name: .invalidArgumentException,
+                                reason: "-[\(type(of: studies as AnyObject)) countByEnumeratingWithState:objects:count:]: unrecognized selector sent to instance",
+                                userInfo: nil).raise()
+                    return
+                }
+                for uri in uris {
                     let study = idatabase.object(withID: uri) as AnyObject? // (DicomStudy*) [context objectWithID: [[context persistentStoreCoordinator] managedObjectIDForURIRepresentation: [NSURL URLWithString: uri]]];
-                    _ = albumStudies?.perform(#selector(NSMutableSet.add(_:)), with: study)
+                    if let albumStudies {
+                        guard let study else {
+                            NSException(name: .invalidArgumentException,
+                                        reason: "*** -[__NSSetM \(adding ? "addObject" : "removeObject"):]: object cannot be nil", userInfo: nil).raise()
+                            return
+                        }
+                        if adding {
+                            albumStudies.add(study)
+                        } else {
+                            albumStudies.remove(study)
+                        }
+                    }
                     if let study {
                         unsafeBitCast(study, to: O2SharedDatabaseStudy.self).archiveAnnotationsAsDICOMSR()
                     }
@@ -1252,45 +929,12 @@ public final class O2DatabaseConnection: NSObject {
 
             _ = idatabase.save(nil)
 
-            BrowserController.currentBrowser()?.performSelector(onMainThread: NSSelectorFromString("refreshDatabase:"), with: self, waitUntilDone: false)
+            self._refreshBrowser()
         }
-
-        _mode = .DONE
     }
 
-    private func REMAL() throws {
-        let object = try _stackReadRequiredString("album parameters")
-
-        let (studies, albumUID) = try _albumParameters(object)
-
-        let idatabase = try _stackIndependentDatabase()
-
-        logged("-[O2DatabaseConnection REMAL]") {
-            let album = idatabase.object(withID: albumUID) as AnyObject? // [context objectWithID: [[context persistentStoreCoordinator] managedObjectIDForURIRepresentation: [NSURL URLWithString: albumUID]]];
-            let albumStudies = (album as? NSObject)?.mutableSetValue(forKey: "studies")
-
-            if let studies {
-                for uri in unsafeDowncast(studies, to: NSArray.self) {
-                    let study = idatabase.object(withID: uri) as AnyObject? // (DicomStudy*) [context objectWithID: [[context persistentStoreCoordinator] managedObjectIDForURIRepresentation: [NSURL URLWithString: uri]]];
-                    _ = albumStudies?.perform(#selector(NSMutableSet.remove(_:)), with: study)
-                    if let study {
-                        unsafeBitCast(study, to: O2SharedDatabaseStudy.self).archiveAnnotationsAsDICOMSR()
-                    }
-                }
-            }
-
-            _ = idatabase.save(nil)
-
-            BrowserController.currentBrowser()?.performSelector(onMainThread: NSSelectorFromString("refreshDatabase:"), with: self, waitUntilDone: false)
-        }
-
-        _mode = .DONE
-    }
-
-    private func SETVA() throws {
-        let objectId = try _stackReadRequiredString("object identifier")
-        var value = try _stackReadString() // nil is a value here: it clears reportURL
-        let key = try _stackReadRequiredString("key")
+    private func SETVA(objectID objectId: String, value: String?, key: String) throws {
+        var value = value // nil is a value here: it clears reportURL
 
         // Only the keys the client sets, each with its type: any other key
         // path closes the request before the database is touched.
@@ -1299,11 +943,11 @@ public final class O2DatabaseConnection: NSObject {
             throw _rejectRequest("key \(key) cannot be set remotely")
         }
 
-        let idatabase = try _stackIndependentDatabase()
+        let idatabase = try _requestIndexDatabase()
 
         // The request -_rejectRequest: raised inside the @try, which let it through.
         var rejection: String?
-        logged("-[O2DatabaseConnection SETVA]") {
+        HorosObjCException.logged("-[O2DatabaseConnection SETVA]", stack: true) {
             let item = idatabase.object(withID: objectId) as? NSObject // [context objectWithID: [[context persistentStoreCoordinator] managedObjectIDForURIRepresentation: [NSURL URLWithString: object]]];
 
             if let item {
@@ -1339,125 +983,50 @@ public final class O2DatabaseConnection: NSObject {
             throw _rejectRequest(rejection)
         }
 
-        try objc { BrowserController.currentBrowser()?.performSelector(onMainThread: NSSelectorFromString("refreshDatabase:"), with: self, waitUntilDone: false) }
-
-        _mode = .DONE
+        _refreshBrowser()
     }
 
-    private func MFILE() throws {
-        var path = try _stackReadRequiredString("path")
+    private func MFILE(_ requested: String) throws {
+        var path = requested
 
         if (path as NSString).length > 0 {
             if (path as NSString).character(at: 0) != UInt16(UInt8(ascii: "/")) {
-                path = try objc { ((DicomDatabase.default()?.baseDirPath as NSString?)?.appendingPathComponent(path)) ?? "" }
+                let database = try _database()
+                path = ((database?.baseDirPath as NSString?)?.appendingPathComponent(path)) ?? ""
             }
         }
         path = try _servedPathForRequestedPath(path)
         try _requireLinkedPaths()
 
-        let content = try objc { () -> Data? in
-            let fattrs = (try? FileManager.default.attributesOfItem(atPath: path)) as NSDictionary?
-
-            let date = fattrs?.object(forKey: FileAttributeKey.modificationDate) as? NSObject
-            return (date?.description as NSString?)?.data(using: String.Encoding.unicode.rawValue)
-        }
+        let fattrs = try? FileManager.default.attributesOfItem(atPath: path)
+        let date = fattrs?[FileAttributeKey.modificationDate] as? NSObject
+        let content = SharedDatabaseReply.fileDate(date?.description)
 
         writeData(content)
-
-        _mode = .DONE
     }
 
-    private func DCMSE() throws {
-        let AETitle = try _stackReadRequiredString("AE title")
-        var Address = try _stackReadRequiredString("address")
-        let Port = try _stackReadRequiredString("port")
-        let TransferSyntax = try _stackReadRequiredString("transfer syntax")
-
-        let noOfFiles = try _stackReadCount()
-
-        var localPaths = _stackedObject() as? NSMutableArray
-        if localPaths == nil {
-            localPaths = NSMutableArray()
-            _stackObject(localPaths!)
-        }
-
-        while localPaths!.count < noOfFiles {
-            let path = try _servedPathForRequestedPath(try _stackReadRequiredString("path"))
-
-            localPaths!.add(path)
-
-            _unstack() // the string
-        }
+    private func DCMSE(_ order: SharedDatabaseSendOrder) throws {
         try _requireLinkedPaths()
 
-        if (Address as NSString).isEqual(to: "127.0.0.1") {
-            Address = address
-        }
+        var order = order.resolvingLoopback(peerAddress: address)
+        order.files = _servedPaths
 
-        let todo = NSDictionary(objects: [Address, TransferSyntax, Port, AETitle, localPaths!],
-                                forKeys: ["Address", "TransferSyntax", "Port", "AETitle", "Files"] as [NSString])
-
-        guard let publisher = try objc({ AppController.shared()?.bonjourPublisher }) else {
-            throw O2Interrupt.exception(NSException(name: .invalidArgumentException,
-                                                    reason: "*** +[NSThread detachNewThreadSelector:toTarget:withObject:]: target is nil", userInfo: nil))
-        }
-        try objc { Thread.detachNewThreadSelector(NSSelectorFromString("sendDICOMFilesToOsiriXNode:"), toTarget: publisher, with: todo) }
-
-        _mode = .DONE
+        _serving.sender.enqueue(order)
     }
 
-    private func DICOM() throws {
-        objc_sync_enter(self)
-        defer { objc_sync_exit(self) }
-
-        let noOfFiles = try _stackReadCount()
-
-        var localPaths = _stackedObject() as? NSMutableArray
-        if localPaths == nil {
-            localPaths = NSMutableArray()
-            _stackObject(localPaths!)
-        }
-        var dstPaths = _stackedObject() as? NSMutableArray
-        if dstPaths == nil {
-            dstPaths = NSMutableArray()
-            _stackObject(dstPaths!)
-        }
-
-        while localPaths!.count < noOfFiles {
-            let path = try _servedPathForRequestedPath(try _stackReadRequiredString("path"))
-
-            localPaths!.add(path)
-
-            _unstack() // the string
-        }
-
-        while dstPaths!.count < noOfFiles {
-            let path = try _stackReadRequiredString("destination path")
-
-            dstPaths!.add(path)
-
-            _unstack() // the string
-        }
-
+    private func DICOM(destinations: [String]) throws {
         // Nothing is written before every path is known to be served.
         try _requireLinkedPaths()
 
-        var temp = UInt32(truncatingIfNeeded: noOfFiles).bigEndian
-        writeData(Data(bytes: &temp, count: 4))
-        for i in 0..<noOfFiles {
-            let path = localPaths!.object(at: i) as! String
+        writeData(SharedDatabaseReply.fetchCount(_servedPaths.count))
+        for (path, destination) in zip(_servedPaths, destinations) {
+            let content = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe)
+            writeData(SharedDatabaseReply.fetchedFileLength(content?.count ?? 0))
+            writeData(content)
 
-            let content = try objc { try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe) }
-            var size = UInt32(truncatingIfNeeded: content?.count ?? 0).bigEndian
-            writeData(Data(bytes: &size, count: 4))
-            writeData(content as Data?)
-
-            let string = (dstPaths!.object(at: i) as! String).utf8CString
-            var stringSize = UInt32(truncatingIfNeeded: string.count).bigEndian // +1 to include the last 0 !
-            writeData(Data(bytes: &stringSize, count: 4))
-            writeData(string.withUnsafeBufferPointer { Data(buffer: $0) })
+            let frame = SharedDatabaseReply.destinationPath(destination)
+            writeData(frame.length)
+            writeData(frame.path)
         }
-
-        _mode = .DONE
     }
 }

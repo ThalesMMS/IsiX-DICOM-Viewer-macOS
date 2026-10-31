@@ -39,11 +39,16 @@ header = read('Horos/Sources/BrowserController.h')
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_path, class_text  # noqa: E402
 browser = class_text('BrowserController') if len(sys.argv) == 1 else read('Horos/Sources/BrowserController.m')
-sources = read(str(source_path('BrowserController+Sources').relative_to(root)))
+# The Sources drop is SourceList's (SourceList.swift).
+sources = read(str(source_path('SourceList').relative_to(root)))
 # The database drag export block is Swift.
 drag = read('Horos/Sources/BrowserController+DatabaseDragExport.swift')
 drag_selection = read('Horos/Sources/BrowserController+DatabaseDragExport+Selection.swift')
-albums = read('Horos/Sources/BrowserController+AlbumsTableView.swift')
+# The promises and their worker are DatabaseFilePromiseWriter's, which the
+# browser's selectors hand them to.
+promises = read('Horos/Sources/DatabaseFilePromiseWriter.swift')
+# The album drop is the albums table's, in StudyListContent.swift.
+albums = read('Horos/Sources/StudyListContent.swift')
 # BrowserMatrix is Swift.
 matrix = read(str(source_path('BrowserMatrix').relative_to(root)))
 failures = []
@@ -74,8 +79,11 @@ else:
     if 'NSEvent.ModifierFlags.option' not in writer:
         failures.append('Option does not switch the row drag to JPEG')
 
-promise = method(drag, '@objc(filePromiseForDatabaseObjects:asJPEG:)\n', SWIFT_END)
-for key in ('"rootObjectIDs":', '"database":', '"folderTreeTag":', '"compressionTag":', '"addDICOMDIR":', '"encrypt":', '"password":'):
+facade = method(drag, '@objc(filePromiseForDatabaseObjects:asJPEG:)\n', SWIFT_END)
+if 'DatabaseFilePromiseWriter(browser: self' not in facade or '.promise(forDatabaseObjects: items, asJPEG: jpeg)' not in facade:
+    failures.append('the browser does not hand its drag to DatabaseFilePromiseWriter')
+promise = method(promises, '    func promise(forDatabaseObjects items: [Any]?, asJPEG jpeg: Bool)', SWIFT_END)
+for key in ('rootObjectIDs:', 'database:', 'folderTreeTag:', 'compressionTag:', 'addDICOMDIR:', 'encrypt:', 'password:'):
     if key not in promise:
         failures.append('the promise snapshot lacks %s' % key)
 if 'BatchExportPlan.exportName(itemNames:' not in promise:
@@ -84,39 +92,44 @@ if 'promise.extraTypes = BrowserController.databaseObjectXIDsPasteboardTypes()' 
     failures.append('a DICOM promise does not carry the object identifiers for internal drops')
 if 'PromiseCompletionGuard(completion:' not in promise or 'watch(thread: thread)' not in promise:
     failures.append('the promise writer has no completion guard for a thread that never starts')
-if 'writeDatabaseFilePromise(_:)' not in promise or 'addThreadAndStart' not in promise:
+if 'DatabaseFilePromiseActivity {' not in promise or 'Self.write(snapshot' not in promise or 'addThreadAndStart' not in promise:
     failures.append('the promise writer does not run on an activity thread')
 
-worker = method(drag, '@objc(writeDatabaseFilePromise:)\n', SWIFT_END)
+worker = method(promises, '    nonisolated private static func write(', SWIFT_END)
 # userCancelledError() is the file's NSCocoaErrorDomain/NSUserCancelledError error.
-cancelled = method(drag, 'fileprivate func userCancelledError() -> NSError {', '\n}\n')
+cancelled = method(promises, 'nonisolated private func userCancelledError() -> NSError {', '\n}\n')
 if 'NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError, userInfo: nil)' not in cancelled:
     worker = worker.replace('userCancelledError()', '')
 for needed in ('privateQueueIndependentDatabase()', 'objects(withIDs:', 'ExportStaging.stagingDirectory(for:', 'fire(error:', 'ExportStaging.commit(staging:',
-               'ExportStaging.discard(staging:', 'ExportStaging.stagingHasContent(', 'parameters?["quietErrors"]', 'parameters?["exportError"]', 'userCancelledError()',
+               'ExportStaging.discard(staging:', 'ExportStaging.stagingHasContent(', 'quietErrors: true', '.run(request, for: browser).error', 'userCancelledError()',
                'isDeleted', 'set an encryption password'):
     if needed not in worker:
         failures.append('the promise worker lacks %s' % needed)
-if worker.find('ExportStaging.commit(staging:') < worker.find('self.writeReportFileExports('):
+if worker.find('ExportStaging.commit(staging:') < worker.find('writeReportFileExports(reportExports'):
     failures.append('reports must be written before the staging is committed')
 
 # --- export core honours the snapshot and can be quiet -----------------------
-# The export core is Swift (BrowserController+DICOMExport.swift).
-export = read('Horos/Sources/BrowserController+DICOMExport.swift')
-core = export[export.find('    @objc(exportDICOMFileInt:)\n'):export.find('    @objc(exportDICOMFile:)\n')] if export else ''
-for needed in ('parameters["addDICOMDIR"]', 'parameters["encrypt"]', 'parameters["password"]',
-               'key: "folderTreeTag"', 'key: "compressionTag"', 'parameters["quietErrors"]'):
-    if needed not in core:
-        failures.append('the export core ignores %s' % needed)
-if core.count('if !quietErrors {') < 2 or 'showGUI: !quietErrors' not in core:
+# The browser's -exportDICOMFileInt: turns the snapshot into the typed request
+# of the export core (DICOMFolderExport.swift).
+facade = read('Horos/Sources/BrowserController+DICOMExport.swift')
+facade = facade[facade.find('    @objc(exportDICOMFileInt:)\n'):facade.find('    @objc(exportDICOMFile:)\n')] if facade else ''
+for needed in ('flag("addDICOMDIR")', 'flag("encrypt")', 'options["password"]',
+               'options["folderTreeTag"]', 'options["compressionTag"]', 'flag("quietErrors")'):
+    if needed not in facade:
+        failures.append('the export request ignores %s' % needed)
+if 'reply["exportError"] = error' not in facade:
+    failures.append('the export does not report its error through the parameters')
+export = read('Horos/Sources/DICOMFolderExport.swift')
+core = export[export.find('    private func export('):export.find('    // MARK: Names')] if export else ''
+if core.count('if !request.quietErrors {') < 2 or 'showGUI: !request.quietErrors' not in core:
     failures.append('the export core still shows a modal alert on a quiet export')
-if 'parameters["exportError"] = exportError' not in core or 'parameters["exportError"] = zipError' not in core:
-    failures.append('the export core does not report its error through the parameters')
+if 'outcome.result.error = exportError' not in core or 'outcome.result.error = failure as NSError' not in core:
+    failures.append('the export core does not report its error in its result')
 
 # --- drops read every item ----------------------------------------------------
-if 'BrowserController.databaseObjectXIDs(on: pb)' not in albums:
+if 'BrowserController.databaseObjectXIDs(on: info.draggingPasteboard)' not in albums:
     failures.append('the album drop reads the first pasteboard item only')
-if 'BrowserController.databaseObjectXIDs(on: pb)' not in sources:
+if 'BrowserController.databaseObjectXIDs(on: info.draggingPasteboard)' not in sources:
     failures.append('the Sources drop reads the first pasteboard item only')
 if 'PasteboardObjectIdentifiers.identifiers(on: pasteboard, types: BrowserController.databaseObjectXIDsPasteboardTypes()' not in drag:
     failures.append('the aggregation is not delegated to HorosPasteboardObjectIdentifiers')

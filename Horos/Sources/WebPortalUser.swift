@@ -40,28 +40,10 @@
 import Cocoa
 import CoreData
 import CryptoKit
+import IsiXPreferences
+import Synchronization
 
 fileprivate let TIMEOUT: TimeInterval = 5 * 60
-
-/// @synchronized(object) { body }: the same recursive lock (objc_sync_enter).
-/// An NSException that body raises releases it and then goes on to the
-/// caller, as it did through @synchronized. A nil object takes no lock, as
-/// @synchronized(nil) did.
-fileprivate func webPortalUserSynchronized(_ object: AnyObject?, _ body: () -> Void) {
-    guard let object = object else {
-        body()
-        return
-    }
-    objc_sync_enter(object)
-    var raised: NSException? = nil
-    do {
-        try HorosObjCException.perform(body)
-    } catch {
-        raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    objc_sync_exit(object)
-    raised?.raise()
-}
 
 /// +[NSEntityDescription entityForName:inManagedObjectContext:]. A nil context
 /// is sent as nil, so it raises as it did.
@@ -69,7 +51,9 @@ fileprivate func webPortalUserEntity(_ name: String, _ context: NSManagedObjectC
     if let context = context {
         return NSEntityDescription.entity(forEntityName: name, in: context)
     }
-    return (NSEntityDescription.self as AnyObject).perform(#selector(NSEntityDescription.entity(forEntityName:in:)), with: name, with: nil)?.takeUnretainedValue() as? NSEntityDescription
+    NSException(name: .internalInconsistencyException,
+                reason: "+entityForName: nil is not a legal NSManagedObjectContext parameter searching for entity name '\(name)'", userInfo: nil).raise()
+    return nil
 }
 
 /// -executeFetchRequest:error:NULL: nil for a nil context or a failed fetch. An
@@ -203,19 +187,19 @@ fileprivate func webPortalUserSendNil(_ object: Any, _ selector: Selector) -> An
 /// (CryptoKit's SHA-1, -[NSData hex]) of the UTF-8 bytes of password + name.
 @objc(WebPortalUser)
 public final class WebPortalUser: NSManagedObject {
-    /// Guards `generator` and `storedStudiesForUserCache`: users are made and
-    /// their studies listed on the portal's connection threads as well as the
-    /// main thread.
-    private static let staticsLock = NSLock()
-    // nonisolated(unsafe): read and written only inside `staticsLock.withLock`.
-    nonisolated(unsafe) private static var generator: PSGenerator? = nil
-    /// Nil until the first listing registers the observer that empties it:
-    /// without that observer, nothing may be cached.
-    // nonisolated(unsafe): read and written only inside `staticsLock.withLock`;
-    // the dictionary itself is used inside @synchronized on it.
-    nonisolated(unsafe) private static var storedStudiesForUserCache: NSMutableDictionary? = nil
+    /// The password generator, and the cache of the studies of each user:
+    /// users are made and their studies listed on the portal's connection
+    /// threads as well as the main thread. The cache is nil until the first
+    /// listing registers the observer that empties it: without that observer,
+    /// nothing may be cached. The dictionary itself is used inside
+    /// @synchronized on it.
+    private struct Statics {
+        var generator: PSGenerator?
+        var studiesForUserCache: NSMutableDictionary?
+    }
+    private static let statics = Mutex(Statics())
     private static var studiesForUserCache: NSMutableDictionary? {
-        staticsLock.withLock { storedStudiesForUserCache }
+        statics.withLock { $0.studiesForUserCache }
     }
 
     // MARK: Properties
@@ -244,7 +228,7 @@ public final class WebPortalUser: NSManagedObject {
         }
         set {
             if newValue?.boolValue ?? false {
-                self.setValue(Date(timeIntervalSinceReferenceDate: Date.timeIntervalSinceReferenceDate + Double(UserDefaults.standard.integer(forKey: "temporaryUserDuration") * 60 * 60 * 24)), forKey: "deletionDate")
+                self.setValue(Date(timeIntervalSinceReferenceDate: Date.timeIntervalSinceReferenceDate + Double(PreferencesSource.process.preferences[NetworkPreferences.temporaryUserDuration] * 60 * 60 * 24)), forKey: "deletionDate")
             }
             self.willChangeValue(forKey: "autoDelete")
             self.setPrimitiveValue(newValue, forKey: "autoDelete")
@@ -381,11 +365,11 @@ public final class WebPortalUser: NSManagedObject {
 
     @objc(generatePassword)
     public func generatePassword() {
-        let password = WebPortalUser.staticsLock.withLock { () -> Any? in
-            if WebPortalUser.generator == nil {
-                WebPortalUser.generator = PSGenerator(sourceString: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", minLength: 12, maxLength: 12)
+        let password = WebPortalUser.statics.withLock { statics -> Any? in
+            if statics.generator == nil {
+                statics.generator = PSGenerator(sourceString: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", minLength: 12, maxLength: 12)
             }
-            return (WebPortalUser.generator?.generate(1) as NSArray?)?.lastObject
+            return (statics.generator?.generate(1) as NSArray?)?.lastObject
         }
 
         self.setValue(password, forKey: "password")
@@ -598,7 +582,7 @@ public final class WebPortalUser: NSManagedObject {
 
                 let userID = (self.name as NSString?)?.appending(" specificStudies")
 
-                webPortalUserSynchronized(WebPortalUser.studiesForUserCache) {
+                HorosObjCException.synchronized(WebPortalUser.studiesForUserCache) {
                     if userID != nil, let entry = webPortalUserFreshEntry(WebPortalUser.studiesForUserCache, userID) { // one hour
                         let dicomDBContext = WebPortal.default()?.threadDicomDatabase()
 
@@ -609,7 +593,7 @@ public final class WebPortalUser: NSManagedObject {
                 if specificArray == nil {
                     var studiesArray: NSArray? = nil
 
-                    webPortalUserSynchronized(WebPortalUser.studiesForUserCache) {
+                    HorosObjCException.synchronized(WebPortalUser.studiesForUserCache) {
                         if let entry = webPortalUserFreshEntry(WebPortalUser.studiesForUserCache, "all DB studies") {
                             let dicomDBContext = WebPortal.default()?.threadDicomDatabase()
 
@@ -628,7 +612,7 @@ public final class WebPortalUser: NSManagedObject {
                         req.predicate = NSPredicate(value: true)
                         studiesArray = webPortalUserFetch(dicomDBContext?.managedObjectContext, req)
 
-                        webPortalUserSynchronized(WebPortalUser.studiesForUserCache) {
+                        HorosObjCException.synchronized(WebPortalUser.studiesForUserCache) {
                             if let studiesArray = studiesArray {
                                 webPortalUserCacheSet(WebPortalUser.studiesForUserCache, NSDictionary(objects: [WebPortalUser.cachedArray(for: studiesArray) as Any, Date()], forKeys: ["array" as NSString, "date" as NSString]), "all DB studies")
                             }
@@ -664,7 +648,7 @@ public final class WebPortalUser: NSManagedObject {
                         }
                     }
 
-                    webPortalUserSynchronized(WebPortalUser.studiesForUserCache) {
+                    HorosObjCException.synchronized(WebPortalUser.studiesForUserCache) {
                         if userID != nil {
                             webPortalUserCacheSet(WebPortalUser.studiesForUserCache, NSDictionary(objects: [WebPortalUser.cachedArray(for: newSpecificArray) as Any, Date()], forKeys: ["array" as NSString, "date" as NSString]), userID as String?)
                         }
@@ -718,9 +702,9 @@ public final class WebPortalUser: NSManagedObject {
     /// The observer of NSManagedObjectContextObjectsDidChangeNotification that
     /// empties the cache.
     private class func observeObjectChangesOnce() {
-        let made = staticsLock.withLock { () -> Bool in
-            guard storedStudiesForUserCache == nil else { return false }
-            storedStudiesForUserCache = NSMutableDictionary()
+        let made = statics.withLock { statics -> Bool in
+            guard statics.studiesForUserCache == nil else { return false }
+            statics.studiesForUserCache = NSMutableDictionary()
             return true
         }
         if made {
@@ -754,7 +738,7 @@ public final class WebPortalUser: NSManagedObject {
 
                     let userID = user.name
 
-                    webPortalUserSynchronized(studiesForUserCache) {
+                    HorosObjCException.synchronized(studiesForUserCache) {
                         if user != nil, let entry = webPortalUserFreshEntry(studiesForUserCache, userID) {
                             studiesArray = webPortalUserCachedObjects(entry, dicomDBContext)
                         }
@@ -763,7 +747,7 @@ public final class WebPortalUser: NSManagedObject {
                     if studiesArray == nil {
                         studiesArray = webPortalUserFetch(dicomDBContext?.managedObjectContext, req)
 
-                        webPortalUserSynchronized(studiesForUserCache) {
+                        HorosObjCException.synchronized(studiesForUserCache) {
                             if user != nil, let studiesArray = studiesArray {
                                 webPortalUserCacheSet(studiesForUserCache, NSDictionary(objects: [WebPortalUser.cachedArray(for: studiesArray) as Any, Date()], forKeys: ["array" as NSString, "date" as NSString]), userID)
                             }
@@ -855,7 +839,7 @@ public final class WebPortalUser: NSManagedObject {
 
     @objc(managedObjectChangedNotificationReceived:)
     public class func managedObjectChangedNotificationReceived(_ n: Notification) {
-        webPortalUserSynchronized(studiesForUserCache) {
+        HorosObjCException.synchronized(studiesForUserCache) {
             var set = NSMutableSet()
 
             if let inserted = n.userInfo?[NSInsertedObjectsKey] as? NSSet {
@@ -915,7 +899,7 @@ public final class WebPortalUser: NSManagedObject {
         // -stringByAppendingFormat: @" %@", as before: a nil album reads "(null)".
         let userID = (user?.name as NSString?)?.appending(" " + (albumName ?? "(null)"))
 
-        webPortalUserSynchronized(studiesForUserCache) {
+        HorosObjCException.synchronized(studiesForUserCache) {
             if user != nil, let entry = webPortalUserFreshEntry(studiesForUserCache, userID) {
                 let dicomDBContext = WebPortal.default()?.threadDicomDatabase()
 
@@ -953,20 +937,21 @@ public final class WebPortalUser: NSManagedObject {
                 pred = pred?.replacingOccurrences(of: "(", with: "") as NSString?
                 pred = pred?.replacingOccurrences(of: ")", with: "") as NSString?
                 if user == nil || (pred?.length ?? 0) == 0 || (pred?.isEqual(to: "YES==YES") ?? false) {
-                    if UserDefaults.standard.bool(forKey: "searchForComparativeStudiesOnDICOMNodes") && UserDefaults.standard.bool(forKey: "ActivatePACSOnDemandForWebPortalAlbums") {
+                    let preferences = PreferencesSource.process.preferences
+                    if preferences[NetworkPreferences.searchesComparativeStudiesOnDICOMNodes] && preferences[WebPortalPreferences.pacsOnDemandForAlbums] {
 //                    BOOL usePatientID = [[NSUserDefaults standardUserDefaults] boolForKey: @"UsePatientIDForUID"];
 //                    BOOL usePatientBirthDate = [[NSUserDefaults standardUserDefaults] boolForKey: @"UsePatientBirthDateForUID"];
 //                    BOOL usePatientName = [[NSUserDefaults standardUserDefaults] boolForKey: @"UsePatientNameForUID"];
 
                         // Servers
-                        let servers = BrowserController.comparativeServers() as NSArray?
+                        let servers = PreferencesSource.process.processGraph.pacsOnDemand.nodes.comparativeServers() as NSArray?
 
                         if (servers?.count ?? 0) != 0 {
                             // Distant studies
                             // In current versions, two filters exist: modality & date
                             var distantStudies: NSArray? = nil
-                            for d in (UserDefaults.standard.object(forKey: "smartAlbumStudiesDICOMNodes") as? NSArray) ?? NSArray() {
-                                let d = d as! NSObject
+                            for entry in preferences[WebPortalPreferences.smartAlbumStudiesDICOMNodes] ?? [] {
+                                let d = entry.object as! NSObject
                                 let dName = d.value(forKey: "name") as? String
                                 if ((d.value(forKey: "activated") as? NSNumber)?.boolValue ?? false) && (dName.map { (albumName as NSString?)?.isEqual(to: $0) ?? false } ?? false) {
                                     distantStudies = QueryController.queryStudies(forFilters: d as? [AnyHashable: Any], servers: servers as? [Any], showErrors: false) as NSArray?
@@ -982,7 +967,7 @@ public final class WebPortalUser: NSManagedObject {
                                     let distantUID = webPortalUserSend(distantStudy, NSSelectorFromString("studyInstanceUID"))
                                     if !((mutableStudiesArray.value(forKey: "studyInstanceUID") as? NSArray)?.contains(distantUID as Any) ?? false) {
                                         mutableStudiesArray.add(distantStudy)
-                                    } else if UserDefaults.standard.bool(forKey: "preferStudyWithMoreImages") {
+                                    } else if preferences[WebPortalPreferences.prefersStudyWithMoreImages] {
                                         let index = (mutableStudiesArray.value(forKey: "studyInstanceUID") as? NSArray)?.index(of: distantUID as Any) ?? NSNotFound
 
                                         if index != NSNotFound && ((webPortalUserSend(mutableStudiesArray.object(at: index), NSSelectorFromString("rawNoFiles")) as? NSNumber)?.int32Value ?? 0) < ((webPortalUserSend(distantStudy, NSSelectorFromString("noFiles")) as? NSNumber)?.int32Value ?? 0) {
@@ -1025,7 +1010,7 @@ public final class WebPortalUser: NSManagedObject {
 
             studiesArray = sortedAlbumStudies(studiesArray, sortValue)
 
-            webPortalUserSynchronized(studiesForUserCache) {
+            HorosObjCException.synchronized(studiesForUserCache) {
                 if user != nil, let studiesArray = studiesArray {
                     webPortalUserCacheSet(studiesForUserCache, NSDictionary(objects: [WebPortalUser.cachedArray(for: studiesArray) as Any, Date()], forKeys: ["array" as NSString, "date" as NSString]), userID as String?)
                 }
@@ -1050,7 +1035,7 @@ public final class WebPortalUser: NSManagedObject {
     public func recentPatients() -> NSArray {
         let recentPatients = NSMutableArray()
 
-        let oldestDate = Date().addingTimeInterval(-UserDefaults.standard.double(forKey: "WebPortalMaximumNumberOfDaysForRecentStudies") * 86400.0)
+        let oldestDate = Date().addingTimeInterval(-PreferencesSource.process.preferences[NetworkPreferences.webPortalMaximumNumberOfDaysForRecentStudies] * 86400.0)
 
         let recentStudies = ((self.value(forKey: "recentStudies") as? NSSet)?.filtered(using: NSPredicate(format: "dateAdded > CAST(%lf, \"NSDate\")", oldestDate.timeIntervalSinceReferenceDate)) as NSSet?) ?? NSSet()
 

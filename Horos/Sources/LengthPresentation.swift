@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXPreferences
 
 /// The unit a measured length is shown in.
 @objc(HorosLengthUnit)
@@ -27,8 +28,8 @@ public enum LengthUnit: Int {
 /// change only what is shown: exported values keep their own units.
 @objc(HorosLengthPresentation)
 public final class LengthPresentation: NSObject {
-    @objc public static let unitKey = "ROILengthUnit"
-    @objc public static let decimalsKey = "ROILengthDecimals"
+    @objc public static let unitKey = ViewerPreferences.roiLengthUnit.name
+    @objc public static let decimalsKey = ViewerPreferences.roiLengthDecimals.name
     @objc public static let defaultDecimals = 3
     @objc public static let maximumDecimals = 3
     /// Posted when either preference changes, for views that keep a copy of
@@ -72,12 +73,14 @@ public final class LengthPresentation: NSObject {
     // MARK: - With the preferences
 
     @objc public static var unit: LengthUnit {
-        LengthUnit(rawValue: UserDefaults.standard.integer(forKey: unitKey)) ?? .automatic
+        LengthUnit(rawValue: PreferencesSource.process.preferences[ViewerPreferences.roiLengthUnit]) ?? .automatic
     }
 
-    /// An absent key is the default, not zero places.
+    /// An absent key is the default, not zero places; so is a key that holds
+    /// text rather than a number, as the registered "3" does.
     @objc public static var decimals: Int {
-        guard let value = UserDefaults.standard.object(forKey: decimalsKey) as? NSNumber else { return defaultDecimals }
+        guard let value = PreferencesSource.process.preferences[ViewerPreferences.roiLengthDecimals.reading(as: PropertyListValue?.self)],
+              value.isNumber else { return defaultDecimals }
         return min(max(value.intValue, 0), maximumDecimals)
     }
 

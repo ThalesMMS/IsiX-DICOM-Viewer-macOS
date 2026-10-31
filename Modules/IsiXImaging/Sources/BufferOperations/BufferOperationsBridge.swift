@@ -38,7 +38,6 @@ public final class MaskSubtractionBridge: NSObject {
     }
 
     /// The window of a subtracted image, held to 2...512, and its gamma and zero.
-    @objc(holdLevel:width:gamma:zero:)
     public static func hold(level: UnsafeMutablePointer<Float>, width: UnsafeMutablePointer<Float>,
                             gamma: UnsafeMutablePointer<Float>, zero: UnsafeMutablePointer<Float>) {
         let window = SubtractionSliders.window(level: level.pointee, width: width.pointee)
@@ -89,7 +88,6 @@ public final class ImageWindowBridge: NSObject {
 
 @objc(IsiXWindowRendering)
 public final class WindowRenderingBridge: NSObject {
-    @objc(renderLinear:into:width:height:level:window:)
     public static func linear(_ pixels: UnsafePointer<Float>, into picture: UnsafeMutablePointer<UInt8>, width: Int, height: Int,
                               level: Float, window: Float) {
         WindowRendering.linear(pixels, into: picture, width: width, height: height, level: level, window: window)
@@ -115,11 +113,9 @@ public final class WindowRenderingBridge: NSObject {
     }
 }
 
-@objc(IsiXImageConvolution)
 public final class ImageConvolutionBridge: NSObject {
     /// The filtered image, in a new buffer the caller frees: grey floats, or
     /// ARGB bytes when `colour` is YES.
-    @objc(filter:width:height:colour:weights:size:normalization:)
     public static func filter(_ pixels: UnsafeMutablePointer<Float>, width: Int, height: Int, colour: Bool,
                               weights: UnsafePointer<Float>, size: Int, normalization: Float) -> UnsafeMutablePointer<Float>? {
         let convolution = ImageConvolution(weights: weights, size: size, normalization: normalization)

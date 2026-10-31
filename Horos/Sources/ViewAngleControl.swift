@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 import ObjectiveC
 
 /// The field of view of a 3D view's camera, in degrees: a slider and a field
@@ -159,11 +160,19 @@ public final class ViewAngleControl: NSView {
     /// A toolbar that remembers its items does not show one added to its
     /// defaults later: the item is inserted once, after `neighbour`, and a
     /// toolbar where it was removed afterwards is left as it is.
+    ///
+    /// The selector stays for the former callers, with the key by its name in the preferences of the process.
     @objc(revealItem:inToolbar:after:defaultsKey:)
     public static func reveal(item identifier: String, in toolbar: NSToolbar, after neighbour: String, defaultsKey: String) {
-        let defaults = UserDefaults.standard
-        guard !defaults.bool(forKey: defaultsKey) else { return }
-        defaults.set(true, forKey: defaultsKey)
+        reveal(item: identifier, in: toolbar, after: neighbour, shownKey: PreferenceKey<Bool>(defaultsKey),
+               in: PreferencesSource.process.preferences)
+    }
+
+    /// The same, with `shownKey` set in `preferences` once the item was inserted.
+    static func reveal(item identifier: String, in toolbar: NSToolbar, after neighbour: String, shownKey: PreferenceKey<Bool>,
+                       in preferences: any PreferenceStore) {
+        guard !preferences[shownKey] else { return }
+        preferences.set(true, for: shownKey)
         let identifiers = toolbar.items.map(\.itemIdentifier.rawValue)
         guard !identifiers.contains(identifier) else { return }
         let index = identifiers.firstIndex(of: neighbour).map { $0 + 1 } ?? identifiers.count

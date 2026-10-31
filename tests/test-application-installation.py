@@ -19,6 +19,7 @@ import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import isix_modules  # noqa: E402
+import process_graph_stand_in  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -99,10 +100,10 @@ import IsiXInstallation
         precondition(run(decline) == .declined && decline.events == ["consent"])
         let suppress = Operations(); suppress.decision = .decline(suppress: true)
         precondition(run(suppress) == .declined)
-        precondition(UserDefaults(suiteName: suite)!.bool(forKey: HorosApplicationInstaller.suppressKey))
+        precondition(UserDefaults(suiteName: suite)!.bool(forKey: HorosApplicationInstaller.suppressKey.name))
         let skipped = Operations()
         precondition(run(skipped) == .skipped && skipped.events.isEmpty)
-        defaults.set(false, forKey: HorosApplicationInstaller.suppressKey)
+        defaults.set(false, forKey: HorosApplicationInstaller.suppressKey.name)
         for auth in [false, true] {
             let existing = Operations(); existing.running = true
             precondition(run(existing, context(auth: auth)) == .activatedExisting)
@@ -210,6 +211,7 @@ with tempfile.TemporaryDirectory(prefix='horos-installation-') as folder:
     binary = folder / 'driver'
     subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-parse-as-library', *target, '-import-objc-header', str(bridge),
                     '-I', str(ROOT / 'Horos/Sources'), *isix_modules.module_flags('IsiXInstallation', folder / 'modules', target),
+                    *process_graph_stand_in.swift_flags(folder / 'modules', target),
                     *map(str, sources), str(channel), str(driver), '-module-name', 'Horos',
                     '-framework', 'AppKit', '-framework', 'Security', '-o', str(binary)], check=True)
     if args.trash_only:

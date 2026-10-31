@@ -55,14 +55,119 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import private_tmpdir  # noqa: F401,E402  - its own TMPDIR for the tools it runs
 import history_reference  # noqa: E402
+import objc_exception_guards  # noqa: E402
+import harness_defaults  # noqa: E402  the harness's preferences stay in its own process
 
 ROOT = Path(__file__).resolve().parents[1]
 VC = 'Horos/Sources/ViewerController.m'
 MARK = '+ (NSMutableArray*) getDisplayed2DViewers'
 SWIFT_FILES = ['ViewerController+%s.swift' % name for name in
                ('ViewerRegistry', 'WindowsState', 'WindowLifecycle', 'WindowLayout', 'FullScreen')]
+# The register of the viewers (ViewerRegistry.swift) and the viewer's graph,
+# which runs its window's life (ViewerSessionGraph+WindowLife.swift): compiled
+# with the blocks, over a stand-in of the process graph that holds the real
+# register, and attached to each viewer as the initializer attaches it.
+SWIFT_FILES += ['ViewerRegistry.swift', 'ViewerSessionGraph.swift', 'ViewerSessionGraph+WindowLife.swift']
+# The saved layout and the full screen behind their selectors: the viewer's
+# ViewerWorkspaceArchiver and FullScreenSession.
+SWIFT_FILES += ['ViewerWorkspaceArchiver.swift', 'FullScreenSession.swift']
+# The archive of the layout as a DICOM SR, which the archiver calls in Swift:
+# the stand-in study's selector, whose failure the guard of the module throws.
+ARCHIVE_STAND_INS = r'''
+extension DicomStudy {
+    func writeWindowsStateAsDICOMSR() throws { archiveWindowsStateAsDICOMSR() }
+}
+enum StudyDocumentError: Error, @unchecked Sendable {
+    case raised(NSException)
+    static func exception(of error: Error) -> NSException {
+        guard case .raised(let exception)? = error as? StudyDocumentError else {
+            return NSException(name: .genericException, reason: (error as NSError).localizedDescription, userInfo: nil)
+        }
+        return exception
+    }
+}
+''' + objc_exception_guards.source(log=False).replace('import Foundation\n', '', 1)
+GRAPH_STAND_INS = r'''
+import AppKit
+import ObjectiveC
+import IsiXImaging
+
+/// The window arranger's tiling put off, as the reference put it off: over the
+/// harness's delayedTileWindows and -[AppController performSelector:...afterDelay:].
+/// The tiling, the bringing to front and the screens are AppController's, as
+/// the reference asked them.
+@MainActor final class HarnessWindowArranger {
+    func tileWindows(_ request: ViewerTilingLayout.Request?) {
+        AppController.shared()?.tileWindows(nil)
+    }
+
+    func bringViewersToFront(makeKey: Bool) {
+        AppController.shared()?.checkAllWindowsAreVisible(nil, makeKey: makeKey)
+    }
+
+    func viewerScreens() -> [Any] {
+        AppController.shared()?.viewerScreens() ?? []
+    }
+
+    func scheduleTiling(_ request: ViewerTilingLayout.Request? = nil, after delay: TimeInterval) {
+        if delayedTileWindows != 0 {
+            NSObject.cancelPreviousPerformRequests(withTarget: AppController.shared() as Any, selector: #selector(AppController.tileWindows(_:)), object: nil)
+        }
+        delayedTileWindows = 1
+        let grid = request.map { NSDictionary(objects: [NSNumber(value: $0.rows ?? 0), NSNumber(value: $0.columns ?? 0)],
+                                              forKeys: ["rows" as NSString, "columns" as NSString]) }
+        AppController.shared()?.perform(#selector(AppController.tileWindows(_:)), with: grid, afterDelay: delay)
+    }
+
+    func cancelScheduledTiling() {
+        if delayedTileWindows != 0 {
+            delayedTileWindows = 0
+            NSObject.cancelPreviousPerformRequests(withTarget: AppController.shared() as Any, selector: #selector(AppController.tileWindows(_:)), object: nil)
+        }
+    }
+}
+
+extension AppController {
+    @MainActor var windowArranger: HarnessWindowArranger { HarnessWindowArranger() }
+}
+
+final class ProcessGraph: @unchecked Sendable {
+    static let process = ProcessGraph()
+    var preferences: UserDefaults { UserDefaults.standard }
+    let viewerRegistry = ViewerRegistry()
+    let presetMenuCache = PresetMenuCache()
+    let colourTableCache = ColourTableCache()
+    @MainActor var currentBrowser: BrowserController? { BrowserController.currentBrowser() }
+    @MainActor var appController: AppController? { AppController.shared() }
+}
+
+// The viewer's graph keeps its window level (ViewerWindowLevel.swift) and its
+// colour tables (ViewerColourTables.swift), which these blocks never reach:
+// made, not used.
+final class PresetMenuCache: @unchecked Sendable {}
+final class ColourTableCache: @unchecked Sendable {}
+final class ViewerWindowLevel {
+    init(viewer: ViewerController, preferences: UserDefaults, menus: PresetMenuCache) {}
+}
+final class ViewerColourTables {
+    init(preferences: UserDefaults, menus: PresetMenuCache, cache: ColourTableCache) {}
+}
+
+nonisolated(unsafe) private var graphKey = 0
+
+extension ViewerController {
+    nonisolated static let processGraph = ProcessGraph.process
+    nonisolated static var viewerRegistry: ViewerRegistry { processGraph.viewerRegistry }
+    var sessionGraph: ViewerSessionGraph! { objc_getAssociatedObject(self, &graphKey) as? ViewerSessionGraph }
+
+    @objc(harnessAttachGraph:)
+    static func harnessAttachGraph(_ viewer: ViewerController) {
+        objc_setAssociatedObject(viewer, &graphKey, ViewerSessionGraph(viewer: viewer, processGraph: .process), .OBJC_ASSOCIATION_RETAIN)
+    }
+}
+'''
 # IsiXLogging first: the others that log write through it.
-MODULES = ['IsiXLogging', 'IsiXImaging']
+MODULES = ['IsiXLogging', 'IsiXPreferences', 'IsiXImaging']
 SCENARIOS = ['registry', 'state', 'lifecycle', 'layout', 'fullscreen']
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -153,14 +258,32 @@ ThumbnailsListPanel * _Nullable AppControllerCAPIThumbnailsListPanel(NSInteger i
 
 @interface DicomStudy : KVCStub
 @property(retain) NSArray *series;
+// Typed as the model is, kept in the stub's keys (the key-value reads and
+// writes of the reference reach the same keys through them).
+@property(retain, nullable) NSData *windowsState;
+@property(readonly) NSString *patientUID;
+// Typed as the model is; the values are the stub's keys.
+@property(readonly) NSString *name;
+@property(readonly) NSDate *dateOfBirth;
+- (NSString*) yearOld;
 - (NSArray*) imageSeriesContainingPixels:(BOOL) pixels;
 - (void) archiveWindowsStateAsDICOMSR;
 @end
 
 @interface DicomSeries : KVCStub
+@property(readonly) NSString *name;
+@property(readonly) NSString *seriesInstanceUID;
+@property(readonly) NSString *seriesDICOMUID;
+@property(readonly) NSNumber *id;
+@property(readonly) DicomStudy *study;
 @end
 
-@interface FileStub : KVCStub
+@interface DicomImage : KVCStub
+@property(readonly) DicomSeries *series;
+- (NSString*) completePath;
+@end
+
+@interface FileStub : DicomImage
 @end
 
 @interface DCMPix : NSObject
@@ -301,6 +424,8 @@ ThumbnailsListPanel * _Nullable AppControllerCAPIThumbnailsListPanel(NSInteger i
 @interface ViewerController (SwiftIvars)
 IVAR_ACCESSORS
 + (BOOL)horos_SYNCSERIES;
+// What the Sync button does, which the process's ViewerSyncState keeps in the app.
++ (BOOL)horos_syncButtonBehaviorIsBetweenStudies;
 @end
 
 @interface AppController : NSObject
@@ -309,6 +434,7 @@ IVAR_ACCESSORS
 + (void) resizeWindowWithAnimation:(NSWindow*) window newSize:(NSRect) frame NS_SWIFT_NAME(resizeWindow(withAnimation:newSize:));
 + (BOOL) USETOOLBARPANEL NS_SWIFT_NAME(usetoolbarpanel());
 + (void) setUSETOOLBARPANEL:(BOOL) b;
+@property BOOL checkAllWindowsAreVisibleIsOff;
 - (IBAction) tileWindows:(id) sender;
 - (void) checkAllWindowsAreVisible:(id) sender makeKey:(BOOL) makeKey;
 - (NSArray*) viewerScreens;
@@ -489,7 +615,8 @@ def accessors():
                     '- (void)setHoros_blending:(ViewerController*)value { [value retain]; [blendingController release]; blendingController = value; }',
                     '- (NSMutableArray*)horos_fileListAt:(NSInteger)index { return fileList[index]; }',
                     '- (NSMutableArray*)horos_pixListAt:(NSInteger)index { return pixList[index]; }',
-                    '+ (BOOL)horos_SYNCSERIES { return HarnessSYNCSERIES; }']
+                    '+ (BOOL)horos_SYNCSERIES { return HarnessSYNCSERIES; }',
+                    '+ (BOOL)horos_syncButtonBehaviorIsBetweenStudies { return SyncButtonBehaviorIsBetweenStudies; }']
     return '\n'.join(declared), '\n'.join(implemented)
 
 
@@ -657,11 +784,27 @@ static NSManagedObjectContext *stubContext;
 
 @implementation DicomStudy
 @synthesize series;
+- (NSString*) name { return [values objectForKey: @"name"]; }
+- (NSDate*) dateOfBirth { return [values objectForKey: @"dateOfBirth"]; }
+- (NSString*) yearOld { return [values objectForKey: @"yearOld"]; }
+- (NSData*) windowsState { return [values objectForKey: @"windowsState"]; }
+- (void) setWindowsState:(NSData*) state { [self setValue: state forUndefinedKey: @"windowsState"]; }
+- (NSString*) patientUID { return [values objectForKey: @"patientUID"]; }
 - (NSArray*) imageSeriesContainingPixels:(BOOL) pixels { Record([NSString stringWithFormat: @"%@ imageSeriesContainingPixels %d", Name(self), pixels]); return self.series; }
 - (void) archiveWindowsStateAsDICOMSR { Record([NSString stringWithFormat: @"%@ archiveWindowsStateAsDICOMSR", Name(self)]); }
 @end
 
 @implementation DicomSeries
+- (NSString*) name { return [values objectForKey: @"name"]; }
+- (NSNumber*) id { return [values objectForKey: @"id"]; }
+- (DicomStudy*) study { return [values objectForKey: @"study"]; }
+- (NSString*) seriesInstanceUID { return [values objectForKey: @"seriesInstanceUID"]; }
+- (NSString*) seriesDICOMUID { return [values objectForKey: @"seriesDICOMUID"]; }
+@end
+
+@implementation DicomImage
+- (DicomSeries*) series { return [values objectForKey: @"series"]; }
+- (NSString*) completePath { return [values objectForKey: @"completePath"]; }
 @end
 
 @implementation FileStub
@@ -900,6 +1043,9 @@ ViewerController *MakeViewer(NSString *name, DicomStudy *study, NSArray *seriesO
     Register(w, [name stringByAppendingString: @".window"]);
     Register(w.contentView, [name stringByAppendingString: @".content"]);
     ViewerController *v = [[ViewerController alloc] initWithWindow: w];
+    // The Swift side composes the viewer's graph, as its initializer does.
+    if ([ViewerController respondsToSelector: @selector(harnessAttachGraph:)])
+        [ViewerController performSelector: @selector(harnessAttachGraph:) withObject: v];
     [w release];
     w.delegate = (id)v;
     Register(v, name);
@@ -1532,7 +1678,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-windows-') as tmp:
     folder = Path(tmp)
     (folder / 'Harness.h').write_text(HEADER)
     (folder / 'Stubs.m').write_text(STUBS)
-    (folder / 'Driver.m').write_text(DRIVER)
+    (folder / 'Driver.m').write_text(DRIVER + harness_defaults.OBJC)
     for name in ('HorosObjCException.h', 'HorosObjCException.m'):
         (folder / name).write_bytes((ROOT / 'Horos/Sources' / name).read_bytes())
     frameworks = ['-framework', 'Cocoa', '-framework', 'CoreData']
@@ -1570,6 +1716,8 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-windows-') as tmp:
                 sys.exit('FAIL: no Horos/Sources/%s' % name)
             (swift / name).write_bytes(text)
             sources.append(str(swift / name))
+        (swift / 'GraphStandIns.swift').write_text(GRAPH_STAND_INS + ARCHIVE_STAND_INS)
+        sources.append(str(swift / 'GraphStandIns.swift'))
         # [sender tag] as the blocks send it.
         support = read(args.current, 'Horos/Sources/ViewerController+ImagePipelineSupport.swift').decode('utf-8')
         sender = re.search(r'\nenum ViewerSender \{.*?\n}\n', support, re.S).group(0)

@@ -11,6 +11,7 @@ import re
 import subprocess
 import tempfile
 import harness_defaults  # the harness's preferences stay in its own process
+import process_graph_stand_in  # the 2D viewer's sources read the catalog's keys through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 dragging = (root / 'Horos/Sources/DCMView+MouseDragging.swift').read_text()
@@ -60,6 +61,13 @@ struct Pixel { let pwidth = 512 }
     var horos_rotation: Float = 0
     static let horos_static_deg2rad = Double.pi / 180
     var horos_originStart = NSPoint.zero
+    // The view's viewport (IsiXImaging's ViewportState, compiled with the test), from the state above.
+    var viewport: ViewportState {
+        var state = ViewportState(scale: horos_scaleValue, rotation: horos_rotation, xFlipped: horos_xFlipped, yFlipped: horos_yFlipped)
+        state.scaleAtDragStart = horos_startScaleValue
+        state.originAtDragStart = horos_originStart
+        return state
+    }
     func currentPoint(inView event: NSEvent!) -> NSPoint { eventPoint }
     // Exercise an affine image transform rather than only identical coordinate spaces.
     func convert(fromNSView2GL point: NSPoint) -> NSPoint { NSPoint(x: point.x * 2 + 7, y: -point.y * 3 + 11) }
@@ -294,12 +302,14 @@ with tempfile.TemporaryDirectory(prefix='horos-precise-mouse-') as directory:
     (tmp/'main.swift').write_text(code)
     (tmp/'test.mm').write_text(cpp)
     helper = root/'Horos/Sources/PreciseMouse.swift'
-    subprocess.run(['xcrun','swiftc',str(helper),str(tmp/'main.swift'),'-o',str(tmp/'swift-test')],check=True)
+    preferences = process_graph_stand_in.swift_flags(tmp / 'isix')
+    viewport = root / 'Modules/IsiXImaging/Sources/ViewGeometry/ViewportState.swift'
+    subprocess.run(['xcrun','swiftc',str(helper),*preferences,str(viewport),str(tmp/'main.swift'),'-o',str(tmp/'swift-test')],check=True)
     subprocess.run([str(tmp/'swift-test')],check=True)
-    subprocess.run(['xcrun','swiftc',str(helper),'-emit-library','-module-name','PreciseMouse','-emit-objc-header','-emit-objc-header-path',str(tmp/'PreciseMouse-Swift.h'),'-o',str(tmp/'libPreciseMouse.dylib')],check=True)
+    subprocess.run(['xcrun','swiftc',str(helper),*preferences,'-emit-library','-module-name','PreciseMouse','-emit-objc-header','-emit-objc-header-path',str(tmp/'PreciseMouse-Swift.h'),'-o',str(tmp/'libPreciseMouse.dylib')],check=True)
     subprocess.run(['xcrun','clang++','-std=c++17','-framework','Foundation',str(tmp/'test.mm'),str(tmp/'libPreciseMouse.dylib'),'-o',str(tmp/'objc-test')],check=True)
     subprocess.run([str(tmp/'objc-test')],check=True)
     (tmp/'wheel').mkdir()
     (tmp/'wheel'/'main.swift').write_text(harness_defaults.SWIFT + wheel_code)
-    subprocess.run(['xcrun','swiftc',str(helper),str(tmp/'wheel'/'main.swift'),'-o',str(tmp/'wheel-test')],check=True)
+    subprocess.run(['xcrun','swiftc',str(helper),*preferences,str(tmp/'wheel'/'main.swift'),'-o',str(tmp/'wheel-test')],check=True)
     subprocess.run([str(tmp/'wheel-test')],check=True)

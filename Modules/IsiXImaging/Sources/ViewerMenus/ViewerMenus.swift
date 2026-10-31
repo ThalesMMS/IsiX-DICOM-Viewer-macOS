@@ -85,17 +85,17 @@ public enum ViewerPresetMenus {
     }
 
     /// Whether the item of a window level menu is checked for the current
-    /// preset: its title, or its title without the four characters of its
-    /// number ("1 - "), is the current preset. Nothing is checked without a
-    /// current preset. The titles are compared character by character, as
-    /// NSString compares them.
+    /// preset: its title, or the preset name its title gives without its
+    /// number ("1 - ", "12 - ", as `WindowLevel.presetName(fromMenuTitle:)`
+    /// reads it), is the current preset. Nothing is checked without a current
+    /// preset. The titles are compared character by character, as NSString
+    /// compares them.
     public static func checksWLWWItem(title: String, current: String?) -> Bool {
         guard let current else { return false }
-        let title = title as NSString
-        if title.length >= 4 && (title.substring(from: 4) as NSString).isEqual(to: current) {
+        if let name = WindowLevel.presetName(fromMenuTitle: title), (name as NSString).isEqual(to: current) {
             return true
         }
-        return title.isEqual(to: current)
+        return (title as NSString).isEqual(to: current)
     }
 }
 

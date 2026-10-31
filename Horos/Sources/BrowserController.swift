@@ -71,18 +71,74 @@ public class BrowserController: NSWindowController, NSMatrixDelegate, NSMenuDele
     nonisolated let viewerOpeningState = BrowserViewerOpeningState()
     nonisolated let windowState = BrowserWindowState()
 
+    /// The patient's history beside the thumbnails (PatientHistoryList.swift).
+    lazy var patientHistory = PatientHistoryList(browser: self, search: pacsOnDemand,
+                                                 preferences: PreferencesSource.process.preferences)
+
+    /// The database preview: the thumbnails, the frame shown and its window,
+    /// the animation slider (BrowserPreviewPane.swift).
+    lazy var previewPane = BrowserPreviewPane(browser: self, processGraph: PreferencesSource.process.processGraph,
+                                              preferences: PreferencesSource.process.preferences)
+
+    /// The opening of viewers: the selection, the hanging protocols and
+    /// workspaces, the external viewer, the sub-series sheets, the
+    /// presentation states and the series left out (ViewerOpener.swift).
+    lazy var viewerOpener = ViewerOpener(browser: self, processGraph: PreferencesSource.process.processGraph,
+                                         preferences: PreferencesSource.process.preferences)
+
+    /// The toolbar, its items and their validation, and the contextual menus
+    /// and the validation of the browser's commands (BrowserToolbar.swift).
+    lazy var browserToolbar = BrowserToolbar(browser: self, processGraph: PreferencesSource.process.processGraph,
+                                             preferences: PreferencesSource.process.preferences)
+
+    /// The images with ROIs and the key images of the selection, and the
+    /// viewer that opens them (SelectionMarkedImages.swift).
+    lazy var markedImages = SelectionMarkedImages(browser: self, processGraph: PreferencesSource.process.processGraph,
+                                                  preferences: PreferencesSource.process.preferences)
+
+    /// The study list, the albums table and their periodic refresh (StudyListContent.swift).
+    lazy var studyList = StudyListContent(browser: self, processGraph: PreferencesSource.process.processGraph,
+                                          preferences: PreferencesSource.process.preferences)
+
+    /// The cells and the columns of the study list (StudyListCellStyler.swift,
+    /// StudyListColumnController.swift).
+    lazy var studyListCells = StudyListCellStyler(browser: self, preferences: PreferencesSource.process.preferences)
+    lazy var studyListColumns = StudyListColumnController(browser: self, preferences: PreferencesSource.process.preferences)
+
+    /// The reports of the studies and the report toolbar item (StudyReports.swift).
+    lazy var reports = StudyReports(browser: self, preferences: PreferencesSource.process.preferences)
+
+    /// The Sources list (SourceList.swift) and what it opens (DatabaseOpener.swift).
+    lazy var sourceList = SourceList(browser: self, preferences: PreferencesSource.process.preferences)
+    lazy var databaseOpener = DatabaseOpener(browser: self, preferences: PreferencesSource.process.preferences)
+
+    /// Deleting from the study list and its delete queue (StudyDeletionJob.swift),
+    /// merging and unifying studies (StudyMergeJob.swift), the comments filled
+    /// from the images (AutoCommentRegenerator.swift), and the rebuilds, the
+    /// cleanup preview and the surgical records of the database
+    /// (BrowserController+DatabaseMaintenance.swift).
+    lazy var deletion = StudyDeletionJob(browser: self, preferences: PreferencesSource.process.preferences)
+    lazy var merging = StudyMergeJob(browser: self)
+    lazy var autoComments = AutoCommentRegenerator(browser: self, preferences: PreferencesSource.process.preferences)
+    lazy var maintenance = DatabaseMaintenance(browser: self)
+
+    /// The import begun in the browser: archives, CDs and the compression of
+    /// the selection (ArchiveImport.swift), what is dropped or chosen and the
+    /// URLs (DroppedFilesImport.swift), and raw data (RawDataImport.swift).
+    lazy var archiveImport = ArchiveImport(browser: self, preferences: PreferencesSource.process.preferences)
+    lazy var droppedFiles = DroppedFilesImport(browser: self, preferences: PreferencesSource.process.preferences)
+    lazy var rawDataImport = RawDataImport(browser: self, preferences: PreferencesSource.process.preferences)
+
     /// The database shown, read from any thread as the instance variable was;
     /// replaced on the main thread by -setDatabase:.
-    nonisolated(unsafe) private var shownDatabase: DicomDatabase?
+    private nonisolated let shownDatabase = DatabaseSlot()
 
     /// The database shown. The one replaced is autoreleased, as the former
     /// setter did: a caller that read it keeps it until its pool drains.
     nonisolated var horos_databaseIvar: DicomDatabase? {
-        get { shownDatabase }
+        get { shownDatabase.database }
         set {
-            let replaced = shownDatabase
-            shownDatabase = newValue
-            if let replaced { _ = Unmanaged.passRetained(replaced).autorelease() }
+            if let replaced = shownDatabase.exchange(with: newValue) { _ = Unmanaged.passRetained(replaced).autorelease() }
         }
     }
 
@@ -92,7 +148,7 @@ public class BrowserController: NSWindowController, NSMatrixDelegate, NSMenuDele
     /// -horos_switchToDatabase: closes the viewers and shows it everywhere.
     /// Observers are told by that method, not by the setter.
     @objc public nonisolated dynamic var database: DicomDatabase! {
-        get { shownDatabase }
+        get { shownDatabase.database }
         set {
             // The database is handed to the main thread's method on the main thread.
             nonisolated(unsafe) let database = newValue
@@ -310,7 +366,7 @@ public class BrowserController: NSWindowController, NSMatrixDelegate, NSMenuDele
         var database: DicomDatabase?
         thread.enterOperation()
         autoreleasepool {
-            if let exception = BrowserObjC.attempt({ database = DicomDatabase.activeLocal() }) {
+            if let exception = HorosObjCException.caught({ database = DicomDatabase.activeLocal() }) {
                 BrowserObjC.log(exception, stack: true, "-[BrowserController initWithWindow:]")
             }
         }

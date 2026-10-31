@@ -86,11 +86,13 @@ for relative, needle, why in (
         ('Modules/IsiXDatabase/Sources/ManagedStoreRules.swift', 'return onMainThread ? .main : .privateQueue', 'the UI context has no main queue'),
         ('Horos/Sources/WebPortalConnection.swift', 'self.withConnectionDatabases {', 'the portal requests do not run inside their databases\' queues'),
         ('Horos/Sources/WebPortal.swift', 'func threadDicomDatabase()', 'the portal code has no database of its thread'),
-        ('Horos/Sources/BonjourPublisher.swift', '_onRequestDatabaseQueue { try _handleIndexRequest() }', 'the shared-database requests do not run inside the index queue'),
-        ('Horos/Sources/SCPDatabaseSession+Find.swift', 'let prepared: Bool = context.performAndWait { prepareFind(request, elements: elements, in: context) }', 'the listener\'s find does not run inside its context queue'),
+        ('Horos/Sources/BonjourPublisher.swift', 'try _onRequestDatabaseQueue { try _execute(request) }', 'the shared-database requests do not run inside the index queue'),
+        ('Horos/Sources/SCPDatabaseSession+Find.swift', 'let result = try localMetadata.records(matching: query) { read in', 'the listener\'s find does not read through its metadata port'),
+        ('Horos/Sources/LocalDatabaseStudyReader+Metadata.swift', 'return try database.performIndependentRead(body)', 'the listener\'s reads do not run inside a private-queue context\'s queue'),
         ('Horos/Sources/LogManager.swift', 'privateQueueIndependentDatabase()', 'the log does not write on a private-queue database'),
-        # DCMPix is Swift; what it reads of a shared database's image is DCMPix+CAPI.m's.
-        ('Horos/Sources/DCMPix+CAPI.m', 'privateQueueIndependentDatabase]', 'DCMPix reads its image outside the image context queue'),
+        # What DCMPix reads of a shared database's image off the main thread: a private-queue context of the image's database.
+        ('Horos/Sources/DCMPix+Database.swift', 'guard let independent = privateQueueDatabase(database) else { return nil }', 'DCMPix reads its image outside the image context queue'),
+        ('Horos/Sources/DCMPix+Database.swift', 'independent.performBlockAndWait {', 'DCMPix reads its image outside the image context queue'),
         ('Horos/Sources/BrowserController+DatabaseSwitching.swift', '@objc(localManagedObjectContextIndependentContext:)', 'the deprecated selector plug-ins call is gone')):
     if needle not in read(relative):
         failures.append(why)

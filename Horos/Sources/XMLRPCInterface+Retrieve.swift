@@ -58,38 +58,39 @@ extension XMLRPCInterface {
     /// Response: {error: "0"}
     @objc(DownloadURL:error:)
     public func downloadURL(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
-        var badRequest = false
-        if let exception = HorosObjCException.caught({
-            guard let address = RISRequestRules.nonEmptyText(paramDict?.value(forKey: "URL")) else {
-                badRequest = true
-                return
+        Self.answering(error) {
+            var badRequest = false
+            if let exception = HorosObjCException.caught({
+                guard let address = RISRequestRules.nonEmptyText(paramDict?.value(forKey: "URL")) else {
+                    badRequest = true
+                    return
+                }
+                guard let url = NSURL(string: address) else {
+                    N2LogStackTraceMessage("URL is not valid: \(address)")
+                    return
+                }
+                if (url.pathExtension as NSString?)?.isEqual(to: "xml") ?? false {
+                    // A WADO XML manifest, as Weasis uses.
+                    BrowserController.asyncWADOXMLDownloadURL(url as URL)
+                } else {
+                    let order = RetrieveOrder(interface: self, value: paramDict)
+                    let server = (NSURL(string: "/", relativeTo: url as URL)?.absoluteURL as NSURL?)?.description
+                    ActivityThread.startListed(name: NSLocalizedString("WADO Retrieve...", comment: ""), configure: { $0.status = server }) {
+                        order.interface.threadRetrieveWado(order.value)
+                    }
+                }
+            }) {
+                Self.log(exception, stack: true, "-[XMLRPCInterface DownloadURL:error:]")
             }
-            guard let url = NSURL(string: address) else {
-                N2LogStackTraceMessage("URL is not valid: \(address)")
-                return
+            if badRequest {
+                try Self.fail(400) // Bad Request
             }
-            if (url.pathExtension as NSString?)?.isEqual(to: "xml") ?? false {
-                // A WADO XML manifest, as Weasis uses.
-                BrowserController.asyncWADOXMLDownloadURL(url as URL)
-            } else {
-                let thread = Thread(target: self, selector: #selector(threadRetrieveWado(_:)), object: paramDict)
-                thread.name = NSLocalizedString("WADO Retrieve...", comment: "")
-                thread.supportsCancel = true
-                thread.status = (NSURL(string: "/", relativeTo: url as URL)?.absoluteURL as NSURL?)?.description
-                ThreadsManager.default()?.addThreadAndStart(thread)
-            }
-        }) {
-            Self.log(exception, stack: true, "-[XMLRPCInterface DownloadURL:error:]")
+            return Self.answer(0)
         }
-        if badRequest {
-            return Self.fail(400, error) // Bad Request
-        }
-        return Self.answer(0)
     }
 
     /// The download of DownloadURL. The retrieved study is looked for on a
     /// private-queue database, on its queue.
-    @objc(_threadRetrieveWado:)
     func threadRetrieveWado(_ paramDict: NSDictionary?) {
         guard let database = privateQueueDatabase(self.database) else { return }
         database.performBlockAndWait {
@@ -114,9 +115,7 @@ extension XMLRPCInterface {
         guard downloader.countOfSuccesses != 0, !Thread.current.isCancelled else { return }
         // Opened only when the images went to the database the browser shows.
         guard Self.boolValue(paramDict?.value(forKey: "Display")),
-              let incoming = self.database?.incomingDirPath() as NSString?,
-              let activeIncoming = DicomDatabase.activeLocal()?.incomingDirPath(),
-              incoming.isEqual(to: activeIncoming) else {
+              (DatabaseIngest.process.admissionFolder(of: self.database).path as NSString).isEqual(to: DatabaseIngest.process.admissionFolder().path) else {
             return
         }
 
@@ -124,7 +123,7 @@ extension XMLRPCInterface {
         guard let studyUID = identifiers.studyUID else { return }
         let seriesUID = identifiers.seriesUID
 
-        _ = database.importFilesFromIncomingDir()
+        _ = DatabaseIngest.process.importQueueNow(in: database)
 
         let predicate = seriesUID.map { NSPredicate(format: "studyInstanceUID == %@ AND ANY series.seriesDICOMUID == %@", studyUID, $0) }
             ?? NSPredicate(format: "studyInstanceUID == %@", studyUID)
@@ -150,20 +149,30 @@ extension XMLRPCInterface {
 
     // MARK: Retrieve threads
 
+    /// What a request hands to the thread that carries it out: the interface
+    /// and the order, or the identifiers, it was given.
+    ///
+    /// `@unchecked Sendable`: the interface and the property-list order are
+    /// not Sendable. The request's thread answers its caller without touching
+    /// the order again, and the interface serves every request's thread.
+    struct RetrieveOrder<Value>: @unchecked Sendable {
+        let interface: XMLRPCInterface
+        let value: Value
+    }
+
     /// Starts a retrieve on a thread the Activity panel and the Dock list,
     /// with a name, a count and a Stop button, as the Query window's retrieves
     /// are: a detached thread does the same work unseen, and the study a RIS
     /// asked for downloads with no row and no Dock progress.
-    func startRetrieveThread(_ selector: Selector, with object: Any, count: Int) {
-        let thread = Thread(target: self, selector: selector, object: object)
-        thread.name = NSLocalizedString("Retrieving images...", comment: "")
-        thread.status = String(format: "%@ %@", NumberFormatter.localizedString(from: NSNumber(value: count), number: .decimal),
-                               count == 1 ? NSLocalizedString("study", comment: "") : NSLocalizedString("studies", comment: ""))
-        if count > 1 {
-            thread.progress = 0
-        }
-        thread.supportsCancel = true
-        ThreadsManager.default()?.addThreadAndStart(thread)
+    func startRetrieveThread(count: Int, _ retrieve: @escaping @Sendable () -> Void) {
+        let status = String(format: "%@ %@", NumberFormatter.localizedString(from: NSNumber(value: count), number: .decimal),
+                            count == 1 ? NSLocalizedString("study", comment: "") : NSLocalizedString("studies", comment: ""))
+        ActivityThread.startListed(name: NSLocalizedString("Retrieving images...", comment: ""), configure: { thread in
+            thread.status = status
+            if count > 1 {
+                thread.progress = 0
+            }
+        }, retrieve)
     }
 
     /// The retrieve of the studies PACS On-Demand found.
@@ -190,29 +199,31 @@ extension XMLRPCInterface {
     /// osirix://?methodName=retrieve&serverName=LaTour&filterKey=StudyInstanceUID&filterValue=2.16.840.1.113669.632.20.121711.10000348708
     @objc(Retrieve:error:)
     public func retrieve(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
-        let parameters = paramDict as? [String: Any]
-        guard let serverName = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "serverName")) else {
-            NSLog("****** XMLRPC server name is empty: %@", QueryLog.describeRetrieveParameters(parameters) as NSString)
-            return Self.fail(400, error)
-        }
-        let requestedMode = Self.integerValue(paramDict?.object(forKey: "retrieveMode"))
+        Self.answering(error) {
+            let parameters = paramDict as? [String: Any]
+            guard let serverName = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "serverName")) else {
+                NSLog("****** XMLRPC server name is empty: %@", QueryLog.describeRetrieveParameters(parameters) as NSString)
+                try Self.fail(400)
+            }
+            let requestedMode = Self.integerValue(paramDict?.object(forKey: "retrieveMode"))
 
-        // DIMSE and DICOMweb nodes, by description or, for DIMSE, AE title.
-        guard let source = RISRequestServers.server(named: serverName) else {
-            NSLog("****** XMLRPC server name not found: %@", QueryLog.describeRetrieveParameters(parameters) as NSString)
-            RISRequestAlert.report(RISRequestAlert.serverNotFound(serverName), code: -2)
-            return Self.answer(-2)
-        }
+            // DIMSE and DICOMweb nodes, by description or, for DIMSE, AE title.
+            guard let source = RISRequestServers.server(named: serverName) else {
+                NSLog("****** XMLRPC server name not found: %@", QueryLog.describeRetrieveParameters(parameters) as NSString)
+                RISRequestAlert.report(RISRequestAlert.serverNotFound(serverName), code: -2)
+                return Self.answer(-2)
+            }
 
-        let filters = RISRequestRules.retrieveFilters { paramDict?.object(forKey: $0) }
-        let nodeMode = Int(Self.intValue(source["retrieveMode"]))
-        let retrieveMode = RISRequestRules.retrieveMode(node: nodeMode, requested: requestedMode)
+            let filters = RISRequestRules.retrieveFilters { paramDict?.object(forKey: $0) }
+            let nodeMode = Int(Self.intValue(source["retrieveMode"]))
+            let retrieveMode = RISRequestRules.retrieveMode(node: nodeMode, requested: requestedMode)
 
-        let code = retrieve(from: source, filters: filters, retrieveMode: Int32(truncatingIfNeeded: retrieveMode))
-        if code == -3 {
-            NSLog("****** XMLRPC no images found corresponding to this filter: %@", QueryLog.describeRetrieveParameters(parameters) as NSString)
+            let code = retrieve(from: source, filters: filters, retrieveMode: Int32(truncatingIfNeeded: retrieveMode))
+            if code == -3 {
+                NSLog("****** XMLRPC no images found corresponding to this filter: %@", QueryLog.describeRetrieveParameters(parameters) as NSString)
+            }
+            return Self.answer(code)
         }
-        return Self.answer(code)
     }
 
     /// Asks `source` for the studies matching `filters` and retrieves them on
@@ -242,7 +253,8 @@ extension XMLRPCInterface {
             if !children.isEmpty {
                 let order = Self.objectsAndKeys([(UserDefaults.defaultAETitle(), "moveDestination"),
                                                  (NSNumber(value: retrieveMode), "retrieveMode"), (children, "children")])
-                self.startRetrieveThread(#selector(self.threadRetrieve(_:)), with: order, count: children.count)
+                let handed = RetrieveOrder(interface: self, value: order)
+                self.startRetrieveThread(count: children.count) { handed.interface.threadRetrieve(handed.value) }
                 code = 0
                 return
             }
@@ -299,22 +311,24 @@ extension XMLRPCInterface {
     /// Response: {error: "0"}
     @objc(CMove:error:)
     public func cMove(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
-        let accessionNumber = RISRequestRules.accessionNumber(paramDict?.object(forKey: "accessionNumber"))
-        guard (accessionNumber as NSString).length > 0,
-              let serverName = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "server")) else {
-            return Self.fail(400, error)
-        }
+        Self.answering(error) {
+            let accessionNumber = RISRequestRules.accessionNumber(paramDict?.object(forKey: "accessionNumber"))
+            guard (accessionNumber as NSString).length > 0,
+                  let serverName = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "server")) else {
+                try Self.fail(400)
+            }
 
-        guard let source = RISRequestServers.server(named: serverName) else {
-            RISRequestAlert.report(RISRequestAlert.serverNotFound(serverName), code: -1)
-            return Self.answer(-1)
-        }
+            guard let source = RISRequestServers.server(named: serverName) else {
+                RISRequestAlert.report(RISRequestAlert.serverNotFound(serverName), code: -1)
+                return Self.answer(-1)
+            }
 
-        // The query is answered before the caller is, so an accession number
-        // the node does not know comes back as -3; the retrieve itself runs
-        // apart, in the node's own retrieve mode, as Retrieve does.
-        let filters: [(name: Any, value: Any)] = [("AccessionNumber", RISRequestRules.accessionFilterValue(accessionNumber))]
-        let nodeMode = Self.intValue(source["retrieveMode"])
-        return Self.answer(retrieve(from: source, filters: filters, retrieveMode: nodeMode))
+            // The query is answered before the caller is, so an accession number
+            // the node does not know comes back as -3; the retrieve itself runs
+            // apart, in the node's own retrieve mode, as Retrieve does.
+            let filters: [(name: Any, value: Any)] = [("AccessionNumber", RISRequestRules.accessionFilterValue(accessionNumber))]
+            let nodeMode = Self.intValue(source["retrieveMode"])
+            return Self.answer(retrieve(from: source, filters: filters, retrieveMode: nodeMode))
+        }
     }
 }

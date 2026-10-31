@@ -40,19 +40,27 @@
 import Foundation
 import IsiXDICOMNetwork
 import IsiXKeychain
+import IsiXPreferences
+import Synchronization
 
 /// The DICOM listener (Query/Retrieve SCP) on one port, plain or TLS. It reads
 /// the Listener preferences, opens the port through the DCMTK adapter
 /// (IsiXDCMTKListener), says in the Listener preferences whether it listens,
 /// and serves associations until it is aborted. Its thread is the one that
 /// calls -run; -abort may come from any other.
-@objc(DCMTKQueryRetrieveSCP)
+/// @usableFromInline because plugins built against the former SDK look up its
+/// Objective-C class: without it, the class symbol of an internal Swift class is
+/// private external, which a Release build, having no testability, leaves
+/// unexported. The attribute gives it public linkage and changes nothing else.
+@objc(DCMTKQueryRetrieveSCP) @usableFromInline
 final class DCMTKQueryRetrieveSCP: NSObject, @unchecked Sendable {
 
-    /// The listeners in their loop, the plain one and the TLS one.
-    private static let servingLock = NSLock()
-    nonisolated(unsafe) private static var servingPlain: DCMTKQueryRetrieveSCP?
-    nonisolated(unsafe) private static var servingTLS: DCMTKQueryRetrieveSCP?
+    /// Whether a listener is in its loop, the plain one and the TLS one.
+    private static let serving = Mutex((plain: false, tls: false))
+
+    /// Where a port that cannot be opened, a set-up that fails and an
+    /// association that ends in error are said.
+    static let notices = ApplicationNetworkNotices.process
 
     /// The suffix of the TLS files the listener writes.
     private static let tlsStringID = "StoreSCPTLS"
@@ -68,8 +76,8 @@ final class DCMTKQueryRetrieveSCP: NSObject, @unchecked Sendable {
     /// (NinjaSTORESCP), receives what a C-MOVE sends here.
     @objc(storeSCP)
     static func store() -> Bool {
-        let serving = servingLock.withLock { servingPlain != nil || servingTLS != nil }
-        return serving || UserDefaults.standard.bool(forKey: "NinjaSTORESCP")
+        let listening = serving.withLock { $0.plain || $0.tls }
+        return listening || PreferencesSource.process.preferences[NetworkPreferences.externalStoreSCP]
     }
 
     /// `params`: "TLSEnabled" (NSNumber) makes it the TLS listener.
@@ -95,22 +103,21 @@ final class DCMTKQueryRetrieveSCP: NSObject, @unchecked Sendable {
     /// Opens the port and serves associations until -abort; returns when the
     /// listener has stopped, its associations ended, or when it could not start.
     @objc func run() {
-        let defaults = UserDefaults.standard
+        let preferences = PreferencesSource.process.preferences
         // One process, a thread per association, always: the mode that forked a
         // process per association is gone. SingleProcessMultiThreadedListener is
         // no longer read.
-        if defaults.object(forKey: "SingleProcessMultiThreadedListener") != nil
-            && !defaults.bool(forKey: "SingleProcessMultiThreadedListener") {
+        if !NetworkPreferences.isOn(NetworkPreferences.singleProcessMultiThreadedListener, in: preferences, whenAbsent: true) {
             NSLog("--- DICOM listener: SingleProcessMultiThreadedListener is off, and ignored: the listener serves each association on a thread of its own")
         }
-        let timeout = ListenerLimits.timeout(configured: defaults.integer(forKey: "DICOMTimeout"))
-        let configuredConnection = defaults.integer(forKey: "DICOMConnectionTimeout")
+        let timeout = ListenerLimits.timeout(configured: preferences[NetworkPreferences.dicomTimeout])
+        let configuredConnection = preferences[NetworkPreferences.dicomConnectionTimeout]
         if configuredConnection > 0 { NSLog("--- DICOMConnectionTimeout: %d", Int32(truncatingIfNeeded: configuredConnection)) }
 
         let settings = IsiXDCMTKListenerSettings()
         settings.port = listenerPort
         settings.aeTitle = ListenerAETitleRules.trimmed(listenerAETitle)
-        settings.preferredTransferSyntax = defaults.integer(forKey: "preferredSyntaxForIncoming")
+        settings.preferredTransferSyntax = preferences[NetworkPreferences.preferredSyntaxForIncoming]
         settings.timeout = Int32(truncatingIfNeeded: timeout)
         settings.connectionTimeout = Int32(truncatingIfNeeded: ListenerLimits.connectionTimeout(configured: configuredConnection, timeout: timeout))
         settings.maxAssociations = Int32(ListenerLimits.configuredMaximumAssociations)
@@ -132,15 +139,14 @@ final class DCMTKQueryRetrieveSCP: NSObject, @unchecked Sendable {
         // other one.
         let service = secure ? "DICOM TLS listen" : "DICOM listen"
         if ListenerStatus.isIPv4PortTaken(Int(listenerPort)) {
-            AppController.shared()?.reportListenBindFailure(forService: service, port: Int(listenerPort), errnoCode: EADDRINUSE)
+            Self.notices.listenBindFailed(service: service, port: Int(listenerPort), errno: EADDRINUSE)
             return
         }
         do {
             try listener.openNetwork()
         } catch {
             let code = ((error as NSError).userInfo[NSUnderlyingErrorKey] as? NSError)?.code ?? 0
-            AppController.shared()?.reportListenBindFailure(forService: service, port: Int(listenerPort),
-                                                            errnoCode: Int32(truncatingIfNeeded: code))
+            Self.notices.listenBindFailed(service: service, port: Int(listenerPort), errno: Int32(truncatingIfNeeded: code))
             return
         }
 
@@ -160,7 +166,7 @@ final class DCMTKQueryRetrieveSCP: NSObject, @unchecked Sendable {
             return
         }
 
-        Self.servingLock.withLock { if secure { Self.servingTLS = self } else { Self.servingPlain = self } }
+        Self.serving.withLock { if secure { $0.tls = true } else { $0.plain = true } }
         // The port is open and the configuration accepted: from here associations are answered.
         ListenerStatus.setListening(port: Int(listenerPort), tls: secure)
         // A stop asked for while the network was being set up still stops the loop.
@@ -172,7 +178,7 @@ final class DCMTKQueryRetrieveSCP: NSObject, @unchecked Sendable {
         ListenerStatus.setEnded(tls: secure)
         // The associations end, then the port closes.
         _ = listener.close()
-        Self.servingLock.withLock { if secure { Self.servingTLS = nil } else { Self.servingPlain = nil } }
+        Self.serving.withLock { if secure { $0.tls = false } else { $0.plain = false } }
         stateLock.withLock { isRunning = false }
 
         if secure {
@@ -187,7 +193,7 @@ final class DCMTKQueryRetrieveSCP: NSObject, @unchecked Sendable {
     /// verified, the server identity, the cipher suites of the Listener
     /// preferences. nil, or what the user is told.
     private func setUpTLS(_ listener: IsiXDCMTKListener) -> String? {
-        let defaults = UserDefaults.standard
+        let preferences = PreferencesSource.process.preferences
         let advice = " You can turn OFF TLS Listener in Preferences->Listener."
         do {
             try listener.createTLSLayer()
@@ -195,7 +201,7 @@ final class DCMTKQueryRetrieveSCP: NSObject, @unchecked Sendable {
             return "unable to create TLS transport layer"
         }
         // An unknown stored value becomes the strictest.
-        let stored = (defaults.value(forKey: "TLSStoreSCPCertificateVerification") as AnyObject?)?.intValue ?? 0
+        let stored = preferences[NetworkPreferences.tlsListenerCertificateVerification]?.intValue ?? 0
         let verification = TLSVerificationPolicy.normalise(Int(stored))
         if verification == TLSVerificationPolicy.verify || verification == TLSVerificationPolicy.require {
             let folder = DICOMTLS.trustedCertificatesFolder(withStringID: Self.tlsStringID)
@@ -224,9 +230,9 @@ final class DCMTKQueryRetrieveSCP: NSObject, @unchecked Sendable {
                 return "DICOM Network Failure (storescp TLS) : Unable to load certificate from private key '\(key)' and certificate '\(certificate)' do not match.\(advice)"
             }
         }
-        let suites = (defaults.object(forKey: "TLSStoreSCPCipherSuites") as? [Any] ?? []).compactMap { suite -> String? in
-            guard let suite = suite as? NSDictionary, (suite.object(forKey: "Supported") as AnyObject?)?.boolValue == true else { return nil }
-            return suite.object(forKey: "Cipher") as? String
+        let suites = (preferences[NetworkPreferences.tlsListenerCipherSuites] ?? []).compactMap { suite -> String? in
+            guard case .dictionary(let suite) = suite, suite["Supported"]?.boolValue == true else { return nil }
+            return suite["Cipher"]?.stringValue
         }
         do {
             try listener.setCipherSuites(suites, verification: Int32(verification))
@@ -257,8 +263,7 @@ final class DCMTKQueryRetrieveSCP: NSObject, @unchecked Sendable {
 
     /// Shown in the notices panel, from the main thread.
     static func displayListenerError(_ message: String) {
-        AppController.shared()?.performSelector(onMainThread: #selector(AppController.displayListenerError(_:)),
-                                                with: message, waitUntilDone: false)
+        notices.listenerFailed(message)
     }
 }
 
@@ -268,8 +273,14 @@ final class DCMTKQueryRetrieveSCP: NSObject, @unchecked Sendable {
 /// clears files an earlier version left there.
 @_cdecl("HorosDICOMProcessFolder")
 public func HorosDICOMProcessFolder() -> UnsafePointer<CChar> {
-    UnsafePointer(dicomProcessFolderPath)
+    UnsafePointer(dicomProcessFolderPath.pointer)
 }
 
-nonisolated(unsafe) private let dicomProcessFolderPath: UnsafeMutablePointer<CChar> =
-    strdup(((NSTemporaryDirectory() as NSString).standardizingPath as NSString).fileSystemRepresentation)
+/// The C copy of the folder's path, made once and never written or freed,
+/// so only its address goes from thread to thread.
+private let dicomProcessFolderPath = DICOMProcessFolderPath()
+
+private struct DICOMProcessFolderPath: @unchecked Sendable {
+    let pointer: UnsafeMutablePointer<CChar> =
+        strdup(((NSTemporaryDirectory() as NSString).standardizingPath as NSString).fileSystemRepresentation)
+}

@@ -15,14 +15,17 @@ filter that matches nothing. PluginManager is Swift: the method is
 compiled with the Objective-C messaging helpers of PluginManager.swift, and a
 raised NSException is caught by HorosObjCException and reported. The second requires the launch-time call into the
 plugins to be inside a handler, so a third-party plugin cannot take the rest of
-the sequence with it. AppController is Swift: the handler is a
-`HorosObjCException.perform` closure with a `catch` after it, as the Swift
-spelling of @try/@catch.
+the sequence with it. The launch is ApplicationLifecycle's: the handler is a
+`HorosObjCException.caught` closure, HorosObjCException.perform returning the raised
+exception, followed by the block that logs it, as the Swift spelling of
+@try/@catch.
 """
 from pathlib import Path
 import re
 import subprocess
 import sys
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+import objc_exception_guards
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
@@ -122,31 +125,34 @@ with tempfile.TemporaryDirectory(prefix='horos-plugin-crash-guard-') as name:
     subprocess.run([str(directory / 'test')], check=True)
 
 # The launch sequence must survive a plugin that raises anyway. AppController is
-# Swift: @try is `try HorosObjCException.perform { ... }` and @catch
-# the `catch` that follows it.
+# Swift, and its -applicationWillFinishLaunching: is ApplicationLifecycle's
+# willFinishLaunching() (ApplicationLifecycle.swift). @try is
+# `HorosObjCException.caught { ... }`, HorosObjCException.perform returning the
+# NSException raised, and the @catch is the `if let exception` it answers;
+# the plugin menus are AppController's installPluginMenus().
 controller = source('AppController.swift', str(source_path('AppController').relative_to(root)))
-method = swift_block(controller, controller.index('@objc(applicationWillFinishLaunching:)'))
-call = method.index('PluginManager.setMenus(')
-before = method[:call]
-# The call has to sit inside a HorosObjCException.perform closure whose catch
-# comes after it, and the statements that follow have to be outside that handler.
-opened = before.rindex('HorosObjCException.perform') if 'HorosObjCException.perform' in before else -1
-if opened < 0:
-    print('FAIL: the launch-time PluginManager call is not inside a HorosObjCException.perform', file=sys.stderr)
+facade = swift_block(controller, controller.index('@objc(applicationWillFinishLaunching:)'))
+if 'lifecycle.willFinishLaunching()' not in facade:
+    print('FAIL: -applicationWillFinishLaunching: no longer hands the launch to ApplicationLifecycle', file=sys.stderr)
     raise SystemExit(1)
-if call >= opened + len(swift_block(method, opened)):
-    print('FAIL: the nearest HorosObjCException.perform before the launch-time PluginManager call is already closed',
-          file=sys.stderr)
+menus = swift_block(controller, controller.index('    func installPluginMenus() {'))
+if 'PluginManager.setMenus(' not in menus:
+    print('FAIL: installPluginMenus no longer sets the plugin menus', file=sys.stderr)
     raise SystemExit(1)
-after = method[call:]
-if not re.search(r'\bcatch\b[^{]*\{[^}]*\}', after, re.S):
-    print('FAIL: the launch-time PluginManager call has no handler after it', file=sys.stderr)
+support = source('HorosObjCException+Guards.swift')
+attempt = swift_block(support, support.index('static func caught(_ body: () -> Void) -> NSException? {'))
+if 'try perform(body)' not in attempt or 'catch' not in attempt:
+    print('FAIL: HorosObjCException.caught no longer catches what its block raises', file=sys.stderr)
     raise SystemExit(1)
-handler = re.search(r'\bcatch\b', after).start()
-# initDCMTK is Swift (AppController+DCMTKCodecs.swift): the launch calls it as
-# initDCMTK().
-for required in ('initDCMTK()', 'restartSTORESCP', 'httpXMLRPCServer'):
-    if required not in after[handler:]:
+lifecycle = source('ApplicationLifecycle.swift')
+method = swift_block(lifecycle, lifecycle.index('    func willFinishLaunching() {'))
+guarded = re.search(r'if let exception = HorosObjCException\.caught\(\{ controller\.installPluginMenus\(\) \}\) \{[^}]*\}', method)
+if not guarded:
+    print('FAIL: the launch-time PluginManager call is not inside a HorosObjCException.caught with a handler', file=sys.stderr)
+    raise SystemExit(1)
+after = method[guarded.end():]
+for required in ('initDCMTK()', 'restartSTORESCP', 'NetworkPreferences.xmlrpcServer'):
+    if required not in after:
         print('FAIL: %s no longer follows the handler; the check has drifted' % required,
               file=sys.stderr)
         raise SystemExit(1)

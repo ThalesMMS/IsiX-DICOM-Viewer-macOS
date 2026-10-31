@@ -15,7 +15,7 @@ executed; git revisions are read from the .git directory without running git.
     python3 tools/inventory-plugin-api.py \\
         --api-headers PATH/Horos.framework/Headers \\
         --collection horosplugins=PATH/horosplugins \\
-        --plugin "Template=PATH/MyIsiXPluginFolder-dev" \\
+        --plugin "Template=PATH/MyIsiXPlugin" \\
         --plugin "T2 Fit Map (IsiX)=Horos/Sources/T2FitMap.swift,Horos/Sources/ViewerController+T2FitMap.swift" \\
         --markdown out.md --json out.json
 

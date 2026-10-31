@@ -13,6 +13,8 @@
 //
 //   probe <port> <scratch folder>
 //   env HOROS_PROBE_PASSWORD=<password>  protect the database with that password
+//   env HOROS_PROBE_SHOWN_DATABASE=<folder>  the browser shows another local
+//       database, in that folder, instead of the default one (the scratch folder)
 //
 // <scratch folder>/index.json, read at each use, stands for what the index holds:
 // {"linked": [absolute paths images are linked to],
@@ -146,12 +148,27 @@ NSString * const OsirixBonjourSharingPasswordDefaultsKey = @"bonjourPassword";
 }
 @end
 
-@interface DicomDatabase : NSObject @end
+// A database is its folder: the default one is the scratch folder; the one the
+// browser shows is the same, or another folder (HOROS_PROBE_SHOWN_DATABASE).
+@interface DicomDatabase : NSObject { NSString *_folder; } @end
 @implementation DicomDatabase
+- (instancetype)initWithFolder:(NSString *)folder {
+    if ((self = [super init])) _folder = [folder copy];
+    return self;
+}
+- (void)dealloc { [_folder release]; [super dealloc]; }
 + (instancetype)defaultDatabase {
     static DicomDatabase *database;
     static dispatch_once_t once;
-    dispatch_once(&once, ^{ database = [DicomDatabase new]; });
+    dispatch_once(&once, ^{ database = [[DicomDatabase alloc] initWithFolder:scratchFolder]; });
+    return database;
+}
++ (instancetype)shownDatabase {
+    const char *shown = getenv("HOROS_PROBE_SHOWN_DATABASE");
+    if (!shown) return [self defaultDatabase];
+    static DicomDatabase *database;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ database = [[DicomDatabase alloc] initWithFolder:@(shown)]; });
     return database;
 }
 + (instancetype)activeLocalDatabase { return [self defaultDatabase]; }
@@ -159,10 +176,10 @@ NSString * const OsirixBonjourSharingPasswordDefaultsKey = @"bonjourPassword";
 - (id)managedObjectContext { static ProbeContext *context; if (!context) context = [ProbeContext new]; return context; }
 - (BOOL)save { emit(@{@"event": @"save"}); return YES; }
 - (BOOL)save:(NSError **)error { emit(@{@"event": @"save"}); return YES; }
-- (NSString *)sqlFilePath { return [scratchFolder stringByAppendingPathComponent:@"Database.sql"]; }
-- (NSString *)baseDirPath { return scratchFolder; }
-- (NSString *)reportsDirPath { return [scratchFolder stringByAppendingPathComponent:@"REPORTS"]; }
-- (NSString *)dataDirPath { return [scratchFolder stringByAppendingPathComponent:@"DATABASE.noindex"]; }
+- (NSString *)sqlFilePath { return [_folder stringByAppendingPathComponent:@"Database.sql"]; }
+- (NSString *)baseDirPath { return _folder; }
+- (NSString *)reportsDirPath { return [_folder stringByAppendingPathComponent:@"REPORTS"]; }
+- (NSString *)dataDirPath { return [_folder stringByAppendingPathComponent:@"DATABASE.noindex"]; }
 - (NSTimeInterval)timeOfLastModification { return 1234.5; }
 - (id)objectWithID:(NSString *)identifier {
     emit(@{@"event": @"objectWithID", @"id": orNull(identifier)});
@@ -170,14 +187,14 @@ NSString * const OsirixBonjourSharingPasswordDefaultsKey = @"bonjourPassword";
 }
 - (NSString *)uniquePathForNewDataFileWithExtension:(NSString *)extension {
     static int counter = 0;
-    NSString *uploads = [scratchFolder stringByAppendingPathComponent:@"uploads"];
+    NSString *uploads = [_folder stringByAppendingPathComponent:@"uploads"];
     [[NSFileManager defaultManager] createDirectoryAtPath:uploads withIntermediateDirectories:YES attributes:nil error:NULL];
     return [uploads stringByAppendingPathComponent:[NSString stringWithFormat:@"%d.%@", ++counter, extension]];
 }
 - (NSArray *)addFilesAtPaths:(NSArray *)paths postNotifications:(BOOL)post dicomOnly:(BOOL)dicomOnly rereadExistingItems:(BOOL)reread generatedByOsiriX:(BOOL)generated {
     NSMutableArray *digests = [NSMutableArray array];
     for (NSString *path in paths) [digests addObject:@([[NSData dataWithContentsOfFile:path] length])];
-    emit(@{@"event": @"addFiles", @"paths": paths, @"sizes": digests, @"generatedByOsiriX": @(generated)});
+    emit(@{@"event": @"addFiles", @"database": _folder, @"paths": paths, @"sizes": digests, @"generatedByOsiriX": @(generated)});
     NSMutableArray *identifiers = [NSMutableArray array];
     for (NSUInteger i = 0; i < paths.count; i++) [identifiers addObject:[NSString stringWithFormat:@"x-coredata://probe/Image/%lu", (unsigned long)i + 1]];
     return identifiers;
@@ -193,7 +210,7 @@ NSString * const OsirixBonjourSharingPasswordDefaultsKey = @"bonjourPassword";
 @implementation BrowserController
 + (instancetype)currentBrowser { static BrowserController *browser; if (!browser) browser = [BrowserController new]; return browser; }
 + (int)DefaultFolderSizeForDB { return 10000; }
-- (DicomDatabase *)database { return [DicomDatabase defaultDatabase]; }
+- (DicomDatabase *)database { return [DicomDatabase shownDatabase]; }
 - (void)refreshDatabase:(id)sender {}
 @end
 

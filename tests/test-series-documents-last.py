@@ -19,8 +19,8 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 study = (root / 'Horos/Sources/DicomStudy.swift').read_text()
-# -childrenArray:onlyImages: is Swift (BrowserController+SelectionFiles.swift).
-browser = (root / 'Horos/Sources/BrowserController+SelectionFiles.swift').read_text()
+# -childrenArray:onlyImages: of the browser answers through DatabaseItemChildren.
+children_source = (root / 'Horos/Sources/DatabaseItemChildren.swift').read_text()
 
 start = study.index('    /// Whether a series of this SOP class holds pictures')
 end = study.index('    @objc public dynamic func imageSeries()')
@@ -61,9 +61,9 @@ with tempfile.TemporaryDirectory(prefix='horos-series-order-') as directory:
 pixels = study[study.index('public dynamic func imageSeriesContainingPixels'):study.index('    /// Whether a series of this SOP class holds pictures')]
 if 'result = DicomStudy.imagesBeforeDocuments(newArray)' not in pixels:
     failures.append("the viewer's series list does not put the documents after the pictures")
-children = browser[browser.index('if isType(item, "Study") {'):]
+children = children_source[children_source.index('if let study = item as? DicomStudy {'):]
 children = children[:children.index('BrowserObjC.log(')]
-if 'DicomStudy.imagesBeforeDocuments((object.value(forKey: "allSeries") as? NSArray) ?? NSArray())' not in children:
+if 'DicomStudy.imagesBeforeDocuments(study.allSeries() ?? [])' not in children:
     failures.append("the database's thumbnails do not put the documents after the pictures")
 
 if failures:

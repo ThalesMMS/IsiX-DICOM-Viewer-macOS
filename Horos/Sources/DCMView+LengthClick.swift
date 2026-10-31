@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXROI
 
 // The Length measured with two clicks is implemented in Swift: an extension of
 // DCMView, with the same selectors. A click with the
@@ -47,7 +48,22 @@ import Cocoa
 // space. A drag from the first click is a drag, Escape cancels.
 //
 // The event, the endpoint and the marker are stored properties of the view,
-// which own them.
+// which own them. What each click does is IsiXROI's TwoClickLengthPlacement.
+
+extension ROI {
+    /// True when a click of the Length tool belongs to the established mouse-down
+    /// path: over this ROI's label, which that path tests first and which selects
+    /// the ROI where a click here would start a new Length, or over its outline or
+    /// handles.
+    @MainActor
+    fileprivate func takesLengthClick(at point: NSPoint, in view: DCMView) -> Bool {
+        self.curView = view
+        let halfWidth = Float(Double(view.curDCM?.pwidth ?? 0) / 2.0)
+        let halfHeight = Float(Double(view.curDCM?.pheight ?? 0) / 2.0)
+        return self.click(inROI: point, halfWidth, halfHeight, view.horos_scaleValue, true) != 0 ||
+            self.click(inROI: point, halfWidth, halfHeight, view.horos_scaleValue, false) != 0
+    }
+}
 
 extension DCMView {
 
@@ -71,20 +87,21 @@ extension DCMView {
     @objc(beginLengthClick:)
     public dynamic func beginLengthClick(_ event: NSEvent!) -> Bool {
         guard let event else { return false }
-        if self.horos_replayingLengthDrag || !self.is2DViewer() || event.type != .leftMouseDown ||
-            self.horos_drawingROI || self.getTool(event) != .tMesure ||
-            // Shift is the lens: aiming with it places the point as without it.
-            !event.modifierFlags.intersection([.command, .option, .control]).isEmpty { return false }
+        if !ViewROIEditing.LengthPlacement.takesClick(replayingDrag: self.horos_replayingLengthDrag, is2DViewer: self.is2DViewer(),
+                                                      isLeftMouseDown: event.type == .leftMouseDown, drawingROI: self.horos_drawingROI,
+                                                      modifierFlags: event.modifierFlags.rawValue,
+                                                      tool: { self.getTool(event) == .tMesure }) { return false }
         let point = self.convert(fromNSView2GL: self.convert(event.locationInWindow, from: nil))
-        // Existing ROI/handle selection keeps the established mouse-down path.
-        for case let roi as ROI in (self.horos_curRoiList ?? NSMutableArray()) {
-            roi.curView = self
-            if roi.click(inROI: point, Float(Double(self.curDCM?.pwidth ?? 0) / 2.0), Float(Double(self.curDCM?.pheight ?? 0) / 2.0), self.horos_scaleValue, false) != 0 { return false }
+        // Existing ROI/handle/label selection keeps the established mouse-down path.
+        for case let roi as ROI in (self.horos_curRoiList ?? []) where roi.takesLengthClick(at: point, in: self) {
+            return false
         }
         // A double-click that Hot Keys gives an action is that action, not a second
         // endpoint: the endpoint its first click left pending goes, and -mouseDown:
         // dispatches the hot key.
-        if event.clickCount == 2 && DCMView.horos_static__hotKeyDictionary?.object(forKey: "dbl-click" as NSString) != nil {
+        if ViewROIEditing.LengthPlacement.doubleClickCancels(
+            clickCount: event.clickCount,
+            hasHotKeyAction: DCMView.horos_static__hotKeyDictionary?.object(forKey: "dbl-click" as NSString) != nil) {
             self.cancelLengthPlacement()
             return false
         }
@@ -97,12 +114,11 @@ extension DCMView {
 
     // The physical point under `point` of the image shown, with its series, frame
     // of reference and temporal index, for a Length measured in space.
-    @objc(lengthEndpointAt:)
-    public dynamic func lengthEndpoint(at point: NSPoint) -> NSDictionary! {
+    public func lengthEndpoint(at point: NSPoint) -> NSDictionary! {
         guard let patient = HorosVolumeLengthROI.patientPoint(point, pix: self.curDCM) else { return nil }
         let image = self.curDCM?.imageObj() as NSObject?
         guard let series = image?.value(forKeyPath: "series.seriesDICOMUID") as? NSString, series.length > 0 else { return nil }
-        let reference = HorosVolumeLengthROI.reference(for: self.curDCM) as NSDictionary?
+        let reference = HorosVolumeLengthROI.reference(for: self.curDCM)
         guard let frameOfReference = self.curDCM?.frameofReferenceUID, let reference else {
             // The literal dictionary raised on a nil value.
             NSException(name: .invalidArgumentException,
@@ -111,26 +127,15 @@ extension DCMView {
             return nil
         }
         let temporalIndex = NSNumber(value: inputMessages(self.windowController())?.inputCurMovieIndex() ?? 0)
-        return ["point": patient as NSArray, "series": series, "frameOfReference": frameOfReference as NSString,
-                "temporalIndex": temporalIndex, "reference": reference] as NSDictionary
-    }
-
-    // Whether the two endpoints were clicked on one image: the same one in the
-    // series, at the same place in the stack and the same time point.
-    @objc(lengthEndpoint:isOnImageOf:)
-    public dynamic func lengthEndpoint(_ first: NSDictionary!, isOnImageOf second: NSDictionary!) -> Bool {
-        func same(_ key: String) -> Bool {
-            guard let a = first?.object(forKey: key) as? NSObject else { return false }
-            return a.isEqual(second?.object(forKey: key))
-        }
-        return same("imageIndex") && same("temporalIndex") && same("reference")
+        let endpoint: [AnyHashable: Any] = ["point": patient, "series": series, "frameOfReference": frameOfReference,
+                                            "temporalIndex": temporalIndex, "reference": reference]
+        return endpoint as NSDictionary
     }
 
     // The Length that dragging from `first` to `last`, two points of the image
     // shown, makes. It is that drag, replayed without modifiers: the ROI, its
     // name, the undo step and the notifications are the drag's own.
-    @objc(replayLengthDragFrom:to:)
-    public dynamic func replayLengthDrag(from first: NSPoint, to last: NSPoint) {
+    public func replayLengthDrag(from first: NSPoint, to last: NSPoint) {
         func event(_ type: NSEvent.EventType, _ imagePoint: NSPoint) -> NSEvent {
             return NSEvent.mouseEvent(with: type,
                                       location: self.convert(self.convert(fromGL2NSView: imagePoint), to: nil),
@@ -155,60 +160,55 @@ extension DCMView {
     @objc(finishLengthClick:)
     public dynamic func finishLengthClick(_ event: NSEvent!) {
         self.releaseLengthClickEvent()
-        if (self.curDCM?.stack ?? 0) > 1 {
+        if ViewROIEditing.LengthPlacement.waitsForThinSlices(stack: Int(self.curDCM?.stack ?? 0)) {
             NSSound.beep(); self.needsDisplay = true; return // Keep A until thin slices return.
         }
         let point = self.convert(fromNSView2GL: self.convert(event?.locationInWindow ?? .zero, from: nil))
         // The patient-space endpoint, nil without valid patient geometry; where it
         // was clicked on its image is kept in either case.
         let geometry = self.lengthEndpoint(at: point)
-        let endpoint = NSMutableDictionary(dictionary: geometry ?? NSDictionary())
+        var endpoint = (geometry as? [AnyHashable: Any]) ?? [:]
         endpoint["imagePoint"] = NSValue(point: point)
         endpoint["imageIndex"] = NSNumber(value: self.curImage)
         if geometry == nil {
             endpoint["reference"] = HorosVolumeLengthROI.reference(for: self.curDCM)
             endpoint["temporalIndex"] = NSNumber(value: inputMessages(self.windowController())?.inputCurMovieIndex() ?? 0)
         }
-        let firstEndpoint = self.horos_lengthFirstEndpoint
-        // Both clicks on one image measure on it, as a drag between them does: the
-        // length through the volume is for points on different slices.
-        if let firstEndpoint, self.lengthEndpoint(firstEndpoint, isOnImageOf: endpoint) {
-            let first = (firstEndpoint.object(forKey: "imagePoint") as? NSValue)?.pointValue ?? .zero
-            let a = self.convert(fromGL2NSView: first), b = self.convert(fromGL2NSView: point)
-            // The same place twice is no length: the first point stays.
-            if hypot(b.x - a.x, b.y - a.y) < 3.0 { NSSound.beep(); return }
-            self.replayLengthDrag(from: first, to: point)
-            return
+        let placement = ViewROIEditing.LengthPlacement(first: ViewROIEditing.lengthEndpoint(self.horos_lengthFirstEndpoint as? [AnyHashable: Any]))
+        guard let clicked = ViewROIEditing.lengthEndpoint(endpoint) else { return }
+        let step = placement.step(at: clicked) { first, second in
+            let a = self.convert(fromGL2NSView: first), b = self.convert(fromGL2NSView: second)
+            return Double(hypot(b.x - a.x, b.y - a.y))
         }
-        if geometry == nil && firstEndpoint != nil {
+        switch step {
+        case .samePlace:
+            // The same place twice is no length: the first point stays.
+            NSSound.beep(); return
+        case .drag(let first, let second):
+            // Both clicks on one image measure on it, as a drag between them does.
+            self.replayLengthDrag(from: first, to: second); return
+        case .needsGeometry:
             _ = HorosAlertPanel.runInformational(title: NSLocalizedString("Length", comment: ""),
                                                  message: NSLocalizedString("Measuring between slices requires valid patient geometry. Click and drag remains available for a 2D length.", comment: ""),
                                                  defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
             return
-        }
-        if let firstEndpoint, geometry != nil {
-            func same(_ key: String) -> Bool {
-                guard let a = firstEndpoint.object(forKey: key) as? NSObject else { return false }
-                return a.isEqual(endpoint.object(forKey: key))
-            }
-            if !same("series") || !same("frameOfReference") || !same("temporalIndex") {
+        case .first(_, let replacing):
+            if replacing {
                 self.cancelLengthPlacement()
             }
-        }
-        if self.horos_lengthFirstEndpoint == nil {
-            let copy = endpoint.copy() as! NSDictionary
-            self.horos_lengthFirstEndpoint = copy
+            self.horos_lengthFirstEndpoint = endpoint as NSDictionary
             let curDCM = self.curDCM
             let marker: ROI = ROI(type: .t2DPoint, Float(curDCM?.pixelSpacingX ?? 0), Float(curDCM?.pixelSpacingY ?? 0),
                                   DCMPix.originCorrected(accordingToOrientation: curDCM))
             self.horos_lengthPendingMarker = marker
-        } else if let firstEndpoint = self.horos_lengthFirstEndpoint {
+        case .measure:
+            let firstEndpoint = self.horos_lengthFirstEndpoint
             let payload: [AnyHashable: Any] = [
                 "version": NSNumber(value: 1), "id": NSUUID().uuidString,
-                "a": firstEndpoint.object(forKey: "point") as Any, "b": endpoint.object(forKey: "point") as Any,
-                "referenceA": firstEndpoint.object(forKey: "reference") as Any, "referenceB": endpoint.object(forKey: "reference") as Any,
-                "series": endpoint.object(forKey: "series") as Any, "frameOfReference": endpoint.object(forKey: "frameOfReference") as Any,
-                "temporalIndex": endpoint.object(forKey: "temporalIndex") as Any,
+                "a": firstEndpoint?.object(forKey: "point") as Any, "b": endpoint["point"] as Any,
+                "referenceA": firstEndpoint?.object(forKey: "reference") as Any, "referenceB": endpoint["reference"] as Any,
+                "series": endpoint["series"] as Any, "frameOfReference": endpoint["frameOfReference"] as Any,
+                "temporalIndex": endpoint["temporalIndex"] as Any,
             ]
             if !HorosVolumeLengthROI.validPayload(payload) { NSSound.beep(); return }
             let curDCM = self.curDCM
@@ -216,7 +216,7 @@ extension DCMView {
                                                                   DCMPix.originCorrected(accordingToOrientation: curDCM))
             roi.volumeLength = payload
             roi.name = NSLocalizedString("Length", comment: "")
-            for case let other as ROI in (self.horos_curRoiList ?? NSMutableArray()) { other.roImode = Int(ROI_sleep) }
+            for case let other as ROI in (self.horos_curRoiList ?? []) { other.roImode = Int(ROI_sleep) }
             let wc = inputMessages(self.windowController())
             wc?.inputAddToUndoQueue("roi")
             wc?.inputAddVolumeLengthROI(roi)

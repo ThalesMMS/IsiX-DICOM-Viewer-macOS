@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 
 /// The checks of each ROI: shown, locked, selectable.
 private enum ROIManagerCheck: String {
@@ -80,7 +81,7 @@ public final class ROIManagerController: NSWindowController, NSOutlineViewDataSo
     /// -windowWillClose: autoreleased it.
     @objc(windowWillClose) public private(set) var closing = false
 
-    static let scopeDefaultsKey = "ROIManagerScope"
+    static let scopeDefaultsKey = ViewerPreferences.roiManagerScope.name
 
     private var outline: NSOutlineView!
     private var scopeControl: NSSegmentedControl!
@@ -132,7 +133,7 @@ public final class ROIManagerController: NSWindowController, NSOutlineViewDataSo
     public convenience init(viewer v: ViewerController!) {
         self.init(windowNibName: "ROIManager")
         viewer = nil
-        scope = ROIManagerScope(rawValue: UserDefaults.standard.integer(forKey: Self.scopeDefaultsKey)) ?? .slice
+        scope = ROIManagerScope(rawValue: PreferencesSource.process.preferences[ViewerPreferences.roiManagerScope]) ?? .slice
 
         window?.setFrameAutosaveName("ROIManagerWindow")
 
@@ -575,7 +576,7 @@ public final class ROIManagerController: NSWindowController, NSOutlineViewDataSo
 
     @objc func scopeChanged(_ sender: Any?) {
         scope = ROIManagerScope(rawValue: scopeControl.selectedSegment) ?? .slice
-        UserDefaults.standard.set(scope.rawValue, forKey: Self.scopeDefaultsKey)
+        PreferencesSource.process.preferences.set(scope.rawValue, for: ViewerPreferences.roiManagerScope)
         rebuild()
     }
 

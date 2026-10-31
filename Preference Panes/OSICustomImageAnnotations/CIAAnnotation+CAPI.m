@@ -37,7 +37,7 @@
 
 #import <Cocoa/Cocoa.h>
 
-// The Objective-C part of CIAAnnotation, which is otherwise Swift since #711:
+// The Objective-C part of CIAAnnotation, which is otherwise Swift:
 // the NSColor (randomColor) category of the former CIAAnnotation.m, unchanged.
 // It calls rand, which Swift does not import. Nothing in Horos calls it.
 

@@ -13,8 +13,10 @@ import Foundation
 
 /// The study, series and image entities of the database, with the attributes
 /// and relationships the reparse and the merge of series read and write, in
-/// an in-memory store.
-func makeDatabaseContext() throws -> NSManagedObjectContext {
+/// an in-memory store. The context is on the main queue and belongs to the
+/// main actor: the test runner serves the main run loop, where a main-queue
+/// context processes its changes on its own.
+@MainActor func makeDatabaseContext() throws -> NSManagedObjectContext {
     func attribute(_ name: String, _ type: NSAttributeType) -> NSAttributeDescription {
         let made = NSAttributeDescription()
         made.name = name
@@ -54,6 +56,6 @@ func makeDatabaseContext() throws -> NSManagedObjectContext {
 }
 
 /// Every object of an entity in the store.
-func fetch(_ entity: String, in context: NSManagedObjectContext) throws -> [NSManagedObject] {
+@MainActor func fetch(_ entity: String, in context: NSManagedObjectContext) throws -> [NSManagedObject] {
     try context.fetch(NSFetchRequest<NSManagedObject>(entityName: entity))
 }

@@ -47,6 +47,14 @@ import QuartzCore
 // call them. The geometry is IsiXGeometry's, on simd vectors; this file
 // converts N3Vector, N3Line and N3Plane to its types and back.
 //
+// The functions the former plugin SDK published (tests/legacy-plugin-abi.json)
+// are @usableFromInline, because plugins built against it look them up in the
+// executable. An internal Swift symbol is a private external one: a Release
+// build, which has no testability, leaves it unexported, and the optimizer
+// drops the functions nothing in the application calls. The attribute gives
+// the symbol public linkage, which exports it and keeps dead stripping from
+// removing it, and changes nothing else.
+//
 // Except for the functions of one vector operation (make, compare, add,
 // subtract, scale, dot, cross, length, distance, normalize, project, invert,
 // interpolate, transform), which are written here on the three fields: the
@@ -126,83 +134,83 @@ private func applyToDirection(_ v: N3Vector, _ t: N3AffineTransform) -> N3Vector
                     z: (v.y * t.m23).addingProduct(v.x, t.m13).addingProduct(v.z, t.m33))
 }
 
-@_cdecl("N3VectorMake") @implementation
+@_cdecl("N3VectorMake") @implementation @usableFromInline
 func N3VectorMake(_ x: CGFloat, _ y: CGFloat, _ z: CGFloat) -> N3Vector {
     N3Vector(x: x, y: y, z: z)
 }
 
-@_cdecl("N3VectorEqualToVector") @implementation
+@_cdecl("N3VectorEqualToVector") @implementation @usableFromInline
 func N3VectorEqualToVector(_ vector1: N3Vector, _ vector2: N3Vector) -> Bool {
     vector1.x == vector2.x && vector1.y == vector2.y && vector1.z == vector2.z
 }
 
-@_cdecl("N3VectorIsZero") @implementation
+@_cdecl("N3VectorIsZero") @implementation @usableFromInline
 func N3VectorIsZero(_ vector: N3Vector) -> Bool {
     vector.x == 0.0 && vector.y == 0.0 && vector.z == 0.0
 }
 
-@_cdecl("N3VectorAdd") @implementation
+@_cdecl("N3VectorAdd") @implementation @usableFromInline
 func N3VectorAdd(_ vector1: N3Vector, _ vector2: N3Vector) -> N3Vector {
     add(vector1, vector2)
 }
 
-@_cdecl("N3VectorSubtract") @implementation
+@_cdecl("N3VectorSubtract") @implementation @usableFromInline
 func N3VectorSubtract(_ vector1: N3Vector, _ vector2: N3Vector) -> N3Vector {
     subtract(vector1, vector2)
 }
 
-@_cdecl("N3VectorScalarMultiply") @implementation
+@_cdecl("N3VectorScalarMultiply") @implementation @usableFromInline
 func N3VectorScalarMultiply(_ vector: N3Vector, _ scalar: CGFloat) -> N3Vector {
     scale(vector, scalar)
 }
 
-@_cdecl("N3VectorDistance") @implementation
+@_cdecl("N3VectorDistance") @implementation @usableFromInline
 func N3VectorDistance(_ vector1: N3Vector, _ vector2: N3Vector) -> CGFloat {
     length(subtract(vector1, vector2))
 }
 
-@_cdecl("N3VectorDotProduct") @implementation
+@_cdecl("N3VectorDotProduct") @implementation @usableFromInline
 func N3VectorDotProduct(_ vector1: N3Vector, _ vector2: N3Vector) -> CGFloat {
     dot(vector1, vector2)
 }
 
-@_cdecl("N3VectorCrossProduct") @implementation
+@_cdecl("N3VectorCrossProduct") @implementation @usableFromInline
 func N3VectorCrossProduct(_ vector1: N3Vector, _ vector2: N3Vector) -> N3Vector {
     cross(vector1, vector2)
 }
 
-@_cdecl("N3VectorLerp") @implementation
+@_cdecl("N3VectorLerp") @implementation @usableFromInline
 func N3VectorLerp(_ vector1: N3Vector, _ vector2: N3Vector, _ t: CGFloat) -> N3Vector {
     add(scale(vector1, 1.0 - t), scale(vector2, t))
 }
 
-@_cdecl("N3VectorLength") @implementation
+@_cdecl("N3VectorLength") @implementation @usableFromInline
 func N3VectorLength(_ vector: N3Vector) -> CGFloat {
     length(vector)
 }
 
-@_cdecl("N3VectorNormalize") @implementation
+@_cdecl("N3VectorNormalize") @implementation @usableFromInline
 func N3VectorNormalize(_ vector: N3Vector) -> N3Vector {
     normalize(vector)
 }
 
-@_cdecl("N3VectorProject") @implementation
+@_cdecl("N3VectorProject") @implementation @usableFromInline
 func N3VectorProject(_ vector1: N3Vector, _ vector2: N3Vector) -> N3Vector {
     let length = length(vector2)
     return length != 0.0 ? scale(vector2, dot(vector1, vector2) / length) : N3VectorZero
 }
 
-@_cdecl("N3VectorInvert") @implementation
+@_cdecl("N3VectorInvert") @implementation @usableFromInline
 func N3VectorInvert(_ vector: N3Vector) -> N3Vector {
     subtract(N3VectorZero, vector)
 }
 
-@_cdecl("N3VectorApplyTransform") @implementation
+@_cdecl("N3VectorApplyTransform") @implementation @usableFromInline
 func N3VectorApplyTransform(_ vector: N3Vector, _ transform: N3AffineTransform) -> N3Vector {
     add(applyToDirection(vector, transform), N3Vector(x: transform.m41, y: transform.m42, z: transform.m43))
 }
 
-@_cdecl("N3VectorApplyTransformToDirectionalVector") @implementation
+@_cdecl("N3VectorApplyTransformToDirectionalVector") @implementation @usableFromInline
 func N3VectorApplyTransformToDirectionalVector(_ vector: N3Vector, _ transform: N3AffineTransform) -> N3Vector {
     applyToDirection(vector, transform)
 }
@@ -214,17 +222,17 @@ func N3VectorIsCoincidentToVector(_ vector1: N3Vector, _ vector2: N3Vector) -> B
     vector1.vector3.isCoincident(with: vector2.vector3)
 }
 
-@_cdecl("N3VectorANormalVector") @implementation
+@_cdecl("N3VectorANormalVector") @implementation @usableFromInline
 func N3VectorANormalVector(_ vector: N3Vector) -> N3Vector {
     N3Vector(vector.vector3.anyNormal)
 }
 
-@_cdecl("N3VectorAngleBetweenVectorsAroundVector") @implementation
+@_cdecl("N3VectorAngleBetweenVectorsAroundVector") @implementation @usableFromInline
 func N3VectorAngleBetweenVectorsAroundVector(_ vector1: N3Vector, _ vector2: N3Vector, _ aroundVector: N3Vector) -> CGFloat {
     vector1.vector3.angle(to: vector2.vector3, around: aroundVector.vector3)
 }
 
-@_cdecl("N3VectorBend") @implementation
+@_cdecl("N3VectorBend") @implementation @usableFromInline
 func N3VectorBend(_ vectorToBend: N3Vector, _ originalDirection: N3Vector, _ newDirection: N3Vector) -> N3Vector {
     N3Vector(vectorToBend.vector3.bent(from: originalDirection.vector3, to: newDirection.vector3))
 }
@@ -239,24 +247,24 @@ func N3VectorIsOnPlane(_ vector: N3Vector, _ plane: N3Plane) -> Bool {
     vector.vector3.isOn(plane.plane3)
 }
 
-@_cdecl("N3VectorDistanceToLine") @implementation
+@_cdecl("N3VectorDistanceToLine") @implementation @usableFromInline
 func N3VectorDistanceToLine(_ vector: N3Vector, _ line: N3Line) -> CGFloat {
     vector.vector3.distance(to: line.line3)
 }
 
-@_cdecl("N3VectorDistanceToPlane") @implementation
+@_cdecl("N3VectorDistanceToPlane") @implementation @usableFromInline
 func N3VectorDistanceToPlane(_ vector: N3Vector, _ plane: N3Plane) -> CGFloat {
     vector.vector3.distance(to: plane.plane3)
 }
 
-@_cdecl("N3LineMake") @implementation
+@_cdecl("N3LineMake") @implementation @usableFromInline
 func N3LineMake(_ point: N3Vector, _ vector: N3Vector) -> N3Line {
     let line = N3Line(point: point, vector: vector)
     assert(line.line3.isValid)
     return line
 }
 
-@_cdecl("N3LineMakeFromPoints") @implementation
+@_cdecl("N3LineMakeFromPoints") @implementation @usableFromInline
 func N3LineMakeFromPoints(_ point1: N3Vector, _ point2: N3Vector) -> N3Line {
     let line = Line3(from: point1.vector3, to: point2.vector3)
     assert(line.isValid)
@@ -293,23 +301,23 @@ func N3LineIntersectsPlane(_ line: N3Line, _ plane: N3Plane) -> Bool {
     line.line3.intersects(plane.plane3)
 }
 
-@_cdecl("N3LineIntersectionWithPlane") @implementation
+@_cdecl("N3LineIntersectionWithPlane") @implementation @usableFromInline
 func N3LineIntersectionWithPlane(_ line: N3Line, _ plane: N3Plane) -> N3Vector {
     N3Vector(line.line3.intersection(with: plane.plane3))
 }
 
-@_cdecl("N3LinePointClosestToVector") @implementation
+@_cdecl("N3LinePointClosestToVector") @implementation @usableFromInline
 func N3LinePointClosestToVector(_ line: N3Line, _ vector: N3Vector) -> N3Vector {
     N3Vector(line.line3.pointClosest(to: vector.vector3))
 }
 
-@_cdecl("N3LineApplyTransform") @implementation
+@_cdecl("N3LineApplyTransform") @implementation @usableFromInline
 func N3LineApplyTransform(_ line: N3Line, _ transform: N3AffineTransform) -> N3Line {
     N3Line(line.line3.applying(transform))
 }
 
 /// Parallel lines leave the points as they were.
-@_cdecl("N3LineClosestPoints") @implementation
+@_cdecl("N3LineClosestPoints") @implementation @usableFromInline
 func N3LineClosestPoints(_ line1: N3Line, _ line2: N3Line, _ line1PointPtr: UnsafeMutablePointer<N3Vector>?,
                          _ line2PointPtr: UnsafeMutablePointer<N3Vector>?) -> CGFloat {
     let closest = line1.line3.closestPoints(to: line2.line3)
@@ -322,12 +330,12 @@ func N3LineClosestPoints(_ line1: N3Line, _ line2: N3Line, _ line1PointPtr: Unsa
     return closest.distance
 }
 
-@_cdecl("N3PlaneMake") @implementation
+@_cdecl("N3PlaneMake") @implementation @usableFromInline
 func N3PlaneMake(_ point: N3Vector, _ normal: N3Vector) -> N3Plane {
     N3Plane(point: point, normal: normal)
 }
 
-@_cdecl("N3PlaneEqualToPlane") @implementation
+@_cdecl("N3PlaneEqualToPlane") @implementation @usableFromInline
 func N3PlaneEqualToPlane(_ plane1: N3Plane, _ plane2: N3Plane) -> Bool {
     N3VectorEqualToVector(plane1.point, plane2.point) && N3VectorEqualToVector(plane1.normal, plane2.normal)
 }
@@ -337,7 +345,7 @@ func N3PlaneIsCoincidentToPlane(_ plane1: N3Plane, _ plane2: N3Plane) -> Bool {
     plane1.plane3.isCoincident(with: plane2.plane3)
 }
 
-@_cdecl("N3PlaneIsValid") @implementation
+@_cdecl("N3PlaneIsValid") @implementation @usableFromInline
 func N3PlaneIsValid(_ plane: N3Plane) -> Bool {
     plane.plane3.isValid
 }
@@ -347,12 +355,12 @@ func N3PlanePointClosestToVector(_ plane: N3Plane, _ vector: N3Vector) -> N3Vect
     N3Vector(plane.plane3.pointClosest(to: vector.vector3))
 }
 
-@_cdecl("N3PlaneIsParallelToPlane") @implementation
+@_cdecl("N3PlaneIsParallelToPlane") @implementation @usableFromInline
 func N3PlaneIsParallelToPlane(_ plane1: N3Plane, _ plane2: N3Plane) -> Bool {
     plane1.plane3.isParallel(to: plane2.plane3)
 }
 
-@_cdecl("N3PlaneIsBetweenVectors") @implementation
+@_cdecl("N3PlaneIsBetweenVectors") @implementation @usableFromInline
 func N3PlaneIsBetweenVectors(_ plane: N3Plane, _ vector1: N3Vector, _ vector2: N3Vector) -> Bool {
     plane.plane3.isBetween(vector1.vector3, vector2.vector3)
 }
@@ -362,13 +370,13 @@ func N3PlaneIntersectionWithPlane(_ plane1: N3Plane, _ plane2: N3Plane) -> N3Lin
     N3Line(plane1.plane3.intersection(with: plane2.plane3))
 }
 
-@_cdecl("N3PlaneLeastSquaresPlaneFromPoints") @implementation
+@_cdecl("N3PlaneLeastSquaresPlaneFromPoints") @implementation @usableFromInline
 func N3PlaneLeastSquaresPlaneFromPoints(_ vectors: UnsafeMutablePointer<N3Vector>?, _ numVectors: CFIndex) -> N3Plane {
     let points = (0..<max(numVectors, 0)).map { vectors![$0].vector3 }
     return N3Plane(Plane3.leastSquares(through: points))
 }
 
-@_cdecl("N3PlaneApplyTransform") @implementation
+@_cdecl("N3PlaneApplyTransform") @implementation @usableFromInline
 func N3PlaneApplyTransform(_ plane: N3Plane, _ transform: N3AffineTransform) -> N3Plane {
     N3Plane(plane.plane3.applying(transform))
 }
@@ -380,39 +388,39 @@ private func packed(_ vectors: UnsafeMutablePointer<N3Vector>) -> UnsafeMutableP
     UnsafeMutableRawPointer(vectors).assumingMemoryBound(to: Double.self)
 }
 
-@_cdecl("N3VectorScalarMultiplyVectors") @implementation
+@_cdecl("N3VectorScalarMultiplyVectors") @implementation @usableFromInline
 func N3VectorScalarMultiplyVectors(_ scalar: CGFloat, _ vectors: UnsafeMutablePointer<N3Vector>?, _ numVectors: CFIndex) {
     guard let vectors, numVectors > 0 else { return }
     PackedVectors.scale(packed(vectors), count: numVectors, by: scalar)
 }
 
-@_cdecl("N3VectorCrossProductVectors") @implementation
+@_cdecl("N3VectorCrossProductVectors") @implementation @usableFromInline
 func N3VectorCrossProductVectors(_ vector: N3Vector, _ vectors: UnsafeMutablePointer<N3Vector>?, _ numVectors: CFIndex) {
     for i in 0..<max(numVectors, 0) {
         vectors![i] = cross(vector, vectors![i])
     }
 }
 
-@_cdecl("N3VectorAddVectors") @implementation
+@_cdecl("N3VectorAddVectors") @implementation @usableFromInline
 func N3VectorAddVectors(_ vectors1: UnsafeMutablePointer<N3Vector>?, _ vectors2: UnsafeMutablePointer<N3Vector>?, _ numVectors: CFIndex) {
     guard let vectors1, let vectors2, numVectors > 0 else { return }
     PackedVectors.add(packed(vectors2), to: packed(vectors1), count: numVectors)
 }
 
-@_cdecl("N3VectorApplyTransformToVectors") @implementation
+@_cdecl("N3VectorApplyTransformToVectors") @implementation @usableFromInline
 func N3VectorApplyTransformToVectors(_ transform: N3AffineTransform, _ vectors: UnsafeMutablePointer<N3Vector>?, _ numVectors: CFIndex) {
     guard let vectors, numVectors > 0 else { return }
     PackedVectors.apply(transform, to: packed(vectors), count: numVectors)
 }
 
-@_cdecl("N3VectorCrossProductWithVectors") @implementation
+@_cdecl("N3VectorCrossProductWithVectors") @implementation @usableFromInline
 func N3VectorCrossProductWithVectors(_ vectors1: UnsafeMutablePointer<N3Vector>?, _ vectors2: UnsafeMutablePointer<N3Vector>?, _ numVectors: CFIndex) {
     for i in 0..<max(numVectors, 0) {
         vectors1![i] = cross(vectors1![i], vectors2![i])
     }
 }
 
-@_cdecl("N3VectorNormalizeVectors") @implementation
+@_cdecl("N3VectorNormalizeVectors") @implementation @usableFromInline
 func N3VectorNormalizeVectors(_ vectors: UnsafeMutablePointer<N3Vector>?, _ numVectors: CFIndex) {
     for i in 0..<max(numVectors, 0) {
         vectors![i] = normalize(vectors![i])
@@ -421,7 +429,7 @@ func N3VectorNormalizeVectors(_ vectors: UnsafeMutablePointer<N3Vector>?, _ numV
 
 // MARK: - Transforms
 
-@_cdecl("N3AffineTransformIsRectilinear") @implementation
+@_cdecl("N3AffineTransformIsRectilinear") @implementation @usableFromInline
 func N3AffineTransformIsRectilinear(_ transform: N3AffineTransform) -> Bool {
     transform.isRectilinear
 }
@@ -431,17 +439,17 @@ func N3AffineTransformTranspose(_ transform: N3AffineTransform) -> N3AffineTrans
     transform.transposed
 }
 
-@_cdecl("N3AffineTransformDeterminant") @implementation
+@_cdecl("N3AffineTransformDeterminant") @implementation @usableFromInline
 func N3AffineTransformDeterminant(_ transform: N3AffineTransform) -> CGFloat {
     transform.determinant
 }
 
-@_cdecl("N3AffineTransformInvert") @implementation
+@_cdecl("N3AffineTransformInvert") @implementation @usableFromInline
 func N3AffineTransformInvert(_ transform: N3AffineTransform) -> N3AffineTransform {
     transform.inverted
 }
 
-@_cdecl("N3AffineTransformConcat") @implementation
+@_cdecl("N3AffineTransformConcat") @implementation @usableFromInline
 func N3AffineTransformConcat(_ a: N3AffineTransform, _ b: N3AffineTransform) -> N3AffineTransform {
     a.concatenating(b)
 }
@@ -457,7 +465,7 @@ private func makeTransform(openGLValues d: (Int) -> CGFloat) -> N3AffineTransfor
                       m31: d(8), m32: d(9), m33: d(10), m34: d(11), m41: d(12), m42: d(13), m43: d(14), m44: d(15))
 }
 
-@_cdecl("N3AffineTransformGetOpenGLMatrixd") @implementation
+@_cdecl("N3AffineTransformGetOpenGLMatrixd") @implementation @usableFromInline
 func N3AffineTransformGetOpenGLMatrixd(_ transform: N3AffineTransform, _ d: UnsafeMutablePointer<Double>?) {
     for (i, value) in openGLValues(transform).enumerated() {
         d![i] = value
@@ -538,7 +546,7 @@ private func vectors(_ dictionary: NSDictionary?, _ key1: String, _ key2: String
     return (vector1, vector2)
 }
 
-@_cdecl("N3VectorCreateDictionaryRepresentation") @implementation
+@_cdecl("N3VectorCreateDictionaryRepresentation") @implementation @usableFromInline
 func N3VectorCreateDictionaryRepresentation(_ vector: N3Vector) -> Unmanaged<CFDictionary>? {
     created(vectorDictionary(vector))
 }
@@ -548,12 +556,12 @@ func N3LineCreateDictionaryRepresentation(_ line: N3Line) -> Unmanaged<CFDiction
     created(n3Dictionary(["point": vectorDictionary(line.point), "vector": vectorDictionary(line.vector)]))
 }
 
-@_cdecl("N3PlaneCreateDictionaryRepresentation") @implementation
+@_cdecl("N3PlaneCreateDictionaryRepresentation") @implementation @usableFromInline
 func N3PlaneCreateDictionaryRepresentation(_ plane: N3Plane) -> Unmanaged<CFDictionary>? {
     created(n3Dictionary(["point": vectorDictionary(plane.point), "normal": vectorDictionary(plane.normal)]))
 }
 
-@_cdecl("N3VectorMakeWithDictionaryRepresentation") @implementation
+@_cdecl("N3VectorMakeWithDictionaryRepresentation") @implementation @usableFromInline
 func N3VectorMakeWithDictionaryRepresentation(_ dict: CFDictionary?, _ vectorPointer: UnsafeMutablePointer<N3Vector>?) -> Bool {
     guard let vector = vector(dictionary(dict)) else { return false }
     vectorPointer?.pointee = vector
@@ -567,7 +575,7 @@ func N3LineMakeWithDictionaryRepresentation(_ dict: CFDictionary?, _ line: Unsaf
     return true
 }
 
-@_cdecl("N3PlaneMakeWithDictionaryRepresentation") @implementation
+@_cdecl("N3PlaneMakeWithDictionaryRepresentation") @implementation @usableFromInline
 func N3PlaneMakeWithDictionaryRepresentation(_ dict: CFDictionary?, _ plane: UnsafeMutablePointer<N3Plane>?) -> Bool {
     guard let (point, normal) = vectors(dictionary(dict), "point", "normal") else { return false }
     plane?.pointee = N3Plane(point: point, normal: normal)

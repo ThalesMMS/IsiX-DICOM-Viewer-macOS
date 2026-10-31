@@ -4,12 +4,15 @@ set -e; set -o xtrace
 
 cmake_dir="$TARGET_TEMP_DIR/Config"
 install_dir="$TARGET_TEMP_DIR/Install"
+# The original source that Config.sh resolved and configured.
+source_prefix="$TARGET_TEMP_DIR/Source"
 
 installed_products_present() {
     for product in lib/libcrypto.a lib/libssl.a \
         include/openssl/ssl.h include/openssl/crypto.h include/openssl/opensslv.h \
         include/openssl/opensslconf.h include/openssl/configuration.h \
-        include/openssl/bio.h include/openssl/err.h include/openssl/x509.h; do
+        include/openssl/bio.h include/openssl/err.h include/openssl/x509.h \
+        share/source.json share/licenses/OpenSSL/LICENSE.txt; do
         [ -s "$install_dir/$product" ] || return 1
     done
 }
@@ -28,6 +31,12 @@ export COMMAND_MODE=unix2003
 cd "$cmake_dir"
 make "${args[@]}"
 make install_sw
+# Install the identity of the compiled source with its license, for the bundle
+# and the release record.
+mkdir -p "$install_dir/share/licenses/OpenSSL"
+cp "$source_prefix/share/source.json" "$install_dir/share/source.json"
+rm -f "$install_dir/share/licenses/OpenSSL/LICENSE.txt"
+cp "$source_prefix/source/LICENSE.txt" "$install_dir/share/licenses/OpenSSL/LICENSE.txt"
 
 if ! installed_products_present; then
     echo "error: OpenSSL installation is missing required libraries or headers at $install_dir" >&2

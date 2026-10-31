@@ -40,6 +40,7 @@
 import Cocoa
 import IsiXDICOMNetwork
 import IsiXKeychain
+import IsiXPreferences
 import Synchronization
 
 /// The "Connecting to..." window of a request made on the main thread, which
@@ -78,6 +79,18 @@ final class QueryProgressWindow: @unchecked Sendable {
     }
 }
 
+/// An association and what its request sends, handed to the thread that runs
+/// the request while the thread that asked waits for it.
+///
+/// `@unchecked Sendable`: the adapter's objects are not Sendable. The thread
+/// that asked does not touch the request again, and uses the association
+/// only once the request's thread has let it go, or to close the transport of
+/// an association it gives up on, which the adapter allows from any thread.
+private struct AssociationHandOff<Request>: @unchecked Sendable {
+    let association: IsiXDCMTKAssociation
+    let request: Request
+}
+
 /// A failure of an association, as the notices and the log name it.
 struct AssociationFailure: Error {
     let name: String
@@ -102,6 +115,9 @@ extension Error {
 /// does for them is in Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCU.
 extension DCMTKQueryNode {
     private static let associationNumber = Atomic<Int32>(0)
+
+    /// Where a query that failed with no window to show it is said.
+    static let applicationNotices = ApplicationNetworkNotices.process
 
     /// Verbose output, as the service class users have always had it on.
     static let verboseAssociations = true
@@ -129,15 +145,15 @@ extension DCMTKQueryNode {
             if Thread.isMainThread {
                 let success = QueryNodeShared(false)
                 let done = DispatchSemaphore(value: 0)
-                nonisolated(unsafe) let parameters = server
-                let worker = Thread {
+                // The node's settings as Locations gave them; nothing changes them.
+                let parameters = UncheckedSendableBox(server)
+                let wait = QueryProgressWindow(message: NSLocalizedString("Verifying DICOMweb...", comment: ""), showWindow: true)
+                let worker = ActivityThread.startUnlisted(name: "DICOMweb verification") { _ in
                     autoreleasepool {
-                        success.modify { $0 = verifyDICOMServer(parameters) }
+                        success.modify { $0 = verifyDICOMServer(parameters.value) }
                         done.signal()
                     }
                 }
-                let wait = QueryProgressWindow(message: NSLocalizedString("Verifying DICOMweb...", comment: ""), showWindow: true)
-                worker.start()
                 while done.wait(timeout: .now() + .milliseconds(50)) == .timedOut {
                     wait?.run()
                     if wait?.aborted == true { worker.cancel() }
@@ -178,9 +194,9 @@ extension DCMTKQueryNode {
     func setupNetwork(service: QueryRetrieveService, identifier: DICOMQueryIdentifier?, destination: String? = nil) -> Bool {
         autoreleasepool {
             var succeed = true
-            let completed = catchingExceptions {
+            let completed = endedNormally(HorosObjCException.caught {
                 succeed = associate(service: service, identifier: identifier, destination: destination)
-            }
+            })
             return completed && succeed
         }
     }
@@ -189,7 +205,7 @@ extension DCMTKQueryNode {
         let verbose = Self.verboseAssociations
         let verifying = service == .verification
         _abortAssociation = false
-        let defaults = UserDefaults.standard
+        let preferences = PreferencesSource.process.preferences
         let wait = QueryProgressWindow(message: String(format: NSLocalizedString("Connecting to %@...", comment: ""), _hostname ?? ""))
         let uniqueStringID = "\(getpid()).\(Self.associationNumber.wrappingAdd(1, ordering: .relaxed).oldValue).\(Int32.random(in: 0...Int32.max))"
         let host = _hostname ?? "", called = calledAETitle ?? ""
@@ -202,10 +218,10 @@ extension DCMTKQueryNode {
             parameters.peerHost = host
             parameters.peerPort = _port
             parameters.abstractSyntax = service.rawValue
-            if service.isGet { parameters.preferredTransferSyntax = defaults.integer(forKey: "preferredSyntaxForIncoming") }
+            if service.isGet { parameters.preferredTransferSyntax = preferences[NetworkPreferences.preferredSyntaxForIncoming] }
             parameters.acseTimeout = self.association.acseTimeout
             parameters.dimseTimeout = self.association.dimseTimeout
-            parameters.connectionTimeout = defaults.integer(forKey: "DICOMConnectionTimeout")
+            parameters.connectionTimeout = preferences[NetworkPreferences.dicomConnectionTimeout]
             parameters.verbose = verbose
             if self.association.secureConnection {
                 prepareSecureTransport(parameters, uniqueStringID: uniqueStringID)
@@ -311,7 +327,7 @@ extension DCMTKQueryNode {
                 if showErrorMessageValue {
                     Self.postNotice(NSLocalizedString("Query Failed (1)", comment: ""), response)
                 } else {
-                    AppController.shared()?.notificationTitle(NSLocalizedString("Query Failed (1)", comment: ""), description: response, name: "autoquery")
+                    Self.applicationNotices.notify(title: NSLocalizedString("Query Failed (1)", comment: ""), description: response, name: "autoquery")
                 }
             }
             NSLog("---- DCMTKQueryNode failed: %@", failure.reason)
@@ -332,20 +348,23 @@ extension DCMTKQueryNode {
         let lock = NSRecursiveLock()
         let started = DispatchSemaphore(value: 0)
         let outcome = QueryNodeShared<(any Error)?>(nil)
-        nonisolated(unsafe) let requested = association
-        Thread.detachNewThread { [self] in
+        let requested = AssociationHandOff(association: association, request: ())
+        // DCMTK blocks the thread that asks for the association until the
+        // peer answers or the connection times out: a thread of its own.
+        ActivityThread.startUnlisted(name: "DCMTKQueryNode ASC_requestAssociation") { [self] _ in
             autoreleasepool {
                 lock.lock()
                 started.signal()
-                Thread.current.name = "DCMTKQueryNode ASC_requestAssociation"
                 if !_abortAssociation {
-                    let condition = requested.request()
+                    let condition = requested.association.request()
                     outcome.modify { $0 = condition }
                 }
                 // After cancellation, close through the public transport API.
                 // DCMTK's A-ABORT handshake otherwise waits up to a minute for an
                 // unresponsive peer.
-                if _abortAssociation && requested.hasAssociation { _ = requested.closeTransportConnection() }
+                if _abortAssociation && requested.association.hasAssociation {
+                    _ = requested.association.closeTransportConnection()
+                }
                 lock.unlock()
             }
         }
@@ -382,14 +401,14 @@ extension DCMTKQueryNode {
         let lock = NSRecursiveLock()
         let started = DispatchSemaphore(value: 0)
         let outcome = QueryNodeShared<(any Error)?>(nil)
-        nonisolated(unsafe) let found = association
-        nonisolated(unsafe) let dataset = identifier
-        Thread.detachNewThread { [self] in
+        let found = AssociationHandOff(association: association, request: identifier)
+        ActivityThread.startUnlisted(name: "CFind Thread") { [self] _ in
             autoreleasepool {
                 lock.lock()
                 started.signal()
-                Thread.current.name = "CFind Thread"
-                catchingExceptions { outcome.modify { $0 = findSCU(on: found, identifier: dataset) } }
+                endedNormally(HorosObjCException.caught {
+                    outcome.modify { $0 = findSCU(on: found.association, identifier: found.request) }
+                })
                 lock.unlock()
             }
         }
@@ -420,7 +439,7 @@ extension DCMTKQueryNode {
             if showErrorMessageValue && !_abortAssociation {
                 Self.postNotice(NSLocalizedString("Query Failed (2)", comment: ""), response)
             } else {
-                AppController.shared()?.notificationTitle(NSLocalizedString("Query Failed (2)", comment: ""), description: response, name: "autoquery")
+                Self.applicationNotices.notify(title: NSLocalizedString("Query Failed (2)", comment: ""), description: response, name: "autoquery")
             }
         }
         return result.condition
@@ -464,21 +483,19 @@ extension DCMTKQueryNode {
         for uid in failed.components(separatedBy: "\\") where !uid.isEmpty { inventory.recordPeerFailedUID(uid) }
     }
 
-    /// One C-MOVE, unless this node is already being moved.
+    /// The C-MOVE and C-GET operations under way in the process, by node.
+    static let retrieveOperations = RetrieveOperationsUnderWay()
+
+    /// One C-MOVE, unless this node is already being moved. Listed among the
+    /// moves while it runs, so that a new query does not let it go.
     private func cMove(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset, destination: String?) -> (any Error)? {
-        let moves = MoveManager.sharedManager() as? MoveManager
-        if moves?.containsMove(self) == true { return nil }
-        return moveSCU(on: association, identifier: identifier, destination: destination)
+        Self.retrieveOperations.run(for: self) { moveSCU(on: association, identifier: identifier, destination: destination) } ?? nil
     }
 
     private func moveSCU(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset, destination: String?) -> (any Error)? {
         guard association.acceptsAbstractSyntax(QueryRetrieveService.moveStudyRoot.rawValue) else {
             return IsiXDCMTKError.error(for: .noPresentationContext)
         }
-        // Listed among the moves, so that a new query does not let it go.
-        let moves = MoveManager.sharedManager() as? MoveManager
-        moves?.addMove(self)
-        defer { moves?.removeMove(self) }
         let requested = Self.requestedInstances(identifier)
         var progress = RetrieveProgress()
         let result = association.move(withIdentifier: identifier, destination: destination) { counted, accounted, finished in
@@ -518,11 +535,10 @@ extension DCMTKQueryNode {
         return result.condition
     }
 
-    /// One C-GET, unless this node is already being moved.
+    /// One C-GET, unless this node is already being moved; listed among the
+    /// moves while it runs.
     private func cGet(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset) -> (any Error)? {
-        let moves = MoveManager.sharedManager() as? MoveManager
-        if moves?.containsMove(self) == true { return nil }
-        return getSCU(on: association, identifier: identifier)
+        Self.retrieveOperations.run(for: self) { getSCU(on: association, identifier: identifier) } ?? nil
     }
 
     private func getSCU(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset) -> (any Error)? {
@@ -531,9 +547,6 @@ extension DCMTKQueryNode {
         guard association.acceptsAbstractSyntax(QueryRetrieveService.getStudyRoot.rawValue) else {
             return IsiXDCMTKError.error(for: .noPresentationContext)
         }
-        let moves = MoveManager.sharedManager() as? MoveManager
-        moves?.addMove(self)
-        defer { moves?.removeMove(self) }
         let requested = Self.requestedInstances(identifier)
         var progress = RetrieveProgress()
         let result = association.get(withIdentifier: identifier, storage: { SCPDatabaseSession(callingAETitle: $0) },
@@ -541,7 +554,7 @@ extension DCMTKQueryNode {
             reportRetrieveProgress(&progress, requested: requested, counted: counted, accounted: UInt(accounted), finished: UInt(finished))
         }, incoming: {
             // The stores land in the incoming folder, as the listener's do.
-            DicomDatabase.activeLocal()?.initiateImportFilesFromIncomingDirUnlessAlreadyImporting()
+            DatabaseIngest.process.requestImport()
         })
         let status = UInt(result.status), completed = UInt(result.completed), failed = UInt(result.failed)
         let warnings = UInt(result.warnings), remaining = UInt(result.remaining)

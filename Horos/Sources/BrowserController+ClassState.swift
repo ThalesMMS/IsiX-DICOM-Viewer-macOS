@@ -39,6 +39,7 @@
 
 import AppKit
 import IsiXDatabase
+import Synchronization
 
 // What the browser's class keeps for every instance and for the other
 // classes: the browser of the application, the moments of activity, the
@@ -49,7 +50,13 @@ import IsiXDatabase
 /// The former file-scope statics of the Objective-C class. Read and written as
 /// they were: the flags and menus on the main thread, the others from any.
 enum BrowserClassState {
-    nonisolated(unsafe) static var current: BrowserController?
+    /// The browser of the application, set once on the main thread and read
+    /// from any thread: behind a lock that covers only the reference.
+    private static let browser = Mutex<BrowserController?>(nil)
+    static var current: BrowserController? {
+        get { browser.withLock { $0 } }
+        set { browser.withLock { $0 = newValue } }
+    }
     nonisolated(unsafe) static var lastActivity: TimeInterval = 0
     nonisolated(unsafe) static var dontShowOpenSubSeries = false
     nonisolated(unsafe) static var horizontalHistory = false
@@ -68,10 +75,6 @@ enum BrowserClassState {
         formatter.numberStyle = .decimal
         return formatter
     }()
-
-    /// What the distant studies of a smart album are synchronized on: one
-    /// object for the life of the application.
-    nonisolated(unsafe) static let smartAlbumDistantArraySync = NSString(string: "smartAlbumDistantArraySync")
 }
 
 /// Makes the browser's database the active local database whenever the
@@ -214,8 +217,6 @@ extension BrowserController {
         set { BrowserClassState.statesArray = newValue.map { $0 as NSArray } }
     }
     nonisolated static var horos_decimalNumberFormatter: NumberFormatter { BrowserClassState.decimalNumberFormatter }
-    /// The same object at every read, which @synchronized needs.
-    nonisolated static var horos_smartAlbumDistantArraySync: NSString { BrowserClassState.smartAlbumDistantArraySync }
 
     /// The historical OsiriX Distributed Objects endpoint for SDK clients
     /// (BrowserController+CAPI.m).
@@ -235,7 +236,7 @@ extension BrowserController {
     }
 
     /// The literal the local copy thread synchronizes on, and the copy of
-    /// DicomDatabase+MediaCopy.swift (BrowserController+CAPI.m).
+    /// MediaImportJob.swift (BrowserController+CAPI.m).
     nonisolated static func horos_oneCopyAtATimeLock() -> NSObject! {
         return HorosBrowserOneCopyAtATimeLock()
     }

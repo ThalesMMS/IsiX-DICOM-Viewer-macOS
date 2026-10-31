@@ -40,6 +40,7 @@
 import AppKit
 import IsiXDICOMNetwork
 import IsiXDICOMFile
+import IsiXPreferences
 
 /// The filters of the window: dates, modalities, the birth date, and the
 /// presets that save and restore all of them. The rules are
@@ -67,7 +68,7 @@ extension QueryController {
         let reference = Date(timeIntervalSinceReferenceDate: 0)
         let criteria = QueryDateFilter.criteria(tag: tag, from: from ?? reference, to: to ?? reference,
                                                 now: Date(),
-                                                allowFutureQuery: UserDefaults.standard.bool(forKey: "DICOMQueryAllowFutureQuery"),
+                                                allowFutureQuery: PreferencesSource.process.preferences[NetworkPreferences.dicomQueryAllowsFutureQuery],
                                                 timeZone: NSTimeZone.default)
         if criteria.unknownTag {
             NSLog("******* unknown setDateQuery tag: %d", tag)
@@ -141,7 +142,7 @@ extension QueryController {
     @objc(getModalityQueryFilter:)
     public nonisolated func getModalityQueryFilter(_ modalityArray: [Any]!) -> QueryFilter! {
         let modalities = (modalityArray ?? []).map { String(describing: $0) }
-        let key = QueryModalityFilter.key(supportsModalitiesInStudy: UserDefaults.standard.bool(forKey: "SupportQRModalitiesinStudy"))
+        let key = QueryModalityFilter.key(supportsModalitiesInStudy: PreferencesSource.process.preferences[NetworkPreferences.supportsQRModalitiesInStudy])
         return QueryFilter(object: QueryModalityFilter.value(modalities), ofSearchType: QueryDateFilter.Match.exactMatch.rawValue, forKey: key)
     }
 
@@ -178,60 +179,56 @@ extension QueryController {
     /// `includeDICOMNodes`.
     @objc(savePresetInDictionaryWithDICOMNodes:)
     public func savePresetInDictionary(withDICOMNodes includeDICOMNodes: Bool) -> NSMutableDictionary! {
-        let presets = NSMutableDictionary()
+        return NSMutableDictionary(dictionary: windowFilters(withDICOMNodes: includeDICOMNodes).propertyList)
+    }
+
+    /// The filters of the window, with the checked nodes (or the selected
+    /// one) when `includeDICOMNodes`, and the retrieve settings of the
+    /// preferences.
+    func windowFilters(withDICOMNodes includeDICOMNodes: Bool) -> QueryWindowFilters {
+        var filters = QueryWindowFilters()
 
         if includeDICOMNodes {
-            var srcArray: [String] = []
-            var srcAETitleArray: [String] = []
-            for case let src as NSObject in sourcesArray where QueryController.bool(src.value(forKey: "activated")) {
-                srcArray.append((src.value(forKey: "AddressAndPort") as? String) ?? "")
-                srcAETitleArray.append((src.value(forKey: "AETitle") as? String) ?? "")
-            }
-
-            let selectedRow = sourcesTable?.selectedRow ?? -1
-            if srcArray.isEmpty && selectedRow >= 0 && selectedRow < sourcesArray.count {
-                let src = sourcesArray[selectedRow] as AnyObject
-                srcArray.append((src.value(forKey: "AddressAndPort") as? String) ?? "")
-                srcAETitleArray.append((src.value(forKey: "AETitle") as? String) ?? "")
-            }
-
-            presets["DICOMNodes"] = srcArray
-            presets["DICOMNodesAETitle"] = srcAETitleArray
+            var state = QueryWindowState()
+            state.sources = currentSources()
+            state.selectedSourceRow = sourcesTable?.selectedRow ?? -1
+            let checked = state.checkedNodes()
+            filters.nodes = checked.nodes
+            filters.nodeAETitles = checked.aeTitles
         }
 
-        presets["searchFieldName"] = searchFieldName.stringValue
-        presets["searchFieldRefPhysician"] = searchFieldRefPhysician.stringValue
-        presets["searchInstitutionName"] = searchInstitutionName.stringValue
-        presets["searchStatus"] = NSNumber(value: statusFilterMatrix.selectedTag())
-        presets["searchFieldID"] = searchFieldID.stringValue
-        presets["searchFieldAN"] = searchFieldAN.stringValue
-        presets["searchFieldStudyDescription"] = searchFieldStudyDescription.stringValue
-        presets["searchFieldComments"] = searchFieldComments.stringValue
-        presets["searchCustomField"] = searchCustomField.stringValue
-        presets["searchCustomFieldDICOM"] = dicomFieldsMenu.selectedItem?.title
+        filters.patientName = searchFieldName.stringValue
+        filters.referringPhysician = searchFieldRefPhysician.stringValue
+        filters.institutionName = searchInstitutionName.stringValue
+        filters.interpretationStatus = Int32(truncatingIfNeeded: statusFilterMatrix.selectedTag())
+        filters.patientID = searchFieldID.stringValue
+        filters.accessionNumber = searchFieldAN.stringValue
+        filters.studyDescription = searchFieldStudyDescription.stringValue
+        filters.studyComments = searchFieldComments.stringValue
+        filters.customField = searchCustomField.stringValue
+        filters.customFieldAttribute = dicomFieldsMenu.selectedItem?.title
 
-        presets["dateFilterMatrix"] = NSNumber(value: Int32(dateFilterMatrix.selectedTag()))
-        presets["birthdateFilterMatrix"] = NSNumber(value: Int32(birthdateFilterMatrix.selectedTag()))
+        filters.dateChoice = Int32(dateFilterMatrix.selectedTag())
+        filters.birthDateChoice = Int32(birthdateFilterMatrix.selectedTag())
 
-        presets["modalityStrings"] = chosenModalities()
+        filters.modalities = .titles(chosenModalities())
 
         let mode = PatientModeMatrix.selectedTabViewItem.map { PatientModeMatrix.indexOfTabViewItem($0) } ?? NSNotFound
-        presets["PatientModeMatrix"] = NSNumber(value: Int32(truncatingIfNeeded: mode))
+        filters.fieldIndex = Int32(truncatingIfNeeded: mode)
 
-        presets["fromDate"] = NSNumber(value: fromDate.dateValue.timeIntervalSinceReferenceDate)
-        presets["toDate"] = NSNumber(value: toDate.dateValue.timeIntervalSinceReferenceDate)
-        presets["searchBirth"] = NSNumber(value: searchBirth.dateValue.timeIntervalSinceReferenceDate)
+        filters.fromDate = fromDate.dateValue
+        filters.toDate = toDate.dateValue
+        filters.birthDate = searchBirth.dateValue
 
-        presets["autoRefreshQueryResults"] = NSNumber(value: Int32(truncatingIfNeeded: autoRefreshQueryResults))
+        filters.refreshSetting = Int32(truncatingIfNeeded: autoRefreshQueryResults)
 
-        let defaults = UserDefaults.standard
-        for key in ["autoRetrieving", "NumberOfPreviousStudyToRetrieve", "retrieveSameModality", "retrieveSameDescription"] {
-            if let value = defaults.object(forKey: key) {
-                presets[key] = value
+        for key in QueryWindowFilters.retrieveSettingKeys {
+            if let value = preferences.object(forKey: key.rawValue).flatMap(PropertyListValue.init) {
+                filters.retrieveSettings[key.rawValue] = value
             }
         }
 
-        return presets
+        return filters
     }
 
     /// The modalities of the former matrix, by row and column, for presets
@@ -243,13 +240,19 @@ extension QueryController {
     @objc(applyPresetDictionary:)
     public func applyPresetDictionary(_ presets: NSDictionary!) {
         guard let presets else { return }
+        applyFilters(QueryWindowFilters(propertyList: presets as? [String: Any] ?? [:]))
+    }
 
-        if let r = presets.value(forKey: "DICOMNodes") as? [String] {
-            let rAE = presets.value(forKey: "DICOMNodesAETitle") as? [String] ?? []
+    /// Shows `filters` in the window: the nodes it names are checked, and the
+    /// first of them selected; its retrieve settings go to the preferences.
+    func applyFilters(_ filters: QueryWindowFilters) {
+        if let r = filters.nodes {
+            let rAE = filters.nodeAETitles ?? []
 
             if !r.isEmpty {
                 willChangeValue(forKey: "sourcesArray")
 
+                let sources = currentSources()
                 for case let src as NSObject in sourcesArray {
                     src.setValue(NSNumber(value: false), forKey: "activated")
                 }
@@ -259,16 +262,13 @@ extension QueryController {
                 for (i, v) in r.enumerated() {
                     let ae: String? = i < rAE.count ? rAE[i] : nil
 
-                    for case let src as NSObject in sourcesArray {
-                        if (src.value(forKey: "AddressAndPort") as? String) == v && (ae == nil || ae == (src.value(forKey: "AETitle") as? String)) {
-                            src.setValue(NSNumber(value: true), forKey: "activated")
+                    for (index, source) in sources.enumerated() where source.addressAndPort == v && (ae == nil || ae == source.aeTitle) {
+                        (sourcesArray[index] as? NSObject)?.setValue(NSNumber(value: true), forKey: "activated")
 
-                            if first {
-                                first = false
-                                let index = sourcesArray.index(of: src)
-                                sourcesTable?.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
-                                sourcesTable?.scrollRowToVisible(index)
-                            }
+                        if first {
+                            first = false
+                            sourcesTable?.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+                            sourcesTable?.scrollRowToVisible(index)
                         }
                     }
                 }
@@ -277,43 +277,37 @@ extension QueryController {
             }
         }
 
-        if let refresh = presets.value(forKey: "autoRefreshQueryResults") {
-            autoRefreshQueryResults = Int(QueryController.int32(refresh))
+        if let refresh = filters.refreshSetting {
+            autoRefreshQueryResults = Int(refresh)
         }
 
-        let fields: [(String, NSSearchField?)] = [("searchFieldRefPhysician", searchFieldRefPhysician),
-                                                   ("searchInstitutionName", searchInstitutionName)]
-        for (key, field) in fields {
-            if let value = presets.value(forKey: key) as? String { field?.stringValue = value }
+        if let status = filters.interpretationStatus {
+            _ = statusFilterMatrix.selectCell(withTag: Int(status))
         }
 
-        if let status = presets.value(forKey: "searchStatus") {
-            _ = statusFilterMatrix.selectCell(withTag: Int(QueryController.int32(status)))
+        let fields: [(QueryWindowField, NSSearchField?)] = [(.referringPhysician, searchFieldRefPhysician), (.institutionName, searchInstitutionName),
+                                                            (.patientName, searchFieldName), (.patientID, searchFieldID),
+                                                            (.accessionNumber, searchFieldAN), (.studyDescription, searchFieldStudyDescription),
+                                                            (.studyComments, searchFieldComments), (.customField, searchCustomField)]
+        for (field, control) in fields {
+            if let value = filters.text(of: field) { control?.stringValue = value }
         }
 
-        let moreFields: [(String, NSSearchField?)] = [("searchFieldName", searchFieldName), ("searchFieldID", searchFieldID),
-                                                       ("searchFieldAN", searchFieldAN),
-                                                       ("searchFieldStudyDescription", searchFieldStudyDescription),
-                                                       ("searchFieldComments", searchFieldComments),
-                                                       ("searchCustomField", searchCustomField)]
-        for (key, field) in moreFields {
-            if let value = presets.value(forKey: key) as? String { field?.stringValue = value }
-        }
-
-        if let title = presets.value(forKey: "searchCustomFieldDICOM") as? String {
+        if let title = filters.customFieldAttribute {
             dicomFieldsMenu.selectItem(withTitle: title)
         }
 
-        _ = dateFilterMatrix.selectCell(withTag: Int(QueryController.int32(presets.value(forKey: "dateFilterMatrix"))))
-        _ = birthdateFilterMatrix.selectCell(withTag: Int(QueryController.int32(presets.value(forKey: "birthdateFilterMatrix"))))
+        _ = dateFilterMatrix.selectCell(withTag: Int(filters.dateChoice))
+        _ = birthdateFilterMatrix.selectCell(withTag: Int(filters.birthDateChoice))
 
         modalityFilterMatrix.deselectAllCells()
 
-        if let modalities = presets.value(forKey: "modalityStrings") as? [String] {
+        switch filters.modalities {
+        case .titles(let modalities):
             for cell in modalityFilterMatrix.cells where modalities.contains(cell.title) {
                 cell.state = .on
             }
-        } else if let s = presets.value(forKey: "modalityFilterMatrixString") as? String { // Backward compatibility
+        case .formerCells(let s): // Backward compatibility
             let scan = Scanner(string: s)
             while let row = scan.scanInt(), let col = scan.scanInt() {
                 if row >= 0 && row < 7 && col >= 0 && col < 3 {
@@ -322,18 +316,20 @@ extension QueryController {
                     }
                 }
             }
-        } else if let row = presets.value(forKey: "modalityFilterMatrixRow"), let column = presets.value(forKey: "modalityFilterMatrixColumn") { // Backward compatibility
-            modalityFilterMatrix.selectCell(atRow: Int(QueryController.int32(row)), column: Int(QueryController.int32(column)))
+        case .formerCell(let row, let column): // Backward compatibility
+            modalityFilterMatrix.selectCell(atRow: Int(row), column: Int(column))
+        case .none:
+            break
         }
 
-        let mode = Int(QueryController.int32(presets.value(forKey: "PatientModeMatrix")))
+        let mode = Int(filters.fieldIndex)
         if mode >= 0 && mode < PatientModeMatrix.numberOfTabViewItems {
             PatientModeMatrix.selectTabViewItem(at: mode)
         }
 
-        fromDate.dateValue = Date(timeIntervalSinceReferenceDate: QueryController.double(presets.value(forKey: "fromDate")))
-        toDate.dateValue = Date(timeIntervalSinceReferenceDate: QueryController.double(presets.value(forKey: "toDate")))
-        searchBirth.dateValue = Date(timeIntervalSinceReferenceDate: QueryController.double(presets.value(forKey: "searchBirth")))
+        fromDate.dateValue = filters.fromDate
+        toDate.dateValue = filters.toDate
+        searchBirth.dateValue = filters.birthDate
 
         if let selected = PatientModeMatrix.selectedTabViewItem {
             switch PatientModeMatrix.indexOfTabViewItem(selected) {
@@ -350,10 +346,9 @@ extension QueryController {
             }
         }
 
-        let defaults = UserDefaults.standard
-        for key in ["autoRetrieving", "NumberOfPreviousStudyToRetrieve", "retrieveSameModality", "retrieveSameDescription"] {
-            if let value = presets.object(forKey: key) {
-                defaults.set(value, forKey: key)
+        for key in QueryWindowFilters.retrieveSettingKeys {
+            if let value = filters.retrieveSettings[key.rawValue] {
+                preferences.set(value.object, forKey: key.rawValue)
             }
         }
         captureWindowState()
@@ -369,13 +364,13 @@ extension QueryController {
                                            message: String(format: NSLocalizedString("Are you sure you want to delete the selected Preset (%@)?", comment: ""), title),
                                            defaultButton: NSLocalizedString("OK", comment: ""),
                                            alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil) == HorosAlertDefaultResponse {
-                let m = NSMutableDictionary(dictionary: UserDefaults.standard.dictionary(forKey: "QRPresets") ?? [:])
-                m.removeObject(forKey: title)
-                UserDefaults.standard.set(m, forKey: "QRPresets")
+                var presets = preferences[NetworkPreferences.queryPresets] ?? [:]
+                presets[title] = nil
+                preferences.set(presets, for: NetworkPreferences.queryPresets)
                 buildPresetsMenu()
             }
-        } else if let presets = UserDefaults.standard.dictionary(forKey: "QRPresets")?[title] as? NSDictionary {
-            applyPresetDictionary(presets)
+        } else if case .dictionary(let preset)? = preferences[NetworkPreferences.queryPresets]?[title] {
+            applyFilters(QueryWindowFilters(propertyList: preset.mapValues(\.object)))
         }
     }
 
@@ -390,7 +385,7 @@ extension QueryController {
 
         menu.addItem(withTitle: "", action: nil, keyEquivalent: "")
 
-        let savedPresets = UserDefaults.standard.dictionary(forKey: "QRPresets") ?? [:]
+        let savedPresets = preferences[NetworkPreferences.queryPresets] ?? [:]
 
         menu.addItem(withTitle: NSLocalizedString("Empty Preset", comment: ""), action: #selector(emptyPreset(_:)), keyEquivalent: "")
         menu.addItem(NSMenuItem.separator())
@@ -398,8 +393,9 @@ extension QueryController {
         if savedPresets.isEmpty {
             menu.addItem(withTitle: NSLocalizedString("No Presets Saved", comment: ""), action: nil, keyEquivalent: "").isEnabled = false
         } else {
-            for key in (Array(savedPresets.keys) as NSArray).sortedArray(using: #selector(NSString.compare(_:))) {
-                menu.addItem(withTitle: (key as? String) ?? "", action: #selector(applyPreset(_:)), keyEquivalent: "")
+            // In the order of NSString's compare:, with no options.
+            for key in savedPresets.keys.sorted(by: { $0.compare($1) == .orderedAscending }) {
+                menu.addItem(withTitle: key, action: #selector(applyPreset(_:)), keyEquivalent: "")
             }
         }
 
@@ -423,11 +419,11 @@ extension QueryController {
                 return
             }
 
-            let savedPresets = UserDefaults.standard.dictionary(forKey: "QRPresets") ?? [:]
+            let savedPresets = preferences[NetworkPreferences.queryPresets] ?? [:]
 
             var psName = presetName.stringValue
 
-            let includeDICOMNodes = UserDefaults.standard.bool(forKey: "includeDICOMNodes")
+            let includeDICOMNodes = preferences[NetworkPreferences.queryPresetsIncludeDICOMNodes]
             if includeDICOMNodes {
                 psName += NSLocalizedString(" & DICOM Nodes", comment: "")
             }
@@ -441,12 +437,11 @@ extension QueryController {
                 }
             }
 
-            let presets = savePresetInDictionary(withDICOMNodes: includeDICOMNodes)
+            var presets = savedPresets
+            presets[psName] = PropertyListValue.dictionary(windowFilters(withDICOMNodes: includeDICOMNodes).propertyList)
+                .map(PropertyListValue.dictionary)
 
-            let m = NSMutableDictionary(dictionary: savedPresets)
-            m[psName] = presets
-
-            UserDefaults.standard.set(m, forKey: "QRPresets")
+            preferences.set(presets, for: NetworkPreferences.queryPresets)
 
             buildPresetsMenu()
         }

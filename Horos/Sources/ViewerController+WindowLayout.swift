@@ -39,12 +39,15 @@
 
 import AppKit
 import IsiXImaging
+import IsiXPreferences
 
 // The window of a 2D viewer in the layout of the viewers: a new viewer's
 // window, the tiling of the windows (and the tiling menu, which opens or
 // closes viewers to fill it), the frame the tiling gives a window and the
-// zoom button's frame. The arithmetic is IsiXImaging's ViewerWindowFrame. The
-// selectors are those of the former Objective-C methods.
+// zoom button's frame. The selectors are those of the former Objective-C
+// methods, a façade over ViewerWindowPlacement; the windows are arranged by
+// the process's ViewerWindowArranger, and the arithmetic of the frames is
+// IsiXImaging's ViewerWindowFrame.
 
 public extension ViewerController {
 
@@ -55,22 +58,9 @@ public extension ViewerController {
     class func newWindow(_ f: NSMutableArray!, _ d: NSMutableArray!, _ v: NSData!, frame: NSRect) -> ViewerController! {
         // [[ViewerController alloc] initWithPix:...]: the +1 of alloc is the
         // caller's, as before (the viewer releases itself when it closes).
-        let win = makeViewer(f, d, v)
-
-        win.showWindowTransition()
-        win.startLoadImageThread() // Start async reading of all images
-
-        if !(frame.size.width <= 0 || frame.size.height <= 0) {
-            win.window?.setFrame(frame, display: false)
-        }
-
-        if UserDefaults.standard.bool(forKey: "AUTOTILING") {
-            AppController.shared()?.tileWindows(nil)
-        } else {
-            AppController.shared()?.checkAllWindowsAreVisible(nil, makeKey: true)
-        }
-
-        return win
+        let viewer = makeViewer(f, d, v)
+        ViewerWindowPlacement.show(newViewer: viewer, frame: frame, processGraph: processGraph)
+        return viewer
     }
 
     @objc(newWindow:::)
@@ -85,7 +75,7 @@ public extension ViewerController {
 
     @objc(tileWindows)
     func tileWindows() {
-        AppController.shared()?.tileWindows(nil)
+        sessionGraph.processGraph.appController?.windowArranger.tileWindows(nil)
     }
 
     /// The tiling menu (tag rows × 10 + columns, the columns on each viewer
@@ -93,76 +83,7 @@ public extension ViewerController {
     /// the study (or this one again) into the places left, and tiles.
     @objc(SetWindowsTiling:)
     func setWindowsTiling(_ menu: NSPopUpButton!) {
-        let selectedTag = menu?.selectedTag() ?? 0
-        let (rows, columns) = ViewerWindowFrame.tiling(tag: selectedTag, screens: AppController.shared()?.viewerScreens()?.count ?? 0)
-        let places = Int(rows &* columns)
-
-        let displayedViewersCount = ViewerController.getDisplayed2DViewers()?.count ?? 0
-
-        let defaults = UserDefaults.standard
-        let autoTiling = defaults.bool(forKey: "AUTOTILING")
-        defaults.set(false, forKey: "AUTOTILING")
-
-        if displayedViewersCount > places {
-            while (ViewerController.getDisplayed2DViewers()?.count ?? 0) > places {
-                let displayed = ViewerController.getDisplayed2DViewers()!
-                if (displayed.lastObject as AnyObject?) !== self {
-                    (displayed.lastObject as? ViewerController)?.window?.close()
-                } else if (displayed.object(at: 0) as AnyObject) !== self {
-                    (displayed.object(at: 0) as? ViewerController)?.window?.close()
-                }
-            }
-        }
-
-        if displayedViewersCount < places {
-            let browser = BrowserController.currentBrowser()
-            browser?.displayWaitWindowIfNecessary()
-
-            let seriesArray = NSMutableArray(array: currentStudy()?.imageSeriesContainingPixels(true) ?? [])
-            var index = horos_imageView?.seriesObj().map { seriesArray.index(of: $0) } ?? NSNotFound
-            if index == NSNotFound { index = 0 }
-
-            // Leaves out the series already displayed.
-            for case let viewer as ViewerController in (ViewerController.get2DViewers() as NSArray? ?? []) {
-                guard let objectID = viewer.currentSeries()?.objectID else { continue }
-                let seriesIndex = (seriesArray.value(forKey: "objectID") as! NSArray).index(of: objectID)
-                if seriesIndex != NSNotFound { seriesArray.removeObject(at: seriesIndex) }
-            }
-            for _ in displayedViewersCount..<places {
-                var newViewer: ViewerController?
-                if seriesArray.count > 0 {
-                    index += 1
-                    if index >= seriesArray.count { index = 0 }
-
-                    newViewer = browser?.loadSeries(seriesArray.object(at: index) as? NSManagedObject, nil, true, keyImagesOnly: false)
-
-                    seriesArray.removeObject(at: index)
-                } else {
-                    newViewer = browser?.loadSeries(horos_imageView?.seriesObj(), nil, true, keyImagesOnly: false) // Duplicate existing
-                }
-                newViewer?.showCurrentThumbnail(self)
-            }
-
-            browser?.closeWaitWindowIfNecessary()
-
-            for i in 0..<NSScreen.screens.count {
-                AppControllerCAPIThumbnailsListPanel(i)?.setThumbnailsView(nil, viewer: nil)
-            }
-            window?.makeKeyAndOrderFront(self)
-            refreshToolbar()
-            updateNavigator()
-        }
-
-        if delayedTileWindows != 0 {
-            NSObject.cancelPreviousPerformRequests(withTarget: AppController.shared() as Any, selector: #selector(AppController.tileWindows(_:)), object: nil)
-        }
-        delayedTileWindows = 1
-
-        AppController.shared()?.perform(#selector(AppController.tileWindows(_:)),
-                                         with: NSDictionary(objects: [NSNumber(value: rows), NSNumber(value: columns)], forKeys: ["rows" as NSString, "columns" as NSString]),
-                                         afterDelay: 0.1)
-
-        defaults.set(autoTiling, forKey: "AUTOTILING")
+        ViewerWindowPlacement(viewer: self, processGraph: sessionGraph.processGraph).fillTiling(tag: menu?.selectedTag() ?? 0)
     }
 
     /// The zoom button: the usable rect of the screen, or back to the standard
@@ -184,40 +105,7 @@ public extension ViewerController {
     /// magnetic windows do not react to it.
     @objc(setWindowFrame:showWindow:animate:)
     func setWindowFrame(_ rect: NSRect, showWindow: Bool, animate: Bool) {
-        let window = self.window
-        let curRect = window?.frame ?? .zero
-        let wasAlreadyVisible = window?.isVisible ?? false
-
-        // To avoid the use of WindowDidMove function - Magnetic windows
-        OSIWindowController.setDontEnterMagneticFunctions(true)
-
-        let change = ViewerWindowFrame.change(from: curRect, to: rect, animate: animate)
-
-        setStandardRect(change.frame)
-
-        if !change.identical {
-            if showWindow && wasAlreadyVisible {
-                window?.orderFront(self)
-            }
-
-            if change.animate && wasAlreadyVisible {
-                AppController.resizeWindow(withAnimation: window, newSize: change.frame)
-            } else {
-                window?.setFrame(change.frame, display: false)
-            }
-
-            if showWindow && !wasAlreadyVisible {
-                window?.orderFront(self)
-            }
-        } else {
-            if !NSEqualRects(curRect, change.frame) {
-                window?.setFrame(change.frame, display: false)
-            }
-
-            if showWindow { window?.orderFront(self) }
-        }
-
-        OSIWindowController.setDontEnterMagneticFunctions(false)
+        ViewerWindowPlacement(viewer: self, processGraph: sessionGraph.processGraph).setFrame(rect, show: showWindow, animate: animate)
     }
 
     @objc(setWindowFrame:showWindow:)
@@ -228,6 +116,149 @@ public extension ViewerController {
     @objc(setWindowFrame:)
     func setWindowFrame(_ rect: NSRect) {
         setWindowFrame(rect, showWindow: true)
+    }
+}
+
+/// The window of a 2D viewer among the others, made for one call: holds the
+/// viewer strongly, and reaches the arrangement of the windows, the database
+/// window and the preferences through the process graph.
+@MainActor struct ViewerWindowPlacement {
+    let viewer: ViewerController
+    let processGraph: ProcessGraph
+
+    /// Shows a new viewer, starts loading its images, gives it `frame`
+    /// (unless empty) and tiles the windows, or brings them on screen unless
+    /// the application has that switched off.
+    static func show(newViewer viewer: ViewerController, frame: NSRect, processGraph: ProcessGraph) {
+        viewer.showWindowTransition()
+        viewer.startLoadImageThread() // Start async reading of all images
+
+        if !(frame.size.width <= 0 || frame.size.height <= 0) {
+            viewer.window?.setFrame(frame, display: false)
+        }
+
+        if let application = processGraph.appController {
+            if processGraph.preferences[ViewerPreferences.autoTiling] {
+                application.windowArranger.tileWindows(nil)
+            } else if !application.checkAllWindowsAreVisibleIsOff {
+                application.windowArranger.bringViewersToFront(makeKey: true)
+            }
+        }
+    }
+
+    /// The tiling menu's item `tag` (rows × 10 + columns, the columns on each
+    /// viewer screen): closes the viewers beyond the tiling, opens the next
+    /// series of the study (or this one again) into the places left, and
+    /// tiles a moment later, AUTOTILING off meanwhile.
+    func fillTiling(tag: Int) {
+        let arranger = processGraph.appController?.windowArranger
+        let (rows, columns) = ViewerWindowFrame.tiling(tag: tag, screens: arranger?.viewerScreens().count ?? 0)
+        let places = Int(rows &* columns)
+
+        let registry = processGraph.viewerRegistry
+        let displayedViewersCount = registry.displayedViewers.count
+
+        let preferences = processGraph.preferences
+        let autoTiling = preferences[ViewerPreferences.autoTiling]
+        preferences.set(false, for: ViewerPreferences.autoTiling)
+
+        if displayedViewersCount > places {
+            while registry.displayedViewers.count > places {
+                let displayed = registry.displayedViewers
+                if displayed.last !== viewer {
+                    displayed.last?.window?.close()
+                } else if displayed.first !== viewer {
+                    displayed.first?.window?.close()
+                }
+            }
+        }
+
+        if displayedViewersCount < places {
+            open(places - displayedViewersCount)
+        }
+
+        arranger?.scheduleTiling(ViewerTilingLayout.Request(rows: rows, columns: columns), after: 0.1)
+
+        preferences.set(autoTiling, for: ViewerPreferences.autoTiling)
+    }
+
+    /// Opens `count` viewers of the next series of the study that no viewer
+    /// shows, or of this viewer's series again when there are none left.
+    private func open(_ count: Int) {
+        let browser = processGraph.currentBrowser
+        browser?.displayWaitWindowIfNecessary()
+
+        var seriesList: [NSManagedObject] = (viewer.currentStudy()?.imageSeriesContainingPixels(true) ?? []).compactMap { $0 as? NSManagedObject }
+        var index = viewer.horos_imageView?.seriesObj().flatMap { shown in seriesList.firstIndex { $0 === shown } } ?? 0
+
+        // Leaves out the series already displayed.
+        for other in processGraph.viewerRegistry.viewers ?? [] {
+            guard let objectID = other.currentSeries()?.objectID else { continue }
+            if let shown = seriesList.firstIndex(where: { $0.objectID == objectID }) { seriesList.remove(at: shown) }
+        }
+        for _ in 0..<count {
+            var newViewer: ViewerController?
+            if !seriesList.isEmpty {
+                index += 1
+                if index >= seriesList.count { index = 0 }
+
+                newViewer = browser?.loadSeries(seriesList[index], nil, true, keyImagesOnly: false)
+
+                seriesList.remove(at: index)
+            } else {
+                newViewer = browser?.loadSeries(viewer.horos_imageView?.seriesObj(), nil, true, keyImagesOnly: false) // Duplicate existing
+            }
+            newViewer?.showCurrentThumbnail(viewer)
+        }
+
+        browser?.closeWaitWindowIfNecessary()
+
+        for i in 0..<NSScreen.screens.count {
+            AppControllerCAPIThumbnailsListPanel(i)?.setThumbnailsView(nil, viewer: nil)
+        }
+        viewer.window?.makeKeyAndOrderFront(viewer)
+        viewer.refreshToolbar()
+        viewer.updateNavigator()
+    }
+
+    /// Gives the window `rect` (to whole points), shown if `show`, and
+    /// animated if `animate` and the move is large enough to show; the
+    /// magnetic windows do not react to it.
+    func setFrame(_ rect: NSRect, show: Bool, animate: Bool) {
+        let window = viewer.window
+        let curRect = window?.frame ?? .zero
+        let wasAlreadyVisible = window?.isVisible ?? false
+
+        // To avoid the use of WindowDidMove function - Magnetic windows
+        OSIWindowController.setDontEnterMagneticFunctions(true)
+
+        let change = ViewerWindowFrame.change(from: curRect, to: rect, animate: animate)
+
+        viewer.setStandardRect(change.frame)
+
+        if !change.identical {
+            if show && wasAlreadyVisible {
+                window?.orderFront(viewer)
+            }
+
+            if change.animate && wasAlreadyVisible {
+                AppController.resizeWindow(withAnimation: window, newSize: change.frame)
+            } else {
+                window?.setFrame(change.frame, display: false)
+            }
+
+            if show && !wasAlreadyVisible {
+                window?.orderFront(viewer)
+            }
+        } else {
+            if !NSEqualRects(curRect, change.frame) {
+                window?.setFrame(change.frame, display: false)
+            }
+
+            if show { window?.orderFront(viewer) }
+        }
+
+        OSIWindowController.setDontEnterMagneticFunctions(false)
     }
 }
 

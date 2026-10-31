@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXDICOMNetwork
 
 /// What a shared-database request may reach on the computer that shares.
 ///
@@ -81,12 +82,12 @@ public final class SharedDatabaseRequests: NSObject {
     /// `DBSIZ` answers in four bytes, which the client reads unsigned. An index of
     /// 4 GiB or more cannot be described in them: the answer is then
     /// `indexTooLargeForReply`, which the client refuses by name, instead of the
-    /// size wrapped around.
-    @objc public static let indexTooLargeForReply = UInt32.max
+    /// size wrapped around (SharedDatabaseReply).
+    @objc public static let indexTooLargeForReply = SharedDatabaseReply.indexTooLargeForReply
 
     @objc(replyForIndexSize:)
     public class func reply(forIndexSize size: UInt64) -> UInt32 {
-        size >= UInt64(UInt32.max) ? indexTooLargeForReply : UInt32(size)
+        SharedDatabaseReply.indexSizeValue(size)
     }
 }
 

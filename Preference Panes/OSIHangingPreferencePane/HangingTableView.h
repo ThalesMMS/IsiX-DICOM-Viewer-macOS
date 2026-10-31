@@ -37,7 +37,7 @@
      PURPOSE.
 =========================================================================*/
 
-// HangingTableView is implemented in Swift since #711
+// HangingTableView is implemented in Swift
 // (OSIHangingPreferencePane/HangingTableView.swift). This header keeps its name for the
 // Objective-C that imports it: it brings in the generated interface, which declares the
 // same class name and selectors. The class the application compiled was the one in the

@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Foundation
+import IsiXPreferences
 
 // Compressing and decompressing files through the Decompress service, which
 // the application drives a list at a time: what the Decompress helper did
@@ -73,11 +74,18 @@ public enum DecompressConversion {
         public init() {}
     }
 
-    /// The settings a conversion reads, from the application's preferences.
-    public static func settings(from defaults: UserDefaults) -> NSDictionary {
+    /// The keys of the catalog a conversion reads, the ones the service is told.
+    static let settingsKeys: [any CataloguedPreference] = [DatabasePreferences.compressionSettings,
+                                                           DatabasePreferences.compressionSettingsLowRes,
+                                                           DatabasePreferences.compressionResolutionLimit,
+                                                           DatabasePreferences.useJPEGColorSpace]
+
+    /// The settings a conversion reads, from the application's preferences,
+    /// each as it is stored.
+    public static func settings(from defaults: any PreferenceStore) -> NSDictionary {
         let settings = NSMutableDictionary()
-        for key in DecompressService.settingsKeys {
-            if let value = defaults.object(forKey: key) { settings[key] = value }
+        for key in settingsKeys {
+            if let value = defaults.object(forKey: key.name) { settings[key.name] = value }
         }
         return settings
     }

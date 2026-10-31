@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import process_graph_stand_in  # the source reads the preferences through the process graph
 
 root = Path(__file__).resolve().parents[1]
 helper = root / 'Horos/Sources/CloudFileAccess.swift'
@@ -75,7 +76,7 @@ with tempfile.TemporaryDirectory(prefix='horos-onedrive-copy-') as directory:
     library = folder / 'libCloudFileAccess.dylib'
     built_swift = subprocess.run(
         ['xcrun', '--sdk', 'macosx', 'swiftc', '-emit-library', '-o', str(library),
-         '-module-name', 'Horos', str(helper)],
+         '-module-name', 'Horos', *process_graph_stand_in.swift_flags(folder / 'isix'), str(helper)],
         capture_output=True, text=True)
     if built_swift.returncode != 0:
         print('FAIL: CloudFileAccess library did not compile:\n%s' % built_swift.stderr[-2000:])

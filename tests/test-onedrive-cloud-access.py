@@ -6,6 +6,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import process_graph_stand_in  # the source reads the preferences through the process graph
 from sources import source_path
 
 root = Path(__file__).resolve().parents[1]
@@ -17,11 +18,11 @@ detector = source_path('ICloudDriveDetector')
 first_use = root / 'Horos/Sources/DatabaseFirstUse.swift'
 # The media copy is Swift; it copies through DicomDatabase's Objective-C
 # wrapper of the publication copy helper (DicomDatabase+CAPI.m).
-database = root / 'Horos/Sources/DicomDatabase+MediaCopy.swift'
+database = root / 'Horos/Sources/MediaImportJob.swift'
 database_capi = root / 'Horos/Sources/DicomDatabase+CAPI.m'
-# The DICOM export is Swift; it copies through the browser's Objective-C
+# The DICOM export is Swift (DICOMFolderExport); it copies through the browser's Objective-C
 # wrapper of the publication copy helper (BrowserController+CAPI.m).
-export = root / 'Horos/Sources/BrowserController+DICOMExport.swift'
+export = root / 'Horos/Sources/DICOMFolderExport.swift'
 browser = root / 'Horos/Sources/BrowserController+CAPI.m'
 project = root / 'Horos.xcodeproj/project.pbxproj'
 
@@ -75,19 +76,30 @@ emit("sparse", CloudFileAccess.presence(ofPath: sparse.path))
 emit("offline", CloudFileAccess.presence(ofPath: offline.path))
 emit("missing", CloudFileAccess.presence(ofPath: missing.path))
 
+// -prepareCopyFromPath:toPath:error:, which Swift calls as a throwing method.
+func prepare(_ source: String, _ destination: String, _ error: inout NSError?) -> Bool {
+    do {
+        try CloudFileAccess.prepareCopy(fromPath: source, toPath: destination)
+        return true
+    } catch let failure as NSError {
+        error = failure
+        return false
+    }
+}
+
 var error: NSError?
 let destLocal = root.appendingPathComponent("out-local.dcm")
-emit("prep-local", CloudFileAccess.prepareCopy(fromPath: local.path, toPath: destLocal.path, error: &error) ? "yes" : "no")
+emit("prep-local", prepare(local.path, destLocal.path, &error) ? "yes" : "no")
 emit("prep-local-error", error?.localizedDescription ?? "")
 
 error = nil
 let destHydrated = root.appendingPathComponent("out-hydrated.dcm")
-emit("prep-hydrated", CloudFileAccess.prepareCopy(fromPath: hydrated.path, toPath: destHydrated.path, error: &error) ? "yes" : "no")
+emit("prep-hydrated", prepare(hydrated.path, destHydrated.path, &error) ? "yes" : "no")
 emit("prep-hydrated-error", error?.localizedDescription ?? "")
 
 error = nil
 let destPlaceholder = root.appendingPathComponent("out-placeholder.dcm")
-let placeholderOK = CloudFileAccess.prepareCopy(fromPath: placeholder.path, toPath: destPlaceholder.path, error: &error)
+let placeholderOK = prepare(placeholder.path, destPlaceholder.path, &error)
 emit("prep-placeholder", placeholderOK ? "yes" : "no")
 emit("prep-placeholder-error", error?.localizedDescription ?? "")
 emit("prep-placeholder-code", String(error?.code ?? -1))
@@ -96,7 +108,7 @@ emit("placeholder-source", (try? Data(contentsOf: placeholder)) == Data("placeho
 
 error = nil
 let destOffline = root.appendingPathComponent("out-offline.dcm")
-let offlineOK = CloudFileAccess.prepareCopy(fromPath: offline.path, toPath: destOffline.path, error: &error)
+let offlineOK = prepare(offline.path, destOffline.path, &error)
 emit("prep-offline", offlineOK ? "yes" : "no")
 emit("prep-offline-error", error?.localizedDescription ?? "")
 emit("offline-dest", manager.fileExists(atPath: destOffline.path) ? "exists" : "absent")
@@ -119,7 +131,7 @@ else:
         binary = Path(directory) / 'access'
         built = subprocess.run(
             ['xcrun', '--sdk', 'macosx', 'swiftc', '-o', str(binary),
-             str(helper), str(Path(directory) / 'main.swift')],
+             *process_graph_stand_in.swift_flags(Path(directory) / 'isix'), str(helper), str(Path(directory) / 'main.swift')],
             capture_output=True, text=True)
         if built.returncode != 0:
             failures.append('CloudFileAccess does not compile:\n%s' % built.stderr[-2000:])

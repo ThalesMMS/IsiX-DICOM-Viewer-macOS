@@ -14,19 +14,7 @@ extension ViewerController {
     /// The SEG Surfaces panel of the viewer's volume, made on the first request.
     @IBAction @objc(showSEGSurfaces:)
     func showSEGSurfaces(_ sender: Any?) {
-        guard let volume = horosVolumeSession(), !volume.isStale else { return }
-        var controller = objc_getAssociatedObject(self, &SEGSurfaceController.controllerKey) as? SEGSurfaceController
-        if let existing = controller, !existing.uses(volume) {
-            existing.sourceClosed(nil)
-            controller = nil
-        }
-        if controller == nil {
-            let made = SEGSurfaceController(viewer: self, volume: volume)
-            objc_setAssociatedObject(self, &SEGSurfaceController.controllerKey, made, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-            controller = made
-        }
-        controller?.showWindow(sender)
-        controller?.window?.makeKeyAndOrderFront(sender)
+        SEGSurfaceController.show(for: self, sender: sender)
     }
 }
 
@@ -38,8 +26,27 @@ extension ViewerController {
 /// over the viewer's 2D views. The meshes are VTK actors of the adapter.
 @objc(HorosSEGSurfaceController)
 final class SEGSurfaceController: NSWindowController, NSTableViewDataSource, NSTableViewDelegate {
-    nonisolated(unsafe) static var sessionKey: UInt8 = 0
-    nonisolated(unsafe) static var controllerKey: UInt8 = 0
+    /// The keys of the session a volume keeps and of the panel a viewer keeps.
+    private static let sessionKey = IdentityToken()
+    private static let controllerKey = IdentityToken()
+
+    /// Shows the panel of the viewer's volume, made on the first request and
+    /// made again when the viewer shows another volume.
+    static func show(for viewer: ViewerController, sender: Any?) {
+        guard let volume = viewer.horosVolumeSession(), !volume.isStale else { return }
+        var controller = objc_getAssociatedObject(viewer, controllerKey.key) as? SEGSurfaceController
+        if let existing = controller, !existing.uses(volume) {
+            existing.sourceClosed(nil)
+            controller = nil
+        }
+        if controller == nil {
+            let made = SEGSurfaceController(viewer: viewer, volume: volume)
+            objc_setAssociatedObject(viewer, controllerKey.key, made, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            controller = made
+        }
+        controller?.showWindow(sender)
+        controller?.window?.makeKeyAndOrderFront(sender)
+    }
 
     /// The owner, cleared by its close notification.
     private weak var viewer: ViewerController?
@@ -65,7 +72,7 @@ final class SEGSurfaceController: NSWindowController, NSTableViewDataSource, NST
                               styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         self.viewer = viewer
         self.volume = volume
-        if let existing = objc_getAssociatedObject(volume, &SEGSurfaceController.sessionKey) as? SEGViewerSession {
+        if let existing = objc_getAssociatedObject(volume, SEGSurfaceController.sessionKey.key) as? SEGViewerSession {
             session = existing
         } else {
             var references: [SEGSourceFrame] = []
@@ -78,7 +85,7 @@ final class SEGSurfaceController: NSWindowController, NSTableViewDataSource, NST
                 }
             }
             session = SEGViewerSession(volume: volume, sourceFrames: references)
-            objc_setAssociatedObject(volume, &SEGSurfaceController.sessionKey, session, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            objc_setAssociatedObject(volume, SEGSurfaceController.sessionKey.key, session, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         }
         table = NSTableView(frame: .zero)
         nameField = NSTextField(frame: NSRect(x: 10, y: 200, width: 255, height: 26))
@@ -174,8 +181,8 @@ final class SEGSurfaceController: NSWindowController, NSTableViewDataSource, NST
             window?.close()
             // Also release the view's bindings when the panel was already closed.
             surfaceView.prepareForRelease()
-            objc_setAssociatedObject(volume, &SEGSurfaceController.sessionKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-            objc_setAssociatedObject(viewer, &SEGSurfaceController.controllerKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            objc_setAssociatedObject(volume, SEGSurfaceController.sessionKey.key, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            objc_setAssociatedObject(viewer, SEGSurfaceController.controllerKey.key, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             self.viewer = nil
         }
     }

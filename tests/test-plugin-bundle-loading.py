@@ -2,22 +2,32 @@
 """Run the production plugin loader entry against disposable plugin bundles.
 
 PluginManager is Swift. The shipped +loadPluginAtPath:, which discovery and
---LoadPlugin call for every bundle, +loadIsiXPluginAtPath: and
+--LoadPlugin call for every bundle, the loader of the plugins made for Horos or
+OsiriX (+loadPluginBundle:, +loadHorosPluginAtPath:, +loadOsiriXPluginAtPath:
+and the registration by the bundle's declaration), +loadIsiXPluginAtPath: and
 +isPluginBundleSignatureValid: are compiled with the registry and Objective-C
 messaging helpers of PluginManager.swift, IsiXPluginLoading's sources,
-PluginManager+CAPI.m (load outcomes, signature), HorosObjCException and
-IsiXPluginExceptionGuard. Only IsiXPluginHost, which runs a version 1 plugin,
-is a stand-in that inspects the bundle and reports what the real host would,
-without loading it, or lets an Objective-C or C++ exception escape, as a
-bundle's initializers can.
+PluginManager+CAPI.m (load outcomes, signature, bundle loading),
+HorosObjCException and IsiXPluginExceptionGuard. Only IsiXPluginHost, which
+runs a version 1 plugin, is a stand-in that inspects the bundle and reports
+what the real host would, without loading it, or lets an Objective-C or C++
+exception escape, as a bundle's initializers can.
 
-- A former plugin (.horosplugin, .osirixplugin) is recorded as Incompatible
-  with its reason; no loader is reached, none of its code runs, its name does
-  not count as a duplicate, and nothing in its bundle changes.
+- A former plugin (.horosplugin, .osirixplugin) is loaded as it is: its
+  principal class's +filter is registered under its menu title, and its
+  -filterImage: runs. Protected mode and a broken signature block it before
+  its bundle opens; one for another architecture is Incompatible with that
+  reason before its bundle opens; a missing principal class is Incompatible;
+  an exception raised by +filter is Load failed with its reason; a plugin
+  whose SDK framework is missing (the application provides them; this test
+  does not) is Load failed, with nothing registered; one whose binary looks
+  for a symbol the application lacks is Load failed, and its reason and the
+  log line give dyld's reason, which names the symbol.
 - Protected mode and a broken signature block a version 1 plugin before the
-  host sees it; a duplicate name is blocked with an alert.
+  host sees it; a duplicate name is blocked with an alert, across formats too.
 - The host's outcome is recorded: Loaded, or Incompatible with the inspector's
-  reason, as for a former plugin renamed to .isixplugin.
+  reason, as for a former plugin renamed to .isixplugin, which is never tried
+  by the former loader.
 - An Objective-C or C++ exception that escapes the loading of a version 1
   plugin is recorded as Load failed with its type and reason, and the loader
   goes on.
@@ -76,6 +86,9 @@ source = source_text('PluginManager')
 v1 = (root / 'Horos/Sources/PluginManager+IsiXPlugins.swift').read_text()
 load = swift_block(source, source.index('@objc(loadPluginAtPath:)'))
 load_v1 = swift_block(v1, v1.index('@objc(loadIsiXPluginAtPath:)'))
+former = '\n'.join(swift_block(source, source.index(anchor)) for anchor in (
+    '@objc(loadPluginBundle:)', '    private class func registerFormerPlugin(',
+    '@objc(loadHorosPluginAtPath:)', '@objc(loadOsiriXPluginAtPath:)'))
 signature_method = swift_block(source, source.index('@objc(isPluginBundleSignatureValid:)'))
 helpers = swift_block(source, source.index('fileprivate enum ObjC {'))
 registry = swift_block(source, source.index('fileprivate enum Registry {'))
@@ -151,6 +164,7 @@ SIGNATURE_METHOD
     @objc(startProtectForCrashWithPath:) class func startProtectForCrash(withPath path: String!) { protectedDepth += 1 }
     @objc class func endProtectForCrash() { protectedDepth -= 1 }
 LOAD
+FORMER
 LOAD_V1
 }
 
@@ -164,20 +178,62 @@ Registry.pluginsNames = NSMutableDictionary(); Registry.pluginsBundleDictionnary
 Registry.fileFormatPlugins = NSMutableDictionary(); Registry.plugins = NSMutableDictionary(); Registry.pluginsDict = NSMutableDictionary()
 Registry.reportPlugins = NSMutableDictionary(); Registry.preProcessPlugins = NSMutableArray()
 let root = CommandLine.arguments[1] as NSString
+let markers = CommandLine.arguments[2] as NSString
 
-// Former plugins: refused by their extension, in and out of protected mode.
-for mode in [true, false] {
-    protectedMode = mode
-    for name in ["QAUniversal.horosplugin", "QAInitializationFailure.horosplugin", "QAOsiriX.osirixplugin"] {
-        let path = root.appendingPathComponent(name)
-        PluginManager.loadPlugin(atPath: path)
-        check(state(path) == "Incompatible", "\(name): expected Incompatible, got \(state(path) ?? "nil")")
-        check(reason(path).contains("Horos or OsiriX") && reason(path).contains("did not open, move or change"), "\(name): the reason says why: \(reason(path))")
-    }
+// Former plugins: protected mode blocks them before their bundle opens.
+protectedMode = true
+for name in ["QAUniversal.horosplugin", "QAOsiriX.osirixplugin"] {
+    let path = root.appendingPathComponent(name)
+    PluginManager.loadPlugin(atPath: path)
+    check(state(path) == "Blocked", "\(name): protected mode blocks it, got \(state(path) ?? "nil")")
 }
-check(hostCalls.isEmpty && protectedDepth == 0, "No loader is reached for a former plugin")
-check(NSClassFromString("QAUniversal") == nil && NSClassFromString("QAInitializationFailure") == nil, "No former plugin's code is loaded")
-check(Registry.pluginsNames!.count == 0 && Registry.plugins!.count == 0, "A former plugin registers nothing, not even its name")
+check(NSClassFromString("QAUniversal") == nil && NSClassFromString("QAOsiriX") == nil, "Protected mode opens no former plugin")
+protectedMode = false
+Registry.pluginsNames = NSMutableDictionary()
+
+// Loaded as they are, registered under their menu titles, and run.
+for (name, title) in [("QAUniversal.horosplugin", "QAUniversal"), ("QAOsiriX.osirixplugin", "QAOsiriX")] {
+    let path = root.appendingPathComponent(name)
+    PluginManager.loadPlugin(atPath: path)
+    check(state(path) == "Loaded", "\(name): expected Loaded, got \(state(path) ?? "nil") \(reason(path))")
+    let filter = Registry.plugins?[title] as AnyObject?
+    check(filter.map { NSStringFromClass(type(of: $0)) } == title, "\(name): +filter is registered under its title")
+    check((Registry.pluginsDict?[title] as? Bundle)?.bundlePath == path && Registry.pluginsBundleDictionnary?[path] != nil,
+          "\(name): its bundle is kept under its title and path")
+    _ = filter?.perform(NSSelectorFromString("filterImage:"), with: title)
+    check(FileManager.default.fileExists(atPath: markers.appendingPathComponent(title + ".executed")), "\(name): -filterImage: ran")
+}
+check(hostCalls.isEmpty && protectedDepth == 0, "No former plugin reaches the version 1 host, and the crash protection ends")
+
+// What stops the former loader.
+let broken1 = root.appendingPathComponent("QAInvalidSignature.horosplugin")
+PluginManager.loadPlugin(atPath: broken1)
+check(state(broken1) == "Blocked" && NSClassFromString("QAInvalidSignature") == nil, "A broken signature blocks a former plugin before it opens")
+let intel = root.appendingPathComponent("QAIntel.horosplugin")
+PluginManager.loadPlugin(atPath: intel)
+#if arch(arm64)
+check(state(intel) == "Incompatible" && reason(intel).contains("x86_64") && NSClassFromString("QAIntel") == nil,
+      "A former plugin for another architecture is named before it opens: \(state(intel) ?? "nil") \(reason(intel))")
+#endif
+let missing = root.appendingPathComponent("QAMissingClass.horosplugin")
+PluginManager.loadPlugin(atPath: missing)
+check(state(missing) == "Incompatible" && reason(missing).contains("principal class"), "A missing principal class: \(reason(missing))")
+let failing = root.appendingPathComponent("QAInitializationFailure.horosplugin")
+PluginManager.loadPlugin(atPath: failing)
+check(state(failing) == "Load failed" && reason(failing).contains("Synthetic initialization failure") && protectedDepth == 0,
+      "An exception raised by +filter is recorded: \(state(failing) ?? "nil") \(reason(failing))")
+let linked = root.appendingPathComponent("QAHostLinked.horosplugin")
+PluginManager.loadPlugin(atPath: linked)
+check(state(linked) == "Load failed" && Registry.pluginsBundleDictionnary?[linked] == nil,
+      "A former plugin whose SDK framework is missing is recorded as Load failed: \(state(linked) ?? "nil") \(reason(linked))")
+let unbound = root.appendingPathComponent("QAMissingSymbol.horosplugin")
+PluginManager.loadPlugin(atPath: unbound)
+check(state(unbound) == "Load failed" && reason(unbound).contains("(dyld: symbol not found in flat namespace '_QAAbsentHostSymbol')")
+      && !reason(unbound).contains("dlopen(") && Registry.pluginsBundleDictionnary?[unbound] == nil,
+      "A former plugin that looks for a symbol the application lacks names it: \(state(unbound) ?? "nil") \(reason(unbound))")
+let copy = root.appendingPathComponent("Copy/QAUniversal.isixplugin")
+PluginManager.loadPlugin(atPath: copy)
+check(state(copy) == "Blocked" && hostCalls.isEmpty, "A plugin of another format with a loaded plugin's name is blocked")
 
 // Version 1: protected mode and the signature come first.
 let version1 = root.appendingPathComponent("QAVersion1.isixplugin")
@@ -193,11 +249,12 @@ PluginManager.loadPlugin(atPath: version1)
 check(state(version1) == "Loaded" && hostCalls == ["QAVersion1.isixplugin"] && protectedDepth == 0, "A version 1 plugin reaches the host and is recorded as loaded")
 let duplicate = root.appendingPathComponent("Copy/QAVersion1.isixplugin")
 PluginManager.loadPlugin(atPath: duplicate)
-check(state(duplicate) == "Blocked" && alerts == 1 && hostCalls.count == 1, "A second plugin of the same name is blocked with an alert")
+check(state(duplicate) == "Blocked" && alerts == 2 && hostCalls.count == 1, "A second plugin of the same name is blocked with an alert")
 let renamed = root.appendingPathComponent("QARenamed.isixplugin")
 PluginManager.loadPlugin(atPath: renamed)
 check(state(renamed) == "Incompatible" && reason(renamed).contains("former plugin API"), "A renamed former plugin is refused by what it declares: \(reason(renamed))")
-check(NSClassFromString("QAUniversal") == nil, "The renamed former plugin's code is not loaded")
+check(hostCalls.last == "QARenamed.isixplugin" && Registry.pluginsBundleDictionnary?[renamed] == nil && Bundle(path: renamed)?.isLoaded != true,
+      "The renamed former plugin goes to the version 1 host only, and its bundle is not loaded")
 // An exception that escapes the loading: recorded, and the loader goes on.
 for (kind, expected) in [("cxx", "std::runtime_error: the host stand-in threw"), ("objc", "TestHostException: the host stand-in raised")] {
     Registry.pluginsNames = NSMutableDictionary()
@@ -210,12 +267,14 @@ for (kind, expected) in [("cxx", "std::runtime_error: the host stand-in threw"),
 Registry.pluginsNames = NSMutableDictionary()
 PluginManager.loadPlugin(atPath: version1)
 check(state(version1) == "Loaded", "The loader goes on after a caught exception")
-print("PASS: former plugins refused unopened at the loader entry; protected mode, signature, duplicates, the host's verdict for version 1 plugins and exceptions that escape the loading")
-'''.replace('REGISTRY', registry).replace('HELPERS', helpers).replace('SIGNATURE_METHOD', signature_method).replace('LOAD_V1', load_v1).replace('LOAD', load)
+print("PASS: former plugins loaded as they are, registered and run, refused before they open for protected mode, signature and architecture, a missing class, an exception, a missing framework and a missing symbol recorded; protected mode, signature, duplicates, the host's verdict for version 1 plugins and exceptions that escape the loading")
+'''.replace('REGISTRY', registry).replace('HELPERS', helpers).replace('SIGNATURE_METHOD', signature_method).replace('LOAD_V1', load_v1).replace('FORMER', former).replace('LOAD', load)
 with tempfile.TemporaryDirectory(prefix='horos-bundle-load-') as directory:
     p = Path(directory)
     subprocess.run(['python3', str(root/'tools/generate-plugin-load-fixtures.py'), str(p/'fixtures')], check=True, capture_output=True)
     subprocess.run(['ditto', str(p/'fixtures/QAVersion1.isixplugin'), str(p/'fixtures/Copy/QAVersion1.isixplugin')], check=True)
+    subprocess.run(['ditto', str(p/'fixtures/QAVersion1.isixplugin'), str(p/'fixtures/Copy/QAUniversal.isixplugin')], check=True)
+    (p/'markers').mkdir()
     (p/'main.swift').write_text(program)
     (p/'bridge.h').write_text(bridge)
     (p/'raiser.mm').write_text(raiser)
@@ -230,6 +289,15 @@ with tempfile.TemporaryDirectory(prefix='horos-bundle-load-') as directory:
                     str(p/'PluginManager+CAPI.o'), str(p/'HorosObjCException.o'), str(p/'IsiXPluginExceptionGuard.o'),
                     str(p/'raiser.o'), '-lc++', '-framework', 'Security', '-o', str(p/'test')], check=True)
     before = digest(p/'fixtures')
-    subprocess.run([str(p/'test'), str(p/'fixtures')], check=True, timeout=60)
+    run = subprocess.run([str(p/'test'), str(p/'fixtures'), str(p/'markers')], timeout=60, stderr=subprocess.PIPE, text=True,
+                         env=dict(os.environ, HOROS_PLUGIN_MARKER_DIR=str(p/'markers')))
+    sys.stderr.write(run.stderr)
+    if run.returncode:
+        raise SystemExit(run.returncode)
+    # The log gives dyld's whole reason: the dlopen of the plugin's executable and the symbol.
+    logged = [line for line in run.stderr.splitlines() if 'Plugin load failed:' in line and 'QAMissingSymbol' in line]
+    if not any("dyld: dlopen(" in line and "QAMissingSymbol.horosplugin/Contents/MacOS/QAMissingSymbol" in line
+               and "symbol not found in flat namespace '_QAAbsentHostSymbol'" in line for line in logged):
+        raise SystemExit('FAIL: the log does not give dyld\'s reason for QAMissingSymbol: %r' % logged)
     if digest(p/'fixtures') != before:
         raise SystemExit('FAIL: loading changed a bundle')

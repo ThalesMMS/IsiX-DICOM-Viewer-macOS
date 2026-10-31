@@ -15,12 +15,14 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 reports = (root / 'Horos/Sources/Reports.swift').read_text()
-browser = (root / 'Horos/Sources/BrowserController+Reports.swift').read_text()
+# The browser's reports are StudyReports.
+browser = (root / 'Horos/Sources/StudyReports.swift').read_text()
 viewer = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
 viewer_menu = '[HorosReportTemplateMenu populateMenu:reportTemplatesListPopUpButton.menu'
 if viewer_menu not in viewer:
-    # The viewer's report is Swift (ViewerController+Report.swift).
-    viewer = (root / 'Horos/Sources/ViewerController+Report.swift').read_text()
+    # The viewer's report is Swift (ViewerController+Report.swift), done by
+    # ViewerImageExporter.swift.
+    viewer = (root / 'Horos/Sources/ViewerImageExporter.swift').read_text()
     viewer_menu = 'ReportTemplateMenu.populate(popUp.menu!'
 for source, needle, reason in (
     (reports, 'ReportTemplateMenu.templates(in: templateDirectory', 'the Pages list does not go into subfolders'),

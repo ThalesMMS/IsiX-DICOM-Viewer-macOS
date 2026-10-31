@@ -43,8 +43,8 @@ import IsiXImaging
 // Whether the window, zoom, pan, rotation and flips on screen are the series'
 // (COPYSETTINGSINSERIES on) or each image's own (off), and what changing it
 // writes into the images' presentation state. What is written to each image is
-// IsiXImaging's SeriesSettingsPropagation; the view supplies the values on
-// screen and the images.
+// IsiXImaging's SeriesSettingsPropagation, and ImagePresentationStore writes it;
+// the view supplies the values on screen and the images.
 //
 // Turning propagation on is a flattening, and is meant to be: every image loses
 // its own settings and takes the one on screen. Off means off for the window:
@@ -75,49 +75,23 @@ extension DCMView {
         self.horos_COPYSETTINGSINSERIES = b
     }
 
-    /// Applies a change of the propagation flag to one series' images.
+    /// Applies a change of the propagation flag to one series' images: what
+    /// each image keeps is written by its ImagePresentationStore.
     @objc(writeCopySettingsInSeriesForPixels:)
     public dynamic func writeCopySettingsInSeries(forPixels pixels: NSArray!) {
-        let key = SeriesSettingsPropagation.Key.self
         for case let pix as DCMPix in (pixels ?? NSArray()) {
             let im = pix.imageObj()
 
             if self.horos_COPYSETTINGSINSERIES && pix.isLoaded() {
-                pix.changeWLWW(self.horos_curWL, self.horos_curWW)
+                pix.changeWLWW(self.curWL, self.curWW)
             }
 
-            let stored = SeriesSettingsPropagation.Stored(
-                scale: im?.value(forKey: key.scale) != nil,
-                rotationAngle: im?.value(forKey: key.rotationAngle) != nil,
-                yFlipped: im?.value(forKey: key.yFlipped) != nil,
-                xFlipped: im?.value(forKey: key.xFlipped) != nil,
-                xOffset: im?.value(forKey: key.xOffset) != nil,
-                yOffset: im?.value(forKey: key.yOffset) != nil)
+            let store = ImagePresentationStore(series: nil, image: im)
             let writes = SeriesSettingsPropagation.writes(propagate: self.horos_COPYSETTINGSINSERIES,
                                                           onScreen: !self.horos_COPYSETTINGSINSERIES && im === self.imageObj(),
-                                                          stored: stored)
-
-            for write in writes {
-                switch write {
-                case .clear(let k):
-                    im?.setValue(nil, forKey: k)
-                case .windowWidth:
-                    im?.setValue(NSNumber(value: self.horos_curWW), forKey: key.windowWidth)
-                case .windowLevel:
-                    im?.setValue(NSNumber(value: pix.storedWindowLevel(forCalibratedLevel: self.horos_curWL)), forKey: key.windowLevel)
-                case .scale:
-                    im?.setValue(self.isScaledFit() ? nil : NSNumber(value: self.horos_scaleValue), forKey: key.scale)
-                case .rotationAngle:
-                    im?.setValue(NSNumber(value: self.horos_rotation), forKey: key.rotationAngle)
-                case .yFlipped:
-                    im?.setValue(NSNumber(value: self.horos_yFlipped), forKey: key.yFlipped)
-                case .xFlipped:
-                    im?.setValue(NSNumber(value: self.horos_xFlipped), forKey: key.xFlipped)
-                case .offsets:
-                    im?.setValue(NSNumber(value: Float(self.horos_origin.x)), forKey: key.xOffset)
-                    im?.setValue(NSNumber(value: Float(self.horos_origin.y)), forKey: key.yOffset)
-                }
-            }
+                                                          stored: store.storedViewport)
+            store.storeCopySettings(writes, width: self.curWW, storedLevel: { pix.storedWindowLevel(forCalibratedLevel: self.curWL) },
+                                    viewport: self.viewport, fitted: { self.isScaledFit() })
         }
     }
 
@@ -127,7 +101,7 @@ extension DCMView {
     public dynamic func switchCopySettingsInSeries(_ sender: Any!) {
         self.horos_COPYSETTINGSINSERIES = !self.horos_COPYSETTINGSINSERIES
 
-        inputLogException(inputCatch {
+        inputLogException(HorosObjCException.caughtWithoutAllocation {
             let v = viewerMessages(self.windowController())
 
             for case let imageView as DCMView in (v?.viewerImageViews() ?? []) {

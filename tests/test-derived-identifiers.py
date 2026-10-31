@@ -33,8 +33,8 @@ failures = []
 # The DICOM reading is Swift (DicomFile+DICOMReading.swift).
 importer = sources.class_text('DicomFile')
 database = sources.class_text('DicomDatabase')  # DicomDatabase is Swift
-# The repair is in the Swift extension; the database still runs it at open.
-repair = source_text('DicomDatabase+Other')
+# The repair is in DatabaseStartupRepairs; the database still runs it at open.
+repair = source_text('DatabaseStartupRepairs')
 
 DRIVER = r'''
 #import <Foundation/Foundation.h>
@@ -162,19 +162,19 @@ if at > 0 and 'serieID ?? "(null)"' not in importer[at - 200:at + 200]:
                     're-import would land somewhere else')
 
 # --- and rows indexed before that are repaired -------------------------------
-if 'repairEmptySeriesIdentifiersInContext:' not in repair:
+if 'func repairEmptySeriesIdentifiers(in context' not in repair:
     failures.append('series indexed before this still answer C-FIND with an empty identifier')
 else:
-    at = repair.find('@objc(repairEmptySeriesIdentifiersInContext:)')
-    end = repair.find('@objc(', at + 1)
+    at = repair.find('func repairEmptySeriesIdentifiers(in context')
+    end = repair.find('func repairFabricatedPatientIdentifiers(', at + 1)
     body = repair[at:end if end > at else len(repair)] if at >= 0 else ''
     if 'seriesDICOMUID == nil OR seriesDICOMUID ==' not in body:
         failures.append('the repair does not select the rows that have no identifier')
     if 'try context.save()' not in body:
         failures.append('the repair does not save through the context, so nothing persists')
-    if 'seriesInstanceUID' not in body or 'study.studyInstanceUID' not in body:
+    if 'seriesInstanceUID' not in body or 'study?.studyInstanceUID' not in body:
         failures.append('the repair does not derive from what the row is grouped on')
-    if 'DicomDatabase.repairEmptySeriesIdentifiers(in: self.managedObjectContext)' not in database:
+    if 'DatabaseStartupRepairs.repairEmptySeriesIdentifiers(in: self.managedObjectContext)' not in database:
         failures.append('the repair is never run')
 
 for failure in failures:

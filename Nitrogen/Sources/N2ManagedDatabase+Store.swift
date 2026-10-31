@@ -78,7 +78,7 @@ import IsiXDatabase
             queue: ManagedStoreRules.contextQueue(independent: independent, onMainThread: Thread.isMainThread))
 
         objc_sync_enter(self)
-        let raised = N2ManagedDatabaseObjC.attempt {
+        let raised = HorosObjCException.caught {
             guard let context = moc else { return }
 
             if sqlFilePath == self.sqlFilePath && fileManager.fileExists(atPath: sqlFilePath) {
@@ -128,7 +128,7 @@ import IsiXDatabase
         var models: NSManagedObjectModel? = self.managedObjectModel
 
         if fileManager.fileExists(atPath: localModelsPath) {
-            if N2ManagedDatabaseObjC.attempt({
+            if HorosObjCException.caught({
                 let localModels = NSManagedObjectModel(contentsOf: URL(fileURLWithPath: localModelsPath)) //Forward compatibility !
                 //warning localModels can be nil: put it at last position
                 models = NSManagedObjectModel(byMerging: [self.managedObjectModel, localModels].compactMap { $0 })
@@ -160,7 +160,7 @@ import IsiXDatabase
             var err: NSError? = nil
             let options = ManagedStoreRules.storeOptions(migratingAutomatically: self.migratePersistentStoresAutomatically())
             let url = URL(fileURLWithPath: sqlFilePath)
-            _ = N2ManagedDatabaseObjC.attempt {
+            _ = HorosObjCException.caught {
                 do {
                     pStore = try persistentStoreCoordinator.addPersistentStore(ofType: NSSQLiteStoreType, configurationName: nil, at: url, options: options)
                 } catch {

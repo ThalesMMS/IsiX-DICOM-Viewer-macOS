@@ -25,7 +25,7 @@ extension IsiXPluginHost: IsiXDatabaseBackend {
     // MARK: records
 
     private func database() throws -> DicomDatabase {
-        guard let database = DicomDatabase.activeLocal() else { throw IsiXPluginError.noDatabase }
+        guard let database = BrowserDatabaseSource.process.activeLocalDatabase else { throw IsiXPluginError.noDatabase }
         return database
     }
 
@@ -167,7 +167,7 @@ extension IsiXPluginHost: IsiXDatabaseBackend {
 
     func databaseSelection() throws -> IsiXDatabaseSelection {
         _ = try database()
-        let selection = BrowserController.currentBrowser()?.databaseSelection() ?? []
+        let selection = BrowserDatabaseSource.process.processGraph.currentBrowser?.databaseSelection() ?? []
         var studies: [IsiXStudy] = [], series: [IsiXSeries] = []
         for item in selection {
             if let study = item as? DicomStudy, let record = Self.study(study),
@@ -227,7 +227,7 @@ extension IsiXPluginHost: IsiXDatabaseBackend {
 
     func openViewer(forSeries seriesInstanceUID: String) throws -> (any IsiXViewerBackend)? {
         guard let series = try fetchSeries(seriesInstanceUID).first else { throw IsiXPluginError.notFound("series \(seriesInstanceUID)") }
-        guard let browser = BrowserController.currentBrowser() else { throw IsiXPluginError.noDatabase }
+        guard let browser = BrowserDatabaseSource.process.processGraph.currentBrowser else { throw IsiXPluginError.noDatabase }
         guard let viewer = browser.loadSeries(series, nil, true, keyImagesOnly: false) else { return nil }
         let adapter = IsiXViewerAdapter(viewer: viewer, identities: identities)
         return adapter.isOpen ? adapter : nil
@@ -288,7 +288,7 @@ extension IsiXPluginHost: IsiXDatabaseBackend {
             context.delete(album)
             throw error
         }
-        BrowserController.currentBrowser()?.refreshAlbums()
+        BrowserDatabaseSource.process.processGraph.currentBrowser?.refreshAlbums()
         return Self.album(album, studyCount: 0)
     }
 
@@ -316,7 +316,7 @@ extension IsiXPluginHost: IsiXDatabaseBackend {
             for study in before.subtracting(now) { album.addStudiesObject(study) }
             throw error
         }
-        BrowserController.currentBrowser()?.refreshAlbums()
+        BrowserDatabaseSource.process.processGraph.currentBrowser?.refreshAlbums()
     }
 
     func addStudies(_ studyInstanceUIDs: [String], toAlbum name: String) throws {
@@ -349,9 +349,7 @@ extension IsiXPluginHost: IsiXDatabaseBackend {
                 failures.append(.init(file: url, reason: error.localizedDescription))
             }
         }
-        let objectIDs = copies.isEmpty ? [] : database.addFiles(atPaths: copies, postNotifications: true, dicomOnly: true,
-                                                                  rereadExistingItems: true, generatedByOsiriX: true,
-                                                                  importedFiles: true, returnArray: true) ?? []
+        let objectIDs = copies.isEmpty ? [] : DatabaseIngest.process.index(copies, preset: .plugin, in: database) ?? []
         var studyUIDs: [String] = [], seriesUIDs: [String] = []
         var indexed = Set<String>()
         var images: [IsiXDatabaseImage] = []

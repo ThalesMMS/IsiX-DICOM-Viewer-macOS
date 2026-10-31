@@ -131,8 +131,16 @@ with tempfile.TemporaryDirectory(prefix='horos-magnifier-') as folder:
     main = Path(folder) / 'main.swift'
     main.write_text(harness_defaults.DOMAINS + driver)
     binary = Path(folder) / 'check'
-    subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(Path(folder) / 'modules'),
-                    str(root / 'Horos/Sources/MagnifierPresentation.swift'), str(main), '-o', str(binary)], check=True)
+    # The settings and steps are IsiXImaging's MagnifierSettings, the
+    # preferences' keys IsiXPreferences' once the presentation imports them.
+    presentation = root / 'Horos/Sources/MagnifierPresentation.swift'
+    modules = []
+    if 'import IsiXImaging' in presentation.read_text():
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from isix_modules import module_flags  # noqa: E402
+        modules = module_flags('IsiXImaging', Path(folder) / 'isix') + module_flags('IsiXPreferences', Path(folder) / 'isix')
+    subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(Path(folder) / 'modules'), *modules,
+                    str(presentation), str(main), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
 # The switches: registered off, and bound once in each localization of the pane.
@@ -170,10 +178,14 @@ def body(selector):
     start = drawing.index('@objc(' + selector + ')')
     return drawing[start:drawing.index('\n    }\n', start)]
 for selector in ('horosDrawMeasurementMagnifier', 'horosMeasurementMagnifierHoldsKeys'):
-    assert 'MagnifierPresentation.measurementDefaultsKey' in body(selector), f'{selector} ignores its own switch'
-    assert '"magnifyingLens"' not in body(selector), f'{selector} still follows the Shift lens switch'
+    # Its own switch, by its defaults key or its typed key (directly or as MagnifierSettings.whileMeasuring).
+    own = ('MagnifierPresentation.measurementDefaultsKey', 'ViewerPreferences.magnifyingLensWhileMeasuring', 'settings.whileMeasuring')
+    assert any(key in body(selector) for key in own), f'{selector} ignores its own switch'
+    assert '"magnifyingLens"' not in body(selector) and 'ViewerPreferences.magnifyingLens]' not in body(selector), \
+        f'{selector} still follows the Shift lens switch'
 assert 'self.horosHideCursor(forMagnifier: shown' in body('horosDrawMeasurementMagnifier'), 'the cursor no longer follows the magnifier'
-assert '!UserDefaults.standard.bool(forKey: "magnifyingLens")' in body('computeMagnifyLens:'), 'the Shift lens lost its switch'
+assert '!UserDefaults.standard.bool(forKey: "magnifyingLens")' in body('computeMagnifyLens:') \
+    or '!PreferencesSource.process.preferences[ViewerPreferences.magnifyingLens]' in body('computeMagnifyLens:'), 'the Shift lens lost its switch'
 assert 'measurementDefaultsKey' not in body('computeMagnifyLens:'), 'the Shift lens follows the measurement switch'
 assert 'segments: (self.horosROISegments(forMagnifierSide:' in drawing, 'the magnifier no longer draws the ROI lines'
 assert 'self.horosDrawSquareMagnifier(inCorner:' in body('drawMagnifyingLens'), 'the Shift lens is not the square magnifier'

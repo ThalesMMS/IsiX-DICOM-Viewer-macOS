@@ -40,6 +40,7 @@
 import AppKit
 import IsiXDICOMNetwork
 import IsiXDICOMFile
+import IsiXPreferences
 
 /// The query of the window: the filters of a preset sent to each activated
 /// node, the answers merged into one list as they come, and the nodes the
@@ -76,104 +77,83 @@ extension QueryController {
     /// Queries with the filters of the window, on the main thread.
     @objc(queryWithDisplayingErrors:)
     public func queryWithDisplayingErrors(_ showError: Bool) -> Bool {
-        let instance = savePresetInDictionary(withDICOMNodes: true)
+        let filters = windowFilters(withDICOMNodes: true)
         captureWindowState()
-        return queryWithDisplayingErrors(showError, instance: instance, index: -1)
+        _ = queryAnswers(showError, run: queryRun(filters), showing: !autoQueryValue)
+        return false
     }
 
     /// Queries the activated nodes of `instance`, a preset, with its filters,
-    /// on any thread; the automatic query runs it on a worker. `index` is the
-    /// automatic query's instance (-1 for the window), which keeps the results.
-    @objc(queryWithDisplayingErrors:instance:index:)
-    public nonisolated func queryWithDisplayingErrors(_ showError: Bool, instance: NSMutableDictionary!, index: Int32) -> Bool {
+    /// and shows the answers in the Query/Retrieve window. In the automatic
+    /// query's window a query of the window shows its answers as they come
+    /// only: the scheduler keeps and shows those of each instance.
+    @objc(queryWithDisplayingErrors:instance:)
+    public func queryWithDisplayingErrors(_ showError: Bool, instance: NSMutableDictionary!) -> Bool {
+        let filters = QueryWindowFilters(propertyList: instance as? [String: Any] ?? [:])
+        _ = queryAnswers(showError, run: queryRun(filters), showing: !autoQueryValue)
+        return false
+    }
+
+    /// One query with `filters`, as the thread that runs it receives it; main
+    /// thread. A query of the window reads the dates of its pickers, whatever
+    /// dates the filters hold.
+    func queryRun(_ filters: QueryWindowFilters) -> QueryWindowRun {
+        var filters = filters
+        filters.fromDate = fromDate?.dateValue ?? Date()
+        filters.toDate = toDate?.dateValue ?? Date()
+        return queryRun(dated: filters)
+    }
+
+    /// The same with the dates `filters` hold, and the nodes as the sources
+    /// table lists them when it starts.
+    func queryRun(dated filters: QueryWindowFilters) -> QueryWindowRun {
+        preferences.set(sourcesArray, forKey: queryArrayPrefs)
+        let keyword = filters.field == .customField ? customFieldKeyword(forAttribute: filters.customFieldAttribute) : nil
+        var sources = QueryWindowState()
+        sources.sources = currentSources()
+        return QueryWindowRun(filters: filters, customFieldKeyword: keyword, sources: sources)
+    }
+
+    /// The keyword of the attribute titled `title` in the custom field's menu.
+    func customFieldKeyword(forAttribute title: String?) -> String? {
+        let dicomField = dicomFields.first { $0.title() == title }
+        let tag = (UInt32(UInt16(truncatingIfNeeded: dicomField?.group() ?? 0)) << 16) | UInt32(UInt16(truncatingIfNeeded: dicomField?.element() ?? 0))
+        return try? IsiXDCMTKDictionary.keyword(forTag: tag)
+    }
+
+    /// The answers of the nodes of `run`, queried with its filters, merged and
+    /// sorted; on any thread, and shown in the window when `showing`. The
+    /// automatic query runs it on a thread of its own.
+    nonisolated func queryAnswers(_ showError: Bool, run: QueryWindowRun, showing: Bool) -> [Any] {
         let onMain = Thread.isMainThread
-        let instance = instance ?? NSMutableDictionary()
-        let error = false
+        let workers = self.workers
         let tempResultArray = NSMutableArray()
 
-        temporaryCFindResultArray = onMain ? NSMutableArray() : nil
+        workers.resetRealtimeAnswers(showing: onMain)
 
         objc_sync_enter(self)
-        for case let thread as Thread in performingQueryThreads {
-            thread.setIsCancelled(true)
-        }
+        workers.cancelQueryThreads()
         objc_sync_exit(self)
 
         autoQueryLock.lock()
 
-        UserDefaults.standard.set(sourcesArray, forKey: queryArrayPrefs)
-
         var atLeastOneSource = false
-
-        // The dates of the pickers: read now on the main thread, as copied last
-        // on a worker.
-        let dates: (from: Date, to: Date) = onMain
-            ? MainActor.assumeIsolated { (self.fromDate?.dateValue ?? Date(), self.toDate?.dateValue ?? Date()) }
-            : (windowState.fromDate, windowState.toDate)
 
         do {
             try HorosObjCException.perform {
-                self.firstServerRealtimeResults = true
+                workers.isFirstNode = true
 
                 if onMain {
                     MainActor.assumeIsolated { self.refreshList([]) } // Clean the list
                 }
 
-                let dicomNodes = instance.object(forKey: "DICOMNodes") as? [String] ?? []
-                let dicomNodesAE = instance.object(forKey: "DICOMNodesAETitle") as? [String] ?? []
-
-                for (v, s) in dicomNodes.enumerated() {
-                    let ae: String? = v < dicomNodesAE.count ? dicomNodesAE[v] : nil
-
-                    var aServer: NSDictionary?
-                    for case let src as NSObject in self.sourcesArray {
-                        if (src.value(forKey: "AddressAndPort") as? String) == s && (ae == nil || (src.value(forKey: "AETitle") as? String) == ae) {
-                            aServer = src.value(forKey: "server") as? NSDictionary
-                        }
-                    }
-
-                    guard let aServer else { continue }
-
-                    let manager = QueryArrayController(callingAET: UserDefaults.defaultAETitle(), distantServer: aServer)
-                    self.queryManager = manager
-                    // add filters as needed
-
-                    if let encoding = UserDefaults.standard.string(forKey: "STRINGENCODING"), encoding != "ISO_IR 100" {
-                        // Specific Character Set
-                        manager.addFilter(encoding, forDescription: "SpecificCharacterSet")
-                    }
+                for server in run.servers {
+                    let manager = QueryArrayController(callingAET: UserDefaults.defaultAETitle(), distantServer: server.propertyList as NSDictionary)
+                    workers.queryManager = manager
 
                     atLeastOneSource = true
 
-                    var queryItem = false
-                    var nameAlternatives: [String] = []
-
-                    if let field = QueryWindowField(rawValue: Int(QueryController.int32(instance.object(forKey: "PatientModeMatrix")))),
-                       UserDefaults.standard.bool(forKey: field.preference) {
-                        (queryItem, nameAlternatives) = self.addFilter(of: field, from: instance, to: manager, showError: showError)
-                    }
-
-                    let (dateQueryFilter, timeQueryFilter) = QueryController.dateAndTimeQueryFilters(
-                        tag: QueryController.int32(instance.object(forKey: "dateFilterMatrix")), from: dates.from, to: dates.to)
-
-                    if dateQueryFilter?.object != nil && UserDefaults.standard.bool(forKey: "allow_qr_study_date") {
-                        manager.addFilter(dateQueryFilter?.filteredValue(), forDescription: "StudyDate")
-                        queryItem = true
-                    }
-
-                    if timeQueryFilter?.object != nil && UserDefaults.standard.bool(forKey: "allow_qr_study_date") {
-                        manager.addFilter(timeQueryFilter?.filteredValue(), forDescription: "StudyTime")
-                        queryItem = true
-                    }
-
-                    let modalityQueryFilter = self.getModalityQueryFilter(instance.object(forKey: "modalityStrings") as? [Any])
-
-                    if modalityQueryFilter?.object != nil {
-                        if queryItem || UserDefaults.standard.bool(forKey: "allow_qr_modality") {
-                            manager.addFilter(modalityQueryFilter?.filteredValue(), forDescription: modalityQueryFilter?.key as? String)
-                            queryItem = true
-                        }
-                    }
+                    let (queryItem, nameAlternatives) = self.addFilters(of: run, to: manager, showError: showError)
 
                     if queryItem {
                         self.performQuery(NSNumber(value: showError))
@@ -197,7 +177,7 @@ extension QueryController {
                         // be prolonged and fail. Ask first. Don't run if cancelled
                         var doit = false
 
-                        if !UserDefaults.standard.bool(forKey: "allow_qr_blank_query") {
+                        if !self.preferences[NetworkPreferences.allowsBlankQuery] {
                             if Thread.isMainThread {
                                 MainActor.assumeIsolated {
                                     _ = HorosAlertPanel.runCritical(title: NSLocalizedString("Query Error", comment: ""),
@@ -227,13 +207,13 @@ extension QueryController {
                     }
 
                     if Thread.isMainThread {
-                        self.lastTemporaryCFindResultUpdate = 0
+                        workers.resetRealtimeUpdate()
                         // If there are multiple sources
                         self.realtimeCFindResults(Notification(name: Notification.Name("realtimeCFindResults"), object: manager.rootNode()))
                     }
 
-                    if self.firstServerRealtimeResults {
-                        self.firstServerRealtimeResults = false
+                    if workers.isFirstNode {
+                        workers.isFirstNode = false
                         tempResultArray.removeAllObjects()
                         tempResultArray.addObjects(from: manager.queries() as? [Any] ?? [])
                     } else {
@@ -245,28 +225,16 @@ extension QueryController {
                     tempResultArray.sort(using: self.sortArray())
                 }
 
-                self.firstServerRealtimeResults = true
+                workers.isFirstNode = true
             }
         } catch {
-            QueryController.log(error, "-[QueryController queryWithDisplayingErrors:instance:index:]")
+            QueryController.log(error, "-[QueryController queryAnswers:run:showing:]")
         }
 
         autoQueryLock.unlock()
 
-        if !autoQueryValue {
-            showResults(tempResultArray)
-        } else {
-            QueryController.synchronized(autoQRInstances) {
-                if index >= 0 {
-                    if index == currentAutoQRValue {
-                        showResults(tempResultArray)
-                    }
-                    if keepResults(tempResultArray, inInstanceAt: Int(index)) {
-                        // The worker's instance is a copy of the stored one: it takes them too.
-                        instance.setObject(tempResultArray, forKey: "resultArray" as NSString)
-                    }
-                }
-            }
+        if showing {
+            showResults(tempResultArray.map { $0 as AnyObject })
         }
 
         if !atLeastOneSource && Thread.isMainThread && showError {
@@ -277,84 +245,49 @@ extension QueryController {
             }
         }
 
-        temporaryCFindResultArray = nil
+        workers.resetRealtimeAnswers(showing: false)
 
-        return error
+        return tempResultArray.map { $0 }
     }
 
-    /// Adds the filter of the search field `field`, as `instance` holds it, to
-    /// `manager`: whether it added one, and the other spellings of a patient's
-    /// name to try when that one finds nothing.
-    private nonisolated func addFilter(of field: QueryWindowField, from instance: NSDictionary, to manager: QueryArrayController,
-                                       showError: Bool) -> (Bool, [String]) {
-        let encoding = NSString.encoding(forDICOMCharacterSet: UserDefaults.standard.string(forKey: "STRINGENCODING"))
-        var key = field.key
-        let typed: String?
-
-        switch field {
-        case .customField:
-            let name = instance.object(forKey: "searchCustomFieldDICOM") as? String
-            let dicomField = dicomFields.first { $0.title() == name }
-            let tag = (UInt32(UInt16(truncatingIfNeeded: dicomField?.group() ?? 0)) << 16) | UInt32(UInt16(truncatingIfNeeded: dicomField?.element() ?? 0))
-            key = try? IsiXDCMTKDictionary.keyword(forTag: tag)
-            typed = instance.object(forKey: "searchCustomField") as? String
-            NSLog("DICOM Q&R with custom field: %@", QueryLog.term(key: key, value: typed))
-        case .patientBirthDate:
-            let tag = Int(QueryController.int32(instance.object(forKey: "birthdateFilterMatrix")))
-            let date = Date(timeIntervalSinceReferenceDate: QueryController.double(instance.object(forKey: "searchBirth")))
-            if let format = QueryDateFilter.birthDateFormat(forTag: tag) {
-                manager.addFilter(DICOMCalendarDate.string(from: date, calendarFormat: format), forDescription: key)
-            }
-            currentQueryKey = key
-            return (true, [])
-        case .interpretationStatus:
-            typed = String(format: "%d", QueryController.int32(instance.object(forKey: "searchStatus")))
-        default:
-            typed = instance.object(forKey: QueryController.presetKey(of: field)) as? String
+    /// Gives `manager` the filters of `run`, as each node receives them
+    /// (QueryWindowFilters builds them): whether the query asks for something,
+    /// and the other spellings of a patient's name to try when that one finds
+    /// nothing. A value the character set cannot write is reported on the
+    /// main thread, with the offer to switch to UTF-8.
+    nonisolated func addFilters(of run: QueryWindowRun, to manager: QueryArrayController, showError: Bool) -> (Bool, [String]) {
+        let preferences = self.preferences
+        let query = run.filters.query(settings: QueryWindowQuerySettings(defaults: preferences), customFieldKeyword: run.customFieldKeyword,
+                                      now: Date(), timeZone: NSTimeZone.default)
+        if query.field == .customField {
+            NSLog("DICOM Q&R with custom field: %@", QueryLog.term(key: run.customFieldKeyword, value: query.typedValue))
         }
-        currentQueryKey = key
+        if query.unknownDateChoice {
+            NSLog("******* unknown setDateQuery tag: %d", run.filters.dateChoice)
+        }
 
-        if field.checksEncoding && showError && Thread.isMainThread &&
-            (typed as NSString?)?.cString(using: encoding) == nil {
-            // On the main thread, which the manager is used on here.
-            nonisolated(unsafe) let manager = manager
-            MainActor.assumeIsolated {
-                if HorosAlertPanel.runCritical(title: NSLocalizedString("Query Encoding", comment: ""),
-                                               message: NSLocalizedString("The query cannot be encoded in current character set. Should I switch to UTF-8 (ISO_IR 192) encoding?", comment: ""),
-                                               defaultButton: NSLocalizedString("OK", comment: ""),
-                                               alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil) == HorosAlertDefaultResponse {
-                    UserDefaults.standard.set("ISO_IR 192", forKey: "STRINGENCODING")
-                    manager.addFilter(UserDefaults.standard.string(forKey: "STRINGENCODING"), forDescription: "SpecificCharacterSet")
-                }
+        for filter in query.filters {
+            manager.addFilter(filter.value, forDescription: filter.key)
+        }
+
+        if let field = query.field, field.checksEncoding, showError, Thread.isMainThread,
+           (query.typedValue as NSString?)?.cString(using: NSString.encoding(forDICOMCharacterSet: preferences[NetworkPreferences.queryCharacterSet])) == nil {
+            let switchToUTF8 = MainActor.assumeIsolated {
+                HorosAlertPanel.runCritical(title: NSLocalizedString("Query Encoding", comment: ""),
+                                            message: NSLocalizedString("The query cannot be encoded in current character set. Should I switch to UTF-8 (ISO_IR 192) encoding?", comment: ""),
+                                            defaultButton: NSLocalizedString("OK", comment: ""),
+                                            alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil) == HorosAlertDefaultResponse
+            }
+            if switchToUTF8 {
+                preferences.set("ISO_IR 192", for: NetworkPreferences.queryCharacterSet)
+                manager.addFilter(preferences[NetworkPreferences.queryCharacterSet], forDescription: "SpecificCharacterSet")
             }
         }
 
-        guard let filter = field.filterValue(typed) else { return (false, []) }
-        manager.addFilter(filter, forDescription: key)
-
-        if field == .patientName {
-            let trimmed = (typed ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            let alternatives = PatientNameMatching.alternativeRemoteTerms(
-                for: trimmed, encoding: NSString.encoding(forDICOMCharacterSet: UserDefaults.standard.string(forKey: "STRINGENCODING")))
-            return (true, alternatives)
-        }
-        return (true, [])
-    }
-
-    /// The key of the preset that holds what was typed in `field`.
-    private nonisolated static func presetKey(of field: QueryWindowField) -> String {
-        switch field {
-        case .patientName: return "searchFieldName"
-        case .patientID: return "searchFieldID"
-        case .accessionNumber: return "searchFieldAN"
-        case .studyDescription: return "searchFieldStudyDescription"
-        case .referringPhysician: return "searchFieldRefPhysician"
-        case .studyComments: return "searchFieldComments"
-        case .institutionName: return "searchInstitutionName"
-        case .customField: return "searchCustomField"
-        case .patientBirthDate: return "searchBirth"
-        case .interpretationStatus: return "searchStatus"
-        }
+        guard let name = query.patientName else { return (query.asksForSomething, []) }
+        let alternatives = PatientNameMatching.alternativeRemoteTerms(
+            for: name, encoding: NSString.encoding(forDICOMCharacterSet: preferences[NetworkPreferences.queryCharacterSet]))
+        return (query.asksForSomething, alternatives)
     }
 
     /// The answers of one more node, merged into those of the nodes before it.
@@ -365,21 +298,24 @@ extension QueryController {
         results.setArray(merged)
     }
 
+    /// The same, for the answers shown while a C-FIND runs.
+    nonisolated static func mergeAnswers(_ answers: [AnyObject], into results: inout [AnyObject]) {
+        QueryResultMerge.merge(answers, into: &results, indexingAdditions: false, uid: queryUID, images: queryImageCount)
+    }
+
     /// Shows `results` in the window, from any thread.
-    nonisolated func showResults(_ results: NSArray) {
-        if Thread.isMainThread {
-            nonisolated(unsafe) let results = results
-            MainActor.assumeIsolated { refreshList(results as? [Any]) }
-        } else {
-            performSelector(onMainThread: #selector(refreshList(_:)), with: results, waitUntilDone: false)
-        }
+    nonisolated func showResults(_ results: [AnyObject]) {
+        let controller = self
+        let handed = QueryAnswers(items: results)
+        onMainActor { controller.refreshList(handed.items) }
     }
 
     /// Runs the query prepared in the query manager, on any thread; a query of
     /// the window cancels the ones still running.
     @objc(performQuery:)
     public nonisolated func performQuery(_ showErrors: NSNumber!) {
-        checkAndViewTry = -1
+        let controller = self
+        onMainActor { controller.checkAndViewTry = -1 }
 
         var showErrors = showErrors?.boolValue ?? false
         if !Thread.isMainThread {
@@ -390,77 +326,59 @@ extension QueryController {
             var performQuery = false
 
             objc_sync_enter(self)
-            for case let thread as Thread in performingQueryThreads {
-                thread.setIsCancelled(true)
-            }
+            workers.cancelQueryThreads()
 
-            if !performingCFind {
-                performingCFind = true
-
+            if workers.beginCFind(on: Thread.current) {
                 startProgress()
 
                 performQuery = true
-
-                performingQueryThreads.add(Thread.current)
             }
             objc_sync_exit(self)
 
             if performQuery {
-                queryManager?.performQuery(showErrors)
+                workers.queryManager?.performQuery(showErrors)
 
                 objc_sync_enter(self)
                 stopProgress()
 
-                performingCFind = false
-
-                performingQueryThreads.remove(Thread.current)
+                workers.endCFind(on: Thread.current)
                 objc_sync_exit(self)
             }
         }
     }
 
     nonisolated func startProgress() {
-        if Thread.isMainThread {
-            MainActor.assumeIsolated { progressIndicator?.startAnimation(nil) }
-        } else {
-            progressIndicator?.performSelector(onMainThread: #selector(NSProgressIndicator.startAnimation(_:)), with: nil, waitUntilDone: false)
-        }
+        let controller = self
+        onMainActor { controller.progressIndicator?.startAnimation(nil) }
     }
 
     nonisolated func stopProgress() {
-        if Thread.isMainThread {
-            MainActor.assumeIsolated { progressIndicator?.stopAnimation(nil) }
-        } else {
-            progressIndicator?.performSelector(onMainThread: #selector(NSProgressIndicator.stopAnimation(_:)), with: nil, waitUntilDone: false)
-        }
+        let controller = self
+        onMainActor { controller.progressIndicator?.stopAnimation(nil) }
     }
 
     /// The answers of a node while its C-FIND runs: shown once a second.
     @objc(realtimeCFindResults:)
     nonisolated func realtimeCFindResults(_ notification: Notification) {
-        guard let root = notification.object as AnyObject?, root === (queryManager?.rootNode() as AnyObject?),
-              let temporary = temporaryCFindResultArray else { return }
+        guard let root = notification.object as AnyObject?, root === (workers.queryManager?.rootNode() as AnyObject?) else { return }
 
         let visible = Thread.isMainThread ? MainActor.assumeIsolated { self.window?.isVisible ?? false } : windowState.visible
-        guard visible && Date.timeIntervalSinceReferenceDate - lastTemporaryCFindResultUpdate > 1 else { return }
+        let now = Date.timeIntervalSinceReferenceDate
+        guard visible && workers.realtimeAnswersAreDue(now: now) else { return }
 
-        let curResult = (root as? DCMTKQueryNode)?.children() ?? []
-
-        if firstServerRealtimeResults {
-            temporary.removeAllObjects()
-            temporary.addObjects(from: curResult)
-        } else if curResult.count < 4000 {
-            QueryController.mergeAnswers(curResult, into: temporary)
+        let curResult = ((root as? DCMTKQueryNode)?.children() ?? []).map { $0 as AnyObject }
+        if let shown = workers.realtimeAnswers(adding: curResult, now: now, merge: QueryController.mergeAnswers) {
+            showResults(shown)
         }
-
-        showResults(temporary)
-
-        lastTemporaryCFindResultUpdate = Date.timeIntervalSinceReferenceDate
     }
 
     /// Shows `l`, sorted as the outline is; main thread.
     @objc(refreshList:)
     public func refreshList(_ l: [Any]!) {
+        if outlineView?.isWaitingForChildren == true {
+            outlineView.holdUntilChildrenArrive { [weak self] in self?.refreshList(l) }
+            return
+        }
         let list = l ?? []
         resultArray.removeAllObjects()
         if !list.isEmpty {
@@ -529,39 +447,31 @@ extension QueryController {
     }
 
     /// The studies of the patient `patientID` on the activated nodes (or the
-    /// one selected), without the window; any thread.
-    @objc(queryPatientIDwithoutGUI:)
+    /// one selected), without the window; any thread. Off the main thread the
+    /// nodes are those of the last copy of the window.
     nonisolated func queryPatientIDwithoutGUI(_ patientID: String!) -> [Any]! {
-        let copiedSources = NSArray(array: sourcesArray)
+        let state = Thread.isMainThread ? MainActor.assumeIsolated { self.currentWindowState() } : windowState
+        return QueryController.queryPatientID(patientID, sources: state.sourcesForPatientQuery())
+    }
 
-        let noChecked = !copiedSources.contains { QueryController.bool(($0 as AnyObject).value(forKey: "activated")) }
-
-        var selectedServer = -1
-        if noChecked {
-            selectedServer = Thread.isMainThread ? MainActor.assumeIsolated { self.sourcesTable?.selectedRow ?? -1 } : windowState.selectedSourceRow
-        }
-
+    /// The studies of the patient `patientID` on `sources`, on the calling thread.
+    nonisolated static func queryPatientID(_ patientID: String?, sources: [QueryWindowSource]) -> [Any] {
         let filterValue = (patientID ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        let result = NSMutableArray()
+        var result: [Any] = []
 
         if (filterValue as NSString).length > 0 {
-            for i in 0..<copiedSources.count {
-                let source = copiedSources[i] as AnyObject
-                if QueryController.bool(source.value(forKey: "activated")) || selectedServer == i {
-                    let aServer = source.value(forKey: "server") as? NSDictionary
+            for source in sources {
+                let qm = QueryArrayController(callingAET: UserDefaults.defaultAETitle(), distantServer: source.server.map { $0.propertyList as NSDictionary })
 
-                    let qm = QueryArrayController(callingAET: UserDefaults.defaultAETitle(), distantServer: aServer)
+                qm.addFilter(filterValue, forDescription: QueryWindowField.patientID.key)
 
-                    qm.addFilter(filterValue, forDescription: QueryWindowField.patientID.key)
+                qm.performQuery(false)
 
-                    qm.performQuery(false)
-
-                    result.addObjects(from: qm.queries() as? [Any] ?? [])
-                }
+                result.append(contentsOf: qm.queries() as? [Any] ?? [])
             }
         }
 
-        return result as? [Any]
+        return result
     }
 
     @objc(clearQuery:)
@@ -677,10 +587,10 @@ extension QueryController {
     /// for each, and the destinations of the retrieve menu.
     @objc(refreshSources)
     public func refreshSources() {
-        UserDefaults.standard.set(sourcesArray, forKey: queryArrayPrefs)
+        preferences.set(sourcesArray, forKey: queryArrayPrefs)
 
-        var serversArray = DICOMNodeService.nodes(sendOnly: false, queryRetrieveOnly: false)
-        let savedArray = UserDefaults.standard.array(forKey: queryArrayPrefs) ?? []
+        var serversArray: [Any] = DICOMNodeService.dicomNodes(sendOnly: false, queryRetrieveOnly: false).map(\.propertyList)
+        let savedArray = preferences.array(forKey: queryArrayPrefs) ?? []
 
         // DICOMweb nodes with Q&R on are sources too, after the DIMSE nodes;
         // they need no listener. The retrieve destinations below stay DIMSE.
@@ -738,10 +648,11 @@ extension QueryController {
 
         sendToPopup.menu?.addItem(NSMenuItem.separator())
 
-        for case let server as NSDictionary in DICOMNodeService.nodes(sendOnly: false, queryRetrieveOnly: false) {
-            var title = String(format: "%@ - %@/%@:%@", QueryController.text(server.value(forKey: "Description")),
-                               QueryController.text(server.value(forKey: "AETitle")), QueryController.text(server.value(forKey: "Address")),
-                               QueryController.text(server.value(forKey: "Port")))
+        // The C-MOVE destinations: the retrieve sends to the node chosen here.
+        func text(_ value: PropertyListValue?) -> String { value?.text ?? "(null)" }
+        for node in DICOMNodeService.dicomNodes(sendOnly: false, queryRetrieveOnly: false) {
+            var title = String(format: "%@ - %@/%@:%@", text(node[DICOMNode.Key.description]), text(node[DICOMNode.Key.aeTitle]),
+                               text(node[DICOMNode.Key.address]), text(node[DICOMNode.Key.port]))
 
             while sendToPopup.indexOfItem(withTitle: title) != -1 {
                 title += " "

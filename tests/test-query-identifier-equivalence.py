@@ -36,6 +36,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dcmtk_build import INSTALL, ROOT, dcmtk_flags  # noqa: E402
 import history_reference  # noqa: E402
+import isix_modules  # noqa: E402
 
 NODE = 'Horos/Sources/DCMTKQueryNode.mm'
 reference = history_reference.before_removal(NODE)
@@ -366,7 +367,11 @@ ADAPTERS = ROOT / 'Horos/Sources/Adapters/DCMTK'
 with tempfile.TemporaryDirectory(prefix='isix-query-identifiers-') as temporary:
     folder = Path(temporary)
     (folder / 'main.swift').write_text(DRIVER)
-    built = subprocess.run(['xcrun', 'swiftc', *map(str, sorted(MODULE.glob('*.swift'))), str(folder / 'main.swift'),
+    # The module's sources, with the modules it depends on built beside them.
+    built = subprocess.run(['xcrun', 'swiftc',
+                            # Every module the network module depends on, as Package.swift declares them.
+                            *[flag for name in isix_modules.dependencies('IsiXDICOMNetwork') for flag in isix_modules.module_flags(name, folder / 'modules')],
+                            *map(str, sorted(MODULE.glob('*.swift'))), str(folder / 'main.swift'),
                             '-o', str(folder / 'module')], capture_output=True, text=True)
     if built.returncode:
         print(built.stderr[-3000:])

@@ -4,7 +4,10 @@
 A move between folders the user can write needs no authorization: it
 must succeed while the authorization would refuse, and without calling it. A
 folder the user cannot write still goes through the authorization, and a
-refused move there is reported without copying.
+refused move there is reported without copying. A destination folder
+that is missing and that the user cannot make, as the folders of all users
+under /Library until a plugin goes there, is made by the same authorization:
+one authentication for both commands, then mkdir -p and the move.
 
 PluginManager is Swift: the shipped +movePluginFromPath:toPath: is
 compiled with the Objective-C messaging helpers of PluginManager.swift.
@@ -58,14 +61,29 @@ HELPERS
 
 var denyMove = false
 var alerts = 0, copies = 0, authorizations = 0
+var authenticated: [[String]] = [], commands: [String] = []
+var unlockForMkdir: String? = nil
 @objc(HorosAlertPanel) final class HorosAlertPanel: NSObject {
     @discardableResult @objc static func runCritical(title: String?, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int { alerts += 1; return 1 }
 }
 @objc(BLAuthentication) final class BLAuthentication: NSObject {
     static let instance = BLAuthentication()
     @objc static func sharedInstance() -> Any! { return instance }
+    @objc(authenticate:) func authenticate(_ forCommands: [Any]!) -> Bool {
+        authenticated.append(forCommands.map { $0 as! String })
+        return true
+    }
     @objc(executeCommand:withArgs:) func executeCommand(_ command: String!, withArgs args: [Any]!) -> Bool {
         authorizations += 1
+        commands.append(command)
+        if command == "/bin/mkdir" {
+            // As root: the locked folder does not stop it.
+            precondition(args.first as? String == "-p", "The folder must be made with its parents")
+            let locked = unlockForMkdir!
+            try! FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: locked)
+            defer { try! FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: locked) }
+            return (try? FileManager.default.createDirectory(atPath: args.last as! String, withIntermediateDirectories: true, attributes: nil)) != nil
+        }
         let source = args[args.count - 2] as! String, destination = args.last as! String
         if command == "/bin/mv" {
             if denyMove { return false }
@@ -110,7 +128,23 @@ check(fm.contents(atPath: (inactive as NSString).appendingPathComponent("payload
 PluginManager.movePlugin(fromPath: inactive, toPath: active)
 check(fm.fileExists(atPath: active) && !fm.fileExists(atPath: inactive) && alerts == 1, "Reactivation must move back without errors")
 check(authorizations == 1, "Moves between writable folders must not ask for authorization")
-print("PASS: writable moves need no authorization; a refused one is reported without copying; bytes preserved")
+check(authenticated.isEmpty, "A destination folder that exists needs no extra authentication")
+
+// All users' folder, missing, under a folder the user cannot write.
+let systemRoot = root.appendingPathComponent("system")
+let systemPlugins = (systemRoot as NSString).appendingPathComponent("Library/Application Support/IsiX/Plugins")
+let systemPlugin = (systemPlugins as NSString).appendingPathComponent("QA.horosplugin")
+try! fm.createDirectory(atPath: systemRoot, withIntermediateDirectories: true, attributes: nil)
+try! fm.setAttributes([.posixPermissions: 0o555], ofItemAtPath: systemRoot)
+unlockForMkdir = systemRoot
+denyMove = false
+PluginManager.movePlugin(fromPath: active, toPath: systemPlugin)
+try! fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: systemRoot)
+check(authenticated == [["/bin/mkdir", "/bin/mv"]], "One authentication must cover making the folder and the move")
+check(commands.suffix(2) == ["/bin/mkdir", "/bin/mv"], "The folder must be made before the move")
+check(!fm.fileExists(atPath: active) && fm.fileExists(atPath: systemPlugin) && alerts == 1, "The plugin must arrive in the folder made for it, without an error")
+check(fm.contents(atPath: (systemPlugin as NSString).appendingPathComponent("payload")) == bytes, "Move must preserve bytes")
+print("PASS: writable moves need no authorization; a refused one is reported without copying; a missing locked folder is made under one authentication; bytes preserved")
 '''.replace('HELPERS', helpers).replace('AUTHENTICATION', authentication).replace('METHOD', method)
 with tempfile.TemporaryDirectory(prefix='horos-plugin-move-') as directory:
     p = Path(directory)

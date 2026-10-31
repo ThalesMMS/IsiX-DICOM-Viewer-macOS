@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 import IsiXROI
 
 /// The ROIs' immediate-mode drawing on the view's canvas (ROICanvas), with
@@ -105,7 +106,7 @@ extension ROI {
         _textualBoxLine1 = nil; _textualBoxLine2 = nil; _textualBoxLine3 = nil
         _textualBoxLine4 = nil; _textualBoxLine5 = nil; _textualBoxLine6 = nil
 
-        if let e = ROI.objcTry({
+        if let e = HorosObjCException.caught({
             drawShape(scaleValue, offsetx, offsety, spacingX, spacingY, highlightIfSelected, thick, prepareTextualData)
         }) {
             NSLog("drawROIWithScaleValue exception : %@", e)
@@ -165,7 +166,7 @@ extension ROI {
         ROIGL.blendFunc(ROIGL.srcAlpha, ROIGL.oneMinusSrcAlpha)
 
         let labelled = { self.isTextualDataDisplayed && prepareTextualData }
-        let interpolate = !UserDefaults.standard.bool(forKey: "NOINTERPOLATION")
+        let interpolate = !PreferencesSource.process.preferences[ViewerPreferences.noInterpolation]
 
         switch _type {
         case .tLayerROI:
@@ -612,7 +613,7 @@ extension ROI {
         ROIGL.pointSize(thick * bsf)
         ROIGL.begin(ROIGL.points)
         outline()
-        if UserDefaults.standard.bool(forKey: "drawROICircleCenter") {
+        if PreferencesSource.process.preferences[ViewerPreferences.drawsROICircleCenter] {
             ROIGL.vertex2f(Float((ox - Double(offsetx)) * s), Float((oy - Double(offsety)) * s))
         }
         ROIGL.end()

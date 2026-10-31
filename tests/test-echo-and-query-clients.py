@@ -35,7 +35,7 @@ for required in ('UserDefaults.defaultAETitle()', 'extraParameters: server',
 setup = query.split('// MARK: The association', 1)[-1].split('func find(on association:', 1)[0]
 for required in ('association.echo(withStatus: &status)', 'status != 0',
                  'parameters.dimseTimeout = self.association.dimseTimeout',
-                 'parameters.connectionTimeout = defaults.integer(forKey: "DICOMConnectionTimeout")'):
+                 'parameters.connectionTimeout = preferences[NetworkPreferences.dicomConnectionTimeout]'):
     if required not in setup: failures.append('verification lost bounded failure handling: ' + required)
 for required in ('DIMSE_echoUser', 'DIMSE_NONBLOCKING', '_dimseTimeout', 'ASC_createAssociationParameters',
                  'connectionTimeout > 0 ? connectionTimeout : parameters.acseTimeout'):

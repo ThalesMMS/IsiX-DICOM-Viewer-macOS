@@ -39,6 +39,7 @@
 
 import Foundation
 import IsiXHTTPServer
+import IsiXPreferences
 
 /// A connection of the XML-RPC interface, on its own thread. The SwiftNIO
 /// listener (XMLRPCListener.swift) hands it the bytes received and sends what
@@ -85,19 +86,29 @@ final class XMLRPCInterfaceConnection: N2XMLRPCConnection, XMLRPCServerConnectio
     // as soon as the order is read, and the order runs on a thread of its own,
     // so a RIS that waits for nothing is not held while a study opens.
     override func handleXmlrpcMethodCall(_ args: [Any]) {
-        guard UserDefaults.standard.bool(forKey: XMLRPCServerAccess.doNotRespondKey) else {
+        guard PreferencesSource.process.preferences[NetworkPreferences.xmlrpcServerDoesNotRespond] else {
             super.handleXmlrpcMethodCall(args)
             return
         }
         writeStatus(200, headers: nil, version: (args[1] as? String) ?? XMLRPCHTTPRequest.defaultVersion)
         discardsResponse = true
-        Thread.detachNewThreadSelector(#selector(handleXmlrpcMethodCallWithoutResponse(_:)), toTarget: self, with: args)
+        let order = UnansweredOrder(connection: self, args: args)
+        ActivityThread.startUnlisted(name: "XML-RPC order") { _ in order.connection.handleXmlrpcMethodCallWithoutResponse(order.args) }
     }
 
-    @objc(handleXmlrpcMethodCallWithoutResponse:)
-    func handleXmlrpcMethodCallWithoutResponse(_ args: NSArray) {
+    /// An order whose caller was answered already, handed to its own thread.
+    ///
+    /// `@unchecked Sendable`: the connection and the parsed arguments are not
+    /// Sendable. The connection's thread has answered and only drops the
+    /// response the order's thread writes; it does not touch the arguments.
+    private struct UnansweredOrder: @unchecked Sendable {
+        let connection: XMLRPCInterfaceConnection
+        let args: [Any]
+    }
+
+    func handleXmlrpcMethodCallWithoutResponse(_ args: [Any]) {
         autoreleasepool {
-            super.handleXmlrpcMethodCall(args as! [Any])
+            super.handleXmlrpcMethodCall(args)
         }
     }
 
@@ -114,7 +125,7 @@ final class XMLRPCInterfaceConnection: N2XMLRPCConnection, XMLRPCServerConnectio
     // method.
     override func shouldHandleRequest(_ request: CFHTTPMessage, version: String) -> Bool {
         let authorization = CFHTTPMessageCopyHeaderFieldValue(request, "Authorization" as CFString)?.takeRetainedValue() as String?
-        let policy = XMLRPCAccessPolicy.policy(from: UserDefaults.standard)
+        let policy = XMLRPCAccessPolicy.policy(from: PreferencesSource.process.preferences)
         let peer = (address ?? "(null)") as NSString
         let credentialSent = (authorization as NSString?)?.length ?? 0 > 0
 
@@ -198,15 +209,10 @@ final class XMLRPCInterfaceConnection: N2XMLRPCConnection, XMLRPCServerConnectio
             // Older plugins answered a document under NSXMLDocumentResponse.
             let answered = notificationObject.object(forKey: "NSXMLDocumentResponse") as? XMLNode
             guard let answered else { return N2XMLRPC.parseElement(nil) }
-            var value: XMLNode?
             // A document without a value raises, as -objectAtIndex: did, and
             // the caller answers the fault.
-            if let raised = HorosObjCException.caught({
-                let values = (try? answered.objects(forXQuery: "/methodResponse/params/param/value")) as NSArray?
-                value = values?.object(at: 0) as? XMLNode
-            }) {
-                raised.raise()
-            }
+            let values = (try? answered.objects(forXQuery: "/methodResponse/params/param/value")) as NSArray?
+            let value = values?.object(at: 0) as? XMLNode
             return N2XMLRPC.parseElement(value)
         }
 

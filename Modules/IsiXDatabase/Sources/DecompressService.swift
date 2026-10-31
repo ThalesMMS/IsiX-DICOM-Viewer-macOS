@@ -85,8 +85,7 @@ public final class DecompressService: @unchecked Sendable {
 
     /// The settings a conversion reads, which the application sends from its
     /// own preferences: the service has none.
-    public static let settingsKeys = ["CompressionSettings", "CompressionSettingsLowRes",
-                                      "CompressionResolutionLimit", "UseJPEGColorSpace"]
+    public static let settingsKeys = DecompressConversion.settingsKeys.map(\.name)
 
     /// The service's bundle in the application's Contents/XPCServices.
     public static let bundleName = "Decompress.xpc"

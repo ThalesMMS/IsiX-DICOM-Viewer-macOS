@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXDatabase
 
 /// The name of the exception an HorosObjCException.perform error carries.
 private func exception(_ error: Error) -> NSException? {
@@ -60,6 +61,12 @@ private let MARGIN: Int32 = 3
 /// Swift class does not declare it.
 @objc(BrowserMatrix)
 public final class BrowserMatrix: NSMatrix, NSDraggingSource {
+    /// The graph of the database window this matrix is in, which hands it the
+    /// browser whose thumbnails it shows; nil outside that window.
+    private var browserWindow: BrowserWindowGraph? {
+        PreferencesSource.process.processGraph.browserWindow(of: window)
+    }
+
     public override func acceptsFirstMouse(for theEvent: NSEvent?) -> Bool {
         return true
     }
@@ -78,17 +85,9 @@ public final class BrowserMatrix: NSMatrix, NSDraggingSource {
         return s
     }
 
+    /// The selected button cells that are not transparent.
     public override var selectedCells: [NSCell] {
-        let m = NSMutableArray(array: super.selectedCells)
-        let r = NSMutableArray(capacity: m.count)
-
-        for case let c as NSButtonCell in m {
-            if c.isTransparent == false {
-                r.add(c)
-            }
-        }
-
-        return r as! [NSCell]
+        return super.selectedCells.filter { ($0 as? NSButtonCell)?.isTransparent == false }
     }
 
     @objc(selectCellEvent:)
@@ -127,25 +126,21 @@ public final class BrowserMatrix: NSMatrix, NSDraggingSource {
                 local_point.x -= 35
                 local_point.y += 35
 
-                let cells = self.selectedCells as NSArray
+                let cells = self.selectedCells
 
                 if cells.count > 0 {
-                    var subArray = cells
-
-                    if subArray.count > 20 {
-                        subArray = cells.subarray(with: NSMakeRange(0, 20)) as NSArray
-                    }
+                    let subArray = cells.prefix(20)
 
                     var width: Int32 = 0
-                    let firstCell = (subArray.object(at: 0) as! NSCell).image
+                    let firstCell = subArray[0].image
 
                     width += MARGIN
-                    for i in 0..<subArray.count {
-                        width = cInt(CGFloat(width) + ((subArray.object(at: i) as! NSCell).image?.size.width ?? 0))
+                    for cell in subArray {
+                        width = cInt(CGFloat(width) + (cell.image?.size.width ?? 0))
                         width += MARGIN
                     }
 
-                    let dragImages = (0..<subArray.count).map { (subArray.object(at: $0) as! NSCell).image }
+                    let dragImages = subArray.map(\.image)
                     let thumbnail = NSImage(size: NSMakeSize(CGFloat(width), 70+6), flipped: false) { bounds in
                         NSColor.gray.set()
                         bounds.fill(using: .copy)
@@ -164,12 +159,12 @@ public final class BrowserMatrix: NSMatrix, NSDraggingSource {
                     }
 
                     // The selection is captured now, as object identifiers; the drop reads
-                    // nothing from this matrix.
-                    let objects = NSMutableArray()
-                    for i in 0..<cells.count {
-                        objects.add((BrowserController.currentBrowser().matrixViewArray as NSArray).object(at: (cells.object(at: i) as! NSCell).tag))
-                    }
-                    let promise = BrowserController.currentBrowser().filePromise(forDatabaseObjects: objects as? [Any])
+                    // nothing from this matrix. A placeholder of an excluded series names
+                    // no row; with nothing else selected there is nothing to drag.
+                    guard let browser = self.browserWindow?.browser else { return }
+                    let objects = ThumbnailCellTag.rows(tags: cells.map(\.tag), of: browser.matrixViewArray ?? [])
+                    if objects.isEmpty { return }
+                    let promise = browser.filePromise(forDatabaseObjects: objects)
                     if promise == nil { return }
 
                     let di = NSDraggingItem(pasteboardWriter: promise!)
@@ -197,18 +192,19 @@ public final class BrowserMatrix: NSMatrix, NSDraggingSource {
         if !self.getRow(&row, column: &column, for: self.convert(event.locationInWindow, from: nil)) {
             return
         }
-        let selectedButtonCell = self.cell(atRow: row, column: column) as? NSButtonCell
-        let objects = BrowserController.currentBrowser().matrixViewArray as NSArray?
-        if (selectedButtonCell?.isTransparent ?? false) || !(selectedButtonCell?.isEnabled ?? false) || (selectedButtonCell?.tag ?? 0) < 0 || (selectedButtonCell?.tag ?? 0) >= (objects?.count ?? 0) {
+        guard let selectedButtonCell = self.cell(atRow: row, column: column) as? NSButtonCell,
+              let browser = self.browserWindow?.browser else { return }
+        let objects = browser.matrixViewArray ?? []
+        if selectedButtonCell.isTransparent || !selectedButtonCell.isEnabled {
             return
         }
-        let selectedButtonCellTag = selectedButtonCell!.tag
+        guard let selectedButtonCellTag = ThumbnailCellTag.rowIndex(tag: selectedButtonCell.tag, count: objects.count) else { return }
         self.selectCell(atRow: row, column: column)
-        BrowserController.currentBrowser().matrixPressed(self)
-        let selectedObject = objects!.object(at: selectedButtonCellTag) as? NSManagedObject
+        browser.matrixPressed(self)
+        let selectedObject = objects[selectedButtonCellTag] as? NSManagedObject
         do {
             try HorosObjCException.perform {
-                let image = selectedButtonCell?.image
+                let image = selectedButtonCell.image
                 let thumbnailWidth = cInt((image?.size.width ?? 0) + 6)
                 let thumbnail = NSImage(size: NSMakeSize(CGFloat(thumbnailWidth), 70+6), flipped: false) { _ in
                     NSColor.gray.set()
@@ -222,13 +218,13 @@ public final class BrowserMatrix: NSMatrix, NSDraggingSource {
                 let selectedImage = selectedObject as? DicomImage
                 if (selectedImage?.isImageStorage()?.boolValue ?? false) && !BrowserController.isReportSeries(forFileExport: selectedImage?.series) {
                     // The frame as displayed, captured before the drag starts.
-                    let previewPix = BrowserController.currentBrowser().previewPix(Int32(truncatingIfNeeded: selectedButtonCellTag))
+                    let previewPix = browser.previewPix(Int32(truncatingIfNeeded: selectedButtonCellTag))
                     if previewPix == nil || previewPix!.notAbleToLoadImage { return }
                     let jpeg = NSBitmapImageRep.representationOfImageReps(in: previewPix!.image()?.representations ?? [], using: .jpeg, properties: [.compressionFactor: NSNumber(value: 0.9)])
                     let name = String(format: "%@.%ld.jpg", ((selectedImage?.completePath() as NSString?)?.lastPathComponent ?? "(null)") as NSString, previewPix!.frameNo)
-                    promise = BrowserController.currentBrowser().filePromise(forJPEGData: jpeg, name: name)
+                    promise = browser.filePromise(forJPEGData: jpeg, name: name)
                 } else {
-                    promise = BrowserController.currentBrowser().filePromise(forDatabaseObjects: [selectedObject as Any], asJPEG: true)
+                    promise = browser.filePromise(forDatabaseObjects: [selectedObject as Any], asJPEG: true)
                 }
                 if promise == nil { return }
 
@@ -346,7 +342,7 @@ public final class BrowserMatrix: NSMatrix, NSDraggingSource {
     public override func rightMouseDown(with theEvent: NSEvent) {
         self.selectCellEvent(theEvent)
 
-        BrowserController.currentBrowser().matrixPressed(self)
+        browserWindow?.browser.matrixPressed(self)
 
         super.rightMouseDown(with: theEvent)
     }

@@ -44,6 +44,8 @@ import IsiXImaging
 // ShuttlePRO, the time points of a 4D series, the next series), the
 // highlight that marks a viewer a series list click brought forward, and
 // the first and last image of a movie export taken from the current image.
+// A time point is IsiXImaging's SliceNavigation; the next series is opened
+// through ViewerStudyOpening, over the viewer's graph.
 
 public extension ViewerController {
 
@@ -53,7 +55,8 @@ public extension ViewerController {
 
         let c = characters.character(at: 0)
 
-        switch ViewerKeyCommand.of(character: c, command: event.modifierFlags.contains(.command)) {
+        let command = ViewerKeyCommand.of(character: c, command: event.modifierFlags.contains(.command))
+        switch command {
         case .playStop:
             playStop(findPlayStopButton())
         case .shuttle(let speed, let direction):
@@ -75,28 +78,20 @@ public extension ViewerController {
                 // Stop.
                 playStop(findPlayStopButton())
             }
-        case .previousTimePoint:
-            if horos_maxMovieIndex > 1 {
-                horos_curMovieIndex = ViewerKeyCommand.timePoint(after: horos_curMovieIndex, step: -1, count: horos_maxMovieIndex)
+        case .previousTimePoint, .nextTimePoint:
+            // A 4D series goes round its time points; any other passes the key on.
+            var frames = SliceNavigation(movieIndex: Int(horos_curMovieIndex), movieCount: Int(horos_maxMovieIndex))
+            if frames.stepTimePoint(command == .previousTimePoint ? -1 : 1) {
+                horos_curMovieIndex = Int16(truncatingIfNeeded: frames.movieIndex)
 
                 setMovieIndex(horos_curMovieIndex)
             } else {
                 super.keyDown(with: event)
             }
-        case .nextTimePoint:
-            if horos_maxMovieIndex > 1 {
-                horos_curMovieIndex = ViewerKeyCommand.timePoint(after: horos_curMovieIndex, step: 1, count: horos_maxMovieIndex)
-
-                setMovieIndex(horos_curMovieIndex)
-            } else {
-                super.keyDown(with: event)
-            }
-        case .previousSeries:
-            BrowserController.currentBrowser()?.loadNextSeries((horos_fileList(at: 0) as NSArray?)?.object(at: 0) as? NSManagedObject, -1, self, true,
-                                                              keyImagesOnly: horos_displayOnlyKeyImages)
-        case .nextSeries:
-            BrowserController.currentBrowser()?.loadNextSeries((horos_fileList(at: 0) as NSArray?)?.object(at: 0) as? NSManagedObject, 1, self, true,
-                                                              keyImagesOnly: horos_displayOnlyKeyImages)
+        case .previousSeries, .nextSeries:
+            BrowserStudyOpening(processGraph: sessionGraph.processGraph)
+                .openNextSeries(after: horos_fileList(at: 0)?.object(at: 0) as? NSManagedObject, direction: command == .previousSeries ? -1 : 1,
+                                in: self, keyImagesOnly: horos_displayOnlyKeyImages)
         case .other:
             super.keyDown(with: event)
         }
@@ -111,7 +106,7 @@ public extension ViewerController {
     func highLightTimerFunction(_ theTimer: Timer!) {
         // highLighted -= 0.05, in double as the float was promoted.
         horos_highLighted = Float(Double(horos_highLighted) - 0.05)
-        for case let v as DCMView in (horos_seriesView?.imageViews() as NSArray?) ?? NSArray() {
+        for case let v as DCMView in horos_seriesView?.imageViews() ?? [] {
             v.needsDisplay = true
         }
 
@@ -126,7 +121,7 @@ public extension ViewerController {
         if b != horos_highLighted {
             horos_highLighted = b
 
-            for case let v as DCMView in (horos_seriesView?.imageViews() as NSArray?) ?? NSArray() {
+            for case let v as DCMView in horos_seriesView?.imageViews() ?? [] {
                 v.needsDisplay = true
             }
 
@@ -146,7 +141,7 @@ public extension ViewerController {
     @IBAction func setCurrentPosition(_ sender: Any!) {
         horosLoadViewerPanels()
 
-        let count = (horos_pixList(at: Int(horos_curMovieIndex)) as NSArray?)?.count ?? 0
+        let count = horos_pixList(at: Int(horos_curMovieIndex))?.count ?? 0
         let value = MovieExportPosition.fieldValue(image: horos_imageView?.curImage ?? 0, imageCount: count, flipped: horos_imageView?.flippedData ?? false)
 
         if ViewerSender.tag(sender) == 0 {

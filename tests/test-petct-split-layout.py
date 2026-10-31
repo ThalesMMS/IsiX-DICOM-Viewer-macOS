@@ -51,6 +51,10 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import process_graph_stand_in  # noqa: E402  - the 2D viewer's sources read the catalog's keys through PreferencesSource
+import isix_modules  # noqa: E402
+
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
@@ -693,10 +697,11 @@ with tempfile.TemporaryDirectory(prefix='horos-petct-split-') as folder:
     built = (run(['xcrun', 'swiftc', '-parse-as-library', '-module-name', 'PETCTHarness', '-wmo',
                   '-import-objc-header', str(work / 'bridge.h'),
                   '-emit-objc-header-path', str(work / 'PETCTHarness-Swift.h'),
-                  '-c'] + swift_files + ['-o', str(work / 'kf.o')], 'KFSplitView.swift' + (' and the viewer double' if swift_viewer else ''))
+                  '-c'] + swift_files + process_graph_stand_in.swift_flags(work / 'isix') + ['-o', str(work / 'kf.o')], 'KFSplitView.swift' + (' and the viewer double' if swift_viewer else ''))
              and run(['xcrun', 'clang', '-fobjc-arc', '-fmodules', '-Wno-deprecated-declarations', '-I', str(work),
                       '-c', str(work / 'harness.m'), '-o', str(work / 'harness.o')], 'the harness')
              and run(['xcrun', 'swiftc', str(work / 'harness.o'), str(work / 'kf.o'),
+                      *isix_modules.module_flags('IsiXPreferences', work / 'isix'),
                       '-framework', 'Cocoa', '-o', str(work / 'harness')], 'the harness link'))
     for locale in ('en', 'ja-JP') if built else ():
         xib = work / f'{locale}.xib'

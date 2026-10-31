@@ -107,6 +107,51 @@ public enum MediaScanRules {
         return true
     }
 
+    // MARK: - What the scan does with what it found
+
+    /// The MOUNT preference, and the tags of the dialog's buttons: ask, or copy
+    /// the medium into the database, or ignore it; any other value browses it.
+    public static let askMode = -1
+    public static let copyMode = 1
+    public static let ignoreMode = 2
+
+    /// Whether the files of the medium are read, past its DICOMDIR: always when
+    /// the DICOMDIR is not used; when it named nothing, or named some and may
+    /// not be all, as the preferences say.
+    public static func readsMedium(usesDicomdir: Bool, namedByIndex: Int, readIfIndexIsEmpty: Bool,
+                                   readBeyondIndex: Bool) -> Bool {
+        !usesDicomdir || (namedByIndex == 0 && readIfIndexIsEmpty) || (namedByIndex != 0 && readBeyondIndex)
+    }
+
+    /// Whether the DICOMDIR is left out for the files a full parse of it found:
+    /// more than twice its entries.
+    public static func trustsParseOverEntries(parsedFiles: Int, entries: Int) -> Bool {
+        parsedFiles > entries * 2
+    }
+
+    /// Whether the user is asked what to do with the medium.
+    public static func asksWhatToDo(mountMode: Int, commandDown: Bool) -> Bool {
+        mountMode == askMode || commandDown
+    }
+
+    /// Whether the medium is ejected after a copy: only a copy that finished,
+    /// only a volume, not a folder expanded from an archive on it.
+    public static func ejectsAfterCopy(isVolume: Bool, ejectPreference: Bool, copyStopped: Bool) -> Bool {
+        isVolume && ejectPreference && !copyStopped
+    }
+
+    /// Whether an import that the user asked to eject its medium does it: a
+    /// copy, without a failure.
+    public static func ejectsAfterImport(asked: Bool, copied: Bool, failedCopies: Int, ejectPreference: Bool) -> Bool {
+        failedCopies == 0 && asked && copied && ejectPreference
+    }
+
+    /// Whether the files are validated before they are indexed: on a medium
+    /// that takes too long, so never there.
+    public static func validatesBeforeIndexing(preference: Bool, mountedVolume: Bool) -> Bool {
+        preference && !mountedVolume
+    }
+
     // MARK: - A DICOMDIR record as a database entry
 
     /// The longest path a referenced file may have (MAXPATHLEN).

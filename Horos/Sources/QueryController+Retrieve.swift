@@ -40,6 +40,7 @@
 import AppKit
 import CoreData
 import IsiXDICOMNetwork
+import IsiXPreferences
 
 /// The retrieves of the window: what of the selection to ask for, the thread
 /// that asks each node, the queue of Settings > Locations, and Retrieve &
@@ -148,17 +149,16 @@ extension QueryController {
                 // The study each series was listed under, for the worker.
                 for item in selectedItems where item is DCMTKSeriesQueryNode {
                     if let study = outlineView.parent(forItem: item) {
-                        QueryController.synchronized(studiesOfRetrievedSeries) {
-                            studiesOfRetrievedSeries.setObject(study as AnyObject, forKey: item as AnyObject)
-                        }
+                        workers.recordStudy(study as AnyObject, ofSeries: item as AnyObject)
                     }
                 }
 
                 // A retrieve the user asks for here waits its turn in the queue
                 // of Settings > Locations; Command queues it behind the ones
                 // under way. Retrieve & View and auto-retrieves do not wait.
-                let thread: Thread
                 var status = QueryController.singularPluralCount(selectedItems.count, NSLocalizedString("study", comment: ""), NSLocalizedString("studies", comment: ""))
+                var ticket: RetrieveQueue.Ticket?
+                var shown = status
                 if showGUI && !forViewing && !onlyIfNotAvailable {
                     // Who is waiting: the patient of a single study, as the
                     // line reads once the retrieve runs.
@@ -166,26 +166,15 @@ extension QueryController {
                         status += " - " + name.replacingOccurrences(of: "^", with: " ")
                     }
                     let explicitlyQueued = NSApp.currentEvent?.modifierFlags.contains(.command) == true
-                    let ticket = RetrieveQueue.shared.ticket(explicitlyQueued: explicitlyQueued)
-                    let queued: NSDictionary = ["items": selectedItems, "ticket": ticket, "status": status]
-                    thread = Thread(target: self, selector: #selector(performQueuedRetrieve(_:)), object: queued)
-                    // Activity finds the ticket from the row, to move or rename it.
-                    thread.threadDictionary[RetrieveQueue.threadKey] = ticket
-                    let position = RetrieveQueue.shared.position(of: ticket)
+                    let queued = RetrieveQueue.shared.ticket(explicitlyQueued: explicitlyQueued)
+                    ticket = queued
+                    shown = status
+                    let position = RetrieveQueue.shared.position(of: queued)
                     if position > 0 {
-                        status = RetrieveQueueActivity.waitingStatus(status, position: position)
+                        shown = RetrieveQueueActivity.waitingStatus(status, position: position)
                     }
-                } else {
-                    thread = Thread(target: self, selector: #selector(performRetrieve(_:)), object: selectedItems)
                 }
-                thread.name = NSLocalizedString("Retrieving images...", comment: "")
-                thread.status = status
-                if selectedItems.count > 1 {
-                    thread.progress = 0
-                }
-
-                thread.supportsCancel = true
-                ThreadsManager.default()?.addThreadAndStart(thread)
+                startRetrieveThread(of: QueryAnswers(items: selectedItems.map { $0 }), ticket: ticket, status: status, shown: shown)
                 startedTransfer = true
 
                 if showGUI {
@@ -206,6 +195,30 @@ extension QueryController {
         }
         unstarted.removeObjects(in: takenItems)
         settleRetrieveViewing(forItems: unstarted as? [Any], cancelled: false)
+    }
+
+    /// Runs the retrieve of `items` on a thread of its own that Activity lists
+    /// with `shown` and can cancel, counted among this window's retrieves
+    /// until it ends. With a `ticket`, it waits for its turn in the queue
+    /// first, and Activity finds the ticket from the row to move or rename it.
+    private func startRetrieveThread(of items: QueryAnswers, ticket: RetrieveQueue.Ticket?, status: String, shown: String) {
+        let several = items.items.count > 1
+        let retrieves = self.retrieves
+        Task.detached { [self] in
+            await retrieves.run {
+                await ActivityThread.run(name: NSLocalizedString("Retrieving images...", comment: ""), configure: { thread in
+                    if let ticket { thread.threadDictionary[RetrieveQueue.threadKey] = ticket }
+                    thread.status = shown
+                    if several { thread.progress = 0 }
+                }) {
+                    if let ticket {
+                        self.performQueuedRetrieve(items.items, ticket: ticket, status: status)
+                    } else {
+                        self.performRetrieve(items.items)
+                    }
+                }
+            }
+        }
     }
 
     /// Adds `item` to `selectedItems` unless it is in transfer with the same
@@ -317,7 +330,6 @@ extension QueryController {
     /// A retrieve that ends, however it ends, is no longer in transfer: an
     /// entry left in transfer made every later retrieve of the study stop at
     /// "Already in transfer", without a word.
-    @objc(forgetRetrieveInTransfer:)
     nonisolated func forgetRetrieveInTransfer(_ items: [Any]!) {
         RetrieveInTransfer.withLock { inTransfer in
             for item in items ?? [] {
@@ -329,13 +341,8 @@ extension QueryController {
     /// A retrieve of the queue: waits for its turn, retrieves, and makes room
     /// for the next. Stopped in Activity while it waits, it ends as a cancelled
     /// retrieve, without having asked the node for anything.
-    @objc(performQueuedRetrieve:)
-    nonisolated func performQueuedRetrieve(_ queued: NSDictionary!) {
+    nonisolated func performQueuedRetrieve(_ items: [Any], ticket: RetrieveQueue.Ticket, status: String) {
         autoreleasepool {
-            let items = queued?.object(forKey: "items") as? [Any] ?? []
-            guard let ticket = queued?.object(forKey: "ticket") as? RetrieveQueue.Ticket else { return }
-            let status = queued?.object(forKey: "status") as? String ?? ""
-
             // The line shows the retrieve's place, which moves as the ones
             // ahead end or the user reorders the queue in Activity.
             if RetrieveQueue.shared.waitForTurn(ticket, whileWaiting: { position in
@@ -356,7 +363,7 @@ extension QueryController {
     /// menu.
     @objc(performRetrieve:)
     public nonisolated func performRetrieve(_ array: [Any]!) {
-        guard BrowserController.currentBrowser()?.database != nil else { // During DB rebuild
+        guard workerGraph?.browserDatabase != nil else { // During DB rebuild
             return
         }
 
@@ -381,7 +388,7 @@ extension QueryController {
             let parameters = (item as? DCMTKQueryNode)?.extraParameters() as? [String: Any] ?? [:]
             return NSNumber(value: RetrieveListenerRequirement.retrieveMode(forServer: parameters))
         }
-        if AppController.shared()?.isStoreSCPRunning() == false &&
+        if workerGraph?.dicomListener.isListening == false &&
             RetrieveListenerRequirement.listenerRequired(forEveryRetrieveMode: retrieveModes) {
             NSLog("----- isStoreSCPRunning == NO, and every node in this retrieve needs the listener")
             DCMTKQueryNode.performSelector(onMainThread: #selector(DCMTKQueryNode.errorMessage(_:)), with:
@@ -394,26 +401,21 @@ extension QueryController {
 
         let moveArray = NSMutableArray()
 
-        QueryController.synchronized(self) { numberOfRunningRetrieve += 1 }
+        // What the retrieve reads of the window: copied on the main thread
+        // when it started, or by the last copy before an automatic one.
+        let state = windowState
 
         // Apply the same order for retrieving, as the sources order
         var reorderedArray: [Any] = []
         func contains(_ list: [Any], _ item: Any) -> Bool { list.contains { ($0 as AnyObject) === (item as AnyObject) } }
 
-        do {
-            try HorosObjCException.perform {
-                for case let source as NSObject in NSArray(array: self.sourcesArray) {
-                    let server = source.value(forKey: "server") as AnyObject?
-                    for case let node as DCMTKQueryNode in given {
-                        if node._hostname == server?.value(forKey: "Address") as? String &&
-                            node._port == QueryController.int32(server?.value(forKey: "Port")) && !contains(reorderedArray, node) {
-                            reorderedArray.append(node)
-                        }
-                    }
+        for source in state.sources {
+            let server = source.server
+            for case let node as DCMTKQueryNode in given {
+                if node._hostname == server?.address && node._port == (server?.associationPort ?? 0) && !contains(reorderedArray, node) {
+                    reorderedArray.append(node)
                 }
             }
-        } catch {
-            QueryController.log(error, "-[QueryController performRetrieve:]")
         }
 
         for node in given where !contains(reorderedArray, node) {
@@ -426,8 +428,6 @@ extension QueryController {
         } else {
             NSLog("------- array.count != reorderedArray.count : QueryController performRetrieve")
         }
-
-        let state = windowState
 
         do {
             try HorosObjCException.perform {
@@ -446,21 +446,30 @@ extension QueryController {
 
                     dictionary["moveDestination"] = UserDefaults.defaultAETitle()
 
-                    var dstDict: NSDictionary?
+                    // The C-MOVE destination chosen in the window, after
+                    // "This Computer" and the separator.
+                    var destination: DICOMNode?
 
                     if state.sendToIndex != 0 {
                         let index = state.sendToIndex - 2
+                        let nodes = DICOMNodeService.dicomNodes(sendOnly: false, queryRetrieveOnly: false)
+                        // A node removed since the menu was built: the retrieve
+                        // stops, as the range exception of the former list did.
+                        guard nodes.indices.contains(index) else {
+                            NSLog("Retrieve: the destination %ld is no longer a node", index)
+                            return
+                        }
 
-                        dstDict = DICOMNodeService.serversList(sendOnly: false, queryRetrieveOnly: false).object(at: index) as? NSDictionary
+                        destination = nodes[index]
 
-                        dictionary["moveDestination"] = dstDict?.value(forKey: "AETitle")
+                        dictionary["moveDestination"] = destination?[DICOMNode.Key.aeTitle]?.object
 
                         allowNonCMOVE = false
                     }
 
-                    if QueryController.int32(dstDict?.value(forKey: "Port")) == QueryController.int32(dictionary.value(forKey: "port")) &&
-                        (dstDict?.value(forKey: "Address") as? String) != nil &&
-                        (dstDict?.value(forKey: "Address") as? String) == (dictionary.value(forKey: "hostname") as? String) {
+                    if Int32(truncatingIfNeeded: destination?.port ?? 0) == QueryController.int32(dictionary.value(forKey: "port")) &&
+                        destination?.address != nil &&
+                        destination?.address == (dictionary.value(forKey: "hostname") as? String) {
                         NSLog("move source == move destination -> Do Nothing")
                     } else {
                         let d = NSMutableDictionary()
@@ -598,22 +607,22 @@ extension QueryController {
         // confirmed inventory decide, on the main thread where the state is
         // read.
         settleRetrieveViewing(forItems: array, cancelled: Thread.current.isCancelled)
-
-        QueryController.synchronized(self) { numberOfRunningRetrieve -= 1 }
     }
 
     /// The study a series row was listed under: the outline's parent on the
     /// main thread, the one recorded when its retrieve started elsewhere.
     nonisolated func studyOfSeries(_ series: AnyObject) -> AnyObject? {
         if Thread.isMainThread {
-            nonisolated(unsafe) let series = series
-            nonisolated(unsafe) var parent: AnyObject?
-            MainActor.assumeIsolated { parent = self.outlineView?.parent(forItem: series) as AnyObject? }
-            return parent
+            return assumeMainActor(series) { series in self.outlineView?.parent(forItem: series) as AnyObject? }
         }
-        return QueryController.synchronized(studiesOfRetrievedSeries) {
-            studiesOfRetrievedSeries.object(forKey: series)
-        }
+        return workers.study(ofSeries: series)
+    }
+
+    /// The name of the delayed -checkAndView: of `item`, which only a viewer
+    /// opened for that item cancels.
+    nonisolated static func checkAndViewName(_ item: Any?) -> String {
+        guard let item else { return "checkAndView" }
+        return "checkAndView \(ObjectIdentifier(item as AnyObject).hashValue)"
     }
 
     // MARK: How a viewing ends
@@ -621,12 +630,13 @@ extension QueryController {
     /// How a viewing session ends, from what the peer reported and what is on
     /// disk. Called when a transfer finishes and when one never starts: a
     /// session left in "receiving" shows "transfer in progress" for ever.
-    @objc(settleRetrieveViewingForItems:cancelled:)
     nonisolated func settleRetrieveViewing(forItems items: [Any]!, cancelled: Bool) {
-        nonisolated(unsafe) let items = items ?? []
+        let items = items ?? []
         guard Thread.isMainThread else {
+            // The nodes, which the retrieve threads and the window share.
+            let handed = QueryAnswers(items: items)
             DispatchQueue.main.async {
-                self.settleRetrieveViewing(forItems: items, cancelled: cancelled)
+                self.settleRetrieveViewing(forItems: handed.items, cancelled: cancelled)
             }
             return
         }
@@ -704,7 +714,7 @@ extension QueryController {
     }
 
     nonisolated static func progressiveRetrieveViewingEnabled() -> Bool {
-        return UserDefaults.standard.bool(forKey: "HorosProgressiveRetrieveViewing")
+        return PreferencesSource.process.preferences[NetworkPreferences.progressiveRetrieveViewing]
     }
 
     nonisolated static func viewingStudyUID(_ item: Any?) -> String {
@@ -760,14 +770,14 @@ extension QueryController {
         }
     }
 
-    /// A C-STORE for a pending item completed: the importer runs on a timer, so
+    /// A C-STORE for a pending item completed: the importer looks on a timer, so
     /// nudge it.
     @objc(observeStoreCompletedNotification:)
     nonisolated func observeStoreCompletedNotification(_ notification: Notification) {
         guard let study = notification.userInfo?["study"] as? String, !study.isEmpty,
               QueryController.progressiveRetrieveViewingEnabled() else { return }
         if RetrieveViewing.shared.importNudgeWanted(studyUID: study, at: Date.timeIntervalSinceReferenceDate) {
-            DicomDatabase.activeLocal()?.initiateImportFilesFromIncomingDirUnlessAlreadyImporting()
+            DatabaseIngest.process.requestImport()
         }
     }
 
@@ -804,9 +814,9 @@ extension QueryController {
         }
 
         let db = DicomDatabase.activeLocal()
-        let browser = BrowserController.currentBrowser()
+        let browser = processGraph.currentBrowser
         browser?.database = db
-        db?.initiateImportFilesFromIncomingDirUnlessAlreadyImporting()
+        DatabaseIngest.process.requestImport(of: db)
 
         guard let context = db?.managedObjectContext else { return }
 
@@ -822,11 +832,9 @@ extension QueryController {
             try HorosObjCException.perform {
                 var success = false
                 let node = item as AnyObject?
-                let entities = browser?.database?.managedObjectModel?.entitiesByName
 
                 if let node, type(of: node) == DCMTKStudyQueryNode.self {
-                    let request = NSFetchRequest<NSFetchRequestResult>()
-                    request.entity = entities?["Study"]
+                    let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Study")
                     request.predicate = NSPredicate(format: "(studyInstanceUID == %@)", argumentArray: [node.value(forKey: "uid") as Any])
 
                     let studyArray = (try? context.fetch(request)) ?? []
@@ -837,6 +845,9 @@ extension QueryController {
                             let image = (series.value(forKey: "images") as? NSSet)?.anyObject() as? DicomImage
                             if !browser.findAndSelectFile(nil, image: image, shouldExpand: false) {
                                 browser.showEntireDatabase()
+                                // The server mode hides the browser and stops rebuilding its
+                                // list, which is where the study is opened from.
+                                browser.refreshStudyList(whileHidden: true)
                                 if browser.findAndSelectFile(nil, image: image, shouldExpand: false) { success = true }
                             } else {
                                 success = true
@@ -858,8 +869,7 @@ extension QueryController {
 
                     NSLog("%@", predicate.description)
 
-                    let request = NSFetchRequest<NSFetchRequestResult>()
-                    request.entity = entities?["Series"]
+                    let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Series")
                     request.predicate = predicate
 
                     let seriesArray = (try? context.fetch(request)) ?? []
@@ -868,10 +878,10 @@ extension QueryController {
 
                         browser.openViewer(fromImages: [browser.childrenArray(series) as Any], movie: false, viewer: nil, keyImagesOnly: false)
 
-                        if UserDefaults.standard.bool(forKey: "AUTOTILING") {
-                            NSApp.sendAction(Selector(("tileWindows:")), to: nil, from: self)
+                        if self.preferences[ViewerPreferences.autoTiling] {
+                            NSApp.sendAction(#selector(AppController.tileWindows(_:)), to: nil, from: self)
                         } else {
-                            AppController.shared()?.checkAllWindowsAreVisible(self, makeKey: true)
+                            self.processGraph.appController?.checkAllWindowsAreVisible(self, makeKey: true)
                         }
 
                         success = true
@@ -883,15 +893,21 @@ extension QueryController {
                 }
 
                 if !success {
-                    db?.initiateImportFilesFromIncomingDirUnlessAlreadyImporting()
+                    DatabaseIngest.process.requestImport(of: db)
 
                     let stillPending = QueryController.progressiveRetrieveViewingEnabled() &&
                         RetrieveViewing.shared.isPending(studyUID: QueryController.viewingStudyUID(item), seriesUID: QueryController.viewingSeriesUID(item))
                     let tries = self.checkAndViewTry
                     self.checkAndViewTry -= 1
                     if (tries > 0 || stillPending) && self.sendToPopup.indexOfSelectedItem == 0 {
-                        self.perform(#selector(self.checkAndView(_:)), with: item, afterDelay: 1.0)
+                        self.deferredCalls.perform(Self.checkAndViewName(item), after: 1.0) { [weak self] in self?.checkAndView(item) }
                     }
+                } else {
+                    // The viewer is open. A retry scheduled before (by -view:,
+                    // or by a batch that came too early) would find the item
+                    // too and open a second viewer: a batch the database adds
+                    // opens a pending item at once, before the retry fires.
+                    self.deferredCalls.cancel(Self.checkAndViewName(item))
                 }
             }
         } catch {

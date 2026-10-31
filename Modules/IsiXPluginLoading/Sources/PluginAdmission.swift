@@ -12,14 +12,14 @@ import Foundation
 
 /// Which plugin bundles the application takes, at every entry: discovery,
 /// `--LoadPlugin`, installation, opening a file, a catalog download or update,
-/// and recovery after a crash.
+/// and recovery after a crash; and which loader each one goes to.
 ///
-/// Only version 1 bundles (`.isixplugin`, built with IsiXPluginKit) are loaded,
-/// installed, activated, deactivated, moved, deleted or recovered. A plugin of
-/// the former API (`.horosplugin`, `.osirixplugin`) is recognised by its
-/// extension and refused with a reason: none of its code runs, and the bundle
-/// is left where it is, as it is. A former plugin renamed to `.isixplugin` is
-/// refused by `PluginInspector`, from its metadata and the frameworks it links.
+/// Three formats are taken. A `.isixplugin` bundle, built with IsiXPluginKit,
+/// goes to the version 1 loader. A plugin made for Horos or OsiriX
+/// (`.horosplugin`, `.osirixplugin`) goes, unchanged, to the loader of the
+/// former API. The extension alone decides: a `.isixplugin` that the version 1
+/// inspection refuses, a former plugin renamed among them, stays refused and is
+/// never tried as a former plugin.
 public enum PluginAdmission {
     public enum Kind: Sendable, Equatable {
         /// A `.isixplugin` bundle: the plugin API version 1, if it inspects clean.
@@ -28,6 +28,15 @@ public enum PluginAdmission {
         case formerAPI
         /// Anything else.
         case other
+    }
+
+    /// The loader a plugin bundle goes to.
+    public enum Loader: Sendable, Equatable {
+        /// IsiXPluginKit's: the bundle's entry class registers its commands in code.
+        case version1
+        /// The former API's: the bundle's Info.plist declares its role and menu
+        /// items, and its principal class answers the messages of PluginFilter.
+        case formerAPI
     }
 
     /// The extensions of the plugins made for Horos and OsiriX.
@@ -42,44 +51,40 @@ public enum PluginAdmission {
         return .other
     }
 
-    /// Whether the bundle at this path, or with this file name, takes the
-    /// version 1 path: loading and installation, which inspect it before
-    /// anything else. A former plugin in the same folder, or with the same
-    /// name, is not touched. `mayManage(bundleAt:)` also tells a former plugin
-    /// renamed to `.isixplugin` apart.
-    public static func isManaged(_ path: String) -> Bool {
-        kind(of: path) == .version1
-    }
-
-    /// Whether the bundle is a former plugin: by its extension, or, under the
-    /// version 1 extension, by the former keys it declares or the former SDK it
-    /// links. Read from its files only.
-    public static func isFormerPlugin(bundleAt url: URL, inspector: PluginInspector = PluginInspector()) -> Bool {
-        switch kind(of: url.path) {
-        case .formerAPI: return true
-        case .version1: return inspector.inspect(bundleAt: url).isRenamedLegacyPlugin
-        case .other: return false
+    /// The loader the bundle at this path, or with this file name, goes to; nil
+    /// for what is not a plugin bundle.
+    public static func loader(for path: String) -> Loader? {
+        switch kind(of: path) {
+        case .version1: return .version1
+        case .formerAPI: return .formerAPI
+        case .other: return nil
         }
     }
 
-    /// Whether the plugin manager may act on the bundle at this URL: a version 1
-    /// bundle that is not a former plugin renamed. A bundle that does not
-    /// inspect clean for another reason, a missing capability or another
-    /// architecture, stays the user's to deactivate or delete.
-    public static func mayManage(bundleAt url: URL, inspector: PluginInspector = PluginInspector()) -> Bool {
-        kind(of: url.path) == .version1 && !isFormerPlugin(bundleAt: url, inspector: inspector)
+    /// Whether the bundle at this path, or with this file name, is a plugin the
+    /// application loads, installs, activates, deactivates, moves, deletes and
+    /// recovers: one of the three formats.
+    public static func isManaged(_ path: String) -> Bool {
+        loader(for: path) != nil
     }
 
-    /// Whether a path the application is asked to open is a plugin bundle of
-    /// either API. Such a path goes to the plugin installation, which takes or
-    /// refuses it, and never to the database import.
+    /// Whether the plugin manager may act on the bundle at this URL. Every
+    /// plugin bundle in its folders is the user's to deactivate or delete, also
+    /// one that does not inspect clean: another architecture, a missing
+    /// capability, or a former plugin renamed to `.isixplugin`.
+    public static func mayManage(bundleAt url: URL) -> Bool {
+        isManaged(url.path)
+    }
+
+    /// Whether a path the application is asked to open is a plugin bundle.
+    /// Such a path goes to the plugin installation, which takes or refuses it,
+    /// and never to the database import.
     public static func isPluginBundle(_ path: String) -> Bool {
         kind(of: path) != .other
     }
 
     /// Why the bundle may not be installed or loaded, read from its files only;
-    /// nil when it may. A former plugin gets one diagnostic, from its
-    /// extension, without its Info.plist or executable being read.
+    /// nil when it may. Each format is inspected by the rules of its loader.
     public static func refusal(forBundleAt url: URL, inspector: PluginInspector = PluginInspector()) -> PluginInspection? {
         let inspection = inspector.inspect(bundleAt: url)
         return inspection.isLoadable ? nil : inspection

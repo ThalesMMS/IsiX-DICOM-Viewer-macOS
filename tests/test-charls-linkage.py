@@ -11,7 +11,7 @@ import argparse
 import sys
 import tempfile
 
-from dcmtk_build import ROOT as root, BUILD, CONFIGURATION
+from dcmtk_build import ROOT as root, BUILD, CONFIGURATION, dcmtk_source
 failures = []
 parser = argparse.ArgumentParser()
 parser.add_argument('--build', type=Path, default=BUILD,
@@ -89,8 +89,10 @@ if '"-ldcmjpls"' in project or '"-ldcmtkcharls"' in project:
     failures.append('the host must link the isolated archive, not the colliding stock archives')
 
 # ------------------------------------------ 2. the ABI they pass across
+# CharLS's parameter block is internal to DCMTK and not installed: it is read
+# from the pinned original source that libdcmtkcharls is compiled from.
 headers = {
-    'dcmtkcharls': root / 'DCMTK/dcmjpls/libcharls/pubtypes.h',
+    'dcmtkcharls': dcmtk_source() / 'dcmjpls/libcharls/pubtypes.h',
 }
 probe = r'''
 #include <cstdio>

@@ -18,6 +18,9 @@ typealias BrowserController = Browser
 final class Browser: NSObject {
     @objc var database: Any?
     func awakeSources() {}
+    func restoreAutoQueryAndRetrieve() {
+        precondition((database as? String) == "chosen database", "Auto-query resumed before database setup")
+    }
     func resetToLocalDatabase() { database = "chosen database" }
 METHOD
 }

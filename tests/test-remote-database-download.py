@@ -54,14 +54,14 @@ def method(signature):
 
 if swift:
     functions = '\n'.join(method(s) for s in (
-        'private func remoteDicomDatabaseRaise(', 'private func remoteDicomDatabaseException(',
+        'private enum SharedDatabaseClientFailure', 'private func raisingForObjectiveC<',
         'private func remoteDicomDatabaseAdd(',
         'private func horosCleanupRemoteDownload(', 'private func horosResetRemoteDownload(',
         'private func horosSendDatabaseRequest('))
     methods = '\n'.join('    ' + method(s) for s in (
         '@objc(_data:appendInt:)', '@objc(_data:appendStringUTF8:)',
-        '@objc(synchronousRequest:urgent:dataHandlerTarget:selector:context:)',
-        '@objc(downloadRemotePaths:toLocalPaths:)',
+        '@objc(synchronousRequest:urgent:dataHandlerTarget:selector:context:)', 'private func sendRequest(',
+        '@objc(downloadRemotePaths:toLocalPaths:)', 'private func download(',
         '@objc(_connection:handleData_fetchDataForImage:context:)'))
 else:
     functions = '\n'.join(method(s) for s in (
@@ -252,6 +252,7 @@ public final class DatabaseTransport {
     @objc(tempDirPath) func tempDirPath() -> String! { return _tempDirPath }
     @objc(setTempDirPath:) func setTempDirPath(_ path: String?) { _tempDirPath = path }
     @objc func prepareAuthentication() -> Bool { self.authenticationKnown = true; return true }
+    private func authenticate() throws -> Bool { self.authenticationKnown = true; return true }
 METHODS
 }
 FUNCTIONS
@@ -310,7 +311,7 @@ with tempfile.TemporaryDirectory(prefix='horos-remote-download-') as temporary:
         (folder / 'harness.h').write_text(header)
         driver.write_text(objc)
         (folder / 'remote.swift').write_text(SWIFT_CLASS)
-        for name in ('HorosObjCException.h', 'HorosObjCException.m'):
+        for name in ('HorosObjCException.h', 'HorosObjCException.m', 'HorosObjCException+Guards.swift'):
             (folder / name).write_bytes((root / 'Horos/Sources' / name).read_bytes())
         steps = [['xcrun', 'clang', '-fno-objc-arc', '-fobjc-exceptions', '-Wno-objc-method-access', '-iquote', str(folder),
                   '-c', str(driver), '-o', str(folder / 'main.o')],
@@ -318,6 +319,7 @@ with tempfile.TemporaryDirectory(prefix='horos-remote-download-') as temporary:
                   '-c', str(folder / 'HorosObjCException.m'), '-o', str(folder / 'exception.o')],
                  ['xcrun', 'swiftc', '-parse-as-library', '-suppress-warnings', '-module-name', 'Probe',
                   '-import-objc-header', str(folder / 'harness.h'), str(folder / 'remote.swift'),
+                  str(folder / 'HorosObjCException+Guards.swift'),
                   str(folder / 'main.o'), str(folder / 'exception.o'), '-framework', 'Foundation', '-o', str(binary)]]
     else:
         driver.write_text(code.replace('FUNCTIONS', functions).replace('METHODS', methods))

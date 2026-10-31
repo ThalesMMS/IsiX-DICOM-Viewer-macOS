@@ -185,9 +185,8 @@ public final class PluginManagerController: NSWindowController {
         return pluginsList?.object(at: row) as? NSDictionary
     }
 
-    /// A former plugin, in an earlier version's folder or in this app's own, is
-    /// listed, not managed: its row's checkbox and menu are put back and nothing
-    /// else happens.
+    /// A plugin in an earlier version's folder is listed, not managed: its
+    /// row's checkbox and menu are put back and nothing else happens.
     private func refusesLegacyPlugin(atRow row: Int) -> Bool {
         guard row >= 0, row < ((pluginsArrayController?.arrangedObjects as? NSArray)?.count ?? 0),
               Self.boolValue(arrangedPlugin(atRow: row)?.object(forKey: PluginManager.legacyPluginKey)) else { return false }
@@ -420,7 +419,9 @@ public final class PluginManagerController: NSWindowController {
                     if expected > 0 { indicator?.doubleValue = 100 * Double(received) / Double(expected) }
                 }
             }, completion: { [weak self] download, error in
-                DispatchQueue.main.async {
+                // From the main run loop: a failure, a refused plugin or a
+                // replaced one is a modal alert, and the main queue goes on meanwhile.
+                onMainRunLoop {
                     guard let self else { download.cancel(); return }
                     self.finishDownload(download, atPath: downloadedFilePath, error: error)
                 }
@@ -502,8 +503,8 @@ public final class PluginManagerController: NSWindowController {
 
         let pluginFileName = (pluginPath as NSString?)?.lastPathComponent
 
-        // Checked before the installed copy is touched: a download that is not
-        // a version 1 plugin, a former plugin among them, replaces nothing.
+        // Checked before the installed copy is touched: a download that does
+        // not inspect clean by its format's rules replaces nothing.
         if let refusal = PluginManager.pluginInstallRefusal(atPath: pluginPath) {
             statusTextField?.isHidden = true
             statusProgressIndicator?.isHidden = true

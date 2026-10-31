@@ -46,13 +46,14 @@ if '- (void)windowWillClose:(NSNotification *)notification' in source:
     detach = body.find('HorosDetachAutounbinder')
     autorelease = body.find('[self autorelease]')
 else:
-    # -windowWillClose: is Swift since ViewerController+WindowLifecycle.swift.
-    source = (root / 'Horos/Sources/ViewerController+WindowLifecycle.swift').read_text()
-    start = source.index('    func windowWillClose(_ notification: Notification) {')
+    # -windowWillClose: is Swift: the viewer's graph closes the window
+    # (closeWindow, ViewerSessionGraph+WindowLife.swift).
+    source = (root / 'Horos/Sources/ViewerSessionGraph+WindowLife.swift').read_text()
+    start = source.index('    func closeWindow() {')
     body = source[start:source.index('\n    }\n', start)]
-    teardown = body.find('ViewerBindingTeardown.unbindFileOwnerBindings(on: self)')
-    detach = body.find('HorosDetachAutounbinder(self)')
-    autorelease = body.find('Unmanaged.passUnretained(self).autorelease()')
+    teardown = body.find('ViewerBindingTeardown.unbindFileOwnerBindings(on: viewer)')
+    detach = body.find('HorosDetachAutounbinder(viewer)')
+    autorelease = body.find('Unmanaged.passUnretained(viewer).autorelease()')
 assert teardown != -1, 'windowWillClose must unbind File\'s Owner before the controller can die'
 assert detach != -1, 'windowWillClose must drop Autounbinder\'s File\'s Owner pointer'
 assert autorelease != -1, 'windowWillClose still extra-releases the controller'

@@ -19,7 +19,11 @@ draws with, at several sizes:
 from pathlib import Path
 import argparse
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import process_graph_stand_in  # noqa: E402  - the 2D viewer's sources read the catalog's keys through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -192,7 +196,7 @@ with tempfile.TemporaryDirectory(prefix='horos-planar-host-') as temporary:
                'MetalComputePipelineCache.swift', 'Metal4ComputeSubmitter.swift']
     command = ['xcrun', 'swiftc', '-Onone', '-parse-as-library', '-swift-version', '6', '-default-isolation', 'nonisolated', '-warnings-as-errors',
                *[str(root/'Horos/Sources'/name) for name in sources], str(args.host_source),
-               str(work/'Check.swift'), '-o', str(work/'check')]
+               str(work/'Check.swift'), *process_graph_stand_in.swift_flags(work/'isix'), '-o', str(work/'check')]
     subprocess.run(command, check=True)
     result = subprocess.run([str(work/'check')], timeout=45)
     raise SystemExit(result.returncode)

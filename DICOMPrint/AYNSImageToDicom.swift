@@ -136,7 +136,7 @@ private struct AYDicomWriter {
 
 /// Creates DICOM print images.
 ///
-/// Implemented in Swift since #717: the Objective-C name and the selectors are
+/// Implemented in Swift: the Objective-C name and the selectors are
 /// those of the former class; AYNSImageToDicom.h keeps its enum and struct.
 // Main actor: the print window converts the viewer's images with it on the
 // main thread, where it draws them; the print job itself runs on a thread.
@@ -563,8 +563,7 @@ public final class AYNSImageToDicom: NSObject {
 
         // Rows of the bitmap's pixels, three bytes each, without the padding at the
         // end of a row. The former copy took bytesPerRow times the height in
-        // points, which read past the bitmap below 72 dpi, and kept the padding
-        // (#758).
+        // points, which read past the bitmap below 72 dpi, and kept the padding.
         guard let imageRepresentation = imageRepresentation, imageRepresentation.samplesPerPixel == 3,
               !imageRepresentation.isPlanar, imageRepresentation.bitsPerSample == 8,
               imageRepresentation.bitsPerPixel >= 24, let bitmap = imageRepresentation.bitmapData else { return rawImage }
@@ -792,13 +791,13 @@ public final class AYNSImageToDicom: NSObject {
 
         // The pixels first: their size is the image's in pixels, which Rows and
         // Columns carry, and a conversion that fails leaves no file behind. The
-        // header used the image's size in points and the file stayed open (#758).
+        // header used the image's size in points and the file stayed open.
         let rawImage: rawData = colorPrint ? self._convertImage(toBitmap: image) : self._convertRGB(toGrayscale: image)
         guard rawImage.bytesWritten != 0, let imageData = m_ImageDataBytes else { return nil }
         m_ImageDataBytes = nil
 
         // Secondary Capture Image Storage, and a UID of its own for each object:
-        // the former code wrote the elements' names as their values (#758).
+        // the former code wrote the elements' names as their values.
         let sopClassUID = "1.2.840.10008.5.1.4.1.1.7"
         let sopInstanceUID = ayNewUID()
 
@@ -829,14 +828,14 @@ public final class AYNSImageToDicom: NSObject {
         out.string("OB")
         out.short(0x0000)
         out.long4(2)
-        // 00 01, as PS3.10 asks; the former short 0x0001 wrote 01 00 (#758).
+        // 00 01, as PS3.10 asks; the former short 0x0001 wrote 01 00.
         out.bytes([0x00, 0x01])
 
         // MediaStorageSOPClassUID
         out.ui(0x0002, 0x0002, sopClassUID)
 
         // MediaStorageSOPInstanceUID. The former code wrote 26 bytes from the
-        // 23-character "MediaStorageSOPClassUID", reading past its end (#758).
+        // 23-character "MediaStorageSOPClassUID", reading past its end.
         out.ui(0x0002, 0x0003, sopInstanceUID)
 
         //TransferSyntaxUID: Explicit VR Little Endian, as the elements are written
@@ -852,7 +851,7 @@ public final class AYNSImageToDicom: NSObject {
         out.element(0x0002, 0x0016, "AE", "ISIX")
 
         // The group's length is what was written after it; the former sum
-        // counted neither the elements' headers nor their values right (#758).
+        // counted neither the elements' headers nor their values right.
         let currentPos = ftell(outFile)
         fseek(outFile, metaElementGroupLengthPosition, 0)
         out.long4(currentPos - metaElementGroupStart)
@@ -935,7 +934,7 @@ public final class AYNSImageToDicom: NSObject {
         // newe group
         // Slicethickness
         // A decimal string: the former code wrote the thickness, truncated, as a
-        // 4-byte binary integer, which is not a DS value (#758).
+        // 4-byte binary integer, which is not a DS value.
         let outString = patient?.object(forKey: "thickness") as AnyObject?
         ayRequire(outString, NSSelectorFromString("doubleValue"))
         var thickness = String(format: "%.6g", outString?.doubleValue ?? 0)

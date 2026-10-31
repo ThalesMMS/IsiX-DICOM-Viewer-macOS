@@ -39,6 +39,7 @@
 
 import Cocoa
 import IsiXImaging
+import IsiXPreferences
 
 // The mouse moving over DCMView is implemented in Swift: an extension of
 // DCMView, with the same selectors. The view under
@@ -105,7 +106,7 @@ extension DCMView {
         let modifierFlags = NSApplication.shared.currentEvent?.modifierFlags ?? []
         let eventLocationInView = self.convert(eventLocationInWindow, from: nil)
 
-        inputLogException(inputCatch {
+        inputLogException(HorosObjCException.caughtWithoutAllocation {
             self.deleteLens()
 
             BrowserController.updateActivity()
@@ -142,7 +143,7 @@ extension DCMView {
 
             DCMView.horos_static_drawLock?.lock()
 
-            inputLogException(inputCatch {
+            inputLogException(HorosObjCException.caughtWithoutAllocation {
                 self.readPixelsUnderMouse(eventLocationInWindow, inView: eventLocationInView, modifierFlags: modifierFlags)
             }, "-[DCMView mouseMovedInView:]")
 
@@ -179,8 +180,8 @@ extension DCMView {
         self.horos_mouseYPos = Float(imageLocation.y)
 
         let curDCM: DCMPix! = self.curDCM
-        if imageLocation.x >= 0 && imageLocation.x < CGFloat(curDCM?.pwidth ?? 0) { // && NSPointInRect( eventLocation, size)) <- this doesn't work in MPR Ortho
-            if imageLocation.y >= 0 && imageLocation.y < CGFloat(curDCM?.pheight ?? 0) {
+        let probe = PixelProbe(width: curDCM?.pwidth ?? 0, height: curDCM?.pheight ?? 0)
+        if let pixel = probe.pixel(at: imageLocation) { // NSPointInRect does not work in MPR Ortho
                 mouseOnImage = true
 
                 if ViewInput.syncsPatientPoint(modifiers) && self.horos_mouseDragging == false {
@@ -193,18 +194,14 @@ extension DCMView {
                     self.computeMagnifyLens(imageLocation)
                 }
 
-                let xPos = Int32(self.horos_mouseXPos), yPos = Int32(self.horos_mouseYPos)
-
                 if curDCM.isRGB {
-                    let rgba = UnsafeRawPointer(curDCM.fImage!).assumingMemoryBound(to: UInt8.self)
-                    let base = 4 * (Int(xPos) + Int(yPos) * curDCM.pwidth)
-                    self.horos_pixelMouseValueR = Int(rgba[base + 1])
-                    self.horos_pixelMouseValueG = Int(rgba[base + 2])
-                    self.horos_pixelMouseValueB = Int(rgba[base + 3])
+                    let rgb = probe.rgb(x: pixel.x, y: pixel.y, in: UnsafeRawPointer(curDCM.fImage!).assumingMemoryBound(to: UInt8.self))
+                    self.horos_pixelMouseValueR = rgb.red
+                    self.horos_pixelMouseValueG = rgb.green
+                    self.horos_pixelMouseValueB = rgb.blue
                 } else {
-                    self.horos_pixelMouseValue = curDCM.getPixelValueX(Int(xPos), y: Int(yPos))
+                    self.horos_pixelMouseValue = curDCM.getPixelValueX(pixel.x, y: pixel.y)
                 }
-            }
         }
 
         // Blended view
@@ -212,23 +209,19 @@ extension DCMView {
             let blendedLocation = blendingView.convert(fromNSView2GL: eventLocationInView)
             let blendedDCM: DCMPix! = blendingView.curDCM
 
-            if blendedLocation.x >= 0 && blendedLocation.x < CGFloat(blendedDCM?.pwidth ?? 0) {
-                if blendedLocation.y >= 0 && blendedLocation.y < CGFloat(blendedDCM?.pheight ?? 0) {
+            let blendedProbe = PixelProbe(width: blendedDCM?.pwidth ?? 0, height: blendedDCM?.pheight ?? 0)
+            if let pixel = blendedProbe.pixel(at: blendedLocation) {
                     self.horos_blendingMouseXPos = Float(blendedLocation.x)
                     self.horos_blendingMouseYPos = Float(blendedLocation.y)
 
-                    let xPos = Int32(self.horos_blendingMouseXPos), yPos = Int32(self.horos_blendingMouseYPos)
-
                     if blendedDCM.isRGB {
-                        let rgba = UnsafeRawPointer(blendedDCM.fImage!).assumingMemoryBound(to: UInt8.self)
-                        let base = 4 * (Int(xPos) + Int(yPos) * blendedDCM.pwidth)
-                        self.horos_blendingPixelMouseValueR = Int(rgba[base + 1])
-                        self.horos_blendingPixelMouseValueG = Int(rgba[base + 2])
-                        self.horos_blendingPixelMouseValueB = Int(rgba[base + 3])
+                        let rgb = blendedProbe.rgb(x: pixel.x, y: pixel.y, in: UnsafeRawPointer(blendedDCM.fImage!).assumingMemoryBound(to: UInt8.self))
+                        self.horos_blendingPixelMouseValueR = rgb.red
+                        self.horos_blendingPixelMouseValueG = rgb.green
+                        self.horos_blendingPixelMouseValueB = rgb.blue
                     } else {
-                        self.horos_blendingPixelMouseValue = blendedDCM.getPixelValueX(Int(xPos), y: Int(yPos))
+                        self.horos_blendingPixelMouseValue = blendedDCM.getPixelValueX(pixel.x, y: pixel.y)
                     }
-                }
             }
         }
 
@@ -250,7 +243,8 @@ extension DCMView {
             }
         }
 
-        if UserDefaults.standard.bool(forKey: "ROITextIfMouseIsOver") && UserDefaults.standard.bool(forKey: "ROITEXTIFSELECTED") {
+        let preferences = PreferencesSource.process.preferences
+        if preferences[ViewerPreferences.roiTextIfMouseIsOver] && preferences[ViewerPreferences.roiTextIfSelected] {
             if self.horos_mouseDragging == false {
                 let pt = self.convert(fromNSView2GL: self.convert(eventLocationInWindow, from: nil))
 
@@ -333,49 +327,26 @@ extension DCMView {
         // OsirixSyncNotification payload below for plugins and reference lines.
         let sharedPoint = self.is2DViewer() &&
             PatientCrosshairController.shared.publish(location, viewer: self.windowController() as? ViewerController, owner: self.windowController().map { $0 as AnyObject })
-        var thickDCM: DCMPix? = nil
 
         // This used to ignore flippedData, while -syncMessage: right below honoured
         // it: a reversed series sent the far end of the slab from the wrong side of
         // the current slice, and the receiver drew the band there.
-        let farEnd = ThickSlabRange.farEndIndex(currentIndex: Int(self.horos_curImage),
+        let current = Int(self.horos_curImage)
+        let farEnd = ThickSlabRange.farEndIndex(currentIndex: current,
                                                 stack: Int(curDCM.stack),
                                                 count: dcmPixList.count,
                                                 flippedData: self.horos_flippedData)
-        if farEnd >= 0 {
-            thickDCM = dcmPixList.object(at: farEnd) as? DCMPix
-        }
+        let thickDCM = farEnd >= 0 ? dcmPixList.object(at: farEnd) as? DCMPix : nil
 
-        let pos: Int32 = self.horos_flippedData ? Int32(truncatingIfNeeded: dcmPixList.count - 1 - Int(self.horos_curImage)) : Int32(self.horos_curImage)
-
-        let instructions = NSMutableDictionary()
-
-        instructions.setObject(self, forKey: "view" as NSString)
-        instructions.setObject(NSNumber(value: Int(pos)), forKey: "Pos" as NSString)
-        instructions.setObject(NSNumber(value: Float((dcmPixList.object(at: Int(self.horos_curImage)) as! DCMPix).sliceLocation)), forKey: "Location" as NSString)
-
-        let file = (self.horos_dcmFilesList as NSArray?)?.object(at: Int(self.horos_curImage)) as? NSObject
-        if let studyID = file?.value(forKeyPath: "series.study.studyInstanceUID") {
-            instructions.setObject(studyID, forKey: "studyID" as NSString)
-        }
-
-        instructions.setObject(curDCM, forKey: "DCMPix" as NSString)
-
-        if let frameofReferenceUID = curDCM.frameofReferenceUID {
-            instructions.setObject(frameofReferenceUID, forKey: "frameofReferenceUID" as NSString)
-        }
-
-        instructions.setObject(NSNumber(value: self.horos_syncRelativeDiff), forKey: "offsetsync" as NSString)
-        instructions.setObject(NSNumber(value: location[0]), forKey: "point3DX" as NSString)
-        instructions.setObject(NSNumber(value: location[1]), forKey: "point3DY" as NSString)
-        instructions.setObject(NSNumber(value: location[2]), forKey: "point3DZ" as NSString)
-        if sharedPoint { instructions.setObject(NSNumber(value: true), forKey: "HorosPatientCrosshair" as NSString) }
-
-        if let thickDCM {
-            instructions.setObject(thickDCM, forKey: "DCMPix2" as NSString)
-        }
-
-        inputPost(.OsirixSync, object: self, userInfo: instructions)
+        let message = ViewerSyncMessage(position: ViewerSyncMessage.position(current: current, count: dcmPixList.count, flippedData: self.horos_flippedData),
+                                        direction: nil,
+                                        location: Float((dcmPixList.object(at: current) as? DCMPix)?.sliceLocation ?? 0),
+                                        offset: self.horos_syncRelativeDiff,
+                                        frameOfReferenceUID: curDCM.frameofReferenceUID,
+                                        studyInstanceUID: self.horosStudyInstanceUID(at: current),
+                                        patientPoint: ViewerSyncMessage.PatientPoint(x: location[0], y: location[1], z: location[2]),
+                                        sharesPatientCrosshair: sharedPoint)
+        self.postSyncMessage(self.syncUserInfo(message, image: curDCM, farEndImage: thickDCM))
     }
 
     // MARK: - Entering and leaving

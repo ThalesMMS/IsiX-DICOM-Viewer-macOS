@@ -93,11 +93,16 @@ public final class WebPortalSession: NSObject {
     @objc(setObject:forKey:)
     public func setObject(_ o: Any!, forKey k: String!) {
         dictLock?.lock()
-        if let o = o {
-            // -setObject:forKey: raised NSInvalidArgumentException on a nil key.
-            dictValue?.perform(#selector(NSMutableDictionary.setObject(_:forKey:)), with: o, with: k)
-        } else {
-            dictValue?.perform(#selector(NSMutableDictionary.removeObject(forKey:)), with: k)
+        if let dictValue {
+            // -setObject:forKey: and -removeObjectForKey: raised
+            // NSInvalidArgumentException on a nil key.
+            if let k {
+                if let o { dictValue.setObject(o, forKey: k as NSString) } else { dictValue.removeObject(forKey: k) }
+            } else {
+                NSException(name: .invalidArgumentException, reason: o == nil ? "*** -[__NSDictionaryM removeObjectForKey:]: key cannot be nil"
+                                                                          : "*** -[__NSDictionaryM setObject:forKey:]: key cannot be nil",
+                            userInfo: nil).raise()
+            }
         }
         dictLock?.unlock()
     }

@@ -87,7 +87,7 @@ if 'NSObject.cancelPreviousPerformRequests(withTarget: self)' not in method(text
 # The snapping and the swap are the ones the drag used to run, with the same
 # reach, the same switches and the modifier state read when the button is released.
 for body, needle, why in (
-        (magnets, 'bool(forKey: "MagneticWindows")', 'the Magnetic windows preference is not honoured'),
+        (magnets, 'magneticPreferences[ApplicationPreferences.magneticWindows] &&', 'the Magnetic windows preference is not honoured'),
         (magnets, 'if NSEvent.modifierFlags.contains(.option) { return }', 'Option at the drop no longer disables the snapping'),
         (magnets, 'MagneticWindowSnapping.dropped(myFrame, magnets: magnets(around: theWindow))', 'the drop does not snap'),
         (dropped, 'var gravityX = Float(myFrame.size.width / 4)', 'the horizontal reach is no longer a quarter of the width'),
@@ -99,6 +99,14 @@ for body, needle, why in (
 ):
     if needle not in body:
         failures.append(why)
+# The switch is the catalog's Bool under the user-visible MagneticWindows key, read
+# from the preferences of the process, and it guards the whole snapping.
+if 'PreferenceKey<Bool>("MagneticWindows", registered: "1")' not in sources.source_text('ApplicationPreferences'):
+    failures.append('the Magnetic windows switch is no longer the MagneticWindows Bool, on by default')
+if not re.search(r'var magneticPreferences: any PreferenceStore \{\s*PreferencesSource\.process\.preferences\s*\}', text):
+    failures.append('the Magnetic windows switch is not read from the preferences of the process')
+if not re.match(r'private func applyMagnetsAfterUserMove\(\) \{\s*guard magneticWindowActivated && magneticPreferences\[ApplicationPreferences\.magneticWindows\] && [^{]*\{\s*return', magnets):
+    failures.append('the Magnetic windows preference no longer stops the snapping before it starts')
 if 'currentEvent' in magnets:
     failures.append('the snapping reads the last event instead of the modifier state at the drop')
 

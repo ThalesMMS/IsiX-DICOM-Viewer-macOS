@@ -26,13 +26,12 @@ public final class AnonymizationErrorPresenter: NSObject {
         return sections.joined(separator: "\n\n")
     }
 
+    /// From any thread, and always later, from the main run loop: the alert is
+    /// modal, and shown inside a block of the main queue, where a burn's failure
+    /// is reported from, it would stop that queue until someone answers.
     @objc(presentError:)
     public static func present(error supplied: NSError?) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { present(error: supplied) }
-            return
-        }
-        MainActor.assumeIsolated { presentOnMainActor(supplied) }
+        onMainRunLoop { presentOnMainActor(supplied) }
     }
 
     @MainActor

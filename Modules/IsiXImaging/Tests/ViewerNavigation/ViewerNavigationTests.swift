@@ -52,28 +52,6 @@ import Testing
         #expect(ViewerSynchronization.resetsSeriesLock(betweenStudies: true, wasBetweenStudies: false))
         #expect(!ViewerSynchronization.resetsSeriesLock(betweenStudies: true, wasBetweenStudies: true))
     }
-
-    @Test func windowLevelGoesBetweenImagesOfOneKind() {
-        func rule(_ a: String?, _ b: String?, rgb: Bool = false, suv: Bool = false) -> Bool {
-            WindowLevelPropagation(isRGB: false, otherIsRGB: rgb, modality: a, otherModality: b, subtraction: false,
-                                   otherSubtraction: false, suvConverted: false, otherSUVConverted: suv).propagates
-        }
-        #expect(rule("CT", "CT"))
-        #expect(!rule("CT", "MR"))
-        #expect(!rule("CT", "CT", rgb: true))
-        #expect(!rule("CR", "CR"))
-        #expect(!rule("NM", "NM"))
-        #expect(rule("PT", "PT"))
-        #expect(!rule("PT", "PT", suv: true))
-        #expect(!rule(nil, nil))
-    }
-
-    @Test func zoomAndPan() {
-        #expect(ViewerSettingsPropagation.scale(0, pixelSpacing: 1, otherPixelSpacing: 2) == nil)
-        #expect(ViewerSettingsPropagation.scale(2, pixelSpacing: 0.5, otherPixelSpacing: 1) == 4)
-        #expect(ViewerSettingsPropagation.scale(2, pixelSpacing: 0, otherPixelSpacing: 1) == 2)
-        #expect(ViewerSettingsPropagation.pan(CGPoint(x: 10, y: 10), delta: CGPoint(x: 1, y: 2), scale: 2) == CGPoint(x: 12, y: 6))
-    }
 }
 
 @Suite struct RegistrationTests {

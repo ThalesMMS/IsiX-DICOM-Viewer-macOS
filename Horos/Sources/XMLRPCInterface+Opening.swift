@@ -38,12 +38,16 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 
 /// What the XML-RPC methods do on the main thread once they have found what
 /// was asked for: open it in a viewer, select it in the browser, select an
 /// album. Each method is performed on the main thread by the request's thread,
 /// and is isolated to the main actor.
 extension XMLRPCInterface {
+
+    /// The opens that wait for a modal dialog to end.
+    @MainActor private static let openRetries = DeferredCalls()
 
     /// Opens the first of `objectIDs` whose study has a series of images, then
     /// the next if the browser refuses it.
@@ -56,14 +60,16 @@ extension XMLRPCInterface {
         // loop; recheck on delivery because a nested loop or another dialog
         // may still be active.
         if NSApp.modalWindow != nil {
-            perform(#selector(openObjects(withIDs:)), with: objectIDs, afterDelay: 0.1, inModes: [.default])
+            Self.openRetries.perform("openObjects", after: 0.1, inModes: [.default]) { [weak self] in
+                self?.openObjects(withIDs: objectIDs)
+            }
             return
         }
-        if UserDefaults.standard.bool(forKey: "CloseAllWindowsBeforeXMLRPCOpen") {
+        if PreferencesSource.process.preferences[NetworkPreferences.closeAllWindowsBeforeXMLRPCOpen] {
             ViewerController.closeAllWindows()
         }
 
-        BrowserController.currentBrowser()?.lastStudyNotOpenedReason = nil
+        browser?.lastStudyNotOpenedReason = nil
 
         var opened = false
         var lastStudy: DicomStudy?
@@ -78,7 +84,7 @@ extension XMLRPCInterface {
                 // refusal here reached nobody: the order was answered with
                 // success and no viewer appeared. Try the next match, then
                 // say why none opened.
-                if BrowserController.currentBrowser()?.display(study, object: object, command: "Open") ?? false {
+                if browser?.display(study, object: object, command: "Open") ?? false {
                     opened = true
                     break
                 }
@@ -89,7 +95,7 @@ extension XMLRPCInterface {
             reportStudyNotOpened(lastStudy)
         }
 
-        if UserDefaults.standard.bool(forKey: "bringOsiriXToFrontAfterReceivingMessage") {
+        if PreferencesSource.process.preferences[NetworkPreferences.bringOsiriXToFrontAfterReceivingMessage] {
             NSApp.activate(ignoringOtherApps: true)
         }
     }
@@ -98,7 +104,7 @@ extension XMLRPCInterface {
     /// in a viewer brings that viewer to the front instead.
     @objc(_onMainThreadSelectObjectsWithIDs:)
     @MainActor func selectObjects(withIDs objectIDs: NSArray?) {
-        BrowserController.currentBrowser()?.lastStudyNotOpenedReason = nil
+        browser?.lastStudyNotOpenedReason = nil
 
         let objectIDs = objectIDs ?? []
         let remaining = NSMutableArray(array: objectIDs)
@@ -120,7 +126,7 @@ extension XMLRPCInterface {
                 lastStudy = study
             }
             if study?.imageSeries()?.count ?? 0 > 0 {
-                if BrowserController.currentBrowser()?.display(study, object: object, command: "Select") ?? false {
+                if browser?.display(study, object: object, command: "Select") ?? false {
                     selected = true
                     break
                 }
@@ -131,7 +137,7 @@ extension XMLRPCInterface {
             reportStudyNotOpened(lastStudy)
         }
 
-        if UserDefaults.standard.bool(forKey: "bringOsiriXToFrontAfterReceivingMessage") {
+        if PreferencesSource.process.preferences[NetworkPreferences.bringOsiriXToFrontAfterReceivingMessage] {
             NSApp.activate(ignoringOtherApps: true)
         }
     }
@@ -139,12 +145,11 @@ extension XMLRPCInterface {
     /// Opens what a thread is retrieving: imports what has arrived on a
     /// private-queue database, then opens on the main thread. Runs on a thread
     /// of its own.
-    @objc(_onMainThreadOpenWithDelayObjectsWithIDs:)
     func openWithDelay(objectsWithIDs objectIDs: NSArray?) {
         autoreleasepool {
-            let importer = privateQueueDatabase(DicomDatabase.activeLocal())
+            let importer = privateQueueDatabase(processGraph.activeLocalDatabase)
             importer?.performBlockAndWait {
-                _ = importer?.importFilesFromIncomingDir()
+                _ = DatabaseIngest.process.importQueueNow(in: importer)
             }
             performSelector(onMainThread: #selector(openObjects(withIDs:)), with: objectIDs, waitUntilDone: false)
         }
@@ -153,6 +158,6 @@ extension XMLRPCInterface {
     /// Selects the album at `index` of the browser's album list.
     @objc(_onMainThreadSelectAlbumAtIndex:)
     @MainActor func selectAlbum(atIndex index: NSNumber) {
-        BrowserController.currentBrowser()?.albumTable?.selectRowIndexes(IndexSet(integer: index.intValue), byExtendingSelection: false)
+        browser?.albumTable?.selectRowIndexes(IndexSet(integer: index.intValue), byExtendingSelection: false)
     }
 }

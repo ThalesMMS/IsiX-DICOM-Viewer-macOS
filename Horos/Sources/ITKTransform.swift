@@ -39,6 +39,7 @@
 
 import Cocoa
 import IsiXSegmentation
+import IsiXPreferences
 
 /// The resampling of a series through an affine transform, by ITK: the
 /// moving series (the viewer given at creation) is sampled on the slices of a
@@ -57,6 +58,9 @@ public final class ITKTransform: NSObject {
     weak var originalViewer: ViewerController?
     /// The moving series' volume, as ITK reads it.
     let volume: IsiXITKVolume
+    /// The process's dependencies, made with the transform: the resampling
+    /// reads its preferences from their store.
+    let processGraph = PreferencesSource.process.processGraph
 
     /// The resampling of `viewer`'s series. nil without a series.
     @objc(initWithViewer:)
@@ -167,7 +171,7 @@ public final class ITKTransform: NSObject {
     public func computeAffineTransform(withParameters theParameters: UnsafeMutablePointer<Double>!,
                                        resampleOnViewer referenceViewer: ViewerController!) -> ViewerController! {
         return computeAffineTransform(withParameters: theParameters, resampleOnViewer: referenceViewer,
-                                      rescale: UserDefaults.standard.bool(forKey: "RescaleDuring3DResampling"))
+                                      rescale: processGraph.preferences[VolumeRenderingPreferences.rescaleDuring3DResampling])
     }
 
     /// The moving series resampled on `referenceViewer`'s slices through the

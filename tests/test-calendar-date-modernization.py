@@ -6,9 +6,11 @@ from pathlib import Path
 import subprocess
 import tempfile
 from isix_modules import build_module, link_flags
+import process_graph_stand_in
 
 root = Path(__file__).resolve().parents[1]
-albums = (root / "Horos/Sources/DicomDatabase+Albums.swift").read_text()
+# The smart albums' previous days are IsiXDatabase's AlbumCatalog.
+albums = (root / "Modules/IsiXDatabase/Sources/AlbumCatalog.swift").read_text()
 a = albums.index("        func previousDay(_ days: Int) -> NSDate {")
 b = albums.index("\n        }", a) + len("\n        }")
 previous_day = albums[a:b]
@@ -43,7 +45,7 @@ end = series_source.index("\n    }", at) + len("\n    }")
 series_display_date = series_source[at:end]
 # DicomDatabase is Swift: the normalisation of the importer (+Import.swift)
 # and the marker date it compares with (+CAPI.m, by the IsiXDICOMFile date).
-database = (root / "Horos/Sources/DicomDatabase+Import.swift").read_text()
+database = (root / "Horos/Sources/DicomFileIndexer.swift").read_text()
 at = database.index('        var importedDate = curDict?.object(forKey: "studyDate") as? Date')
 end = database.index("\n", database.index("importedDate = nil }", at))
 import_date_normalization = database[at:end]
@@ -209,7 +211,9 @@ with tempfile.TemporaryDirectory(prefix="horos-calendar-date-") as folder:
         subprocess.run(["xcrun", "clang", "-c", "-Werror=deprecated-declarations", *flags, str(root / path), "-o", str(obj)], check=True)
         objects.append(str(obj))
     subprocess.run(["xcrun", "swiftc", "-warnings-as-errors", *flags[:-1], "-Xcc", flags[-1], "-import-objc-header", str(work / "Bridge.h"),
-                    str(root / "Horos/Sources/QueryFilter.swift"), str(root / "Nitrogen/Sources/NSDate+N2.swift"),
+                    # QueryFilter reads its preferences from PreferencesSource.
+                    str(root / "Horos/Sources/QueryFilter.swift"), str(process_graph_stand_in.source(work)),
+                    str(root / "Nitrogen/Sources/NSDate+N2.swift"),
                     str(work / "main.swift"), *objects, *link_flags("IsiXStorage", work / "modules"),
                     *link_flags("IsiXDICOMFile", work / "modules"), *link_flags("IsiXImaging", work / "modules"),
                     "-o", str(work / "test")], check=True)

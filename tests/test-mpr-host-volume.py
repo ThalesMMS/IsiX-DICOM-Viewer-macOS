@@ -25,6 +25,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+import process_graph_stand_in  # the Metal sources read their development switches through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 
@@ -170,7 +171,7 @@ def main():
         sources = ['VolumeAllocation.swift', 'VolumeSession.swift', 'MPRMetalReslicer.swift', 'MetalPerformanceTrace.swift',
                    'MetalComputePipelineCache.swift', 'Metal4ComputeSubmitter.swift', 'MPRHostVolume.swift']
         subprocess.run(['xcrun', 'swiftc', '-O', '-parse-as-library', '-suppress-warnings',
-                        *[str(root / 'Horos/Sources' / name) for name in sources], str(work / 'Check.swift'),
+                        *[str(root / 'Horos/Sources' / name) for name in sources], *process_graph_stand_in.swift_flags(work / 'isix'), str(work / 'Check.swift'),
                         '-o', str(work / 'check')], check=True)
         result = subprocess.run([str(work / 'check')], capture_output=True, text=True, timeout=180)
         if result.returncode == 2:

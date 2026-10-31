@@ -10,6 +10,7 @@ import hashlib
 import importlib.util
 import json
 import shutil
+import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -49,7 +50,7 @@ def prepare(products, packages):
         else: raise RuntimeError('resolved product artifact is missing: ' + name)
     hashes = {str(path.relative_to(destination)): module.sha256(path)
               for path in destination.rglob('*') if path.is_file()}
-    (OUTPUT / 'receipt.json').write_text(json.dumps({'lockSHA256': module.sha256(LOCK), 'files': hashes,
+    (OUTPUT / 'receipt.json').write_text(json.dumps({'lockSHA256': module.sha256(LOCK), 'sdk': sdk_version(), 'files': hashes,
         'clientRevision': next(record['revision'] for record in records if record['identity'] == 'dicom-swift')}, indent=2) + '\n')
     print('Copied verified remote DicomWebClient/DicomData/DicomWebOIDC products; %d immutable file hashes recorded' % len(hashes))
 
@@ -60,11 +61,18 @@ BUILT_PRODUCTS = ROOT / 'build/Build/Products/Debug'
 BUILT_PACKAGES = ROOT / 'build/SourcePackages'
 
 
+def sdk_version():
+    return subprocess.run(['xcrun', '--sdk', 'macosx', '--show-sdk-version'], capture_output=True, text=True, check=True).stdout.strip()
+
+
 def swift_flags(executable_directory):
     products = OUTPUT / 'Products/Debug'
     receipt = OUTPUT / 'receipt.json'
     current = hashlib.sha256(LOCK.read_bytes()).hexdigest()
-    stale = not receipt.is_file() or json.loads(receipt.read_text())['lockSHA256'] != current
+    recorded = json.loads(receipt.read_text()) if receipt.is_file() else {}
+    # A module compiled with another SDK is refused by the compiler, so an
+    # update of Xcode leaves the cache behind as a moved lock does.
+    stale = recorded.get('lockSHA256') != current or recorded.get('sdk') != sdk_version()
     if stale:
         # A lock that moved (a package pinned to a new release) left the cache
         # behind and failed every DICOMweb test until it was prepared again by
@@ -96,7 +104,11 @@ def swift_flags(executable_directory):
     import isix_modules
     network = isix_modules.module_flags('IsiXDICOMNetwork', Path(executable_directory) / 'isix-modules',
                                         ['-target', 'arm64-apple-macos26.0'])
-    return ['-target', 'arm64-apple-macos26.0', *network,
+    # The client reads its preferences from PreferencesSource, over a stand-in
+    # of the process graph.
+    import process_graph_stand_in
+    graph = process_graph_stand_in.source(executable_directory)
+    return ['-target', 'arm64-apple-macos26.0', *network, str(graph),
             '-I', str(products), str(products / 'DicomWebClient.o'), str(products / 'DicomData.o'),
             str(products / 'DicomWebOIDC.o'), '-lz']
 

@@ -108,10 +108,16 @@ if results:
         if results.get(key) != want:
             failures.append('%s: %r, expected %r' % (key, results.get(key), want))
 # --- the wiring --------------------------------------------------------------
-names = browser[browser.index('func patientsnamePredicate(_ s: String!, soundex: Bool)'):]
+# The database's name search is PatientNameMatching's, which the browser's
+# -patientsnamePredicate:soundex: hands on.
+helper_text = helper.read_text()
+names = helper_text[helper_text.index('public static func namePredicate(_ name: String?, soundex: ((String) -> String?)?) -> NSPredicate {'):]
 names = names[:names.index('return NSCompoundPredicate(andPredicateWithSubpredicates')]
-if 'PatientNameMatching.undecomposedPattern(component:' not in names or 'name MATCHES[cd] %@' not in names:
+if 'undecomposedPattern(component:' not in names or 'name MATCHES[cd] %@' not in names:
     failures.append('the database name search does not also match the undecomposed letters')
+delegate = browser[browser.index('func patientsnamePredicate(_ s: String!, soundex: Bool)'):]
+if 'PatientNameMatching.namePredicate(s, soundex: soundex ? { DicomStudy.soundex($0) } : nil)' not in delegate[:delegate.index('\n    }\n')]:
+    failures.append('the browser\'s name search is not the database\'s')
 if '!component.contains("*")' not in names:
     failures.append('a wildcard component would be turned into a pattern too')
 at = query.index('self.performQuery(NSNumber(value: showError))')
@@ -119,7 +125,7 @@ retry = query[at:at + 1200]
 if 'for alternative in nameAlternatives {' not in retry or '(manager.queries()?.count ?? 0) > 0' not in retry \
         or 'manager.addFilter(alternative + "*", forDescription: QueryWindowField.patientName.key)' not in retry:
     failures.append('a remote search that found nothing is not asked again with the other forms of the name')
-if 'PatientNameMatching.alternativeRemoteTerms(\n                for: trimmed, encoding:' not in query:
+if 'PatientNameMatching.alternativeRemoteTerms(\n            for: name, encoding: NSString.encoding(forDICOMCharacterSet: preferences[NetworkPreferences.queryCharacterSet]))' not in query:
     failures.append('the other forms of the name are not worked out for the query character set')
 if project.count('PatientNameMatching.swift in Sources') != 2:
     failures.append('PatientNameMatching.swift is not built into the application')

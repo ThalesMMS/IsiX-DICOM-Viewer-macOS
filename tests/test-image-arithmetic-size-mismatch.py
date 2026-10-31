@@ -25,8 +25,9 @@ subCtrlOnOff:] handed the mask's fImage to every image of the series, and
 all with each image's own width and height. In a series of mixed sizes a mask
 smaller than an image was read past its end. An image of another size than the
 mask is now left without the subtraction and out of the subtraction range.
-The two actions, Swift now (ViewerController+MaskSubtraction.swift, with the
-IsiXImaging module), and the Swift -computeSubCtrlMinMax, taken as they stand,
+The two actions, Swift now (ViewerController+MaskSubtraction.swift hands them
+to MaskSubtractionSession.swift, with the IsiXImaging module), and the Swift
+-computeSubCtrlMinMax, taken as they stand,
 run here over stand-ins of the viewer and its DCMView, with the three DCMPix
 methods from DCMPix.m, or from DCMPix.swift and DCMPix+Subtraction.swift as
 they stand once the class is Swift, and buffers again ending on a page nobody
@@ -78,6 +79,11 @@ source = read('Horos/Sources/DCMPix.m') if len(sys.argv) > 1 or (root / 'Horos/S
 pix_objc = bool(source)
 swift = read(str(sources.source_path('ViewerController+RetrieveAndView').relative_to(root)))
 mask_source = read('Horos/Sources/ViewerController+MaskSubtraction.swift')
+try:
+    # The session the actions hand over to; a revision before it has none.
+    session_source = read('Horos/Sources/MaskSubtractionSession.swift')
+except (OSError, subprocess.CalledProcessError):
+    session_source = ''
 support = read('Horos/Sources/ViewerController+ImagePipelineSupport.swift')
 
 
@@ -277,10 +283,20 @@ else:
     swift_subtraction = '\nextension DCMPix {\n' + entry + helpers + '\n}\n'
 
 actions = swift_method('subCtrlOnOff:', mask_source) + swift_method('subCtrlNewMask:', mask_source)
+session = ''
+if session_source:
+    # The session's two methods as they stand, in a session of the stand-in
+    # viewer alone: the actions reach it as the viewer's maskSubtraction.
+    actions += '    var maskSubtraction: MaskSubtractionSession { MaskSubtractionSession(viewer: self) }\n'
+    session = ('struct MaskSubtractionSession {\n    unowned let viewer: ViewerController\n'
+               + '\n'.join(braced(session_source, session_source.index('    func %s(' % name))
+                           for name in ('switchOnOff', 'takeMaskOnScreen')) + '\n}\n')
 # The sender's tag, as the actions send it.
-sender = support[support.index('enum ViewerSender {'):support.index('/// Runs `body` as an @try block')]
+sender = support[support.index('enum ViewerSender {'):support.index('/// `[target selector: argument]` of a method returning')]
 c_long = re.search(r'fileprivate func cLong\(_ x: Double\) -> Int \{.*?\n\}\n', swift, re.S).group(0)
-is_equal = re.search(r'fileprivate func objcIsEqualToString\(_ string: Any\?, _ other: Any\?\) -> Bool \{.*?\n\}\n', swift, re.S).group(0)
+# The file's own [a isEqualToString: b], in the revisions whose methods still send it.
+is_equal = re.search(r'fileprivate func objcIsEqualToString\(_ string: Any\?, _ other: Any\?\) -> Bool \{.*?\n\}\n', swift, re.S)
+is_equal = is_equal.group(0) if is_equal else ''
 if '    @objc(subtractionUnavailableReason)\n' in swift:
     reason_method = swift_method('subtractionUnavailableReason')
 else:
@@ -288,14 +304,21 @@ else:
     failures.append('the Swift -subtractionUnavailableReason is missing')
     reason_method = '    @objc(subtractionUnavailableReason)\n    func subtractionUnavailableReason() -> String? { return nil }\n'
 extension = ('import AppKit\nimport IsiXImaging\n\n' + c_long + is_equal + sender + '\nextension ViewerController {\n'
-             + swift_method('computeSubCtrlMinMax') + reason_method + actions + '}\n' + swift_subtraction)
+             + swift_method('computeSubCtrlMinMax') + reason_method + actions + '}\n' + session + swift_subtraction)
 
-# -finishLoadImageData: takes enableSubtraction from it, and from nothing else.
-at = swift.index('    @objc(finishLoadImageData:)\n')
-loading = swift[at:swift.index('\n    }\n', at)]
-if (loading.count('horos_enableSubtraction =') != 1
-        or 'self.horos_enableSubtraction = self.subtractionUnavailableReason() == nil' not in loading):
-    failures.append('-finishLoadImageData: does not take enableSubtraction from -subtractionUnavailableReason')
+# The delivery of a loaded series takes enableSubtraction from it, and from
+# nothing else: -finishLoadImageData: before, the viewer's ViewerSeriesLoad now.
+if '    @objc(finishLoadImageData:)\n' in swift:
+    at = swift.index('    @objc(finishLoadImageData:)\n')
+    loading = swift[at:swift.index('\n    }\n', at)]
+    taken = 'self.horos_enableSubtraction = self.subtractionUnavailableReason() == nil'
+else:
+    series_load = read('Horos/Sources/ViewerSeriesLoad.swift')
+    at = series_load.index('    func deliver(_ result: SeriesLoadResult) {\n')
+    loading = series_load[at:series_load.index('\n    }\n', at)]
+    taken = 'viewer.horos_enableSubtraction = viewer.subtractionUnavailableReason() == nil'
+if loading.count('horos_enableSubtraction =') != 1 or taken not in loading:
+    failures.append('the delivery of a loaded series does not take enableSubtraction from -subtractionUnavailableReason')
 
 # What Swift reads is spelled as in DCMPix.h, DCMView.h and ViewerController+SwiftIvars.h.
 header = r'''

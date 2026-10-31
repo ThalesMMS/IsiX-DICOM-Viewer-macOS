@@ -43,39 +43,40 @@ import AppKit
 // on the browser by its former instance variable's name (databaseOutline,
 // _sourcesTableView...), through a setter of that name (at the end of this
 // file), which stores the view in the holder of the window's views or in that
-// of the sheets and auxiliary views; key-value coding reads them by the same
-// names (BrowserController+KeyValueCoding.swift). An outlet is nil until the
+// of the sheets and auxiliary views. The outlets still read by key stay
+// visible to Objective-C, and key-value coding reads them by the same names
+// (BrowserController+KeyValueCoding.swift). An outlet is nil until the
 // nib is loaded: -initWithWindow: runs part of the browser before.
 
 /// The views of the database window.
 final class BrowserWindowOutlets: NSObject, @unchecked Sendable {
-    @objc var databaseDescription: NSTextField?
+    var databaseDescription: NSTextField?
     @objc var databaseOutline: MyOutlineView?
     @objc var oMatrix: BrowserMatrix?
     @objc var albumTable: NSTableView?
     @objc var bonjourSourcesBox: NSBox?
-    @objc var sourcesArrayController: NSArrayController?
+    var sourcesArrayController: NSArrayController?
     @objc var sourcesTableView: NSTableView?
     @objc var activityTableView: NSTableView?
     @objc var animationSlider: NSSlider?
     @objc var animationCheck: NSButton?
-    @objc var bottomSplit: NSSplitView?
+    var bottomSplit: NSSplitView?
     @objc var imageView: PreviewView?
-    @objc var matrixView: NSView?
-    @objc var comparativeScrollView: NSView?
+    var matrixView: NSView?
+    var comparativeScrollView: NSView?
     @objc var comparativeTable: NSTableView?
-    @objc var thumbnailsScrollView: NSScrollView?
-    @objc var splitViewHorz: NSSplitView?
-    @objc var splitViewVert: NSSplitView?
-    @objc var splitAlbums: NSSplitView?
+    var thumbnailsScrollView: NSScrollView?
+    var splitViewHorz: NSSplitView?
+    var splitViewVert: NSSplitView?
+    var splitAlbums: NSSplitView?
     @objc var splitDrawer: NSSplitView?
     /// Replaced by -awakeFromNib when the history is above the thumbnails.
     @objc var splitComparative: NSSplitView?
-    @objc var bannerSplit: NSSplitView?
-    @objc var banner: NSButton?
-    @objc var timeIntervalView: NSView?
+    var bannerSplit: NSSplitView?
+    var banner: NSButton?
+    var timeIntervalView: NSView?
     @objc var modalityFilterMenu: NSPopUpButton?
-    @objc var modalityFilterView: NSView?
+    var modalityFilterView: NSView?
     @objc var searchView: NSView?
     @objc var searchField: NSSearchField?
     @objc var searchInEntireDBResult: NSButton?
@@ -86,54 +87,54 @@ final class BrowserWindowOutlets: NSObject, @unchecked Sendable {
 /// The sheets, panels and accessory views the browser shows.
 final class BrowserSheetOutlets: NSObject, @unchecked Sendable {
     // Opening a sub-selection of a series, or reparsing it in 3D or 4D.
-    @objc var subOpenWindow: NSWindow?
-    @objc var subOpenMatrix3D: NSMatrix?
-    @objc var subOpenMatrix4D: NSMatrix?
+    var subOpenWindow: NSWindow?
+    var subOpenMatrix3D: NSMatrix?
+    var subOpenMatrix4D: NSMatrix?
     @objc var supOpenButtons: NSMatrix?
-    @objc var subSeriesWindow: NSWindow?
-    @objc var subSeriesOKButton: NSButton?
-    @objc var memoryMessage: NSTextField?
-    @objc var leftIcon: NSImageView?
-    @objc var rightIcon: NSImageView?
-    @objc var warningBox: NSBox?
+    var subSeriesWindow: NSWindow?
+    var subSeriesOKButton: NSButton?
+    var memoryMessage: NSTextField?
+    var leftIcon: NSImageView?
+    var rightIcon: NSImageView?
+    var warningBox: NSBox?
     // The password of a shared database.
-    @objc var bonjourPasswordWindow: NSWindow?
+    var bonjourPasswordWindow: NSWindow?
     @objc var password: NSTextField?
     // A new album.
     @objc var newAlbum: NSWindow?
     @objc var newAlbumName: NSTextField?
     // Rebuilding the database.
-    @objc var rebuildWindow: NSWindow?
-    @objc var rebuildType: NSMatrix?
+    var rebuildWindow: NSWindow?
+    var rebuildType: NSMatrix?
     @objc var estimatedTime: NSTextField?
-    @objc var noOfFilesToRebuild: NSTextField?
+    var noOfFilesToRebuild: NSTextField?
     @objc var warning: NSTextField?
     // Adding a URL, the passwords of a CD and of a ZIP file.
-    @objc var urlWindow: NSWindow?
-    @objc var urlString: NSTextField?
-    @objc var CDpasswordWindow: NSWindow?
+    var urlWindow: NSWindow?
+    var urlString: NSTextField?
+    var CDpasswordWindow: NSWindow?
     @objc var ZIPpasswordWindow: NSWindow?
     // Importing raw data.
-    @objc var rdPatientForm: HorosFormView?
-    @objc var rdPixelForm: HorosFormView?
-    @objc var rdVoxelForm: HorosFormView?
-    @objc var rdOffsetForm: HorosFormView?
-    @objc var rdPixelTypeMatrix: NSMatrix?
-    @objc var rdAccessory: NSView?
+    var rdPatientForm: HorosFormView?
+    var rdPixelForm: HorosFormView?
+    var rdVoxelForm: HorosFormView?
+    var rdOffsetForm: HorosFormView?
+    var rdPixelTypeMatrix: NSMatrix?
+    var rdAccessory: NSView?
     // Exporting.
-    @objc var exportQuicktimeView: NSView?
-    @objc var exportHTMLButton: NSButton?
-    @objc var exportAccessoryView: NSView?
-    @objc var compressionMatrix: NSMatrix?
-    @objc var folderTree: NSMatrix?
+    var exportQuicktimeView: NSView?
+    var exportHTMLButton: NSButton?
+    var exportAccessoryView: NSView?
+    var compressionMatrix: NSMatrix?
+    var folderTree: NSMatrix?
     // Reports.
     @objc var reportTemplatesView: NSView?
     @objc var reportTemplatesImageView: NSImageView?
     @objc var reportTemplatesListPopUpButton: NSPopUpButton?
     // The web portal's users.
-    @objc var addStudiesToUserWindow: NSWindow?
-    @objc var notificationEmailWindow: NSWindow?
-    @objc var notificationEmailArrayController: NSArrayController?
+    var addStudiesToUserWindow: NSWindow?
+    var notificationEmailWindow: NSWindow?
+    var notificationEmailArrayController: NSArrayController?
 }
 
 // The nib connects an outlet through its setter, or an instance variable of

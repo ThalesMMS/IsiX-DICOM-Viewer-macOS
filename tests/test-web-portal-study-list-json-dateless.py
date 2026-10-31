@@ -10,7 +10,7 @@ other fields, so that study is listed with an empty date and the others too.
 
 The date statement is taken as it is from processStudyListJson in
 WebPortalConnection+Data.swift and compiled with that file's own helpers
-(objcNonNull, objcSetObject, objcStringFromDate, objcTry) and the real
+(objcNonNull, objcSetObject, objcStringFromDate, HorosObjCException.caught) and the real
 HorosObjCException, in the list's loop over three studies, the middle one
 without a date. The list must come out whole, the dateless study with "".
 
@@ -22,6 +22,8 @@ import json
 import re
 import subprocess
 import sys
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+import objc_exception_guards
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
@@ -43,8 +45,18 @@ def function(signature):
 
 helpers = [function(s) for s in ('private func objcNonNull(_ s: String?)',
                                  'private func objcSetObject(_ dictionary: NSMutableDictionary?, _ object: Any?',
-                                 'private func objcStringFromDate(_ formatter: DateFormatter?',
-                                 'private func objcTry(_ body: () -> Void')]
+                                 'private func objcStringFromDate(_ formatter: DateFormatter?')]
+# The @try of the list, HorosObjCException.caught with its @catch.
+helpers.append(objc_exception_guards.source(log=False).replace('import Foundation\n', '', 1))
+# The raise of a refused argument the helpers share with WebPortalConnection.swift.
+connection = (root / 'Horos/Sources/WebPortalConnection.swift').read_text()
+if 'raiseInvalidArgument(' in ''.join(helpers) and '\nfunc raiseInvalidArgument(' in connection:
+    raised = connection[connection.index('\nfunc raiseInvalidArgument(') + 1:]
+    helpers.append(raised[:raised.index('\n}\n') + 3])
+# The error the helpers throw for a refused argument, from WebPortalConnection.swift.
+if 'WebPortalPageError' in ''.join(helpers) and '\nenum WebPortalPageError' in connection:
+    thrown = connection[connection.index('\nenum WebPortalPageError') + 1:]
+    helpers.append(thrown[:thrown.index('\n}\n') + 3])
 
 at = source.find('public func processStudyListJson()')
 body = source[at:source.find('\n    }\n', at)] if at >= 0 else ''
@@ -77,7 +89,7 @@ let studies = [Study("DATED^ONE", Date(timeIntervalSince1970: 0)),
                Study("SYNTHETIC^DICOMDIR", nil),
                Study("DATED^TWO", Date(timeIntervalSince1970: 86400))]
 var data: String? = nil
-objcTry({
+HorosObjCException.caught({
     let r = NSMutableArray()
     for study in studies {
         let s = NSMutableDictionary()

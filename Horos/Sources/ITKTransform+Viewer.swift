@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 
 // The viewer of a resampled series: the reference's slices, copied, over the
 // resampled voxels, with the moving series' display, SUV and annotation
@@ -131,17 +132,17 @@ extension ITKTransform {
             new2DViewer = ViewerController.newWindow(newPixList, newFileList, volumeData)
         } else {
             // Close original viewer
-            let defaults = UserDefaults.standard
-            let prefTileWindows = defaults.bool(forKey: "AUTOTILING")
+            let preferences = processGraph.preferences
+            let prefTileWindows = preferences[ViewerPreferences.autoTiling]
 
-            defaults.set(false, forKey: "AUTOTILING")
+            preferences.set(false, for: ViewerPreferences.autoTiling)
 
             let f = originalViewer.window?.frame ?? .zero
             originalViewer.window?.close()
 
             new2DViewer = ViewerController.newWindow(newPixList, newFileList, volumeData, frame: f)
 
-            defaults.set(prefTileWindows, forKey: "AUTOTILING")
+            preferences.set(prefTileWindows, for: ViewerPreferences.autoTiling)
         }
         // +newWindow::: hands over the +1 of the viewer's alloc, which the
         // viewer releases itself when its window closes: keep it, as the

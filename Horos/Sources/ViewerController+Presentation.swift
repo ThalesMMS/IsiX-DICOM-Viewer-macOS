@@ -39,6 +39,7 @@
 
 import AppKit
 import IsiXImaging
+import IsiXPreferences
 
 // The presentation of the image in the 2D viewer's viewport (flips, rotation,
 // label font size, overlays, LUT and VOI LUT, image tiling, the refresh of the
@@ -46,20 +47,26 @@ import IsiXImaging
 // study, series and image. The selectors are those of the former Objective-C
 // methods.
 //
-// The accessors that only read are asked from any thread (plugins, export and
-// loading threads ask for the image view, the study or the modality): they are
-// nonisolated, and read the image view's values through key-value coding, as
-// the Objective-C read them through its getters. A message to nil answered
-// nil, 0 or NO: the optional chains below answer the same.
+// The accessors that only read are nonisolated: plugins and other threads
+// ask for the image view, the series view and the lists. The window (curWL,
+// curWW), the scale, the rotation and the flips are read from what the image
+// view publishes behind a lock at each write, and answer on any thread. The
+// rest is main-actor state (the image index, the series view's views and the
+// database objects shown), read on the main actor; a call from another thread
+// stops at that isolation check, as the key-value reads of the views'
+// main-actor getters did. A message to nil answered nil, 0 or NO: the optional
+// chains below answer the same.
 
-/// [object floatValue] of a value read through key-value coding: 0 for nil.
-private func kvcFloat(_ object: Any?) -> Float {
-    (object as? NSNumber)?.floatValue ?? 0
+/// The value `read` gives of `view` on the main actor, where the views live;
+/// nil without a view.
+fileprivate func readOnMainActor<View: NSView, Value>(_ view: View?, _ read: @MainActor (View) -> Value) -> Value? {
+    guard let view else { return nil }
+    return MainActor.assumeIsolated { MainActorRead(value: read(view)) }.value
 }
 
-/// [object boolValue] of a value read through key-value coding: NO for nil.
-private func kvcBool(_ object: Any?) -> Bool {
-    (object as? NSNumber)?.boolValue ?? false
+/// A value read on the main actor and handed to the caller that waited for it.
+private struct MainActorRead<Value>: @unchecked Sendable {
+    let value: Value
 }
 
 public extension ViewerController {
@@ -126,8 +133,8 @@ public extension ViewerController {
     /// Turns the VOI LUT preference over and applies it a moment later.
     @objc(useVOILUT:)
     func useVOILUT(_ sender: Any!) {
-        let defaults = UserDefaults.standard
-        defaults.set(!defaults.bool(forKey: "UseVOILUT"), forKey: "UseVOILUT")
+        let preferences = sessionGraph.preferences
+        preferences.set(!preferences[ViewerPreferences.useVOILUT], for: ViewerPreferences.useVOILUT)
 
         perform(#selector(ViewerController.applyLUT(_:)), with: self, afterDelay: 0.2)
     }
@@ -206,13 +213,6 @@ public extension ViewerController {
 
     // -currentStudy, -currentSeries, -currentImage, -curWW and -curWL override
     // the ones of OSIWindowController, which every viewer window answers.
-    //
-    // -currentStudy, -currentSeries, -currentImage and -imageViews are for the
-    // main thread only: they read DCMView's seriesObj and imageObj and
-    // SeriesView's imageViews, which are main-actor isolated, so a call from
-    // another thread stops the process at that isolation check. Code off the
-    // main thread reads -imageView, -pixList:, -fileList: and the other
-    // nonisolated accessors, or hops to the main actor first.
 
     @objc(imageView)
     nonisolated func imageView() -> DCMView! {
@@ -221,7 +221,7 @@ public extension ViewerController {
 
     @objc(imageViews)
     nonisolated func imageViews() -> NSArray! {
-        return horos_seriesView?.value(forKey: "imageViews") as? NSArray
+        return readOnMainActor(horos_seriesView) { $0.imageViews() } ?? nil
     }
 
     @objc(seriesView)
@@ -233,34 +233,34 @@ public extension ViewerController {
     @objc(modality)
     nonisolated func modality() -> String! {
         let files = horos_fileList(at: Int(horos_curMovieIndex))
-        let image = Int((horos_imageView?.value(forKey: "curImage") as? NSNumber)?.intValue ?? 0)
+        let image = readOnMainActor(horos_imageView) { $0.curImage } ?? 0
         guard image >= 0 && image < (files?.count ?? 0) else { return nil }
-        return (files?.object(at: image) as AnyObject?)?.value(forKeyPath: "series.modality") as? String
+        return (files?.object(at: image) as? DicomImage)?.series?.modality
     }
 
     @objc(currentStudy)
     nonisolated override func currentStudy() -> DicomStudy! {
-        return (horos_imageView?.value(forKey: "seriesObj") as AnyObject?)?.value(forKey: "study") as? DicomStudy
+        return readOnMainActor(horos_imageView) { $0.seriesObj()?.study } ?? nil
     }
 
     @objc(currentSeries)
     nonisolated override func currentSeries() -> DicomSeries! {
-        return horos_imageView?.value(forKey: "seriesObj") as? DicomSeries
+        return readOnMainActor(horos_imageView) { $0.seriesObj() } ?? nil
     }
 
     @objc(currentImage)
     nonisolated override func currentImage() -> DicomImage! {
-        return horos_imageView?.value(forKey: "imageObj") as? DicomImage
+        return readOnMainActor(horos_imageView) { $0.imageObj() } ?? nil
     }
 
     @objc(curWW)
     nonisolated override func curWW() -> Float {
-        return kvcFloat(horos_imageView?.value(forKey: "curWW"))
+        return horos_imageView?.publishedPresentation.presentation.windowLevel.width ?? 0
     }
 
     @objc(curWL)
     nonisolated override func curWL() -> Float {
-        return kvcFloat(horos_imageView?.value(forKey: "curWL"))
+        return horos_imageView?.publishedPresentation.presentation.windowLevel.level ?? 0
     }
 
     @objc(setWL:WW:)
@@ -270,17 +270,17 @@ public extension ViewerController {
 
     @objc(xFlipped)
     nonisolated func xFlipped() -> Bool {
-        return kvcBool(horos_imageView?.value(forKey: "xFlipped"))
+        return horos_imageView?.publishedPresentation.presentation.viewport.xFlipped ?? false
     }
 
     @objc(yFlipped)
     nonisolated func yFlipped() -> Bool {
-        return kvcBool(horos_imageView?.value(forKey: "yFlipped"))
+        return horos_imageView?.publishedPresentation.presentation.viewport.yFlipped ?? false
     }
 
     @objc(rotation)
     nonisolated func rotation() -> Float {
-        return kvcFloat(horos_imageView?.value(forKey: "rotation"))
+        return horos_imageView?.publishedPresentation.presentation.viewport.rotation ?? 0
     }
 
     @objc(setRotation:)
@@ -295,7 +295,7 @@ public extension ViewerController {
 
     @objc(scaleValue)
     nonisolated func scaleValue() -> Float {
-        return kvcFloat(horos_imageView?.value(forKey: "scaleValue"))
+        return horos_imageView?.publishedPresentation.presentation.viewport.scale ?? 0
     }
 
     @objc(setScaleValue:)

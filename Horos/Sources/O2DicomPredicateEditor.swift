@@ -136,16 +136,12 @@ public final class O2DicomPredicateEditor: NSPredicateEditor {
             _backbinding = true
             // The former @catch rethrew after resetting _backbinding. Swift cannot
             // rethrow an NSException, so it is logged.
-            do {
-                try HorosObjCException.perform {
-                    if let binding = self.infoForBinding(.value), let observed = binding[.observedObject] as? NSObject {
-                        observed.setValue(self.predicate, forKeyPath: binding[.observedKeyPath] as? String ?? "")
-                    }
+            if let e = HorosObjCException.caught({
+                if let binding = self.infoForBinding(.value), let observed = binding[.observedObject] as? NSObject {
+                    observed.setValue(self.predicate, forKeyPath: binding[.observedKeyPath] as? String ?? "")
                 }
-            } catch {
-                if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                    _N2LogExceptionImpl(e, true, "-[O2DicomPredicateEditor observeValueForKeyPath:ofObject:change:context:]")
-                }
+            }) {
+                _N2LogExceptionImpl(e, true, "-[O2DicomPredicateEditor observeValueForKeyPath:ofObject:change:context:]")
             }
             _backbinding = false
         }
@@ -239,14 +235,10 @@ public final class O2DicomPredicateEditor: NSPredicateEditor {
             let value = regroupedPredicate(newValue)
 
             _setting = true
-            do {
-                try HorosObjCException.perform {
-                    super.objectValue = value
-                }
-            } catch {
-                if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                    _N2LogExceptionImpl(e, false, "-[O2DicomPredicateEditor setObjectValue:]")
-                }
+            if let e = HorosObjCException.caught({
+                super.objectValue = value
+            }) {
+                _N2LogExceptionImpl(e, false, "-[O2DicomPredicateEditor setObjectValue:]")
             }
             _setting = false
         }

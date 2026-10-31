@@ -18,7 +18,7 @@ A release has two application zips, one per architecture: arm64 for Apple Silico
 
 ## For each stable release
 
-1. Run `script/build_release.sh` and `HOROS_RELEASE_ARCH=x86_64 script/build_release.sh` with the same `HOROS_RELEASE_SEQUENCE` (or `HOROS_RELEASE_BUILD`), so that both packages carry the same build number. They are written to `build/Release/arm64` and `build/Release/x86_64`. Sign each with the Developer ID, notarize, staple and zip it as before, with the architecture in the zip's name.
+1. Run `script/build_release.sh` and `HOROS_RELEASE_ARCH=x86_64 script/build_release.sh` with the same `HOROS_RELEASE_SEQUENCE` (or `HOROS_RELEASE_BUILD`), so that both packages carry the same build number. They are written to `build/Release/arm64` and `build/Release/x86_64`; the arm64 build also writes the plugin SDK, `build/Release/IsiXPluginKit-SDK-<version>.zip`, with both architectures and the porting kit for Horos and OsiriX plugins, `<version>` being the one in `HUMAN_READABLE_VERSION` (`Horos/Horos.xcconfig`) and in the tag. Sign each with the Developer ID, notarize, staple and zip it as before, with the architecture in the zip's name.
 2. Prepare a new publication folder from the final application ZIPs, build reports and license/source archive. Use the tag the release will have and a destination that does not exist:
 
    ```sh
@@ -26,12 +26,13 @@ A release has two application zips, one per architecture: arm64 for Apple Silico
        --release-assets build/github/v5.2.7 \
        --arm64-info build/Release/arm64/BUILD-INFO.txt \
        --intel-info build/Release/x86_64/BUILD-INFO.txt \
-       --source-materials build/distribution/license-and-source-materials.zip . \
+       --source-materials build/distribution/license-and-source-materials.zip \
+       --sdk-zip build/Release/IsiXPluginKit-SDK-5.2.7.zip . \
        build/distribution/IsiX-DICOM-Viewer-5.2.7-arm64.zip \
        build/distribution/IsiX-DICOM-Viewer-5.2.7-x86_64.zip
    ```
 
-   The paths above are an example for the next release. Supply reports that describe the final signed and notarized artifacts. The script copies the application ZIPs with their existing filenames, publishes the reports and license/source archive under the names below, and generates `stable.plist` and `Verification.txt`. It leaves the inputs unchanged and refuses an existing destination. No upload occurs.
+   The paths above are an example for the next release. Supply reports that describe the final signed and notarized artifacts. The script copies the application ZIPs with their existing filenames, publishes the reports and license/source archive under the names below, copies the plugin SDK under its own name after checking that it is named for the tag and holds the framework, `SDK.json` and `LegacyPorting/PORTING.json` without AppleDouble or `__MACOSX` entries, and generates `stable.plist` and `Verification.txt`. It leaves the inputs unchanged and refuses an existing destination. No upload occurs.
 
    It reads the architecture of each zip from the application inside, refuses two zips of one architecture, a universal application, a release without its arm64 zip, and zips whose build number, version, identifier or minimum macOS differ. A release without an Intel package needs only the arm64 ZIP and report; Intel copies then know of the release but are not offered a download. Without `--release-assets`, `--update-feed` retains its original behavior of writing only `stable.plist` beside the input ZIPs.
 3. Verify the prepared publication files:

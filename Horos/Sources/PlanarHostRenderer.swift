@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 import Metal
 import QuartzCore
 
@@ -25,7 +26,7 @@ enum PlanarBackend {
     case metal4(any PlanarPilotRenderer)
 
     /// The user default that asks for the pilot. Absent means the backend in use.
-    static let pilotDefaultsKey = "HorosPlanarMetal4Pilot"
+    static let pilotDefaultsKey = ViewerPreferences.planarMetal4Pilot.name
 
     static func make(device: MTLDevice, wantsPilot: Bool) throws -> (PlanarBackend, String?) {
         guard wantsPilot else { return (.metal3(try PlanarMetalRenderer(device: device)), nil) }
@@ -164,7 +165,7 @@ public final class PlanarHostRenderer: NSObject {
     private func backend() throws -> PlanarBackend {
         if let renderer { return renderer }
         guard let device = Self.device else { throw PlanarMetalRenderer.failure() }
-        let wantsPilot = UserDefaults.standard.bool(forKey: PlanarBackend.pilotDefaultsKey)
+        let wantsPilot = PreferencesSource.process.preferences[ViewerPreferences.planarMetal4Pilot]
         let (backend, reason) = try PlanarBackend.make(device: device, wantsPilot: wantsPilot)
         renderer = backend
         // A fallback says so; it is never silent.

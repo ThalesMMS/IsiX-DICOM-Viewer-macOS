@@ -50,12 +50,12 @@ else:
     if 'notAbleToLoadImage' in set_index or 'missingPixelsReason' in set_index:
         failures.append('setIndex: must not skip or refuse an unreadable pix; the index asked for is the index shown')
     if ('self.horos_curImage = SeriesDisplay.clampedIndex(index, count: dcmPixList.count)' not in set_index
-            or 'self.curDCM = (dcmPixList.object(at: Int(self.horos_curImage)) as! DCMPix)' not in set_index):
+            or 'self.curDCM = dcmPixList.object(at: Int(self.horos_curImage)) as? DCMPix' not in set_index):
         failures.append('setIndex: no longer shows the pix at the requested index')
 
-if ('private let kMissingPixelsReasonGetter = #selector(getter: DCMPix.missingPixelsReason)' not in orientation
-        or 'if ((objcProperty(self.curDCM, kMissingPixelsReasonGetter) as! NSString?)?.length ?? 0) != 0 {' not in orientation
-        or 'self.drawNSStringGL(objcProperty(self.curDCM, kMissingPixelsReasonGetter) as! NSString? as String?' not in orientation):
+# The reason is a notice under the top orientation letter (AnnotationOverlayLayout).
+if ('if let missing = self.curDCM?.missingPixelsReason, !missing.isEmpty {\n            notices.append(missing)' not in orientation
+        or 'notices: notices)' not in orientation):
     failures.append('DCMView does not draw the missing-pixels reason over the frame')
 
 DRIVER = r'''

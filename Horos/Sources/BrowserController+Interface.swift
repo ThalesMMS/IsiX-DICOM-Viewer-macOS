@@ -96,7 +96,6 @@ extension BrowserController {
         false
     }
 
-    @objc(keyDown:)
     public override func keyDown(with event: NSEvent) {
         let firstResponder = window?.firstResponder
         if firstResponder === horos_albumTable || firstResponder === horos_sourcesTableView || firstResponder === horos_activityTableView {

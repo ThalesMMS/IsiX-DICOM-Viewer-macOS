@@ -18,9 +18,18 @@ both the same synthetic inputs and compares what they print:
 * whether a stored file serves a transfer syntax asked of it as it is (with
   DCMTK's transfer syntax table, from the Debug build: exit 2 without it).
 
+The choices that stayed in the Swift of the scan, the DICOMDIR and the copy, and
+then went to MediaScanRules and MediaImportRequest, are cut the same way from the
+last revision that had them there (isix_modules.revision_before): whether the
+medium is read, whether the user is asked, whether it is ejected, whether files
+are validated, whether the parse of a DICOMDIR replaces its entries, and what the
+dictionary of -copyFilesThread: means. Those are compared over every combination
+of what they read.
+
     python3 tests/test-media-scan-rules-equivalence.py [--reference REV]
 """
 import argparse
+import re
 import subprocess
 import sys
 import tempfile
@@ -28,6 +37,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import history_reference  # noqa: E402
+import isix_modules  # noqa: E402
 from dcmtk_build import dcmtk_flags  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -335,8 +345,187 @@ with tempfile.TemporaryDirectory(prefix='isix-media-scan-rules-') as directory:
         for line in reference:
             counts[line.split('\t', 1)[0]] = counts.get(line.split('\t', 1)[0], 0) + 1
 
+# --- the choices of the former Swift ------------------------------------------
+CHOICES = r'''
+import Foundation
+import IsiXContracts
+import IsiXDatabase
+
+final class Preferences {
+    let on: Set<String>
+    init(_ on: Set<String>) { self.on = on }
+    func bool(forKey key: String) -> Bool { on.contains(key) }
+}
+
+func referenceReads(_ defaults: Preferences, _ dicomImages: [Int]) -> Bool {
+    READS
+    return doScan
+}
+
+func referenceAsks(_ answer: (mode: Int, Void), _ currentEventHasCommand: () -> Bool) -> Bool {
+    return ASKS
+}
+
+func referenceEjects(_ defaults: Preferences, _ isVolume: Bool, _ copyFilesThread: (isCancelled: Bool, isFinished: Bool)) -> Bool {
+    return EJECTS
+}
+
+func referenceImportEjects(_ defaults: Preferences, _ dict: NSDictionary, _ failedCopies: Int, _ copyFiles: Bool) -> Bool {
+    if IMPORT_EJECTS {
+        if EJECT_PREFERENCE {
+            return true
+        }
+    }
+    return false
+}
+
+func referenceValidates(_ defaults: Preferences, _ mountedVolume: Bool) -> Bool {
+    return VALIDATES
+}
+
+func referenceParse(_ files: [Int], _ items: [Int]) -> Bool {
+    return PARSE
+}
+
+func referenceRequest(_ dict: NSDictionary) -> [Bool] {
+    SWITCHES
+    return [onlyDICOM, copyFiles, mountedVolume,
+            ADD_TO_ALBUM,
+            SELECT_STUDY,
+            EJECT_SWITCH]
+}
+
+func referenceOrder(_ dict: NSDictionary) -> [String] {
+    FILES
+    return filesInput as! [String]
+}
+
+var compared = 0
+func same(_ a: Bool, _ b: Bool, _ what: String) {
+    compared += 1
+    if a != b {
+        print("DIFFERENT\t\(what): reference \(a), rule \(b)")
+    }
+}
+
+let booleans = [false, true]
+for uses in booleans { for empty in booleans { for beyond in booleans { for images in [0, 1, 7] {
+    var on = Set<String>()
+    if uses { on.insert("UseDICOMDIRFileCD") }
+    if empty { on.insert("ScanDiskIfDICOMDIRZero") }
+    if beyond { on.insert("ScanDiskBeyondDICOMDIR") }
+    same(referenceReads(Preferences(on), [Int](repeating: 0, count: images)),
+         MediaScanRules.readsMedium(usesDicomdir: uses, namedByIndex: images, readIfIndexIsEmpty: empty, readBeyondIndex: beyond),
+         "reads \(uses) \(empty) \(beyond) \(images)")
+}}}}
+for mode in [-1, 0, 1, 2, 3] { for command in booleans {
+    same(referenceAsks((mode: mode, ()), { command }), MediaScanRules.asksWhatToDo(mountMode: mode, commandDown: command), "asks \(mode) \(command)")
+    same(mode == 1, mode == MediaScanRules.copyMode, "copies \(mode)")
+    same(mode == 2, mode == MediaScanRules.ignoreMode, "ignores \(mode)")
+}}
+for volume in booleans { for preference in booleans { for stopped in booleans {
+    same(referenceEjects(Preferences(preference ? ["CDDVDEjectAfterAutoCopy"] : []), volume, (isCancelled: stopped, isFinished: true)),
+         MediaScanRules.ejectsAfterCopy(isVolume: volume, ejectPreference: preference, copyStopped: stopped),
+         "ejects \(volume) \(preference) \(stopped)")
+}}}
+for asked in [nil, false, true] as [Bool?] { for copied in booleans { for failed in [0, 1, 3] { for preference in booleans {
+    let dict: NSDictionary = asked.map { ["ejectCDDVD": NSNumber(value: $0)] } ?? [:]
+    same(referenceImportEjects(Preferences(preference ? ["EJECTCDDVD"] : []), dict, failed, copied),
+         MediaScanRules.ejectsAfterImport(asked: MediaImportRequest(options: dict as! [AnyHashable: Any]).ejectCDDVD, copied: copied,
+                                          failedCopies: failed, ejectPreference: preference),
+         "ejects after import \(String(describing: asked)) \(copied) \(failed) \(preference)")
+}}}}
+for preference in booleans { for mounted in booleans {
+    same(referenceValidates(Preferences(preference ? ["validateFilesBeforeImporting"] : []), mounted),
+         MediaScanRules.validatesBeforeIndexing(preference: preference, mountedVolume: mounted), "validates \(preference) \(mounted)")
+}}
+for parsed in 0..<8 { for entries in 0..<4 {
+    same(referenceParse([Int](repeating: 0, count: parsed), [Int](repeating: 0, count: entries)),
+         MediaScanRules.trustsParseOverEntries(parsedFiles: parsed, entries: entries), "parse \(parsed) \(entries)")
+}}
+let values: [Any?] = [nil, NSNumber(value: false), NSNumber(value: true), NSNumber(value: 2), "1"]
+let keys = ["onlyDICOM", "copyFiles", "mountedVolume", "addToAlbum", "selectStudy", "ejectCDDVD"]
+for key in keys { for value in values {
+    let dict: NSDictionary = value.map { [key: $0] } ?? [:]
+    let request = MediaImportRequest(options: dict as! [AnyHashable: Any])
+    let reference = referenceRequest(dict)
+    let rule = [request.onlyDICOM, request.copyFiles, request.mountedVolume, request.addToAlbum, request.selectStudy, request.ejectCDDVD]
+    for (name, pair) in zip(keys, zip(reference, rule)) {
+        same(pair.0, pair.1, "\(name) of \(key)=\(String(describing: value))")
+    }
+}}
+let files = ["/d/10", "/d/9", "/D/1", "/d/a", "/d/\u{e9}", "/d/e\u{301}", "/d/ ", "/d/a", "/d/\u{ff5e}", "/d/\u{1f600}"]
+let dict: NSDictionary = ["filesInput": files]
+let order = referenceOrder(dict)
+let rule = MediaImportRequest(options: dict as! [AnyHashable: Any]).orderedFiles
+same(order.elementsEqual(rule) { ($0 as NSString).isEqual(to: $1) }, true, "order \(order) \(rule)")
+print("COMPARED\t\(compared)")
+'''
+
+
+def choices():
+    """The former Swift, cut from the revision before the new files, compared with the rules."""
+    revision = isix_modules.revision_before(ROOT, 'Horos/Sources/MediaVolumeScan.swift')
+    if revision is None:
+        print('skipped: needs the history before MediaVolumeScan.swift')
+        raise SystemExit(2)
+
+    def shown(path):
+        return history_reference.show(revision, path).decode('utf-8')
+
+    scan_swift = shown('Horos/Sources/DicomDatabase+Scan.swift')
+    copy_swift = shown('Horos/Sources/DicomDatabase+MediaCopy.swift')
+    dicomdir_swift = shown('Horos/Sources/DicomDatabase+DicomDir.swift')
+
+    def cut(source, pattern):
+        found = re.search(pattern, source, re.S)
+        if not found:
+            raise SystemExit('FAIL: %s is not in %s: this test no longer reads that revision' % (pattern, revision))
+        return found.group(1).replace('UserDefaults.standard', 'defaults')
+
+    switch = r'\(dict\.object\(forKey: "%s"\) as\? NSNumber\)\?\.boolValue'
+    text = CHOICES
+    for mark, value in (
+            ('READS', cut(scan_swift, r'(let usedDicomdir = .*?\|\| \(usedDicomdir && scanBeyondDicomdir\))\n')),
+            ('ASKS', cut(scan_swift, r'if (answer\.mode == -1 \|\| currentEventHasCommand\(\)) \{')),
+            ('IMPORT_EJECTS', cut(copy_swift, r'if (failedCopies == 0 && .*?copyFiles == true) \{')),
+            ('EJECTS', cut(scan_swift, r'if (isVolume && UserDefaults.*?copyFilesThread\.isFinished) \{')),
+            ('EJECT_PREFERENCE', cut(copy_swift, r'(UserDefaults\.standard\.bool\(forKey: "EJECTCDDVD"\))')),
+            ('VALIDATES', cut(copy_swift, r'if (UserDefaults\.standard\.bool\(forKey: "validateFilesBeforeImporting"\) && mountedVolume == false) \{ // mountedVolume[^\n]*\n\s*let refused')),
+            ('PARSE', cut(dicomdir_swift, r'if (files\.count > items\.count \* 2) \{')),
+            ('SWITCHES', cut(copy_swift, r'(let onlyDICOM = .*?let mountedVolume = [^\n]*)\n')),
+            ('ADD_TO_ALBUM', cut(copy_swift, r'(' + switch % 'addToAlbum' + r' == true)')),
+            ('SELECT_STUDY', cut(copy_swift, r'(' + switch % 'selectStudy' + r' == true)')),
+            ('EJECT_SWITCH', cut(copy_swift, r'(' + switch % 'ejectCDDVD' + r' == true)')),
+            ('FILES', cut(copy_swift, r'(let filesInput = [^\n]*)\n').split('//')[0])):
+        text = text.replace(mark, value)
+
+    with tempfile.TemporaryDirectory(prefix='isix-media-choices-') as directory:
+        folder = Path(directory)
+        (folder / 'main.swift').write_text(text)
+        built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-suppress-warnings',
+                                *isix_modules.module_flags('IsiXDatabase', folder / 'modules'),
+                                str(folder / 'main.swift'), '-o', str(folder / 'choices')],
+                               capture_output=True, text=True, timeout=600)
+        if built.returncode:
+            raise SystemExit('FAIL: the former choices do not compile:\n' + built.stderr[-3000:])
+        run = subprocess.run([str(folder / 'choices')], capture_output=True, text=True, timeout=60)
+    if run.returncode:
+        raise SystemExit('FAIL: the comparison stopped:\n' + run.stderr[-2000:])
+    for line in run.stdout.splitlines():
+        if line.startswith('DIFFERENT'):
+            failures.append('former Swift: ' + line.split('\t', 1)[1])
+    compared = [line for line in run.stdout.splitlines() if line.startswith('COMPARED')]
+    return revision, int(compared[0].split('\t')[1]) if compared else 0
+
+
+revision, compared = choices()
+if not compared:
+    failures.append('the former choices compared nothing')
+
 if failures:
     print('FAIL:\n' + '\n'.join(failures))
     raise SystemExit(1)
 print('PASS: the media scan and WADO serving rules answer as their Objective-C++ did, Debug and Release: %s'
       % ', '.join('%d %s' % (n, k) for k, n in sorted(counts.items())))
+print('PASS: %d choices of the scan, the DICOMDIR and the copy answer as in %s' % (compared, revision))

@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // The part of ServerTableView that Swift cannot write. The class is implemented in
-// Swift since #711 (ServerTableView.swift); -draggingSourceOperationMaskForLocal: is
+// Swift (ServerTableView.swift); -draggingSourceOperationMaskForLocal: is
 // imported into Swift as unavailable (deprecated since macOS 10.7), so a Swift class
 // can neither override it nor declare its selector. The override of the former
 // ServerTableView.m lives here, in a category (the N2View -layout case).

@@ -40,6 +40,7 @@
 import AppKit
 import Accelerate
 import IsiXVolumeRendering
+import IsiXPreferences
 
 /// Volume Rendering View: volume rendering and MIP of a series (and of a
 /// series fused onto it), drawn by Metal in a CAMetalLayer. VTK keeps the
@@ -69,6 +70,10 @@ import IsiXVolumeRendering
 /// as the instance variables were, and freed with it.
 @objc(VRView)
 public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
+
+    /// The process's dependencies, made with the view: it reads its
+    /// preferences from their store.
+    let processGraph = PreferencesSource.process.processGraph
 
     // MARK: - Outlets of VR.xib and Endoscopy.xib
 
@@ -212,8 +217,6 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
     final let horos_camFocal = VRView.zeroed(Double.self, count: 3)
     final var horos_autoRotate: Timer?
     final var horos_startAutoRotate: Timer?
-    final var horos_snCloseEventTimer: Timer?
-    final var horos_snStopped = false
 
     // MARK: - Exports
 
@@ -283,8 +286,6 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
 
     // MARK: - Shared by the views
 
-    /// The view a SpaceNavigator event last went to.
-    nonisolated(unsafe) static unowned(unsafe) var horos_snVRView: VRView?
     /// The lock of the views' drawing and of their captures, one for all.
     nonisolated(unsafe) static var horos_drawLock: NSRecursiveLock?
 
@@ -357,7 +358,7 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
         horos_cursor = nil
         horos_ROIPoints = NSMutableArray()
 
-        horos_superSampling = UserDefaults.standard.float(forKey: "superSampling")
+        horos_superSampling = processGraph.preferences[VolumeRenderingPreferences.superSampling]
 
         horos_isViewportResizable = true
 
@@ -389,7 +390,7 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
         horos_autoRotate = Timer.scheduledTimer(timeInterval: 0.15, target: self, selector: #selector(autoRotate(_:)),
                                                 userInfo: nil, repeats: true)
 
-        if UserDefaults.standard.bool(forKey: "autorotate3D") && window?.windowController is VRController {
+        if processGraph.preferences[VolumeRenderingPreferences.autorotate3D] && window?.windowController is VRController {
             horos_startAutoRotate = Timer.scheduledTimer(timeInterval: 60 * 3, target: self, selector: #selector(startAutoRotate(_:)),
                                                          userInfo: nil, repeats: false)
         }

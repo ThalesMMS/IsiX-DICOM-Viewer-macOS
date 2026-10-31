@@ -128,16 +128,19 @@ def block(name):
 retrieve = block('func retrieveDICOMweb() -> Bool')
 check('let perSeries = whole && plan?.controlsSeries == true' in retrieve and 'if whole && !perSeries { session.enqueue(base) }' in retrieve,
       'one request for the study unless the order is planned')
-check('for seriesUID in ordered { session.enqueue("studies/\\(study)/series/\\(seriesUID)", series: seriesUID) }' in retrieve,
+check('for seriesUID in ordered { session.enqueue(DICOMwebRetrieveRequest.path(study: study, series: seriesUID), series: seriesUID) }' in retrieve,
       'each series in one multipart request, in the plan order')
 check('if plan.wholeStudySuffices || (ordered.isEmpty && !plan.excludesEverything) {\n                    session.enqueue(base)' in retrieve,
       'no series listed: the whole study')
-pool = block('func queue(_ request: DICOMwebRetrieveRequest)')
-check('if pool.pending.count > 1, let ordered = plan?.orderedSeries {' in pool and 'if rank < best { best = rank; index = position }' in pool,
+# The requests' order and what an object must be are the module's queue,
+# which the session gives the plan's series order.
+queue = (root / 'Modules/IsiXDICOMNetwork/Sources/DICOMwebRetrieveQueue.swift').read_text()
+check('queue = DICOMwebRetrieveQueue(limit: limit, orderedSeries: { [plan] in plan?.orderedSeries })' in node
+      and 'if pending.count > 1, let ordered = orderedSeries {' in queue and 'if rank < best { best = rank; index = position }' in queue,
       'the pool starts the first pending request of the plan')
-take = block('func take(_ request: DICOMwebRetrieveRequest) -> NSError?')
-check('(request.series == nil || actualSeries == request.series)' in take, 'a series request accepts only its series')
-check(retrieve.index('plan?.begin(endpoint: endpoint, study: study)') < retrieve.index('listing.start()') and
+check('(request.series == nil || actualSeries == request.series)' in queue and 'DICOMwebRetrieveQueue.belongs(' in node,
+      'a series request accepts only its series')
+check(retrieve.index('plan?.begin(endpoint: endpoint, study: study)') < retrieve.index('let listing = ActivityThread.startUnlisted(name: "DICOMweb listing")') and
       'plan?.end(endpoint: endpoint, study: study)' in retrieve, 'the plan runs for the retrieve')
 hierarchy = block('func queryImagesHierarchically(forStudy studyInstanceUID: String?) -> Bool')
 identifiers = (root / 'Modules/IsiXDICOMNetwork/Sources/QueryIdentifier.swift').read_text()
@@ -165,8 +168,9 @@ pane = (root / 'Preference Panes/OSILocationsPreferencePane/OSILocationsPreferen
 check('key: "WADOSeriesOrder"' in pane and 'forKey: RetrievePlan.wadoKey as NSString' in pane, 'the WADO sheet edits and saves the order')
 editor = (root / 'Horos/Sources/DICOMwebNodeEditor.swift').read_text()
 check('cell.addItems(withTitles: RetrievePlan.orderTitles)' in editor and 'node.seriesOrder = index' in editor, 'the DICOMweb table edits the order')
-dicomweb_node = (root / 'Horos/Sources/DICOMwebNode.swift').read_text()
-check('node[Key.seriesOrder] = seriesOrder' in dicomweb_node, 'a DICOMweb node keeps its order')
+# The stored form is the module's record.
+dicomweb_node = (root / 'Horos/Sources/DICOMwebNode.swift').read_text() + (root / 'Modules/IsiXDICOMNetwork/Sources/DICOMwebNodeRecord.swift').read_text()
+check('node[Key.seriesOrder] = .integer(seriesOrder)' in dicomweb_node, 'a DICOMweb node keeps its order')
 keys = ['Series Order', 'Series Order:', 'As Listed', 'Series Number', 'Fewest Instances First (estimate)']
 for catalog in sorted((root / 'Horos/Resources').glob('*.lproj/Localizable.strings')):
     data = catalog.read_bytes()

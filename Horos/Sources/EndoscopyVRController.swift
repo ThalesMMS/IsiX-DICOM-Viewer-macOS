@@ -46,9 +46,9 @@ private func setObject(_ dict: NSMutableDictionary?, _ object: Any?, _ key: Stri
 }
 
 /// [NSString stringWithFormat:@"VRENDOSCOPY-%@", [[fileList objectAtIndex:0] valueForKey:@"uniqueFilename"]],
-/// in the directory of the database's 3D states, which is created if missing.
-@MainActor private func endoscopyStatePath(_ fileList: NSArray?) -> String? {
-    let path = BrowserController.currentBrowser()?.database?.statesDirPath()
+/// in the directory of the 3D states of `database`, which is created if missing.
+@MainActor private func endoscopyStatePath(_ fileList: NSArray?, in database: DicomDatabase?) -> String? {
+    let path = database?.statesDirPath()
     var isDir: ObjCBool = true
 
     if !FileManager.default.fileExists(atPath: path ?? "", isDirectory: &isDir) && isDir.boolValue {
@@ -65,7 +65,7 @@ private func setObject(_ dict: NSMutableDictionary?, _ object: Any?, _ key: Stri
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/EndoscopyVRController.h> are those of the former class, the
 /// controller object of Endoscopy.xib, which the nib makes empty and the
-/// endoscopy viewer then gives its volume (-horosReinitWithPix:...).
+/// endoscopy viewer then gives its volume (horosReinit, a Swift method).
 @objc(EndoscopyVRController)
 public final class EndoscopyVRController: VRController {
 
@@ -75,7 +75,6 @@ public final class EndoscopyVRController: VRController {
     /// images of different sizes, no 3D engine): the controller, which the
     /// nib and the viewer still hold, gives back what it took and stays as
     /// it was, and the viewer does not open.
-    @objc(horosReinitWithPix:files:volume:blendingController:viewer:)
     public func horosReinit(pix: NSMutableArray?, files f: NSArray?, volume vData: NSData?,
                             blendingController bC: ViewerController?, viewer vC: ViewerController?) -> Bool {
         for i in 0..<undodata.count { undodata[i] = nil }
@@ -182,7 +181,7 @@ public final class EndoscopyVRController: VRController {
         // Without a file list, the volume was never given: the view never had
         // a volume, and its state is not the series'.
         guard let files = horosFileList(), files.count > 0 else { return }
-        let str = endoscopyStatePath(files)
+        let str = endoscopyStatePath(files, in: browserWindowGraph?.database)
 
         let dict = volumeView?.get3DStateDictionary()
         setObject(dict, horos_curCLUTMenu, "CLUTName")
@@ -198,7 +197,7 @@ public final class EndoscopyVRController: VRController {
 
     public override func load3DState() {
         NSLog("Load Endoscopy 3d State")
-        let str = endoscopyStatePath(horosFileList())
+        let str = endoscopyStatePath(horosFileList(), in: browserWindowGraph?.database)
 
         var dict: NSDictionary? = str.flatMap { NSDictionary(contentsOfFile: $0) }
 

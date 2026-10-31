@@ -1,30 +1,45 @@
 #!/usr/bin/env python3
 """Run the browser's archive Activity job with real threads and unzip processes.
 
-The Activity job, the password coordinator and the error report are Swift
-(BrowserController+DatabaseImport.swift, on the IsiXDatabase password rule);
-the extraction is the browser's +unzipFile: (BrowserController+Files.swift). Both run verbatim
-against a recording database, thread manager and alert; only the user's
-answers are simulated.
+The Activity job, the password coordinator and the error report are
+ArchiveImport's (ArchiveImport.swift, on the IsiXDatabase password rule), on a
+thread ActivityThread starts; the extraction is ArchiveImport.unzip, in the
+same file. Both run verbatim against a recording database, thread manager and
+alert; only the user's answers are simulated.
 """
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import zipfile
 
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/BrowserController+Files.swift').read_text()
-start = source.index('    // MARK: ZIP archives')
-end = source.index('    /// Expands an encrypted archive, asking for its password', start)
-extraction = 'extension BrowserController {\n' + source[start:end] + '}\n'
+sys.path.insert(0, str(root / 'tests'))
+import isix_modules  # noqa: E402
 
-imports = (root / 'Horos/Sources/BrowserController+DatabaseImport.swift').read_text()
-start = imports.index('private final class ArchivePasswordRequest')
-end = imports.index('\n}\n', start) + 3
-request = imports[start:end]
-start = imports.index('    @objc(expandArchiveIntoIncomingFolder:)')
-end = imports.index('    // MARK: Files and folders', start)
-activity = request + '\nextension BrowserController {\n' + imports[start:end] + '}\n'
+source = (root / 'Horos/Sources/ArchiveImport.swift').read_text()
+# The extraction and the offer to delete the archive: an extension of the type.
+start = source.index('extension ArchiveImport {\n\n    // MARK: Extraction')
+extraction = source[start:source.index('\n}\n', start) + 3]
+# The progress window of an expansion on the main thread, a type of the same file.
+extraction += '\n' + source[source.index('/// The progress window of an expansion on the main thread'):]
+
+# The archive and the password request handed to the thread, the type with
+# what it is made with, and its archives section.
+start = source.index('/// An archive and the database it goes into')
+end = source.index('/// Numbers the web portal', start)
+request = source[start:end]
+start = source.index('@MainActor final class ArchiveImport {')
+end = source.index('    // MARK: Archives', start)
+made = source[start:end]
+start = end
+end = source.index('    // MARK: Encrypted archives of a CD', start)
+# The stand-in window is no NSWindow; the run suppresses the offer to delete.
+offer = 'ArchiveImport.offerToDelete(archive, in: self.browser.window, preferences: self.preferences)'
+archives = source[start:end]
+assert offer in archives, 'the expansion no longer offers to delete the archive'
+archives = archives.replace(offer, 'ArchiveImport.offerToDelete(archive, in: nil, preferences: self.preferences)')
+activity = request + made + '}\n\nextension ArchiveImport {\n' + archives + '}\n'
 
 header = r'''#import <AppKit/AppKit.h>
 #import "HorosObjCException.h"
@@ -114,6 +129,18 @@ void DicomDatabaseLogError(const char* function, const char* file, int line, NSS
 '''
 
 driver = r'''import AppKit
+import IsiXPreferences
+// The single entry asks the database's own method, as DatabaseIngest does.
+struct DatabaseIngest {
+    static let process = DatabaseIngest()
+    func requestImport(of database: DicomDatabase?) { database?.initiateImportFilesFromIncomingDirUnlessAlreadyImporting() }
+    struct Folder {
+        let path: String
+        func hiddenPath(named name: String) -> String { (path as NSString).appendingPathComponent("." + name) }
+        func path(named name: String) -> String { (path as NSString).appendingPathComponent(name) }
+    }
+    func admissionFolder(of database: DicomDatabase?) -> Folder { Folder(path: database?.incomingDirPath() ?? "") }
+}
 func check(_ ok: Bool, _ message: String) { if !ok { FileHandle.standardError.write(Data("FAIL: \(message)\n".utf8)); exit(1) } }
 nonisolated(unsafe) var prompts = 0, errors = 0, ticks = 0
 // Each prompt takes the next answer; nil leaves the sheet open; none left: "secret".
@@ -193,10 +220,11 @@ MainActor.assumeIsolated {
     let browser = BrowserController()
     browser.database = original
     browser.window = FakeWindow()
+    let archives = ArchiveImport(browser: browser, preferences: UserDefaults.standard)
     let timer = Timer(timeInterval: 0.01, repeats: true) { _ in ticks += 1 }
     RunLoop.main.add(timer, forMode: .common)
     let before = Date.timeIntervalSinceReferenceDate
-    browser.expandArchiveIntoIncomingFolder(zip); let first = lastThread()
+    archives.expandIntoIncomingFolder(zip); let first = lastThread()
     check(Date.timeIntervalSinceReferenceDate - before < 0.1, "Import blocked the main thread")
     browser.database = other
     finish(first)
@@ -210,19 +238,19 @@ MainActor.assumeIsolated {
     check(original.importRequests == 1 && other.importRequests == 0, "import resumed in another database")
 
     browser.database = original
-    browser.expandArchiveIntoIncomingFolder(zip); let second = lastThread()
-    browser.expandArchiveIntoIncomingFolder(zip); let third = lastThread()
+    archives.expandIntoIncomingFolder(zip); let second = lastThread()
+    archives.expandIntoIncomingFolder(zip); let third = lastThread()
     finish(second); finish(third)
     check(entries(originalIncoming).count == 3, "concurrent archives collided")
 
     let oldErrors = errors, oldPrompts = prompts
-    browser.expandArchiveIntoIncomingFolder(corrupt); finish(lastThread())
+    archives.expandIntoIncomingFolder(corrupt); finish(lastThread())
     RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
     check(errors == oldErrors + 1 && prompts == oldPrompts, "corrupt ZIP requested a password instead of an error")
     check(entries(originalIncoming).count == 3 && stagingFolders().isEmpty, "partial corrupt extraction was published or left behind")
 
     // unzip warns and ends with 1, having extracted every entry: imported, no error, no password.
-    browser.expandArchiveIntoIncomingFolder(warned); finish(lastThread())
+    archives.expandIntoIncomingFolder(warned); finish(lastThread())
     RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
     check(errors == oldErrors + 1 && prompts == oldPrompts && entries(originalIncoming).count == 4,
           "an archive unzip only warned about was refused")
@@ -233,23 +261,23 @@ MainActor.assumeIsolated {
 
     // A wrong password leaves the encrypted entry out of a mixed archive, also with 1.
     answers = ["wrong", "secret"]
-    browser.expandArchiveIntoIncomingFolder(encrypted); finish(lastThread())
+    archives.expandIntoIncomingFolder(encrypted); finish(lastThread())
     check(prompts == oldPrompts + 2 && entries(originalIncoming).count == 5, "password retry did not extract successfully")
 
     // ZIP's short password check can accept an incorrect password, then fail CRC.
     let promptsBeforeCRC = prompts
     answers = [arguments[5], "secret"]
-    browser.expandArchiveIntoIncomingFolder(encrypted); finish(lastThread())
+    archives.expandIntoIncomingFolder(encrypted); finish(lastThread())
     check(prompts == promptsBeforeCRC + 2 && entries(originalIncoming).count == 6,
           "password producing a CRC error did not allow another attempt")
 
     answers = [nil]
     let promptBefore = prompts
-    browser.expandArchiveIntoIncomingFolder(encrypted); let waiting = lastThread()
+    archives.expandIntoIncomingFolder(encrypted); let waiting = lastThread()
     pumpUntil { prompts > promptBefore }; waiting.cancel(); finish(waiting)
     check(entries(originalIncoming).count == 6 && stagingFolders().isEmpty, "cancelling a password request leaked staging or published data")
 
-    browser.expandArchiveIntoIncomingFolder(zip); let running = lastThread()
+    archives.expandIntoIncomingFolder(zip); let running = lastThread()
     pumpUntil { stagingFolders().contains { files.fileExists(atPath: ($0 as NSString).appendingPathComponent("image.dcm")) } }
     running.cancel(); finish(running)
     check(entries(originalIncoming).count == 6 && stagingFolders().isEmpty, "cancelling unzip published partial data or left staging")
@@ -303,11 +331,22 @@ with tempfile.TemporaryDirectory(prefix='horos-archive-activity-') as temporary:
     (folder/'native.m').write_text(native)
     (folder/'main.swift').write_text(driver)
     sources = root/'Horos/Sources'
+    # unzip runs through the module's extraction, which types a password on
+    # unzip's own terminal.
+    # The archiver's ZipCommand is taken alone from its file.
+    export_rules = (root/'Modules/IsiXDatabase/Sources/ExportRules.swift').read_text()
+    at = export_rules.index('public enum ZipCommand {')
+    (folder/'ZipCommand.swift').write_text('import Foundation\n' + export_rules[at:export_rules.index('\n}\n', at) + 3])
+    zip_sources = [str(root/'Modules/IsiXDatabase/Sources'/name) for name in
+                   ('ProtectedZipArchiver.swift', 'ZipPasswordTerminal.swift')] + [str(folder/'ZipCommand.swift')]
     for command in (['xcrun','clang','-c','-fblocks','-I',str(folder),'-I',str(sources),str(folder/'native.m'),'-o',str(folder/'native.o')],
                     ['xcrun','clang','-c','-fobjc-arc','-I',str(sources),str(sources/'HorosObjCException.m'),'-o',str(folder/'exception.o')],
                     ['xcrun','swiftc','-swift-version','6','-import-objc-header',str(folder/'Harness.h'),'-Xcc','-I','-Xcc',str(sources),
-                     str(root/'Modules/IsiXDatabase/Sources/ImportRules.swift'),str(sources/'ArchiveImportLedger.swift'),
-                     str(sources/'BrowserController+DatabaseSupport.swift'),str(folder/'main.swift'),
+                     *isix_modules.module_flags('IsiXPreferences', folder/'modules'),
+                     str(root/'Modules/IsiXDatabase/Sources/ImportRules.swift'),*zip_sources,str(sources/'ArchiveImportLedger.swift'),
+                     str(sources/'BrowserController+DatabaseSupport.swift'),str(sources/'HorosObjCException+Guards.swift'),
+                     str(sources/'MainActorCallbacks.swift'),
+                     str(sources/'ActivityThread.swift'),str(folder/'main.swift'),
                      str(folder/'native.o'),str(folder/'exception.o'),'-framework','AppKit','-o',str(folder/'check')],
                     [str(folder/'check'),str(folder),str(folder/'input.zip'),str(folder/'encrypted.zip'),str(folder/'corrupt.zip'),crc_password,
                      str(folder/'warned.zip')]):

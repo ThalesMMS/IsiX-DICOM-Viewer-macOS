@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 
 /// The Thick Slab mode popup of the 2D viewer's toolbar.
 ///
@@ -164,13 +165,17 @@ public final class PropagateSettingsOptions: NSObject, NSMenuItemValidation {
 
     private static let shared = PropagateSettingsOptions()
     private static let popUpIdentifier = NSUserInterfaceItemIdentifier("org.horos.toolbar.propagate-options")
-    private static let propagateKey = "COPYSETTINGS"
+    private static let propagateKey = ViewerPreferences.copySettings
+    /// The keys of the choices, which the items name.
+    private static let choiceKeys = [propagateKey, ViewerPreferences.dontCopyWindowLevelSettings, ViewerPreferences.dontCopyZoomSettings,
+                                     ViewerPreferences.dontCopyPanSettings, ViewerPreferences.dontCopyRotationSettings,
+                                     ViewerPreferences.propagateROIsBetweenSeries, ViewerPreferences.alwaysPropagateScaleLevel]
 
     /// A choice and the user default behind it. Most defaults say what is
     /// *not* propagated, so a checkmark is the negated value.
     private struct Choice {
         let title: String
-        let key: String
+        let key: PreferenceKey<Bool>
         let negated: Bool
         /// Only meaningful while settings are propagated between series.
         let needsPropagation: Bool
@@ -225,18 +230,18 @@ public final class PropagateSettingsOptions: NSObject, NSMenuItemValidation {
         menu.addItem(.separator())
         menu.addItem(.sectionHeader(title: NSLocalizedString("Propagate", comment: "")))
         let choices = [
-            Choice(title: NSLocalizedString("WL&WW", comment: ""), key: "DONTCOPYWLWWSETTINGS", negated: true, needsPropagation: true),
-            Choice(title: NSLocalizedString("Zoom", comment: ""), key: "DONTCOPYZOOMSETTINGS", negated: true, needsPropagation: true),
-            Choice(title: NSLocalizedString("Position", comment: ""), key: "DONTCOPYPANSETTINGS", negated: true, needsPropagation: true),
-            Choice(title: NSLocalizedString("Rotation", comment: ""), key: "DONTCOPYROTATIONSETTINGS", negated: true, needsPropagation: true),
-            Choice(title: NSLocalizedString("ROIs", comment: ""), key: "PropagateROIsBetweenSeries", negated: false, needsPropagation: true),
+            Choice(title: NSLocalizedString("WL&WW", comment: ""), key: ViewerPreferences.dontCopyWindowLevelSettings, negated: true, needsPropagation: true),
+            Choice(title: NSLocalizedString("Zoom", comment: ""), key: ViewerPreferences.dontCopyZoomSettings, negated: true, needsPropagation: true),
+            Choice(title: NSLocalizedString("Position", comment: ""), key: ViewerPreferences.dontCopyPanSettings, negated: true, needsPropagation: true),
+            Choice(title: NSLocalizedString("Rotation", comment: ""), key: ViewerPreferences.dontCopyRotationSettings, negated: true, needsPropagation: true),
+            Choice(title: NSLocalizedString("ROIs", comment: ""), key: ViewerPreferences.propagateROIsBetweenSeries, negated: false, needsPropagation: true),
         ]
         for choice in choices {
             menu.addItem(item(choice))
         }
         menu.addItem(.separator())
         menu.addItem(item(Choice(title: NSLocalizedString("Zoom Only if Planes are Parallel", comment: ""),
-                                 key: "AlwaysPropagateScaleLevel", negated: true, needsPropagation: false)))
+                                 key: ViewerPreferences.alwaysPropagateScaleLevel, negated: true, needsPropagation: false)))
         menu.addItem(.separator())
         // Sent to the image view, which checks the item with its own state as
         // it does in the menu bar.
@@ -248,32 +253,33 @@ public final class PropagateSettingsOptions: NSObject, NSMenuItemValidation {
     private static func item(_ choice: Choice) -> NSMenuItem {
         let item = NSMenuItem(title: choice.title, action: #selector(toggle(_:)), keyEquivalent: "")
         item.target = shared
-        item.representedObject = [choice.key, choice.negated, choice.needsPropagation]
+        item.representedObject = [choice.key.name, choice.negated, choice.needsPropagation]
         return item
     }
 
-    private static func choice(of item: NSMenuItem) -> (key: String, negated: Bool, needsPropagation: Bool)? {
+    /// The item's choice: the key it names, one of the switches above.
+    private static func choice(of item: NSMenuItem) -> (key: PreferenceKey<Bool>, negated: Bool, needsPropagation: Bool)? {
         guard let values = item.representedObject as? [Any], values.count == 3,
-              let key = values[0] as? String, let negated = values[1] as? Bool,
-              let needsPropagation = values[2] as? Bool else { return nil }
+              let name = values[0] as? String, let key = choiceKeys.first(where: { $0.name == name }),
+              let negated = values[1] as? Bool, let needsPropagation = values[2] as? Bool else { return nil }
         return (key, negated, needsPropagation)
     }
 
     @objc private func toggle(_ sender: NSMenuItem) {
         guard let choice = Self.choice(of: sender) else { return }
-        let defaults = UserDefaults.standard
-        defaults.set(!defaults.bool(forKey: choice.key), forKey: choice.key)
+        let preferences = PreferencesSource.process.preferences
+        preferences.set(!preferences[choice.key], for: choice.key)
         // Switching propagation on brings the other viewers in line now, as
         // the menu bar command does.
-        if choice.key == Self.propagateKey, defaults.bool(forKey: choice.key) {
+        if choice.key.name == Self.propagateKey.name, preferences[choice.key] {
             NSApp.sendAction(NSSelectorFromString("copySettingsToOthers:"), to: nil, from: sender)
         }
     }
 
     public func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         guard let choice = Self.choice(of: menuItem) else { return true }
-        let defaults = UserDefaults.standard
-        menuItem.state = defaults.bool(forKey: choice.key) != choice.negated ? .on : .off
-        return !choice.needsPropagation || defaults.bool(forKey: Self.propagateKey)
+        let preferences = PreferencesSource.process.preferences
+        menuItem.state = preferences[choice.key] != choice.negated ? .on : .off
+        return !choice.needsPropagation || preferences[Self.propagateKey]
     }
 }

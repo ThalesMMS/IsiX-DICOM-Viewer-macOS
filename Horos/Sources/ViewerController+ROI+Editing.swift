@@ -38,107 +38,42 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXROI
 
-// The second half of the "ROI" block of ViewerController (from -roiVolume: to
-// -sendToBackROI:: volume, set pixels, rename, propagation, selection, groups
-// and ordering of the ROIs) is implemented in Swift: a Swift
-// extension of ViewerController, which stays Objective-C, with the same
-// selectors. The instance variables it uses are read through
-// ViewerController (SwiftIvars); roiList, pixList and their slices keep their
-// Objective-C identity (NSMutableArray, never bridged to a Swift array), since
-// callers mutate them and compare them by identity.
+// The ROI editing of the 2D viewer: volume, set pixels, rename, propagation,
+// selection, groups and order of the ROIs. ViewerController keeps the
+// selectors that plugins, nibs, menus and the other viewer files send, as
+// façades; the work is done by the types below, which receive the viewer as
+// an argument and never keep it:
 //
-// A message to nil answered nil, 0 or NO: the optional chains below answer the
-// same. An element taken out of an array is typed as the Objective-C typed it,
-// without a runtime check (objcCast), so that messages go to it as before. An
-// @try is HorosObjCException.perform (objcTry). -newPoint:: stays in
-// Objective-C (a "new" method returning an object), and -newROI:, which returns
-// an autoreleased ROI in spite of its name, is reached through
-// -horos_unretainedNewROI:. The OSIRIX_LIGHT branches (not defined) are left out.
+// - ViewerROISelection selects, groups, locks and orders the ROIs of the image
+//   shown, by the rules of ROISelection and ROIGroups (IsiXROI);
+// - ViewerROIPropagation copies the selected ROIs to the images a
+//   ROIPropagationPlan (IsiXROI) names;
+// - ViewerROISetPixels sets the pixels inside or outside the ROIs as a
+//   ROISetPixelsJob (IsiXROI) asks, the images side by side;
+// - ViewerROIQueries finds the ROIs by name or comment and morphs them;
+// - ViewerROIPanels runs the ROI sheets and opens the ROI windows;
+// - ViewerROIToolPalette shows the ROI tool in the tool palette.
+//
+// The ROI lists of the viewer keep their identity (ViewerROISlices): roiList,
+// roiList: and setRoiList:array: hand over the viewer's own mutable arrays,
+// which plugins hold and change, and the ROIs found are given to plugins as
+// mutable arrays, as they were.
 
-/// Runs `body` as an @try block: the NSException it raises is returned.
-@inline(__always)
-fileprivate func objcTry(_ body: () -> Void) -> NSException? {
-    do {
-        try HorosObjCException.perform(body)
-    } catch {
-        return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    return nil
-}
+/// ToolsMenuIconSize, a macro of ViewerController.h that Swift does not import.
+fileprivate let ToolsMenuIconSize = NSMakeSize(28.0, 28.0)
 
-/// `(T*) object`: an `id` statically typed as the Objective-C typed it, without
-/// a runtime check, as a C cast does; nil for nil.
-fileprivate func objcCast<T: AnyObject>(_ object: Any?, _ type: T.Type) -> T? {
-    guard let object else { return nil }
-    return Unmanaged<T>.fromOpaque(Unmanaged.passUnretained(object as AnyObject).toOpaque()).takeUnretainedValue()
-}
-
-/// `(T*) [array objectAtIndex: index]`: nil for a nil array (a message to nil);
-/// an index out of range raises, as it did.
-fileprivate func objcObject<T: AnyObject>(_ array: NSArray?, _ index: Int, _ type: T.Type) -> T? {
-    guard let array else { return nil }
-    return objcCast(array.object(at: index), type)
-}
-
-/// `[sender tag]` on an `id`: 0 for nil (a message to nil), and the exception
-/// Objective-C raised for an object without -tag.
-fileprivate func objcTag(_ sender: Any?) -> Int {
-    guard let object = sender as AnyObject? else { return 0 }
-    let selector = NSSelectorFromString("tag")
-    guard let targetClass: AnyClass = object_getClass(object),
-          let implementation = class_getMethodImplementation(targetClass, selector) else { return 0 }
-    typealias Send = @convention(c) (AnyObject, Selector) -> Int
-    return unsafeBitCast(implementation, to: Send.self)(object, selector)
-}
-
-/// `[a isEqualToString: b]`: NO when a is nil (a message to nil) or b is nil.
-fileprivate func objcIsEqualToString(_ a: String?, _ b: String?) -> Bool {
+/// `[a isEqualToString: b]`: two names written the same, code unit by code
+/// unit; NO when either is nil.
+fileprivate func sameText(_ a: String?, _ b: String?) -> Bool {
     guard let a, let b else { return false }
-    return (a as NSString).isEqual(to: b)
+    return a.utf16.elementsEqual(b.utf16)
 }
 
-/// The exception Foundation raises when nil is added to an array.
-fileprivate func objcRaiseNilInsertion(_ selector: String) {
-    NSException(name: .invalidArgumentException,
-                reason: "*** -[__NSArrayM \(selector)]: object cannot be nil",
-                userInfo: nil).raise()
-}
-
-/// `[array addObject: object]`: nothing for a nil array, and the exception
-/// Foundation raised for a nil object.
-fileprivate func objcAdd(_ array: NSMutableArray?, _ object: Any?) {
-    guard let array else { return }
-    guard let object else { objcRaiseNilInsertion("insertObject:atIndex:"); return }
-    array.add(object)
-}
-
-/// `[array insertObject: object atIndex: index]`: nothing for a nil array, and
-/// the exception Foundation raised for a nil object.
-fileprivate func objcInsert(_ array: NSMutableArray?, _ object: Any?, _ index: Int) {
-    guard let array else { return }
-    guard let object else { objcRaiseNilInsertion("insertObject:atIndex:"); return }
-    array.insert(object, at: index)
-}
-
-/// `[array removeObject: object]`: nothing for a nil array or a nil object.
-fileprivate func objcRemove(_ array: NSMutableArray?, _ object: Any?) {
-    guard let array, let object else { return }
-    array.remove(object)
-}
-
-/// `[NSDictionary dictionaryWithObjectsAndKeys: object, key, …, nil]`: the
-/// pairs up to the first nil object, which ended the list.
-fileprivate func objcDictionary(_ objectsAndKeys: (Any?, String)...) -> NSDictionary {
-    var objects: [Any] = []
-    var keys: [NSCopying] = []
-    for (object, key) in objectsAndKeys {
-        guard let object else { break }
-        objects.append(object)
-        keys.append(key as NSString)
-    }
-    return NSDictionary(objects: objects, forKeys: keys)
-}
+/// The ROIs or names found, as the mutable array the former selectors
+/// answered, which plugins may change.
+fileprivate func roiArray(_ items: [Any]) -> NSMutableArray { NSMutableArray(array: items) }
 
 /// C's float to int conversion on arm64: saturating, NaN to 0.
 fileprivate func cInt32(_ x: Float) -> Int32 {
@@ -148,1542 +83,1068 @@ fileprivate func cInt32(_ x: Float) -> Int32 {
     return Int32(x)
 }
 
-/// ToolsMenuIconSize, a macro of ViewerController.h that Swift does not import.
-fileprivate let ToolsMenuIconSize = NSMakeSize(28.0, 28.0)
-
-fileprivate extension ViewerController {
-    /// `[imageView curImage]`
-    func roi2CurImage() -> Int {
-        return Int(self.horos_imageView?.curImage ?? 0)
-    }
-
-    /// `[roiList[y] objectAtIndex: x]`, the ROIs of one image.
-    func roi2Slice(_ y: Int, _ x: Int) -> NSMutableArray? {
-        return objcObject(self.horos_roiList(at: y), x, NSMutableArray.self)
-    }
-
-    /// `[roiList[curMovieIndex] objectAtIndex: [imageView curImage]]`
-    func roi2CurrentSlice() -> NSMutableArray? {
-        return self.roi2Slice(Int(self.horos_curMovieIndex), self.roi2CurImage())
-    }
-
-    /// `[pixList[y] count]`
-    func roi2PixCount(_ y: Int) -> Int {
-        return self.horos_pixList(at: y)?.count ?? 0
-    }
-
-    /// `[pixList[y] objectAtIndex: x]`
-    func roi2Pix(_ y: Int, _ x: Int) -> DCMPix? {
-        return objcObject(self.horos_pixList(at: y), x, DCMPix.self)
-    }
-
-    /// `[NSApp beginSheet: sheet modalForWindow:[self window] modalDelegate:self didEndSelector:nil contextInfo:nil]`
-    func roi2BeginSheet(_ sheet: NSWindow?) {
-        guard let sheet, let window = self.window else { return }
-        window.beginSheet(sheet, completionHandler: nil)
-    }
-
-    /// `[NSApp endSheet: sheet returnCode: code]`
-    func roi2EndSheet(_ sheet: NSWindow?, _ code: Int) {
-        guard let sheet else { return }
-        sheet.sheetParent?.endSheet(sheet, returnCode: NSApplication.ModalResponse(rawValue: code))
-    }
-}
-
-/// The images `-roiPropagate:` copies the ROIs to, as a half-open range
-/// `[start, upTo)` of indexes of the series: from `pos` (the current image)
-/// through the image the panel names, both ends included, in either
-/// direction, clamped to the `count` images of the series.
-///
-/// The panel asks for "up to image number:", the number the viewer shows as
-/// "Im: N/count": counted from 1, and from the other end of the series when
-/// the data is flipped. Image `imageNumber` is therefore index
-/// `imageNumber - 1`, or `count - imageNumber` flipped. The Objective-C read
-/// the number as an index counted from 0 and took `[min, max)`: image N was
-/// reached after the current image but not before it, and flipped the range
-/// went one image past N in one direction and stopped two short of it in the
-/// other. It also compared the bounds with the count as unsigned long
-/// before clamping the negative ones, so a destination before the first image
-/// became `count` and nothing was propagated; the bounds are compared as
-/// signed values.
-fileprivate func roi2PropagationImages(_ pos: Int, _ imageNumber: Int, _ count: Int, flipped: Bool) -> (start: Int, upTo: Int) {
-    if count <= 0 { return (0, 0) }
-
-    let last = count - 1
-    let destination = flipped ? count - imageNumber : imageNumber - 1
-    let from = max(0, min(pos, last))
-    let to = max(0, min(destination, last))
-
-    return (min(from, to), max(from, to) + 1)
-}
-
-/// The images `-roiPropagateSlab:` copies the ROIs to, as a half-open range
-/// `[start, upTo)` of indexes of the series: the thick slab the viewer shows
-/// at `pos`, `stack` images from the current one towards its far end, which
-/// is below it when the data is flipped, clamped to the `count` images of the
-/// series. Empty when there is no slab.
-///
-/// With flipped data the range was `[pos - stack, pos)`, one image past the
-/// slab DCMPix draws, `[pos - (stack - 1), pos]`. The far end now comes
-/// from HorosThickSlabRange, which -sync3DPosition sends the other viewers.
-fileprivate func roi2SlabImages(_ pos: Int, _ stack: Int, _ count: Int, flipped: Bool) -> (start: Int, upTo: Int) {
-    let far = ThickSlabRange.farEndIndex(currentIndex: pos, stack: stack, count: count, flippedData: flipped)
-    if far < 0 { return (0, 0) }
-
-    return (min(pos, far), max(pos, far) + 1)
-}
-
-/// The movie frame `i` clamped to `0 ..< maxMovieIndex`, and 0 when
-/// `maxMovieIndex` is 0: roiList has MAX4D slots, of which slot 0 always
-/// exists, where the Objective-C clamped to `maxMovieIndex - 1`, which is -1
-/// with no frame.
-fileprivate func roi2MovieIndex(_ i: Int, _ maxMovieIndex: Int) -> Int {
-    return max(0, min(i, maxMovieIndex - 1))
-}
-
-/// `mode == ROI_selected || mode == ROI_selectedModify || mode == ROI_drawing`
-fileprivate func roi2IsSelected(_ mode: Int) -> Bool {
-    return mode == ROI_selected || mode == ROI_selectedModify || mode == ROI_drawing
-}
-
 public extension ViewerController {
-    // MARK: - ROI (second half)
+    // MARK: - ROI editing
 
     @objc(roiVolume:)
     func roiVolume(_ sender: Any!) {
-        var preLocation: Float, interval: Float
-        var selectedRoi: ROI? = nil
-
-        _ = self.computeInterval()
-
-        self.displayAWarningIfNonTrueVolumicData()
-
-        var i = 0
-        while i < Int(self.horos_maxMovieIndex) {
-            self.saveROI(i)
-            i += 1
-        }
-
-        selectedRoi = self.selectedROI()
-
-        if selectedRoi == nil {
-            HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Volume Error", comment: ""), message: NSLocalizedString("Select a ROI to compute volume of all ROIs with the same name.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-            return
-        }
-
-        // Check that sliceLocation is available and identical for all images
-        preLocation = 0
-        interval = 0
-
-        if let curPixList = self.horos_pixList(at: Int(self.horos_curMovieIndex)) {
-            for item in curPixList {
-                let curPix = objcCast(item, DCMPix.self)
-                if preLocation != 0 {
-                    if interval != 0 {
-                        // double - float - float, computed in double as C did.
-                        if fabs((curPix?.sliceLocation ?? 0) - Double(preLocation) - Double(interval)) > 1.0 {
-                            HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Volume Error", comment: ""), message: NSLocalizedString("Slice Interval is not constant!", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-                            return
-                        }
-                    }
-                    interval = Float((curPix?.sliceLocation ?? 0) - Double(preLocation))
-                }
-                preLocation = Float(curPix?.sliceLocation ?? 0)
-            }
-        }
-
-        NSLog("Slice Interval : %f", Double(interval))
-
-        if objcTag(sender) == 0 { // Compute Volume
-            if interval == 0 {
-                HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Volume Error", comment: ""), message: NSLocalizedString("Slice Locations not available to compute a volume.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-                return
-            }
-        }
-
-        self.add(toUndoQueue: "roi")
-
-        let splash = WaitRendering(NSLocalizedString("Preparing data...", comment: ""))
-        splash?.showWindow(self)
-
-        // Show Volume Window
-        if objcTag(sender) == 0 {
-            if let viewer = ROIVolumeController(roi: selectedRoi, viewer: self) {
-                // [[ROIVolumeController alloc] initWithRoi:viewer:] was not
-                // released: the controller releases itself when its window closes.
-                _ = Unmanaged.passRetained(viewer)
-
-                viewer.showWindow(self)
-                viewer.window?.center()
-            }
-        } else if objcTag(sender) == 1 {
-            _ = self.computeVolume(selectedRoi, points: nil, generateMissingROIs: true, generatedROIs: nil, computeData: nil, error: nil)
-
-            let numberOfGeneratedROIafter = Int32(truncatingIfNeeded: self.rois(withComment: "morphing generated")?.count ?? 0)
-            if numberOfGeneratedROIafter == 0 {
-                HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Volume Error", comment: ""), message: NSLocalizedString("The missing ROIs were not created : this feature does not work with ROIs that don't contain an area.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-            }
-        }
-
-        splash?.close()
+        ViewerROIPanels.volume(ViewerSender.tag(sender), in: self)
     }
 
     @objc(roiSetPixelsSetup:)
     func roiSetPixelsSetup(_ sender: Any!) {
-        var selectedRoi: ROI? = nil
-
-        selectedRoi = self.selectedROI()
-
-        // The value is computed before the message, as Objective-C evaluated
-        // the argument even for a nil outlet.
-        let maxValueOfSeries = self.roi2Pix(0, 0)?.maxValueOfSeries ?? 0
-        self.horos_maxValueText?.floatValue = maxValueOfSeries
-        let minValueOfSeries = self.roi2Pix(0, 0)?.minValueOfSeries ?? 0
-        self.horos_minValueText?.floatValue = minValueOfSeries
-        let newValueOfSeries = self.roi2Pix(0, 0)?.minValueOfSeries ?? 0
-        self.horos_newValueText?.floatValue = newValueOfSeries
-
-        if selectedRoi == nil {
-            self.horos_InOutROI?.isEnabled = false
-            self.horos_InOutROI?.selectCell(withTag: 1)
-
-            self.horos_AllROIsRadio?.cell(withTag: 1)?.isEnabled = false
-            self.horos_AllROIsRadio?.cell(withTag: 0)?.isEnabled = false
-
-            self.horos_AllROIsRadio?.selectCell(withTag: 2)
-        } else {
-            self.horos_InOutROI?.isEnabled = true
-
-            self.horos_AllROIsRadio?.selectCell(withTag: 0)
-            self.horos_AllROIsRadio?.cell(withTag: 1)?.isEnabled = true
-            self.horos_AllROIsRadio?.cell(withTag: 0)?.isEnabled = true
-        }
-
-        if self.horos_maxMovieIndex != 1 { self.horos_setROI4DSeries?.isEnabled = true }
-        else { self.horos_setROI4DSeries?.isEnabled = false }
-
-        self.roiSetPixelsCheckButton(self)
-
-        self.roi2BeginSheet(self.horos_roiSetPixWindow)
+        ViewerROISetPixels.beginSheet(in: self)
     }
 
     @objc(recomputeROI:)
     func recomputeROI(_ note: Notification!) {
-        var i: Int, x: Int, y: Int
-
-        if (note?.object as AnyObject?) === self {
-            // Recompute all ROIs
-            y = 0
-            while y < Int(self.horos_maxMovieIndex) {
-                x = 0
-                while x < self.roi2PixCount(y) {
-                    i = 0
-                    while i < (self.roi2Slice(y, x)?.count ?? 0) {
-                        objcObject(self.roi2Slice(y, x), i, ROI.self)?.recompute()
-                        i += 1
-                    }
-
-                    //[[pixList[y] objectAtIndex: x] changeWLWW:iwl :iww];	//recompute image
-                    x += 1
-                }
-                y += 1
-            }
-        }
-
-        self.willChangeValue(forKey: "thicknessInMm")
-        self.didChangeValue(forKey: "thicknessInMm")
+        if (note?.object as AnyObject?) === self { ViewerROISetPixels.recomputeROIs(in: self) }
+        willChangeValue(forKey: "thicknessInMm")
+        didChangeValue(forKey: "thicknessInMm")
     }
 
     @objc(roiSetPixelsCheckButton:)
     func roiSetPixelsCheckButton(_ sender: Any!) {
-        var restoreAvailable = true
-
-        if (self.horos_setROI4DSeries?.state.rawValue ?? 0) != 0 && self.horos_maxMovieIndex > 1 {
-            restoreAvailable = false
-        }
-
-        if self.horos_postprocessed {
-            restoreAvailable = false
-        }
-
-        if (self.horos_checkMaxValue?.state.rawValue ?? 0) != 0 || (self.horos_checkMinValue?.state.rawValue ?? 0) != 0 {
-            restoreAvailable = false
-        }
-
-        if (self.horos_InOutROI?.selectedCell()?.tag ?? 0) != 0 {
-            restoreAvailable = false
-        }
-
-        if (self.horos_AllROIsRadio?.selectedCell()?.tag ?? 0) == 2 { // All pixels
-            restoreAvailable = false
-        }
-
-        if restoreAvailable == false {
-            self.horos_newValueMatrix?.cell(withTag: 1)?.isEnabled = false
-            self.horos_newValueMatrix?.selectCell(withTag: 0)
-        } else {
-            self.horos_newValueMatrix?.cell(withTag: 1)?.isEnabled = true
-        }
+        ViewerROISetPixels.updateRestoreChoice(in: self)
     }
 
     @objc(roiSetPixels:)
     func roiSetPixels(_ sender: Any!) {
-        var m = 0
-        while m < Int(self.horos_maxMovieIndex) {
-            self.saveROI(m)
-            m += 1
-        }
-
-        // end sheet
-        self.horos_roiSetPixWindow?.orderOut(sender)
-        self.roi2EndSheet(self.horos_roiSetPixWindow, objcTag(sender))
-        // do it only if OK button pressed
-        if objcTag(sender) != 1 { return }
-
-        // Find the first ROI selected
-        var selectedROI: ROI? = nil
-        var i: Int, y: Int, x: Int
-
-        i = 0
-        while i < (self.roi2CurrentSlice()?.count ?? 0) {
-            let mode = objcObject(self.roi2CurrentSlice(), i, ROI.self)?.roImode ?? 0
-
-            if roi2IsSelected(mode) {
-                selectedROI = objcObject(self.roi2CurrentSlice(), i, ROI.self)
-            }
-            i += 1
-        }
-
-        // user's parameters
-        let outside = (self.horos_InOutROI?.selectedCell()?.tag ?? 0) != 0
-        let allRois = Int16(truncatingIfNeeded: self.horos_AllROIsRadio?.selectedCell()?.tag ?? 0)
-
-        var minValue: Float = -Float.greatestFiniteMagnitude
-        var maxValue: Float = Float.greatestFiniteMagnitude
-        if self.horos_checkMaxValue?.state == .on { maxValue = self.horos_maxValueText?.floatValue ?? 0 }
-        if self.horos_checkMinValue?.state == .on { minValue = self.horos_minValueText?.floatValue ?? 0 }
-
-        let propagateIn4D = self.horos_setROI4DSeries?.state == .on
-
-        let newValue = self.horos_newValueText?.floatValue ?? 0
-        let revertToSaved = (self.horos_newValueMatrix?.selectedTag() ?? 0) != 0
-
-        // proceed
-        self.roiSetPixels(selectedROI, allRois, propagateIn4D, outside, minValue, maxValue, newValue, revertToSaved)
-
-        // Recompute!!!! Apply WL/WW
-        var iwl: Float = 0, iww: Float = 0
-
-        self.horos_imageView?.getWLWW(&iwl, &iww)
-        self.horos_imageView?.setWLWW(iwl, iww)
-
-        // Recompute all ROIs
-        y = 0
-        while y < Int(self.horos_maxMovieIndex) {
-            x = 0
-            while x < self.roi2PixCount(y) {
-                i = 0
-                while i < (self.roi2Slice(y, x)?.count ?? 0) {
-                    objcObject(self.roi2Slice(y, x), i, ROI.self)?.recompute()
-                    i += 1
-                }
-
-                self.roi2Pix(y, x)?.changeWLWW(iwl, iww) //recompute WLWW
-                x += 1
-            }
-            y += 1
-        }
-
-        NotificationCenter.default.post(name: NSNotification.Name.OsirixUpdateVolumeData, object: self.horos_pixList(at: Int(self.horos_curMovieIndex)), userInfo: nil)
+        ViewerROISetPixels.endSheet(ViewerSender.tag(sender), sender: sender, in: self)
     }
 
+    /// Runs the fills and morphology filters described by `roiToProceed`
+    /// ({action, curPix, roi, newValue, …}, as ViewerControllerOperation reads
+    /// them) side by side, under the ROI lock.
     @objc(roiSetStartScheduler:)
     func roiSetStartScheduler(_ roiToProceed: NSMutableArray!) {
-        if (roiToProceed?.count ?? 0) != 0 {
-            self.horos_roiLock?.lock()
-
-            if let exception = objcTry({
-                let queue = OperationQueue()
-
-                for loopItem in roiToProceed {
-                    queue.addOperation(ViewerControllerOperation(controller: self, dict: loopItem as? NSDictionary))
-                }
-
-                queue.waitUntilAllOperationsAreFinished()
-            }) {
-                _N2LogExceptionImpl(exception, false, "-[ViewerController roiSetStartScheduler:]")
-            }
-
-            self.horos_roiLock?.unlock()
-        }
+        ViewerROISetPixels.run(requests: (roiToProceed as? [NSDictionary]) ?? [], in: self)
     }
 
     @objc(roiSetPixels::::::::)
     func roiSetPixels(_ aROI: ROI!, _ allRois: Int16, _ propagateIn4D: Bool, _ outside: Bool, _ minValue: Float, _ maxValue: Float, _ newValue: Float, _ revert: Bool) {
-        var i: Int, x: Int, y: Int, z: Int
-        var done: Bool, proceed: Bool
-        let roiToProceed = NSMutableArray()
-        let nsnewValue: NSNumber, nsminValue: NSNumber, nsmaxValue: NSNumber, nsoutside: NSNumber, nsrevert: NSNumber
-
-        nsnewValue = NSNumber(value: newValue)
-        nsminValue = NSNumber(value: minValue)
-        nsmaxValue = NSNumber(value: maxValue)
-        nsoutside = NSNumber(value: outside)
-        nsrevert = NSNumber(value: revert)
-
-        self.checkEverythingLoaded()
-
-        let splash = WaitRendering(NSLocalizedString("Filtering...", comment: ""))
-        splash?.showWindow(self)
-
-        NSLog("startSetPixel")
-
-        y = 0
-        while y < Int(self.horos_maxMovieIndex) {
-            if y == Int(self.horos_curMovieIndex) { proceed = true }
-            else { proceed = false }
-
-            if proceed {
-                x = 0
-                while x < self.roi2PixCount(y) {
-                    done = false
-
-                    if allRois == 2 {
-                        let curPix = self.roi2Pix(y, x)
-                        roiToProceed.add(objcDictionary((curPix, "curPix"), ("setPixel", "action"), (nsnewValue, "newValue"), (nsminValue, "minValue"), (nsmaxValue, "maxValue"), (nsoutside, "outside"), (nsrevert, "revert"), (NSNumber(value: Int32(truncatingIfNeeded: x)), "stackNo")))
-
-                        done = true
-                    } else {
-                        i = 0
-                        while i < (self.roi2Slice(y, x)?.count ?? 0) {
-                            if objcIsEqualToString(objcObject(self.roi2Slice(y, x), i, ROI.self)?.name, aROI?.name) || allRois == 1 {
-                                if propagateIn4D {
-                                    z = 0
-                                    while z < Int(self.horos_maxMovieIndex) {
-                                        let curPix = self.roi2Pix(z, x)
-                                        roiToProceed.add(objcDictionary((self.roi2Slice(y, x)?.object(at: i), "roi"), (curPix, "curPix"), ("setPixelRoi", "action"), (nsnewValue, "newValue"), (nsminValue, "minValue"), (nsmaxValue, "maxValue"), (nsoutside, "outside"), (nsrevert, "revert"), (NSNumber(value: Int32(truncatingIfNeeded: x)), "stackNo")))
-
-                                        done = true
-                                        z += 1
-                                    }
-                                } else {
-                                    let curPix = self.roi2Pix(y, x)
-                                    roiToProceed.add(objcDictionary((self.roi2Slice(y, x)?.object(at: i), "roi"), (curPix, "curPix"), ("setPixelRoi", "action"), (nsnewValue, "newValue"), (nsminValue, "minValue"), (nsmaxValue, "maxValue"), (nsoutside, "outside"), (nsrevert, "revert"), (NSNumber(value: Int32(truncatingIfNeeded: x)), "stackNo")))
-
-                                    done = true
-                                }
-                            }
-                            i += 1
-                        }
-                    }
-
-                    if outside && done == false {
-                        if propagateIn4D {
-                            z = 0
-                            while z < Int(self.horos_maxMovieIndex) {
-                                let curPix = self.roi2Pix(z, x)
-                                roiToProceed.add(objcDictionary((curPix, "curPix"), ("setPixel", "action"), (nsnewValue, "newValue"), (nsminValue, "minValue"), (nsmaxValue, "maxValue"), (nsoutside, "outside"), (nsrevert, "revert"), (NSNumber(value: Int32(truncatingIfNeeded: x)), "stackNo")))
-
-                                z += 1
-                            }
-                        } else {
-                            let curPix = self.roi2Pix(y, x)
-                            roiToProceed.add(objcDictionary((curPix, "curPix"), ("setPixel", "action"), (nsnewValue, "newValue"), (nsminValue, "minValue"), (nsmaxValue, "maxValue"), (nsoutside, "outside"), (nsrevert, "revert"), (NSNumber(value: Int32(truncatingIfNeeded: x)), "stackNo")))
-                        }
-                    }
-                    x += 1
-                }
-            }
-            y += 1
-        }
-
-        var restoreReady = true
-
-        if revert {
-            restoreReady = self.roi2Pix(Int(self.horos_curMovieIndex), 0)?.prepareRestore() ?? false
-        }
-
-        if restoreReady {
-            self.roiSetStartScheduler(roiToProceed)
-        }
-
-        if revert {
-            self.roi2Pix(Int(self.horos_curMovieIndex), 0)?.freeRestore()
-        }
-
-        splash?.close()
-        // [splash autorelease]: the reference Swift holds is released here.
-
-        if restoreReady == false {
-            NSLog("roiSetPixels: restore cache unavailable - pixels left unchanged")
-            HorosAlertPanel.runCritical(title: NSLocalizedString("Restore Content", comment: ""), message: NSLocalizedString("The original pixel data of this series could not be reloaded from disk. The images were left unchanged.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-        }
-
-        NSLog("endSetPixel")
+        let job = ROISetPixelsJob(scope: ROISetPixelsJob.Scope(tag: Int(allRois)), propagateIn4D: propagateIn4D, outside: outside,
+                                  minValue: minValue, maxValue: maxValue, newValue: newValue, revert: revert)
+        ViewerROISetPixels.run(job, selected: aROI, in: self)
     }
 
     @objc(roiSetPixels:::::::)
     func roiSetPixels(_ aROI: ROI!, _ allRois: Int16, _ propagateIn4D: Bool, _ outside: Bool, _ minValue: Float, _ maxValue: Float, _ newValue: Float) {
-        return self.roiSetPixels(aROI, allRois, propagateIn4D, outside, minValue, maxValue, newValue, false)
+        roiSetPixels(aROI, allRois, propagateIn4D, outside, minValue, maxValue, newValue, false)
     }
 
     @objc(endRoiRename:)
     func endRoiRename(_ sender: Any!) {
-        self.horos_roiRenameWindow?.orderOut(sender)
-
-        self.roi2EndSheet(self.horos_roiRenameWindow, objcTag(sender))
-
-        if objcTag(sender) == 1 {
-            var i: Int, x: Int, y: Int
-
-            switch self.horos_roiRenameMatrix?.selectedCell()?.tag ?? 0 {
-            case 0: // All ROIs of the image
-                y = Int(self.horos_curMovieIndex)
-                x = self.roi2CurImage()
-                i = 0
-                while i < (self.roi2Slice(y, x)?.count ?? 0) {
-                    let curROI = objcObject(self.roi2Slice(y, x), i, ROI.self)
-
-                    curROI?.name = self.horos_roiRenameName?.stringValue
-
-                    NotificationCenter.default.post(name: NSNotification.Name.OsirixROIChange, object: curROI, userInfo: nil)
-                    i += 1
-                }
-
-            case 1: // All ROIs of the series
-                y = 0
-                while y < Int(self.horos_maxMovieIndex) {
-                    x = 0
-                    while x < self.roi2PixCount(y) {
-                        i = 0
-                        while i < (self.roi2Slice(y, x)?.count ?? 0) {
-                            let curROI = objcObject(self.roi2Slice(y, x), i, ROI.self)
-
-                            curROI?.name = self.horos_roiRenameName?.stringValue
-
-                            NotificationCenter.default.post(name: NSNotification.Name.OsirixROIChange, object: curROI, userInfo: nil)
-                            i += 1
-                        }
-                        x += 1
-                    }
-                    y += 1
-                }
-
-            case 2: // All selected ROIs
-                y = Int(self.horos_curMovieIndex)
-                x = self.roi2CurImage()
-                i = 0
-                while i < (self.roi2Slice(y, x)?.count ?? 0) {
-                    let curROI = objcObject(self.roi2Slice(y, x), i, ROI.self)
-
-                    let mode = curROI?.roImode ?? 0
-
-                    if roi2IsSelected(mode) {
-                        curROI?.name = self.horos_roiRenameName?.stringValue
-
-                        NotificationCenter.default.post(name: NSNotification.Name.OsirixROIChange, object: curROI, userInfo: nil)
-                    }
-                    i += 1
-                }
-
-            default:
-                break
-            }
-        }
+        ViewerROIPanels.endRename(ViewerSender.tag(sender), sender: sender, in: self)
     }
 
     @objc(roiRename:)
     func roiRename(_ sender: Any!) {
-        self.add(toUndoQueue: "roi")
-
-        self.roi2BeginSheet(self.horos_roiRenameWindow)
+        add(toUndoQueue: "roi")
+        ViewerROIPanels.beginSheet(horos_roiRenameWindow, in: self)
     }
 
     @objc(closeModal:)
     func closeModal(_ sender: Any!) {
-        if objcTag(sender) != 0 {
-            NSApp.stopModal()
-        } else {
-            NSApp.abortModal()
-        }
+        if ViewerSender.tag(sender) != 0 { NSApp.stopModal() } else { NSApp.abortModal() }
     }
 
+    /// The ROIs the Apply panel's choice covers, once the panel is accepted.
     @objc(roiApplyWindow:)
     func roiApplyWindow(_ sender: Any!) -> NSArray! {
-        self.roi2BeginSheet(self.horos_roiApplyWindow)
-
-        let result: Int32 = self.horos_roiApplyWindow.map { Int32(truncatingIfNeeded: NSApp.runModal(for: $0).rawValue) } ?? 0
-
-        self.roi2EndSheet(self.horos_roiApplyWindow, 0)
-
-        self.horos_roiApplyWindow?.orderOut(sender)
-
-        let applyToROIs = NSMutableArray()
-
-        if result == Int32(truncatingIfNeeded: NSApplication.ModalResponse.stop.rawValue) {
-            var i: Int, x: Int, y: Int
-
-            switch self.horos_roiApplyMatrix?.selectedCell()?.tag ?? 0 {
-            case 0: // All ROIs of the image
-                y = Int(self.horos_curMovieIndex)
-                x = self.roi2CurImage()
-                i = 0
-                while i < (self.roi2Slice(y, x)?.count ?? 0) {
-                    let curROI = objcObject(self.roi2Slice(y, x), i, ROI.self)
-
-                    objcAdd(applyToROIs, curROI)
-                    i += 1
-                }
-
-            case 1: // All ROIs of the series
-                y = 0
-                while y < Int(self.horos_maxMovieIndex) {
-                    x = 0
-                    while x < self.roi2PixCount(y) {
-                        i = 0
-                        while i < (self.roi2Slice(y, x)?.count ?? 0) {
-                            let curROI = objcObject(self.roi2Slice(y, x), i, ROI.self)
-
-                            objcAdd(applyToROIs, curROI)
-                            i += 1
-                        }
-                        x += 1
-                    }
-                    y += 1
-                }
-
-            case 2: // All selected ROIs
-                y = Int(self.horos_curMovieIndex)
-                x = self.roi2CurImage()
-                i = 0
-                while i < (self.roi2Slice(y, x)?.count ?? 0) {
-                    let curROI = objcObject(self.roi2Slice(y, x), i, ROI.self)
-
-                    let mode = curROI?.roImode ?? 0
-
-                    if roi2IsSelected(mode) {
-                        objcAdd(applyToROIs, curROI)
-                    }
-                    i += 1
-                }
-
-            case 3: // All ROIs with same name as selected
-                y = Int(self.horos_curMovieIndex)
-                x = self.roi2CurImage()
-                var name: String? = nil
-
-                i = 0
-                while i < (self.roi2Slice(y, x)?.count ?? 0) {
-                    let curROI = objcObject(self.roi2Slice(y, x), i, ROI.self)
-
-                    let mode = curROI?.roImode ?? 0
-
-                    if roi2IsSelected(mode) {
-                        name = curROI?.name
-                        break
-                    }
-                    i += 1
-                }
-
-                if name != nil {
-                    y = 0
-                    while y < Int(self.horos_maxMovieIndex) {
-                        x = 0
-                        while x < self.roi2PixCount(y) {
-                            i = 0
-                            while i < (self.roi2Slice(y, x)?.count ?? 0) {
-                                let curROI = objcObject(self.roi2Slice(y, x), i, ROI.self)
-
-                                if objcIsEqualToString(curROI?.name, name) {
-                                    objcAdd(applyToROIs, curROI)
-                                }
-                                i += 1
-                            }
-                            x += 1
-                        }
-                        y += 1
-                    }
-                }
-
-            default:
-                break
-            }
-        }
-
-        return applyToROIs
+        roiArray(ViewerROIPanels.runApplyPanel(sender: sender, in: self))
     }
 
     @objc(roiDeleteAll:)
     func roiDeleteAll(_ sender: Any!) {
-        self.add(toUndoQueue: "roi")
-
-        self.horos_imageView?.stopROIEditingForce(true)
-
-        var y = 0
-        while y < Int(self.horos_maxMovieIndex) {
-            if let slices = self.horos_roiList(at: y) {
-                for item in slices {
-                    guard let x = objcCast(item, NSMutableArray.self) else { continue }
-
-                    // [x retain] … [x autorelease]: kept alive until the pool drains, as before.
-                    _ = Unmanaged.passUnretained(x).retain()
-
-                    var i = Int32(truncatingIfNeeded: x.count) - 1
-                    while i >= 0 {
-                        let curROI = objcObject(x, Int(i), ROI.self)
-
-                        if curROI?.locked == false {
-                            NotificationCenter.default.post(name: NSNotification.Name.OsirixRemoveROI, object: curROI, userInfo: nil)
-                            objcRemove(x, curROI)
-                        }
-                        i -= 1
-                    }
-
-                    _ = Unmanaged.passUnretained(x).autorelease()
-                }
-            }
-            y += 1
-        }
-
-        if let imageView = self.horos_imageView {
-            imageView.setIndex(imageView.curImage)
-        }
+        ViewerROIPanels.deleteAllUnlocked(in: self)
     }
 
     @objc(roiPropagateSetup:)
     func roiPropagateSetup(_ sender: Any!) {
-        var selectedRoi: ROI? = nil
-
-        if self.roi2PixCount(Int(self.horos_curMovieIndex)) > 1 {
-            self.add(toUndoQueue: "roi")
-
-            selectedRoi = self.selectedROI()
-
-            if selectedRoi == nil {
-                HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Propagate Error", comment: ""), message: NSLocalizedString("No ROI(s) selected to propagate on the series!", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-            } else {
-                if self.horos_maxMovieIndex <= 1 { self.horos_roiPropaDim?.cell(withTag: 1)?.isEnabled = false }
-
-                self.roi2BeginSheet(self.horos_roiPropaWindow)
-            }
-        } else {
-            HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Propagate Error", comment: ""), message: NSLocalizedString("There is only one image in this series. Nothing to propagate!", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-        }
+        ViewerROIPropagation.beginSheet(in: self)
     }
 
     @objc(roiHistogram:)
     func roiHistogram(_ sender: Any!) {
-        var i: Int32 = 0
-        while Int(i) < (self.roi2CurrentSlice()?.count ?? 0) {
-            let mode = objcObject(self.roi2CurrentSlice(), Int(i), ROI.self)?.roImode ?? 0
-
-            if roi2IsSelected(mode) {
-                let theROI = objcObject(self.roi2CurrentSlice(), Int(i), ROI.self)
-                var found = false
-
-                for loopItem1 in NSApp.windows {
-                    if objcIsEqualToString(loopItem1.windowController?.windowNibName, "Histogram") && !horosWindowControllerIsClosing(loopItem1.windowController) {
-                        if ((loopItem1.windowController as AnyObject?)?.curROI?() as AnyObject?) === theROI {
-                            found = true
-                            loopItem1.windowController?.window?.makeKeyAndOrderFront(self)
-                        }
-                    }
-                }
-
-                if found == false {
-                    let roiWin = HistoWindow(roi: theROI)
-                    // [[HistoWindow alloc] initWithROI:] was not released: the
-                    // controller releases itself when its window closes.
-                    _ = Unmanaged.passRetained(roiWin)
-                    roiWin.showWindow(self)
-                }
-            }
-            i += 1
-        }
+        ViewerROIPanels.showHistograms(in: self)
     }
 
     @objc(roiGetInfo:)
     func roiGetInfo(_ sender: Any!) {
-        var i: Int
-
-        // NSUInteger <= short: the comparison C made, in unsigned long.
-        if UInt(self.horos_roiList(at: Int(self.horos_curMovieIndex))?.count ?? 0) <= UInt(bitPattern: self.roi2CurImage()) { return }
-
-        i = 0
-        while i < (self.roi2CurrentSlice()?.count ?? 0) {
-            let mode = objcObject(self.roi2CurrentSlice(), i, ROI.self)?.roImode ?? 0
-
-            if roi2IsSelected(mode) {
-                let theROI = objcObject(self.roi2CurrentSlice(), i, ROI.self)
-                let winList = NSApp.windows
-                var found = false
-
-                for loopItem1 in winList {
-                    if objcIsEqualToString(loopItem1.windowController?.windowNibName, "ROI") && !horosWindowControllerIsClosing(loopItem1.windowController) {
-                        if ((loopItem1.windowController as AnyObject?)?.curROI?() as AnyObject?) === theROI {
-                            found = true
-                            loopItem1.windowController?.window?.makeKeyAndOrderFront(self)
-                        }
-                    }
-                }
-
-                if found == false {
-                    let roiWin = ROIWindow(roi: theROI, self)
-                    // [[ROIWindow alloc] initWithROI::] was not released: the
-                    // controller releases itself when its window closes.
-                    _ = Unmanaged.passRetained(roiWin)
-                    roiWin.showWindow(self)
-                }
-                break
-            }
-            i += 1
-        }
+        ViewerROIPanels.showInfo(in: self)
     }
 
     @objc(roiDefaults:)
     func roiDefaults(_ sender: Any!) {
-        for loopItem in NSApp.windows {
-            if objcIsEqualToString(loopItem.windowController?.windowNibName, "ROIDefaults") && !horosWindowControllerIsClosing(loopItem.windowController) {
-                loopItem.windowController?.window?.makeKeyAndOrderFront(self)
-                return
-            }
-        }
-
-        let roiDefaultsWin = ROIDefaultsWindow(controller: self)
-        // [[ROIDefaultsWindow alloc] initWithController:] was not released: the
-        // controller releases itself when its window closes.
-        _ = Unmanaged.passRetained(roiDefaultsWin)
-        roiDefaultsWin.showWindow(self)
+        ViewerROIPanels.showDefaults(in: self)
     }
 
     @objc(roiPropagateSlab:)
     func roiPropagateSlab(_ sender: Any!) {
-        let selectedROIs = NSMutableArray()
-        let cur = Int(self.horos_curMovieIndex)
-
-        if (self.roi2Pix(cur, self.roi2CurImage())?.stack ?? 0) < 2 {
-            HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Propagate Error", comment: ""), message: NSLocalizedString("This function is only usefull if you use Thick Slab!", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-
-            return
-        }
-
-        if self.roi2PixCount(cur) > 1 {
-            self.add(toUndoQueue: "roi")
-
-            var upToImage: Int, startImage: Int, i: Int, x: Int
-
-            i = 0
-            while i < (self.roi2CurrentSlice()?.count ?? 0) {
-                let mode = objcObject(self.roi2CurrentSlice(), i, ROI.self)?.roImode ?? 0
-
-                if roi2IsSelected(mode) {
-                    objcAdd(selectedROIs, objcObject(self.roi2CurrentSlice(), i, ROI.self))
-                }
-                i += 1
-            }
-
-            (startImage, upToImage) = roi2SlabImages(self.roi2CurImage(), Int(self.roi2Pix(cur, self.roi2CurImage())?.stack ?? 0),
-                                                     self.roi2PixCount(cur), flipped: self.horos_imageView?.flippedData ?? false)
-
-            if selectedROIs.count > 0 {
-                x = startImage
-                while x < upToImage {
-                    if x != self.roi2CurImage() {
-                        i = 0
-                        while i < selectedROIs.count {
-                            // [[… copy] autorelease]: the copy Swift receives is released by Swift.
-                            let newROI = objcCast(objcCast(selectedROIs.object(at: i), NSObject.self)?.copy(), ROI.self)
-
-                            newROI?.isAliased = false
-
-                            objcAdd(self.roi2Slice(cur, x), newROI)
-                            i += 1
-                        }
-                    }
-                    x += 1
-                }
-
-                if let imageView = self.horos_imageView {
-                    imageView.setIndex(imageView.curImage)
-                }
-            } else {
-                HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Propagate Error", comment: ""), message: NSLocalizedString("No ROI(s) selected to propagate on the series!", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-            }
-        } else {
-            HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Propagate Error", comment: ""), message: NSLocalizedString("There is only one image in this series. Nothing to propagate!", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-        }
+        ViewerROIPropagation.propagateThroughSlab(in: self)
     }
 
+    /// The ROI lists of the current time point: the viewer's own array.
     @objc(roiList)
     func roiList() -> NSMutableArray! {
-        return self.horos_roiList(at: Int(self.horos_curMovieIndex))
+        horos_roiList(at: Int(horos_curMovieIndex))
     }
 
+    /// The ROI lists of time point `i`, clamped to the time points (and to
+    /// the first slot without any).
     @objc(roiList:)
     func roiList(_ i: Int) -> NSMutableArray! {
-        // Clamped to the frames of the series, and to the first slot of the C
-        // array when there is no frame yet: maxMovieIndex - 1 was -1.
-        let i = roi2MovieIndex(i, Int(self.horos_maxMovieIndex))
-
-        return self.horos_roiList(at: i)
+        horos_roiList(at: ROIPropagationPlan.movieIndex(i, movieCount: Int(horos_maxMovieIndex)))
     }
 
+    /// Stores `a` as the ROI lists of time point `i`, clamped as -roiList:
+    /// clamps it, through the setter that retains the new array before it
+    /// releases the one it held.
     @objc(setRoiList:array:)
     func setRoiList(_ i: Int, array a: NSMutableArray!) {
-        // Clamped to the frames of the series, and to the first slot of the C
-        // array when there is no frame yet: maxMovieIndex - 1 was -1.
-        let i = roi2MovieIndex(i, Int(self.horos_maxMovieIndex))
-
-        // [a retain]; [roiList[ i] release]; roiList[ i] = a; the new array
-        // is retained before the old one is released: releasing first freed
-        // the array when it was the one already there.
-        self.horos_setRoiList(a, at: i)
+        horos_setRoiList(a, at: ROIPropagationPlan.movieIndex(i, movieCount: Int(horos_maxMovieIndex)))
     }
 
     @objc(roiPropagate:)
     func roiPropagate(_ sender: Any!) {
-        var i: Int, x: Int
-        let cur = Int(self.horos_curMovieIndex)
-
-        self.horos_roiPropaWindow?.orderOut(sender)
-
-        self.roi2EndSheet(self.horos_roiPropaWindow, objcTag(sender))
-
-        if objcTag(sender) != 1 { return }
-
-        let selectedROIs = NSMutableArray()
-
-        switch self.horos_roiPropaDim?.selectedCell()?.tag ?? 0 {
-        case 0:
-            if self.roi2PixCount(cur) > 1 {
-                var upToImage: Int, startImage: Int
-
-                i = 0
-                while i < (self.roi2CurrentSlice()?.count ?? 0) {
-                    let mode = objcObject(self.roi2CurrentSlice(), i, ROI.self)?.roImode ?? 0
-
-                    if roi2IsSelected(mode) {
-                        objcAdd(selectedROIs, objcObject(self.roi2CurrentSlice(), i, ROI.self))
-                    }
-                    i += 1
-                }
-
-                if (self.horos_roiPropaMode?.selectedCell()?.tag ?? 0) == 1 {
-                    // The image number typed in the panel, float converted to int as C did.
-                    let imageNumber = cInt32(self.horos_roiPropaDest?.floatValue ?? 0)
-
-                    (startImage, upToImage) = roi2PropagationImages(self.roi2CurImage(), Int(imageNumber), self.roi2PixCount(cur),
-                                                                    flipped: self.horos_imageView?.flippedData ?? false)
-                } else {
-                    upToImage = self.roi2PixCount(cur)
-                    startImage = 0
-                }
-
-                if selectedROIs.count > 0 {
-                    x = startImage
-                    while x < upToImage {
-                        if x != self.roi2CurImage() {
-                            if (self.horos_roiPropaCopy?.selectedCell()?.tag ?? 0) == 1 {
-                                i = 0
-                                while i < selectedROIs.count {
-                                    // [[… copy] autorelease]: the copy Swift receives is released by Swift.
-                                    let newROI = objcCast(objcCast(selectedROIs.object(at: i), NSObject.self)?.copy(), ROI.self)
-
-                                    newROI?.isAliased = false
-                                    objcAdd(self.roi2Slice(cur, x), newROI)
-                                    i += 1
-                                }
-                            } else {
-                                i = 0
-                                while i < selectedROIs.count {
-                                    objcAdd(self.roi2Slice(cur, x), selectedROIs.object(at: i))
-                                    i += 1
-                                }
-                            }
-                        }
-                        x += 1
-                    }
-
-                    if let imageView = self.horos_imageView {
-                        imageView.setIndex(imageView.curImage)
-                    }
-                } else {
-                    HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Propagate Error", comment: ""), message: NSLocalizedString("No ROI(s) selected to propagate on the series!", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-                }
-            } else {
-                HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Propagate Error", comment: ""), message: NSLocalizedString("There is only one image in this series. Nothing to propagate!", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-            }
-
-        case 1: // 4D Dimension
-            i = 0
-            while i < (self.roi2CurrentSlice()?.count ?? 0) {
-                let mode = objcObject(self.roi2CurrentSlice(), i, ROI.self)?.roImode ?? 0
-
-                if roi2IsSelected(mode) {
-                    objcAdd(selectedROIs, objcObject(self.roi2CurrentSlice(), i, ROI.self))
-                }
-                i += 1
-            }
-
-            if selectedROIs.count > 0 {
-                x = 0
-                while x < Int(self.horos_maxMovieIndex) {
-                    if x != cur {
-                        if (self.horos_roiPropaCopy?.selectedCell()?.tag ?? 0) == 1 {
-                            i = 0
-                            while i < selectedROIs.count {
-                                // [[… copy] autorelease]: the copy Swift receives is released by Swift.
-                                let newROI = objcCast(objcCast(selectedROIs.object(at: i), NSObject.self)?.copy(), ROI.self)
-
-                                objcAdd(self.roi2Slice(x, self.roi2CurImage()), newROI)
-                                i += 1
-                            }
-                        } else {
-                            i = 0
-                            while i < selectedROIs.count {
-                                objcAdd(self.roi2Slice(x, self.roi2CurImage()), selectedROIs.object(at: i))
-                                i += 1
-                            }
-                        }
-                    }
-                    x += 1
-                }
-
-                if let imageView = self.horos_imageView {
-                    imageView.setIndex(imageView.curImage)
-                }
-            } else {
-                HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Propagate Error", comment: ""), message: NSLocalizedString("No ROI(s) selected to propagate on the series!", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-            }
-
-        default:
-            break
-        }
+        ViewerROIPropagation.endSheet(ViewerSender.tag(sender), sender: sender, in: self)
     }
 
     /// Shows a ROI tool in the palette's last cell and selects that cell,
     /// without choosing the tool for a mouse button.
     func showROIToolInPalette(_ roitype: ToolMode) {
-        let cell = self.horos_toolsMatrix?.cell(atRow: 0, column: 5)
-        cell?.tag = Int(roitype.rawValue)
-        // The image is computed before the message, as Objective-C evaluated
-        // the argument even for a nil cell.
-        let image = self.image(forROI: roitype)
-        cell?.image = image
-        cell?.image?.size = ToolsMenuIconSize
-
-        self.horos_toolsMatrix?.selectCell(atRow: 0, column: 5)
+        ViewerROIToolPalette.show(roitype, in: self)
     }
 
     @objc(setROIToolTag:)
     func setROIToolTag(_ roitype: ToolMode) {
-        self.showROIToolInPalette(roitype)
-
-        self.setDefaultToolMenu(self.horos_toolsMatrix?.selectedCell())
-        //change Image in contextual menu 4/22/04, removed on 2010-01-22 because menus are now regenerated when rightclick happens
-        //	NSMenu *menu = [imageView menu];
-        //	[[menu itemAtIndex:5] setImage: [self imageForROI: roitype]];
-        //	[[menu itemAtIndex:5] setTag: -1];
+        ViewerROIToolPalette.choose(roitype, in: self)
     }
 
     @objc(setROITool:)
     func setROITool(_ sender: Any!) {
-        // With the middle button chosen in the toolbar, the ROI tool is that
-        // button's and the left button keeps its own.
-        if self.middleButtonSelectedInToolbar {
-            self.showROIToolInPalette(ToolMode(rawValue: Int16(truncatingIfNeeded: objcTag(sender)))!)
-            self.setDefaultTool(sender)
-            return
-        }
-
-        self.setROIToolTag(ToolMode(rawValue: Int16(truncatingIfNeeded: objcTag(sender)))!)
-
-        //change default Tool if sent from Menu
-        if sender is NSMenuItem {
-            self.setDefaultTool(sender)
-        }
+        ViewerROIToolPalette.choose(from: sender, in: self)
     }
 
-    // returns the names of all the ROIs (one occurrence of each name)
+    /// The names of the ROIs of the current time point, each once.
     @objc(roiNames)
     func roiNames() -> NSArray! {
-        var x: Int32, i: Int32, j: Int32
-        var found: Bool
-        let cur = Int(self.horos_curMovieIndex)
-
-        let names = NSMutableArray()
-
-        x = 0
-        while Int(x) < self.roi2PixCount(cur) {
-            i = 0
-            while Int(i) < (self.roi2Slice(cur, Int(x))?.count ?? 0) {
-                found = false
-                let curROI = objcObject(self.roi2Slice(cur, Int(x)), Int(i), ROI.self)
-                let name = curROI?.name
-                j = 0
-                while Int(j) < names.count && !found {
-                    if objcIsEqualToString(name, objcCast(names.object(at: Int(j)), NSString.self) as String?) {
-                        found = true
-                    }
-                    j += 1
-                }
-                if !found {
-                    objcAdd(names, name)
-                }
-                i += 1
-            }
-            x += 1
-        }
-        return names
+        roiArray(ViewerROIQueries.names(in: self))
     }
 
     @objc(roisWithComment:)
     func rois(withComment comment: String!) -> NSArray! {
-        var x: Int32, i: Int32
-        let cur = Int(self.horos_curMovieIndex)
-
-        let rois = NSMutableArray()
-
-        x = 0
-        while Int(x) < self.roi2PixCount(cur) {
-            i = 0
-            while Int(i) < (self.roi2Slice(cur, Int(x))?.count ?? 0) {
-                let curROI = objcObject(self.roi2Slice(cur, Int(x)), Int(i), ROI.self)
-                if objcIsEqualToString(curROI?.comments, comment) {
-                    curROI?.pix = self.roi2Pix(cur, Int(x))
-                    objcAdd(rois, curROI)
-                }
-                i += 1
-            }
-            x += 1
-        }
-        return rois
+        roiArray(ViewerROIQueries.rois(in: self, movie: Int(horos_curMovieIndex)) { sameText($0.comments, comment) })
     }
 
     @objc(roisWithName:)
     func rois(withName name: String!) -> NSArray! {
-        return self.rois(withName: name, in4D: false)
+        rois(withName: name, in4D: false)
     }
 
     @objc(roisWithName:in4D:)
     func rois(withName name: String!, in4D: Bool) -> NSArray! {
-        let rois = NSMutableArray()
-
-        if in4D {
-            var m: Int32 = 0
-            while Int(m) < Int(self.horos_maxMovieIndex) {
-                if let found = self.rois(withName: name, forMovieIndex: m) { rois.addObjects(from: found as! [Any]) }
-                m += 1
-            }
-        } else {
-            if let found = self.rois(withName: name, forMovieIndex: Int32(self.horos_curMovieIndex)) { rois.addObjects(from: found as! [Any]) }
-        }
-
-        return rois
+        let movies = in4D ? Array(0..<Int(horos_maxMovieIndex)) : [Int(horos_curMovieIndex)]
+        return roiArray(movies.flatMap { movie -> [ROI] in ViewerROIQueries.rois(in: self, movie: movie) { sameText($0.name, name) } })
     }
 
     @objc(roisWithName:forMovieIndex:)
     func rois(withName name: String!, forMovieIndex m: Int32) -> NSArray! {
-        let rois = NSMutableArray()
-
-        var x: Int32 = 0
-        while Int(x) < self.roi2PixCount(Int(m)) {
-            var i: Int32 = 0
-            while Int(i) < (self.roi2Slice(Int(m), Int(x))?.count ?? 0) {
-                let curROI = objcObject(self.roi2Slice(Int(m), Int(x)), Int(i), ROI.self)
-                if objcIsEqualToString(curROI?.name, name) {
-                    curROI?.pix = self.roi2Pix(Int(m), Int(x))
-                    objcAdd(rois, curROI)
-                }
-                i += 1
-            }
-            x += 1
-        }
-        return rois
+        roiArray(ViewerROIQueries.rois(in: self, movie: Int(m)) { sameText($0.name, name) })
     }
 
     @objc(isoContourROI:numberOfPoints:)
     func isoContourROI(_ a: ROI!, numberOfPoints nof: Int32) -> ROI! {
-        // The OSIRIX_LIGHT branch (return nil) is left out.
-        var a: ROI? = a
-        if a?.type == .tCPolygon || a?.type == .tOPolygon || a?.type == .tPencil {
-            a?.points = ROI.resamplePoints(a?.splinePoints() as? [Any], number: nof)
-            return a
-        } else if a?.type == .tPlain {
-            a = self.convertBrushROItoPolygon(a, numPoints: nof)
-            a?.points = ROI.resamplePoints(a?.splinePoints() as? [Any], number: nof)
-            return a
-        } else { return nil }
+        ViewerROIQueries.isoContour(a, points: nof, in: self)
     }
 
     @objc(roiMorphingBetween:and:ratio:)
     func roiMorphingBetween(_ a: ROI!, and b: ROI!, ratio: Float) -> ROI! {
-        var a: ROI? = a
-        var b: ROI? = b
-
-        if a?.type == .tMesure && b?.type == .tMesure {
-            let newMeasure = self.horos_unretainedNewROI(.tMesure)
-
-            newMeasure?.addPoint(ROI.pointBetweenPoint(a?.point(at: 0) ?? .zero, and: b?.point(at: 0) ?? .zero, ratio: ratio))
-            newMeasure?.addPoint(ROI.pointBetweenPoint(a?.point(at: 1) ?? .zero, and: b?.point(at: 1) ?? .zero, ratio: ratio))
-
-            newMeasure?.rgbcolor = a?.rgbcolor ?? RGBColor()
-            newMeasure?.opacity = a?.opacity ?? 0
-            newMeasure?.thickness = a?.thickness ?? 0
-            newMeasure?.name = a?.name
-
-            return newMeasure
-        }
-
-        let inputROI = a
-
-        // [[a copy] autorelease]: the copy Swift receives is released by Swift.
-        // The ROIs are copied before they are turned into polygons: the
-        // conversions below changed the caller's ROIs (an oval of the series
-        // became a polygon when missing ROIs were generated).
-        a = objcCast(a?.copy(), ROI.self)
-        b = objcCast(b?.copy(), ROI.self)
-
-        if a?.type == .tMesure {
-            a?.points?.insert(MyPoint.point(ROI.pointBetweenPoint(a?.point(at: 0) ?? .zero, and: a?.point(at: 1) ?? .zero, ratio: 0.5)), at: 1)
-            a?.type = .tOPolygon
-        }
-
-        if b?.type == .tMesure {
-            b?.points?.insert(MyPoint.point(ROI.pointBetweenPoint(b?.point(at: 0) ?? .zero, and: b?.point(at: 1) ?? .zero, ratio: 0.5)), at: 1)
-            b?.type = .tOPolygon
-        }
-
-        if a?.type == .tROI || a?.type == .tOval {
-            let points = a?.points
-            if a?.type == .tROI {
-                a?.isSpline = false
-            }
-
-            a?.type = .tCPolygon
-            a?.points = points
-        }
-
-        if b?.type == .tROI || b?.type == .tOval {
-            let points = b?.points
-            if b?.type == .tROI {
-                b?.isSpline = false
-            }
-
-            b?.type = .tCPolygon
-            b?.points = points
-        }
-
-        var aPts = a?.points
-        var bPts = b?.points
-
-        // MAX of two NSUInteger, stored in an int.
-        var maxPoints = Int32(truncatingIfNeeded: max(aPts?.count ?? 0, bPts?.count ?? 0))
-        maxPoints += maxPoints / 3
-
-        a?.isAliased = false
-        b?.isAliased = false
-
-        // If the ROIs are brush ROIs, convert them into polygons, using a marching square isocontour
-        // Otherwise update the points so they both have maxPoints number of points
-        a = self.isoContourROI(a, numberOfPoints: maxPoints)
-        b = self.isoContourROI(b, numberOfPoints: maxPoints)
-
-        if a == nil { return nil }
-        if b == nil { return nil }
-
-        if (a?.points?.count ?? 0) != Int(maxPoints) || (b?.points?.count ?? 0) != Int(maxPoints) {
-            NSLog("***** NoOfPoints !")
-            return nil
-        }
-
-        aPts = a?.points
-        bPts = b?.points
-
-        var newROI: ROI? = nil
-        if a?.type == .tOPolygon {
-            newROI = self.horos_unretainedNewROI(.tOPolygon)
-        } else {
-            newROI = self.horos_unretainedNewROI(.tCPolygon)
-        }
-
-        let pts = newROI?.points
-        var i: Int32 = 0
-
-        while Int(i) < (aPts?.count ?? 0) {
-            let aP = objcObject(aPts, Int(i), MyPoint.self)
-            let bP = objcObject(bPts, Int(i), MyPoint.self)
-
-            let newPt = ROI.pointBetweenPoint(aP?.point ?? .zero, and: bP?.point ?? .zero, ratio: ratio)
-
-            objcAdd(pts, MyPoint.point(newPt))
-            i += 1
-        }
-
-        if inputROI?.type == .tPlain {
-            newROI = self.convertPolygonROItoBrush(newROI)
-        }
-
-        newROI?.rgbcolor = inputROI?.rgbcolor ?? RGBColor()
-        newROI?.opacity = inputROI?.opacity ?? 0
-        newROI?.thickness = inputROI?.thickness ?? 0
-        newROI?.name = inputROI?.name
-
-        return newROI
+        ViewerROIQueries.morphing(between: a, and: b, ratio: ratio, in: self)
     }
 
+    /// Observed for OsirixROIChangeNotification; nothing to do since the
+    /// curved MPR left.
     @objc(roiChange:)
-    func roiChange(_ note: Notification!) {
-        //	if( curvedController)
-        //	{
-        //		if( [note object] == [curvedController roi])
-        //		{
-        //			[curvedController recompute];
-        //		}
-        //	}
-    }
-
-    //- (IBAction)exportAsDICOMSR:(id)sender;
-    //{
-    //	SRAnnotationController *srController = [[SRAnnotationController alloc] initWithViewerController:self];
-    //	[srController beginSheet];
-    //}
+    func roiChange(_ note: Notification!) {}
 
     @objc(selectedROI)
     func selectedROI() -> ROI! {
-        var selectedRoi: ROI? = nil
-        var i: Int32
-
-        i = 0
-        while Int(i) < (self.roi2CurrentSlice()?.count ?? 0) {
-            let mode = objcObject(self.roi2CurrentSlice(), Int(i), ROI.self)?.roImode ?? 0
-
-            if roi2IsSelected(mode) {
-                selectedRoi = objcObject(self.roi2CurrentSlice(), Int(i), ROI.self)
-            }
-            i += 1
-        }
-
-        if selectedRoi == nil {
-            // If there is only one roi on the image, choose it !
-            if (self.roi2CurrentSlice()?.count ?? 0) == 1 {
-                selectedRoi = objcObject(self.roi2CurrentSlice(), 0, ROI.self)
-                selectedRoi?.roImode = ROI_selected
-                self.horos_imageView?.display()
-            }
-        }
-
-        return selectedRoi
+        ViewerROISelection.selected(in: self)
     }
 
     @objc(selectedROIs)
     func selectedROIs() -> NSMutableArray! {
-        let selectedRois = NSMutableArray()
-        var i: Int32
-
-        i = 0
-        while Int(i) < (self.roi2CurrentSlice()?.count ?? 0) {
-            let mode = objcObject(self.roi2CurrentSlice(), Int(i), ROI.self)?.roImode ?? 0
-
-            if roi2IsSelected(mode) {
-                objcAdd(selectedRois, objcObject(self.roi2CurrentSlice(), Int(i), ROI.self))
-            }
-            i += 1
-        }
-
-        return selectedRois
+        roiArray(ViewerROISelection.selectedROIs(in: self))
     }
 
     @objc(setMode:toROIGroupWithID:)
     func setMode(_ mode: Int, toROIGroupWithID groupID: TimeInterval) {
-        var mode = mode
-        if groupID == 0.0 { return }
-        if mode == ROI_selectedModify { mode = ROI_selected }
-        // set the mode to all ROIs in the same group
-        let curROIList = self.roi2CurrentSlice()
-        for loopItem in curROIList ?? NSMutableArray() {
-            if objcCast(loopItem, ROI.self)?.groupID == groupID {
-                objcCast(loopItem, ROI.self)?.roImode = mode
-            }
-        }
+        ViewerROISelection.setMode(mode, toGroup: groupID, in: self)
     }
 
     @objc(selectROI:deselectingOther:)
     func select(_ roi: ROI!, deselectingOther deselectOther: Bool) {
-        if deselectOther {
-            var i: Int32 = 0
-            while Int(i) < (self.roi2CurrentSlice()?.count ?? 0) {
-                objcObject(self.roi2CurrentSlice(), Int(i), ROI.self)?.roImode = ROI_sleep
-                i += 1
-            }
-        }
-
-        if let roi {
-            // select the ROI
-            roi.roImode = ROI_selected
-            // select the othher grouped ROIs (if any)
-            self.setMode(ROI_selected, toROIGroupWithID: roi.groupID)
-
-            // bring it to front
-            self.bring(toFrontROI: roi)
-        }
+        ViewerROISelection.select(roi, deselectingOthers: deselectOther, in: self)
     }
 
     @objc(deselectAllROIs)
     func deselectAllROIs() {
-        var i: Int32 = 0
-        while Int(i) < (self.roi2CurrentSlice()?.count ?? 0) {
-            objcObject(self.roi2CurrentSlice(), Int(i), ROI.self)?.roImode = ROI_sleep
-            i += 1
-        }
+        ViewerROISelection.deselectAll(in: self)
     }
 
     @objc(setSelectedROIsGrouped:)
     func setSelectedROIsGrouped(_ grouped: Bool) {
-        self.add(toUndoQueue: "roi")
-
-        let curROIList = self.roi2CurrentSlice()
-        var mode: Int
-
-        let newGroupID: TimeInterval
-        if grouped {
-            newGroupID = Date.timeIntervalSinceReferenceDate
-        } else {
-            newGroupID = 0.0
-        }
-
-        for item in curROIList ?? NSMutableArray() {
-            let roi = objcCast(item, ROI.self)
-            mode = roi?.roImode ?? 0
-
-            if roi2IsSelected(mode) {
-                roi?.groupID = newGroupID
-            }
-        }
+        ViewerROISelection.setGrouped(grouped, in: self)
     }
 
     @objc(groupSelectedROIs)
     func groupSelectedROIs() {
-        self.setSelectedROIsGrouped(true)
+        setSelectedROIsGrouped(true)
     }
 
     @objc(ungroupSelectedROIs)
     func ungroupSelectedROIs() {
-        self.setSelectedROIsGrouped(false)
+        setSelectedROIsGrouped(false)
     }
 
     @objc(groupSelectedROIs:)
     func groupSelectedROIs(_ sender: Any!) {
-        self.groupSelectedROIs()
+        groupSelectedROIs()
     }
 
     @objc(ungroupSelectedROIs:)
     func ungroupSelectedROIs(_ sender: Any!) {
-        self.ungroupSelectedROIs()
+        ungroupSelectedROIs()
     }
 
     @objc(setSelectedROIsLocked:)
     func setSelectedROIsLocked(_ locked: Bool) {
-        self.add(toUndoQueue: "roi")
-
-        let curROIList = self.roi2CurrentSlice()
-
-        for item in curROIList ?? NSMutableArray() {
-            let roi = objcCast(item, ROI.self)
-            if roi2IsSelected(roi?.roImode ?? 0) {
-                roi?.locked = locked
-            }
-        }
+        ViewerROISelection.changeSelected(in: self) { $0.locked = locked }
     }
 
     @objc(lockSelectedROIs:)
     func lockSelectedROIs(_ sender: Any!) {
-        self.setSelectedROIsLocked(true)
+        setSelectedROIsLocked(true)
     }
 
     @objc(unlockSelectedROIs:)
     func unlockSelectedROIs(_ sender: Any!) {
-        self.setSelectedROIsLocked(false)
+        setSelectedROIsLocked(false)
     }
 
     @objc(makeSelectedROIsUnselectable:)
     func makeSelectedROIsUnselectable(_ sender: Any!) {
-        self.add(toUndoQueue: "roi")
-
-        let curROIList = self.roi2CurrentSlice()
-
-        for item in curROIList ?? NSMutableArray() {
-            let roi = objcCast(item, ROI.self)
-            if roi2IsSelected(roi?.roImode ?? 0) {
-                roi?.selectable = false
-            }
-        }
+        ViewerROISelection.changeSelected(in: self) { $0.selectable = false }
     }
 
     @objc(makeAllROIsSelectable:)
     func makeAllROIsSelectable(_ sender: Any!) {
-        self.add(toUndoQueue: "roi")
-
-        let curROIList = self.roi2CurrentSlice()
-
-        for item in curROIList ?? NSMutableArray() {
-            let roi = objcCast(item, ROI.self)
-            roi?.selectable = true
-        }
+        ViewerROISelection.makeAllSelectable(in: self)
     }
 
     @objc(bringToFrontROI:)
     func bring(toFrontROI roi: ROI!) {
-        if (roi?.groupID ?? 0) == 0.0 { // not grouped
-            // [roi retain] … [roi release]: Swift holds roi meanwhile.
-            objcRemove(self.roi2CurrentSlice(), roi)
-            objcInsert(self.roi2CurrentSlice(), roi, 0)
-        } else { // bring the whole group to front, without changing order inside the group
-            let group = NSMutableArray()
-            let ROIs = self.roi2CurrentSlice()
-            var i: Int32 = 0
-            while Int(i) < (ROIs?.count ?? 0) {
-                if objcObject(ROIs, Int(i), ROI.self)?.groupID == roi?.groupID {
-                    objcAdd(group, ROIs?.object(at: Int(i)))
-                    objcRemove(ROIs, ROIs?.object(at: Int(i)))
-                    i -= 1
-                }
-                i += 1
-            }
-            i = Int32(truncatingIfNeeded: group.count) - 1
-            while i >= 0 {
-                objcInsert(ROIs, group.object(at: Int(i)), 0)
-                i -= 1
-            }
-        }
+        ViewerROISelection.bringToFront(roi, in: self)
     }
 
     @objc(sendToBackROI:)
     func send(toBack roi: ROI!) {
-        if (roi?.groupID ?? 0) == 0.0 { // not grouped
-            // [roi retain] … [roi release]: Swift holds roi meanwhile. The
-            // ROI is taken out before it goes back at the end: removing it
-            // after the insertion took out both occurrences, and the ROI was
-            // gone.
-            objcRemove(self.roi2CurrentSlice(), roi)
-            objcInsert(self.roi2CurrentSlice(), roi, self.roi2CurrentSlice()?.count ?? 0)
-        } else { // send the whole group to back, without changing order inside the group
-            let group = NSMutableArray()
-            let ROIs = self.roi2CurrentSlice()
-            var i: Int32 = 0
-            while Int(i) < (ROIs?.count ?? 0) {
-                if objcObject(ROIs, Int(i), ROI.self)?.groupID == roi?.groupID {
-                    objcAdd(group, ROIs?.object(at: Int(i)))
-                    objcRemove(ROIs, ROIs?.object(at: Int(i)))
-                    i -= 1
+        ViewerROISelection.sendToBack(roi, in: self)
+    }
+}
+
+// MARK: - The ROIs shown
+
+/// The ROIs of the image a viewer shows, in its current time point: the
+/// viewer's own list, read as ROIs and changed in place.
+@MainActor struct ViewerShownROIs {
+    private let slices: ViewerROISlices?
+    /// The index of the image shown.
+    let index: Int
+
+    init(_ viewer: ViewerController) {
+        slices = ViewerROISlices(viewer, movie: Int(viewer.horos_curMovieIndex))
+        index = Int(viewer.horos_imageView?.curImage ?? 0)
+    }
+
+    /// The ROIs of the image, in the order of its list.
+    var rois: [ROI] { slices?.rois(at: index) ?? [] }
+
+    /// The selected ROIs of the image, in the order of its list.
+    var selected: [ROI] {
+        let rois = self.rois
+        return ROISelection(modes: rois.map(\.roImode)).selectedIndexes.map { rois[$0] }
+    }
+
+    /// Puts `order` in the image's list itself, which keeps its identity.
+    func replace(with order: [ROI]) {
+        slices?.list(at: index)?.setArray(order)
+    }
+
+    /// Whether the image has a list.
+    var hasList: Bool { slices?.list(at: index) != nil }
+}
+
+/// The image `slice` of time point `movie`, nil past the series.
+@MainActor fileprivate func viewerPix(_ viewer: ViewerController, _ movie: Int, _ slice: Int) -> DCMPix? {
+    guard let list = viewer.horos_pixList(at: movie), slice >= 0, slice < list.count else { return nil }
+    return list[slice] as? DCMPix
+}
+
+/// The number of images of time point `movie`.
+@MainActor fileprivate func viewerPixCount(_ viewer: ViewerController, _ movie: Int) -> Int {
+    viewer.horos_pixList(at: movie)?.count ?? 0
+}
+
+/// The ROIs of every image of time point `movie`, in their order.
+@MainActor fileprivate func viewerSeriesROIs(_ viewer: ViewerController, movie: Int) -> [ROI] {
+    let slices = ViewerROISlices(viewer, movie: movie)
+    return (0..<viewerPixCount(viewer, movie)).flatMap { slices?.rois(at: $0) ?? [] }
+}
+
+/// Shows the critical alert of a ROI command.
+@MainActor fileprivate func viewerROIAlert(_ title: String, _ message: String) {
+    HorosAlertPanel.runCritical(title: NSLocalizedString(title, comment: ""), message: NSLocalizedString(message, comment: ""),
+                                defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+}
+
+// MARK: - Selection, groups and order
+
+/// The selection, the groups, the locks and the order of the ROIs of the
+/// image a viewer shows.
+@MainActor enum ViewerROISelection {
+
+    /// The ROI the commands of one ROI start from: the last selected one or,
+    /// with none selected, the only ROI of the image, which becomes selected.
+    static func selected(in viewer: ViewerController) -> ROI? {
+        let rois = ViewerShownROIs(viewer).rois
+        guard let current = ROISelection(modes: rois.map(\.roImode)).current else { return nil }
+        let roi = rois[current.index]
+        if current.selectsIt {
+            roi.roImode = ROI_selected
+            viewer.horos_imageView?.display()
+        }
+        return roi
+    }
+
+    /// The selected ROIs of the image shown, in the order of its list.
+    static func selectedROIs(in viewer: ViewerController) -> [ROI] {
+        ViewerShownROIs(viewer).selected
+    }
+
+    /// Gives `mode` to the ROIs of `group` on the image shown; a ROI being
+    /// modified leaves the others of its group selected.
+    static func setMode(_ mode: Int, toGroup group: TimeInterval, in viewer: ViewerController) {
+        guard group != ROIGroups.ungrouped else { return }
+        let mode = ROISelection.groupMode(mode)
+        for roi in ViewerShownROIs(viewer).rois where roi.groupID == group {
+            roi.roImode = mode
+        }
+    }
+
+    /// Selects `roi` and its group, brought to the front, after deselecting
+    /// the other ROIs of the image when asked.
+    static func select(_ roi: ROI?, deselectingOthers: Bool, in viewer: ViewerController) {
+        if deselectingOthers { deselectAll(in: viewer) }
+        guard let roi else { return }
+        roi.roImode = ROI_selected
+        viewer.setMode(ROI_selected, toROIGroupWithID: roi.groupID)
+        viewer.bring(toFrontROI: roi)
+    }
+
+    static func deselectAll(in viewer: ViewerController) {
+        for roi in ViewerShownROIs(viewer).rois {
+            roi.roImode = ROI_sleep
+        }
+    }
+
+    /// Applies `change` to the selected ROIs of the image shown, as one undo step.
+    static func changeSelected(in viewer: ViewerController, _ change: (ROI) -> Void) {
+        viewer.add(toUndoQueue: "roi")
+        ViewerShownROIs(viewer).selected.forEach(change)
+    }
+
+    /// Puts the selected ROIs in a new group, or in none, as one undo step.
+    static func setGrouped(_ grouped: Bool, in viewer: ViewerController) {
+        let group = ROIGroups.groupID(grouping: grouped, now: Date.timeIntervalSinceReferenceDate)
+        changeSelected(in: viewer) { $0.groupID = group }
+    }
+
+    static func makeAllSelectable(in viewer: ViewerController) {
+        viewer.add(toUndoQueue: "roi")
+        for roi in ViewerShownROIs(viewer).rois {
+            roi.selectable = true
+        }
+    }
+
+    /// Brings `roi` to the front of the image's list, with its group.
+    static func bringToFront(_ roi: ROI?, in viewer: ViewerController) {
+        let shown = ViewerShownROIs(viewer)
+        guard let roi else { return raiseForNil(shown) }
+        shown.replace(with: ROIGroups.broughtToFront(shown.rois, roi, group: { $0.groupID }, same: { $0 === $1 }))
+    }
+
+    /// Sends `roi` to the back of the image's list, with its group.
+    static func sendToBack(_ roi: ROI?, in viewer: ViewerController) {
+        let shown = ViewerShownROIs(viewer)
+        guard let roi else { return raiseForNil(shown) }
+        shown.replace(with: ROIGroups.sentToBack(shown.rois, roi, group: { $0.groupID }, same: { $0 === $1 }))
+    }
+
+    /// Inserting a nil ROI in the image's list raised.
+    private static func raiseForNil(_ shown: ViewerShownROIs) {
+        if shown.hasList { viewerRaiseNilInsertion() }
+    }
+}
+
+// MARK: - Propagation
+
+/// The copies of the selected ROIs to other images: across the series, the
+/// thick slab or the time points.
+@MainActor enum ViewerROIPropagation {
+
+    /// Opens the Propagate sheet when the series has more than one image and
+    /// a ROI is selected, as one undo step.
+    static func beginSheet(in viewer: ViewerController) {
+        guard viewerPixCount(viewer, Int(viewer.horos_curMovieIndex)) > 1 else {
+            return viewerROIAlert("ROIs Propagate Error", "There is only one image in this series. Nothing to propagate!")
+        }
+        viewer.add(toUndoQueue: "roi")
+        guard viewer.selectedROI() != nil else {
+            return viewerROIAlert("ROIs Propagate Error", "No ROI(s) selected to propagate on the series!")
+        }
+        if viewer.horos_maxMovieIndex <= 1 { viewer.horos_roiPropaDim?.cell(withTag: 1)?.isEnabled = false }
+        ViewerROIPanels.beginSheet(viewer.horos_roiPropaWindow, in: viewer)
+    }
+
+    /// Closes the sheet and, when it was accepted (`tag` 1), propagates the
+    /// selected ROIs as it asks: across the series, to every image or up to
+    /// an image number, or across the time points; copies or the ROIs themselves.
+    static func endSheet(_ tag: Int, sender: Any?, in viewer: ViewerController) {
+        viewer.horos_roiPropaWindow?.orderOut(sender)
+        ViewerROIPanels.endSheet(viewer.horos_roiPropaWindow, tag)
+        guard tag == 1 else { return }
+
+        let movie = Int(viewer.horos_curMovieIndex)
+        let shown = ViewerShownROIs(viewer)
+        let copies = (viewer.horos_roiPropaCopy?.selectedCell()?.tag ?? 0) == 1
+        switch viewer.horos_roiPropaDim?.selectedCell()?.tag ?? 0 {
+        case 0:
+            let count = viewerPixCount(viewer, movie)
+            guard count > 1 else {
+                return viewerROIAlert("ROIs Propagate Error", "There is only one image in this series. Nothing to propagate!")
+            }
+            let selected = shown.selected
+            var range = 0..<count
+            if (viewer.horos_roiPropaMode?.selectedCell()?.tag ?? 0) == 1 {
+                // The image number typed in the panel, float converted to int as C did.
+                let imageNumber = Int(cInt32(viewer.horos_roiPropaDest?.floatValue ?? 0))
+                range = ROIPropagationPlan.imageRange(current: shown.index, imageNumber: imageNumber, count: count,
+                                                      flipped: viewer.horos_imageView?.flippedData ?? false)
+            }
+            guard !selected.isEmpty else {
+                return viewerROIAlert("ROIs Propagate Error", "No ROI(s) selected to propagate on the series!")
+            }
+            apply(.series(movie: movie, current: shown.index, range: range, copies: copies), selected, in: viewer)
+        case 1: // 4D Dimension
+            let selected = shown.selected
+            guard !selected.isEmpty else {
+                return viewerROIAlert("ROIs Propagate Error", "No ROI(s) selected to propagate on the series!")
+            }
+            apply(.timePoints(movie: movie, movieCount: Int(viewer.horos_maxMovieIndex), slice: shown.index, copies: copies),
+                  selected, in: viewer)
+        default:
+            break
+        }
+    }
+
+    /// Copies the selected ROIs to the other images of the thick slab shown,
+    /// as one undo step.
+    static func propagateThroughSlab(in viewer: ViewerController) {
+        let movie = Int(viewer.horos_curMovieIndex)
+        let shown = ViewerShownROIs(viewer)
+        let stack = Int(viewerPix(viewer, movie, shown.index)?.stack ?? 0)
+        guard stack >= 2 else {
+            return viewerROIAlert("ROIs Propagate Error", "This function is only usefull if you use Thick Slab!")
+        }
+        let count = viewerPixCount(viewer, movie)
+        guard count > 1 else {
+            return viewerROIAlert("ROIs Propagate Error", "There is only one image in this series. Nothing to propagate!")
+        }
+        viewer.add(toUndoQueue: "roi")
+        let selected = shown.selected
+        let farEnd = ThickSlabRange.farEndIndex(currentIndex: shown.index, stack: stack, count: count,
+                                                flippedData: viewer.horos_imageView?.flippedData ?? false)
+        guard !selected.isEmpty else {
+            return viewerROIAlert("ROIs Propagate Error", "No ROI(s) selected to propagate on the series!")
+        }
+        apply(.slab(movie: movie, current: shown.index, range: ROIPropagationPlan.slabRange(current: shown.index, farEnd: farEnd)),
+              selected, in: viewer)
+    }
+
+    /// Adds `rois`, or copies of them, to the images of `plan`, and shows the
+    /// image again.
+    static func apply(_ plan: ROIPropagationPlan, _ rois: [ROI], in viewer: ViewerController) {
+        for destination in plan.destinations {
+            guard let list = ViewerROISlices(viewer, movie: destination.movie)?.list(at: destination.slice) else { continue }
+            for roi in rois {
+                guard plan.copies else {
+                    list.add(roi)
+                    continue
                 }
-                i += 1
+                let copy = roi.copy() as? ROI
+                if plan.unaliasesCopies { copy?.isAliased = false }
+                viewerArrayAdd(copy, to: list)
             }
-            // Appended in their order: appending them from the last one, as
-            // the front insertion does, reversed the group.
-            for member in group {
-                objcInsert(ROIs, member, ROIs?.count ?? 0)
+        }
+        if let imageView = viewer.horos_imageView {
+            imageView.setIndex(imageView.curImage)
+        }
+    }
+}
+
+// MARK: - Set pixels
+
+/// One fill of the Set Pixels sheet: an image, inside or outside one of its
+/// ROIs or whole. Run on another thread while the main thread waits; the
+/// image and the ROI are only touched by the fills of that image.
+struct ViewerROIPixelFill: @unchecked Sendable {
+    let pix: DCMPix
+    let roi: ROI?
+    let job: ROISetPixelsJob
+    /// The index of the image in its series.
+    let slice: Int
+
+    func run() {
+        pix.fillROI(roi, newVal: job.newValue, minValue: job.minValue, maxValue: job.maxValue, outside: job.outside,
+                    orientationStack: 2, stackNo: slice, restore: job.revert, addition: false)
+    }
+
+    /// Runs `fills` side by side and returns when they are all done.
+    static func runSideBySide(_ fills: [ViewerROIPixelFill]) {
+        DispatchQueue.concurrentPerform(iterations: fills.count) { fills[$0].run() }
+    }
+
+    /// Runs the operations side by side and returns when they are all done.
+    static func runSideBySide(_ operations: [ViewerControllerOperation]) {
+        DispatchQueue.concurrentPerform(iterations: operations.count) { operations[$0].start() }
+    }
+}
+
+/// The Set Pixels sheet and its fills, and the ROIs measured again after them.
+@MainActor enum ViewerROISetPixels {
+
+    /// Fills the sheet from the series and the selection and opens it: the
+    /// inside or outside choice is only offered with a ROI selected.
+    static func beginSheet(in viewer: ViewerController) {
+        let selectedRoi = viewer.selectedROI()
+
+        let first = viewerPix(viewer, 0, 0)
+        viewer.horos_maxValueText?.floatValue = first?.maxValueOfSeries ?? 0
+        viewer.horos_minValueText?.floatValue = first?.minValueOfSeries ?? 0
+        viewer.horos_newValueText?.floatValue = first?.minValueOfSeries ?? 0
+
+        if selectedRoi == nil {
+            viewer.horos_InOutROI?.isEnabled = false
+            viewer.horos_InOutROI?.selectCell(withTag: 1)
+
+            viewer.horos_AllROIsRadio?.cell(withTag: 1)?.isEnabled = false
+            viewer.horos_AllROIsRadio?.cell(withTag: 0)?.isEnabled = false
+
+            viewer.horos_AllROIsRadio?.selectCell(withTag: 2)
+        } else {
+            viewer.horos_InOutROI?.isEnabled = true
+
+            viewer.horos_AllROIsRadio?.selectCell(withTag: 0)
+            viewer.horos_AllROIsRadio?.cell(withTag: 1)?.isEnabled = true
+            viewer.horos_AllROIsRadio?.cell(withTag: 0)?.isEnabled = true
+        }
+
+        viewer.horos_setROI4DSeries?.isEnabled = viewer.horos_maxMovieIndex != 1
+
+        viewer.roiSetPixelsCheckButton(viewer)
+
+        ViewerROIPanels.beginSheet(viewer.horos_roiSetPixWindow, in: viewer)
+    }
+
+    /// Offers "restore" only where the pixels read from disk can be put back:
+    /// one time point, an unprocessed series, no value bounds, inside the
+    /// ROIs and not every pixel.
+    static func updateRestoreChoice(in viewer: ViewerController) {
+        var restoreAvailable = true
+        if (viewer.horos_setROI4DSeries?.state.rawValue ?? 0) != 0 && viewer.horos_maxMovieIndex > 1 { restoreAvailable = false }
+        if viewer.horos_postprocessed { restoreAvailable = false }
+        if (viewer.horos_checkMaxValue?.state.rawValue ?? 0) != 0 || (viewer.horos_checkMinValue?.state.rawValue ?? 0) != 0 {
+            restoreAvailable = false
+        }
+        if (viewer.horos_InOutROI?.selectedCell()?.tag ?? 0) != 0 { restoreAvailable = false }
+        if (viewer.horos_AllROIsRadio?.selectedCell()?.tag ?? 0) == 2 { restoreAvailable = false } // All pixels
+
+        if restoreAvailable {
+            viewer.horos_newValueMatrix?.cell(withTag: 1)?.isEnabled = true
+        } else {
+            viewer.horos_newValueMatrix?.cell(withTag: 1)?.isEnabled = false
+            viewer.horos_newValueMatrix?.selectCell(withTag: 0)
+        }
+    }
+
+    /// Closes the sheet and, when it was accepted (`tag` 1), sets the pixels
+    /// it asks for, then the window level and every ROI are computed again.
+    static func endSheet(_ tag: Int, sender: Any?, in viewer: ViewerController) {
+        for movie in 0..<Int(viewer.horos_maxMovieIndex) {
+            viewer.saveROI(movie)
+        }
+
+        viewer.horos_roiSetPixWindow?.orderOut(sender)
+        ViewerROIPanels.endSheet(viewer.horos_roiSetPixWindow, tag)
+        guard tag == 1 else { return }
+
+        // The last selected ROI of the image shown.
+        let selected = ViewerShownROIs(viewer).selected.last
+
+        let outside = (viewer.horos_InOutROI?.selectedCell()?.tag ?? 0) != 0
+        let allRois = Int16(truncatingIfNeeded: viewer.horos_AllROIsRadio?.selectedCell()?.tag ?? 0)
+
+        var minValue: Float = -Float.greatestFiniteMagnitude
+        var maxValue: Float = Float.greatestFiniteMagnitude
+        if viewer.horos_checkMaxValue?.state == .on { maxValue = viewer.horos_maxValueText?.floatValue ?? 0 }
+        if viewer.horos_checkMinValue?.state == .on { minValue = viewer.horos_minValueText?.floatValue ?? 0 }
+
+        let propagateIn4D = viewer.horos_setROI4DSeries?.state == .on
+        let newValue = viewer.horos_newValueText?.floatValue ?? 0
+        let revertToSaved = (viewer.horos_newValueMatrix?.selectedTag() ?? 0) != 0
+
+        viewer.roiSetPixels(selected, allRois, propagateIn4D, outside, minValue, maxValue, newValue, revertToSaved)
+
+        // The window level again, then every ROI measured again.
+        var level: Float = 0, width: Float = 0
+        viewer.horos_imageView?.getWLWW(&level, &width)
+        viewer.horos_imageView?.setWLWW(level, width)
+        recomputeROIs(in: viewer, level: level, width: width)
+
+        ViewerROIEdits.post(.OsirixUpdateVolumeData, viewer.horos_pixList(at: Int(viewer.horos_curMovieIndex)))
+    }
+
+    /// Measures every ROI of every time point again and, with a window level,
+    /// gives it to every image.
+    static func recomputeROIs(in viewer: ViewerController, level: Float? = nil, width: Float = 0) {
+        for movie in 0..<Int(viewer.horos_maxMovieIndex) {
+            let slices = ViewerROISlices(viewer, movie: movie)
+            for slice in 0..<viewerPixCount(viewer, movie) {
+                for roi in slices?.rois(at: slice) ?? [] {
+                    roi.recompute()
+                }
+                if let level { viewerPix(viewer, movie, slice)?.changeWLWW(level, width) }
             }
+        }
+    }
+
+    /// Sets the pixels `job` asks for, inside or outside the ROIs named as
+    /// `selected`, on the images of the current time point (and of every time
+    /// point in 4D), side by side; with `revert`, the pixels read from disk.
+    static func run(_ job: ROISetPixelsJob, selected: ROI?, in viewer: ViewerController) {
+        viewer.checkEverythingLoaded()
+
+        let splash = WaitRendering(NSLocalizedString("Filtering...", comment: ""))
+        splash?.showWindow(viewer)
+
+        NSLog("startSetPixel")
+
+        let movie = Int(viewer.horos_curMovieIndex)
+        let slices = ViewerROISlices(viewer, movie: movie)
+        let roisBySlice = (0..<viewerPixCount(viewer, movie)).map { slices?.rois(at: $0) ?? [] }
+        let fills = job.fills(movie: movie, movieCount: Int(viewer.horos_maxMovieIndex),
+                              roiNames: roisBySlice.map { $0.map(\.name) }, selectedName: selected?.name)
+        let work = fills.compactMap { fill -> ViewerROIPixelFill? in
+            guard let pix = viewerPix(viewer, fill.movie, fill.slice) else { return nil }
+            return ViewerROIPixelFill(pix: pix, roi: fill.roi.map { roisBySlice[fill.slice][$0] }, job: job, slice: fill.slice)
+        }
+
+        let first = viewerPix(viewer, movie, 0)
+        var restoreReady = true
+        if job.revert {
+            restoreReady = first?.prepareRestore() ?? false
+        }
+        if restoreReady && !work.isEmpty {
+            viewer.horos_roiLock?.lock()
+            ViewerROIPixelFill.runSideBySide(work)
+            viewer.horos_roiLock?.unlock()
+        }
+        if job.revert {
+            first?.freeRestore()
+        }
+
+        splash?.close()
+
+        if !restoreReady {
+            NSLog("roiSetPixels: restore cache unavailable - pixels left unchanged")
+            viewerROIAlert("Restore Content", "The original pixel data of this series could not be reloaded from disk. The images were left unchanged.")
+        }
+
+        NSLog("endSetPixel")
+    }
+
+    /// Runs the requests ({action, curPix, roi, …}) as ViewerControllerOperation
+    /// reads them, side by side, under the ROI lock.
+    static func run(requests: [NSDictionary], in viewer: ViewerController) {
+        guard !requests.isEmpty else { return }
+        let operations = requests.map { ViewerControllerOperation(controller: viewer, dict: $0) }
+        viewer.horos_roiLock?.lock()
+        ViewerROIPixelFill.runSideBySide(operations)
+        viewer.horos_roiLock?.unlock()
+    }
+}
+
+// MARK: - Finding and morphing
+
+/// The ROIs of a viewer found by name or comment, and the ROIs made between two.
+@MainActor enum ViewerROIQueries {
+
+    /// The names of the ROIs of the current time point, each once, in the
+    /// order they come; a ROI without a name raises, as adding its nil name did.
+    static func names(in viewer: ViewerController) -> [String] {
+        var names: [String] = []
+        for roi in viewerSeriesROIs(viewer, movie: Int(viewer.horos_curMovieIndex)) {
+            guard let name = roi.name else {
+                viewerRaiseNilInsertion()
+                continue
+            }
+            if !names.contains(where: { sameText($0, name) }) { names.append(name) }
+        }
+        return names
+    }
+
+    /// The ROIs of time point `movie` that `matching` accepts, each given the
+    /// image it is on.
+    static func rois(in viewer: ViewerController, movie: Int, matching: (ROI) -> Bool) -> [ROI] {
+        let slices = ViewerROISlices(viewer, movie: movie)
+        var found: [ROI] = []
+        for slice in 0..<viewerPixCount(viewer, movie) {
+            for roi in slices?.rois(at: slice) ?? [] where matching(roi) {
+                roi.pix = viewerPix(viewer, movie, slice)
+                found.append(roi)
+            }
+        }
+        return found
+    }
+
+    /// `roi` as a polygon of `points` points: a polygon or a pencil resampled,
+    /// a brush through its contour; nil for another kind of ROI.
+    static func isoContour(_ roi: ROI?, points: Int32, in viewer: ViewerController) -> ROI? {
+        var roi = roi
+        switch roi?.type {
+        case .tCPolygon?, .tOPolygon?, .tPencil?:
+            break
+        case .tPlain?:
+            roi = viewer.convertBrushROItoPolygon(roi, numPoints: points)
+        default:
+            return nil
+        }
+        roi?.points = ROI.resamplePoints(roi?.splinePoints() as? [Any], number: points)
+        return roi
+    }
+
+    /// The ROI between `a` and `b` at `ratio`: a length between two lengths,
+    /// otherwise a polygon (a brush when `a` is one) between their contours.
+    /// The inputs are copied before they are turned into polygons, and stay
+    /// as they were.
+    static func morphing(between a: ROI?, and b: ROI?, ratio: Float, in viewer: ViewerController) -> ROI? {
+        if a?.type == .tMesure && b?.type == .tMesure {
+            let measure = viewer.horos_unretainedNewROI(.tMesure)
+            measure?.addPoint(ROI.pointBetweenPoint(a?.point(at: 0) ?? .zero, and: b?.point(at: 0) ?? .zero, ratio: ratio))
+            measure?.addPoint(ROI.pointBetweenPoint(a?.point(at: 1) ?? .zero, and: b?.point(at: 1) ?? .zero, ratio: ratio))
+            styled(measure, like: a)
+            return measure
+        }
+
+        let input = a
+        let first = polygon(a?.copy() as? ROI)
+        let second = polygon(b?.copy() as? ROI)
+
+        // MAX of two NSUInteger, stored in an int, and a third more.
+        var maxPoints = Int32(truncatingIfNeeded: max(first?.points?.count ?? 0, second?.points?.count ?? 0))
+        maxPoints += maxPoints / 3
+
+        first?.isAliased = false
+        second?.isAliased = false
+
+        // A brush becomes a polygon through its contour; both get maxPoints points.
+        guard let a = isoContour(first, points: maxPoints, in: viewer),
+              let b = isoContour(second, points: maxPoints, in: viewer) else { return nil }
+
+        let aPoints = a.points ?? []
+        let bPoints = b.points ?? []
+        if aPoints.count != Int(maxPoints) || bPoints.count != Int(maxPoints) {
+            NSLog("***** NoOfPoints !")
+            return nil
+        }
+
+        var made = viewer.horos_unretainedNewROI(a.type == .tOPolygon ? .tOPolygon : .tCPolygon)
+        for index in 0..<aPoints.count {
+            let point = ROI.pointBetweenPoint((aPoints[index] as? MyPoint)?.point ?? .zero, and: (bPoints[index] as? MyPoint)?.point ?? .zero,
+                                              ratio: ratio)
+            made?.points?.add(MyPoint.point(point))
+        }
+
+        if input?.type == .tPlain {
+            made = viewer.convertPolygonROItoBrush(made)
+        }
+        styled(made, like: input)
+        return made
+    }
+
+    /// `roi` as a polygon with the same points: a length gets a middle point
+    /// and opens, a rectangle (no longer a spline) and an oval close.
+    private static func polygon(_ roi: ROI?) -> ROI? {
+        switch roi?.type {
+        case .tMesure?:
+            roi?.points?.insert(MyPoint.point(ROI.pointBetweenPoint(roi?.point(at: 0) ?? .zero, and: roi?.point(at: 1) ?? .zero, ratio: 0.5)), at: 1)
+            roi?.type = .tOPolygon
+        case .tROI?, .tOval?:
+            let points = roi?.points
+            if roi?.type == .tROI { roi?.isSpline = false }
+            roi?.type = .tCPolygon
+            roi?.points = points
+        default:
+            break
+        }
+        return roi
+    }
+
+    /// The colour, opacity, thickness and name of `model`.
+    private static func styled(_ roi: ROI?, like model: ROI?) {
+        roi?.rgbcolor = model?.rgbcolor ?? RGBColor()
+        roi?.opacity = model?.opacity ?? 0
+        roi?.thickness = model?.thickness ?? 0
+        roi?.name = model?.name
+    }
+}
+
+// MARK: - Panels and windows
+
+/// The ROI sheets of the viewer and the ROI windows it opens.
+@MainActor enum ViewerROIPanels {
+
+    /// Opens `sheet` on the viewer's window.
+    static func beginSheet(_ sheet: NSWindow?, in viewer: ViewerController) {
+        guard let sheet, let window = viewer.window else { return }
+        window.beginSheet(sheet, completionHandler: nil)
+    }
+
+    /// Ends `sheet` with `code`.
+    static func endSheet(_ sheet: NSWindow?, _ code: Int) {
+        guard let sheet else { return }
+        sheet.sheetParent?.endSheet(sheet, returnCode: NSApplication.ModalResponse(rawValue: code))
+    }
+
+    /// The ROIs a choice of the Rename or Apply panel covers.
+    static func rois(_ scope: ROISelection.Scope, in viewer: ViewerController) -> [ROI] {
+        switch scope {
+        case .image:
+            return ViewerShownROIs(viewer).rois
+        case .series:
+            return (0..<Int(viewer.horos_maxMovieIndex)).flatMap { viewerSeriesROIs(viewer, movie: $0) }
+        case .selected:
+            return ViewerShownROIs(viewer).selected
+        case .sameNameAsSelected:
+            guard let name = ViewerShownROIs(viewer).selected.first?.name else { return [] }
+            return rois(.series, in: viewer).filter { sameText($0.name, name) }
+        }
+    }
+
+    /// Computes the volume of the selected ROI's name (`tag` 0), or generates
+    /// the ROIs missing between them (`tag` 1), after saving every time point.
+    static func volume(_ tag: Int, in viewer: ViewerController) {
+        _ = viewer.computeInterval()
+        viewer.displayAWarningIfNonTrueVolumicData()
+
+        for movie in 0..<Int(viewer.horos_maxMovieIndex) {
+            viewer.saveROI(movie)
+        }
+
+        guard let selected = viewer.selectedROI() else {
+            return viewerROIAlert("ROIs Volume Error", "Select a ROI to compute volume of all ROIs with the same name.")
+        }
+
+        // The slice locations must be available and evenly spaced.
+        var preLocation: Float = 0, interval: Float = 0
+        for case let pix as DCMPix in viewer.horos_pixList(at: Int(viewer.horos_curMovieIndex)) ?? [] {
+            if preLocation != 0 {
+                // double - float - float, computed in double as C did.
+                if interval != 0 && fabs(pix.sliceLocation - Double(preLocation) - Double(interval)) > 1.0 {
+                    return viewerROIAlert("ROIs Volume Error", "Slice Interval is not constant!")
+                }
+                interval = Float(pix.sliceLocation - Double(preLocation))
+            }
+            preLocation = Float(pix.sliceLocation)
+        }
+
+        NSLog("Slice Interval : %f", Double(interval))
+
+        if tag == 0 && interval == 0 { // Compute Volume
+            return viewerROIAlert("ROIs Volume Error", "Slice Locations not available to compute a volume.")
+        }
+
+        viewer.add(toUndoQueue: "roi")
+
+        let splash = WaitRendering(NSLocalizedString("Preparing data...", comment: ""))
+        splash?.showWindow(viewer)
+
+        if tag == 0 {
+            if let controller = ROIVolumeController(roi: selected, viewer: viewer) {
+                // Not released: the controller releases itself when its window closes.
+                _ = Unmanaged.passRetained(controller)
+                controller.showWindow(viewer)
+                controller.window?.center()
+            }
+        } else if tag == 1 {
+            _ = viewer.computeVolume(selected, points: nil, generateMissingROIs: true, generatedROIs: nil, computeData: nil, error: nil)
+            if (viewer.rois(withComment: "morphing generated")?.count ?? 0) == 0 {
+                viewerROIAlert("ROIs Volume Error", "The missing ROIs were not created : this feature does not work with ROIs that don't contain an area.")
+            }
+        }
+
+        splash?.close()
+    }
+
+    /// Closes the Rename sheet and, when it was accepted (`tag` 1), renames
+    /// the ROIs of its choice, each announced.
+    static func endRename(_ tag: Int, sender: Any?, in viewer: ViewerController) {
+        viewer.horos_roiRenameWindow?.orderOut(sender)
+        endSheet(viewer.horos_roiRenameWindow, tag)
+        guard tag == 1, let scope = ROISelection.Scope(rawValue: viewer.horos_roiRenameMatrix?.selectedCell()?.tag ?? 0),
+              scope != .sameNameAsSelected else { return }
+        for roi in rois(scope, in: viewer) {
+            roi.name = viewer.horos_roiRenameName?.stringValue
+            ViewerROIEdits.post(.OsirixROIChange, roi)
+        }
+    }
+
+    /// Runs the Apply panel, modal on the viewer, and answers the ROIs its
+    /// choice covers when it is accepted; none otherwise.
+    static func runApplyPanel(sender: Any?, in viewer: ViewerController) -> [ROI] {
+        beginSheet(viewer.horos_roiApplyWindow, in: viewer)
+        let result = viewer.horos_roiApplyWindow.map { NSApp.runModal(for: $0) }
+        endSheet(viewer.horos_roiApplyWindow, 0)
+        viewer.horos_roiApplyWindow?.orderOut(sender)
+
+        guard result == .stop, let scope = ROISelection.Scope(rawValue: viewer.horos_roiApplyMatrix?.selectedCell()?.tag ?? 0) else {
+            return []
+        }
+        return rois(scope, in: viewer)
+    }
+
+    /// Deletes the unlocked ROIs of every image and time point, each
+    /// announced, as one undo step.
+    static func deleteAllUnlocked(in viewer: ViewerController) {
+        viewer.add(toUndoQueue: "roi")
+        viewer.horos_imageView?.stopROIEditingForce(true)
+
+        for movie in 0..<Int(viewer.horos_maxMovieIndex) {
+            guard let slices = ViewerROISlices(viewer, movie: movie) else { continue }
+            for index in 0..<slices.count {
+                guard let list = slices.list(at: index) else { continue }
+                for roi in slices.rois(at: index).reversed() where !roi.locked {
+                    ViewerROIEdits.post(.OsirixRemoveROI, roi)
+                    list.remove(roi)
+                }
+            }
+        }
+
+        if let imageView = viewer.horos_imageView {
+            imageView.setIndex(imageView.curImage)
+        }
+    }
+
+    /// Brings to the front the windows of nib `nib` whose controller is not
+    /// closing and shows `roi` (any of them without one); whether there was one.
+    private static func bringWindows(nib: String, showing roi: ROI?, in viewer: ViewerController) -> Bool {
+        var found = false
+        for window in NSApp.windows {
+            let controller = window.windowController
+            guard controller?.windowNibName == nib && !horosWindowControllerIsClosing(controller) else { continue }
+            if let roi, ((controller as AnyObject?)?.curROI?() as AnyObject?) !== roi { continue }
+            found = true
+            controller?.window?.makeKeyAndOrderFront(viewer)
+            if roi == nil { break }
+        }
+        return found
+    }
+
+    /// Shows the histogram of every selected ROI of the image shown, in its
+    /// window if one is open.
+    static func showHistograms(in viewer: ViewerController) {
+        for roi in ViewerShownROIs(viewer).selected where !bringWindows(nib: "Histogram", showing: roi, in: viewer) {
+            let window = HistoWindow(roi: roi)
+            // Not released: the controller releases itself when its window closes.
+            _ = Unmanaged.passRetained(window)
+            window.showWindow(viewer)
+        }
+    }
+
+    /// Shows the information of the first selected ROI of the image shown, in
+    /// its window if one is open.
+    static func showInfo(in viewer: ViewerController) {
+        // NSUInteger <= short: the comparison C made, in unsigned long.
+        let shown = ViewerShownROIs(viewer)
+        if UInt(viewer.horos_roiList(at: Int(viewer.horos_curMovieIndex))?.count ?? 0) <= UInt(bitPattern: shown.index) { return }
+        guard let roi = shown.selected.first, !bringWindows(nib: "ROI", showing: roi, in: viewer) else { return }
+        let window = ROIWindow(roi: roi, viewer)
+        // Not released: the controller releases itself when its window closes.
+        _ = Unmanaged.passRetained(window)
+        window.showWindow(viewer)
+    }
+
+    /// Shows the ROI defaults window, the one open if there is one.
+    static func showDefaults(in viewer: ViewerController) {
+        guard !bringWindows(nib: "ROIDefaults", showing: nil, in: viewer) else { return }
+        let window = ROIDefaultsWindow(controller: viewer)
+        // Not released: the controller releases itself when its window closes.
+        _ = Unmanaged.passRetained(window)
+        window.showWindow(viewer)
+    }
+}
+
+// MARK: - Tool palette
+
+/// The ROI tool of the viewer's tool palette.
+@MainActor enum ViewerROIToolPalette {
+
+    /// Shows `tool` in the palette's last cell and selects that cell, without
+    /// choosing the tool for a mouse button.
+    static func show(_ tool: ToolMode, in viewer: ViewerController) {
+        let cell = viewer.horos_toolsMatrix?.cell(atRow: 0, column: 5)
+        cell?.tag = Int(tool.rawValue)
+        // The image is computed before the message, as Objective-C evaluated
+        // the argument even for a nil cell.
+        let image = viewer.image(forROI: tool)
+        cell?.image = image
+        cell?.image?.size = ToolsMenuIconSize
+
+        viewer.horos_toolsMatrix?.selectCell(atRow: 0, column: 5)
+    }
+
+    /// Shows `tool` in the palette and makes it the default tool.
+    static func choose(_ tool: ToolMode, in viewer: ViewerController) {
+        show(tool, in: viewer)
+        viewer.setDefaultToolMenu(viewer.horos_toolsMatrix?.selectedCell())
+    }
+
+    /// The tool of `sender`'s tag: with the middle button chosen in the
+    /// toolbar, it is that button's and the left button keeps its own; a menu
+    /// item also makes it the default tool.
+    static func choose(from sender: Any?, in viewer: ViewerController) {
+        let tool = ToolMode(rawValue: Int16(truncatingIfNeeded: ViewerSender.tag(sender)))!
+        if viewer.middleButtonSelectedInToolbar {
+            show(tool, in: viewer)
+            viewer.setDefaultTool(sender)
+            return
+        }
+        choose(tool, in: viewer)
+        if sender is NSMenuItem {
+            viewer.setDefaultTool(sender)
         }
     }
 }

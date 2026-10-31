@@ -226,6 +226,24 @@ final class VRView: NSView {
 
 /// The editors' VRView: the outlet is weak.
 let harnessVRView = VRView(frame: .zero)
+
+// The graphs the editor reaches the browser's database through: the graph of
+// the VR window's viewer, and the process's for the class methods. Both hand
+// out the double browser's database, which exists only with a CLUT folder.
+final class BrowserWindowGraph {
+    var database: DicomDatabase? { BrowserController.currentBrowser()?.database }
+}
+
+final class OSIWindowController {
+    static func browserWindowGraph(serving object: Any?) -> BrowserWindowGraph? {
+        BrowserController.currentBrowser() == nil ? nil : BrowserWindowGraph()
+    }
+}
+
+struct BrowserDatabaseSource {
+    static let process = BrowserDatabaseSource()
+    var browserDatabase: DicomDatabase? { BrowserController.currentBrowser()?.database }
+}
 '''
 
 main = r'''

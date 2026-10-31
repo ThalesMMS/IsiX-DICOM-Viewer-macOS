@@ -11,12 +11,12 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXPreferences
 import Synchronization
 
 /// Retains the grants for selected database and import folders across launches.
 @objc(IsisSandboxFileAccess)
 public final class SandboxFileAccess: NSObject {
-    private static let bookmarksKey = "SandboxFolderBookmarks"
     private struct Grant: Sendable {
         let url: URL
         let started: Bool
@@ -32,9 +32,9 @@ public final class SandboxFileAccess: NSObject {
             do {
                 let data = try url.bookmarkData(options: .withSecurityScope,
                                                includingResourceValuesForKeys: nil, relativeTo: nil)
-                var bookmarks = UserDefaults.standard.dictionary(forKey: bookmarksKey) ?? [:]
-                bookmarks[path] = data
-                UserDefaults.standard.set(bookmarks, forKey: bookmarksKey)
+                var bookmarks = PreferencesSource.process.preferences[DatabasePreferences.sandboxFolderBookmarks] ?? [:]
+                bookmarks[path] = .data(data)
+                PreferencesSource.process.preferences.set(bookmarks, for: DatabasePreferences.sandboxFolderBookmarks)
                 if let previous = active[path], previous.started {
                     previous.url.stopAccessingSecurityScopedResource()
                 }
@@ -54,9 +54,9 @@ public final class SandboxFileAccess: NSObject {
     @objc public static func restore() {
         #if MACAPPSTORE
         activeURLs.withLock { active in
-            var bookmarks = UserDefaults.standard.dictionary(forKey: bookmarksKey) ?? [:]
+            var bookmarks = PreferencesSource.process.preferences[DatabasePreferences.sandboxFolderBookmarks] ?? [:]
             for (path, value) in bookmarks {
-                guard active[path] == nil, let data = value as? Data else { continue }
+                guard active[path] == nil, case .data(let data) = value else { continue }
                 do {
                     var stale = false
                     let url = try URL(resolvingBookmarkData: data, options: .withSecurityScope,
@@ -64,14 +64,14 @@ public final class SandboxFileAccess: NSObject {
                     guard url.startAccessingSecurityScopedResource() else { continue }
                     active[path] = Grant(url: url, started: true)
                     if stale {
-                        bookmarks[path] = try url.bookmarkData(options: .withSecurityScope,
-                                                             includingResourceValuesForKeys: nil, relativeTo: nil)
+                        bookmarks[path] = .data(try url.bookmarkData(options: .withSecurityScope,
+                                                                    includingResourceValuesForKeys: nil, relativeTo: nil))
                     }
                 } catch {
                     NSLog("Unable to restore folder access: %@", error.localizedDescription)
                 }
             }
-            UserDefaults.standard.set(bookmarks, forKey: bookmarksKey)
+            PreferencesSource.process.preferences.set(bookmarks, for: DatabasePreferences.sandboxFolderBookmarks)
         }
         #endif
     }

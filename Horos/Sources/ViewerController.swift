@@ -85,16 +85,21 @@ public final class ViewerController: OSIWindowController {
     let seriesListState = ViewerSeriesListState()
     /// The movie, DICOM and print exports.
     let exportState = ViewerExportState()
+    /// The viewer's graph, made by the initializer: the process graph, the
+    /// preferences, the register of the viewers, and the viewer's life.
+    private(set) var sessionGraph: ViewerSessionGraph!
 
     // MARK: - Shared by the viewers
 
-    /// SYNCSERIES: the series of the viewers are synchronized.
-    private static var syncSeries = false
     /// The inverted display of the system, read when a viewer's nib wakes.
     private static var displayUseInvertedPolarity = false
 
-    class func horos_SYNCSERIES() -> Bool { syncSeries }
-    class func horos_setSYNCSERIES(_ value: Bool) { syncSeries = value }
+    /// SYNCSERIES: the series of the viewers of different studies are
+    /// locked, which the process's ViewerSyncState keeps.
+    class func horos_SYNCSERIES() -> Bool { processGraph.viewerSync.seriesLocked }
+    class func horos_setSYNCSERIES(_ value: Bool) { processGraph.viewerSync.seriesLocked = value }
+    /// Whether the "Sync" button works between studies (ViewerSyncState).
+    class func horos_syncButtonBehaviorIsBetweenStudies() -> Bool { processGraph.viewerSync.betweenStudies }
     /// The identifier of the play item, which -PlayStop: still uses.
     class func horos_PlayToolbarItemIdentifier() -> String { "Play.pdf" }
     class func horos_DisplayUseInvertedPolarity() -> Bool { displayUseInvertedPolarity }
@@ -104,10 +109,37 @@ public final class ViewerController: OSIWindowController {
 
     /// The viewer of the slices `f`, the files `d` and the volume `v`, with
     /// Viewer.nib. The volume is the NSData itself (Data would be a copy).
+    /// Every viewer comes here, the plugins' too: this is where its graph is
+    /// composed, from the graph of the process.
     @objc(initWithPix:withFiles:withVolume:)
     public convenience init(pix f: NSMutableArray!, withFiles d: NSMutableArray!, withVolume v: NSData!) {
-        self.init(windowNibName: "Viewer")
+        self.init(windowNibName: "Viewer", processGraph: ProcessGraph.process)
         horosFinishInitialization(pix: f, files: d, volume: v)
+    }
+
+    /// The window controller of `windowNibName` and its graph over `processGraph`.
+    convenience init(windowNibName: String, processGraph: ProcessGraph) {
+        self.init(windowNibName: windowNibName)
+        sessionGraph = ViewerSessionGraph(viewer: self, processGraph: processGraph)
+    }
+
+    /// The graph the class methods use, which run without a viewer: the
+    /// plugins and the other windows ask them for the process's viewers.
+    nonisolated static let processGraph = ProcessGraph.process
+
+    /// The register of the process's viewers, which any thread reads.
+    nonisolated static var viewerRegistry: ViewerRegistry {
+        processGraph.viewerRegistry
+    }
+
+    /// The window controller's window; whether it is the full screen one is
+    /// published to the register, which other threads read instead of the window.
+    public override var window: NSWindow? {
+        get { super.window }
+        set {
+            super.window = newValue
+            ViewerController.viewerRegistry.setFullScreen(newValue is NSFullScreenWindow, for: ObjectIdentifier(self))
+        }
     }
 
     isolated deinit {
@@ -151,12 +183,6 @@ public final class ViewerController: OSIWindowController {
         let study = studyInstanceUID() as NSString?
         let date = horos_imageView.flatMap { ($0 as NSObject).value(forKeyPath: "studyObj.date") } as AnyObject?
         return "ViewerController: \(study.map { $0 as String } ?? "(null)"), \(date.map { String(describing: $0) } ?? "(null)")"
-    }
-
-    /// For backward compatibility: the index itself.
-    @objc(indexForPix:)
-    public func indexForPix(_ pixIndex: Int) -> Int {
-        return pixIndex
     }
 }
 

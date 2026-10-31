@@ -39,8 +39,13 @@
 
 import CoreData
 import Foundation
+import IsiXPreferences
 
-// TODO: NSUserDefaults access for keys @"logWebServer", @"notificationsEmailsSender" and @"lastNotificationsDate" must be replaced with WebPortal properties
+/// The preferences of the portal's emails and log, from the one source of the objects the process graph does not reach.
+private var emailLogPreferences: UserDefaults { PreferencesSource.process.preferences }
+
+/// The sender of the portal's emails as the Sender header carries it: empty when none is set.
+private var emailLogSender: String { emailLogPreferences[WebPortalPreferences.notificationsEmailsSender] ?? "" }
 
 /// The NSException an HorosObjCException error carries, or the error itself,
 /// for %@.
@@ -50,7 +55,12 @@ private func emailLogCaught(_ error: Error) -> NSObject {
 
 /// -setObject:forKey:, which raised NSInvalidArgumentException on a nil object.
 private func emailLogSetObject(_ object: Any?, forKey key: String, in dictionary: NSMutableDictionary) {
-    dictionary.perform(#selector(NSMutableDictionary.setObject(_:forKey:)), with: object, with: key)
+    guard let object else {
+        NSException(name: .invalidArgumentException, reason: "*** -[__NSDictionaryM setObject:forKey:]: object cannot be nil (key: \(key))",
+                    userInfo: nil).raise()
+        return
+    }
+    dictionary.setObject(object, forKey: key as NSString)
 }
 
 /// +dictionaryWithObjectsAndKeys:, whose list ended at the first nil object.
@@ -86,12 +96,10 @@ extension WebPortal {
     public func sendEmailOnMainThread(_ dict: NSDictionary!) {
         autoreleasepool {
             let ts = dict?.object(forKey: "template")
-            let messageHeaders = dict?.object(forKey: "headers")
+            let messageHeaders = dict?.object(forKey: "headers") as? NSDictionary
 
-            // -deliverMessage:headers: of the objects themselves, not of copies
-            // bridged through Swift. Its BOOL answer was not read.
-            let client = CSMailMailClient.mailClient() as NSObject?
-            _ = client?.perform(#selector(CSMailMailClient.deliverMessage(_:headers:)), with: ts, with: messageHeaders)
+            // Its BOOL answer was not read.
+            _ = CSMailMailClient.mailClient()?.deliverMessage(ts as? String, headers: messageHeaders)
         }
     }
 
@@ -102,10 +110,7 @@ extension WebPortal {
 
     @objc(sendNotificationsEmailsTo:aboutStudies:predicate:customText:from:)
     public func sendNotificationsEmails(to users: [Any]!, aboutStudies filteredStudies: [Any]!, predicate: String!, customText: String!, from: WebPortalUser!) -> Bool {
-        var fromEmailAddress = UserDefaults.standard.value(forKey: "notificationsEmailsSender")
-        if fromEmailAddress == nil {
-            fromEmailAddress = ""
-        }
+        let fromEmailAddress = emailLogSender
 
         for case let user as WebPortalUser in (users as NSArray?) ?? [] {
             let tokens = NSMutableDictionary()
@@ -182,17 +187,21 @@ extension WebPortal {
             return
         }
 
-        if !UserDefaults.standard.bool(forKey: "passwordWebServer") {
+        let preferences = emailLogPreferences
+        if !preferences[WebPortalPreferences.requiresAuthentication] {
             return
         }
 
         // Lets check if new studies are available for each users! and if temporary users reached the end of their life.....
 
-        let lastCheckDate = Date(timeIntervalSinceReferenceDate: UserDefaults.standard.double(forKey: "lastNotificationsDate"))
+        // Stored as the text of the number, as it always was.
+        let lastCheck = WebPortalPreferences.lastNotificationsDate
+        let lastCheckText = lastCheck.reading(as: String?.self)
+        let lastCheckDate = Date(timeIntervalSinceReferenceDate: preferences[lastCheck])
         let newCheckString = String(format: "%lf", Date.timeIntervalSinceReferenceDate)
 
-        if UserDefaults.standard.object(forKey: "lastNotificationsDate") == nil {
-            UserDefaults.standard.setValue(String(format: "%lf", Date.timeIntervalSinceReferenceDate), forKey: "lastNotificationsDate")
+        if preferences[lastCheck.reading(as: PropertyListValue?.self)] == nil {
+            preferences.set(String(format: "%lf", Date.timeIntervalSinceReferenceDate), for: lastCheckText)
             return
         }
 
@@ -213,13 +222,13 @@ extension WebPortal {
                         let users = database?.objects(forEntity: database?.userEntity())
 
                         for case let user as WebPortalUser in (users as NSArray?) ?? [] {
-                            if (user.value(forKey: "emailNotification") as? NSNumber)?.boolValue == true,
-                               ((user.value(forKey: "email") as? NSString)?.length ?? 0) > 2 {
+                            if user.emailNotification?.boolValue == true,
+                               ((user.email as NSString?)?.length ?? 0) > 2 {
                                 var filteredStudies = studies
 
                                 do {
                                     try HorosObjCException.perform {
-                                        filteredStudies = studies?.filtered(using: DicomDatabase.predicate(forSmartAlbumFilter: user.value(forKey: "studyPredicate") as? String)) as NSArray?
+                                        filteredStudies = studies?.filtered(using: DicomDatabase.predicate(forSmartAlbumFilter: user.studyPredicate)) as NSArray?
 
                                         if ((user.studyPredicate as NSString?)?.length ?? 0) != 0 {
                                             filteredStudies = user.arrayByAddingSpecificStudies(to: filteredStudies as? [Any]) as NSArray?
@@ -249,12 +258,12 @@ extension WebPortal {
 
         }
 
-        UserDefaults.standard.setValue(newCheckString, forKey: "lastNotificationsDate")
+        preferences.set(newCheckString, for: lastCheckText)
     }
 
     @objc(updateLogEntryForStudy:withMessage:forUser:ip:)
     public func updateLogEntry(forStudy study: NSManagedObject!, withMessage message: String!, forUser user: String!, ip: String!) {
-        if !UserDefaults.standard.bool(forKey: "logWebServer") { return }
+        if !emailLogPreferences[WebPortalPreferences.logsActivity] { return }
 
         // The database of this thread, used inside its queue.
         let independentDatabase: DicomDatabase? = self.threadDicomDatabase()
@@ -270,7 +279,7 @@ extension WebPortal {
                 }
 
                 if ip == nil {
-                    ip = AppController.shared()?.privateIP()
+                    ip = String(utf8String: GetPrivateIP())
                 }
 
                 // Search for same log entry during last 5 min
@@ -282,11 +291,9 @@ extension WebPortal {
                 logs = independentDatabase?.objects(forEntity: independentDatabase?.logEntryEntity(), predicate: predicate) as NSArray?
 
                 if (logs?.count ?? 0) == 0 {
-                    // -newObjectForEntity: answers an autoreleased object, although its
-                    // name puts it in the "new" family, whose result Swift would release.
-                    let logEntry = independentDatabase?
-                        .perform(#selector(N2ManagedDatabase.newObject(forEntity:)), with: independentDatabase?.logEntryEntity())?
-                        .takeUnretainedValue() as? NSManagedObject
+                    // -newObjectForEntity: answers an autoreleased object, which its
+                    // declaration tells Swift (NS_RETURNS_NOT_RETAINED).
+                    let logEntry = independentDatabase?.newObject(forEntity: independentDatabase?.logEntryEntity()) as? NSManagedObject
                     logEntry?.setValue(Date(), forKey: "startTime")
                     logEntry?.setValue(Date(), forKey: "endTime")
                     logEntry?.setValue("Web", forKey: "type")
@@ -362,11 +369,7 @@ extension WebPortal {
             let messageHeaders = NSMutableDictionary()
             emailLogSetObject(user?.email, forKey: "To", in: messageHeaders)
 
-            if let sender = UserDefaults.standard.value(forKey: "notificationsEmailsSender") {
-                messageHeaders.setObject(sender, forKey: "Sender" as NSString)
-            } else {
-                messageHeaders.setObject("", forKey: "Sender" as NSString)
-            }
+            messageHeaders.setObject(emailLogSender, forKey: "Sender" as NSString)
             messageHeaders.setObject(emailSubject, forKey: "Subject" as NSString)
 
             // NSAttributedString initWithHTML is NOT thread-safe

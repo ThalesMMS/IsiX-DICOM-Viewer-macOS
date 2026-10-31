@@ -136,6 +136,7 @@ with tempfile.TemporaryDirectory(prefix='horos-pages-fields-') as folder:
     built = subprocess.run(['xcrun', 'swiftc', '-sanitize=address',
                             str(root / 'Horos/Sources/PagesDocumentFill.swift'),
                             str(root / 'Horos/Sources/PagesApplication.swift'),
+                            str(root / 'Horos/Sources/MainActorCallbacks.swift'),
                             str(p / 'main.swift'), '-o', str(p / 'test')])
     if built.returncode:
         failures.append('the production PagesDocumentFill did not compile')

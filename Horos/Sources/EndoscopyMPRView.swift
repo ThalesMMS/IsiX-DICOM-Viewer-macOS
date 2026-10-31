@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 import UniformTypeIdentifiers
 
 // The OpenGL enumerants ROICanvasGL.h names, which Swift cannot import: that
@@ -325,8 +326,7 @@ public final class EndoscopyMPRView: OrthogonalMPRView {
         return false
     }
 
-    @objc(mouseOnFocal:)
-    private dynamic func mouseOnFocal(_ theEvent: NSEvent?) -> Bool {
+    private func mouseOnFocal(_ theEvent: NSEvent?) -> Bool {
         return self.onFocalHandle(self.imagePoint(theEvent))
     }
 
@@ -591,7 +591,7 @@ public final class EndoscopyMPRView: OrthogonalMPRView {
 
         bitmapData = NSBitmapImageRep.representationOfImageReps(in: representations ?? [], using: .jpeg, properties: [.compressionFactor: NSDecimalNumber(value: Float(0.9))])
 
-        let path = ((BrowserController.currentBrowser()?.database?.tempDirPath() as NSString?)?.appendingPathComponent("IsiX DICOM Viewer.jpg"))
+        let path = (OSIWindowController.browserWindowGraph(serving: self)?.database?.tempDirPath() as NSString?)?.appendingPathComponent("IsiX DICOM Viewer.jpg")
         if let path = path {
             (bitmapData as NSData?)?.write(toFile: path, atomically: true)
         }
@@ -631,7 +631,7 @@ public final class EndoscopyMPRView: OrthogonalMPRView {
                 (bitmapData as NSData?)?.write(toFile: path, atomically: true)
             }
 
-            if UserDefaults.standard.bool(forKey: "OPENVIEWER") {
+            if self.preferenceStore[ReconstructionPreferences.opensViewer] {
                 if let url = panel.url {
                     NSWorkspace.shared.open(url)
                 }
@@ -644,14 +644,14 @@ public final class EndoscopyMPRView: OrthogonalMPRView {
         if (sender as? NSObject)?.isEqual(self.window?.windowController) ?? false {
             let curPix = self.curDCM
 
-            let annotCopy = UserDefaults.standard.integer(forKey: "ANNOTATIONS"),
-                clutBarsCopy = UserDefaults.standard.integer(forKey: "CLUTBARS")
+            let annotCopy = self.preferenceStore[ViewerPreferences.annotations],
+                clutBarsCopy = self.preferenceStore[ViewerPreferences.clutBars]
             var width = 0, height = 0, spp = 0, bpp = 0
             var cwl: Float = 0, cww: Float = 0
             var o = [Float](repeating: 0, count: 9)
 
-            UserDefaults.standard.set(annotGraphics, forKey: "ANNOTATIONS")
-            UserDefaults.standard.set(barHide, forKey: "CLUTBARS")
+            self.preferenceStore.set(Int(annotGraphics), for: ViewerPreferences.annotations)
+            self.preferenceStore.set(Int(barHide), for: ViewerPreferences.clutBars)
             DCMView.setDefaults()
 
             let producedFiles = NSMutableArray()
@@ -694,29 +694,12 @@ public final class EndoscopyMPRView: OrthogonalMPRView {
                 free(data)
             }
 
-            UserDefaults.standard.set(annotCopy, forKey: "ANNOTATIONS")
-            UserDefaults.standard.set(clutBarsCopy, forKey: "CLUTBARS")
+            self.preferenceStore.set(annotCopy, for: ViewerPreferences.annotations)
+            self.preferenceStore.set(clutBarsCopy, for: ViewerPreferences.clutBars)
             DCMView.setDefaults()
 
             if producedFiles.count > 0 {
-                let database = BrowserController.currentBrowser()?.database
-                var objects = database?.addFiles(atPaths: producedFiles.value(forKey: "file") as? [Any],
-                                                 postNotifications: true,
-                                                 dicomOnly: true,
-                                                 rereadExistingItems: true,
-                                                 generatedByOsiriX: true)
-
-                objects = database?.objects(withIDs: objects)
-
-                if UserDefaults.standard.bool(forKey: "afterExportSendToDICOMNode") {
-                    BrowserController.currentBrowser()?.selectServer(objects)
-                }
-
-                if UserDefaults.standard.bool(forKey: "afterExportMarkThemAsKeyImages") {
-                    for case let im as NSManagedObject in (objects as NSArray?) ?? NSArray() {
-                        im.setValue(NSNumber(value: true), forKey: "isKeyImage")
-                    }
-                }
+                GeneratedSeriesImport.process.add(producedFiles.value(forKey: "file") as? [Any] ?? [])
             }
         } else {
             let v = peer(self.window?.windowController)

@@ -11,8 +11,8 @@ database until the app restarts.
 
 This compiles the production -refresh:, -executeRefresh:, -applyNewStudyArray:,
 -computeStudyArrayInstanceUID: and the shared index, taken from the Swift of the
-Query window, with the browser, the database reader and the delayed perform
-substituted, and runs: a refresh with no database, then one with a database,
+Query window, with the process graph's browser database, the database reader
+and the delayed perform substituted, and runs: a refresh with no database, then one with a database,
 then another.
 """
 from pathlib import Path
@@ -69,14 +69,18 @@ index_enum = member('enum LocalStudyIndex {')
 HARNESS = r'''
 import AppKit
 import CoreData
+import Synchronization
 
 // What the production methods use of the rest of the app. The browser's
-// database is nil during a rebuild; the reader returns an empty index.
+// database, which the window's workers read through the process graph, is nil
+// during a rebuild; the reader returns an empty index.
 final class N2ManagedDatabase: NSObject {}
 final class Browser: NSObject { var database: N2ManagedDatabase? }
 enum BrowserController {
     nonisolated(unsafe) static var browser = Browser()
-    static func currentBrowser() -> Browser? { browser }
+}
+final class ProcessGraph: Sendable {
+    var browserDatabase: N2ManagedDatabase? { BrowserController.browser.database }
 }
 final class StudyIndex { var objectIDs: [NSManagedObjectID] = []; var studyInstanceUIDs: [Any] = [] }
 enum HorosLocalQueryReader {
@@ -86,17 +90,25 @@ enum HorosLocalQueryReader {
 
 @MainActor public final class QueryController: NSObject {
     nonisolated(unsafe) var DatabaseIsEdited = false
+    nonisolated var workerGraph: ProcessGraph? { ProcessGraph() }
     nonisolated(unsafe) var reloads = 0
+    /// The window's delayed calls, which only count what is asked of them.
+    let deferredCalls = DeferredCalls()
     /// The delayed refreshes -refresh: asked for.
-    nonisolated(unsafe) var scheduled: [Selector] = []
+    var scheduled: [String] { deferredCalls.scheduled }
+    nonisolated static let studyIndexQueue = DispatchQueue(label: "test.studyIndex", attributes: .concurrent)
     var window: NSWindow? { nil }
     nonisolated class func current() -> QueryController? { nil }
     nonisolated class func currentAuto() -> QueryController? { nil }
     func reloadResultsAfterLocalChange() { reloads += 1 }
     func readLocalSnapshot() {}
-    override public func perform(_ aSelector: Selector, with anArgument: Any?, afterDelay delay: TimeInterval) {
-        scheduled.append(aSelector)
-    }
+}
+
+@MainActor final class DeferredCalls {
+    nonisolated init() {}
+    var scheduled: [String] = []
+    func perform(_ name: String, after delay: TimeInterval, _ body: @escaping @MainActor () -> Void) { scheduled.append(name) }
+    func cancel(_ name: String) {}
 }
 
 extension QueryController {

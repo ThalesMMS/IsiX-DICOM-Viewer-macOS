@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 
 /// Window with only a toolbar
 ///
@@ -86,7 +87,7 @@ public final class ToolBarNSWindow: NSPanel {
     }
 
     public override func orderOut(_ sender: Any?) {
-        if UserDefaults.standard.bool(forKey: "hideToolbarIfNotActive") == false && AppController.usetoolbarpanel() == true {
+        if PreferencesSource.process.preferences[ApplicationPreferences.hidesToolbarIfNotActive] == false && AppController.usetoolbarpanel() == true {
 
             let v = ViewerController.frontMostDisplayed2DViewer(for: self.screen)
             // The front viewer keeps its panel, except in full screen, where

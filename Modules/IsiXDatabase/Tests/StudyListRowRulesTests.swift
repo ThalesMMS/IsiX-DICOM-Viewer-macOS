@@ -72,7 +72,14 @@ import Testing
         #expect(StudyListEdit.write(key: "lockedStudy", value: "1", rowType: { "Series" }) == .skip)
         #expect(StudyListEdit.write(key: "lockedStudy", value: 1, rowType: { "Study" }) == .locked(true))
         #expect(StudyListColumns.menuOrder(titles: ["b", "a", "c"]) == [1, 0, 2])
-        #expect((StudyListColumns.saved(titles: ["A", "", "B"], states: [1, 1, 0]) as NSDictionary) == ["A": 1, "B": 0] as NSDictionary)
+        #expect(StudyListColumns.saved(titles: ["A", "", "B"], states: [1, 1, 0]) == ["A": 1, "B": 0])
+        #expect(StudyListColumns.saved(titles: ["A", "A"], states: [1, 0]) == ["A": 0])
+        // Equal titles keep the order of the columns.
+        #expect(StudyListColumns.menuOrder(titles: ["b", "", "a", "", "b"]) == [1, 3, 2, 0, 4])
+        #expect(StudyListColumns.column(titled: "Date", in: ["Name", "Date"]) == 1)
+        #expect(StudyListColumns.column(titled: "e\u{301}", in: ["\u{e9}"]) == nil)
+        #expect(StudyListColumns.savedIsReadable(nil) && StudyListColumns.savedIsReadable(["Name": 1]))
+        #expect(StudyListColumns.savedIsReadable("Name") == false && StudyListColumns.savedIsReadable([1, 2]) == false)
         #expect(StudyListColumns.change(visible: true, saved: 1, isSelectedColumn: { true }) == nil)
         #expect(StudyListColumns.change(visible: true, saved: 0, isSelectedColumn: { true })
                 == StudyListColumns.Change(visible: false, selectFirstColumn: true, scrollToColumn: false))
@@ -93,5 +100,34 @@ import Testing
         #expect(StudyDeletion.companionFile(of: "/a/b.hdr") == "/a/b.img")
         #expect(StudyDeletion.removesFolder(contents: [".ds_store"]) && !StudyDeletion.removesFolder(contents: ["a", ".DS_Store"]))
         #expect(StudyDeletion.question(albumRow: 1, thumbnails: false, smartAlbum: { false }) == .deleteOrRemove)
+    }
+
+    @Test func whatADeletionLeaves() {
+        #expect(StudyDeletion.series(remainingImages: 0) == .remove)
+        #expect(StudyDeletion.series(remainingImages: 3) == .recount)
+        #expect(StudyDeletion.study(remainingImageSeries: 0) == .remove)
+        #expect(StudyDeletion.study(remainingImageSeries: 1) == .recount)
+    }
+
+    @Test func onlyStudiesOfNodesAreNotDeleted() {
+        #expect(StudyDeletion.onlyDistant([true, true]))
+        #expect(!StudyDeletion.onlyDistant([true, false, true]))
+        // No row read: nothing local was found, as the former loop answered.
+        #expect(StudyDeletion.onlyDistant([Bool]()))
+        var read = 0
+        #expect(!StudyDeletion.onlyDistant([false, true, true].lazy.map { (distant: Bool) -> Bool in read += 1; return distant }))
+        #expect(read == 1)
+    }
+
+    @Test func theStudiesOfTheSelection() {
+        final class Study {}
+        let a = Study(), b = Study()
+        let distinct = StudyMerge.distinctStudies([a, nil, b, a, b, nil])
+        #expect(distinct.count == 2 && distinct[0] === a && distinct[1] === b)
+        let none = StudyMerge.distinctStudies([Study?]())
+        #expect(none.isEmpty)
+        #expect(StudyMerge.mergesSeriesOnly([true, true]))
+        #expect(!StudyMerge.mergesSeriesOnly([true, false]))
+        #expect(StudyMerge.mergesSeriesOnly([Bool]()))
     }
 }

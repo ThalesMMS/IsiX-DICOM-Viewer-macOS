@@ -24,7 +24,7 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 timing = root / 'Horos/Sources/MediaScanTiming.swift'
-scan = (root / 'Horos/Sources/DicomDatabase+Scan.swift').read_text(encoding='utf-8')
+scan = (root / 'Horos/Sources/MediaVolumeScan.swift').read_text(encoding='utf-8')
 code = re.sub(r'//[^\n]*', '', scan)
 
 DRIVER = '''
@@ -135,7 +135,7 @@ else:
             failures.append('the scan does not time %s' % phase)
         if 'timing.end("%s"' % phase not in code:
             failures.append('the scan never stops timing %s' % phase)
-    at = code.find('CDDVDEjectAfterAutoCopy')
+    at = code.find('DatabasePreferences.ejectsMediaAfterAutoCopy')
     report = code.find('timing.summary')
     if at < 0 or report < 0 or report > at:
         failures.append('the report is not written before the medium is ejected')

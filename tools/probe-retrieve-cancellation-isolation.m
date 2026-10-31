@@ -17,6 +17,7 @@ __attribute__((used)) static struct {const void *replacement,*original;} interpo
 + (id)sharedAppController;- (void)killAllStoreSCU:(id)sender;
 - (id)initWithDataset:(void*)d callingAET:(id)a calledAET:(id)b hostname:(id)c port:(int)p transferSyntax:(int)t compression:(float)f extraParameters:(id)e;
 - (id)initWithCallingAET:(id)a distantServer:(id)s;
+- (id)initAutoQuery:(BOOL)automatic;
 - (void)setShowErrorMessage:(BOOL)b;- (void)setNoSmartMode:(BOOL)b;
 - (void)queryWithValues:(id)v;- (NSArray*)children;- (void)performRetrieve:(NSArray*)a;
 - (NSUInteger)countOfSuccessfulSuboperations;- (NSUInteger)countOfSuboperations;
@@ -32,7 +33,11 @@ __attribute__((constructor)) static void install(void) {
    if(![[[NSClassFromString(@"DicomDatabase") activeLocalDatabase] dataBaseDirPath] containsString:@"/local-validation/"])return;
    controllers=[NSMutableArray new];NSMutableArray *workers=[NSMutableArray new];
    for(NSDictionary *server in servers) {
-    id controller=[[NSClassFromString(@"QueryController") alloc] initWithWindow:nil];
+    // The window's factory, not -initWithWindow:: only the factory hands the
+    // controller the process graph, and a retrieve thread without it sees no
+    // database and returns at once. It finds the node in the -SERVERS argument
+    // of the launch, or it raises the modal panel that no node is defined.
+    id controller=[[NSClassFromString(@"QueryController") alloc] initAutoQuery:NO];
     id manager=[[NSClassFromString(@"QueryArrayController") alloc] initWithCallingAET:@"HOROSDEV" distantServer:server];
     [controller setValue:manager forKey:@"queryManager"];[controllers addObject:controller];
     NSThread *worker=[[NSThread alloc] initWithBlock:^{@autoreleasepool{
@@ -50,7 +55,9 @@ __attribute__((constructor)) static void install(void) {
    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,2*NSEC_PER_SEC),dispatch_get_main_queue(),^{
     if(getenv("HOROS_ISOLATION_OBSERVER"))return;
     NSLog(@"ISOLATION_CANCEL %.6f global=%d",NSProcessInfo.processInfo.systemUptime,getenv("HOROS_ISOLATION_GLOBAL")!=NULL);
-    if(getenv("HOROS_ISOLATION_GLOBAL"))[[NSClassFromString(@"AppController") sharedAppController] killAllStoreSCU:nil];
+    // From the run loop, as the menu item sends it: inside a main-queue block the action's
+    // three-second wait would hold back the main queue the retrieve threads end on.
+    if(getenv("HOROS_ISOLATION_GLOBAL"))[[NSClassFromString(@"AppController") sharedAppController] performSelector:@selector(killAllStoreSCU:) withObject:nil afterDelay:0];
     else [[workers firstObject] cancel];
    });
    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,18*NSEC_PER_SEC),dispatch_get_main_queue(),^{

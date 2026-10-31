@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 
 /// How much of a screen Horos may lay its windows out on.
 ///
@@ -28,7 +29,7 @@ import AppKit
 public final class TilingArea: NSObject {
     /// The preference: screen identifier to {x, y, width, height} in fractions of
     /// that screen's visible frame, origin at its bottom-left corner.
-    @objc public static let defaultsKey = "TilingArea"
+    @objc public static let defaultsKey = ViewerPreferences.tilingArea.name
 
     /// Smaller than this and a viewer is not worth tiling into, so an area that
     /// would leave less falls back to the whole screen.
@@ -92,8 +93,8 @@ public final class TilingArea: NSObject {
     public static func fractions(for screen: NSScreen?) -> [String: NSNumber]? {
         let key = identifier(for: screen)
         guard !key.isEmpty,
-              let stored = UserDefaults.standard.dictionary(forKey: defaultsKey),
-              let entry = stored[key] as? [String: Any]
+              let stored = PreferencesSource.process.preferences[ViewerPreferences.tilingArea],
+              let entry = stored[key]?.object as? [String: Any]
         else { return nil }
         let fractions = numbers(from: entry)
         return fractions.isEmpty ? nil : fractions
@@ -109,13 +110,14 @@ public final class TilingArea: NSObject {
     public static func set(fractions: [String: NSNumber]?, for screen: NSScreen?) {
         let key = identifier(for: screen)
         guard !key.isEmpty else { return }
-        var stored = UserDefaults.standard.dictionary(forKey: defaultsKey) ?? [:]
+        let preferences = PreferencesSource.process.preferences
+        var stored = preferences[ViewerPreferences.tilingArea] ?? [:]
         if let fractions = fractions, !fractions.isEmpty {
-            stored[key] = fractions
+            stored[key] = PropertyListValue(fractions)
         } else {
             stored.removeValue(forKey: key)
         }
-        UserDefaults.standard.set(stored, forKey: defaultsKey)
+        preferences.set(stored, for: ViewerPreferences.tilingArea)
     }
 
     /// The choices the menu offers, in order. `fractions` nil means the whole

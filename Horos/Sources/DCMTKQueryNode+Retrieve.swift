@@ -39,6 +39,7 @@
 
 import Cocoa
 import IsiXDICOMNetwork
+import IsiXPreferences
 
 /// The retrieve of a node: by DICOMweb, WADO-URI or DIMSE, the IMAGE level
 /// retrieve of what a study is missing, the second pass for omissions, and
@@ -84,7 +85,7 @@ extension DCMTKQueryNode {
             || dict["moveDestination"] == nil || destination == UserDefaults.defaultAETitle()
         let get = askedMode == DICOMRetrieveMode.cGet.rawValue && Int(retrieveMode) == DICOMRetrieveMode.cGet.rawValue
         var listenerMissing = false
-        catchingExceptions {
+        endedNormally(HorosObjCException.caught {
             do {
                 // A DICOMweb retrieve lists the node's instances beside its transfer.
                 if localRetrieve && !dicomweb { beginRetrieveInventory(forCGET: get) } else { replaceRetrieveInventory(nil) }
@@ -121,27 +122,27 @@ extension DCMTKQueryNode {
             } catch {
                 listenerMissing = true
             }
-        }
+        })
 
         // How the retrieve ended, once what it received is in the index.
         let inventory = currentRetrieveInventory()
         if localRetrieve, let inventory {
-            // What the retrieve received is indexed by the importer's timer, after
-            // the transfer has returned: the inventory is judged once those
-            // instances are in the index, or when the indexing stops progressing
-            // while the import/conversion workers are idle. Not on the main
-            // thread, whose run loop drives that timer.
+            // What the retrieve received is indexed by the importer, after the
+            // transfer has returned: the inventory is judged once those instances
+            // are in the index, or when the indexing stops progressing while the
+            // import/conversion workers are idle. Not on the main thread, which
+            // the wait would hold.
             var receivedIndexed = true
             if !Thread.isMainThread {
-                let patience = TimeInterval(max(10, 3 * UserDefaults.standard.integer(forKey: "LISTENERCHECKINTERVAL")))
+                let patience = TimeInterval(max(10, 3 * PreferencesSource.process.preferences[NetworkPreferences.listenerCheckInterval]))
                 // Nudged while it waits, so what arrived last is not left for the
                 // importer's next scan.
                 receivedIndexed = inventory.waitForReceivedImports(refreshing: { [self] in
                     refreshRetrieveInventory()
                     if inventory.receivedAwaitingImportCount > 0 {
-                        DicomDatabase.activeLocal()?.initiateImportFilesFromIncomingDirUnlessAlreadyImporting()
+                        DatabaseIngest.process.requestImport()
                     }
-                }, importInProgress: { DicomDatabase.activeLocal()?.incomingImportInProgress ?? false },
+                }, importInProgress: { DatabaseIngest.process.isImporting },
                    patience: patience, cancelled: { Thread.current.isCancelled })
             }
             refreshRetrieveInventory()
@@ -212,20 +213,19 @@ extension DCMTKQueryNode {
         var retrievedDone = localRetrieve && !noSmartMode && inventory?.inventoryConfirmed == true
             && (inventory?.isComplete == true || inventory?.nothingLeftToAsk == true)
         let unsendableUIDs = noSmartMode ? Set<String>() : Set(inventory?.unsendableUIDs ?? [])
-        let defaults = UserDefaults.standard
+        let preferences = PreferencesSource.process.preferences
 
         if localRetrieve && !retrievedDone && !noSmartMode
-            && (inventory?.inventoryConfirmed == true || defaults.bool(forKey: "TryIMAGELevelDICOMRetrieveIfLocalImages")) {
+            && (inventory?.inventoryConfirmed == true || preferences[NetworkPreferences.triesImageLevelRetrieveIfLocalImages]) {
             var studyInstanceUID: String?
             if self is DCMTKSeriesQueryNode { studyInstanceUID = (dict["study"] as? DCMTKQueryNode)?.uid() }
             if self is DCMTKStudyQueryNode { studyInstanceUID = uid() }
             // A local study with images: a C-MOVE or C-GET at the IMAGE level
             // retrieves only the images it is missing.
             localObjectUIDs.append(contentsOf: localSOPInstanceUIDs(ofStudy: studyInstanceUID, series: nil))
-            if (!localObjectUIDs.isEmpty || defaults.bool(forKey: "MultipleAssociationsRetrieve")) && !Thread.current.isCancelled {
+            if (!localObjectUIDs.isEmpty || preferences[NetworkPreferences.multipleAssociationsRetrieve]) && !Thread.current.isCancelled {
                 let study = studyInstanceUID
-                let cFindThread = Thread { [self] in cFind(study: study) }
-                cFindThread.start()
+                let cFindThread = ActivityThread.startUnlisted(name: "IMAGE level C-FIND") { [self] _ in cFind(study: study) }
                 Thread.sleep(forTimeInterval: 0.1)
                 // isFinished, not isExecuting: the worker may not have begun
                 // executing after the pause above, and the loop then never ran.
@@ -235,7 +235,7 @@ extension DCMTKQueryNode {
                         var seriesOrder: [String] = []
                         var imagesWithoutSeries: [String] = []
                         var childrenArray = drainChildren()
-                        catchingExceptions {
+                        endedNormally(HorosObjCException.caught {
                             if self is DCMTKStudyQueryNode {
                                 childrenArray = (childrenArray as NSArray).sortedArray(using: [NSSortDescriptor(key: "seriesInstanceUID", ascending: true)])
                             }
@@ -257,16 +257,16 @@ extension DCMTKQueryNode {
                                 }
                                 if Thread.current.isCancelled { break }
                             }
-                        }
+                        })
                         if (!seriesUIDsToRetrieve.isEmpty || !imagesWithoutSeries.isEmpty) && !Thread.current.isCancelled {
                             // Each series is retrieved on its own, for peers that
                             // refuse a request across series.
                             let requests: [DICOMQueryIdentifier] = !seriesUIDsToRetrieve.isEmpty
                                 ? seriesOrder.map { QueryIdentifiers.retrieve(instances: seriesUIDsToRetrieve[$0] ?? [], series: $0, study: study) }
                                 : [QueryIdentifiers.retrieve(instances: imagesWithoutSeries, series: nil, study: study)]
-                            nonisolated(unsafe) let owner = Thread.current
+                            let owner = ObservedThread.current
                             let listener = !get && !DCMTKQueryRetrieveSCP.store() && destination == nil
-                            let threads = [Thread.performBlock(inBackground: { [self] in
+                            let threads = [ActivityThread.startUnlisted(name: "IMAGE level retrieve") { [self] _ in
                                 for request in requests {
                                     let succeeded: Bool
                                     if get {
@@ -283,7 +283,7 @@ extension DCMTKQueryNode {
                                     }
                                     if owner.isCancelled { break }
                                 }
-                            })]
+                            }]
                             // Until every thread has finished. Asking whether one was
                             // still executing ended the wait at once: a thread just
                             // started has not begun executing, so the IMAGE level was
@@ -319,31 +319,31 @@ extension DCMTKQueryNode {
             let request = moveIdentifier()
             if get {
                 if !setupNetwork(service: .getStudyRoot, identifier: request, destination: destination) {
-                    NSLog("UID_GETStudyRootQueryRetrieveInformationModel failed : %s", "-[DCMTKQueryNode move:retrieveMode:]")
+                    NSLog("UID_GETStudyRootQueryRetrieveInformationModel failed : %@", "-[DCMTKQueryNode move:retrieveMode:]")
                 }
             } else {
                 try requireListener(destination: destination)
                 if !setupNetwork(service: .moveStudyRoot, identifier: request, destination: destination) {
-                    NSLog("UID_MOVEStudyRootQueryRetrieveInformationModel failed : %s", "-[DCMTKQueryNode move:retrieveMode:]")
+                    NSLog("UID_MOVEStudyRootQueryRetrieveInformationModel failed : %@", "-[DCMTKQueryNode move:retrieveMode:]")
                 }
             }
         }
     }
 
     /// Keeps the same inventory active while asking again for omissions from a
-    /// confirmed listing. The importer runs on the main run loop, so this
-    /// recovery only runs on a retrieve worker.
+    /// confirmed listing. It waits for the importer, so this recovery only
+    /// runs on a retrieve worker.
     private func retryMissingDIMSEInstances(get: Bool, destination: String?) throws {
         guard !Thread.isMainThread, let inventory = currentRetrieveInventory(), inventory.inventoryConfirmed else { return }
         for round in 0..<2 {
             if inventory.retrySeries(afterRound: round, cancelled: Thread.current.isCancelled).isEmpty { break }
-            let patience = TimeInterval(max(10, 3 * UserDefaults.standard.integer(forKey: "LISTENERCHECKINTERVAL")))
+            let patience = TimeInterval(max(10, 3 * PreferencesSource.process.preferences[NetworkPreferences.listenerCheckInterval]))
             _ = inventory.waitForReceivedImports(refreshing: { [self] in
                 refreshRetrieveInventory()
                 if inventory.receivedAwaitingImportCount > 0 {
-                    DicomDatabase.activeLocal()?.initiateImportFilesFromIncomingDirUnlessAlreadyImporting()
+                    DatabaseIngest.process.requestImport()
                 }
-            }, importInProgress: { DicomDatabase.activeLocal()?.incomingImportInProgress ?? false },
+            }, importInProgress: { DatabaseIngest.process.isImporting },
                patience: patience, cancelled: { Thread.current.isCancelled })
             let series = inventory.retrySeries(afterRound: round, cancelled: Thread.current.isCancelled)
             if series.isEmpty { break }
@@ -379,7 +379,8 @@ extension DCMTKQueryNode {
                                           calledAET: server["AETitle"] as? String, hostname: server["Address"] as? String,
                                           port: int32(server["Port"]), transferSyntax: 0, compression: 0, extraParameters: server)
         let description = placeholder.seriesDescription
-        let thread = Thread {
+        ActivityThread.startListed(name: NSLocalizedString("Retrieving images...", comment: ""),
+                                   configure: { $0.status = description }) {
             autoreleasepool {
                 QueryController.retrieveStudies([series], showErrors: false)
                 // A click that brought nothing says so in its Activity row for a
@@ -397,10 +398,6 @@ extension DCMTKQueryNode {
                 }
             }
         }
-        thread.name = NSLocalizedString("Retrieving images...", comment: "")
-        thread.status = description
-        thread.supportsCancel = true
-        ThreadsManager.default()?.addThreadAndStart(thread)
     }
 
     /// What the node's rules left out of a study, and why: in the activity

@@ -66,7 +66,7 @@ if engine:
     reapply_applied = r'if\( \[vtk reapplyAppliedCrop\] == NO\)\s*\[vtk executeCropCallback\];'
 else:
     engine_source = read('Horos/Sources/VRView+Engine.swift')
-    engine = method('private func instantiate(engine e: Int32)', engine_source)
+    engine = method('func instantiateEngine(_ e: Int32)', engine_source)
     blending = method('func setBlendingEngine(_ engineID: Int, showWait: Bool)', engine_source)
     hold_call, switch_call, release_call = 'vtk.holdAppliedCrop()', 'switch e {', 'vtk.releaseHeldCrop()'
     apply_held = r'if !vtk\.applyHeldCrop\(\) \{\s*vtk\.executeCropCallback\(\)\s*\}'

@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// AYNSImageToDicom is implemented in Swift since #717 (AYNSImageToDicom.swift).
+// AYNSImageToDicom is implemented in Swift (AYNSImageToDicom.swift).
 // This header keeps its enum and struct, and brings in the generated
 // interface, which declares the same class name and selectors.
 

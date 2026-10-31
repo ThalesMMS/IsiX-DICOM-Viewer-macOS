@@ -11,6 +11,7 @@
 import Foundation
 import Testing
 @testable import IsiXImaging
+import IsiXPreferences
 
 // The 2D viewer's image pipeline as the module answers it, without the viewer.
 // The equivalence with the former Objective-C of the viewer, image by image,
@@ -155,6 +156,45 @@ import Testing
         #expect(WindowLevel.window(from: -160, to: 240) == (40, 400))
         #expect(WindowLevel.presetName(fromMenuTitle: "1 - Abdomen") == "Abdomen")
         #expect(WindowLevel.presetName(fromMenuTitle: "abc") == nil)
+    }
+
+    @Test func presetNameFromTitlesOfOneTwoAndThreeDigits() {
+        #expect(WindowLevel.presetName(fromMenuTitle: "9 - CT - Bone") == "CT - Bone")
+        #expect(WindowLevel.presetName(fromMenuTitle: "10 - Lung") == "Lung")
+        #expect(WindowLevel.presetName(fromMenuTitle: "12 - CT - Bone") == "CT - Bone")
+        #expect(WindowLevel.presetName(fromMenuTitle: "103 - Écho") == "Écho")
+        #expect(WindowLevel.presetName(fromMenuTitle: "10 - ") == "")
+        // Without a number and " - " ahead, the first four characters go, as before.
+        #expect(WindowLevel.presetName(fromMenuTitle: "Brain") == "n")
+    }
+
+    /// The window level menus of the MPR, the CPR, the orthogonal MPRs, the PET-CT and the volume
+    /// rendering list the stored presets as `ReconstructionPreferences.windowLevelMenuTitles`, those of the
+    /// 2D viewer as `ViewerPresetMenus.wlwwPresetTitle`; the windows find the preset again from the title
+    /// of the chosen item. With twelve presets, every item, the tenth and later included, gives its own.
+    @Test func everyOfTwelveWindowLevelItemsFindsItsPreset() throws {
+        let store = MemoryPreferences()
+        var levels: [String: IsiXPreferences.WindowLevelPreset] = [:]
+        for index in 0 ..< 12 {
+            levels[String(format: "Preset %02d - part", index)] = IsiXPreferences.WindowLevelPreset(level: Float(index * 10), width: Float(100 + index))
+        }
+        store.set(levels, for: ImagePresetPreferences.windowLevelPresets)
+
+        let titles = ReconstructionPreferences.windowLevelMenuTitles(in: store)
+        #expect(titles.count == 12)
+        #expect(titles[9] == "10 - Preset 09 - part" && titles[11] == "12 - Preset 11 - part")
+        for (index, title) in titles.enumerated() {
+            let name = try #require(WindowLevel.presetName(fromMenuTitle: title))
+            let preset = ReconstructionPreferences.preset(name, of: ImagePresetPreferences.windowLevelPresets, in: store)
+            #expect(preset?.level == Double(index * 10) && preset?.width == Double(100 + index), "\(title)")
+            #expect(ViewerPresetMenus.checksWLWWItem(title: title, current: name))
+        }
+
+        let names = ViewerPresetMenus.sortedNames(Array(levels.keys))
+        for (index, name) in names.enumerated() {
+            let title = ViewerPresetMenus.wlwwPresetTitle(index: index, name: name)
+            #expect(WindowLevel.presetName(fromMenuTitle: title) == name, "\(title)")
+        }
     }
 
     @Test func stackFusion() {

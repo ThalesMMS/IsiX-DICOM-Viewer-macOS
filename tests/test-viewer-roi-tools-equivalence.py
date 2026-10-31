@@ -36,7 +36,8 @@ Floats are compared to the last bit, pixels by a checksum of their bytes.
 The reference is the Objective-C of ViewerController.m in the last revision
 that has it (history_reference), compiled with clang as Xcode compiles it
 (manual retain and release); the other side is the current tree: the Swift
-files with IsiXROI and IsiXImaging, compiled with swiftc, with what
+files with IsiXROI and IsiXImaging (and the SUV part of ViewerWindowLevel,
+which the SUV selectors hand their work to), compiled with swiftc, with what
 ViewerController.m still holds of these methods (-newROI:, -newPoint::), or
 the Objective-C again if the tree still has it. Both run over the same
 stand-ins of the viewer, its image view, slices, ROIs, panels and the
@@ -50,6 +51,8 @@ import difflib
 import re
 import subprocess
 import sys
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+import objc_exception_guards
 import tempfile
 from pathlib import Path
 
@@ -63,7 +66,11 @@ MARK = '- (void) convertPETtoSUV\n{'
 SWIFT_FILES = ['ViewerController+%s.swift' % name for name in
                ('UndoQueue', 'VolumeLength', 'ROIGeometry', 'BrushROI', 'ROITools', 'SUV')]
 # IsiXLogging first: the others that log write through it.
-MODULES = ['IsiXLogging', 'IsiXROI', 'IsiXImaging']
+MODULES = ['IsiXLogging', 'IsiXPreferences', 'IsiXROI', 'IsiXImaging']
+# The SUV sheet and conversion are the viewer's ViewerWindowLevel, which its
+# graph keeps; the harness compiles that part of it, over a graph that gives
+# each stand-in viewer its own.
+WINDOW_LEVEL = 'Horos/Sources/ViewerWindowLevel.swift'
 SCENARIOS = ['undo', 'volumelength', 'geometry', 'brush', 'suv', 'tools']
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1822,6 +1829,69 @@ def module_sources(revision, module):
     return {p[len(base) + 1:]: read(revision, p) for p in listed if p.endswith('.swift')}
 
 
+def block_end(text, start):
+    """The index after the closing brace of the Swift declaration at `start`."""
+    depth, i = 0, text.index('{', start)
+    while True:
+        if text[i] == '{':
+            depth += 1
+        elif text[i] == '}':
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+
+
+def roi_editing_support(revision, roi_support):
+    """What the ROI files read of the viewer's ROI editing, once it left the
+    ViewerController extensions: the slice lists (ViewerROISlices) and the
+    announcement of a ROI change (ViewerROIEdits.post). Nothing for a revision
+    whose files still do it themselves."""
+    state = (read(revision, 'Horos/Sources/ViewerController+ROIState.swift') or b'').decode('utf-8')
+    editing = (read(revision, 'Horos/Sources/ViewerController+ROI+Editing.swift') or b'').decode('utf-8')
+    if '@MainActor struct ViewerShownROIs {' not in editing:
+        return ''
+    slices = state[state.index('/// The ROI lists of one time point of a viewer'):]
+    post = re.search(r'\n(    static func post\(.*?\n    }\n)', roi_support, re.S).group(1)
+    return slices + '\n@MainActor enum ViewerROIEdits {\n' + post + '}\n'
+
+
+def window_level_suv(text, support):
+    """The SUV part of ViewerWindowLevel, with what it reads, and a graph that
+    keeps one for each stand-in viewer. The presets menus it is also given are
+    not used by that part: an empty class stands for them."""
+    interval = text.index('fileprivate func timeInterval(')
+    head = text.index('@MainActor final class ViewerWindowLevel {')
+    init = text.index('    init(viewer: ViewerController', head)
+    suv = text.index('    // MARK: - SUV', init)
+    pix_array = re.search(r'\n    func horos_pixArray\(.*?\n    }\n', support, re.S)
+    if not pix_array:
+        sys.exit('FAIL: no horos_pixArray in ViewerController+ImagePipelineSupport.swift')
+    parts = [text[interval:block_end(text, interval)], text[head:block_end(text, init)], text[suv:block_end(text, head)]]
+    return '\n'.join(['import AppKit', 'import IsiXImaging', 'import IsiXPreferences', '', *parts, '''
+final class PresetMenuCache {}
+
+@MainActor var harnessGraphs: [ObjectIdentifier: ViewerSessionGraph] = [:]
+
+@MainActor final class ViewerSessionGraph {
+    let windowLevel: ViewerWindowLevel
+    /// The preferences the graph gives the viewer (the undo queue's size rule reads them).
+    var preferences: any PreferenceStore { UserDefaults.standard }
+    init(viewer: ViewerController) {
+        windowLevel = ViewerWindowLevel(viewer: viewer, preferences: UserDefaults.standard, menus: PresetMenuCache())
+    }
+}
+
+extension ViewerController {
+    var sessionGraph: ViewerSessionGraph {
+        if let graph = harnessGraphs[ObjectIdentifier(self)] { return graph }
+        let graph = ViewerSessionGraph(viewer: self)
+        harnessGraphs[ObjectIdentifier(self)] = graph
+        return graph
+    }
+''' + pix_array.group(0) + '}\n'])
+
+
 def method_end(text, start):
     """The index after the closing brace of the method or function at `start` (braces counted)."""
     i = text.index('\n{', start) + 1
@@ -1984,12 +2054,37 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-roi-tools-') as tmp:
         # window controllers.
         support = read(args.current, 'Horos/Sources/ViewerController+ImagePipelineSupport.swift').decode('utf-8')
         sender = re.search(r'\nenum ViewerSender \{.*?\n}\n', support, re.S).group(0)
-        attempt = re.search(r'\n/// Runs `body` as an @try block.*?\nfunc viewerObjCTry.*?\n}\n', support, re.S).group(0)
+        attempt = (lambda found: found.group(0) if found else objc_exception_guards.source(read(args.current, objc_exception_guards.PATH) or '', log=False) + '\n// The former helper, for a base revision that calls it.\nfunc viewerObjCTry(_ body: () -> Void) -> NSException? { HorosObjCException.caught(body) }\n')(re.search(r'\n/// Runs `body` as an @try block.*?\nfunc viewerObjCTry.*?\n}\n', support, re.S))
         roi_support = read(args.current, 'Horos/Sources/ViewerController+ROI.swift').decode('utf-8')
         closing = re.search(r'\nfunc horosWindowControllerIsClosing\(.*?\n}\n', roi_support, re.S).group(0)
-        (swift / 'Helpers.swift').write_text('import AppKit\n' + sender + attempt + closing + ROI_STRINGS)
+        (swift / 'Helpers.swift').write_text('import AppKit\n' + sender + attempt + closing + ROI_STRINGS
+                                             + roi_editing_support(args.current, roi_support))
+        # The undo façades go through ViewerUndoQueue, once there is one.
+        undo_queue = read(args.current, 'Horos/Sources/ViewerUndoQueue.swift')
+        if undo_queue is not None:
+            (swift / 'ViewerUndoQueue.swift').write_bytes(undo_queue)
+            sources.append(str(swift / 'ViewerUndoQueue.swift'))
+        # The volume lengths and the brushes are ViewerVolumeLengths' and
+        # ViewerBrushROIs', once they left the extensions: with the token of the
+        # states, the announcement of a Length and the points of a polygon.
+        moved = read(args.current, 'Horos/Sources/ViewerVolumeLengths.swift')
+        if moved is not None:
+            for name in ('ViewerVolumeLengths.swift', 'ViewerBrushROIs.swift', 'IdentityToken.swift'):
+                (swift / name).write_bytes(read(args.current, 'Horos/Sources/' + name))
+                sources.append(str(swift / name))
+            retrieve = read(args.current, 'Horos/Sources/ViewerController+RetrieveAndView.swift').decode('utf-8')
+            interchange = read(args.current, 'Horos/Sources/ViewerROIInterchange.swift').decode('utf-8')
+            points = re.search(r'\n(    static func myPoints\(.*?\n)', interchange, re.S).group(1)
+            (swift / 'Moved.swift').write_text('import AppKit\n'
+                                               + re.search(r'\nfunc postViewerNotification\(.*?\n}\n', retrieve, re.S).group(0)
+                                               + '\n@MainActor enum ViewerROIInterchange {\n' + points + '}\n')
+            sources.append(str(swift / 'Moved.swift'))
         (swift / 'Calibration.swift').write_text(CALIBRATION)
         sources += [str(swift / 'Helpers.swift'), str(swift / 'Calibration.swift')]
+        window_level = read(args.current, WINDOW_LEVEL)
+        if window_level is not None:
+            (swift / 'WindowLevelSUV.swift').write_text(window_level_suv(window_level.decode('utf-8'), support))
+            sources.append(str(swift / 'WindowLevelSUV.swift'))
         libraries = []
         for module in MODULES:
             directory = folder / module

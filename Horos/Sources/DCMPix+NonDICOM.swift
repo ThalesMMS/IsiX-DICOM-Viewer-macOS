@@ -199,40 +199,35 @@ extension DCMPix {
     @objc(getDataFromNSImage:)
     public dynamic func getData(from otherImage: NSImage?) {
         autoreleasepool {
-            do {
-                try HorosObjCException.perform {
-                    guard let otherImage else { return }
-                    var rect = NSRect(origin: .zero, size: otherImage.size)
-                    var twoPixelsAPoint = AffineTransform.identity
-                    twoPixelsAPoint.scale(2)
-                    guard let image = otherImage.cgImage(forProposedRect: &rect, context: nil,
-                                                         hints: [.ctm: NSAffineTransform(transform: twoPixelsAPoint)]) else { return }
-                    guard image.width != 0, image.height != 0 else { return }
-                    var width = Int(Int32(truncatingIfNeeded: image.width))
-                    var height = Int(Int32(truncatingIfNeeded: image.height))
-                    let sizes = NSMutableDictionary()
-                    height = reconcile(height, saved: horos_savedHeightInDB, key: "height", sizes: sizes, clampAlways: true) { saved, value in
-                        String(format: "******* [[imageObj valueForKey:@'height'] intValue] != height. New: %d / DB: %d", Int32(truncatingIfNeeded: value), saved)
-                    }
-                    width = reconcile(width, saved: horos_savedWidthInDB, key: "width", sizes: sizes, clampAlways: true) { saved, value in
-                        String(format: "******* [[imageObj valueForKey:@'width'] intValue] != width. New: %d / DB: %d", Int32(truncatingIfNeeded: value), saved)
-                    }
-                    horos_width = width
-                    horos_height = height
-                    storeSizes(sizes)
-                    let external = horos_fExternalOwnedImage != nil
-                    guard let argb = imageBuffer(width * 4 * height) else { return }
-                    guard ARGBImages.draw(image, width: width, height: height, into: argb) else {
-                        if !external { free(argb) }
-                        return
-                    }
-                    horos_fImage = argb.assumingMemoryBound(to: Float.self)
-                    horos_isRGB = true
+            // AppKit renders the image, which may come from a plugin.
+            _ = HorosObjCException.logged("-[DCMPix getDataFromNSImage:]", stack: true) {
+                guard let otherImage else { return }
+                var rect = NSRect(origin: .zero, size: otherImage.size)
+                var twoPixelsAPoint = AffineTransform.identity
+                twoPixelsAPoint.scale(2)
+                guard let image = otherImage.cgImage(forProposedRect: &rect, context: nil,
+                                                     hints: [.ctm: NSAffineTransform(transform: twoPixelsAPoint)]) else { return }
+                guard image.width != 0, image.height != 0 else { return }
+                var width = Int(Int32(truncatingIfNeeded: image.width))
+                var height = Int(Int32(truncatingIfNeeded: image.height))
+                let sizes = NSMutableDictionary()
+                height = reconcile(height, saved: horos_savedHeightInDB, key: "height", sizes: sizes, clampAlways: true) { saved, value in
+                    String(format: "******* [[imageObj valueForKey:@'height'] intValue] != height. New: %d / DB: %d", Int32(truncatingIfNeeded: value), saved)
                 }
-            } catch {
-                if let exception = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                    _N2LogExceptionImpl(exception, true, "-[DCMPix getDataFromNSImage:]")
+                width = reconcile(width, saved: horos_savedWidthInDB, key: "width", sizes: sizes, clampAlways: true) { saved, value in
+                    String(format: "******* [[imageObj valueForKey:@'width'] intValue] != width. New: %d / DB: %d", Int32(truncatingIfNeeded: value), saved)
                 }
+                horos_width = width
+                horos_height = height
+                storeSizes(sizes)
+                let external = horos_fExternalOwnedImage != nil
+                guard let argb = imageBuffer(width * 4 * height) else { return }
+                guard ARGBImages.draw(image, width: width, height: height, into: argb) else {
+                    if !external { free(argb) }
+                    return
+                }
+                horos_fImage = argb.assumingMemoryBound(to: Float.self)
+                horos_isRGB = true
             }
         }
     }

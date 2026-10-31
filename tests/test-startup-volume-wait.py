@@ -6,19 +6,31 @@ root=Path(__file__).resolve().parents[1]
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import sources
-# AppController is Swift; the volume guard is read in its Swift spelling.
-app=sources.source_text('AppController')
+# AppController is Swift; the volume wait is ApplicationLifecycle's (ApplicationLifecycle.swift).
+app=sources.class_text('AppController')
 # NSPanel (N2) is Swift; the assertions read its Swift spelling.
 panel=sources.source_text('NSPanel+N2')
 code=[line for line in panel.splitlines() if not line.lstrip().startswith('//')]
 assert not any('NSGetAlertPanel(' in line for line in code), 'the alert is built with NSGetAlertPanel again'
 assert not any('autorelease' in line or 'release()' in line for line in code), 'the alert window is released again'
 assert any('ModalAlertPanel.panel(' in line for line in code), 'the panel no longer comes from the Swift helper'
-# The volume being waited for must survive a nil resolved path.
-start=app.index('if ((dataBasePath as NSString?)?.hasPrefix("/Volumes/") ?? false) || dataBasePath == nil {')
-guard=app[start:app.index('NSPanel.alert(withTitle:',start)]
-for statement in ['DATABASELOCATIONURL','(pathComponents?.count ?? 0) >= 3','(volumePath as NSString).length > 0']:
+# The volume being waited for must survive a nil resolved path. Which volume is
+# watched is DatabaseVolume.documentsVolume (IsiXStorage, its cases run by
+# DatabaseVolumeTests); the launch hands it the folder the user chose and shows
+# the panel of DatabaseVolumeWait.
+start=app.index('    private static func waitForDatabaseVolumes(')
+guard=app[start:app.index('DatabaseVolumeWait(volume:',start)]
+for statement in ['DatabaseVolume.documentsVolume(resolved: dataBasePath','chosenFolder: preferences[DatabasePreferences.databaseLocationURL]',
+                  '!FileManager.default.fileExists(atPath: volume)']:
     assert statement in guard, f'missing in the volume guard: {statement}'
+wait=app[app.index('@MainActor struct DatabaseVolumeWait {'):]
+assert 'NSPanel.alert(withTitle:' in wait[:wait.index('DatabaseVolume.step(')], 'the volume wait no longer shows the alert panel'
+volume=(root/'Modules/IsiXStorage/Sources/DatabaseVolume.swift').read_text()
+documents=volume[volume.index('public static func documentsVolume('):volume.index('public static func dataVolume(')]
+for statement in ['if let resolved, !resolved.hasPrefix("/Volumes/") { return nil }','locationMode == 1 ? chosenFolder : nil',
+                  '(resolved ?? "").isEmpty ? configured : resolved']:
+    assert statement in documents, f'missing in the volume guard: {statement}'
+assert 'components.count >= 3' in volume, 'the volume is no longer the first three path components'
 source=r'''
 import AppKit
 // The code under test is the main actor's.

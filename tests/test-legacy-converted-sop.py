@@ -2,7 +2,7 @@
 """Legacy Converted Enhanced CT, MR and PET are recognised as multi-frame images.
 
 The real SOP classes of IsiXDICOMFile (IsiXDICOMSOPClass) are compiled and asked, and the UIDs are checked
-against DCMTK's dictionary in this checkout rather than against themselves.
+against DCMTK's dictionary rather than against themselves.
 """
 from pathlib import Path
 import re
@@ -12,13 +12,18 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from isix_modules import dicom_file_flags  # noqa: E402
+from dcmtk_build import INSTALL, dcmtk_source  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-# The values DCMTK 3.6.7 defines, read out of its header: an independent source
-# in this tree for what these UIDs are.
-dcmtk = (root / 'DCMTK/dcmdata/include/dcmtk/dcmdata/dcuid.h').read_text(errors='replace')
+# The values DCMTK defines, read out of its header: an independent source for
+# what these UIDs are. The header the application compiles against is the
+# installed one; without a build, the same public header of the pinned original
+# source the recipe installs it from.
+installed = INSTALL / 'include/dcmtk/dcmdata/dcuid.h'
+dcmtk = (installed if installed.is_file() else
+         dcmtk_source() / 'dcmdata/include/dcmtk/dcmdata/dcuid.h').read_text(errors='replace')
 expected = {}
 for name in ('LegacyConvertedEnhancedCTImageStorage',
              'LegacyConvertedEnhancedMRImageStorage',

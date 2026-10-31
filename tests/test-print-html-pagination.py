@@ -135,8 +135,10 @@ with tempfile.TemporaryDirectory(prefix='horos-print-384-html-') as temporary:
 renderer = (root / 'Decompress/ReportPDFRenderer.swift').read_text(encoding='utf-8')
 if 'numberOfCharacters' in renderer or 'removePage' in renderer:
     failures.append('the renderer trims pages by their characters')
-for name in ('BrowserController+DatabaseDragExport.swift', 'BrowserController+DatabaseDragExport+Selection.swift',
-             'BrowserController+MovieExport.swift', 'DCMPix+EncapsulatedDocuments.swift', 'DicomFile+Formats.swift',
+# The external viewer of an SR report is the browser's ViewerOpener's, the
+# print of the selection PrintSelection's and the movie export SelectionMovieExport's.
+for name in ('ViewerOpener.swift', 'PrintSelection+DatabaseSelection.swift',
+             'SelectionMovieExport.swift', 'DCMPix+EncapsulatedDocuments.swift', 'DicomFile+Formats.swift',
              'WebPortalConnection+Data.swift'):
     text = (root / 'Horos/Sources' / name).read_text(encoding='utf-8')
     if 'updateReportPDF(atPath:' not in text or 'pdfFromURL"' in text:

@@ -1,10 +1,16 @@
 // In-app recorder of thread progress notifications, injected into the
 // development app with DYLD_INSERT_LIBRARIES.
 //
-// Every thread handed to -[ThreadsManager addThreadAndStart:] - the source of
-// the activity window: incoming imports, retrieves, remote database updates -
-// gets an observer for the keys the activity cell and the progress window
-// observe. When the thread exits, one JSON line records its name and, for each
+// Every thread ThreadsManager lists - the source of the activity window:
+// incoming imports, retrieves, remote database updates - gets an observer for
+// the keys the activity cell and the progress window observe. ThreadsManager is
+// a final Swift class, so a Swift caller reaches its -addThreadAndStart: without
+// the Objective-C dispatch, and on the main thread that method reaches its own
+// helpers the same way. What every path still sends through Objective-C is the
+// -addObject: to its NSArrayController, and that is where the thread is taken:
+// on the main thread, before a thread it starts itself runs; a thread started
+// elsewhere has already begun, as it has for the activity window.
+// When the thread exits, one JSON line records its name and, for each
 // key, [notifications, redundant, changes]: every notification received, those
 // whose value read before equals the value read after, and those announcing a
 // value other than the previous notification's (a change notified twice, once
@@ -15,13 +21,14 @@
 //   HOROS_THREAD_PROGRESS_LOG      the JSON lines file (required)
 //   HOROS_THREAD_PROGRESS_REMOTE   a port: opens the app's own shared database as
 //                                  a remote one and runs an update (index download)
-//   HOROS_THREAD_PROGRESS_RETRIEVE a servers JSON file: C-GET retrieve of the first
-//                                  study of the first node, on a thread started the
-//                                  way the query window starts it
+//   HOROS_THREAD_PROGRESS_RETRIEVE a servers JSON file: retrieve of the first study
+//                                  of the first node by the query window's own
+//                                  controller; the app must list that node, or the
+//                                  window opens on a panel saying it has none
 //   HOROS_THREAD_PROGRESS_CANCEL_AFTER seconds: then cancels that retrieve the way
 //                                  the activity window's cancel button does
 //   HOROS_THREAD_PROGRESS_CANCEL_NAMED a thread name: with CANCEL_AFTER, cancels the
-//                                  first thread of that name the app starts itself
+//                                  first thread of that name ThreadsManager lists
 //                                  (an XML-RPC retrieve), the same way
 //   HOROS_THREAD_PROGRESS_TRIGGER  a path: drive once that file exists (the harness
 //                                  writes it when the database is ready)
@@ -33,17 +40,17 @@
 
 @interface NSObject (ThreadProgressProbe)
 + (id)defaultManager;
-- (void)addThreadAndStart:(NSThread *)thread;
+- (NSArrayController *)threadsController;
 + (id)databaseForLocation:(NSString *)location port:(NSUInteger)port name:(NSString *)name update:(BOOL)update;
 - (NSThread *)initiateUpdate;
 - (id)initWithDataset:(void *)d callingAET:(id)a calledAET:(id)b hostname:(id)c port:(int)p transferSyntax:(int)t
           compression:(float)f extraParameters:(id)e;
 - (id)initWithCallingAET:(id)a distantServer:(id)s;
 - (void)setShowErrorMessage:(BOOL)b;
-- (void)setNoSmartMode:(BOOL)b;
 - (void)queryWithValues:(id)v;
 - (NSArray *)children;
-- (void)performRetrieve:(NSArray *)a;
+- (id)initAutoQuery:(BOOL)autoQuery;
+- (void)retrieve:(id)sender onlyIfNotAvailable:(BOOL)n forViewing:(BOOL)v items:(NSArray *)items showGUI:(BOOL)g;
 - (NSUInteger)countOfSuccessfulSuboperations;
 - (NSUInteger)countOfSuboperations;
 @end
@@ -52,7 +59,6 @@
 - (NSString *)status;
 - (void)setStatus:(NSString *)status;
 - (NSString *)progressDetails;
-- (void)setSupportsCancel:(BOOL)supportsCancel;
 - (void)setIsCancelled:(BOOL)isCancelled;
 - (CGFloat)progress;
 @end
@@ -130,7 +136,6 @@ static double uptime(void) {
 @end
 
 static NSMutableSet<NSValue *> *observedThreads;
-static void (*originalAddThread)(id, SEL, NSThread *);
 
 static void observeThread(NSThread *thread) {
     NSValue *identity = [NSValue valueWithNonretainedObject:thread];
@@ -171,10 +176,13 @@ static void observeThread(NSThread *thread) {
 static NSString *cancelNamed = nil;
 static double cancelNamedAfter = 0;
 
-static void addThreadAndStart(id manager, SEL selector, NSThread *thread) {
-    if (thread && !thread.isMainThread) observeThread(thread);
-    originalAddThread(manager, selector, thread);
-    if (thread && cancelNamed && [thread.name isEqualToString:cancelNamed]) {
+static NSString *retrieveThreadName = nil;
+static NSThread *retrieveThread = nil;
+
+// In -addObject: of the manager's controller, on the main thread.
+static void threadListed(NSThread *thread) {
+    observeThread(thread);
+    if (cancelNamed && [thread.name isEqualToString:cancelNamed]) {
         cancelNamed = nil;  // the first one only
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(cancelNamedAfter * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             if (thread.isFinished) return;
@@ -184,6 +192,21 @@ static void addThreadAndStart(id manager, SEL selector, NSThread *thread) {
             writeLine(@{@"cancel_named": thread.name});
         });
     }
+    @synchronized (observedThreads) {
+        if (retrieveThreadName && [thread.name isEqualToString:retrieveThreadName]) {
+            retrieveThreadName = nil;
+            retrieveThread = thread;
+        }
+    }
+}
+
+static void (*originalAddObject)(id, SEL, id);
+
+static void addObject(NSObjectController *controller, SEL selector, id object) {
+    if ([object isKindOfClass:NSThread.class]
+        && controller == [[NSClassFromString(@"ThreadsManager") defaultManager] threadsController])
+        threadListed(object);
+    originalAddObject(controller, selector, object);
 }
 
 static NSThread *waitForThread(NSThread *thread, double seconds) {
@@ -249,22 +272,30 @@ static void driveRetrieve(NSString *serversPath, double cancelAfter) {
         writeLine(@{@"retrieve": @{@"error": @"no study"}});
         return;
     }
-    [study setNoSmartMode:YES];
     [study setShowErrorMessage:NO];
-    __block NSThread *thread = nil;
-    __block id controller = nil;
+    // The window's own factory and retrieve, not a stand-in for them: the
+    // factory hands the controller what its retrieve threads need.
+    static id controller = nil;  // lives as the app's window does
+    @synchronized (observedThreads) {
+        retrieveThreadName = [NSBundle.mainBundle localizedStringForKey:@"Retrieving images..." value:nil table:nil];
+    }
     dispatch_sync(dispatch_get_main_queue(), ^{
-        // As -[QueryController retrieve...] starts it: a named thread with a
-        // status, cancellable, handed to the activity window's manager.
-        controller = [[NSClassFromString(@"QueryController") alloc] initWithWindow:nil];
+        controller = [[NSClassFromString(@"QueryController") alloc] initAutoQuery:NO];
         id manager = [[NSClassFromString(@"QueryArrayController") alloc] initWithCallingAET:@"HOROSDEV" distantServer:server];
         [controller setValue:manager forKey:@"queryManager"];
-        thread = [[NSThread alloc] initWithTarget:controller selector:@selector(performRetrieve:) object:@[study]];
-        thread.name = @"Retrieving images...";
-        [thread setStatus:@"1 study"];
-        [thread setSupportsCancel:YES];
-        [[NSClassFromString(@"ThreadsManager") defaultManager] addThreadAndStart:thread];
+        [controller retrieve:nil onlyIfNotAvailable:NO forViewing:NO items:@[study] showGUI:NO];
     });
+    // Started off the main thread, it is listed once the main thread gets to it.
+    NSThread *thread = nil;
+    for (double deadline = uptime() + 30; !thread && uptime() < deadline; usleep(20000)) {
+        @synchronized (observedThreads) {
+            thread = retrieveThread;
+        }
+    }
+    if (!thread) {
+        writeLine(@{@"retrieve": @{@"error": @"the retrieve thread was never listed"}});
+        return;
+    }
     double start = uptime();
     if (cancelAfter > 0) {
         while (!thread.isFinished && uptime() - start < cancelAfter) usleep(20000);
@@ -315,8 +346,8 @@ __attribute__((constructor)) static void installThreadProgressProbe(void) {
     NSDictionary *environment = NSProcessInfo.processInfo.environment;
     unsetenv("DYLD_INSERT_LIBRARIES");
     observedThreads = [NSMutableSet set];
-    Method add = class_getInstanceMethod(NSClassFromString(@"ThreadsManager"), @selector(addThreadAndStart:));
-    if (add) originalAddThread = (void (*)(id, SEL, NSThread *))method_setImplementation(add, (IMP)addThreadAndStart);
+    Method add = class_getInstanceMethod(NSArrayController.class, @selector(addObject:));
+    if (add) originalAddObject = (void (*)(id, SEL, id))method_setImplementation(add, (IMP)addObject);
     writeLine(@{@"probe": @"loaded", @"threads_manager_hooked": @(add != NULL)});
 
     NSString *remote = environment[@"HOROS_THREAD_PROGRESS_REMOTE"];

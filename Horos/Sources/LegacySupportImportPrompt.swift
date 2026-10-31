@@ -9,6 +9,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 import IsiXStorage
 
 /// Asks the user, at launch, whether to import what earlier versions kept in
@@ -24,7 +25,7 @@ enum LegacySupportImportPrompt {
     static func offerIfNeeded() {
         #if !MACAPPSTORE
         // A configured accounts database is the Web Portal's, wherever it is.
-        let configured = !(UserDefaults.standard.string(forKey: "WebPortalDatabasePath") ?? "").isEmpty
+        let configured = !(PreferencesSource.process.preferences[DatabasePreferences.webPortalDatabasePath] ?? "").isEmpty
         let migration = LegacySupportImport(userDomain: StorageLocations.runningUserDomain,
                                             items: LegacySupportImport.Item.standard(includingAccounts: !configured))
         guard !migration.isSettled else { return }

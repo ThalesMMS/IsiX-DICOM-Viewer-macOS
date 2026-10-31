@@ -60,7 +60,7 @@ private final class _O2ScreensPrefsViewScreenRecord: NSObject {
 /// The thumbnails of the screens in the Viewers preference pane, with a menu
 /// that picks the screens used for viewers.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors,
+/// Implemented in Swift: the Objective-C name, the selectors,
 /// the xib `customClass` and <Horos/O2ScreensPrefsView.h> are those of the
 /// former class.
 @objc(O2ScreensPrefsView)

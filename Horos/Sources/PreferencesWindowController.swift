@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 import ObjectiveC
 import PreferencePanes
 import SecurityInterface
@@ -159,6 +160,17 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
     @objc public private(set) var animations = NSMutableArray()
 
+    /// The process's dependencies, set by sharedPreferencesWindowController()
+    /// right after it makes the controller, whose initializer loads the nib.
+    var processGraph: ProcessGraph!
+
+    /// The preferences of the process graph. The nib, and with it the lock's
+    /// state, loads in the initializer, before the graph is handed over: the
+    /// source of the objects without a graph stands in for it until then.
+    private var preferences: any PreferenceStore {
+        processGraph?.preferences ?? PreferencesSource.process.preferences
+    }
+
     @objc(sharedPreferencesWindowController)
     public class func sharedPreferencesWindowController() -> PreferencesWindowController {
         var prefsController: PreferencesWindowController?
@@ -172,6 +184,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
         if prefsController == nil {
             let created = PreferencesWindowController()
+            created.processGraph = ProcessGraph.process
             // The former method never released the controller it made: its
             // window lives on and is found again through NSApp.windows. The
             // window does not own its controller, so keep that reference.
@@ -353,7 +366,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     }
 
     @objc public func isUnlocked() -> Bool {
-        return !UserDefaults.standard.bool(forKey: "AUTHENTICATION") || authView?.authorizationState() == SFAuthorizationViewUnlockedState
+        return !preferences[ApplicationPreferences.authentication] || authView?.authorizationState() == SFAuthorizationViewUnlockedState
     }
 
     @IBAction @objc(authAction:)
@@ -371,7 +384,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         MainActor.assumeIsolated {
             authView.setDelegate(self)
 
-            if UserDefaults.standard.bool(forKey: "AUTHENTICATION") {
+            if preferences[ApplicationPreferences.authentication] {
                 authView.setString(PreferencesWindowController.cString("BUNDLE_IDENTIFIER.preferences.database"))
             } else {
                 authView.setString(PreferencesWindowController.cString("BUNDLE_IDENTIFIER.preferences.allowalways"))
@@ -456,7 +469,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         setCurrentContext(nil)
 
         window?.acceptsMouseMovedEvents = false
-        UserDefaults.standard.synchronize()
+        processGraph.preferences.synchronize()
     }
 
     @objc(setCurrentContextWithResourceName:)
@@ -632,9 +645,9 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     // ------
 
     @objc public func reopenDatabase() {
-        let defaults = UserDefaults.standard
-        defaults.set(defaults.integer(forKey: "DEFAULT_DATABASELOCATION"), forKey: "DATABASELOCATION")
-        defaults.set(defaults.string(forKey: "DEFAULT_DATABASELOCATIONURL"), forKey: "DATABASELOCATIONURL")
-        BrowserController.currentBrowser()?.resetToLocalDatabase()
+        let defaults = processGraph.preferences
+        defaults.set(defaults[DatabasePreferences.defaultDatabaseLocation], for: DatabasePreferences.databaseLocation)
+        defaults.set(defaults[DatabasePreferences.defaultDatabaseLocationURL], for: DatabasePreferences.databaseLocationURL)
+        processGraph.currentBrowser?.resetToLocalDatabase()
     }
 }

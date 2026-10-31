@@ -75,4 +75,90 @@ public final class PatientNameMatching: NSObject {
         }
         return terms
     }
+
+    /// The database's condition for the patient name `name`, which the
+    /// browser's search and the listener's C-FIND use.
+    ///
+    /// Each name component narrows the match: the first from the start of the
+    /// name, the others anywhere in it. A component that is only `*` narrows
+    /// nothing, so `*` alone, like an empty value, matches every name, as
+    /// universal matching does in a C-FIND (PS3.4 C.2.2.2.3); a component with
+    /// `*` or `?` inside is matched as a wildcard pattern (C.2.2.2.4).
+    /// `soundex`: the Soundex code of a component, to match the names that
+    /// sound alike too; nil: the letters only. It reads no state, so any
+    /// thread may call it.
+    public static func namePredicate(_ name: String?, soundex: ((String) -> String?)?) -> NSPredicate {
+        var s = name as NSString?
+        s = s?.replacingOccurrences(of: "^", with: " ") as NSString?
+        s = s?.replacingOccurrences(of: ", ", with: " ") as NSString?
+        s = s?.replacingOccurrences(of: ",", with: " ") as NSString?
+
+        var predicates: [NSPredicate] = []
+        var firstComponent = true
+        for name in s?.components(separatedBy: " ") ?? [] {
+            var component = name as NSString
+            var p: NSPredicate? = nil
+
+            while component.hasPrefix("*") {
+                component = component.substring(from: 1) as NSString
+                firstComponent = false
+            }
+
+            while component.hasSuffix("*") {
+                component = component.substring(to: component.length - 1) as NSString
+            }
+
+            if component.length == 0 {
+                // "*", or an empty component between separators: no condition.
+                // A CONTAINS/BEGINSWITH of "" never matches in the store.
+                firstComponent = false
+                continue
+            }
+
+            if component.contains("*") || component.contains("?") {
+                p = objcPredicate("name LIKE[cd] %@", (firstComponent ? "" : "*") + (component as String) + "*")
+            } else if firstComponent == false {
+                if let soundex, component.length >= 2 {
+                    p = objcPredicate("(soundex CONTAINS[cd] %@) OR (name CONTAINS[cd] %@)", soundex(component as String), component)
+                } else {
+                    p = objcPredicate("name CONTAINS[cd] %@", component)
+                }
+            } else {
+                if let soundex, component.length >= 2 {
+                    p = objcPredicate("(soundex BEGINSWITH[cd] %@) OR (name BEGINSWITH[cd] %@)", soundex(component as String), component)
+                } else {
+                    p = objcPredicate("name BEGINSWITH[cd] %@", component)
+                }
+            }
+
+            // [cd] does not fold Ł, Ø, Đ or ı: "zolw" also finds "Żółw".
+            if let plain = p, !component.contains("*"), !component.contains("?"),
+               let pattern = undecomposedPattern(component: component as String, anchored: firstComponent) {
+                p = NSCompoundPredicate(orPredicateWithSubpredicates: [plain, objcPredicate("name MATCHES[cd] %@", pattern)])
+            }
+
+            if let p {
+                predicates.append(p)
+            }
+
+            firstComponent = false
+        }
+
+        return NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+    }
+}
+
+/// A nil `%@` argument for a format taking a C variable argument list.
+private struct ObjCNilArgument: CVarArg {
+    var _cVarArgEncoding: [Int] { [0] }
+}
+
+/// `[NSPredicate predicateWithFormat: format, …]` with object arguments, a nil
+/// one passed as nil.
+private func objcPredicate(_ format: String, _ arguments: Any?...) -> NSPredicate {
+    let list: [CVarArg] = arguments.map { argument -> CVarArg in
+        guard let argument else { return ObjCNilArgument() }
+        return ((argument as AnyObject) as? NSObject) ?? ObjCNilArgument()
+    }
+    return withVaList(list) { NSPredicate(format: format, arguments: $0) }
 }

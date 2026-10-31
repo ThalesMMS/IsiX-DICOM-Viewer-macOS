@@ -262,18 +262,57 @@ final class SyntheticBundle {
 
     @Test func extensionAndEmbeddedKit() throws {
         #expect(try inspect(name: "Example.plugin").diagnostics == [.notVersion1Bundle(pathExtension: "plugin")])
-        // A former plugin is refused by its extension, whatever it holds.
-        #expect(try inspect(name: "Example.osirixplugin").diagnostics == [.formerPluginAPI(pathExtension: "osirixplugin")])
-        #expect(try inspect(name: "Example.HorosPlugin").diagnostics == [.formerPluginAPI(pathExtension: "HorosPlugin")])
         let bundle = try SyntheticBundle()
         try FileManager.default.createDirectory(at: bundle.url.appendingPathComponent("Contents/Frameworks/IsiXPluginKit.framework"),
                                                 withIntermediateDirectories: true)
         #expect(inspector.inspect(bundleAt: bundle.url).diagnostics == [.embedsKitCopy])
     }
 
+    @Test func formerPlugin() throws {
+        // What the former loader needs: an Info.plist and an executable this
+        // process loads. Former keys and frameworks, no API version, no kit
+        // and no identifier are what such a plugin is.
+        var image = SyntheticMachO()
+        image.libraries = ["@executable_path/../Frameworks/Horos.framework/Versions/A/Horos", "/usr/lib/libSystem.B.dylib"]
+        image.minimumSystem = nil
+        let info: [String: Any] = ["CFBundleExecutable": "Former", "CFBundleVersion": "2.1",
+                                   "pluginType": "roiTool", "MenuTitles": ["One", "Two"], "Requirements": ["Other"]]
+        let inspection = try inspect(info, name: "Former.HorosPlugin", executable: image.data())
+        #expect(inspection.diagnostics == [])
+        #expect(inspection.isLoadable && inspection.loader == .formerAPI)
+        #expect(inspection.manifest == PluginManifest(identifier: "", name: "Former", version: "2.1", apiVersion: 0,
+                                                      principalClass: "", executableName: "Former", capabilities: [],
+                                                      minimumSystemVersion: nil))
+        // Without CFBundleExecutable, NSBundle looks for the bundle's name.
+        let unnamed = try SyntheticBundle(name: "Unnamed.osirixplugin", info: ["NSPrincipalClass": "U"], executable: nil)
+        try image.data().write(to: unnamed.url.appendingPathComponent("Contents/MacOS/Unnamed"))
+        #expect(inspector.inspect(bundleAt: unnamed.url).isLoadable)
+
+        // What stops its loader, before any of its code runs.
+        #expect(try inspect(nil, name: "Former.horosplugin").diagnostics == [.missingInfoPlist])
+        #expect(try inspect(info, name: "Former.horosplugin", executable: nil).diagnostics == [.missingExecutable("Former")])
+        #expect(try inspect(info, name: "Former.horosplugin", executable: Data("text".utf8)).diagnostics == [.unreadableExecutable])
+        var intel = SyntheticMachO.x86_64()
+        intel.minimumSystem = nil
+        #expect(try inspect(info, name: "Former.osirixplugin", executable: intel.data()).diagnostics
+                == [.architectureMismatch(found: ["x86_64"], required: "arm64")])
+        #expect(try inspect(info, name: "Former.osirixplugin", executable: SyntheticMachO.fat([intel, image])).isLoadable)
+        var unsigned = image
+        unsigned.signed = false
+        #expect(try inspect(info, name: "Former.osirixplugin", executable: unsigned.data()).diagnostics
+                == [.unsignedExecutable(architecture: "arm64")])
+        var application = image
+        application.fileType = 2
+        #expect(try inspect(info, name: "Former.osirixplugin", executable: application.data()).diagnostics == [.notLoadableExecutable])
+        var newer = info
+        newer["LSMinimumSystemVersion"] = "27.0"
+        #expect(try inspect(newer, name: "Former.osirixplugin", executable: image.data()).diagnostics
+                == [.requiresNewerSystem(required: "27.0.0", running: "15.4.0")])
+    }
+
     @Test func everyDiagnosticSaysSomething() {
         let all: [PluginDiagnostic] = [
-            .notVersion1Bundle(pathExtension: "plugin"), .formerPluginAPI(pathExtension: "horosplugin"), .missingInfoPlist, .invalidInfoPlist, .legacyMetadata(keys: ["pluginType"]),
+            .notVersion1Bundle(pathExtension: "plugin"), .missingInfoPlist, .invalidInfoPlist, .legacyMetadata(keys: ["pluginType"]),
             .missingAPIVersion, .invalidAPIVersion(found: "x"), .unsupportedAPIVersion(0), .futureAPIVersion(2, newestSupported: 1),
             .missingIdentifier, .missingPrincipalClass, .invalidPrincipalClass("a b"), .missingExecutable(""), .missingExecutable("E"),
             .invalidCapabilities, .unknownCapabilities(["x"]), .requiresNewerSystem(required: "26.0.0", running: "15.0.0"),

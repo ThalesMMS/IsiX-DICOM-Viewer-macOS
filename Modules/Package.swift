@@ -22,6 +22,7 @@ let package = Package(
     platforms: [.macOS(.v15)],
     products: [
         .library(name: "IsiXLogging", targets: ["IsiXLogging"]),
+        .library(name: "IsiXContracts", targets: ["IsiXContracts"]),
         .library(name: "IsiXPreferences", targets: ["IsiXPreferences"]),
         .library(name: "IsiXStorage", targets: ["IsiXStorage"]),
         .library(name: "IsiXROI", targets: ["IsiXROI"]),
@@ -43,6 +44,11 @@ let package = Package(
     targets: [
         .target(name: "IsiXLogging", path: "IsiXLogging/Sources"),
         .testTarget(name: "IsiXLoggingTests", dependencies: ["IsiXLogging"], path: "IsiXLogging/Tests"),
+        // Sendable value types and the capability ports over the local
+        // database, on Foundation alone: a module reads the database through
+        // them, and the app implements them.
+        .target(name: "IsiXContracts", path: "IsiXContracts/Sources"),
+        .testTarget(name: "IsiXContractsTests", dependencies: ["IsiXContracts"], path: "IsiXContracts/Tests"),
         .target(name: "IsiXPreferences", dependencies: ["IsiXLogging"], path: "IsiXPreferences/Sources"),
         .testTarget(name: "IsiXPreferencesTests", dependencies: ["IsiXPreferences"], path: "IsiXPreferences/Tests"),
         .target(name: "IsiXStorage", path: "IsiXStorage/Sources"),
@@ -52,20 +58,20 @@ let package = Package(
         .target(name: "IsiXPluginLoading", path: "IsiXPluginLoading/Sources"),
         .testTarget(name: "IsiXPluginLoadingTests", dependencies: ["IsiXPluginLoading"], path: "IsiXPluginLoading/Tests"),
         .target(name: "IsiXImaging", dependencies: ["IsiXLogging"], path: "IsiXImaging/Sources"),
-        .testTarget(name: "IsiXImagingTests", dependencies: ["IsiXImaging"], path: "IsiXImaging/Tests"),
+        .testTarget(name: "IsiXImagingTests", dependencies: ["IsiXImaging", "IsiXPreferences"], path: "IsiXImaging/Tests"),
         // Optimized in every configuration: unoptimized, its simd code runs
         // several times slower than the C it replaced, and the CPR and the
         // ROIs call it on every update.
         .target(name: "IsiXGeometry", path: "IsiXGeometry/Sources", swiftSettings: [.unsafeFlags(["-O"])]),
         .testTarget(name: "IsiXGeometryTests", dependencies: ["IsiXGeometry"], path: "IsiXGeometry/Tests"),
-        .target(name: "IsiXDICOMFile", dependencies: ["IsiXLogging", "IsiXImaging"], path: "IsiXDICOMFile/Sources"),
-        .testTarget(name: "IsiXDICOMFileTests", dependencies: ["IsiXDICOMFile"], path: "IsiXDICOMFile/Tests"),
+        .target(name: "IsiXDICOMFile", dependencies: ["IsiXLogging", "IsiXPreferences", "IsiXImaging"], path: "IsiXDICOMFile/Sources"),
+        .testTarget(name: "IsiXDICOMFileTests", dependencies: ["IsiXDICOMFile", "IsiXPreferences"], path: "IsiXDICOMFile/Tests"),
         .target(name: "IsiXDICOMDataset", dependencies: ["IsiXLogging", "IsiXImaging", "IsiXDICOMFile"], path: "IsiXDICOMDataset/Sources"),
         .testTarget(name: "IsiXDICOMDatasetTests", dependencies: ["IsiXDICOMDataset", "IsiXDICOMFile"], path: "IsiXDICOMDataset/Tests"),
-        .target(name: "IsiXDatabase", dependencies: ["IsiXLogging"], path: "IsiXDatabase/Sources"),
-        .testTarget(name: "IsiXDatabaseTests", dependencies: ["IsiXDatabase"], path: "IsiXDatabase/Tests"),
-        .target(name: "IsiXDICOMNetwork", path: "IsiXDICOMNetwork/Sources"),
-        .testTarget(name: "IsiXDICOMNetworkTests", dependencies: ["IsiXDICOMNetwork"], path: "IsiXDICOMNetwork/Tests"),
+        .target(name: "IsiXDatabase", dependencies: ["IsiXLogging", "IsiXContracts", "IsiXPreferences"], path: "IsiXDatabase/Sources"),
+        .testTarget(name: "IsiXDatabaseTests", dependencies: ["IsiXDatabase", "IsiXContracts", "IsiXPreferences"], path: "IsiXDatabase/Tests"),
+        .target(name: "IsiXDICOMNetwork", dependencies: ["IsiXLogging", "IsiXContracts", "IsiXPreferences"], path: "IsiXDICOMNetwork/Sources"),
+        .testTarget(name: "IsiXDICOMNetworkTests", dependencies: ["IsiXDICOMNetwork", "IsiXContracts", "IsiXPreferences"], path: "IsiXDICOMNetwork/Tests"),
         .target(name: "IsiXSegmentation", path: "IsiXSegmentation/Sources"),
         .testTarget(name: "IsiXSegmentationTests", dependencies: ["IsiXSegmentation"], path: "IsiXSegmentation/Tests"),
         .target(name: "IsiXVolumeRendering", dependencies: ["IsiXLogging"], path: "IsiXVolumeRendering/Sources"),

@@ -40,6 +40,7 @@
 import AppKit
 import IsiXVolumeRendering
 import QuartzCore
+import IsiXPreferences
 
 // The frames of VRView and how they reach the screen: the frame's cycle
 // (-drawRect:, its render and the first frame's completion), the renders
@@ -48,8 +49,8 @@ import QuartzCore
 // stereo, the low-resolution frame, the view's frame and the Metal hook of the
 // VTK adapter. A Swift extension of the class, with the same selectors.
 //
-// The @try of -drawRect: and of -horosRenderFrame are HorosObjCException,
-// with the same log and the same failed frame.
+// The @try of -horosRenderFrame is HorosObjCException, with the same failed
+// frame.
 
 extension VRView {
 
@@ -98,30 +99,26 @@ extension VRView {
 
         minimumStep = 0
 
-        if let e = HorosObjCException.caught({
-            // The frame's cycle: the first frame's preparation, the
-            // render's outcome and the completion.
-            let frame = VRFrameCycle.begin(firstFrame: self.horos_firstTime)
-            self.horos_firstTime = false
+        // The frame's cycle: the first frame's preparation, the render's
+        // outcome and the completion. An exception of the render fails the
+        // frame in horosRenderFrame.
+        let frame = VRFrameCycle.begin(firstFrame: self.horos_firstTime)
+        self.horos_firstTime = false
 
-            if frame.render(succeeded: self.horosRenderFrame(), errorShown: self.horos_alertDisplayed) {
-                self.perform(#selector(self.displayVTKError), with: nil, afterDelay: 0.1)
-            }
-
-            if frame.finish() == .firstFrameDone {
-                self.horosFinishFirstFrame()
-            }
-
-            self.horos_hasChanged = true
-        }) {
-            NSLog("Exception during drawRect: %@", e)
+        if frame.render(succeeded: self.horosRenderFrame(), errorShown: self.horos_alertDisplayed) {
+            self.perform(#selector(self.displayVTKError), with: nil, afterDelay: 0.1)
         }
+
+        if frame.finish() == .firstFrameDone {
+            self.horosFinishFirstFrame()
+        }
+
+        self.horos_hasChanged = true
     }
 
     /// The frame's drawing: the line measurements projected on the volume, the
     /// orientation text and VTK's render, stereo included. NO when VTK threw
     /// during the render, which the VTK adapter catches.
-    @objc(horosRenderFrame)
     func horosRenderFrame() -> Bool {
         // An Objective-C exception on the way fails the frame too, as the C++
         // catch-all that wrapped it did.
@@ -141,7 +138,6 @@ extension VRView {
 
     /// After the first frame: a 4D volume gets back the two marker pixels its
     /// preparation borrowed, and its 16-bit copy is converted again.
-    @objc(horosFinishFirstFrame)
     func horosFinishFirstFrame() {
         if !horos_isRGB && (horos_controller?.viewer2D()?.maxMovieIndex() ?? 0) > 1 {
             let data = horos_data!
@@ -155,7 +151,6 @@ extension VRView {
         }
     }
 
-    @objc(displayLowRes)
     func displayLowRes() {
         let vtk = horos_vtk
         vtk.setVolumeMinimumImageSampleDistance(horos_LOD * lowResLODFactor)
@@ -208,7 +203,6 @@ extension VRView {
 
     // The frame is drawn by Metal into a layer of its own, the first of the view's
     // layer: the overlay's text and graphics are above it.
-    @objc(horosPictureLayer)
     func horosPictureLayer() -> CAMetalLayer? {
         guard let host = layer else { return nil }
         var picture = (horos_horosPresenter as? VRPresenter)?.layer
@@ -360,7 +354,7 @@ extension VRView {
 
     @objc(squareView:)
     func squareView(_ sender: Any?) {
-        let viewSize = UserDefaults.standard.integer(forKey: "VRDefaultViewSize")
+        let viewSize = processGraph.preferences[VolumeRenderingPreferences.vrDefaultViewSize]
         if viewSize == 1 { return }
 
         var selfFrame = window?.contentView?.frame ?? .zero
@@ -486,7 +480,6 @@ extension VRView {
 
     // The adapter has checked that the mapper is the view's, or the fused
     // series', and that the renderer is the view's.
-    @objc(horosRenderMetalImageFused:)
     func horosRenderMetalImageFused(_ fused: Bool) -> Bool {
         // The MPR's hidden view is on the CPU engine; it asks for Metal plane by
         // plane, in volume rendering mode.

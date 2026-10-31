@@ -170,14 +170,16 @@ if not extraction or 'renameWithoutReplacing(output, destination)' not in extrac
 retry = re.search(r'static func returnArchiveForRetry\(.*?\n    \}\n', placing, re.S)
 if not retry or 'removeItem(atPath: destination' in retry.group(0):
     failures.append('putting an archive back for another attempt still removes what is at the destination')
-# DicomDatabase is Swift: the scan queues through -queueForCompression:
-# (DicomDatabase+Compression.swift), under the compression queue's own lock.
-database = ((root / 'Horos/Sources/DicomDatabase+Compression.swift').read_text()
-            + (root / 'Horos/Sources/DicomDatabase+IncomingImport.swift').read_text())
-if not re.search(r'DicomDatabaseObjC\.synchronized\(horos_compressQueue\) \{\s*horos_compressQueue\?\.addObjects\(from: paths\)',
-                 database) or re.search(r'DicomDatabaseObjC\.synchronized\(horos_decompressQueue\) \{\s*horos_compressQueue\?\.addObjects',
-                                        database) or 'self.queueForCompression(compressedPathArray)' not in database:
-    failures.append('the importer adds to the compression queue under the decompression queue\'s lock')
+# The scan hands what it moved aside to the conversion queue, whose batches wait
+# under one mutex: nothing added while the worker takes a batch stays behind in
+# the decompression folder, which nothing reads again.
+incoming = (root / 'Horos/Sources/IncomingAdmission.swift').read_text()
+queue = (root / 'Modules/IsiXDatabase/Sources/ConversionQueue.swift').read_text()
+enqueue = re.search(r'public nonisolated func enqueue\(.*?\n    \}\n', queue, re.S)
+taken = re.search(r'private func startNext\(.*?\n    \}\n', queue, re.S)
+if 'conversion.convertScanned(compressedPathArray, mode: mode)' not in incoming or not enqueue or not taken \
+        or 'lanes.withLock' not in enqueue.group(0) or 'lanes.withLock' not in taken.group(0):
+    failures.append('what the scan moved aside is not added and taken under the lock of the queue')
 
 if failures:
     print('FAIL')

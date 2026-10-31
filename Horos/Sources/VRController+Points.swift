@@ -144,7 +144,6 @@ extension VRController {
 
     /// The view's points brought in line with the 2D viewer's point ROIs: the
     /// ones whose ROI is gone are removed, the ROIs not shown are added.
-    @objc(refresh3DPoints)
     public final func refresh3DPoints() {
         guard let viewer2D = viewer2DStorage else {
             for case let roi as ROI in (roi2DPointsArray?.copy() as? NSArray) ?? NSArray() { remove3DPointROI(roi) }
@@ -237,7 +236,6 @@ extension VRController {
     }
 
     /// The current time's volumes, the list itself.
-    @objc(horosROIVolumeList)
     public nonisolated final func horosROIVolumeList() -> NSMutableArray? {
         roiVolumeLists[Int(curMovieIndexStorage)]
     }

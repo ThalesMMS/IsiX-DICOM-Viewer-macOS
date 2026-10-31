@@ -38,6 +38,8 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
+import IsiXPreferences
 import UniformTypeIdentifiers
 
 /// The former static NSString *MPRPlaneObservationContext: the KVO context of
@@ -131,6 +133,9 @@ private let filenamesPboardType = NSPasteboard.PasteboardType("NSFilenamesPboard
 /// VRView+CAPI.m.
 @objc(CPRController)
 public final class CPRController: Window3DController, @MainActor CPRViewDelegate, NSToolbarDelegate, NSSplitViewDelegate {
+    /// The preferences the window reads and writes: those of the process graph.
+    let preferenceStore: any PreferenceStore = PreferencesSource.process.preferences
+
     // MARK: - Outlets
 
     // To avoid the Cocoa bindings memory leak bug...
@@ -419,10 +424,10 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             mprView3?.needsDisplay = true
             cprView?.orangePlaneColor = _colorAxis1
 
-            UserDefaults.standard.set(Float(_colorAxis1?.redComponent ?? 0), forKey: "MPR_AXIS_1_RED")
-            UserDefaults.standard.set(Float(_colorAxis1?.greenComponent ?? 0), forKey: "MPR_AXIS_1_GREEN")
-            UserDefaults.standard.set(Float(_colorAxis1?.blueComponent ?? 0), forKey: "MPR_AXIS_1_BLUE")
-            UserDefaults.standard.set(Float(_colorAxis1?.alphaComponent ?? 0), forKey: "MPR_AXIS_1_ALPHA")
+            self.preferenceStore.set(Float(_colorAxis1?.redComponent ?? 0), for: ReconstructionPreferences.mprAxis1Red)
+            self.preferenceStore.set(Float(_colorAxis1?.greenComponent ?? 0), for: ReconstructionPreferences.mprAxis1Green)
+            self.preferenceStore.set(Float(_colorAxis1?.blueComponent ?? 0), for: ReconstructionPreferences.mprAxis1Blue)
+            self.preferenceStore.set(Float(_colorAxis1?.alphaComponent ?? 0), for: ReconstructionPreferences.mprAxis1Alpha)
         }
     }
 
@@ -436,10 +441,10 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             mprView3?.needsDisplay = true
             cprView?.purplePlaneColor = _colorAxis2
 
-            UserDefaults.standard.set(Float(_colorAxis2?.redComponent ?? 0), forKey: "MPR_AXIS_2_RED")
-            UserDefaults.standard.set(Float(_colorAxis2?.greenComponent ?? 0), forKey: "MPR_AXIS_2_GREEN")
-            UserDefaults.standard.set(Float(_colorAxis2?.blueComponent ?? 0), forKey: "MPR_AXIS_2_BLUE")
-            UserDefaults.standard.set(Float(_colorAxis2?.alphaComponent ?? 0), forKey: "MPR_AXIS_2_ALPHA")
+            self.preferenceStore.set(Float(_colorAxis2?.redComponent ?? 0), for: ReconstructionPreferences.mprAxis2Red)
+            self.preferenceStore.set(Float(_colorAxis2?.greenComponent ?? 0), for: ReconstructionPreferences.mprAxis2Green)
+            self.preferenceStore.set(Float(_colorAxis2?.blueComponent ?? 0), for: ReconstructionPreferences.mprAxis2Blue)
+            self.preferenceStore.set(Float(_colorAxis2?.alphaComponent ?? 0), for: ReconstructionPreferences.mprAxis2Alpha)
         }
     }
 
@@ -453,10 +458,10 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             mprView3?.needsDisplay = true
             cprView?.bluePlaneColor = _colorAxis3
 
-            UserDefaults.standard.set(Float(_colorAxis3?.redComponent ?? 0), forKey: "MPR_AXIS_3_RED")
-            UserDefaults.standard.set(Float(_colorAxis3?.greenComponent ?? 0), forKey: "MPR_AXIS_3_GREEN")
-            UserDefaults.standard.set(Float(_colorAxis3?.blueComponent ?? 0), forKey: "MPR_AXIS_3_BLUE")
-            UserDefaults.standard.set(Float(_colorAxis3?.alphaComponent ?? 0), forKey: "MPR_AXIS_3_ALPHA")
+            self.preferenceStore.set(Float(_colorAxis3?.redComponent ?? 0), for: ReconstructionPreferences.mprAxis3Red)
+            self.preferenceStore.set(Float(_colorAxis3?.greenComponent ?? 0), for: ReconstructionPreferences.mprAxis3Green)
+            self.preferenceStore.set(Float(_colorAxis3?.blueComponent ?? 0), for: ReconstructionPreferences.mprAxis3Blue)
+            self.preferenceStore.set(Float(_colorAxis3?.alphaComponent ?? 0), for: ReconstructionPreferences.mprAxis3Alpha)
         }
     }
 
@@ -706,8 +711,9 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         // The former initializer set isInitializing, selectedInterpolationMode
         // and viewer2D before [super initWithWindowNibName:], which does not
         // load the nib; they are set just after it here.
-        if UserDefaults.standard.integer(forKey: "ANNOTATIONS") == annotNone {
-            UserDefaults.standard.set(annotGraphics, forKey: "ANNOTATIONS")
+        let preferences = PreferencesSource.process.preferences
+        if preferences[ViewerPreferences.annotations] == annotNone {
+            preferences.set(Int(annotGraphics), for: ViewerPreferences.annotations)
         }
 
         self.init(windowNibName: "CPR")
@@ -717,6 +723,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         self.selectedInterpolationModeIvar = CPRInterpolationMode(CPRInterpolationModeNearestNeighbor.rawValue)
 
         self.viewer2D = viewer
+        self.keptViewerGraph = viewer?.sessionGraph
 
         var supported = true
         do {
@@ -793,7 +800,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             self.blendingModeAvailable = true
         }
 
-        self.displayMousePosition = UserDefaults.standard.bool(forKey: "MPRDisplayMousePosition")
+        self.displayMousePosition = self.preferenceStore[ReconstructionPreferences.mprDisplaysMousePosition]
         self.maxMovieIndex = 0
 
         self.updateToolbarItems()
@@ -836,9 +843,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         _curvedPath = CPRCurvedPath()
         _displayInfo = CPRDisplayInfo()
 
-        UserDefaults.standard.register(defaults: ["CPRColorR": NSNumber(value: Float(0)),
-                                                  "CPRColorG": NSNumber(value: Float(1)),
-                                                  "CPRColorB": NSNumber(value: Float(0))])
+        PreferencesSource.process.preferences.register(defaults: ReconstructionPreferences.curvedPathColourDefaults())
         self.curvedPathCreationMode = true
         cprVolumeData = CPRVolumeData(withPixList: pix, volume: volume)
         cprView?.volumeData = cprVolumeData
@@ -1005,20 +1010,20 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         self.exportReverseSliceOrder = false
 
         var r1: Float, g1: Float, b1: Float, a1: Float, r2: Float, g2: Float, b2: Float, a2: Float, r3: Float, g3: Float, b3: Float, a3: Float
-        r1 = UserDefaults.standard.float(forKey: "MPR_AXIS_1_RED")
-        g1 = UserDefaults.standard.float(forKey: "MPR_AXIS_1_GREEN")
-        b1 = UserDefaults.standard.float(forKey: "MPR_AXIS_1_BLUE")
-        a1 = UserDefaults.standard.float(forKey: "MPR_AXIS_1_ALPHA")
+        r1 = self.preferenceStore[ReconstructionPreferences.mprAxis1Red]
+        g1 = self.preferenceStore[ReconstructionPreferences.mprAxis1Green]
+        b1 = self.preferenceStore[ReconstructionPreferences.mprAxis1Blue]
+        a1 = self.preferenceStore[ReconstructionPreferences.mprAxis1Alpha]
 
-        r2 = UserDefaults.standard.float(forKey: "MPR_AXIS_2_RED")
-        g2 = UserDefaults.standard.float(forKey: "MPR_AXIS_2_GREEN")
-        b2 = UserDefaults.standard.float(forKey: "MPR_AXIS_2_BLUE")
-        a2 = UserDefaults.standard.float(forKey: "MPR_AXIS_2_ALPHA")
+        r2 = self.preferenceStore[ReconstructionPreferences.mprAxis2Red]
+        g2 = self.preferenceStore[ReconstructionPreferences.mprAxis2Green]
+        b2 = self.preferenceStore[ReconstructionPreferences.mprAxis2Blue]
+        a2 = self.preferenceStore[ReconstructionPreferences.mprAxis2Alpha]
 
-        r3 = UserDefaults.standard.float(forKey: "MPR_AXIS_3_RED")
-        g3 = UserDefaults.standard.float(forKey: "MPR_AXIS_3_GREEN")
-        b3 = UserDefaults.standard.float(forKey: "MPR_AXIS_3_BLUE")
-        a3 = UserDefaults.standard.float(forKey: "MPR_AXIS_3_ALPHA")
+        r3 = self.preferenceStore[ReconstructionPreferences.mprAxis3Red]
+        g3 = self.preferenceStore[ReconstructionPreferences.mprAxis3Green]
+        b3 = self.preferenceStore[ReconstructionPreferences.mprAxis3Blue]
+        a3 = self.preferenceStore[ReconstructionPreferences.mprAxis3Alpha]
 
         if r1 == 0.0 && g1 == 0.0 && b1 == 0.0 && a1 == 0.0 && r2 == 0.0 && g2 == 0.0 && b2 == 0.0 && a2 == 0.0 && r3 == 0.0 && g3 == 0.0 && b3 == 0.0 && a3 == 0.0 {
             r1 = 1.0; g1 = 0.67; b1 = 0.0; a1 = 0.8
@@ -1046,7 +1051,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
         self.selectCurvedPathDrawingTool()
 
-        self.cprType = UserDefaults.standard.integer(forKey: "SavedCPRType")
+        self.cprType = self.preferenceStore[ReconstructionPreferences.savedCPRType]
 
         self.window?.registerForDraggedTypes([filenamesPboardType])
 
@@ -1115,9 +1120,9 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         mprView2?.LOD = 40
         mprView3?.LOD = 40
 
-        let c = UserDefaults.standard.bool(forKey: "syncZoomLevelMPR")
+        let c = self.preferenceStore[ReconstructionPreferences.syncsZoomLevelMPR]
 
-        UserDefaults.standard.set(true, forKey: "syncZoomLevelMPR")
+        self.preferenceStore.set(true, for: ReconstructionPreferences.syncsZoomLevelMPR)
 
         // Default Init
         self.clippingRangeMode = 1 // MIP
@@ -1167,7 +1172,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         self.selectCurvedPathDrawingTool()
 
         if c == false {
-            UserDefaults.standard.set(c, forKey: "syncZoomLevelMPR")
+            self.preferenceStore.set(c, for: ReconstructionPreferences.syncsZoomLevelMPR)
         }
 
         mprView1?.dontUseAutoLOD = false
@@ -1189,16 +1194,8 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
         // Restore previous path, if it exists
 
-        var path = BrowserController.currentBrowser()?.database?.statesDirPath() as NSString?
-
-        if !FileManager.default.fileExists(atPath: (path as String?) ?? "") {
-            try? FileManager.default.createDirectory(atPath: (path as String?) ?? "", withIntermediateDirectories: true, attributes: nil)
-        }
-
-        path = path?.appendingPathComponent(String(format: "CPR-%@", self.uniqueFilenameOfFirstFile())) as NSString?
-
-        if let path = path {
-            self.loadBezierPathFromFile(path as String)
+        if let path = savedCurvedPathFile() {
+            self.loadBezierPathFromFile(path)
         }
 
         // Enable VTK Render
@@ -1216,6 +1213,17 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         return object as! NSObject
     }
 
+    /// The file of the curved path kept for the series, "CPR-" and the unique
+    /// file name of its first image, in the 3D states folder of the database
+    /// the browser shows, which is made if missing; nil without a database.
+    private func savedCurvedPathFile() -> String? {
+        guard let directory = browserWindowGraph?.database?.statesDirPath() else { return nil }
+        if !FileManager.default.fileExists(atPath: directory) {
+            try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true, attributes: nil)
+        }
+        return (directory as NSString).appendingPathComponent(String(format: "CPR-%@", self.uniqueFilenameOfFirstFile()))
+    }
+
     @objc public dynamic var selectedInterpolationMode: CPRInterpolationMode {
         get {
             objc_sync_enter(self)
@@ -1228,8 +1236,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             defer { objc_sync_exit(self) }
             if self.selectedInterpolationMode != value {
                 self.selectedInterpolationModeIvar = value
-                UserDefaults.standard.set(self.selectedInterpolationMode,
-                                          forKey: "selectedCPRInterpolationMode")
+                self.preferenceStore.set(self.selectedInterpolationMode, for: ReconstructionPreferences.cprInterpolationMode)
                 self.topTransverseView?._setNeedsNewRequest()
                 self.middleTransverseView?._setNeedsNewRequest()
                 self.bottomTransverseView?._setNeedsNewRequest()
@@ -1250,9 +1257,9 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     public override dynamic func awakeFromNib() {
         MainActor.assumeIsolated {
-            if UserDefaults.standard.object(forKey: "selectedCPRInterpolationMode") != nil {
+            if self.preferenceStore[ReconstructionPreferences.cprInterpolationMode.reading(as: PropertyListValue?.self)] != nil {
                 self.willChangeValue(forKey: "interpolationMode")
-                self.selectedInterpolationModeIvar = UserDefaults.standard.integer(forKey: "selectedCPRInterpolationMode")
+                self.selectedInterpolationModeIvar = self.preferenceStore[ReconstructionPreferences.cprInterpolationMode]
                 if self.selectedInterpolationModeIvar != CPRInterpolationMode(CPRInterpolationModeNearestNeighbor.rawValue) &&
                     self.selectedInterpolationModeIvar != CPRInterpolationMode(CPRInterpolationModeCubic.rawValue) {
                     self.selectedInterpolationModeIvar = CPRInterpolationMode(CPRInterpolationModeCubic.rawValue)
@@ -1260,8 +1267,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
                 self.didChangeValue(forKey: "interpolationMode")
             } else {
                 self.selectedInterpolationModeIvar = CPRInterpolationMode(CPRInterpolationModeCubic.rawValue)
-                UserDefaults.standard.set(self.selectedInterpolationMode,
-                                          forKey: "selectedCPRInterpolationMode")
+                self.preferenceStore.set(self.selectedInterpolationMode, for: ReconstructionPreferences.cprInterpolationMode)
             }
 
             let s = viewer2D?.get3DViewerScreen(viewer2D)
@@ -1451,7 +1457,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         var b = [Float](repeating: 0, count: 6)
 
         if sender != nil {
-            if UserDefaults.standard.bool(forKey: "syncZoomLevelMPR") {
+            if self.preferenceStore[ReconstructionPreferences.syncsZoomLevelMPR] {
                 let selectedView = self.selectedView()
 
                 if selectedView !== mprView1 { mprView1?.camera?.parallelScale = selectedView?.camera?.parallelScale ?? 0 }
@@ -1692,8 +1698,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         }
     }
 
-    @objc(assistedCurvedPath:)
-    private dynamic func assistedCurvedPath(_ note: Notification!) {
+    private func assistedCurvedPath(_ note: Notification!) {
         let nodeCount = UInt32(truncatingIfNeeded: _curvedPath?.nodes.count ?? 0)
         if nodeCount > 1 {
             var waiting = WaitRendering(NSLocalizedString("Finding Path...", comment: ""))
@@ -2027,7 +2032,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     }
 
     public override dynamic func add(toUndoQueue string: String!) {
-        if UserDefaults.standard.integer(forKey: "UndoQueueSize") <= 0 {
+        if self.preferenceStore[ReconstructionPreferences.undoQueueSize] <= 0 {
             return
         }
 
@@ -2037,7 +2042,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             undoQueue?.add(obj)
         }
 
-        if (undoQueue?.count ?? 0) > UserDefaults.standard.integer(forKey: "UndoQueueSize") {
+        if (undoQueue?.count ?? 0) > self.preferenceStore[ReconstructionPreferences.undoQueueSize] {
             undoQueue?.removeObject(at: 0)
         }
     }
@@ -2087,8 +2092,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     @objc(createWLWWMenuItems)
     public dynamic func createWLWWMenuItems() {
         // Presets VIEWER Menu
-        let keys = (UserDefaults.standard.dictionary(forKey: "WLWW3") as NSDictionary?)?.allKeys as NSArray?
-        let sortedKeys = keys?.sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as NSArray?
+        let titles = ReconstructionPreferences.windowLevelMenuTitles(in: self.preferenceStore)
 
         let tmp = NSMutableArray()
         tmp.add(NSMenuItem(title: curWLWWMenu ?? "", action: nil, keyEquivalent: ""))
@@ -2096,8 +2100,8 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         tmp.add(NSMenuItem(title: NSLocalizedString("Default WL & WW", comment: ""), action: #selector(ApplyWLWW(_:)), keyEquivalent: ""))
         tmp.add(NSMenuItem(title: NSLocalizedString("Full dynamic", comment: ""), action: #selector(ApplyWLWW(_:)), keyEquivalent: ""))
         tmp.add(NSMenuItem.separator())
-        for i in 0 ..< (sortedKeys?.count ?? 0) {
-            tmp.add(NSMenuItem(title: String(format: "%d - %@", Int32(i + 1), (sortedKeys?.object(at: i) as? String) ?? ""), action: #selector(ApplyWLWW(_:)), keyEquivalent: ""))
+        for title in titles {
+            tmp.add(NSMenuItem(title: title, action: #selector(ApplyWLWW(_:)), keyEquivalent: ""))
         }
 
 //    [tmp addObject:[NSMenuItem separatorItem]];
@@ -2127,11 +2131,9 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     public dynamic func ApplyWLWW(_ sender: Any!) {
         var menuString = ((sender as AnyObject?)?.value(forKey: "title") as? String) ?? ""
 
-        if menuString == NSLocalizedString("Other", comment: "") {
-        } else if menuString == NSLocalizedString("Default WL & WW", comment: "") {
-        } else if menuString == NSLocalizedString("Full dynamic", comment: "") {
-        } else {
-            menuString = (menuString as NSString).substring(from: 4)
+        let fixedItems = [NSLocalizedString("Other", comment: ""), NSLocalizedString("Default WL & WW", comment: ""), NSLocalizedString("Full dynamic", comment: "")]
+        if !fixedItems.contains(menuString) {
+            menuString = WindowLevel.presetName(fromMenuTitle: menuString) ?? ""
         }
 
         self.applyWLWW(for: menuString)
@@ -2164,12 +2166,10 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             if (NSApplication.shared.currentEvent?.modifierFlags ?? []).contains(.shift) {
                 self.beginDeleteWLWWSheet(forPreset: menuString ?? "")
             } else {
-                let value: NSArray?
+                let value = ReconstructionPreferences.preset(menuString, of: ImagePresetPreferences.windowLevelPresets, in: self.preferenceStore)
 
-                value = (UserDefaults.standard.dictionary(forKey: "WLWW3") as NSDictionary?)?.object(forKey: menuString as Any) as? NSArray
-
-                let wl = { (value?.object(at: 0) as AnyObject?)?.floatValue ?? 0 }
-                let ww = { (value?.object(at: 1) as AnyObject?)?.floatValue ?? 0 }
+                let wl = { Float(value?.level ?? 0) }
+                let ww = { Float(value?.width ?? 0) }
                 mprView1?.setWLWW(wl(), ww())
                 mprView2?.setWLWW(wl(), ww())
                 mprView3?.setWLWW(wl(), ww())
@@ -2191,14 +2191,9 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     public override dynamic func updateCLUTMenu(_ note: Notification!) {
         //*** Build the menu
-        var i: Int32
-        let keys: NSArray?
-        let sortedKeys: NSArray?
-
         // Presets VIEWER Menu
 
-        keys = (UserDefaults.standard.dictionary(forKey: "CLUT") as NSDictionary?)?.allKeys as NSArray?
-        sortedKeys = keys?.sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as NSArray?
+        let names = ReconstructionPreferences.menuNames(ImagePresetPreferences.colourTables, in: self.preferenceStore)
 
         self.clutPopup()?.menu?.removeAllItems()
 
@@ -2206,10 +2201,8 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         self.clutPopup()?.menu?.addItem(withTitle: NSLocalizedString("No CLUT", comment: ""), action: #selector(Window3DController.applyCLUT(_:)), keyEquivalent: "")
         self.clutPopup()?.menu?.addItem(NSMenuItem.separator())
 
-        i = 0
-        while Int(i) < (sortedKeys?.count ?? 0) {
-            self.clutPopup()?.menu?.addItem(withTitle: (sortedKeys?.object(at: Int(i)) as? String) ?? "", action: #selector(Window3DController.applyCLUT(_:)), keyEquivalent: "")
-            i += 1
+        for name in names {
+            self.clutPopup()?.menu?.addItem(withTitle: name, action: #selector(Window3DController.applyCLUT(_:)), keyEquivalent: "")
         }
 
         self.clutPopup()?.menu?.item(at: 0)?.title = curCLUTMenu ?? ""
@@ -2224,7 +2217,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
         self.applyOpacityString(curOpacityMenu)
 
-        if (UserDefaults.standard.dictionary(forKey: "CLUT") as NSDictionary?)?.object(forKey: str) == nil {
+        if !ReconstructionPreferences.holdsPreset(str, of: ImagePresetPreferences.colourTables, in: self.preferenceStore) {
             str = NSLocalizedString("No CLUT", comment: "")
         }
 
@@ -2299,26 +2292,9 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
             self.clutPopup()?.menu?.item(at: 0)?.title = str
         } else {
-            let aCLUT: NSDictionary?
-            var array: NSArray?
-            var red = [UInt8](repeating: 0, count: 256), green = [UInt8](repeating: 0, count: 256), blue = [UInt8](repeating: 0, count: 256)
-
-            aCLUT = (UserDefaults.standard.dictionary(forKey: "CLUT") as NSDictionary?)?.object(forKey: str) as? NSDictionary
-            if let aCLUT = aCLUT {
-                array = aCLUT.object(forKey: "Red") as? NSArray
-                for i in 0 ..< 256 {
-                    red[i] = UInt8(truncatingIfNeeded: (array?.object(at: i) as? NSNumber)?.intValue ?? 0)
-                }
-
-                array = aCLUT.object(forKey: "Green") as? NSArray
-                for i in 0 ..< 256 {
-                    green[i] = UInt8(truncatingIfNeeded: (array?.object(at: i) as? NSNumber)?.intValue ?? 0)
-                }
-
-                array = aCLUT.object(forKey: "Blue") as? NSArray
-                for i in 0 ..< 256 {
-                    blue[i] = UInt8(truncatingIfNeeded: (array?.object(at: i) as? NSNumber)?.intValue ?? 0)
-                }
+            if let aCLUT = ReconstructionPreferences.preset(str, of: ImagePresetPreferences.colourTables, in: self.preferenceStore) {
+                var red = ReconstructionPreferences.levels(aCLUT.red), green = ReconstructionPreferences.levels(aCLUT.green),
+                    blue = ReconstructionPreferences.levels(aCLUT.blue)
 
                 if _clippingRangeMode == 0 {
                     mprView1?.vrView?.setCLUT(&red, &green, &blue)
@@ -2370,20 +2346,16 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     @objc(UpdateOpacityMenu:)
     private dynamic func UpdateOpacityMenu(_ note: Notification!) {
         //*** Build the menu
-        let keys: NSArray?
-        let sortedKeys: NSArray?
-
         // Presets VIEWER Menu
 
-        keys = (UserDefaults.standard.dictionary(forKey: "OPACITY") as NSDictionary?)?.allKeys as NSArray?
-        sortedKeys = keys?.sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as NSArray?
+        let names = ReconstructionPreferences.menuNames(ImagePresetPreferences.opacityTables, in: self.preferenceStore)
 
         self.opacityPopup()?.menu?.removeAllItems()
 
         self.opacityPopup()?.menu?.addItem(withTitle: NSLocalizedString("Linear Table", comment: ""), action: #selector(Window3DController.applyOpacity(_:)), keyEquivalent: "")
         self.opacityPopup()?.menu?.addItem(withTitle: NSLocalizedString("Linear Table", comment: ""), action: #selector(Window3DController.applyOpacity(_:)), keyEquivalent: "")
-        for i in 0 ..< (sortedKeys?.count ?? 0) {
-            self.opacityPopup()?.menu?.addItem(withTitle: (sortedKeys?.object(at: i) as? String) ?? "", action: #selector(Window3DController.applyOpacity(_:)), keyEquivalent: "")
+        for name in names {
+            self.opacityPopup()?.menu?.addItem(withTitle: name, action: #selector(Window3DController.applyOpacity(_:)), keyEquivalent: "")
         }
 //    [[OpacityPopup menu] addItem: [NSMenuItem separatorItem]];
 //    [[OpacityPopup menu] addItemWithTitle:NSLocalizedString(@"Add an Opacity Table", nil) action:@selector (AddOpacity:) keyEquivalent:@""];
@@ -2418,9 +2390,6 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     @objc(Apply3DOpacityString:)
     public dynamic func Apply3DOpacityString(_ str: String!) {
-        let aOpacity: NSDictionary?
-        let array: NSArray?
-
         guard let str = str else { return }
 
         if curOpacityMenu as NSString? !== str as NSString {
@@ -2433,11 +2402,8 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
             self.opacityPopup()?.menu?.item(at: 0)?.title = str
         } else {
-            aOpacity = (UserDefaults.standard.dictionary(forKey: "OPACITY") as NSDictionary?)?.object(forKey: str) as? NSDictionary
-            if let aOpacity = aOpacity {
-                array = aOpacity.object(forKey: "Points") as? NSArray
-
-                mprView1?.vrView?.setOpacity(array as? [Any])
+            if let aOpacity = ReconstructionPreferences.preset(str, of: ImagePresetPreferences.opacityTables, in: self.preferenceStore) {
+                mprView1?.vrView?.setOpacity(ReconstructionPreferences.pointTexts(aOpacity))
                 NotificationCenter.default.post(name: NSNotification.Name.OsirixUpdateOpacityMenu, object: curOpacityMenu, userInfo: nil)
 
                 self.opacityPopup()?.menu?.item(at: 0)?.title = curOpacityMenu ?? ""
@@ -2459,8 +2425,6 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     @objc(Apply2DOpacityString:)
     public dynamic func Apply2DOpacityString(_ str: String!) {
-        let aOpacity: NSDictionary?
-
         if str == NSLocalizedString("Linear Table", comment: "") {
             //[thickSlab setOpacity:[NSArray array]];
 
@@ -2491,8 +2455,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             middleTransverseView?.setIndex(middleTransverseView?.curImage ?? 0)
             bottomTransverseView?.setIndex(bottomTransverseView?.curImage ?? 0)
         } else {
-            aOpacity = (UserDefaults.standard.dictionary(forKey: "OPACITY") as NSDictionary?)?.object(forKey: str as Any) as? NSDictionary
-            if let aOpacity = aOpacity {
+            if let aOpacity = ReconstructionPreferences.preset(str, of: ImagePresetPreferences.opacityTables, in: self.preferenceStore) {
                 //[thickSlab setOpacity:array];
                 if curOpacityMenu as NSString? !== str as NSString? {
                     curOpacityMenu = str
@@ -2503,7 +2466,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
                 self.opacityPopup()?.menu?.item(at: 0)?.title = str ?? ""
 
-                let table = OpacityTransferView.tableWith4096Entries(aOpacity.object(forKey: "Points") as? NSArray)
+                let table = OpacityTransferView.tableWith4096Entries(ReconstructionPreferences.pointTexts(aOpacity) as NSArray)
 
                 mprView1?.pix?.transferFunction = table as Data
                 mprView2?.pix?.transferFunction = table as Data
@@ -2569,7 +2532,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         var cos = [Float](repeating: 0, count: 9)
         v?.pix?.orientation(&cos)
 
-        let halfthicknessChange = Float((Double(previousThickness - _clippingRangeThickness) / 2.0) * Double(UserDefaults.standard.float(forKey: "superSampling")))
+        let halfthicknessChange = Float((Double(previousThickness - _clippingRangeThickness) / 2.0) * Double(self.preferenceStore[VolumeRenderingPreferences.superSampling]))
 
         v?.camera?.position = Point3D.point(withX: (position?.x ?? 0) + halfthicknessChange * cos[6],
                                             y: (position?.y ?? 0) + halfthicknessChange * cos[7],
@@ -3006,12 +2969,12 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             cprView?.displayCrossLines = false
             self.displayMousePosition = false
 
-            if UserDefaults.standard.bool(forKey: "exportDCMIncludeAllCPRViews") == false {
+            if self.preferenceStore[ReconstructionPreferences.cprExportIncludesAllViews] == false {
                 cprView?.displayTransverseLines = false
             }
 
             if self.exportImageFormat == CPRExportImageFormat(CPR16BitExportImageFormat.rawValue) {
-                switch UserDefaults.standard.integer(forKey: "EXPORTMATRIXFOR3D") {
+                switch self.preferenceStore[ReconstructionPreferences.exportMatrixFor3D] {
                 case 1:
                     exportHeight = 512
                     exportWidth = exportHeight
@@ -3027,7 +2990,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
             var views: NSMutableArray? = nil, viewsRect: NSMutableArray? = nil
 
-            if UserDefaults.standard.bool(forKey: "exportDCMIncludeAllCPRViews") {
+            if self.preferenceStore[ReconstructionPreferences.cprExportIncludesAllViews] {
                 views = NSMutableArray()
                 viewsRect = NSMutableArray()
 
@@ -3417,24 +3380,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
             if quicktimeExportMode == false {
                 if producedFiles.count > 0 {
-                    let database = BrowserController.currentBrowser()?.database
-                    var objects = database?.addFiles(atPaths: producedFiles.value(forKey: "file") as? [Any],
-                                                     postNotifications: true,
-                                                     dicomOnly: true,
-                                                     rereadExistingItems: true,
-                                                     generatedByOsiriX: true)
-
-                    objects = BrowserController.currentBrowser()?.database?.objects(withIDs: objects)
-
-                    if UserDefaults.standard.bool(forKey: "afterExportSendToDICOMNode") {
-                        BrowserController.currentBrowser()?.selectServer(objects)
-                    }
-
-                    if UserDefaults.standard.bool(forKey: "afterExportMarkThemAsKeyImages") {
-                        for case let im as DicomImage in (objects as NSArray?) ?? NSArray() {
-                            im.setValue(NSNumber(value: true), forKey: "isKeyImage")
-                        }
-                    }
+                    GeneratedSeriesImport.process.add(producedFiles.value(forKey: "file") as? [Any] ?? [])
                 }
             }
 
@@ -3529,7 +3475,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         _exportImageFormat = f
 
         if _exportImageFormat == CPRExportImageFormat(CPR16BitExportImageFormat.rawValue) {
-            UserDefaults.standard.set(false, forKey: "exportDCMIncludeAllCPRViews")
+            self.preferenceStore.set(false, for: ReconstructionPreferences.cprExportIncludesAllViews)
         }
 
         if _exportImageFormat == CPRExportImageFormat(CPR8BitRGBExportImageFormat.rawValue) {
@@ -3541,7 +3487,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
                 self.exportSeriesType = CPRExportSeriesType(CPRRotationExportSeriesType.rawValue)
             }
 
-            UserDefaults.standard.set(0, forKey: "EXPORTMATRIXFOR3D")
+            self.preferenceStore.set(0, for: ReconstructionPreferences.exportMatrixFor3D)
         }
     }
 
@@ -3588,7 +3534,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
                     (bitmapData as NSData?)?.write(to: url, atomically: true)
                 }
 
-                if UserDefaults.standard.bool(forKey: "OPENVIEWER") {
+                if self.preferenceStore[ReconstructionPreferences.opensViewer] {
                     if let url = panel.url {
                         NSWorkspace.shared.open(url)
                     }
@@ -3609,7 +3555,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
         bitmapData = NSBitmapImageRep.representationOfImageReps(in: representations ?? [], using: .jpeg, properties: [.compressionFactor: NSDecimalNumber(value: Float(0.9))])
 
-        let path = ((BrowserController.currentBrowser()?.database?.tempDirPath() ?? "") as NSString).appendingPathComponent("IsiX DICOM Viewer.jpg")
+        let path = ((browserWindowGraph?.database?.tempDirPath() ?? "") as NSString).appendingPathComponent("IsiX DICOM Viewer.jpg")
         (bitmapData as NSData?)?.write(toFile: path, atomically: true)
 
         ifoto = Photos()
@@ -3638,7 +3584,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
                 (im?.tiffRepresentation as NSData?)?.write(to: url, atomically: true)
             }
 
-            if UserDefaults.standard.bool(forKey: "OPENVIEWER") {
+            if self.preferenceStore[ReconstructionPreferences.opensViewer] {
                 if let url = panel.url {
                     NSWorkspace.shared.open(url)
                 }
@@ -3837,16 +3783,8 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     public override dynamic func windowWillClose(_ notification: Notification) {
         if (notification.object as AnyObject?) === self.window {
             // Save current path for next time
-            var path = BrowserController.currentBrowser()?.database?.statesDirPath() as NSString?
-
-            if !FileManager.default.fileExists(atPath: (path as String?) ?? "") {
-                try? FileManager.default.createDirectory(atPath: (path as String?) ?? "", withIntermediateDirectories: true, attributes: nil)
-            }
-
-            path = path?.appendingPathComponent(String(format: "CPR-%@", self.uniqueFilenameOfFirstFile())) as NSString?
-
-            if let path = path {
-                self.saveBezierPathToFile(path as String)
+            if let path = savedCurvedPathFile() {
+                self.saveBezierPathToFile(path)
             }
 
             // *******
@@ -3859,8 +3797,8 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             self.horos_windowWillClose = true
             _ = self.renderLifecycle?.beginClosing()
 
-            UserDefaults.standard.set(self.displayMousePosition, forKey: "MPRDisplayMousePosition")
-            UserDefaults.standard.set(self.cprType, forKey: "SavedCPRType")
+            self.preferenceStore.set(self.displayMousePosition, for: ReconstructionPreferences.mprDisplaysMousePosition)
+            self.preferenceStore.set(self.cprType, for: ReconstructionPreferences.savedCPRType)
 
             NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(updateViewsAccordingToFrame(_:)), object: nil)
             NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(delayedFullLODRendering(_:)), object: nil)
@@ -3920,9 +3858,9 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
         // A toolbar saved before the Stenosis tool existed gets it once, beside
         // the Path Assistant; removed afterwards, it stays removed.
-        let insertedKey = "CPRToolbarStenosisInserted"
-        if let toolbar, !UserDefaults.standard.bool(forKey: insertedKey) {
-            UserDefaults.standard.set(true, forKey: insertedKey)
+        let insertedKey = ReconstructionPreferences.cprToolbarStenosisInserted
+        if let toolbar, !self.preferenceStore[insertedKey] {
+            self.preferenceStore.set(true, for: insertedKey)
             if !toolbar.items.contains(where: { $0.itemIdentifier.rawValue == "tbStenosis" }) {
                 let index = toolbar.items.firstIndex { $0.itemIdentifier.rawValue == "tbPathAssistant" }.map { $0 + 1 } ?? toolbar.items.count
                 toolbar.insertItem(withItemIdentifier: NSToolbarItem.Identifier("tbStenosis"), at: index)
@@ -4416,9 +4354,9 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
                                        alpha: 1)
             self.selectCurvedPathDrawingTool()
         } else {
-            _curvedPathColor = NSColor(deviceRed: CGFloat(UserDefaults.standard.float(forKey: "CPRColorR")),
-                                       green: CGFloat(UserDefaults.standard.float(forKey: "CPRColorG")),
-                                       blue: CGFloat(UserDefaults.standard.float(forKey: "CPRColorB")),
+            _curvedPathColor = NSColor(deviceRed: CGFloat(self.preferenceStore[ReconstructionPreferences.curvedPathColourRed]),
+                                       green: CGFloat(self.preferenceStore[ReconstructionPreferences.curvedPathColourGreen]),
+                                       blue: CGFloat(self.preferenceStore[ReconstructionPreferences.curvedPathColourBlue]),
                                        alpha: 1)
         }
 
@@ -4836,16 +4774,14 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     // MARK: - CPRViewDelegate Methods
 
-    @objc(_delegateCurveViewDebugging)
-    private dynamic func delegateCurveViewDebugging() -> NSMutableArray {
+    private func delegateCurveViewDebugging() -> NSMutableArray {
         if _delegateCurveViewDebuggingStorage == nil {
             _delegateCurveViewDebuggingStorage = NSMutableArray()
         }
         return _delegateCurveViewDebuggingStorage!
     }
 
-    @objc(_delegateDisplayInfoDebugging)
-    private dynamic func delegateDisplayInfoDebugging() -> NSMutableArray {
+    private func delegateDisplayInfoDebugging() -> NSMutableArray {
         if _delegateDisplayInfoDebuggingStorage == nil {
             _delegateDisplayInfoDebuggingStorage = NSMutableArray()
         }
@@ -5059,10 +4995,10 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     @IBAction @objc(onSliderMove:)
     public dynamic func onSliderMove(_ sender: Any!) {
         if (centerline?.count ?? 0) > 0 && (_curvedPath?.nodes.count ?? 0) > 2 {
-            // Counted signed, and stopped when a step changes nothing:
-            // fewer than 3 centerline points wrapped the target, and a node
+            // Counted signed over the whole path, its nodes and those the slider
+            // can bring back, and stopped when a step changes nothing: a node
             // that could not go or come back kept the loop running.
-            let target = CurvedMPRPathAssistant.simplificationTarget(centerlineCount: centerline?.count ?? 0,
+            let target = CurvedMPRPathAssistant.simplificationTarget(pathNodeCount: _curvedPath?.nodes.count ?? 0, removedNodeCount: delHistory?.count ?? 0,
                                                                      sliderPercent: pathSimplificationSlider?.floatValue ?? 0)
             // The steps change the nodes; the path is rebuilt and shown once,
             // at the end, as the last step left it, rather than at each node.
@@ -5071,17 +5007,12 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             // time, and held the main thread for up to 70 s with 200 nodes.
             var changed = false
             let path = _curvedPath
-            let edits = {
-                CurvedMPRPathAssistant.simplify(toward: target,
-                                                nodeCount: { self._curvedPath?.nodes.count ?? 0 },
-                                                removeNode: { if self.removeCheapestNode() { changed = true } },
-                                                restoreNode: { if self.restoreLastRemovedNode() { changed = true } })
-            }
-            if let path {
-                path.withPathRebuiltOnce(edits)
-            } else {
-                edits()
-            }
+            path?.holdsPathRebuild = true
+            CurvedMPRPathAssistant.simplify(toward: target,
+                                            nodeCount: { self._curvedPath?.nodes.count ?? 0 },
+                                            removeNode: { if self.removeCheapestNode() { changed = true } },
+                                            restoreNode: { if self.restoreLastRemovedNode() { changed = true } })
+            path?.holdsPathRebuild = false
             if changed {
                 self.showCurvedPathInViews()
             }

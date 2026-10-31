@@ -60,7 +60,7 @@ import SecurityInterface
 /// The Locations preference pane: DICOM nodes, OsiriX databases, local paths,
 /// and each node's WADO and TLS sheets.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors,
+/// Implemented in Swift: the Objective-C name, the selectors,
 /// the outlets and the bindings of OSILocationsPreferencePanePref.xib are
 /// those of the former class.
 // Main actor: a preferences pane, which the preferences window creates, shows
@@ -81,7 +81,7 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
     @IBOutlet var localPaths: DNDArrayController?
     @IBOutlet var osiriXServers: DNDArrayController?
     @IBOutlet var dicomNodes: DNDArrayController?
-    /// The DICOMweb nodes of DICOMWEB_SERVERS, in their own area below the DIMSE nodes (#799).
+    /// The DICOMweb nodes of DICOMWEB_SERVERS, in their own area below the DIMSE nodes.
     @IBOutlet var dicomwebNodes: DICOMwebNodesController?
 
     // WADO

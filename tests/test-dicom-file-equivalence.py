@@ -13,7 +13,9 @@ compiled here, as the application compiled them, into a library whose class and
 dictionary functions are renamed (IsiXLegacyDicomFile), with a driver. The library
 is injected into a copy of the Debug development bundle, which provides
 everything both readers use: DCMTK with its dictionary and codecs, DCM.framework,
-libtiff with the FluoView tags, nifti1_io, the preferences. Both classes then
+libtiff with the FluoView tags, nifti1_io, the preferences, dsr2html and the
+Decompress service that prints a structured report (the reference ran it as a
+helper executable, and asks the service in its place). Both classes then
 read the same synthetic files in the running application, and the driver writes
 what each answered:
 
@@ -48,6 +50,7 @@ import json
 import os
 import plistlib
 import random
+import re
 import shutil
 import struct
 import subprocess
@@ -78,7 +81,7 @@ DICTIONARY = 'Horos/Sources/DICOMDataDictionary.mm'
 # written beside its sources, where a quoted import finds them first.
 REFERENCE_HEADERS = ['Horos/Sources/DicomFile.h', 'Horos/Sources/DicomFileDCMTKCategory.h',
                      'Horos/Sources/DICOMDataDictionary.h', 'Horos/Sources/HorosDictionaryLookup.h',
-                     'Horos/Sources/HorosDICOMLegacyNames.h']
+                     'Horos/Sources/HorosDICOMLegacyNames.h', 'Horos/Sources/PluginFileFormatDecoder.h']
 # What the reference defines that the application still defines under the same name.
 RENAMED = {'DicomFile': 'IsiXLegacyDicomFile', 'HorosDICOMDictionaries': 'IsiXLegacyDICOMDictionaries',
            'HorosLoadVendoredDicomDictionary': 'IsiXLegacyLoadVendoredDicomDictionary',
@@ -86,6 +89,71 @@ RENAMED = {'DicomFile': 'IsiXLegacyDicomFile', 'HorosDICOMDictionaries': 'IsiXLe
            'HorosResolveDicomKeyword': 'IsiXLegacyResolveDicomKeyword'}
 FLUOVIEW, FLUOVIEW_HEADER = 'Horos/Sources/FVTiff.m', 'Horos/Sources/FVTiff.h'
 HOROS, LEGACY_HOROS = 'Horos/Sources/Horos.m', 'IsiXLegacyHoros.m'
+LEGACY_DECOMPRESS = 'IsiXLegacyDecompress.mm'
+# -PDFImageRep printed a structured report's XML (from dsr2html) to PDF with the
+# Decompress helper, Contents/Resources/Decompress <xml> pdfFromURL. The helper
+# is the Contents/XPCServices/Decompress.xpc service now: without it the
+# reference rendered no page, and kept the SR as a 1x1 placeholder that "could
+# not be rendered". The reference asks the service instead, through the
+# protocol the application uses (DecompressService.updateReportPDF), with the
+# helper's time limit; what it does with the PDF is its own.
+DECOMPRESS_HELPER = '''        if( [[NSFileManager defaultManager] fileExistsAtPath: [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:@"/Decompress"]])
+        {
+            NSTask *aTask = [[[NSTask alloc] init] autorelease];
+            [aTask setLaunchPath: [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:@"/Decompress"]];
+            [aTask setArguments: [NSArray arrayWithObjects: htmlpath, @"pdfFromURL", nil]];
+
+            NSError *taskError = nil;
+            if( HorosRunTaskUntilExit( aTask, 10, &taskError) == NO)
+                NSLog( @"****** Decompress pdfFromURL failed: %@", taskError.localizedDescription);
+        }
+'''
+DECOMPRESS_SERVICE_CALL = '        IsiXLegacyDecompressPDFFromURL( htmlpath, 10);\n'
+DECOMPRESS_STAND_IN = r'''
+#import <Foundation/Foundation.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import <objc/runtime.h>
+
+// The selector of the service's protocol (IsiXDecompressServiceInterface), for
+// the compiler; the connection takes the protocol the application registered.
+@protocol IsiXLegacyReportRendering
+- (void) renderReport:(NSFileHandle *)input mimeType:(NSString *)mimeType timeout:(double)timeout
+                reply:(void (^)(NSData *))reply;
+@end
+
+extern "C" void IsiXLegacyDecompressPDFFromURL(NSString *path, NSTimeInterval timeout)
+{
+    NSURL *service = [NSBundle.mainBundle.bundleURL URLByAppendingPathComponent: @"Contents/XPCServices/Decompress.xpc"];
+    NSString *identifier = [NSBundle bundleWithURL: service].bundleIdentifier;
+    Protocol *protocol = objc_getProtocol("IsiXDecompressServiceInterface");
+    NSFileHandle *input = [NSFileHandle fileHandleForReadingAtPath: path];
+    if (identifier == nil || protocol == nil || input == nil) {
+        NSLog(@"****** Decompress pdfFromURL failed: no service (%@), protocol or report", identifier);
+        return;
+    }
+    NSXPCConnection *connection = [[NSXPCConnection alloc] initWithServiceName: identifier];
+    connection.remoteObjectInterface = [NSXPCInterface interfaceWithProtocol: protocol];
+    [connection resume];
+    dispatch_semaphore_t answered = dispatch_semaphore_create(0);
+    NSMutableArray *answer = [NSMutableArray array];
+    id<IsiXLegacyReportRendering> proxy = [connection remoteObjectProxyWithErrorHandler: ^(NSError *error) {
+        NSLog(@"****** Decompress pdfFromURL failed: %@", error.localizedDescription);
+        dispatch_semaphore_signal(answered);
+    }];
+    // The MIME type by the extension, HTML when it has none known, as the service's client sends it.
+    NSString *mimeType = [UTType typeWithFilenameExtension: path.pathExtension].preferredMIMEType ?: @"text/html";
+    [proxy renderReport: input mimeType: mimeType timeout: MIN(timeout, 25) reply: ^(NSData *pdf) {
+        @synchronized (answer) { if (pdf) [answer addObject: pdf]; }
+        dispatch_semaphore_signal(answered);
+    }];
+    if (dispatch_semaphore_wait(answered, dispatch_time(DISPATCH_TIME_NOW, (int64_t) ((timeout + 1) * NSEC_PER_SEC))))
+        NSLog(@"****** Decompress pdfFromURL failed: no answer in %.0f s", timeout);
+    [connection invalidate];
+    NSData *pdf = nil;
+    @synchronized (answer) { pdf = answer.firstObject; }
+    [pdf writeToFile: [path stringByAppendingPathExtension: @"pdf"] atomically: YES];
+}
+'''
 reference = arguments.reference or history_reference.before_removal(SOURCE)
 if reference is None:
     print('skipped: no revision of this history has %s' % SOURCE)
@@ -366,6 +434,7 @@ DRIVER = r'''
 - (BOOL) separateCardiac4D;
 - (int) commentsGroup;
 - (int) commentsElement;
+- (NSString *) tmpDirPath;
 @end
 
 static id Describe(id value)
@@ -503,6 +572,10 @@ __attribute__((constructor)) static void IsiXEquivalenceStart(void)
             NSMutableDictionary *answers = [NSMutableDictionary dictionary];
             for (NSString *side in @[@"legacy", @"current"]) {
                 Class cls = NSClassFromString([side isEqualToString:@"legacy"] ? @"IsiXLegacyDicomFile" : @"DicomFile");
+                // Both sides keep a structured report's rendering (XML, then PDF) in the
+                // same folder, and reuse it when it is there: each side renders its own.
+                [NSFileManager.defaultManager removeItemAtPath:[[NSFileManager.defaultManager tmpDirPath]
+                                                                  stringByAppendingPathComponent:@"dicomsr_osirix"] error:NULL];
                 NSMutableDictionary *files = [NSMutableDictionary dictionary];
                 for (NSString *path in manifest[@"files"]) {
                     NSLog(@"equivalence: %@ reads %@", side, path);
@@ -545,6 +618,19 @@ def compile_reference(work):
         for old, new in legacy_names.items():
             text = text.replace(old, new)
         (sources / name).write_bytes(text.encode('latin1'))
+    # The Decompress helper the reference ran to print a structured report is
+    # the Decompress.xpc service now (DECOMPRESS_HELPER): it calls the service.
+    # Matched line by line, whatever the lines end with before their break.
+    text = (sources / Path(SOURCE).name).read_bytes().decode('latin1')
+    helper = re.compile(''.join(re.escape(line.rstrip()) + r'[ \t]*\n' for line in DECOMPRESS_HELPER.splitlines()))
+    if helper.search(text):
+        implementation = text.index('@implementation DicomFile')
+        text = (text[:implementation] + 'extern "C" void IsiXLegacyDecompressPDFFromURL(NSString *path, NSTimeInterval timeout);\n\n'
+                + helper.sub(lambda match: DECOMPRESS_SERVICE_CALL, text[implementation:]))
+        (sources / Path(SOURCE).name).write_bytes(text.encode('latin1'))
+    elif '@"/Decompress"' in text:
+        raise SystemExit('FAIL: the reference runs the Decompress helper in a way this test does not replace')
+    (sources / LEGACY_DECOMPRESS).write_text(DECOMPRESS_STAND_IN)
     horos = history_reference.show(reference, HOROS).decode('latin1')
     helpers = horos[horos.index('@implementation Horos (CalendarDates)'):]
     helpers = helpers[:helpers.index('+ (NSArray<NSString *> *)WeasisCustomizationPaths')] + '@end\n' + \
@@ -609,7 +695,7 @@ def compile_reference(work):
               '-ivfsoverlay', str(overlay_file), *('-D%s=%s' % pair for pair in RENAMED.items()), *includes]
     objects = []
     for name, arc in ((Path(SOURCE).name, []), (Path(CATEGORY).name, []), (Path(DICTIONARY).name, ['-fobjc-arc']), (Path(FLUOVIEW).name, []),
-                      (LEGACY_HOROS, [])):
+                      (LEGACY_HOROS, []), (LEGACY_DECOMPRESS, ['-fobjc-arc'])):
         obj = work / (name + '.o')
         built = subprocess.run([*common, *arc, '-c', str(sources / name), '-o', str(obj)], capture_output=True, text=True)
         if built.returncode:
@@ -620,6 +706,7 @@ def compile_reference(work):
     built = subprocess.run(['xcrun', 'clang++', '-dynamiclib', '-fobjc-arc', '-x', 'objective-c', str(work / 'driver.m'),
                             '-x', 'none', *objects, '-undefined', 'dynamic_lookup', '-framework', 'Cocoa',
                             '-framework', 'AVFoundation', '-framework', 'CoreMedia', '-framework', 'CoreVideo',
+                            '-framework', 'UniformTypeIdentifiers',
                             '-o', str(library)], capture_output=True, text=True)
     if built.returncode:
         raise SystemExit('FAIL: the reference library does not link:\n' + built.stderr[-4000:])

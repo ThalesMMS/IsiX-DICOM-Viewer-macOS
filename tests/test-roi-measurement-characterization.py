@@ -48,6 +48,7 @@ import tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import history_reference  # noqa: E402
 import roi_harness  # noqa: E402
+import harness_defaults  # noqa: E402  the harness's preferences stay in its own process
 
 SKIPPED = roi_harness.SKIPPED
 root = roi_harness.ROOT
@@ -534,7 +535,7 @@ def build(revision, folder):
                                          '+ (double)medianOfValues:(const float *)values count:(NSInteger)count;\n@end\n')
         pix_flags = ['-include', str(folder / 'median.h')]
         folder = folder / 'harness'
-    return roi_harness.build(revision, folder, PROBE.replace('// PIX_IVARS\n', roi_harness.PIX_IVARS), config=configuration,
+    return roi_harness.build(revision, folder, PROBE.replace('// PIX_IVARS\n', roi_harness.PIX_IVARS) + harness_defaults.OBJC, config=configuration,
                              pix_flags=pix_flags, extra_swift=extra_swift)
 
 

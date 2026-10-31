@@ -265,25 +265,17 @@ extension DCMPix {
     /// it is fImage. Nil for no pixels.
     @objc(applyConvolutionOnImage:RGB:)
     public dynamic func applyConvolution(onImage src: UnsafeMutablePointer<Float>!, rgb color: Bool) -> UnsafeMutablePointer<Float>! {
-        var result = src
-        if let exception = HorosObjCException.caught({
-            self.checkLoad()
-            guard let src else {
-                result = nil
-                return
-            }
-            let convolution = ImageConvolution(weights: self.horos_kernel, size: Int(self.horos_kernelsize),
-                                               normalization: self.horos_normalization)
-            if color {
-                result = convolution.filtered(argb: UnsafeRawPointer(src), width: self.horos_width, height: self.horos_height)?
-                    .assumingMemoryBound(to: Float.self)
-            } else {
-                result = convolution.filtered(src, width: self.horos_width, height: self.horos_height)
-            }
-            if result != nil && src != self.horos_fImage { free(src) }
-        }) {
-            _N2LogExceptionImpl(exception, false, "-[DCMPix applyConvolutionOnImage:RGB:]")
+        checkLoad()
+        guard let src else { return nil }
+        let convolution = ImageConvolution(weights: horos_kernel, size: Int(horos_kernelsize), normalization: horos_normalization)
+        let result: UnsafeMutablePointer<Float>?
+        if color {
+            result = convolution.filtered(argb: UnsafeRawPointer(src), width: horos_width, height: horos_height)?
+                .assumingMemoryBound(to: Float.self)
+        } else {
+            result = convolution.filtered(src, width: horos_width, height: horos_height)
         }
+        if result != nil && src != horos_fImage { free(src) }
         return result
     }
 

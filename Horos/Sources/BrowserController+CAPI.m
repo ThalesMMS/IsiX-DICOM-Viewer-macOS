@@ -43,7 +43,7 @@
 // - the historical OsiriX Distributed Objects endpoint, which takes an
 //   NSInvocation;
 // - the constant string the local copy synchronizes on, which the copy of
-//   DicomDatabase+MediaCopy.swift takes too;
+//   MediaImportJob.swift takes too;
 // - an empty DCMPix and the start of today by IsiXDICOMCalendarDate, which Swift
 //   cannot write.
 

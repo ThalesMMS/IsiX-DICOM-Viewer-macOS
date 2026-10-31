@@ -39,7 +39,7 @@ public final class DICOMNodeService: NSObject, @unchecked Sendable {
     private let servicesLock = NSLock()
     private var services: [NetService] = []
     /// Made and used on the main thread only.
-    nonisolated(unsafe) private var discovery: DICOMBonjourDiscovery?
+    @MainActor private var discovery: DICOMBonjourDiscovery?
     /// This process's own DICOM advertisement, which is not a node to list.
     /// Not retained: the app controller owns it.
     @objc public weak var publisher: BonjourAdvertisement?
@@ -102,19 +102,18 @@ public final class DICOMNodeService: NSObject, @unchecked Sendable {
 
     // MARK: The node list
 
-    /// Whether SERVERS was given as an argument of the launch (`-SERVERS`).
-    /// The argument domain holds it for that launch only, and hides the list
-    /// of the preferences: a list written back from it would replace that one
-    /// for good.
-    static func serversGivenAsArgument(_ defaults: UserDefaults) -> Bool {
-        return defaults.volatileDomain(forName: UserDefaults.argumentDomain)["SERVERS"] != nil
-    }
+    /// The node lists of the application's preferences.
+    static let store = DICOMNodeStore(preferences: NodePreferences(processGraph: ProcessGraph.process))
 
     // Publishing normalized defaults invokes KVO synchronously. Observers may
     // list the nodes again; they see the normalized value and do not republish.
     // Keep read/normalize/publish serialized while permitting that reentry.
     private static let listLock = NSRecursiveLock()
     private static let syncing = DispatchSemaphore(value: 1)
+    /// Where the syncs run, which wait for the list's file or server: a
+    /// queue of their own, concurrent so that a sync asked while one runs
+    /// still finds it running and is dropped.
+    private static let syncs = DispatchQueue(label: "Horos.DICOMNodesSync", qos: .utility, attributes: .concurrent)
 
     /// Replaces SERVERS with the list at syncDICOMNodesURL. One sync at a time;
     /// a request while one runs is dropped. DICOMweb nodes have a list of their
@@ -123,9 +122,9 @@ public final class DICOMNodeService: NSObject, @unchecked Sendable {
     static func syncDICOMNodes() {
         guard syncing.wait(timeout: .now()) == .success else { return }
         defer { syncing.signal() }
-        guard let text = UserDefaults.standard.string(forKey: "syncDICOMNodesURL"), let url = URL(string: text),
-              let nodes = NSArray(contentsOf: url) else { return }
-        UserDefaults.standard.set(nodes.filter { isDIMSEServer($0) }, forKey: "SERVERS")
+        guard let url = store.syncURL, let data = try? Data(contentsOf: url),
+              let nodes = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [Any] else { return }
+        store.replaceDICOMNodes(withSyncedList: nodes)
     }
 
     /// The stored nodes, normalised, with the resolved Bonjour ones added; the
@@ -135,63 +134,32 @@ public final class DICOMNodeService: NSObject, @unchecked Sendable {
     /// or to plugins; DICOMweb nodes are `DICOMwebNode`'s.
     @objc(serversListSendOnly:queryRetrieveOnly:)
     public static func serversList(sendOnly send: Bool, queryRetrieveOnly queryRetrieve: Bool) -> NSMutableArray {
+        NSMutableArray(array: dicomNodes(sendOnly: send, queryRetrieveOnly: queryRetrieve).map(\.propertyList))
+    }
+
+    /// `serversList(sendOnly:queryRetrieveOnly:)` as typed nodes.
+    static func dicomNodes(sendOnly send: Bool, queryRetrieveOnly queryRetrieve: Bool) -> [DICOMNode] {
         listLock.lock()
         defer { listLock.unlock() }
-        let defaults = UserDefaults.standard
-        if defaults.bool(forKey: "syncDICOMNodes") {
-            Thread.detachNewThread { syncDICOMNodes() }
-        }
-        let servers = NSMutableArray(array: defaults.array(forKey: "SERVERS") ?? [])
-        var toBeSaved = false
-        for index in 0..<servers.count {
-            guard var node = servers[index] as? [String: Any] else { continue }
-            var changed = false
-            if node["Activated"] == nil {
-                node["Activated"] = true
-                changed = true
-            }
-            if node["retrieveMode"] == nil {
-                node["retrieveMode"] = boolValue(node["CGET"]) ? RetrieveMode.cGet.rawValue : RetrieveMode.cMove.rawValue
-                node["CGET"] = nil
-                node["CMOVE"] = nil
-                node["WADO"] = nil
-                changed = true
-            }
-            if changed {
-                servers[index] = node
-                toBeSaved = true
-            }
+        if store.syncsDICOMNodes {
+            syncs.async { syncDICOMNodes() }
         }
         // A list given as an argument of the launch is normalised here, for
         // this launch, and never written: it would replace the nodes of the
         // preferences for good.
-        if toBeSaved && !serversGivenAsArgument(defaults) { defaults.set(servers, forKey: "SERVERS") }
+        var nodes = store.normalizedDICOMNodes()
 
-        if defaults.bool(forKey: "searchDICOMBonjour") {
+        if store.searchesBonjour {
             for service in shared.dicomServices {
                 var port: Int32 = 0
                 guard let hostname = hostname(port: &port, for: service) else { continue }
-                let node = bonjourNode(for: service, hostname: hostname, port: Int(port))
-                if !endpointAlreadyConfigured(servers: servers as? [Any] ?? [], hostName: service.hostName,
+                if !endpointAlreadyConfigured(servers: nodes.map(\.propertyList), hostName: service.hostName,
                                                addresses: service.addresses, port: Int(port)) {
-                    servers.add(node)
+                    nodes.append(bonjourNode(for: service, hostname: hostname, port: Int(port)))
                 }
             }
         }
-        servers.filter(using: NSPredicate { node, _ in
-            guard let node = node as? [String: Any] else { return true }
-            if !isDIMSEServer(node) { return false }
-            if node["Activated"] != nil && !boolValue(node["Activated"]) { return false }
-            if send && node["Send"] != nil && !boolValue(node["Send"]) { return false }
-            if queryRetrieve && node["QR"] != nil && !boolValue(node["QR"]) { return false }
-            return true
-        })
-        return servers
-    }
-
-    /// `serversList(sendOnly:queryRetrieveOnly:)` as a Swift array.
-    static func nodes(sendOnly send: Bool, queryRetrieveOnly queryRetrieve: Bool) -> [Any] {
-        serversList(sendOnly: send, queryRetrieveOnly: queryRetrieve) as NSArray as? [Any] ?? []
+        return nodes.filter { $0.isListed(sendOnly: send, queryRetrieveOnly: queryRetrieve) }
     }
 
     /// Whether an entry of `SERVERS` is a DIMSE node: one with an AE title,
@@ -199,13 +167,10 @@ public final class DICOMNodeService: NSObject, @unchecked Sendable {
     /// `DICOMWEB_SERVERS` at launch.
     @objc(isDIMSEServer:)
     public static func isDIMSEServer(_ entry: Any) -> Bool {
-        guard let node = entry as? [String: Any] else { return false }
-        if node["retrieveMode"] != nil && intValue(node["retrieveMode"]) == RetrieveMode.dicomWeb.rawValue { return false }
-        let title = (node["AETitle"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return !title.isEmpty
+        DICOMNode(propertyList: entry)?.isDIMSE ?? false
     }
 
-    static func bonjourNode(for service: NetService, hostname: String, port: Int) -> NSMutableDictionary {
+    static func bonjourNode(for service: NetService, hostname: String, port: Int) -> DICOMNode {
         let txt = BonjourService.txtDictionary(fromTXTRecord: service.txtRecordData())
         func text(_ key: String) -> String? { txt[key].flatMap { String(data: $0, encoding: .utf8) } }
         let syntaxes: [String: SendSyntax] = [
@@ -213,22 +178,22 @@ public final class DICOMNodeService: NSObject, @unchecked Sendable {
             "JPEGProcess14SV1TransferSyntax": .jpegLossless, "JPEG2000LosslessOnly": .jpeg2000Lossless,
             "JPEG2000": .jpeg2000Lossy10, "RLELossless": .rle, "JPEGLSLossy": .jpegLSLossy10, "JPEGLSLossless": .jpegLSLossless,
         ]
-        let node = NSMutableDictionary(dictionary: [
-            "Address": hostname, "AETitle": service.name, "Port": "\(port)", "QR": true,
-            "retrieveMode": (txt["CGET"] != nil ? RetrieveMode.cGet : RetrieveMode.cMove).rawValue, "Send": true,
-            "Description": text("serverDescription") ?? "\(service.hostName ?? "") (Bonjour)",
-            "TransferSyntax": (text("preferredSyntax").flatMap { syntaxes[$0] } ?? .explicitLittleEndian).rawValue,
-            "Activated": 1,
+        var node = DICOMNode(entry: [
+            "Address": .string(hostname), "AETitle": .string(service.name), "Port": .string("\(port)"), "QR": .boolean(true),
+            "retrieveMode": .integer((txt["CGET"] != nil ? RetrieveMode.cGet : RetrieveMode.cMove).rawValue), "Send": .boolean(true),
+            "Description": .string(text("serverDescription") ?? "\(service.hostName ?? "") (Bonjour)"),
+            "TransferSyntax": .integer((text("preferredSyntax").flatMap { syntaxes[$0] } ?? .explicitLittleEndian).rawValue),
+            "Activated": .integer(1),
         ])
         // A Horos peer advertises its direct-transfer version and port; a token
         // is never taken from TXT, where anyone could read it.
         if let version = text("HorosDirectTransferVersion").flatMap({ Int($0) }), version > 0 {
-            node["HorosDirectTransferVersion"] = version
+            node["HorosDirectTransferVersion"] = .integer(version)
         }
         if let directPort = text("HorosDirectTransferPort").flatMap({ Int($0) }), directPort > 0 {
-            node["HorosDirectTransferPort"] = directPort
+            node["HorosDirectTransferPort"] = .integer(directPort)
         }
-        if let icon = text("icon") { node["icon"] = icon }
+        if let icon = text("icon") { node["icon"] = .string(icon) }
         return node
     }
 
@@ -392,16 +357,30 @@ public final class DICOMNodeService: NSObject, @unchecked Sendable {
         }
         return false
     }
+}
 
-    static func boolValue(_ value: Any?) -> Bool {
-        if let number = value as? NSNumber { return number.boolValue }
-        if let text = value as? NSString { return text.boolValue }
-        return false
+// MARK: The preferences of the node lists
+
+/// The application's preferences, as the node lists read and write them.
+/// They come from the process graph when asked, which hands them to any
+/// thread: the node lists are read from any thread.
+struct NodePreferences: DICOMNodePreferences {
+    private let processGraph: ProcessGraph
+
+    init(processGraph: ProcessGraph) {
+        self.processGraph = processGraph
     }
 
-    static func intValue(_ value: Any?) -> Int {
-        if let number = value as? NSNumber { return number.intValue }
-        if let text = value as? NSString { return text.integerValue }
-        return 0
+    private var defaults: UserDefaults { processGraph.preferences }
+
+    func object(forKey key: String) -> Any? { defaults.object(forKey: key) }
+    func bool(forKey key: String) -> Bool { defaults.bool(forKey: key) }
+    func string(forKey key: String) -> String? { defaults.string(forKey: key) }
+    func set(_ value: Any?, forKey key: String) { defaults.set(value, forKey: key) }
+
+    /// The argument domain holds what the launch was given (`-SERVERS ...`),
+    /// for that launch only.
+    func isGivenAsLaunchArgument(_ key: String) -> Bool {
+        defaults.volatileDomain(forName: UserDefaults.argumentDomain)[key] != nil
     }
 }

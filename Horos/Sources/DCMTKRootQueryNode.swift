@@ -39,24 +39,31 @@
 
 import Foundation
 import IsiXDICOMNetwork
+import IsiXPreferences
 
 /// The root of a search of a node: its children are the studies found.
-@objc(DCMTKRootQueryNode)
+/// @usableFromInline because plugins built against the former SDK look up its
+/// Objective-C class: without it, the class symbol of an internal Swift class is
+/// private external, which a Release build, having no testability, leaves
+/// unexported. The attribute gives it public linkage and changes nothing else.
+@objc(DCMTKRootQueryNode) @usableFromInline
 final class DCMTKRootQueryNode: DCMTKQueryNode, @unchecked Sendable {
 
     override func queryPrototype() -> DICOMQueryIdentifier? {
-        let defaults = UserDefaults.standard
-        return QueryIdentifiers.studies(options: QueryReturnKeyOptions(
-            bodyPartExamined: defaults.bool(forKey: "CFINDBodyPartExaminedSupport"),
-            commentsAndStatus: defaults.bool(forKey: "CFINDCommentsAndStatusSupport"),
-            modalitiesInStudy: defaults.bool(forKey: "SupportQRModalitiesinStudy")))
+        let preferences = PreferencesSource.process.preferences
+        var identifier = QueryIdentifiers.studies(options: QueryReturnKeyOptions(
+            bodyPartExamined: preferences[NetworkPreferences.cfindBodyPartExaminedSupport],
+            commentsAndStatus: preferences[NetworkPreferences.cfindCommentsAndStatusSupport],
+            modalitiesInStudy: preferences[NetworkPreferences.supportsQRModalitiesInStudy]))
+        identifier.requestReturn(.issuerOfPatientID)
+        return identifier
     }
 
     override func addChild(_ response: IsiXDCMTKDataset?) {
         childrenLock.lock(); defer { childrenLock.unlock() }
         if childrenStorage == nil { childrenStorage = NSMutableArray() }
         guard let response, let children = childrenStorage else { return }
-        let limit = UserDefaults.standard.integer(forKey: "maximumNumberOfCFindObjects")
+        let limit = PreferencesSource.process.preferences[NetworkPreferences.maximumNumberOfCFindObjects]
         if limit > 0 && children.count > limit {
             NSLog("----- C-Find maximumNumberOfCFindObjects reached: %d, %d", Int32(truncatingIfNeeded: children.count),
                   Int32(truncatingIfNeeded: limit))
@@ -64,7 +71,7 @@ final class DCMTKRootQueryNode: DCMTKQueryNode, @unchecked Sendable {
         }
         let study = child(DCMTKStudyQueryNode.self, from: response)
         var alreadyHere = false
-        if UserDefaults.standard.bool(forKey: "QRRemoveDuplicateEntries") {
+        if PreferencesSource.process.preferences[NetworkPreferences.qrRemoveDuplicateEntries] {
             for case let existing as DCMTKStudyQueryNode in children
             where Self.same(existing.studyInstanceUID(), study.studyInstanceUID()) && Self.same(existing.name(), study.name())
                 && Self.same(existing.accessionNumber(), study.accessionNumber())

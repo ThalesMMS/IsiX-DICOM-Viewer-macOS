@@ -66,8 +66,23 @@ defaults = method(editing_source, '    @objc(roiDefaults:)')
 if get_manager is None or defaults is None:
     print('FAIL: -roiGetManager: or -roiDefaults: is gone; this test needs a new look')
     sys.exit(1)
-helpers = top_level(roi_source, 'fileprivate func objcIsEqualToString(') + '\n' + \
-    top_level(roi_source, 'func horosWindowControllerIsClosing(')
+# -roiDefaults: is a façade over ViewerROIPanels.showDefaults, whose lookup
+# (bringWindows, shared with the histogram and ROI windows) skips a closing
+# controller with ViewerController+ROI.swift's test. The enum is compiled
+# with those two functions, beside stand-ins of ROI and of the -curROI the
+# lookup asks the ROI windows.
+panels = editing_source[editing_source.find('@MainActor enum ViewerROIPanels {'):]
+bring_windows = method(panels, '    private static func bringWindows(')
+show_defaults = method(panels, '    static func showDefaults(')
+if bring_windows is None or show_defaults is None:
+    print('FAIL: ViewerROIPanels.bringWindows or showDefaults is gone; this test needs a new look')
+    sys.exit(1)
+helpers = (top_level(roi_source, 'fileprivate func objcIsEqualToString(')
+           or top_level(editing_source, 'fileprivate func objcIsEqualToString(')) + '\n' + \
+    top_level(roi_source, 'func horosWindowControllerIsClosing(') + '\n' + \
+    'final class ROI: NSObject {}\n' + \
+    'extension NSWindowController { @objc func curROI() -> AnyObject? { nil } }\n' + \
+    'enum ViewerROIPanels {\n' + bring_windows + show_defaults + '}\n'
 
 swift = r'''import AppKit
 
@@ -295,8 +310,8 @@ for name in ('PaletteController', 'ROIManagerController', 'HistogramWindow', 'RO
 swift_skip = 'horosWindowControllerIsClosing('
 objc_skip = '@selector(windowWillClose)] && ['
 lookups = (
-    ('Horos/Sources/ViewerController+ROI+Editing.swift', r'windowNibName, "Histogram"\)[^\n]*', swift_skip),
-    ('Horos/Sources/ViewerController+ROI+Editing.swift', r'windowNibName, "ROI"\)[^\n]*', swift_skip),
+    # -roiHistogram:, -roiGetInfo: and -roiDefaults: share ViewerROIPanels.bringWindows.
+    ('Horos/Sources/ViewerController+ROI+Editing.swift', r'windowNibName == nib && [^\n]*', swift_skip),
     ('Horos/Sources/ROIWindow.swift', r'windowNibName == "Histogram"[^\n]*', swift_skip),
     ('Horos/Sources/ROIWindow.swift', r'windowNibName == "Plot"[^\n]*', swift_skip),
     ('Horos/Sources/MPRController.swift', r'windowNibName as String\?\) == "ROI"[^\n]*', swift_skip),
@@ -306,6 +321,9 @@ lookups = (
     # A double click on a ROI shows its ROI window (DCMView+Mouse.swift).
     ('Horos/Sources/DCMView+Mouse.swift', r'windowNibName == "ROI" &&\n[^\n]*', 'inputWindowWillClose() == true'),
 )
+for nib in ('Histogram', 'ROI', 'ROIDefaults'):
+    if f'bringWindows(nib: "{nib}"' not in editing_source:
+        failures.append(f'the {nib} window is no longer looked up through ViewerROIPanels.bringWindows')
 for path, pattern, skip in lookups:
     found = re.findall(pattern, read(path))
     if len(found) != 1:

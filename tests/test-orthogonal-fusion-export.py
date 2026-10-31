@@ -264,7 +264,7 @@ if 'let all' in petct_jpeg or 'if all' in petct_jpeg:
     failures.append('OrthogonalMPRPETCTViewer: -exportJPEG: keeps its dead single-image branch')
 
 # OPENVIEWER opens the first image the PET-CT JPEG series wrote.
-opened = petct_jpeg[petct_jpeg.find('if UserDefaults.standard.bool(forKey: "OPENVIEWER") {'):]
+opened = petct_jpeg[petct_jpeg.find('preferenceStore[ReconstructionPreferences.opensViewer] {'):]
 if 'if let url = panel.url {' in opened or 'if let url = firstImage {' not in opened \
         or 'NSWorkspace.shared.open(url)' not in opened:
     failures.append('OrthogonalMPRPETCTViewer: the JPEG series opens the name of the panel, which it never writes')
@@ -274,7 +274,7 @@ if 'write(to: url, atomically: true) ?? false, firstImage == nil' not in written
 
 # Cancelling the three-modality series stops all three.
 petct_series = source[source.find('func endExportDICOMFileSettings('):source.find('func exportDICOMFile(', source.find('func endExportDICOMFileSettings('))]
-three = petct_series[petct_series.find('export3modalities") == false {'):]
+three = petct_series[petct_series.find('petCTExportsThreeModalities] == false {'):]
 if three.count('for index in indices {') != 2 or 'for (seriesNumber, seriesView) in [(nCT, viewCT), (nPETCT, viewPETCT), (nPET, viewPET)]' not in three:
     failures.append('OrthogonalMPRPETCTViewer: the three-modality series are not one loop')
 elif 'aborted = true' not in three or '                                    if aborted {\n                                        break' not in three:

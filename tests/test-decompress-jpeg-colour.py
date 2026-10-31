@@ -119,7 +119,10 @@ for name, text, call in (('the application', app_text, app_call),):
         failures.append(f'{name} registers the JPEG decoders more than once')
 if 'settings["UseJPEGColorSpace"]' not in helper_text or 'IsiXDCMTKCodecs.markersDecideColour = ' not in helper_text:
     failures.append('the service does not take the JPEG marker policy from the UseJPEGColorSpace it is sent')
-if ('forKey: "UseJPEGColorSpace"' not in app_swift or 'IsiXDCMTKCodecs.markersDecideColour = ' not in app_swift
+# The application reads the catalog's key, whose name is UseJPEGColorSpace.
+catalog = (root / 'Modules/IsiXPreferences/Sources/DatabasePreferences.swift').read_text(encoding='utf-8')
+if ('forKey: DatabasePreferences.useJPEGColorSpace.name' not in app_swift
+        or 'useJPEGColorSpace = PreferenceKey<Bool>("UseJPEGColorSpace"' not in catalog or 'IsiXDCMTKCodecs.markersDecideColour = ' not in app_swift
         or 'HorosJPEGMarkersDecideColour().store(' not in app_text):
     failures.append('the application does not take the JPEG marker policy from UseJPEGColorSpace')
 for path in ('Horos/Sources/Adapters/DCMTK/HorosDCMTKObject.mm', 'Horos/Sources/HorosDICOMRepresentation.h'):

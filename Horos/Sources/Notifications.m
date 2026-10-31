@@ -125,6 +125,10 @@ __attribute__((used)) NSString* const OsirixActiveLocalDatabaseDidChangeNotifica
 __attribute__((used)) NSString* const OsirixPopulatedContextualMenuNotification = @"OsirixPopulatedContextualMenuNotification";
 __attribute__((used)) NSString* const OsiriXLogEvent = @"OsiriXLogEvent";
 
+// Declared in ThreadModalForWindowController.h; exported for the plugins built
+// for Horos or OsiriX that read it.
+__attribute__((used)) NSString* const NSThreadModalForWindowControllerKey = @"ThreadModalForWindowController";
+
 __attribute__((used)) NSString* const OsirixNodeRemovedFromCurvePathNotification = @"OsirixNodeRemovedFromCurvePath";
 __attribute__((used)) NSString* const OsirixUpdateCurvedPathCostNotification = @"OsirixUpdateCurvedPathCost";
 __attribute__((used)) NSString* const OsirixDeletedCurvedPathNotification = @"OsirixDeletedCurvedPath";

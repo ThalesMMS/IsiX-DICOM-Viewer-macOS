@@ -11,6 +11,7 @@ import re
 import subprocess
 import tempfile
 from sources import class_text
+import process_graph_stand_in  # the Metal sources read their development switches through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -279,7 +280,7 @@ with tempfile.TemporaryDirectory(prefix='horos-planar-metal-') as temporary:
     sources = ['VolumeAllocation.swift', 'VolumeSession.swift', 'MPRMetalReslicer.swift',
                'MetalPerformanceTrace.swift', 'MetalComputePipelineCache.swift', 'Metal4ComputeSubmitter.swift']
     subprocess.run(['xcrun','swiftc','-parse-as-library',*[str(root/'Horos/Sources'/name) for name in sources],
-                    str(args.renderer_source),*host,
+                    str(args.renderer_source),*host,*process_graph_stand_in.swift_flags(work/'modules'),
                     str(work/'Check.swift'),'-o',str(work/'check')],check=True)
     result = subprocess.run([str(work/'check')],timeout=30)
     if result.returncode == 2:

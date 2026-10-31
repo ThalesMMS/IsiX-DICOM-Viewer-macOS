@@ -42,7 +42,7 @@ import Cocoa
 /// The Hot Keys pane's table: a key typed in it is assigned to the selected
 /// action; arrows, Enter, Return and Escape keep their table behaviour.
 ///
-/// Implemented in Swift since #711.
+/// Implemented in Swift.
 @objc(HotKeyTableView)
 public final class HotKeyTableView: NSTableView {
     public override func keyDown(with theEvent: NSEvent) {

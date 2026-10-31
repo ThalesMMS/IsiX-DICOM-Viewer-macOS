@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Execute the database export method with tracked image lifetimes and real JPEG/TIFF encoding.
 
-The export is Swift (BrowserController+MovieExport.swift, with the file names
-of IsiXDatabase's ExportNaming): the method runs here as it is, with the real
-sanitizer, series-folder helper and HorosAlertPanel, over a Wait and a DCMPix
-written without ARC like the app's, whose images are autoreleased.
+The export is Swift: BrowserController's -exportImageAs:sender: hands it to
+SelectionMovieExport.exportImages(of:as:sender:) (SelectionMovieExport.swift,
+with the file names of IsiXDatabase's ExportNaming). The method runs here as it
+is, with the real sanitizer, series-folder helper and HorosAlertPanel, over a
+Wait and a DCMPix written without ARC like the app's, whose images are
+autoreleased, and doubles of the database objects it reads.
 """
 from pathlib import Path
 import subprocess
@@ -15,17 +17,28 @@ from isix_modules import module_flags
 
 root = Path(__file__).resolve().parents[1]
 sources = root / 'Horos/Sources'
-source = (sources / 'BrowserController+MovieExport.swift').read_text()
-a = source.index('    @objc(exportImageAs:sender:)\n')
-b = source.index('    @objc(exportJPEG:)', a)
-method = source[a:b].replace('NSOpenPanel()', 'TestPanel()').replace('as! NSManagedObject', 'as! NSDictionary')
-a = source.index('    nonisolated static func applySeriesWindow(')
-window = source[a:source.index('\n    }\n', a) + len('\n    }\n')].replace('of image: NSManagedObject', 'of image: NSDictionary')
+facade = (sources / 'BrowserController+MovieExport.swift').read_text()
+if 'SelectionMovieExport().exportImages(of: self, as:' not in facade:
+    sys.exit('FAIL: -exportImageAs:sender: no longer hands its work to SelectionMovieExport')
+source = (sources / 'SelectionMovieExport.swift').read_text()
+
+
+def member(start, end='\n    }\n'):
+    a = source.index(start)
+    return source[a:source.index(end, a) + len(end)]
+
+
+method = member('    @MainActor func exportImages(of browser: BrowserController, as format: String, sender: Any?) {')
+method = method.replace('NSOpenPanel()', 'TestPanel()').replace('@MainActor ', '')
+selected = member('    @MainActor private static func selectedImages(').replace('@MainActor ', '')
+window = member('    static func applySeriesWindow(')
 a = source.index('private func formatted(')
 formatted = source[a:source.index('\n}\n', a) + 3]
+a = source.index('enum SelectionImageFormat')
+formats = source[a:source.index('\n}\n', a) + 3]
 export = (sources / 'BrowserController+DICOMExport.swift').read_text()
 a = export.index('    @objc(replaceNotAdmitted:)\n')
-sanitizer = export[a:export.index('    /// The patient folder the export', a)]
+sanitizer = export[a:export.index('    // MARK: Export', a)]
 support = (sources / 'BrowserController+DatabaseSupport.swift').read_text()
 helpers = ''
 for name in ('    static func intValue(', '    static func literallyEqual('):
@@ -101,6 +114,19 @@ final class TestPanel {
  var url: URL? { URL(fileURLWithPath: output, isDirectory: true) }
 }
 final class Database { func isLocal() -> Bool { true } }
+// The model objects the export reads, as typed properties.
+final class DicomStudy: NSObject {
+ var name: String? = "Patient", studyName: String? = "Study", id: String? = "1"
+}
+final class DicomSeries: NSObject {
+ var name: String? = "Series", id: NSNumber? = 1, study: DicomStudy? = DicomStudy()
+ var windowWidth: NSNumber? = nil, windowLevel: NSNumber? = nil
+}
+final class DicomImage: NSObject {
+ var series: DicomSeries?, instanceNumber: NSNumber?, frameID: NSNumber? = 0
+ init(series: DicomSeries, instanceNumber: Int) { self.series = series; self.instanceNumber = NSNumber(value: instanceNumber) }
+ func completePathResolved() -> String? { "synthetic" }
+}
 @objc(BrowserController) public final class BrowserController: NSObject {
  var window: NSWindow? { nil }
  var horos_oMatrix: NSObject?
@@ -109,17 +135,23 @@ final class Database { func isLocal() -> Bool { true } }
  func isThumbnailMenuItem(_ sender: Any!) -> Bool { false }
  func files(forDatabaseOutlineSelection images: NSMutableArray) -> NSMutableArray? {
   let paths = NSMutableArray()
+  let series = DicomSeries()
   for i in 0..<64 {
-   images.add(["instanceNumber": i / 2 + 1, "frameID": 0, "completePathResolved": "synthetic",
-               "series": ["name": "Series", "id": 1, "study": ["name": "Patient", "studyName": "Study", "id": 1]]] as NSDictionary)
+   images.add(DicomImage(series: series, instanceNumber: i / 2 + 1))
    paths.add("synthetic")
   }
   return paths
  }
+ func files(forDatabaseOutlineSelection images: NSMutableArray, onlyImages: Bool) -> NSMutableArray? { files(forDatabaseOutlineSelection: images) }
  func files(forDatabaseMatrixSelection images: NSMutableArray) -> NSMutableArray? { files(forDatabaseOutlineSelection: images) }
+ func files(forDatabaseMatrixSelection images: NSMutableArray, onlyImages: Bool) -> NSMutableArray? { files(forDatabaseOutlineSelection: images) }
 }
 extension BrowserController {
 SANITIZER
+}
+FORMATS
+struct SelectionMovieExport {
+SELECTED
 WINDOW
 METHOD
 }
@@ -134,7 +166,7 @@ METHOD
    output = arguments[1]
    cancelAfter = arguments.count > 2 ? UInt(arguments[2])! : 0
    let format = arguments.count > 3 ? arguments[3] : "jpg"
-   BrowserController().exportImage(as: format, sender: nil)
+   SelectionMovieExport().exportImages(of: BrowserController(), as: format, sender: nil)
    var count = 0
    for case let relative as String in FileManager.default.enumerator(atPath: output)! where (relative as NSString).pathExtension == format {
     let data = try! Data(contentsOf: URL(fileURLWithPath: (output as NSString).appendingPathComponent(relative)))
@@ -151,7 +183,7 @@ METHOD
   print("PASS: per-image temporaries drain before the next image; JPEG/TIFF outputs and deferred collision renames remain valid")
  }
 }
-'''.replace('METHOD', method).replace('WINDOW', window).replace('SANITIZER', sanitizer).replace('HELPERS', helpers).replace('FORMATTED', formatted)
+'''.replace('METHOD', method).replace('WINDOW', window).replace('SANITIZER', sanitizer).replace('HELPERS', helpers).replace('FORMATTED', formatted).replace('SELECTED', selected).replace('FORMATS', formats)
 with tempfile.TemporaryDirectory(prefix='horos-jpeg-pool-') as folder:
     p = Path(folder)
     (p / 'main.swift').write_text(program)

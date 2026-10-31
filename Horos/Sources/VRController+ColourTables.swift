@@ -39,6 +39,8 @@
 
 
 import Cocoa
+import IsiXImaging
+import IsiXPreferences
 
 /// The window level, colour table, opacity and shading of the VR window:
 /// the menus of the presets in the preferences (WLWW3, CLUT, OPACITY), the
@@ -49,8 +51,7 @@ extension VRController {
 
     @objc(UpdateOpacityMenu:)
     public final func updateOpacityMenu(_ note: Notification!) {
-        let keys = (UserDefaults.standard.dictionary(forKey: "OPACITY") ?? [:]).keys
-        let sortedKeys = keys.sorted { $0.caseInsensitiveCompare($1) == .orderedAscending }
+        let sortedKeys = opacityTablePresets.names.sorted { $0.caseInsensitiveCompare($1) == .orderedAscending }
         guard let menu = opacityPopup()?.menu else { return }
         menu.removeAllItems()
         let linear = NSLocalizedString("Linear Table", comment: "")
@@ -66,8 +67,7 @@ extension VRController {
 
     @objc(UpdateWLWWMenu:)
     public final func updateWLWWMenu(_ note: Notification!) {
-        let keys = (UserDefaults.standard.dictionary(forKey: "WLWW3") ?? [:]).keys
-        let sortedKeys = keys.sorted { $0.caseInsensitiveCompare($1) == .orderedAscending }
+        let sortedKeys = windowLevelPresets.names.sorted { $0.caseInsensitiveCompare($1) == .orderedAscending }
         guard let menu = wlwwPopup()?.menu else { return }
         menu.removeAllItems()
         menu.addItem(withTitle: NSLocalizedString("Other", comment: ""), action: nil, keyEquivalent: "")
@@ -119,7 +119,7 @@ extension VRController {
         var menuString = (sender as? NSMenuItem)?.title ?? ((sender as AnyObject?)?.value(forKey: "title") as? String) ?? ""
         if menuString != NSLocalizedString("Other", comment: "") && menuString != NSLocalizedString("Default WL & WW", comment: "")
             && menuString != NSLocalizedString("Full dynamic", comment: "") {
-            menuString = String((menuString as NSString).substring(from: 4))
+            menuString = WindowLevel.presetName(fromMenuTitle: menuString) ?? ""
         }
         applyWLWW(for: menuString)
         NotificationCenter.default.post(name: .OsirixUpdateWLWWMenu, object: horos_curWLWWMenu, userInfo: nil)
@@ -149,8 +149,8 @@ extension VRController {
                 }
             }
         } else {
-            let value = (UserDefaults.standard.dictionary(forKey: "WLWW3")?[menuString] as? NSArray)
-            vrView?.setWLWW((value?.object(at: 0) as? NSNumber)?.floatValue ?? 0, (value?.object(at: 1) as? NSNumber)?.floatValue ?? 0)
+            let value = windowLevelPresets[menuString]
+            vrView?.setWLWW(Float(value?.level ?? 0), Float(value?.width ?? 0))
         }
         wlwwPopup()?.menu?.item(at: 0)?.title = menuString
         horos_curWLWWMenu = menuString
@@ -168,7 +168,7 @@ extension VRController {
 
     // MARK: - Shading
 
-    @IBAction @objc(applyShading:)
+    @IBAction
     public override final func applyShading(_ sender: Any!) {
         guard let dict = (shadingsPresetsController?.selectedObjects as NSArray?)?.lastObject as AnyObject? else { return }
         let ambient = floatValue(dict.value(forKey: "ambient"))
@@ -215,19 +215,6 @@ extension VRController {
 
     // MARK: - Colour and opacity tables
 
-    /// The three tables of a CLUT preset, as bytes: each entry's -longValue
-    /// truncated to a byte, 0 for an entry the preset lacks.
-    final func clutTables(_ clut: NSDictionary) -> ([UInt8], [UInt8], [UInt8]) {
-        func table(_ key: String) -> [UInt8] {
-            let array = clut.object(forKey: key) as? NSArray
-            return (0..<256).map { i in
-                guard let array, i < array.count else { return 0 }
-                return UInt8(truncatingIfNeeded: (array.object(at: i) as? NSNumber)?.intValue ?? 0)
-            }
-        }
-        return (table("Red"), table("Green"), table("Blue"))
-    }
-
     final func isBlackWhiteInverse(_ name: String?) -> Bool {
         name == NSLocalizedString("B/W Inverse", comment: "") || name == "B/W Inverse"
     }
@@ -242,8 +229,8 @@ extension VRController {
 
         applyOpacityString(horos_curOpacityMenu)
 
-        let presets = UserDefaults.standard.dictionary(forKey: "CLUT")
-        if presets?[str] == nil { str = NSLocalizedString("No CLUT", comment: "") }
+        let presets = colourTablePresets
+        if !presets.contains(str) { str = NSLocalizedString("No CLUT", comment: "") }
         horos_curCLUTMenu = str
 
         if str == NSLocalizedString("No CLUT", comment: "") {
@@ -253,8 +240,8 @@ extension VRController {
             }
             NotificationCenter.default.post(name: .OsirixUpdateCLUTMenu, object: horos_curCLUTMenu, userInfo: nil)
             clutPopup()?.menu?.item(at: 0)?.title = str
-        } else if let aCLUT = presets?[str] as? NSDictionary {
-            var (red, green, blue) = clutTables(aCLUT)
+        } else if let aCLUT = presets[str] {
+            var (red, green, blue) = aCLUT.bytes
             vrView?.setCLUT(&red, &green, &blue)
             if isBlackWhiteInverse(horos_curCLUTMenu) {
                 vrView?.changeColor(with: NSColor(deviceRed: 1, green: 1, blue: 1, alpha: 1))
@@ -270,11 +257,11 @@ extension VRController {
         guard let str else { return }
         horos_curOpacityMenu = str
         if str == NSLocalizedString("Linear Table", comment: "") {
-            vrView?.setOpacity(NSArray() as? [Any])
+            vrView?.setOpacity([])
             NotificationCenter.default.post(name: .OsirixUpdateOpacityMenu, object: horos_curOpacityMenu, userInfo: nil)
             opacityPopup()?.menu?.item(at: 0)?.title = str
-        } else if let aOpacity = UserDefaults.standard.dictionary(forKey: "OPACITY")?[str] as? NSDictionary {
-            vrView?.setOpacity(aOpacity.object(forKey: "Points") as? [Any])
+        } else if let aOpacity = opacityTablePresets[str] {
+            vrView?.setOpacity(aOpacity.storedPoints)
             NotificationCenter.default.post(name: .OsirixUpdateOpacityMenu, object: horos_curOpacityMenu, userInfo: nil)
             opacityPopup()?.menu?.item(at: 0)?.title = horos_curOpacityMenu ?? ""
         }
@@ -282,8 +269,8 @@ extension VRController {
 
     @IBAction @objc(AddOpacity:)
     public final func addOpacity(_ sender: Any!) {
-        if let aCLUT = UserDefaults.standard.dictionary(forKey: "CLUT")?[horos_curCLUTMenu ?? ""] as? NSDictionary {
-            var (red, green, blue) = clutTables(aCLUT)
+        if let aCLUT = colourTablePresets[horos_curCLUTMenu] {
+            var (red, green, blue) = aCLUT.bytes
             opacityView?.setCurrentCLUT(&red, &green, &blue)
         }
         opacityName?.stringValue = NSLocalizedString("Unnamed", comment: "")
@@ -407,7 +394,7 @@ extension VRController {
         super.updateCLUTMenu(note)
 
         // path 1 : /Horos Data/CLUTs/
-        let path = BrowserController.currentBrowser()?.database?.clutsDirPath() ?? ""
+        let path = browserWindowGraph?.database?.clutsDirPath() ?? ""
         // path 2 : /resources_bundle_path/CLUTs/
         let bundlePath = ((Bundle.main.resourcePath ?? "") as NSString).appendingPathComponent((path as NSString).lastPathComponent)
 
@@ -422,7 +409,7 @@ extension VRController {
                 }
             }
         }
-        clutArray = (clutArray as NSArray).sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as? [String] ?? clutArray
+        clutArray.sort { $0.caseInsensitiveCompare($1) == .orderedAscending }
 
         guard let menu = clutPopup()?.menu else { return }
         menu.insertItem(withTitle: NSLocalizedString("8-bit CLUTs", comment: ""), action: NSSelectorFromString("noAction:"),
@@ -451,7 +438,7 @@ extension VRController {
 
     final func delete16BitCLUT(_ name: String, returnCode: Int32) {
         guard returnCode == 1, vrView?.isRGB() != true else { return }
-        let path = (BrowserController.currentBrowser()?.database?.clutsDirPath() ?? "") + name + ".plist"
+        let path = (browserWindowGraph?.database?.clutsDirPath() ?? "") + name + ".plist"
         if FileManager.default.fileExists(atPath: path) {
             try? FileManager.default.removeItem(atPath: path)
         } else {

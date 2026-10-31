@@ -5,6 +5,9 @@ import re
 import subprocess
 import tempfile
 
+import harness_defaults  # the harness's preferences stay in its own process
+import isix_modules
+
 root = Path(__file__).resolve().parents[1]
 mpr = (root / 'Horos/Sources/MPRController.swift').read_text()
 
@@ -30,7 +33,7 @@ assert opening.index('self.restoreRememberedPlanes()') < opening.index('self.isI
 closing = body('override dynamic func windowWillClose(')
 assert closing.index('self.saveRememberedPlanes()') < closing.index('hiddenVRController?.close()')
 location = body('private func planeStateLocation()')
-assert 'bool(forKey: "RememberMPRPlaneAngles")' in location
+assert 'preferenceStore[ReconstructionPreferences.rememberMPRPlaneAngles]' in location
 assert 'return rememberedPlaneStateLocation' in location
 assert 'BrowserController' not in location and 'viewer2D' not in location
 capture = body('private func capturePlaneStateLocation()')
@@ -38,6 +41,9 @@ assert 'studyInstanceUID' in capture and 'seriesInstanceUID' in capture
 assert 'statesDirPath()' in capture and '!viewer.postprocessed()' in capture
 initializer = body('public convenience init?(dcmPixList')
 assert initializer.index('self.viewer2D = viewer') < initializer.index('self.capturePlaneStateLocation()')
+# The location is read from the graph of the 2D viewer, kept before it is captured.
+assert initializer.index('self.keptViewerGraph = viewer?.sessionGraph') < initializer.index('self.capturePlaneStateLocation()')
+assert 'browserWindowGraph?.database?.statesDirPath()' in capture
 assert initializer.index('self.capturePlaneStateLocation()') < initializer.index('self.initialize(')
 restore = body('private func restoreRememberedPlanes()')
 for field in ('position', 'focalPoint', 'viewUp', 'rollAngle', 'forceUpdate'):
@@ -51,14 +57,16 @@ assert 'toolbarItem?.action = #selector(resetMPRPlanes(_:))' in mpr
 # Replay the number of show requests made by the actual 2D opening action,
 # including its deferred AppKit layout refreshes, against the production
 # showWindow body. The reset/render work is a test double; dispatch policy is not.
-viewer = (root / 'Horos/Sources/ViewerController+ThreeDViewers.swift').read_text(errors='replace')
-start = viewer.index('    func mprViewer(_ sender: Any!) {')
-viewer_opening = viewer[start:viewer.index('/// The CPR open on these slices', start)]
-show_requests = len(re.findall(r'viewer\?\.showWindow\(self\)', viewer_opening))
+# The opening is ThreeDViewerLauncher's; -mprViewer: is its façade.
+viewer = (root / 'Horos/Sources/ThreeDViewerLauncher.swift').read_text(errors='replace')
+start = viewer.index('    func openObliqueMPR(_ sender: Any?) {')
+viewer_opening = viewer[start:viewer.index('// MARK: - Curved MPR', start)]
+show_requests = len(re.findall(r'made\?\.showWindow\((?:viewer|owner)\)', viewer_opening))
 assert show_requests >= 1
 
 code = r'''
 import Foundation
+import IsiXPreferences
 
 final class Study { var studyInstanceUID: String? = "owned-study" }
 final class Series {
@@ -81,6 +89,9 @@ final class BrowserController {
     static func currentBrowser() -> BrowserController? { browser }
 }
 final class Owner {
+    // The database window's graph the MPR reaches through its 2D viewer's graph.
+    var browserWindowGraph: BrowserController? { BrowserController.browser }
+    let preferenceStore: any PreferenceStore = UserDefaults.standard
     var viewer2D: Viewer? = Viewer()
     var rememberedPlaneStateLocation: (directory: URL, studyUID: String, seriesUID: String)?
     func capturePlaneStateLocation() CAPTURE
@@ -105,7 +116,7 @@ final class OpeningLifecycle: WindowBase {
     }
 }
 
-@main struct Test {
+struct Test {
     static func main() throws {
         let directory = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let pose = MPRPlaneState.Pose(position: [12.5, -3, 5], focalPoint: [13, -2, 7],
@@ -214,15 +225,16 @@ final class OpeningLifecycle: WindowBase {
         print("PASS: exact plane round trip, independent series/studies, malformed geometry and versions")
     }
 }
+try Test.main()
 '''.replace('CAPTURE', capture).replace('LOCATION', location).replace('SHOW_WINDOW', show_window).replace('SHOW_REQUESTS', str(show_requests))
 
 with tempfile.TemporaryDirectory(prefix='horos-mpr-plane-state-') as folder:
     temp = Path(folder)
-    (temp / 'main.swift').write_text(code)
+    (temp / 'main.swift').write_text(harness_defaults.SWIFT + code)
     executable = temp / 'test'
-    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library',
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5',
                     str(root / 'Horos/Sources/MPRPlaneState.swift'), str(temp / 'main.swift'),
-                    '-o', str(executable)], check=True)
+                    *isix_modules.module_flags('IsiXPreferences', temp / 'modules'), '-o', str(executable)], check=True)
     directory = temp / 'states'
     subprocess.run([str(executable), str(directory)], check=True)
     subprocess.run([str(executable), str(directory), 'read'], check=True)

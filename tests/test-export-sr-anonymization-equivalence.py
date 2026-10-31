@@ -35,8 +35,9 @@ same synthetic files, each in its own folder:
   must have the same attributes (new UIDs and the run's date and time aside)
   and the same pixels.
 
-Exit 2 without the Debug bundle, a Python with pydicom and numpy (HOROS_PYTHON or
-the local venvs), or the history.
+Exit 2 without the Debug bundle (a Release bundle in its place counts as none: see
+DEBUG_ONLY_SYMBOL), a Python with pydicom and numpy (HOROS_PYTHON or the local
+venvs), or the history.
 
     python3 tests/test-export-sr-anonymization-equivalence.py [--reference REV] [--keep DIR]
 """
@@ -96,6 +97,17 @@ needed = [executable, derived / 'Horos-Swift.h', BUILD / 'DCMTK.build/Install/in
 missing = [p for p in needed if not p.exists()]
 if missing:
     print('skipped: needs a current Debug build from script/build_and_run.sh --verify: %s' % missing[0])
+    raise SystemExit(2)
+
+# The library takes DCMTK from the executable, whose symbols only a Debug build
+# exports. Without them dyld ends the process before the application writes a
+# line, and what this test would see is an application that ended, with no reason.
+DEBUG_ONLY_SYMBOL = '__ZTV8DSRTypes'
+exported = subprocess.run(['xcrun', 'nm', '-gU', str(executable)], capture_output=True, text=True).stdout
+if DEBUG_ONLY_SYMBOL not in exported:
+    print('skipped: %s is not a Debug build: it does not export %s, which the reference library takes from it '
+          'and without which dyld aborts it; script/build_and_run.sh --verify builds Debug unless '
+          'HOROS_DEV_CONFIGURATION says otherwise' % (app, DEBUG_ONLY_SYMBOL))
     raise SystemExit(2)
 
 

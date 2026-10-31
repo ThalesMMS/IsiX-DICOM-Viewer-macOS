@@ -56,13 +56,13 @@ extension DCMObject {
 
     @objc public class func rootUID() -> String { root }
 
-    @objc public class func implementationClassUID() -> String { "\(root).\(uidQualifier).1" }
+    public class func implementationClassUID() -> String { "\(root).\(uidQualifier).1" }
 
-    @objc public class func implementationVersionName() -> String { "\(implementationName)\(softwareVersion)" }
+    public class func implementationVersionName() -> String { "\(implementationName)\(softwareVersion)" }
 
     /// The address of the primary network interface, the counter and the
     /// time, in hundredths of a second: different on every call.
-    @objc public class func globallyUniqueString() -> String {
+    public class func globallyUniqueString() -> String {
         uniqueLock.lock()
         defer { uniqueLock.unlock() }
         globallyUnique &+= 1
@@ -77,7 +77,6 @@ extension DCMObject {
         return "\(macAddressNumber ?? "(null)")\(time)\(Int32(bitPattern: globallyUnique))"
     }
 
-    @objc(MACAddress)
     public class func macAddress() -> String {
         guard case .address(let bytes) = primaryInterfaceAddress() else { return "MAC:(null)" }
         return "MAC:" + bytes.map { String(format: "%02x", $0) }.joined(separator: ":")

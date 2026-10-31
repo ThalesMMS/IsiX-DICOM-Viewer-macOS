@@ -156,7 +156,7 @@ private func ayRemainder(_ a: Int32, _ b: Int32) -> Int32 {
 
 /// Window Controller for DICOM printing.
 ///
-/// Implemented in Swift since #717: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// AYDicomPrintWindowController.h are those of the former class. It is the
 /// File's Owner of AYDicomPrint.xib.
 @objc(AYDicomPrintWindowController)

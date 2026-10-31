@@ -11,6 +11,8 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXImaging
+import IsiXPreferences
 
 /// Where the square magnifier of a 2D view goes and what its pixels look like.
 /// The view decides when it shows and renders the picture under the pointer;
@@ -160,44 +162,46 @@ public final class MagnifierPresentation: NSObject {
     @objc public static let zoomDefaultsKey = "magnifyingLensZoomFactor"
     @objc public static let sizeDefaultsKey = "magnifyingLensSizeFactor"
 
-    private static let defaultZoomFactor: Float = 3
-    private static let defaultSizeFactor: Float = 1
-
     /// The zoom factor last set, within the steps' range; 3 if none was.
     @objc(storedZoomFactorIn:)
     public static func storedZoomFactor(in defaults: UserDefaults) -> Float {
-        stored(defaults, zoomDefaultsKey, defaultZoomFactor, 2.2...4)
+        settings(in: defaults).zoomFactor
     }
 
     /// The size factor last set, within the steps' range; 1 if none was.
     @objc(storedSizeFactorIn:)
     public static func storedSizeFactor(in defaults: UserDefaults) -> Float {
-        stored(defaults, sizeDefaultsKey, defaultSizeFactor, 0.5...3)
+        settings(in: defaults).sizeFactor
     }
 
     @objc(storeZoomFactor:sizeFactor:in:)
     public static func store(zoomFactor zoom: Float, sizeFactor size: Float, in defaults: UserDefaults) {
-        defaults.set(zoom, forKey: zoomDefaultsKey)
-        defaults.set(size, forKey: sizeDefaultsKey)
+        store(zoomFactor: zoom, sizeFactor: size, in: defaults as any PreferenceStore)
     }
 
-    private static func stored(_ defaults: UserDefaults, _ key: String, _ fallback: Float,
-                               _ range: ClosedRange<Float>) -> Float {
-        guard let number = defaults.object(forKey: key) as? NSNumber, number.floatValue.isFinite else { return fallback }
-        return min(range.upperBound, max(range.lowerBound, number.floatValue))
+    /// The magnifier's settings the preferences keep (IsiXImaging's MagnifierSettings).
+    public static func settings(in preferences: any PreferenceStore) -> MagnifierSettings {
+        MagnifierSettings(storedZoomFactor: preferences.object(forKey: zoomDefaultsKey), storedSizeFactor: preferences.object(forKey: sizeDefaultsKey),
+                          inCorner: preferences[ViewerPreferences.magnifyingLensInCorner],
+                          whileMeasuring: preferences[ViewerPreferences.magnifyingLensWhileMeasuring])
+    }
+
+    /// Keeps the zoom and size factors for every view and the next launches.
+    public static func store(zoomFactor zoom: Float, sizeFactor size: Float, in preferences: any PreferenceStore) {
+        preferences.set(zoom, forKey: zoomDefaultsKey)
+        preferences.set(size, forKey: sizeDefaultsKey)
     }
 
     /// One step of the magnifier's zoom factor, as the lens counts it: 4 shows
     /// the picture at twice the view's scale and 2.2, the closest, at twenty times.
     @objc(zoomFactor:steppedIn:)
     public static func zoomFactor(_ factor: Float, steppedIn closer: Bool) -> Float {
-        let current = min(4, max(2.2, factor))
-        return closer ? max(2.2, current - 0.2) : min(4, current + 0.2)
+        MagnifierSettings.zoomFactor(factor, steppedIn: closer)
     }
 
     /// One step of the size factor, kept where the magnifier still fits a view.
     @objc(sizeFactor:steppedUp:)
     public static func sizeFactor(_ factor: Float, steppedUp larger: Bool) -> Float {
-        min(3, max(0.5, larger ? factor * 1.25 : factor / 1.25))
+        MagnifierSettings.sizeFactor(factor, steppedUp: larger)
     }
 }

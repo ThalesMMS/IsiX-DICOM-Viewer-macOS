@@ -57,15 +57,14 @@ public final class CPRProjectionOperation: Operation, @unchecked Sendable {
     @objc public private(set) var generatedVolume: CPRVolumeData?
     @objc public var projectionMode: CPRProjectionMode
 
-    @objc public override init() {
+    public override init() {
         projectionMode = CPRProjectionMode(CPRProjectionModeNone.rawValue)
         super.init()
     }
 
     public override func main() {
         autoreleasepool {
-            // The former @try/@catch (...) ended the operation quietly.
-            try? HorosObjCException.perform { self.project() }
+            self.project()
         }
     }
 

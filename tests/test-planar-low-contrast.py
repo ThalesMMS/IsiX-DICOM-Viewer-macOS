@@ -16,6 +16,7 @@ import sys
 import tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from python_with import prefer  # noqa: E402
+import process_graph_stand_in  # the Metal sources read their development switches through PreferencesSource
 prefer('import numpy', 'import pydicom')
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -129,6 +130,7 @@ with tempfile.TemporaryDirectory(prefix='a111-',dir=results) as directory:
                     *[str(ROOT/'Horos/Sources'/name) for name in ['VolumeAllocation.swift','VolumeSession.swift',
                       'MPRMetalReslicer.swift','MetalPerformanceTrace.swift','MetalComputePipelineCache.swift',
                       'Metal4ComputeSubmitter.swift']],
+                    *process_graph_stand_in.swift_flags(work/'isix'),
                     str(renderer_source),str(ROOT/'tools/measure-planar-low-contrast.swift'),
                     '-o',str(work/'probe')],check=True)
     subprocess.run([str(work/'probe'),str(work)],check=True,timeout=90)

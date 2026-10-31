@@ -39,6 +39,7 @@
 
 import Cocoa
 import IsiXImaging
+import IsiXPreferences
 import IsiXROI
 
 // A ROI's label: the lines it shows (its name, its measurement and the
@@ -49,7 +50,6 @@ extension ROI {
     // MARK: Pictures of text
 
     /// A picture of a string rasterized as the viewer's text is.
-    @objc(textPicture:font:)
     @discardableResult
     func textPicture(_ str: String, font: NSFont) -> AnnotationText {
         return AnnotationText.text(for: str, font: font, scale: view?.roiWindow?.backingScaleFactor ?? 0, cacheToken: textureCacheToken)
@@ -63,7 +63,7 @@ extension ROI {
 
     /// The size of a text ROI's string.
     @discardableResult
-    @objc func textFrameSize() -> NSSize {
+    func textFrameSize() -> NSSize {
         guard let stringTex, let font = stanStringAttrib?[NSAttributedString.Key.font] as? NSFont else { return .zero }
         return textPicture(stringTex as String, font: font).frameSize
     }
@@ -92,10 +92,10 @@ extension ROI {
         if let kept = stringTextureCache?.object(forKey: key) { return kept }
 
         // ROI layout reads the size before drawing, at the view's current scale.
-        let defaults = UserDefaults.standard
-        let size = CGFloat(defaults.float(forKey: "LabelFONTSIZE"))
+        let preferences = PreferencesSource.process.preferences
+        let size = CGFloat(preferences[ViewerPreferences.labelFONTSIZE])
         // A font saved on another Mac may no longer be installed.
-        let font = defaults.string(forKey: "LabelFONTNAME").flatMap { NSFont(name: $0, size: size) }
+        let font = preferences[ViewerPreferences.labelFONTNAME].flatMap { NSFont(name: $0, size: size) }
             ?? NSFont.userFixedPitchFont(ofSize: size) ?? NSFont.systemFont(ofSize: size)
         let kept = textPicture(str, font: font)
         stringTextureCache?.setObject(kept, forKey: key)
@@ -355,9 +355,9 @@ extension ROI {
     /// many as its height holds. The lines themselves and the exports stay complete.
     @discardableResult
     @objc func renderedTextualLines() -> [String] {
-        let defaults = UserDefaults.standard
-        let size = CGFloat(defaults.float(forKey: "LabelFONTSIZE"))
-        let font = defaults.string(forKey: "LabelFONTNAME").flatMap { NSFont(name: $0, size: size) }
+        let preferences = PreferencesSource.process.preferences
+        let size = CGFloat(preferences[ViewerPreferences.labelFONTSIZE])
+        let font = preferences[ViewerPreferences.labelFONTNAME].flatMap { NSFont(name: $0, size: size) }
             ?? NSFont.userFixedPitchFont(ofSize: size) ?? NSFont.systemFont(ofSize: size)
         let scale = view?.roiWindow?.backingScaleFactor ?? 0
         if scale <= 0 { return displayedTextualLines() }
@@ -430,7 +430,7 @@ extension ROI {
     /// The lines without the statistics whose check is off. A line keeps its
     /// complete text when it was written otherwise since its segments were.
     @discardableResult
-    @objc func linesWithoutHiddenStatistics(_ lines: [String]) -> [String] {
+    func linesWithoutHiddenStatistics(_ lines: [String]) -> [String] {
         let hidden = ROILabelPresentation.hiddenStatistics()
         guard let segmentsByLine = textualBoxSegments, !hidden.isEmpty, segmentsByLine.count > 0 else { return lines }
         var result = lines
@@ -450,7 +450,7 @@ extension ROI {
         let full = [_textualBoxLine1, _textualBoxLine2, _textualBoxLine3, _textualBoxLine4, _textualBoxLine5, _textualBoxLine6]
             .map { ($0 ?? "") as String }
         if ROI.settings.textNameOnly || _textNameOnly { return full }
-        if !UserDefaults.standard.bool(forKey: "ROIPRIMARYMEASUREMENTONLY") { return linesWithoutHiddenStatistics(full) }
+        if !PreferencesSource.process.preferences[ViewerPreferences.roiPrimaryMeasurementOnly] { return linesWithoutHiddenStatistics(full) }
 
         let primary: NSString?
         switch _type {
@@ -981,7 +981,7 @@ extension ROI {
             _textualBoxLine5 = String(format: NSLocalizedString("Length: %@", comment: ""), LengthPresentation.string(centimetres: Double(length))) as NSString
 
             // The length in 3D, when the points lie on more than one slice.
-            if _curView != nil && _pixelSpacingX != 0 && _pixelSpacingY != 0 && !UserDefaults.standard.bool(forKey: "splineForROI") {
+            if _curView != nil && _pixelSpacingX != 0 && _pixelSpacingY != 0 && !PreferencesSource.process.preferences[ViewerPreferences.splineForROI] {
                 let zPosArray = self.zPositions!
                 if zPosArray.count > 0 {
                     let zPos = (zPosArray.object(at: 0) as! NSNumber).int32Value

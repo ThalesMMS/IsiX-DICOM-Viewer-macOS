@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Execute the production startup recovery block with real filesystem entries.
 
-AppController is Swift: the block is compiled with swiftc, together
-with ImageExportPath.swift, over a stand-in DicomDatabase.
+The launch is ApplicationLifecycle's (ApplicationLifecycle.swift): its
+moveInterruptedFilesToIncoming() is compiled with swiftc, together with
+ImageExportPath.swift, over a stand-in DicomDatabase, a stand-in
+DatabaseIngest that resolves the incoming folder as DatabaseIngest.swift does,
+and a stand-in process graph that hands both out.
 """
 import argparse
 from pathlib import Path
@@ -14,7 +17,7 @@ root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_path  # noqa: E402
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--source', type=Path, default=source_path('AppController'))
+parser.add_argument('--source', type=Path, default=source_path('ApplicationLifecycle'))
 args = parser.parse_args()
 source = args.source.read_bytes().decode('utf-8')
 
@@ -46,14 +49,14 @@ def swift_block(text, at):
     return ''
 
 
-# The recovery block is the braced block after this statement, the last one of
-# the method (the KDU check that used to follow it is gone).
-start = source.index('self.initTilingWindows()') + len('self.initTilingWindows()')
-recovery = swift_block(source, start)
-method_end = source.index('    @IBAction @objc(updateViews:)', start)
-if not recovery or start + len(recovery) > method_end or source[start + len(recovery):method_end].strip() != '}':
-    print('FAIL: the recovery block is not the last statement after -initTilingWindows')
+# The recovery is the last statement of the launch, after -initTilingWindows.
+launch = swift_block(source, source.index('    func willFinishLaunching() {'))
+tail = launch[launch.rindex('controller.initTilingWindows()') + len('controller.initTilingWindows()'):]
+if [line.strip() for line in tail.splitlines() if line.strip()] != ['moveInterruptedFilesToIncoming()', '}']:
+    print('FAIL: the recovery is not the last statement after -initTilingWindows')
     raise SystemExit(1)
+at = source.index('    private func moveInterruptedFilesToIncoming() {')
+recovery = swift_block(source, at).replace('private func moveInterruptedFilesToIncoming()', 'func moveInterruptedFilesToIncoming()', 1)
 program = r'''
 import Foundation
 var temporary = "", decompression = "", incoming = ""
@@ -63,6 +66,14 @@ final class DicomDatabase: NSObject {
     func decompressionDirPath() -> String! { return decompression }
     func incomingDirPath() -> String! { return incoming }
 }
+// DatabaseIngest.swift's entry for the incoming folder: the database's
+// incomingDirPath, nil without a database.
+struct DatabaseIngest {
+    static let process = DatabaseIngest()
+    func incomingFolderPath(of database: DicomDatabase?) -> String? {
+        database.map { $0.incomingDirPath() }
+    }
+}
 extension FileManager {
     // NSFileManager+N2.swift's signature.
     func enumerator(atPath path: String?, filesOnly: Bool, recursive: Bool) -> NSEnumerator {
@@ -70,9 +81,14 @@ extension FileManager {
         return (((try? self.contentsOfDirectory(atPath: path ?? "")) ?? []) as NSArray).objectEnumerator()
     }
 }
-func recover() {
-RECOVERY
+// ProcessGraph's entries the recovery reads.
+struct Graph {
+    var activeLocalDatabase: DicomDatabase? { DicomDatabase.activeLocal() }
+    let databaseIngest = DatabaseIngest.process
 }
+let processGraph = Graph()
+RECOVERY
+func recover() { moveInterruptedFilesToIncoming() }
 func writeFixture(_ root: String, _ name: String) {
     let path = (root as NSString).appendingPathComponent(name)
     try? FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent,

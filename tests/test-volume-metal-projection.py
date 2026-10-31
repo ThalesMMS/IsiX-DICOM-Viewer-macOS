@@ -35,6 +35,7 @@ import math
 import subprocess
 import sys
 import tempfile
+import process_graph_stand_in  # the Metal sources read their development switches through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -179,7 +180,7 @@ with tempfile.TemporaryDirectory(prefix='horos-volume-projection-') as name:
     (work / 'Check.swift').write_text(DRIVER)
     (work / 'cases.json').write_text(json.dumps(CASES))
     build = subprocess.run(['xcrun', 'swiftc', '-O', '-parse-as-library', '-suppress-warnings',
-                            *[str(work / source) for source in sources], str(work / 'Check.swift'), '-o', str(work / 'check')])
+                            *[str(work / source) for source in sources], *process_graph_stand_in.swift_flags(work / 'isix'), str(work / 'Check.swift'), '-o', str(work / 'check')])
     if build.returncode:
         print('FAIL: the renderer does not build with the projection picture driver')
         raise SystemExit(1)

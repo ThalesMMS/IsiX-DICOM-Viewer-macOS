@@ -45,15 +45,14 @@ import IsiXDICOMFile
 @objc(IsiXDCMSequenceAttribute)
 public final class DCMSequenceAttribute: DCMAttribute {
 
-    @objc public var sequenceItems: NSMutableArray! = NSMutableArray()
+    public var sequenceItems: NSMutableArray! = NSMutableArray()
 
     // MARK: For structured reports
 
-    @objc public class func contentSequence() -> DCMSequenceAttribute {
+    public class func contentSequence() -> DCMSequenceAttribute {
         sequenceAttribute(withName: "ContentSequence")
     }
 
-    @objc(conceptNameCodeSequenceWithCodeValue:codeSchemeDesignator:codeMeaning:)
     public class func conceptNameCodeSequence(withCodeValue codeValue: String, codeSchemeDesignator: String,
                                               codeMeaning: String) -> DCMSequenceAttribute {
         let sequence = sequenceAttribute(withName: "ConceptNameCodeSequence")
@@ -92,11 +91,11 @@ public final class DCMSequenceAttribute: DCMAttribute {
     }
 
     /// A sequence has no value length of its own.
-    @objc public override var valueLength: Int { 0xFFFFFFFF }
+    public override var valueLength: Int { 0xFFFFFFFF }
 
     // MARK: Descriptions
 
-    @objc public override func readableDescription() -> String {
+    public override func readableDescription() -> String {
         var description = super.readableDescription()
         for entry in sequenceItems ?? NSMutableArray() {
             guard let item = (entry as? NSDictionary)?["item"] as? DCMObject else { break }
@@ -114,7 +113,7 @@ public final class DCMSequenceAttribute: DCMAttribute {
         return description
     }
 
-    @objc public override func xmlNode() -> XMLNode {
+    public override func xmlNode() -> XMLNode {
         var elements: [XMLNode] = []
         for entry in sequenceItems ?? NSMutableArray() {
             if let item = (entry as? NSDictionary)?["item"] as? DCMObject {

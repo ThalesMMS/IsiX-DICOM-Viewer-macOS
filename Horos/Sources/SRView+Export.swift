@@ -39,6 +39,7 @@
 
 import Cocoa
 import UniformTypeIdentifiers
+import IsiXPreferences
 
 /// The pasteboard type under which the modifier flags of a drag are looked
 /// for when the promised file is written.
@@ -70,7 +71,6 @@ extension SRView: NSDraggingSource, NSPasteboardItemDataProvider {
     }
 
     /// A frame of a QuickTime VR turn.
-    @objc(imageForFrameVR:maxFrame:)
     func imageForFrameVR(_ cur: NSNumber, maxFrame max: NSNumber) -> NSImage {
         let camera = scene.camera
         if cur.intValue == -1 {
@@ -221,7 +221,7 @@ extension SRView: NSDraggingSource, NSPasteboardItemDataProvider {
                 exportDCM.setPixelData(data, samplesPerPixel: Int32(spp), bitsPerSample: Int32(bpp), width: width, height: height)
                 var o = [Float](repeating: 0, count: 9)
                 getOrientation(&o)
-                if UserDefaults.standard.bool(forKey: "exportOrientationIn3DExport") { exportDCM.setOrientation(&o) }
+                if processGraph.preferences[VolumeRenderingPreferences.exportOrientationIn3DExport] { exportDCM.setOrientation(&o) }
                 if let file = exportDCM.writeDCMFile(nil) {
                     produced.append(file)
                 } else {
@@ -256,7 +256,7 @@ extension SRView: NSDraggingSource, NSPasteboardItemDataProvider {
                     if let data = getRawPixels(&width, &height, &spp, &bpp, true, true) {
                         var o = [Float](repeating: 0, count: 9)
                         getOrientation(&o)
-                        if UserDefaults.standard.bool(forKey: "exportOrientationIn3DExport") { sequence.setOrientation(&o) }
+                        if processGraph.preferences[VolumeRenderingPreferences.exportOrientationIn3DExport] { sequence.setOrientation(&o) }
                         sequence.setPixelData(data, samplesPerPixel: Int32(spp), bitsPerSample: Int32(bpp), width: width, height: height)
                         if let file = sequence.writeDCMFile(nil) { produced.append(file) }
                         free(data)
@@ -275,7 +275,7 @@ extension SRView: NSDraggingSource, NSPasteboardItemDataProvider {
             progress?.close()
         }
 
-        HorosSceneView.importExportedFiles(produced)
+        GeneratedSeriesImport.process.add(produced)
         restoreViewSizeAfterMatrix3DExport()
     }
 
@@ -363,14 +363,16 @@ extension SRView: NSDraggingSource, NSPasteboardItemDataProvider {
     @objc func horosSourceOperationMask() -> NSDragOperation { .generic }
 
     /// What the drag allows; the former -draggingSourceOperationMaskForLocal:,
-    /// which Swift cannot declare, answered the same.
-    func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+    /// which Swift cannot declare, answered the same. It and the data provider
+    /// method are @usableFromInline, as Swift asks of the witnesses of a
+    /// @usableFromInline class (SRView is one so that a Release build exports it).
+    @usableFromInline func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
         horosSourceOperationMask()
     }
 
     // AppKit asks the data provider on the main thread; the protocol leaves
     // the requirement nonisolated.
-    nonisolated func pasteboard(_ pasteboard: NSPasteboard?, item: NSPasteboardItem, provideDataForType type: NSPasteboard.PasteboardType) {
+    @usableFromInline nonisolated func pasteboard(_ pasteboard: NSPasteboard?, item: NSPasteboardItem, provideDataForType type: NSPasteboard.PasteboardType) {
         assumeMainActor((pasteboard, item, type)) { (pasteboard, item, type) in
             self.providePromisedFile(pasteboard, item, type)
         }

@@ -1124,14 +1124,10 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
 
         var views: NSArray?
 
-        do {
-            try HorosObjCException.perform {
-                views = self.views()
-            }
-        } catch {
-            if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                _N2LogExceptionImpl(e, true, "-[O2DicomPredicateEditorView review]")
-            }
+        if let e = HorosObjCException.caught({
+            views = self.views()
+        }) {
+            _N2LogExceptionImpl(e, true, "-[O2DicomPredicateEditorView review]")
         }
         _reviewing = false
 

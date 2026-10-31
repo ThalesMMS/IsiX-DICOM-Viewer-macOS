@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """Exercise the actual conversion queue with real operations.
 
-DicomDatabase is Swift: -processFilesAtPaths:intoDirAtPath:mode:error: and the
-chunk it runs on each operation are compiled here as they are, from
-DicomDatabase+Compression.swift, in an @implementation of a DicomDatabase whose
-codec raises or fails on request, with the chunk rules of IsiXDatabase and the
-@try of DicomDatabaseObjC.attempt (HorosObjCException.m).
+-processFilesAtPaths:intoDirAtPath:mode:error: and the conversion in chunks it
+forwards to are compiled here as they are, from DatabaseFileConversion.swift,
+over a DicomDatabase whose codec raises or fails on request, with the chunk
+rules of IsiXDatabase and the @try of HorosObjCException.caught
+(HorosObjCException.m).
 
-The export's call is Swift (BrowserController+DICOMExport.swift): it runs here
-as it is, through the browser's horos_processFiles(atPaths:in:mode:)
+The export's call is Swift (DICOMFolderExport.swift): it runs here as it is, through the browser's horos_processFiles(atPaths:in:mode:)
 (BrowserController+StateAccess.swift) and HorosBrowserProcessFiles of
 BrowserController+CAPI.m, on the database's real queue.
 """
+import sys
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+import objc_exception_guards
 from pathlib import Path
 import subprocess,sys,tempfile
 root=Path(__file__).resolve().parents[1]
@@ -24,23 +26,27 @@ def member(text, opening, closing='\n    }\n'):
  return text[at:text.index(closing,at)+len(closing)]
 
 
-s=(root/'Horos/Sources/DicomDatabase+Compression.swift').read_text()
+s=(root/'Horos/Sources/DatabaseFileConversion.swift').read_text()
+a=s.index('    func convertInChunks(')
+b=s.index('    func convertLater(',a)
+chunks=s[a:b]
+assert 'Thread.sleep' not in chunks and 'operationCount' not in chunks, 'the conversion polls its queue again'
+result_type=s[s.index('/// What a chunk answered, or the exception it raised.'):s.index('/// `DatabaseFileConverting` over one database')]
+a=s.index('extension FileConversionMode {')
+mode_type=s[a:s.index('\n}\n',a)+3]
 a=s.index('    // NS_SWIFT_NOTHROW in the header:')
-b=s.index('    @objc(threadBridgeForProcessFilesAtPaths:)',a)
-methods=s[a:b]
-assert 'func processFiles(atPaths paths: [Any]!, intoDirAtPath destDir: String!, mode: Int32, error: NSErrorPointer) -> Bool' in methods
-assert 'private final func processChunk(' in methods
-result_type=s[s.index('/// What a chunk answered, or the exception it raised.'):s.index('@objc(Compression) @implementation extension DicomDatabase')]
+forwarder=s[a:s.index('    func initiateCompressFiles(atPaths paths: [Any]!) {',a)]
+paths=member(s,'    private final class func conversionPaths(')
 instance=(root/'Horos/Sources/DicomDatabase+Instance.swift').read_text()
-helpers=member(instance,'    static func attempt(_ body: () -> Void) -> NSException? {')+member(instance,'    static func log(_ exception: NSException, stack: Bool, _ function: String) {')
+helpers=objc_exception_guards.between('DicomDatabaseObjC')+member(instance,'    static func log(_ exception: NSException, stack: Bool, _ function: String) {')
 database=(root/'Horos/Sources/DicomDatabase.swift').read_text()
 helpers+=member(database,'    static func localizedCount(_ count: Int, _ singular: String, _ plural: String) -> String {')
 helpers+=member(database,'    static func localizedFileCount(_ count: Int) -> String {')
-export=(root/'Horos/Sources/BrowserController+DICOMExport.swift').read_text()
-c=export.index('            if compressionTag == 1 || compressionTag == 2 {',export.index('        if files2Compress.count > 0 && !exportAborted {'))
-caller=export[c:export.index('\n        }\n',c)+1]
-d=export.index('    nonisolated static func reportedError(')
-reported=export[d:export.index('\n    }\n',d)+len('\n    }\n')]
+export=(root/'Horos/Sources/DICOMFolderExport.swift').read_text()
+c=export.index('        if !filesToCompress.isEmpty && !exportAborted && compresses {')
+caller=export[c:export.index('\n        }\n',c)+len('\n        }\n')]
+d=export.index('func objcReportedError(')
+reported=export[d:export.index('\n}\n',d)+len('\n}\n')]
 capi=(root/'Horos/Sources/BrowserController+CAPI.m').read_bytes().decode('latin1')
 e=capi.index('BOOL HorosBrowserProcessFiles(');wrapper=capi[e:capi.index('\n}\n',e)+3]
 access=(root/'Horos/Sources/BrowserController+StateAccess.swift').read_text()
@@ -88,30 +94,49 @@ NS_ASSUME_NONNULL_END
 '''
 swift=r'''
 import Foundation
+import IsiXContracts
 import IsiXDatabase
 enum DicomDatabaseObjC {
 HELPERS
 }
 RESULT
+MODE
+struct DatabaseIngest {
+ static let process = DatabaseIngest()
+ func fileConversion(of database: DicomDatabase?) -> DatabaseFileConversion { DatabaseFileConversion(database: database) }
+}
+struct DatabaseFileConversion: @unchecked Sendable {
+ let database: DicomDatabase?
+ func convertNow(_ paths: [String], mode: FileConversionMode, into destination: String?) -> Bool {
+  mode == .compress ? DicomDatabase.compressDicomFiles(atPaths: paths, intoDirAtPath: destination)
+                    : DicomDatabase.decompressDicomFiles(atPaths: paths, intoDirAtPath: destination)
+ }
+CHUNKS
+}
 @objc @implementation extension DicomDatabase {
  final var processFilesLock: NSRecursiveLock? = NSRecursiveLock()
-METHODS
+PATHS
+FORWARDER
 }
 nonisolated(unsafe) var alerts = 0
-extension BrowserController {
 REPORTED
+struct Request { var compressionTag: Int }
+extension BrowserController {
 WRAPPER
- @objc(showDICOMExportError:) func showDICOMExportError(_ error: NSError!) { if !(error?.localizedDescription ?? "").isEmpty { alerts += 1 } }
- @objc(runWithDatabase:files:tag:) func run(_ idatabase: DicomDatabase, files: NSArray, tag compressionTag: Int) -> Bool {
+ static func presentError(_ error: NSError) { if !error.localizedDescription.isEmpty { alerts += 1 } }
+ static func incompleteExportError(reason: String?) -> NSError { NSError(domain: "incomplete", code: 1, userInfo: [NSLocalizedDescriptionKey: "incomplete"]) }
+ @objc(runWithDatabase:files:tag:) func run(_ database: DicomDatabase, files: NSArray, tag compressionTag: Int) -> Bool {
   alerts = 0
   var exportAborted = false
-  let files2Compress = NSMutableArray(array: files)
+  let filesToCompress = files.compactMap { $0 as? String }
+  let request = Request(compressionTag: compressionTag)
+  let compresses = request.compressionTag == 1 || request.compressionTag == 2
 CALLER
   if alerts != (exportAborted ? 1 : 0) { NSException(name: NSExceptionName("alert"), reason: "missing error", userInfo: nil).raise() }
   return exportAborted
  }
 }
-'''.replace('CALLER',caller).replace('REPORTED',reported).replace('WRAPPER',swift_wrapper).replace('HELPERS',helpers).replace('RESULT',result_type).replace('METHODS',methods)
+'''.replace('CALLER',caller).replace('REPORTED',reported).replace('WRAPPER',swift_wrapper).replace('HELPERS',helpers).replace('RESULT',result_type).replace('MODE',mode_type).replace('CHUNKS',chunks).replace('PATHS',paths).replace('FORWARDER',forwarder)
 program=r'''
 #import "Bridge.h"
 #import "Probe-Swift.h"

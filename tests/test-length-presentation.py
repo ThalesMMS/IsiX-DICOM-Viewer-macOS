@@ -73,14 +73,16 @@ if '%2.2f mm' in vr or '%2.2f cm' in vr:
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import default_preferences  # noqa: E402
+import process_graph_stand_in  # noqa: E402  - the 2D viewer's sources read the catalog's keys through PreferencesSource
 defaults = default_preferences.registered()
 for key, value in (('ROILengthUnit', '0'), ('ROILengthDecimals', '3')):
     if defaults.get(key) != value:
         failures.append(f'not registered: {key} = {value}')
-app = source('Horos/Sources/AppController.swift')
-check = app[app.index('runPreferencesUpdateCheck'):]
-if 'LengthPresentation.unitKey' not in check or 'LengthPresentation.decimalsKey' not in check \
-        or 'Notification.Name(LengthPresentation.changedNotification)' not in check:
+marks = source('Modules/IsiXPreferences/Sources/PreferenceChange.swift')
+responder = source('Horos/Sources/PreferenceChangeResponder.swift')
+if 'numberChanged(ViewerPreferences.roiLengthUnit)' not in marks or 'numberChanged(ViewerPreferences.roiLengthDecimals)' not in marks \
+        or 'viewerRefresh = viewerRefresh || lengthPresentation' not in marks \
+        or 'if change.lengthPresentation {\n            NotificationCenter.default.post(name: Notification.Name(LengthPresentation.changedNotification)' not in responder:
     failures.append('a change of the preferences does not redraw the measurements')
 if '"Length: " + LengthPresentation.string(centimetres: centimeters)' not in source('Horos/Sources/AnnotationPresentation.swift'):
     failures.append('AnnotationPresentation writes the length itself')
@@ -233,7 +235,8 @@ with tempfile.TemporaryDirectory(prefix='horos-length-presentation-') as folder:
     main.write_text(DRIVER)
     binary = Path(folder) / 'check'
     built = subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(Path(folder) / 'modules'),
-                            str(root / 'Horos/Sources/LengthPresentation.swift'), str(main), '-o', str(binary)],
+                            str(root / 'Horos/Sources/LengthPresentation.swift'), str(main),
+                            *process_graph_stand_in.swift_flags(Path(folder) / 'isix'), '-o', str(binary)],
                            capture_output=True, text=True)
     if built.returncode:
         print(built.stderr, file=sys.stderr)

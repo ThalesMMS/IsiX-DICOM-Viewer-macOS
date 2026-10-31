@@ -85,7 +85,7 @@ public final class CPRUnsignedInt16ImageRep: NSImageRep {
     }
 
     /// -init of NSImageRep: no pixels.
-    @objc public override init() {
+    public override init() {
         super.init()
     }
 

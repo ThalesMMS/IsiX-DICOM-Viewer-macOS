@@ -39,6 +39,7 @@
 
 import AppKit
 import IsiXVolumeRendering
+import IsiXPreferences
 
 // What the Swift subclasses of VRView (EndoscopyVRView.swift and
 // VRPresetPreview.swift) reach of the class: values set without the side
@@ -126,7 +127,7 @@ extension VRView {
         }
 
         // A float over a double: the quotient is a double, stored as a float.
-        horos_factor = Float(Double(UserDefaults.standard.float(forKey: "superSampling")) / firstObject.pixelSpacingX)
+        horos_factor = Float(Double(processGraph.preferences[VolumeRenderingPreferences.superSampling]) / firstObject.pixelSpacingX)
         let factor = horos_factor
         if firstObject.pixelSpacingX == 0 || firstObject.pixelSpacingY == 0 {
             vtk.setImportSpacingX(1, y: 1, z: Double(sliceThickness))

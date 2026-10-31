@@ -177,14 +177,16 @@ private let afterChange = Date(timeIntervalSinceReferenceDate: 796_552_200)
     @Test func surgicalTimelineSeries() {
         let predicate = SurgicalTimelineQuery.seriesPredicate(description: "Horos Surgical Procedure SR")
         let study = NSObject()
-        func series(_ description: String?, _ study: Any?) -> NSDictionary {
-            ["seriesDescription": description ?? NSNull(), "study": study ?? NSNull()]
+        func series(_ description: String?, _ study: Any?, protocolName: String? = nil) -> NSDictionary {
+            ["name": description ?? NSNull(), "seriesDescription": protocolName ?? NSNull(), "study": study ?? NSNull()]
         }
         #expect(predicate.evaluate(with: series("Horos Surgical Procedure SR", study)))
         #expect(!predicate.evaluate(with: series("horos surgical procedure sr", study)))
         #expect(!predicate.evaluate(with: series("Horos Surgical Procedure SR ", study)))
         #expect(!predicate.evaluate(with: series(nil, study)))
         #expect(!predicate.evaluate(with: series("Horos Surgical Procedure SR", nil)))
+        // The Protocol Name, kept in the attribute of that name, is not the description.
+        #expect(!predicate.evaluate(with: series("Other", study, protocolName: "Horos Surgical Procedure SR")))
     }
 }
 
@@ -254,8 +256,12 @@ private let afterChange = Date(timeIntervalSinceReferenceDate: 796_552_200)
         MovieExportPaths.record("/out/A/B_1.mp4", relativeTo: "/out", seriesID: 4, kind: "mp4", in: paths)
         MovieExportPaths.record("/out/A/B_1_thumb.jpg", relativeTo: "/out", seriesID: 4, kind: "thumb", in: paths)
         #expect((paths[NSNumber(value: 4)] as? NSDictionary) == ["mp4": "A/B_1.mp4", "thumb": "A/B_1_thumb.jpg"] as NSDictionary)
-        #expect(ZipCommand.flatArguments(password: "", archive: "a.zip", files: ["1", "2"]) == ["-q", "-j", "a.zip", "1", "2"])
-        #expect(ZipCommand.recursiveArguments(password: "secret", archive: "a.zip", names: ["P"]) == ["-q", "-r", "-e", "-P", "secret", "a.zip", "P"])
+        #expect(ZipCommand.flatArguments(encrypted: false, archive: "a.zip", files: ["1", "2"]) == ["-q", "-j", "a.zip", "1", "2"])
+        #expect(ZipCommand.flatArguments(encrypted: true, archive: "a.zip", files: ["1"]) == ["-q", "-j", "-e", "a.zip", "1"])
+        // The password is never an argument (ps shows them): zip asks for it on its terminal.
+        #expect(ZipCommand.recursiveArguments(encrypted: true, archive: "a.zip", names: ["P"]) == ["-q", "-r", "-e", "a.zip", "P"])
+        #expect(ZipCommand.recursiveArguments(encrypted: false, archive: "a.zip", names: ["P"]) == ["-q", "-r", "a.zip", "P"])
+        #expect(ZipCommand.encrypts("secret") && !ZipCommand.encrypts("") && !ZipCommand.encrypts(nil))
         #expect(ZipCommand.chunks(count: 2001) == [0..<1000, 1000..<2000, 2000..<2001])
         #expect(ZipCommand.entryNames(["/a/x", "/a/y"], exists: { _ in true }) == ["x", "y"])
         #expect(ZipCommand.entryNames(["/a/x", "/b/y"], exists: { _ in true }) == nil)
@@ -275,5 +281,212 @@ private let afterChange = Date(timeIntervalSinceReferenceDate: 796_552_200)
         #expect(EmailSheetRules.notificationRecipients(selectedUsers: 0, typedAddress: "abcd") == .missingAt)
         #expect(EmailSheetRules.notificationRecipients(selectedUsers: 0, typedAddress: "a@bcd") == .nameTooShort)
         #expect(EmailSheetRules.notificationRecipients(selectedUsers: 0, typedAddress: "ab@cd") == .accepted(newUserEmail: "ab@cd"))
+    }
+}
+
+@Suite struct IndexMaintenanceRulesTests {
+
+    @Test func keptIndexTakesOutTheSeriesWithoutImagesButNotTheMarker() {
+        #expect(KeptIndexCleanup.removesSeries(name: "CT", id: 2, imageCount: 0))
+        #expect(!KeptIndexCleanup.removesSeries(name: "CT", id: 2, imageCount: 1))
+        #expect(!KeptIndexCleanup.removesSeries(name: SelectionImages.noAutodeletionName, id: SelectionImages.noAutodeletionID, imageCount: 0))
+        // The name alone, or the number alone, is any other series.
+        #expect(KeptIndexCleanup.removesSeries(name: SelectionImages.noAutodeletionName, id: 2, imageCount: 0))
+        #expect(KeptIndexCleanup.removesSeries(name: "CT", id: SelectionImages.noAutodeletionID, imageCount: 0))
+    }
+
+    @Test func keptIndexTakesOutTheStudyOnlyWithNothingLeft() {
+        #expect(KeptIndexCleanup.removesStudy(imagesLeft: 0, hasNoAutodeletionSeries: false, hasReport: false, isLocked: false))
+        // Any image keeps it, hidden ones too: the study would take their files.
+        #expect(!KeptIndexCleanup.removesStudy(imagesLeft: 1, hasNoAutodeletionSeries: false, hasReport: false, isLocked: false))
+        #expect(!KeptIndexCleanup.removesStudy(imagesLeft: 0, hasNoAutodeletionSeries: true, hasReport: false, isLocked: false))
+        #expect(!KeptIndexCleanup.removesStudy(imagesLeft: 0, hasNoAutodeletionSeries: false, hasReport: true, isLocked: false))
+        #expect(!KeptIndexCleanup.removesStudy(imagesLeft: 0, hasNoAutodeletionSeries: false, hasReport: false, isLocked: true))
+    }
+
+    @Test func keptIndexTellsAFileThatIsGoneFromOneOutOfReach() {
+        func gone(_ error: Int32, volume: Bool = true, inFolder: Bool = true, dataFolder: Bool = true) -> Bool {
+            return KeptIndexCleanup.fileIsGone(openError: error, volumeIsThere: volume, inDatabaseFolder: inFolder, dataFolderIsThere: dataFolder)
+        }
+        #expect(gone(ENOENT))
+        #expect(gone(ENOTDIR))
+        #expect(gone(ENOENT, inFolder: false, dataFolder: false))
+        #expect(!gone(ENOENT, volume: false))
+        #expect(!gone(ENOENT, volume: false, inFolder: false))
+        #expect(!gone(ENOENT, dataFolder: false))
+        for error in [EACCES, EMFILE, EIO] { #expect(!gone(error)) }
+    }
+
+    @Test func aStoredReportIsLookedForInsideTheDatabase() {
+        let exists: (String) -> Bool = { $0 == "/base/REPORTS/a.pages" || $0 == "/elsewhere/b.pages" }
+        #expect(ReportAttachment.isReachable(stored: "REPORTS/a.pages", inDatabaseAt: "/base", fileExists: exists))
+        #expect(ReportAttachment.isReachable(stored: "/elsewhere/b.pages", inDatabaseAt: "/base", fileExists: exists))
+        #expect(ReportAttachment.isReachable(stored: "https://host/c.pdf", inDatabaseAt: "/base", fileExists: exists))
+        #expect(!ReportAttachment.isReachable(stored: "REPORTS/gone.pages", inDatabaseAt: "/base", fileExists: exists))
+        #expect(!ReportAttachment.isReachable(stored: "", inDatabaseAt: "/base", fileExists: exists))
+        #expect(!ReportAttachment.isReachable(stored: nil, inDatabaseAt: "/base", fileExists: exists))
+    }
+
+    @Test func aReportOnAVolumeThatIsOutIsNotLost() {
+        let mounted: (String) -> Bool = { $0 == "/Volumes/Here" }
+        #expect(ReportAttachment.isReachable(stored: "/Volumes/Out/a.pages", inDatabaseAt: "/base", fileExists: mounted))
+        #expect(!ReportAttachment.isReachable(stored: "/Volumes/Here/gone.pages", inDatabaseAt: "/base", fileExists: mounted))
+        #expect(!ReportAttachment.isReachable(stored: "/Users/gone.pages", inDatabaseAt: "/base", fileExists: mounted))
+        #expect(!ReportAttachment.isReachable(stored: "/Volumes", inDatabaseAt: "/base", fileExists: mounted))
+        #expect(!ReportAttachment.isReachable("/Volumes/Out/a.pages", fileExists: mounted))
+        #expect(ReportAttachment.isOnVolumeThatIsOut("/Volumes/Out/a.pages", fileExists: mounted))
+        #expect(!ReportAttachment.isOnVolumeThatIsOut("/Volumes/Here/gone.pages", fileExists: mounted))
+        #expect(!ReportAttachment.isOnVolumeThatIsOut("REPORTS/a.pages", fileExists: mounted))
+    }
+
+    @Test func aReportInsideTheDatabaseIsStoredRelativeToIt() {
+        #expect(ReportAttachment.storedPath("/base/REPORTS/a.pages", inDatabaseAt: "/base") == "REPORTS/a.pages")
+        #expect(ReportAttachment.storedPath("/base/REPORTS/a.pages", inDatabaseAt: "/base/") == "REPORTS/a.pages")
+        #expect(ReportAttachment.storedPath("/base2/REPORTS/a.pages", inDatabaseAt: "/base") == "/base2/REPORTS/a.pages")
+        #expect(ReportAttachment.storedPath("/elsewhere/a.pages", inDatabaseAt: "/base") == "/elsewhere/a.pages")
+        #expect(ReportAttachment.storedPath("/base/REPORTS/a.pages", inDatabaseAt: nil) == "/base/REPORTS/a.pages")
+    }
+
+    @Test func onlyAFileThatComesInCountsAsAnArrival() {
+        func arrival(stored: String? = "12.dcm", file: String? = "/db/DATABASE.noindex/0/12.dcm", inside: Bool = true, rereading: Bool = false) -> Bool {
+            return ImportArrival.isArrival(storedPath: stored, file: file, insideDataFolder: inside, rereading: rereading)
+        }
+        // What a rebuild that keeps the index reads.
+        #expect(!arrival())
+        // A new image, a study sent again under a new name, one added from outside
+        // the data folder, and a reread asked for.
+        #expect(arrival(stored: nil))
+        #expect(arrival(file: "/db/DATABASE.noindex/0/99.dcm"))
+        #expect(arrival(stored: "/Volumes/Disc/12.dcm", file: "/Volumes/Disc/12.dcm", inside: false))
+        #expect(arrival(inside: false))
+        #expect(arrival(rereading: true))
+        #expect(arrival(file: nil))
+    }
+
+    private func listing(_ folders: [String: [String]]) -> (String) -> [String]? {
+        return { folders[$0] }
+    }
+
+    @Test func hiddenNamesStayOutOfARebuild() {
+        #expect(RebuildScan.includes("1000.dcm"))
+        #expect(RebuildScan.includes("a.b"))
+        #expect(!RebuildScan.includes(".DS_Store"))
+        #expect(!RebuildScan.includes("."))
+    }
+
+    @Test func aRebuildReadsTheFoldersOfTheDataFolderThenTheROIs() {
+        let folders = ["/data": ["1000", "2000", "unreadable"], "/data/1000": ["1.dcm", ".hidden", "2.dcm"],
+                       "/data/2000": ["3.dcm"], "/rois": [".DS_Store", "x.dcm"]]
+        #expect(RebuildScan.files(dataFolder: "/data", roisFolder: "/rois", contents: listing(folders))
+                == ["/data/1000/1.dcm", "/data/1000/2.dcm", "/data/2000/3.dcm", "/rois/x.dcm"])
+    }
+
+    @Test func aRebuildReadsNothingOfAFolderItCannotList() {
+        #expect(RebuildScan.files(dataFolder: "/data", roisFolder: nil, contents: listing([:])).isEmpty)
+        #expect(RebuildScan.files(dataFolder: "/data", roisFolder: "/rois", contents: listing(["/rois": ["x"]])) == ["/rois/x"])
+    }
+
+    @Test func aRebuildSaysWhatItHasLeft() {
+        #expect(RebuildStop(recoveryFolder: "/kept", complete: true) == .recoveryFilesIn("/kept"))
+        #expect(RebuildStop(recoveryFolder: "/kept", complete: false) == .recoveryFilesIn("/kept"))
+        #expect(RebuildStop(recoveryFolder: nil, complete: true) == .beforeTheIndexWasCopied)
+        #expect(RebuildStop(recoveryFolder: nil, complete: false) == .maintenance)
+    }
+
+    @Test func theModelOfAnIndexIsFoundByItsVersion() {
+        #expect(ModelUpgradeRules.modelFileName(forVersion: "2.4", current: "2.6") == "OsiriXDB_Previous_DataModel2.4.mom")
+        #expect(ModelUpgradeRules.modelFileName(forVersion: "2.6", current: "2.6") == "OsiriXDB_DataModel.mom")
+        #expect(ModelUpgradeRules.modelFileName(forVersion: nil, current: "2.6") == "OsiriXDB_Previous_DataModel(null).mom")
+    }
+
+    @Test func theVersionFileComesBeforeThePreference() {
+        #expect(ModelUpgradeRules.recordedVersion(file: "2.4", preference: "9.9") == "2.4")
+        #expect(ModelUpgradeRules.recordedVersion(file: nil, preference: "9.9") == "9.9")
+        #expect(ModelUpgradeRules.recordedVersion(file: nil, preference: nil) == nil)
+    }
+
+    @Test func anEmptyRecordNamesNoModel() {
+        #expect(ModelUpgradeRules.namesAnotherModel("2.4", current: "2.6"))
+        #expect(!ModelUpgradeRules.namesAnotherModel("2.6", current: "2.6"))
+        #expect(!ModelUpgradeRules.namesAnotherModel("", current: "2.6"))
+        #expect(!ModelUpgradeRules.namesAnotherModel(nil, current: "2.6"))
+    }
+
+    @Test func anIndexOfAnotherModelIsUpgradedFromWhatTheRecordSays() {
+        #expect(ModelUpgradeRules.versionToUpgrade(file: "2.4", preference: "2.6", current: "2.6", indexExists: true) == "2.4")
+        #expect(ModelUpgradeRules.versionToUpgrade(file: nil, preference: "9.9", current: "2.6", indexExists: true) == "9.9")
+        #expect(ModelUpgradeRules.versionToUpgrade(file: "2.6", preference: "9.9", current: "2.6", indexExists: true) == nil)
+        #expect(ModelUpgradeRules.versionToUpgrade(file: "", preference: "9.9", current: "2.6", indexExists: true) == nil)
+        #expect(ModelUpgradeRules.versionToUpgrade(file: nil, preference: nil, current: "2.6", indexExists: true) == nil)
+    }
+
+    @Test func withNoIndexThereIsNoUpgradeWhateverTheRecordSays() {
+        #expect(ModelUpgradeRules.versionToUpgrade(file: "9.9", preference: "9.9", current: "2.6", indexExists: false) == nil)
+        #expect(ModelUpgradeRules.versionToUpgrade(file: nil, preference: "9.9", current: "2.6", indexExists: false) == nil)
+        #expect(ModelUpgradeRules.versionToUpgrade(file: "2.4", preference: "2.6", current: "2.6", indexExists: false) == nil)
+    }
+
+    @Test func anIndexWaitsForItsUpgradeWhileTheRecordNamesAnotherModel() {
+        #expect(ModelUpgradeRules.indexAwaitsUpgrade(file: "2.4", preference: "2.6", current: "2.6"))
+        #expect(ModelUpgradeRules.indexAwaitsUpgrade(file: nil, preference: "9.9", current: "2.6"))
+        #expect(!ModelUpgradeRules.indexAwaitsUpgrade(file: "2.6", preference: "9.9", current: "2.6"))
+        #expect(!ModelUpgradeRules.indexAwaitsUpgrade(file: nil, preference: nil, current: "2.6"))
+    }
+
+    @Test func theDisplayStateIsLeftOutOfAnUpgrade() {
+        #expect(ModelUpgradeRules.seriesKeysLeftOut.subtracting(ModelUpgradeRules.imageKeysLeftOut) == ["displayStyle"])
+        #expect(ModelUpgradeRules.imageKeysLeftOut.subtracting(ModelUpgradeRules.seriesKeysLeftOut) == ["wl", "ww"])
+        #expect(ModelUpgradeRules.primitiveKeys.isDisjoint(with: ModelUpgradeRules.seriesKeysLeftOut))
+        #expect(ModelUpgradeRules.primitiveKeys.contains("comment"))
+    }
+
+    @Test func anAttributeOfAFormerModelGoesUnderItsCurrentName() {
+        #expect(ModelUpgradeRules.currentKey("locked", ofEntity: "Study") == "lockedStudy")
+        #expect(ModelUpgradeRules.currentKey("frameNo", ofEntity: "Image") == "frameID")
+        #expect(ModelUpgradeRules.currentKey("isKeyImage", ofEntity: "Image") == "storedIsKeyImage")
+        #expect(ModelUpgradeRules.currentKey("mountedVolume", ofEntity: "Image") == "storedMountedVolume")
+        #expect(ModelUpgradeRules.currentKey("name", ofEntity: "Study") == "name")
+        // A name is renamed only in its own entity: a series keeps its mountedVolume.
+        #expect(ModelUpgradeRules.currentKey("mountedVolume", ofEntity: "Series") == "mountedVolume")
+        #expect(ModelUpgradeRules.currentKey("locked", ofEntity: "Image") == "locked")
+    }
+
+    @Test func whatTheCurrentModelDoesNotKeepIsNotCopied() {
+        for entity in ["Study", "Series", "Image"] {
+            #expect(ModelUpgradeRules.isRetired("dicomTime", ofEntity: entity))
+            #expect(ModelUpgradeRules.isRetired("type", ofEntity: entity))
+        }
+        #expect(ModelUpgradeRules.isRetired("name", ofEntity: "Image"))
+        #expect(!ModelUpgradeRules.isRetired("name", ofEntity: "Study"))
+        #expect(!ModelUpgradeRules.isRetired("name", ofEntity: "Series"))
+        #expect(!ModelUpgradeRules.isRetired("type", ofEntity: "Album"))
+        #expect(ModelUpgradeRules.imageKeysLeftOut.isSuperset(of: ["wl", "ww"]))
+    }
+
+    @Test func aSavedLayoutBecomesTheDataItsReadersExpect() {
+        let text = "<plist><array/></plist>\u{e9}"
+        #expect(ModelUpgradeRules.upgradedValue(text, ofKey: "windowsState", entity: "Study") as? Data == Data(text.utf8))
+        let stored = Data([1, 2, 3])
+        #expect(ModelUpgradeRules.upgradedValue(stored, ofKey: "windowsState", entity: "Study") as? Data == stored)
+        #expect(ModelUpgradeRules.upgradedValue(nil, ofKey: "windowsState", entity: "Study") == nil)
+        #expect(ModelUpgradeRules.upgradedValue(text, ofKey: "windowsState", entity: "Series") as? String == text)
+        #expect(ModelUpgradeRules.upgradedValue(text, ofKey: "comment", entity: "Study") as? String == text)
+    }
+
+    @Test func onlyAKeyImageKeepsAStoredValue() {
+        #expect(ModelUpgradeRules.upgradedValue(NSNumber(value: true), ofKey: "isKeyImage", entity: "Image") as? NSNumber == NSNumber(value: true))
+        #expect(ModelUpgradeRules.upgradedValue(NSNumber(value: false), ofKey: "isKeyImage", entity: "Image") == nil)
+        #expect(ModelUpgradeRules.upgradedValue(nil, ofKey: "isKeyImage", entity: "Image") == nil)
+        #expect(ModelUpgradeRules.upgradedValue(NSNumber(value: false), ofKey: "locked", entity: "Study") as? NSNumber == NSNumber(value: false))
+    }
+
+    @Test func aReportThatCanBeReachedIsKept() {
+        let exists: (String) -> Bool = { $0 == "/reports/a.rtf" }
+        #expect(ReportAttachment.isReachable("/reports/a.rtf", fileExists: exists))
+        #expect(ReportAttachment.isReachable("http://example.invalid/report", fileExists: exists))
+        #expect(ReportAttachment.isReachable("https://example.invalid/report", fileExists: exists))
+        #expect(!ReportAttachment.isReachable("/reports/missing.rtf", fileExists: exists))
+        #expect(!ReportAttachment.isReachable("", fileExists: { _ in true }))
+        #expect(!ReportAttachment.isReachable(nil, fileExists: exists))
     }
 }

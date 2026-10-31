@@ -58,6 +58,94 @@ MARK = '+ (BOOL)resampleDataFromPixArray:'
 SWIFT_FILES = ['ViewerController+%s.swift' % name for name in
                ('ImagePipelineSupport', 'Resampling', 'MaskSubtraction', 'WindowLevel', 'SliceInterval', 'ColorTables', 'ThickSlab')]
 
+# What the façades of these files hand their work to, in revisions that have it:
+# the viewer's window level (ViewerWindowLevel.swift, up to its presets menus:
+# the menus and SUV are not reached from these files) and its mask subtraction
+# (MaskSubtractionSession.swift, whole), over a stand-in of the viewer's graph,
+# which gives the standard preferences, and of the process's presets menus, of
+# which only the notifier, as PresetMenuCache.swift has it, is reached.
+WINDOW_LEVEL_END = '    // MARK: - The presets menus'
+# The viewer's colour tables (ViewerColourTables.swift, up to its convolution
+# filters, which these files do not reach), with the process's cache of the last
+# table (ColourTableCache.swift, whole) and a stand-in of the shared PET blending
+# tables that records the tables it is given, as the stand-in of the view's
+# +computePETBlendingCLUT records the ones it makes.
+COLOUR_TABLES_END = '    // MARK: - The convolution filters'
+PET_BLENDING_TABLES = b'''import Foundation
+import IsiXImaging
+
+@MainActor enum PETBlendingTables {
+    static func replace(with table: PETBlendingTable) {
+        RecordLine("PET blending tables \\(HashBytes(table.colours.red, 256)!) \\(HashBytes(table.colours.green, 256)!) \\(HashBytes(table.colours.blue, 256)!)")
+    }
+}
+'''
+
+
+def session_sources(revision):
+    """The Swift sources of the types the façades reach, with their stand-ins; empty before them."""
+    sources = {}
+    window_level = read(revision, 'Horos/Sources/ViewerWindowLevel.swift')
+    subtraction = read(revision, 'Horos/Sources/MaskSubtractionSession.swift')
+    if window_level is not None:
+        text = window_level.decode('utf-8')
+        sources['ViewerWindowLevel.swift'] = (text[:text.index(WINDOW_LEVEL_END)].rstrip() + '\n}\n').encode('utf-8')
+        menus = read(revision, 'Horos/Sources/PresetMenuCache.swift').decode('utf-8')
+        announce = re.search(r'    func announce\(.*?\n    }\n', menus, re.S).group(0)
+        sources['PresetMenuCache.swift'] = ('import AppKit\n\n@MainActor final class PresetMenuCache {\n'
+                                            '    nonisolated init() {}\n\n' + announce + '}\n').encode('utf-8')
+        # The presets read their values as DCMViewSettings reads a property list.
+        settings = read(revision, 'Horos/Sources/DCMViewSettings.swift').decode('utf-8')
+        float_value = re.search(r'    static func floatValue\(of value: PropertyListValue\).*?\n    }\n', settings, re.S).group(0)
+        sources['DCMViewSettings.swift'] = ('import Foundation\nimport IsiXPreferences\n\nenum DCMViewSettings {\n'
+                                            + float_value + '}\n').encode('utf-8')
+    if subtraction is not None:
+        sources['MaskSubtractionSession.swift'] = subtraction
+    colour_tables = read(revision, 'Horos/Sources/ViewerColourTables.swift')
+    if colour_tables is not None:
+        text = colour_tables.decode('utf-8')
+        sources['ViewerColourTables.swift'] = (text[:text.index(COLOUR_TABLES_END)].rstrip() + '\n}\n').encode('utf-8')
+        sources['ColourTableCache.swift'] = read(revision, 'Horos/Sources/ColourTableCache.swift')
+        sources['PETBlendingTables.swift'] = PET_BLENDING_TABLES
+    if sources:
+        graph = ['import AppKit', 'import IsiXPreferences', '',
+                 '@MainActor final class HarnessSessionGraph {',
+                 '    unowned let viewer: ViewerController',
+                 '    init(viewer: ViewerController) { self.viewer = viewer }',
+                 '    var preferences: any PreferenceStore { UserDefaults.standard }']
+        if window_level is not None:
+            graph += ['    static let presetMenuCache = PresetMenuCache()',
+                      '    var windowLevel: ViewerWindowLevel {',
+                      '        ViewerWindowLevel(viewer: viewer, preferences: preferences, menus: Self.presetMenuCache)',
+                      '    }']
+            if colour_tables is not None:
+                graph += ['    static let colourTableCache = ColourTableCache()',
+                          '    var colourTables: ViewerColourTables {',
+                          '        ViewerColourTables(preferences: preferences, menus: Self.presetMenuCache,',
+                          '                           cache: Self.colourTableCache)',
+                          '    }']
+            outlets = ['', '// The outlets of the preset-naming sheet, which these files do not open.',
+                       'extension ViewerController {',
+                       '    var horos_wl: NSTextField? { nil }', '    var horos_ww: NSTextField? { nil }',
+                       '    var horos_newName: NSTextField? { nil }', '    var horos_addWLWWWindow: NSWindow? { nil }', '}']
+            if colour_tables is not None and b'func updateColourTableMenu(' in colour_tables:
+                # The colour tables' menu (ViewerColourTables builds it since it
+                # left the viewer's toolbar file), which these scenarios do not
+                # open: its flag, its two actions and the application's defaults.
+                outlets += ['', 'extension ViewerController {',
+                            '    var horos_clutPopupSet: Bool { get { false } set {} }',
+                            '    @objc(AddCLUT:) func addCLUT(_ sender: Any!) {}',
+                            '    @objc(resetCLUT:) func resetCLUT(_ sender: Any!) {}', '}',
+                            'extension DefaultPreferences {',
+                            '    static func applicationDefaults() -> NSMutableDictionary { defaults(forViewer: true, appStore: false) }', '}']
+        else:
+            outlets = []
+        graph += ['}', '', 'extension ViewerController {',
+                  '    @MainActor var sessionGraph: HarnessSessionGraph { HarnessSessionGraph(viewer: self) }', '}', ''] + outlets
+        sources['SessionGraph.swift'] = '\n'.join(graph).encode('utf-8')
+    return sources
+
+
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument('--reference')
 parser.add_argument('--current')
@@ -182,6 +270,15 @@ NSString *HashBytes(const void *bytes, long length);
 NSString *DescribePointer(const void *pointer);
 NSString *ListName(id list);
 void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf);
+
+// A file of the series, as the app's DicomImage: its matrix by -width and
+// -height (the Swift reads them typed, the Objective-C by key), and the
+// dictionary of its values for the rest of the harness.
+@interface DicomImage : NSDictionary
+- (NSNumber*) width;
+- (NSNumber*) height;
+@end
+DicomImage *ImageFile(NSDictionary *values);
 #define N2LogExceptionWithStackTrace(e, ...) _N2LogExceptionImpl(e, YES, __PRETTY_FUNCTION__)
 
 @class ViewerController, DCMPix, ThickSlabController, OpacityTransferView;
@@ -216,6 +313,8 @@ void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf);
 @property(setter=setID:) long ID;
 @property(nonatomic) float savedWW, savedWL;
 @property(nonatomic, retain) NSData *transferFunction;
+// The app declares it in Swift, as NSData; NSObject keeps Swift from bridging it here.
+@property(nonatomic, retain) NSObject *transferTable;
 - (void)orientation:(float*) c;
 - (void)setOrientation:(float*) c;
 - (void)orientationDouble:(double*) c;
@@ -370,6 +469,23 @@ STUBS_M = r'''
 #import "stubs.h"
 #include <stdarg.h>
 
+@implementation DicomImage {
+    NSDictionary *storage;
+}
+- (instancetype) initWithObjects:(id const []) objects forKeys:(id<NSCopying> const []) keys count:(NSUInteger) count {
+    if ((self = [super init])) storage = [[NSDictionary alloc] initWithObjects: objects forKeys: keys count: count];
+    return self;
+}
+- (void) dealloc { [storage release]; [super dealloc]; }
+- (NSUInteger) count { return storage.count; }
+- (id) objectForKey:(id) key { return [storage objectForKey: key]; }
+- (NSEnumerator*) keyEnumerator { return [storage keyEnumerator]; }
+- (NSNumber*) width { return storage[@"width"]; }
+- (NSNumber*) height { return storage[@"height"]; }
+@end
+
+DicomImage *ImageFile(NSDictionary *values) { return [DicomImage dictionaryWithDictionary: values]; }
+
 NSString* const OsirixRecomputeROINotification = @"OsirixRecomputeROINotification";
 NSString* const OsirixUpdateWLWWMenuNotification = @"OsirixUpdateWLWWMenuNotification";
 NSString* const OsirixUpdateCLUTMenuNotification = @"OsirixUpdateCLUTMenuNotification";
@@ -499,6 +615,8 @@ CALIBRATION
 - (void) setSubSlidersPercent: (float) p { RecordLine([NSString stringWithFormat:@"pix %@ setSubSlidersPercent %@", self.name, BitsF(p)]); }
 - (void) ConvertToBW:(long) mode { isRGB = NO; RecordLine([NSString stringWithFormat:@"pix %@ ConvertToBW %ld", self.name, mode]); }
 - (void) ConvertToRGB:(long) mode :(long) cwl :(long) cww { isRGB = YES; RecordLine([NSString stringWithFormat:@"pix %@ ConvertToRGB %ld %ld %ld", self.name, mode, cwl, cww]); }
+- (NSObject *) transferTable { return _transferFunction; }
+- (void) setTransferTable:(NSObject *)tf { [self setTransferFunction:(NSData *)tf]; }
 - (void) setTransferFunction:(NSData *)tf
 { [tf retain]; [_transferFunction release]; _transferFunction = tf;
   RecordLine([NSString stringWithFormat:@"pix %@ setTransferFunction %@", self.name, HashBytes(tf.bytes, tf.length)]); }
@@ -545,7 +663,28 @@ CALIBRATION
     double c = dot / (la * lb); if (c > 1) c = 1; if (c < -1) c = -1;
     return acos(c);
 }
-+ (void) computePETBlendingCLUT { RecordLine([NSString stringWithFormat:@"DCMView computePETBlendingCLUT %@", [[NSUserDefaults standardUserDefaults] stringForKey:@"PET Blending CLUT"]]); }
+// The PET blending tables, as the view makes them from the colour table the
+// "PET Blending CLUT" preference names: the grey levels without one.
++ (void) computePETBlendingCLUT
+{
+    NSString *name = [[NSUserDefaults standardUserDefaults] stringForKey:@"PET Blending CLUT"];
+    id preset = name ? [[[NSUserDefaults standardUserDefaults] dictionaryForKey:@"CLUT"] objectForKey:name] : nil;
+    unsigned char r[256], g[256], b[256];
+    unsigned char *tables[3] = {r, g, b};
+    BOOL ok = [preset isKindOfClass:[NSDictionary class]];
+    NSArray *keys = @[@"Red", @"Green", @"Blue"];
+    for (int c = 0; c < 3 && ok; c++) {
+        NSArray *levels = [preset objectForKey:keys[c]];
+        if (![levels isKindOfClass:[NSArray class]] || levels.count < 256) { ok = NO; break; }
+        for (int i = 0; i < 256 && ok; i++) {
+            id level = levels[i];
+            if (![level isKindOfClass:[NSNumber class]]) ok = NO;
+            else tables[c][i] = (unsigned char)[level longValue];
+        }
+    }
+    if (!ok) for (int i = 0; i < 256; i++) r[i] = g[i] = b[i] = (unsigned char)i;
+    RecordLine([NSString stringWithFormat:@"PET blending tables %@ %@ %@", HashBytes(r, 256), HashBytes(g, 256), HashBytes(b, 256)]);
+}
 @end
 
 @implementation SeriesView
@@ -817,8 +956,8 @@ static ViewerController *Viewer(NSArray *movies, NSArray *fileLists)
             ROI *roi = [[ROI new] autorelease]; roi.name = [NSString stringWithFormat:@"roi%lu.%lu", (unsigned long)m, (unsigned long)i];
             [v->roiList[m] addObject:[NSMutableArray arrayWithObject:roi]];
             DCMPix *p = movies[m][i];
-            if (!fileLists) [v->fileList[m] addObject:@{@"name": [NSString stringWithFormat:@"file%lu.%lu", (unsigned long)m, (unsigned long)i],
-                                                         @"width": @(p.pwidth), @"height": @(p.pheight)}];
+            if (!fileLists) [v->fileList[m] addObject:ImageFile(@{@"name": [NSString stringWithFormat:@"file%lu.%lu", (unsigned long)m, (unsigned long)i],
+                                                                   @"width": @(p.pwidth), @"height": @(p.pheight)})];
         }
     }
     DCMView *view = [[DCMView alloc] initWithFrame:NSMakeRect(0, 0, 10, 10)];
@@ -1123,7 +1262,7 @@ static void ThickSlab(void)
 {
     R(@"== thick slab");
     NSMutableArray *files = [NSMutableArray array];
-    for (int i = 0; i < 4; i++) [files addObject:@{@"name": @"f", @"width": @3, @"height": @2}];
+    for (int i = 0; i < 4; i++) [files addObject:ImageFile(@{@"name": @"f", @"width": @3, @"height": @2})];
     ViewerController *v = Viewer(@[Stack(@"ts", 4, 3, 2, AXIAL, 1, 0, NO, NULL), Stack(@"ts4D", 4, 3, 2, AXIAL, 1, 0, NO, NULL)],
                                  @[files, [[files mutableCopy] autorelease]]);
     void (^state)(NSString *) = ^(NSString *title) {
@@ -1138,7 +1277,7 @@ static void ThickSlab(void)
     NSButton *off = Sender(0); off.state = NSControlStateValueOff; [v activateFusion:off]; state(@"off");
     NSButton *on = Sender(0); on.state = NSControlStateValueOn; [v activateFusion:on]; state(@"on");
     for (NSNumber *steps in @[@0, @3, @-1, @200, @-300, @2, @-1, @-1]) { [v adjustThickSlabBySteps:steps.integerValue]; state([NSString stringWithFormat:@"steps %@", steps]); }
-    [v->fileList[0] replaceObjectAtIndex:2 withObject:@{@"name": @"f", @"width": @4, @"height": @2}];
+    [v->fileList[0] replaceObjectAtIndex:2 withObject:ImageFile(@{@"name": @"f", @"width": @4, @"height": @2})];
     [v setFusionMode:1]; state(@"mixed sizes");
     [v->fileList[0] removeAllObjects];
     [v setFusionMode:1]; state(@"no files");
@@ -1219,6 +1358,17 @@ def build(folder, name, objc_region, swift_sources, module):
             run(['xcrun', 'swiftc', '-parse-as-library', '-swift-version', '6', '-module-name', 'IsiXLogging', '-emit-library',
                  '-static', '-emit-module', '-emit-module-path', 'IsiXLogging.swiftmodule', '-o', 'libIsiXLogging.a',
                  *sorted(str(p) for p in (folder / 'IsiXLogging').iterdir())], folder)
+        # IsiXPreferences, which the types the façades reach read the preferences through.
+        preferences = module_sources(args.current, 'IsiXPreferences') if any(
+            b'import IsiXPreferences' in text for text in swift_sources.values()) else {}
+        if preferences:
+            (folder / 'IsiXPreferences').mkdir()
+            for file_name, text in preferences.items():
+                (folder / 'IsiXPreferences' / file_name).write_bytes(text)
+            run(['xcrun', 'swiftc', '-parse-as-library', '-swift-version', '6', '-module-name', 'IsiXPreferences', '-I', '.', '-emit-library',
+                 '-static', '-emit-module', '-emit-module-path', 'IsiXPreferences.swiftmodule', '-o', 'libIsiXPreferences.a',
+                 *sorted(str(p) for p in (folder / 'IsiXPreferences').iterdir())], folder)
+            linked = ['-lIsiXPreferences', *linked]
         modules = folder / 'IsiXImaging'
         modules.mkdir()
         for file_name, text in module.items():
@@ -1246,6 +1396,11 @@ with tempfile.TemporaryDirectory(prefix='horos-pipeline-equivalence-') as work:
             if text is None:
                 sys.exit('FAIL: Horos/Sources/%s is missing' % name)
             sources[name] = text
+        # The guards of HorosObjCException, which these files call, where the revision has them.
+        guards = read(args.current, 'Horos/Sources/HorosObjCException+Guards.swift')
+        if guards is not None:
+            sources['HorosObjCException+Guards.swift'] = guards
+        sources.update(session_sources(args.current))
         current_program = build(work, 'pipeline-current', None, sources, module_sources(args.current))
         kind = 'Swift'
     for scenario in SCENARIOS:

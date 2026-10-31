@@ -13,12 +13,13 @@ import IsiXPluginLoading
 import IsiXStorage
 
 /// The plugin manager's entries for `.isixplugin` bundles, the plugin API
-/// version 1 and the only plugins the application loads. Discovery,
-/// `DoNotLoad.txt`, duplicates, `--LoadPlugin`, the isolated development
-/// folders, protected mode, the signature check and the crash marker are the
-/// plugin manager's; what the bundle is, and whether it may run or be
-/// installed, is decided by IsiXPluginLoading before any of its code is
-/// loaded, and IsiXPluginHost runs it.
+/// version 1, and the admission it shares with the plugins made for Horos or
+/// OsiriX. Discovery, `DoNotLoad.txt`, duplicates, `--LoadPlugin`, the
+/// isolated development folders, protected mode, the signature check and the
+/// crash marker are the plugin manager's; what the bundle is, which loader it
+/// goes to, and whether it may run or be installed, is decided by
+/// IsiXPluginLoading before any of its code is loaded, and IsiXPluginHost runs
+/// a version 1 plugin.
 extension PluginManager {
     @objc(loadIsiXPluginAtPath:)
     class func loadIsiXPlugin(atPath path: String!) {
@@ -64,35 +65,35 @@ extension PluginManager {
         #endif
     }
 
-    /// Whether the bundle's metadata and executable make it loadable, read
-    /// without loading it.
+    /// Whether the bundle's metadata and executable make it loadable by its
+    /// format's loader, read without loading it.
     class func isIsiXPluginCompatible(atPath path: String) -> Bool {
         PluginInspector().inspect(bundleAt: URL(fileURLWithPath: path)).isLoadable
     }
 
-    /// Why a bundle cannot be installed, or nil when it can: a former plugin,
-    /// a former plugin renamed to `.isixplugin`, or a version 1 bundle that does
-    /// not inspect clean. Read from its files only.
+    /// Why a bundle cannot be installed, or nil when it can: a bundle that does
+    /// not inspect clean by its format's rules, such as one for another
+    /// architecture or a former plugin renamed to `.isixplugin`. Read from its
+    /// files only.
     class func pluginInstallRefusal(atPath path: String!) -> String? {
         guard let path, !path.isEmpty else { return NSLocalizedString("Check the plugin bundle, architecture and signature.", comment: "") }
         return PluginAdmission.refusal(forBundleAt: URL(fileURLWithPath: path))?.summary
     }
 
     /// Whether the plugin manager may activate, deactivate, move or delete the
-    /// bundle `name` of `folder`: a version 1 bundle, not a former plugin
-    /// under the version 1 extension.
+    /// bundle `name` of `folder`: a plugin bundle of any of the three formats.
     class func mayManagePlugin(inFolder folder: Any?, named name: String) -> Bool {
         guard let folder = folder as? String else { return false }
         return PluginAdmission.mayManage(bundleAt: URL(fileURLWithPath: folder).appendingPathComponent(name))
     }
 
-    /// Whether a catalog's download is a version 1 plugin package: a former
-    /// plugin is neither offered as an update nor downloaded for one.
+    /// Whether a catalog's download is a version 1 plugin package: the update
+    /// catalogs offer only those.
     class func isVersion1Download(_ downloadURL: Any?) -> Bool {
         guard let text = downloadURL as? String, let url = URL(string: text) else { return false }
         var name = url.lastPathComponent
         if (name as NSString).pathExtension.lowercased() == "zip" { name = (name as NSString).deletingPathExtension }
-        return PluginAdmission.isManaged(name)
+        return PluginAdmission.kind(of: name) == .version1
     }
 
     class func addIsiXPluginMenuItems(_ filtersMenu: NSMenu?, _ roisMenu: NSMenu?, _ othersMenu: NSMenu?, _ dbMenu: NSMenu?) {

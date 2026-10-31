@@ -1099,8 +1099,11 @@ int main(int argc, char **argv) {
 '''
 
 # The same cases through the module, with the app's glue of the Swift methods
-# (BrowserController+OutlineDataSource.swift, +OutlineSelection.swift,
-# +Merge.swift, +Deletion.swift) around the same stand-ins.
+# (BrowserController+OutlineDataSource.swift, StudyListCellStyler.swift,
+# StudyListColumnController.swift, FederatedStudySearch.swift, +OutlineSelection.swift,
+# PatientHistoryList.swift, +Merge.swift, +Deletion.swift) around the same
+# stand-ins. The history's searches, which the Objective-C detached on a
+# thread, are recorded as the same requests.
 SWIFT = r'''
 import AppKit
 import Foundation
@@ -1561,17 +1564,16 @@ func columnsMenuAction(_ sender: NSMenuItem) {
     }
 }
 
+// As StudyListColumnController.refresh() does it.
 func refreshColumns() {
-    let columnsDatabase = testObject("COLUMNSDATABASE") as? NSDictionary
-    let enumerator = columnsDatabase?.keyEnumerator()
-    while let key = enumerator?.nextObject() as? String {
+    let saved = testObject("COLUMNSDATABASE")
+    guard StudyListColumns.savedIsReadable(saved) else { return }
+    for case let (title as String, state) in saved as? NSDictionary ?? [:] {
         guard let outline = databaseOutline else { continue }
-        let titles = ((outline.tableColumns as NSArray).value(forKey: "headerCell") as? NSArray)?.value(forKey: "title") as? NSArray
-        let index = titles?.index(of: key) ?? NSNotFound
-        if index == NSNotFound { continue }
+        let titles = outline.tableColumns.map { $0.headerCell.title }
+        guard let index = StudyListColumns.column(titled: title, in: titles) else { continue }
         let identifier = outline.tableColumns[index].identifier
-        let change = StudyListColumns.change(visible: outline.isColumnWithIdentifierVisible(identifier.rawValue),
-                                             saved: columnsDatabase?.value(forKey: key),
+        let change = StudyListColumns.change(visible: outline.isColumnWithIdentifierVisible(identifier.rawValue), saved: state,
                                              isSelectedColumn: { outline.column(withIdentifier: identifier.rawValue) == outline.selectedColumn })
         if let change {
             if change.selectFirstColumn { outline.selectColumnIndexes(IndexSet(integer: 0)) }
@@ -1582,7 +1584,7 @@ func refreshColumns() {
     buildColumnsMenu()
 }
 
-// MARK: - The selection and the history (BrowserController+OutlineSelection.swift)
+// MARK: - The selection (BrowserController+OutlineSelection.swift) and the history (PatientHistoryList.swift)
 
 var comparativeStudies: NSArray?
 var comparativePatientUID: String?

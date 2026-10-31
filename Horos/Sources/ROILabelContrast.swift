@@ -11,22 +11,28 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 
 /// How a ROI label stays readable over any image: a dark box behind its
-/// text, and the ROI's colour lightened just enough for the text to keep
-/// WCAG's 4.5:1 contrast with that box even over a white image.
+/// text, and the ROI's colour lightened toward WCAG's 4.5:1 contrast with
+/// that box even over a white image. The label names its ROI by its colour,
+/// so the lightening stops where the colour would turn into white; the box
+/// and the text's black shadow keep it readable from there.
 @objc(HorosROILabelContrast)
 public final class ROILabelContrast: NSObject {
-    @objc public static let backgroundKey = "ROILabelBackground"
-    @objc public static let backgroundOpacityKey = "ROILabelBackgroundOpacity"
+    @objc public static let backgroundKey = ViewerPreferences.roiLabelBackground.name
+    @objc public static let backgroundOpacityKey = ViewerPreferences.roiLabelBackgroundOpacity.name
     @objc public static let minimumContrast: CGFloat = 4.5
+    /// The largest share of white mixed into the ROI's colour: two thirds of
+    /// its saturation remain, so labels of different ROIs stay apart.
+    @objc public static let maximumLightening: CGFloat = 1.0 / 3.0
 
     /// The box's opacity when it is drawn, kept where it can still darken the
     /// image; zero when it is switched off.
     @objc public static var backgroundOpacity: CGFloat {
-        let defaults = UserDefaults.standard
-        guard defaults.bool(forKey: backgroundKey) else { return 0 }
-        let opacity = CGFloat(defaults.float(forKey: backgroundOpacityKey))
+        let preferences = PreferencesSource.process.preferences
+        guard preferences[ViewerPreferences.roiLabelBackground] else { return 0 }
+        let opacity = CGFloat(preferences[ViewerPreferences.roiLabelBackgroundOpacity])
         return opacity.isFinite ? min(max(opacity, 0.2), 1) : 0.8
     }
 
@@ -66,8 +72,8 @@ public final class ROILabelContrast: NSObject {
     }
 
     /// `color` mixed with white in the smallest step that reaches the minimum
-    /// contrast over the box, or white when no mix reaches it. The hue stays
-    /// recognisable: a dark blue becomes a light blue, not a grey.
+    /// contrast over the box, never past `maximumLightening`. The hue stays
+    /// recognisable: a dark blue becomes a light blue, not a grey or white.
     @objc(textColorFor:overBox:)
     public static func textColor(for color: NSColor, overBox box: NSColor) -> NSColor {
         guard let c = color.usingColorSpace(.deviceRGB) else { return color }
@@ -82,8 +88,11 @@ public final class ROILabelContrast: NSObject {
             return contrast(luminance(red: m.0, green: m.1, blue: m.2), background) >= minimumContrast
         }
         if enough(0) { return NSColor(deviceRed: c.redComponent, green: c.greenComponent, blue: c.blueComponent, alpha: 1) }
-        guard enough(1) else { return NSColor(deviceRed: 1, green: 1, blue: 1, alpha: 1) }
-        var low: CGFloat = 0, high: CGFloat = 1
+        guard enough(maximumLightening) else {
+            let m = mixed(maximumLightening)
+            return NSColor(deviceRed: m.0, green: m.1, blue: m.2, alpha: 1)
+        }
+        var low: CGFloat = 0, high = maximumLightening
         for _ in 0..<20 {
             let middle = (low + high) / 2
             if enough(middle) { high = middle } else { low = middle }

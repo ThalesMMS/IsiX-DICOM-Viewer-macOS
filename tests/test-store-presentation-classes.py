@@ -13,6 +13,7 @@ import tempfile
 from pathlib import Path
 
 from dcmtk_build import ROOT, dcmtk_flags
+import isix_modules  # noqa: E402
 
 MODULE = ROOT / 'Modules/IsiXDICOMNetwork/Sources'
 DRIVER = r'''
@@ -95,7 +96,10 @@ int main() {
 with tempfile.TemporaryDirectory(prefix='horos-store-negotiation-') as temporary:
     folder = Path(temporary)
     (folder / 'main.swift').write_text(DRIVER)
-    built = subprocess.run(['xcrun', 'swiftc', *map(str, sorted(MODULE.glob('*.swift'))), str(folder / 'main.swift'),
+    built = subprocess.run(['xcrun', 'swiftc',
+                            # Every module the network module depends on, as Package.swift declares them.
+                            *[flag for name in isix_modules.dependencies('IsiXDICOMNetwork') for flag in isix_modules.module_flags(name, folder / 'modules')],
+                            *map(str, sorted(MODULE.glob('*.swift'))), str(folder / 'main.swift'),
                             '-o', str(folder / 'plan')], capture_output=True, text=True)
     if built.returncode:
         print(built.stderr[-3000:])

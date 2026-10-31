@@ -39,6 +39,7 @@
 
 import Cocoa
 import IsiXImaging
+import IsiXPreferences
 
 // The keyboard and the first responder of DCMView are implemented in Swift: an
 // extension of DCMView, with the same selectors. The
@@ -63,7 +64,7 @@ extension DCMView {
 
         var c = characters.character(at: 0)
 
-        if (self.windowController() as AnyObject?) === BrowserController.currentBrowser() {
+        if (self.windowController() as AnyObject?) === PreferencesSource.process.processGraph.currentBrowser {
             super.keyDown(with: event)
             return
         }
@@ -94,7 +95,7 @@ extension DCMView {
                 } else {
                     self.horos_lensSizeFactor = MagnifierPresentation.sizeFactor(self.horos_lensSizeFactor, steppedUp: Int(c) == NSUpArrowFunctionKey)
                 }
-                MagnifierPresentation.store(zoomFactor: self.horos_lensZoomFactor, sizeFactor: self.horos_lensSizeFactor, in: UserDefaults.standard)
+                MagnifierPresentation.store(zoomFactor: self.horos_lensZoomFactor, sizeFactor: self.horos_lensSizeFactor, in: PreferencesSource.process.preferences)
                 if size && self.horos_lensActive {
                     self.computeMagnifyLens(NSMakePoint(CGFloat(self.horos_mouseXPos), CGFloat(self.horos_mouseYPos)))
                 }
@@ -194,7 +195,7 @@ extension DCMView {
         } else if c == 9 { // Tab key
             let a = Int32(truncatingIfNeeded: AnnotationLevel.level(after: Int(self.horos_annotationType)))
 
-            UserDefaults.standard.set(Int(a), forKey: "ANNOTATIONS")
+            PreferencesSource.process.preferences.set(Int(a), for: ViewerPreferences.annotations)
             DCMView.setDefaults()
             self.horos_annotationType = a
 
@@ -239,11 +240,10 @@ extension DCMView {
 
         let rArray = self.horos_curRoiList
 
-        do {
-            try HorosObjCException.perform {
+        inputLogException(HorosObjCException.caughtWithoutAllocation {
                 var i = 0
                 while i < (rArray?.count ?? 0) {
-                    let r = rArray!.object(at: i) as! ROI
+                    guard let r = rArray?.object(at: i) as? ROI else { i += 1; continue }
 
                     if r.roImode == Int(ROI_selectedModify) || r.roImode == Int(ROI_drawing) {
                         if r.deleteSelectedPoint() == false && r.locked == false {
@@ -268,7 +268,7 @@ extension DCMView {
 
                 i = 0
                 while i < (rArray?.count ?? 0) {
-                    let r = rArray!.object(at: i) as! ROI
+                    guard let r = rArray?.object(at: i) as? ROI else { i += 1; continue }
 
                     if r.roImode == Int(ROI_selected) && r.locked == false && r.hidden == false {
                         let groupID = r.groupID
@@ -288,10 +288,7 @@ extension DCMView {
                 if removed {
                     self.selectSuccessorOfDeletedROIs()
                 }
-            }
-        } catch {
-            inputLogException(error, "-[DCMView keyDown:]")
-        }
+        }, "-[DCMView keyDown:]")
 
         DCMView.horos_static_drawLock?.unlock()
 
@@ -357,7 +354,7 @@ extension DCMView {
             }
             // The measurement magnifier is drawn with the frame: Shift hides it,
             // and brings it back when released, without waiting for the mouse.
-            else if UserDefaults.standard.bool(forKey: MagnifierPresentation.measurementDefaultsKey) {
+            else if PreferencesSource.process.preferences[ViewerPreferences.magnifyingLensWhileMeasuring] {
                 self.needsDisplay = true
             }
         } else if ViewInput.isShiftAlone(inputModifiers(event)) && self.horos_mouseDragging == false {
@@ -436,14 +433,6 @@ extension DCMView {
         return super.resignFirstResponder()
     }
 
-    /// Another view became the key view of the window: this one no longer is.
-    @objc(newImageViewisKey:)
-    public dynamic func newImageViewisKey(_ note: NSNotification!) {
-        if (note?.object as AnyObject?) !== self {
-            self.horos_isKeyView = false
-        }
-    }
-
     /// The viewer's window became main: the reference lines are recomputed
     /// from this view, which tells the others where it is.
     @objc(becomeMainWindow)
@@ -460,8 +449,7 @@ extension DCMView {
 
     /// The viewer's window became key: as becoming main, and the 2D point
     /// markers go.
-    @objc(becomeKeyWindow)
-    public dynamic func becomeKeyWindow() {
+    public func becomeKeyWindow() {
         self.invalidateReferenceLines()
         self.horos_slicePoint3D[0] = Float.infinity
 

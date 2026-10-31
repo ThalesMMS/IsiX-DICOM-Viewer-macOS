@@ -109,17 +109,6 @@ enum ViewerSender {
     }
 }
 
-/// Runs `body` as an @try block: the NSException it raises is returned.
-@inline(__always)
-func viewerObjCTry(_ body: () -> Void) -> NSException? {
-    do {
-        try HorosObjCException.perform(body)
-    } catch {
-        return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    return nil
-}
-
 /// `[target selector: argument]` of a method returning `long`, sent as
 /// Objective-C sends it: a target that does not implement the method raises
 /// (through the forwarding machinery), inside the caller's @try.

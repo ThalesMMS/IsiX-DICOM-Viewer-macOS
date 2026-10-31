@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXPreferences
 
 /// The parts of an image view's annotations that the Custom level shows or
 /// hides one by one. The first four are graphics, the others text.
@@ -31,11 +32,12 @@ public enum AnnotationElement: Int, CaseIterable {
 
     /// The user default that hides the element at the Custom level. Absent,
     /// the element is shown, so a new Custom level shows everything Full does.
-    public var hiddenKey: String {
-        let names = ["ROIs", "ColorBar", "ScaleRuler", "ReferenceLines", "Orientation",
-                     "PatientName", "ImageInfo", "WindowLevel", "MousePosition", "OtherFields"]
-        return "AnnotationsCustomHide" + names[rawValue]
+    public var hiddenPreference: PreferenceKey<Bool> {
+        ViewerPreferences.annotationsCustomHide[rawValue]
     }
+
+    /// The name of `hiddenPreference`.
+    public var hiddenKey: String { hiddenPreference.name }
 }
 
 /// What each annotation level (the ANNOTATIONS user default) shows.
@@ -48,7 +50,7 @@ public enum AnnotationElement: Int, CaseIterable {
 @objc(HorosAnnotationLevel)
 public final class AnnotationLevel: NSObject {
 
-    @objc public static let defaultsKey = "ANNOTATIONS"
+    @objc public static let defaultsKey = ViewerPreferences.annotations.name
 
     // The values of annotNone ... annotCustom in DCMView.h.
     @objc public static let none = 0
@@ -65,7 +67,8 @@ public final class AnnotationLevel: NSObject {
 
     /// Whether the Custom level hides any element, and so differs from Full.
     @objc public static var isCustomized: Bool {
-        AnnotationElement.allCases.contains { UserDefaults.standard.bool(forKey: $0.hiddenKey) }
+        let preferences = PreferencesSource.process.preferences
+        return AnnotationElement.allCases.contains { preferences[$0.hiddenPreference] }
     }
 
     /// Whether `level` shows `element`.
@@ -76,7 +79,7 @@ public final class AnnotationLevel: NSObject {
         case graphic: return !element.isText && element != .scaleRuler
         case pluginOnly: return !element.isText
         case basic: return element != .patientName
-        case custom: return !UserDefaults.standard.bool(forKey: element.hiddenKey)
+        case custom: return !PreferencesSource.process.preferences[element.hiddenPreference]
         default: return level > 0
         }
     }
@@ -120,7 +123,7 @@ public final class AnnotationLevel: NSObject {
     /// Whether the current level shows the patient's name, which also decides
     /// whether window titles and series menus carry it.
     @objc public static var currentLevelShowsPatientName: Bool {
-        shows(.patientName, level: UserDefaults.standard.integer(forKey: defaultsKey))
+        shows(.patientName, level: PreferencesSource.process.preferences[ViewerPreferences.annotations])
     }
 
     /// Drawing or loading ROIs makes them visible: None becomes Graphic, and
@@ -128,14 +131,14 @@ public final class AnnotationLevel: NSObject {
     /// default changed, so that the caller reloads the views' defaults.
     @objc @discardableResult
     public static func revealROIs() -> Bool {
-        let defaults = UserDefaults.standard
-        let level = defaults.integer(forKey: defaultsKey)
+        let preferences = PreferencesSource.process.preferences
+        let level = preferences[ViewerPreferences.annotations]
         if level == none {
-            defaults.set(graphic, forKey: defaultsKey)
+            preferences.set(graphic, for: ViewerPreferences.annotations)
             return true
         }
         if level == custom && !shows(.rois, level: custom) {
-            defaults.set(false, forKey: AnnotationElement.rois.hiddenKey)
+            preferences.set(false, for: AnnotationElement.rois.hiddenPreference)
             return true
         }
         return false

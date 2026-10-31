@@ -13,10 +13,18 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402
+
 root = Path(__file__).resolve().parents[1]
 source = (root / 'Horos/Sources/SCPDatabaseSession.swift').read_text()
 start = source.index('    func publishReceivedFile(atPath path: String) -> String? {')
 method = source[start:source.index('\n    }\n', start) + 7]
+ingest = (root / 'Horos/Sources/DatabaseIngest.swift').read_text()
+start = ingest.index('    func publish(fileAt path: String, named name: String, into folder: IngestFolder, preset: IngestPreset) -> IngestPublication {')
+publish = ingest[start:ingest.index('\n    }\n', start) + 7]
+start = ingest.index('    func listenerFolder() -> IngestFolder {')
+listener = ingest[start:ingest.index('\n    }\n', start) + 7]
 
 failures = []
 adapter = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKSCPDatabase.mm').read_text()
@@ -31,12 +39,18 @@ if not re.search(r'NSString \*failure = \[state_->database publishReceivedFileAt
 code = r'''
 import Foundation
 import Darwin
+import IsiXContracts
 nonisolated(unsafe) var incoming = ""
 final class DicomDatabase {
     static func activeLocal() -> DicomDatabase? { DicomDatabase() }
     func incomingDirPathC() -> UnsafePointer<CChar>? { UnsafePointer(strdup(incoming)) }
 }
+struct DatabaseIngest {
+INGEST
+}
+struct ProcessGraph { let databaseIngest = DatabaseIngest() }
 final class Session {
+    let processGraph = ProcessGraph()
 METHOD
 }
 func writeFile(_ path: String) { precondition(FileManager.default.createFile(atPath: path, contents: Data("synthetic payload".utf8))) }
@@ -64,7 +78,7 @@ incoming = "incoming"
 writeFile("retry")
 precondition(session.publishReceivedFile(atPath: "retry") == nil)
 print("PASS: publication precedes success; missing, read-only and conflicting destinations return refusal and preserve source; retry succeeds")
-'''.replace('METHOD', method)
+'''.replace('METHOD', method).replace('INGEST', listener + publish)
 
 if not failures:
     with tempfile.TemporaryDirectory(prefix='horos-store-publication-') as folder:
@@ -72,7 +86,8 @@ if not failures:
         (p / 'work').mkdir()
         (p / 'main.swift').write_text(code)
         built = subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(p / 'modules'), str(p / 'main.swift'),
-                                '-o', str(p / 'test')], capture_output=True, text=True)
+                                *isix_modules.module_flags('IsiXContracts', p / 'internal'), '-o', str(p / 'test')],
+                               capture_output=True, text=True)
         if built.returncode:
             failures.append('the publication does not compile on its own:\n' + built.stderr[-2000:])
         else:

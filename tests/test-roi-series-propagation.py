@@ -77,8 +77,8 @@ glue = (sources / 'ROISeriesPropagation.swift').read_text(encoding='utf-8')
 for needle, why in (
     ('name: .OsirixROIChange', 'follows the ROI changes'),
     ('name: .OsirixRemoveROI', 'follows the ROI deletions'),
-    ('static let defaultsKey = "PropagateROIsBetweenSeries"', 'reads its default'),
-    ('"COPYSETTINGS"', 'only while settings are propagated between series'),
+    ('static let defaultsKey = ViewerPreferences.propagateROIsBetweenSeries.name', 'reads its default'),
+    ('preferences[ViewerPreferences.copySettings]', 'only while settings are propagated between series'),
     ('Self.seriesUID(other) != Self.seriesUID(viewer)', 'leaves a viewer of the same series alone'),
     ('registeredViewer()', 'accepts registered series'),
     ('ROISeriesTransfer.targetImage(', 'places the ROI with the shared rule'),
@@ -89,8 +89,9 @@ for needle, why in (
     if needle not in glue:
         fail(f'the propagation no longer {why}: {needle!r} is missing')
 
-app = (sources / 'AppController.swift').read_text(encoding='utf-8')
-start = app.index('func applicationDidFinishLaunching(')
+# The launch is ApplicationLifecycle's didFinishLaunching().
+app = (sources / 'ApplicationLifecycle.swift').read_text(encoding='utf-8')
+start = app.index('    func didFinishLaunching() {')
 if 'ROISeriesPropagation.start()' not in app[start:start + 4000]:
     fail('the ROI propagation is not started at launch')
 
@@ -108,7 +109,7 @@ if pb.index('id="Prp-rt-Itm"') > pb.index('id="Prp-ro-Itm"'):
     fail('ROIs comes after Rotation in Propagate Between Series')
 
 toolbar = (sources / 'ViewerToolbarItemViews.swift').read_text(encoding='utf-8')
-if 'key: "PropagateROIsBetweenSeries", negated: false, needsPropagation: true' not in toolbar:
+if 'key: ViewerPreferences.propagateROIsBetweenSeries, negated: false, needsPropagation: true' not in toolbar:
     fail("the Propagate button's pull-down has no ROIs choice")
 
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')

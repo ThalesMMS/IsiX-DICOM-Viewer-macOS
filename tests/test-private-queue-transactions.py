@@ -62,24 +62,25 @@ for forbidden in ('[self lock];', '[self unlock];', '[context lock];', '[context
     if forbidden in managed:
         failures.append('N2 internal operation still uses legacy context locking: ' + forbidden)
 
-# DicomDatabase is Swift: the importer, the conversions and the copy are its
-# extensions (the media copy runs on an operation that holds self as database).
+# The importer and the conversions read with the class;
+# each batch of the media copy enters through the single entry.
 import sources  # noqa: E402
-database = sources.class_text('DicomDatabase')
+database = sources.class_text('DicomDatabase') + sources.source_text('DatabaseIngest')
 for needle, why in (
-        ('let worker = self.privateQueueIndependentDatabase() as? DicomDatabase', 'the INCOMING importer does not use a private-queue database'),
-        ('self.isMainDatabase() ? (self.privateQueueIndependentDatabase() as? DicomDatabase) : self', 'the conversion workers do not use a private-queue database'),
-        ('let idatabase = database.privateQueueIndependentDatabase() as? DicomDatabase', 'the copy importer does not use a private-queue database')):
+        ('let worker = database.privateQueueIndependentDatabase() as? DicomDatabase', 'the INCOMING importer does not use a private-queue database'),
+        ('guard let worker = database.privateQueueIndependentDatabase() as? DicomDatabase else {', 'the conversion worker does not use a private-queue database'),
+        ('guard let worker = database.privateQueueIndependentDatabase() as? DicomDatabase else { return nil }', 'the copy importer does not use a private-queue database')):
     if needle not in database:
         failures.append(why)
 if re.search(r'\bindependentDatabase\(\)', database):
     failures.append('DicomDatabase still makes a confined independent database')
-for relative, needle in (('Horos/Sources/DicomDatabase+Clean.swift', 'privateQueueIndependentDatabase()'),
-                         ('Horos/Sources/DicomDatabase+Routing.swift', 'privateQueueIndependentDatabase()'),
+for relative, needle in (('Horos/Sources/DatabaseCleanupService.swift', 'privateQueueIndependentDatabase()'),
+                         ('Horos/Sources/DatabaseRouting.swift', 'privateQueueIndependentDatabase()'),
+                         ('Horos/Sources/DatabaseRoutingDelivery.swift', 'privateQueueIndependentDatabase()'),
                          ('Horos/Sources/XMLRPCInterface+Display.swift', 'privateQueueDatabase(self.database)'),
                          ('Horos/Sources/XMLRPCInterface+Retrieve.swift', 'privateQueueDatabase(self.database)'),
                          ('Horos/Sources/WebPortalConnection+Data.swift', 'privateQueueIndependentDatabase()'),
-                         ('Horos/Sources/BrowserController+Sources+Copy.swift', 'privateQueueIndependentDatabase()')):
+                         ('Horos/Sources/SourceCopyJob.swift', 'privateQueueIndependentDatabase()')):
     if needle not in read(relative):
         failures.append('%s does not write on a private-queue database' % relative)
 

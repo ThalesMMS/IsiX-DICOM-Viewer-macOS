@@ -36,6 +36,10 @@ new publication folder with the application ZIPs, stable.plist,
 Technical-Apple-Silicon.txt, Technical-Intel.txt, Licenses-and-source.zip and
 Verification.txt. Build reports default to ROOT/build/Release/ARCH/BUILD-INFO.txt;
 --arm64-info and --intel-info select the final reports after distribution signing.
+--sdk-zip adds the plugin SDK script/build_release.sh wrote in build/Release,
+IsiXPluginKit-SDK-VERSION.zip, VERSION being the tag without its leading v; it
+is refused unless it holds the framework, SDK.json and LegacyPorting/PORTING.json
+under that one folder, without AppleDouble or __MACOSX entries.
 The input archives and reports are copied without changing their contents.
 
 Public package URLs and verified public revisions identify remote dependencies.
@@ -286,8 +290,8 @@ def public_horos_source(root, ref):
     if not re.fullmatch(r'refs/(?:heads|tags)/[A-Za-z0-9._/-]+', ref):
         raise ValueError('public Horos source must name a full branch or tag ref')
     revision = public_ref_revision(PUBLIC_HOROS_URL, ref)
-    # Internal records do not enter the app. Everything else, including native
-    # source gitlinks and build recipes, must match the selected public revision.
+    # Internal records do not enter the app. Everything else, including the
+    # native source pins and build recipes, must match the selected public revision.
     result = subprocess.run(['git', '-C', str(root), 'diff', '--quiet', revision, '--', '.',
                              ':!docs', ':!local-validation', ':!.codegraph', ':!AGENTS.md', ':!.github'],
                             capture_output=True)
@@ -344,14 +348,14 @@ def write_metadata(root, temp_dir, staging, audit_path, packages, public_source_
 
     add('Dependencies, as installed by this build (static unless embedded below)')
     dependencies = [
-        ('OpenSSL', 'OpenSSL', ['opensslv.h'], r'OPENSSL_FULL_VERSION_STR "([^"]+)"', 'OpenSSL/upstream'),
-        ('DCMTK', 'DCMTK', ['osconfig.h'], r'PACKAGE_VERSION "([^"]+)"', 'DCMTK'),
-        ('OpenJPEG', 'OpenJPEG', ['libopenjp2.pc'], r'^Version: (\S+)', 'OpenJPEG'),
+        ('OpenSSL', 'OpenSSL', ['opensslv.h'], r'OPENSSL_FULL_VERSION_STR "([^"]+)"'),
+        ('DCMTK', 'DCMTK', ['osconfig.h'], r'PACKAGE_VERSION "([^"]+)"'),
+        ('OpenJPEG', 'OpenJPEG', ['libopenjp2.pc'], r'^Version: (\S+)'),
         ('ITK', 'ITK', ['itkConfigure.h'],
-         r'ITK_VERSION_MAJOR (\d+)\s*\n#define ITK_VERSION_MINOR (\d+)\s*\n#define ITK_VERSION_PATCH (\d+)', 'ITK'),
-        ('VTK', 'VTK', ['vtkVersionMacros.h'], r'VTK_VERSION "([^"]+)"', 'VTK'),
+         r'ITK_VERSION_MAJOR (\d+)\s*\n#define ITK_VERSION_MINOR (\d+)\s*\n#define ITK_VERSION_PATCH (\d+)'),
+        ('VTK', 'VTK', ['vtkVersionMacros.h'], r'VTK_VERSION "([^"]+)"'),
     ]
-    for label, target, names, pattern, source in dependencies:
+    for label, target, names, pattern in dependencies:
         version = first_match(temp_dir / ('%s.build/Install' % target), names, pattern)
         if label == 'DCMTK' and version:
             version += first_match(temp_dir / 'DCMTK.build/Install', names, r'PACKAGE_VERSION_SUFFIX "([^"]*)"')
@@ -367,14 +371,9 @@ def write_metadata(root, temp_dir, staging, audit_path, packages, public_source_
             origin = 'upstream %s, commit %s, archive %s, sha256 %s' % (
                 pin['upstream'], pin['revision'], pin['archive'], pin['sha256'])
             origin += '; source patches: %s' % (pin.get('sourcePatches') or 'none')
-        elif label in ('OpenJPEG', 'VTK', 'ITK') and version:
+        elif version:
+            # Every native dependency is compiled from a pinned original archive.
             sys.exit('error: installed %s has no compiled source record' % label)
-        elif (root / source / '.git').exists():
-            origin = 'submodule %s' % (git('rev-parse', 'HEAD', cwd=root / source) or '?')
-        elif commit:
-            tree = git('rev-parse', 'HEAD:%s' % source)
-            dirty = git('status', '--porcelain', '--untracked-files=no', '--', source)
-            origin = 'tree %s%s' % (tree or '?', ', with local changes' if dirty else '')
         add('  %-16s %-10s %s' % (label, version or '(not found)', origin))
         if label == 'VTK' and version:
             adaptation = temp_dir / 'VTK.build/Install/share/freetype-host-adaptation.json'
@@ -391,10 +390,11 @@ def write_metadata(root, temp_dir, staging, audit_path, packages, public_source_
     dcmtk_record = root / 'Horos/Scripts/DCMTK/PREPARATION.json'
     if dcmtk_record.is_file():
         prepared = json.loads(dcmtk_record.read_text())
+        revision = json.loads((root / 'Horos/Scripts/external-sources.json').read_text())['DCMTK']['revision']
         if prepared['patches']:
-            add('  DCMTK declared preparation base %s; prepared source differs from base' % prepared['base']['revision'])
+            add('  DCMTK declared preparation base %s; prepared source differs from base' % revision)
         else:
-            add('  DCMTK compiled from the unmodified checkout %s; source patches: none' % prepared['base']['revision'])
+            add('  DCMTK compiled from the unmodified original archive of %s; source patches: none' % revision)
         for patch in prepared['patches']:
             add('    %s sha256 %s: %s' % (Path(patch['path']).name, patch['sha256'], ', '.join(patch['files'])))
         add('    JPEG-LS: partial link/symbol localization; no source transformation')
@@ -584,12 +584,33 @@ def write_update_feed(archives, tag):
                                         ', '.join('%s %d bytes' % (arch, entries[arch]['ArchiveSize']) for arch in slices)))
 
 
-def prepare_release_assets(root, archives, tag, destination, source_materials, arm64_info=None, intel_info=None):
+def check_sdk_zip(sdk_zip, tag):
+    """Refuses a plugin SDK zip that is not the one tools/export-isix-plugin-kit.py --zip makes for `tag`."""
+    top = 'IsiXPluginKit-SDK-%s' % (tag[1:] if tag.startswith('v') else tag)
+    if sdk_zip.name != top + '.zip':
+        raise ValueError('the plugin SDK must be named %s.zip for this tag' % top)
+    if not zipfile.is_zipfile(sdk_zip):
+        raise ValueError('the plugin SDK must be a readable ZIP')
+    with zipfile.ZipFile(sdk_zip) as bundle:
+        names = bundle.namelist()
+    if any(name.split('/', 1)[0] != top for name in names):
+        raise ValueError('the plugin SDK must hold everything under %s/' % top)
+    if any(part.startswith('._') or part in ('__MACOSX', '.DS_Store') for name in names for part in name.split('/')):
+        raise ValueError('the plugin SDK holds AppleDouble, __MACOSX or .DS_Store entries')
+    for required in ('SDK.json', 'IsiXPluginKit.framework/Versions/A/IsiXPluginKit', 'LegacyPorting/PORTING.json'):
+        if '%s/%s' % (top, required) not in names:
+            raise ValueError('the plugin SDK has no %s' % required)
+
+
+def prepare_release_assets(root, archives, tag, destination, source_materials, arm64_info=None, intel_info=None,
+                           sdk_zip=None):
     """Stage public filenames and checksums without modifying the release inputs."""
     if destination.exists() or destination.is_symlink():
         raise ValueError('the release assets destination must not already exist')
     if not zipfile.is_zipfile(source_materials):
         raise ValueError('license and source materials must be a readable ZIP')
+    if sdk_zip is not None:
+        check_sdk_zip(sdk_zip, tag)
     reports = {
         'arm64': (arm64_info or root / 'build/Release/arm64/BUILD-INFO.txt', 'Technical-Apple-Silicon.txt'),
         'x86_64': (intel_info or root / 'build/Release/x86_64/BUILD-INFO.txt', 'Technical-Intel.txt'),
@@ -605,6 +626,8 @@ def prepare_release_assets(root, archives, tag, destination, source_materials, a
         if archive.name in reserved:
             raise ValueError('an application ZIP name conflicts with a supporting asset')
         copies.extend(((archive, archive.name), (report, public_name)))
+    if sdk_zip is not None:
+        copies.append((sdk_zip, sdk_zip.name))
     if len({name for _, name in copies}) != len(copies):
         raise ValueError('release assets must have distinct names and architectures')
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -634,6 +657,9 @@ def main():
                         help='final Apple Silicon build report; defaults to ROOT/build/Release/arm64/BUILD-INFO.txt')
     parser.add_argument('--intel-info', type=Path,
                         help='final Intel build report; defaults to ROOT/build/Release/x86_64/BUILD-INFO.txt')
+    parser.add_argument('--sdk-zip', type=Path, metavar='ZIP',
+                        help='with --release-assets, the plugin SDK zip script/build_release.sh wrote, '
+                             'build/Release/IsiXPluginKit-SDK-VERSION.zip')
     parser.add_argument('--verify-packages', action='store_true',
                         help='check the approved lockfile against effective public SwiftPM checkouts')
     parser.add_argument('--stage-package-notices', action='store_true',
@@ -644,15 +670,15 @@ def main():
     args = parser.parse_args()
     if args.release_assets and (not args.update_feed or not args.source_materials):
         parser.error('--release-assets requires --update-feed TAG and --source-materials ZIP')
-    if not args.release_assets and any((args.source_materials, args.arm64_info, args.intel_info)):
-        parser.error('--source-materials, --arm64-info and --intel-info require --release-assets')
+    if not args.release_assets and any((args.source_materials, args.arm64_info, args.intel_info, args.sdk_zip)):
+        parser.error('--source-materials, --arm64-info, --intel-info and --sdk-zip require --release-assets')
     try:
         if args.update_feed:
             if len(args.paths) not in (1, 2):
                 parser.error('--update-feed requires TAG ROOT ARCHIVE [ARCHIVE]')
             if args.release_assets:
                 prepare_release_assets(args.root, args.paths, args.update_feed, args.release_assets,
-                                       args.source_materials, args.arm64_info, args.intel_info)
+                                       args.source_materials, args.arm64_info, args.intel_info, args.sdk_zip)
             else:
                 write_update_feed(args.paths, args.update_feed)
         elif args.stage_package_notices:

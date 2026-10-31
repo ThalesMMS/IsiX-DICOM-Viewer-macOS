@@ -1,27 +1,32 @@
 #!/usr/bin/env python3
 """Execute the real clipboard description setup with macOS date formatting.
 
--pasteImageForSourceFile: is Swift, in
-BrowserController+DatabaseDragExport+Selection.swift: the block that names the
-DICOMExport series is taken from there and compiled with swiftc (address
-sanitizer on) around a DICOMExport double. With a git revision as argument, the
-block is taken from that revision: its Swift file, or, for a revision older
-than the Swift translation, BrowserController.m, compiled with clang as before.
+Paste is Swift, in ClipboardImagePaste.swift (formerly
+-pasteImageForSourceFile: of BrowserController+DatabaseDragExport+Selection.swift):
+the block that names the DICOMExport series is taken from there and compiled
+with swiftc (address sanitizer on) around a DICOMExport double. With a git
+revision as argument, the block is taken from that revision: its Swift file, or,
+for a revision older than the Swift translation, BrowserController.m, compiled
+with clang as before.
 """
 from pathlib import Path
 import subprocess,sys,tempfile
 root=Path(__file__).resolve().parents[1]
-SWIFT='Horos/Sources/BrowserController+DatabaseDragExport+Selection.swift'
+# Each Swift home of the paste, newest first, with the declaration the block follows.
+SWIFT=(('Horos/Sources/ClipboardImagePaste.swift','func paste(sourceFile: '),
+       ('Horos/Sources/BrowserController+DatabaseDragExport+Selection.swift','func pasteImage(forSourceFile '))
 def revision(path):
  r=subprocess.run(['git','-C',str(root),'show',sys.argv[1]+':'+path],capture_output=True)
  return r.stdout if r.returncode==0 else None
-if len(sys.argv)>1:
- swift=revision(SWIFT)
- swift=swift.decode('utf-8') if swift is not None else None
-else:
- swift=(root/SWIFT).read_text(encoding='utf-8')
+swift=anchor=None
+for path,declaration in SWIFT:
+ text=revision(path) if len(sys.argv)>1 else ((root/path).read_bytes() if (root/path).exists() else None)
+ text=text.decode('utf-8') if text is not None else None
+ if text is not None and declaration in text:
+  swift,anchor=text,declaration
+  break
 if swift is not None:
- a=swift.index('            let e = DICOMExport()',swift.index('func pasteImage(forSourceFile '));b=swift.index('            e.setSeriesNumber(',a)
+ a=swift.index('            let e = DICOMExport()',swift.index(anchor));b=swift.index('            e.setSeriesNumber(',a)
  block=swift[a:b]
  program=r'''
 import Foundation
@@ -43,7 +48,7 @@ print("PASS: generated clipboard timestamp remains Latin1/ASCII representable on
   subprocess.run([str(p/'test')],check=True)
  sys.exit(0)
 s=revision('Horos/Sources/BrowserController.m')
-if s is None: sys.exit('FAIL: %s has neither %s nor BrowserController.m'%(sys.argv[1],SWIFT))
+if s is None: sys.exit('FAIL: %s has neither %s nor BrowserController.m'%(sys.argv[1],' nor '.join(path for path,_ in SWIFT)))
 s=s.decode('latin1')
 a=s.index('        DICOMExport *e =',s.index('- (IBAction) pasteImageForSourceFile:'));b=s.index('        [e setSeriesNumber:',a)
 block=s[a:b]

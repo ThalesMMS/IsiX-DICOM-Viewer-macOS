@@ -130,8 +130,6 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 
 // Defined in DCMView+CAPI.m. The views read and set them on the main thread.
 /// The synchronization mode of the 2D viewers (syncroOFF, syncroABS, ...).
-extern NS_SWIFT_UI_ACTOR short syncro;
-extern NS_SWIFT_UI_ACTOR BOOL gDontListenToSyncMessage;
 extern NS_SWIFT_UI_ACTOR BOOL OVERFLOWLINES;
 extern NS_SWIFT_UI_ACTOR int MAXNUMBEROF32BITVIEWERS;
 

@@ -40,11 +40,19 @@
 
 /** \brief Plugin for adding file format
 
-The messages DicomFile sends to the principal class of a file-format plugin.
-There is no base class any more: one that answered them all with nil was never
-used by the application itself.
+The base class of the principal class of a file-format plugin, and the messages
+DicomFile and DCMPix send to it. A plugin built for Horos or OsiriX subclasses
+it in Objective-C, sets the instance variables the former SDK declared here
+(_height, _width, _rowBytes, _fImage, _isRGB and the others) directly in
+-checkLoadAtPath:, and inherits the methods that answer them.
+
+PluginFileFormatDecoder.swift implements the class (@objc @implementation), so
+the runtime sees an Objective-C class of this name that such a subclass can
+inherit from. Its instance variables are Swift stored properties of the same
+names; the linker exports their offsets under the _OBJC_IVAR_$_ names the
+plugin's binary looks up (Horos/Scripts/Horos/legacy-plugin-ivar-aliases.rsp).
 */
-@protocol PluginFileFormatDecoder <NSObject>
+@interface PluginFileFormatDecoder : NSObject
 
 // not used currently
 + (float *)decodedDataAtPath:(NSString *)path;

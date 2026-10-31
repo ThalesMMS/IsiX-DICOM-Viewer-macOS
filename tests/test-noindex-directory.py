@@ -224,18 +224,21 @@ check((root / "INCOMING").read_bytes() == b"not a folder" and (root / "INCOMING.
 
 # 10. The callers all ask for paths that already carry the suffix, so the value
 #     they keep and the folder confirmed are the same one.
-#     The accessors are in the Swift extension of DicomDatabase.
+#     The accessors are in the Swift extension of DicomDatabase; each names a
+#     folder of the data folder, whose name on disk DocumentsLocation (IsiXStorage) gives.
 database = source_text("DicomDatabase+Instance")
-for accessor, name in [("dataDirPath", "DATABASE.noindex"), ("incomingDirPath", "INCOMING.noindex"),
-                       ("decompressionDirPath", "DECOMPRESSION.noindex")]:
+storage = (ROOT / "Modules/IsiXStorage/Sources/DocumentsLocation.swift").read_text()
+for accessor, folder, name in [("dataDirPath", "images", "DATABASE.noindex"), ("incomingDirPath", "incoming", "INCOMING.noindex"),
+                               ("decompressionDirPath", "decompression", "DECOMPRESSION.noindex")]:
     marker = f"@objc({accessor})"
     body = database.split(marker, 1)[-1].split("}", 1)[0] if marker in database else ""
-    check(f'"{name}"' in body, f"{accessor} no longer returns a {name} path")
+    check(f"resolvedDataBasePath(.{folder})" in body and f'case {folder} = "{name}"' in storage,
+          f"{accessor} no longer returns a {name} path")
 #     AppController is Swift: its calls are read in the Swift spelling.
 calls = []
-for relative, selector in (("Horos/Sources/DicomDatabase+IncomingImport.swift", "confirmNoIndexDirectory(atPath:"),
+for relative, selector in (("Horos/Sources/IncomingAdmission.swift", "confirmNoIndexDirectory(atPath:"),
                            (str(source_path("DicomDatabase+Instance").relative_to(ROOT)), "confirmNoIndexDirectory(atPath:"),
-                           ("Horos/Sources/BrowserController+DatabaseImport.swift", "confirmNoIndexDirectory(atPath:"),
+                           ("Horos/Sources/DroppedFilesImport.swift", "confirmNoIndexDirectory(atPath:"),
                            (str(source_path("AppController").relative_to(ROOT)), "confirmNoIndexDirectory(atPath:")):
     text = (ROOT / relative).read_bytes().decode("latin1")
     for line in text.splitlines():

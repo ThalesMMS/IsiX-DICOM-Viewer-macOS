@@ -81,12 +81,15 @@ for key, tag in (('ModalitiesinStudy', '.modalitiesInStudy'), ('Modality', '.mod
 # the SCP has somewhere to answer.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import default_preferences  # noqa: E402
+import process_graph_stand_in  # noqa: E402
 defaults = default_preferences.registered()
 if defaults.get('SupportQRModalitiesinStudy') != '1':
     failures.append('SupportQRModalitiesinStudy is no longer on by default')
 rootnode = (root / 'Horos/Sources/DCMTKRootQueryNode.swift').read_text()
 identifiers = (root / 'Modules/IsiXDICOMNetwork/Sources/QueryIdentifier.swift').read_text()
-if 'modalitiesInStudy: defaults.bool(forKey: "SupportQRModalitiesinStudy")' not in rootnode \
+catalog = (root / 'Modules/IsiXPreferences/Sources/NetworkPreferences.swift').read_text()
+if 'modalitiesInStudy: preferences[NetworkPreferences.supportsQRModalitiesInStudy]' not in rootnode \
+        or 'supportsQRModalitiesInStudy = PreferenceKey<Bool>("SupportQRModalitiesinStudy"' not in catalog \
         or 'identifier.requestReturn(options.modalitiesInStudy ? .modalitiesInStudy : .modality)' not in identifiers:
     failures.append('the query no longer asks the SCP to return ModalitiesInStudy')
 
@@ -201,7 +204,8 @@ with tempfile.TemporaryDirectory(prefix='horos-modality-filter-') as directory:
     (path / 'include').mkdir()
     interface = subprocess.run(
         ['xcrun', 'swiftc', '-emit-object', '-parse-as-library', '-module-name', 'Horos', '-I', str(modules),
-         str(source_path('QueryFilter')), '-emit-objc-header-path', str(path / 'include/Horos-Swift.h'),
+         # QueryFilter reads its preferences from PreferencesSource; one object for both files.
+         '-wmo', str(source_path('QueryFilter')), str(process_graph_stand_in.source(path)), '-emit-objc-header-path', str(path / 'include/Horos-Swift.h'),
          '-o', str(path / 'QueryFilter.o')], capture_output=True, text=True)
     if interface.stderr:
         print(interface.stderr.strip())

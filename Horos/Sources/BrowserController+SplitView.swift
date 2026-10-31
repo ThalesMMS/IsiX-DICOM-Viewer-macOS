@@ -54,35 +54,6 @@ import UniformTypeIdentifiers
 // HorosObjCException.perform. The branches of WITH_BANNER, which is not
 // defined, are left out.
 
-/// `@synchronized (object) { … }`: the same recursive lock, taken on nothing
-/// when the object is nil, and left before an exception raised inside goes on.
-@inline(__always)
-fileprivate func objcSynchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T {
-    guard let object else { return body() }
-    objc_sync_enter(object)
-    var result: T?
-    var raised: NSException?
-    do {
-        try HorosObjCException.perform { result = body() }
-    } catch {
-        raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    objc_sync_exit(object)
-    if let raised { raised.raise() }
-    return result!
-}
-
-/// Runs `body` as an @try block: the NSException it raises is returned.
-@inline(__always)
-fileprivate func objcTry(_ body: () -> Void) -> NSException? {
-    do {
-        try HorosObjCException.perform(body)
-    } catch {
-        return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    return nil
-}
-
 /// `[[split subviews] objectAtIndex:index]`: nil for a nil split view, an
 /// NSRangeException for an index out of range.
 @MainActor fileprivate func objcSubview(_ split: NSSplitView?, _ index: Int) -> NSView? {
@@ -417,8 +388,8 @@ public extension BrowserController {
 
         if let cells, aFile != nil {
             for cell in cells {
-                if cell.isEnabled == true {
-                    let curObj = (horos_matrixViewArray as NSArray?)?.object(at: cell.tag) as? NSManagedObject
+                if cell.isEnabled == true, let row = ViewerOpener.thumbnailRow(cell, of: horos_matrixViewArray) {
+                    let curObj = row as? NSManagedObject
 
                     if (curObj?.value(forKey: "type") as? NSString)?.isEqual(to: "Image") == true {
                         return curObj as? DicomImage
@@ -445,12 +416,12 @@ public extension BrowserController {
 
         N2ManagedObjectContextPerformAndWait(context) {
 
-        if let e = objcTry({
+        if let e = HorosObjCException.caught({
             if let cells, aFile != nil {
                 for cell in cells {
                     autoreleasepool {
-                        if cell.isEnabled == true {
-                            let curObj = (self.horos_matrixViewArray as NSArray?)?.object(at: cell.tag) as? NSManagedObject
+                        if cell.isEnabled == true, let row = ViewerOpener.thumbnailRow(cell, of: self.horos_matrixViewArray) {
+                            let curObj = row as? NSManagedObject
 
                             if (curObj?.value(forKey: "type") as? NSString)?.isEqual(to: "Image") == true {
                                 objcAdd(correspondingManagedObjects, curObj)

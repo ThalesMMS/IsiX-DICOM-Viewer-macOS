@@ -46,7 +46,7 @@ import IsiXROI
 extension ROI {
 
     /// Forgets the layer's pixels: they are made again when it is drawn.
-    @objc public func forgetLayerPixels() {
+    public func forgetLayerPixels() {
         ctxArray?.removeAllObjects()
         textArray?.removeAllObjects()
     }
@@ -75,7 +75,7 @@ extension ROI {
     }
 
     /// The layer's ARGB pixels, kept in the texture buffer, from its image.
-    @objc public func computeLayerPixels() {
+    public func computeLayerPixels() {
         guard let tiff = _layerImage?.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff) else {
             // No image: no pixels, as an empty bitmap gave none.
             if let old = mask.buffer { free(old) }

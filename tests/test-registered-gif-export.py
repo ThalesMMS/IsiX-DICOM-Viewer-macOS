@@ -12,6 +12,9 @@ own pixels, with every screen answering a backing scale of 1 and then of 2.
 Nothing is written to disk: the GIF reaches the pasteboard as data.
 """
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402  - ROIInterchange.swift writes IsiXROI's ROIInterchangeDocument
 import re
 import subprocess
 import tempfile
@@ -204,7 +207,8 @@ sources = ('RegisteredGIFExport.swift', 'LongitudinalRegistration.swift',
 with tempfile.TemporaryDirectory(prefix='horos-registered-gif-') as folder:
     tmp = Path(folder)
     (tmp / 'main.swift').write_text(driver)
-    subprocess.run(['xcrun', 'swiftc', *[str(root / 'Horos/Sources' / name) for name in sources],
+    subprocess.run(['xcrun', 'swiftc', *isix_modules.module_flags('IsiXROI', tmp / 'modules'),
+                    *[str(root / 'Horos/Sources' / name) for name in sources],
                     str(tmp / 'main.swift'), '-o', str(tmp / 'test')], check=True)
     # On a display of scale 1 and on a Retina display.
     for scale in ('1', '2'):

@@ -39,6 +39,7 @@
 
 
 import Cocoa
+import IsiXPreferences
 
 /// What the VR window does to the volume: the mouse tools, the scissors and
 /// the bone removal (cuts of the 2D series' volume, which the undo buffer
@@ -107,16 +108,16 @@ extension VRController {
         let tag = (sender as AnyObject?)?.tag ?? 0
         growingRegionWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: tag))
         if tag == 0 {
-            UserDefaults.standard.set(Float(1125), forKey: "VRGrowingRegionValue")
-            UserDefaults.standard.set(Float(1750), forKey: "VRGrowingRegionInterval")
+            processGraph.preferences.set(Float(1125), for: VolumeRenderingPreferences.vrGrowingRegionValue)
+            processGraph.preferences.set(Float(1750), for: VolumeRenderingPreferences.vrGrowingRegionInterval)
         }
     }
 
     @IBAction @objc(editGrowingRegion:)
     public final func editGrowingRegion(_ sender: Any!) {
         let first = pixLists[0]?.object(at: 0) as? DCMPix
-        UserDefaults.standard.set(first?.minValueOfSeries ?? 0, forKey: "VRGrowingRegionMin")
-        UserDefaults.standard.set(first?.maxValueOfSeries ?? 0, forKey: "VRGrowingRegionMax")
+        processGraph.preferences.set(first?.minValueOfSeries ?? 0, for: VolumeRenderingPreferences.vrGrowingRegionMin)
+        processGraph.preferences.set(first?.maxValueOfSeries ?? 0, for: VolumeRenderingPreferences.vrGrowingRegionMax)
         if let sheet = growingRegionWindow { window?.beginSheet(sheet, completionHandler: nil) }
     }
 
@@ -204,7 +205,7 @@ extension VRController {
         }
     }
 
-    @IBAction @objc(undo:)
+    @IBAction
     public override final func undo(_ sender: Any!) {
         NSLog("undo")
         for i in 0..<Int(maxMovieIndex) {
@@ -241,8 +242,7 @@ extension VRController {
 
     @objc(UpdateConvolutionMenu:)
     public final func updateConvolutionMenu(_ note: Notification!) {
-        let keys = (UserDefaults.standard.dictionary(forKey: "Convolution") ?? [:]).keys
-        let sortedKeys = keys.sorted { $0.caseInsensitiveCompare($1) == .orderedAscending }
+        let sortedKeys = PresetTable(ImagePresetPreferences.convolutionPresets, in: processGraph.preferences).names.sorted { $0.caseInsensitiveCompare($1) == .orderedAscending }
         guard let menu = convolutionMenu?.menu else { return }
         menu.removeAllItems()
         menu.addItem(withTitle: NSLocalizedString("Apply a filter", comment: ""), action: nil, keyEquivalent: "")

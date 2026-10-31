@@ -38,9 +38,12 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXDatabase
 
 // The state of the browser, by what it is about. Each holder keeps the
-// former instance variables of its part under their names, so that key-value
+// former instance variables of its part under their names. The values still
+// read or bound by key that the browser does not answer itself (a binding of
+// the window, the diagnostic tools) stay visible to Objective-C, and key-value
 // coding reaches them as it reached the instance variables
 // (BrowserController+KeyValueCoding.swift); the extensions read them through
 // the horos_ accessors of BrowserController+StateAccess.swift. A holder is
@@ -51,56 +54,58 @@ import AppKit
 /// The thumbnails and the preview of the selection.
 final class BrowserPreviewState: NSObject, @unchecked Sendable {
     /// The images the preview shows; replaced with each selection.
-    @objc var previewPix: NSMutableArray? = NSMutableArray()
+    var previewPix: NSMutableArray? = NSMutableArray()
     /// The thumbnails being made, guarded by @synchronized on it.
-    @objc var previewPixThumbnails: NSMutableArray? = NSMutableArray()
+    var previewPixThumbnails: NSMutableArray? = NSMutableArray()
     /// Which window the preview is showing and why: a DICOM default, one
     /// computed from the pixels, or an adjustment a person made.
     @objc var previewWindowPolicy: PreviewWindowPolicy?
     /// One preview decode per burst of scroll events, not one per notch.
-    @objc var previewRedrawCoalescer: PreviewRedrawCoalescer?
+    var previewRedrawCoalescer: PreviewRedrawCoalescer?
     /// Bumped whenever previewPix is replaced, so a thumbnail batch published
     /// by a thread that started before the selection changed is discarded.
-    @objc var previewPixGeneration: UInt = 0
-    @objc var loadPreviewIndex: Int = 0
-    @objc var setDCMDone = false
-    @objc var dontUpdatePreviewPane = false
+    var previewPixGeneration: UInt = 0
+    var loadPreviewIndex: Int = 0
+    var setDCMDone = false
+    var dontUpdatePreviewPane = false
     /// The rows the thumbnails show.
-    @objc var matrixViewArray: NSArray?
-    @objc var matrixLoadIconsThread: Thread?
-    @objc var timeIntervalOfLastLoadIconsDisplayIcons: TimeInterval = 0
+    var matrixViewArray: NSArray?
+    /// The load of the thumbnails in progress, cancelled by a new selection.
+    var thumbnailLoad: ThumbnailLoad?
+    /// When the thumbnails a load made so far were last shown: every half
+    /// second at most. Written by the thumbnail loader.
+    var timeIntervalOfLastLoadIconsDisplayIcons: TimeInterval = 0
     /// The thumbnail of a file that is not found.
-    @objc var notFoundImage: NSImage? = NSImage(named: "FileNotFound.tif")
+    var notFoundImage: NSImage? = NSImage(named: "FileNotFound.tif")
 }
 
 /// The study list: the rows shown, the search, the filters and the time
 /// interval, the editing of a row.
 final class BrowserStudyListState: NSObject, @unchecked Sendable {
-    @objc var outlineViewArray: NSArray? = NSArray()
+    var outlineViewArray: NSArray? = NSArray()
     /// The list before a search of an album added the entire database's
     /// result, and its studies, for membership while drawing.
-    @objc private(set) var originalOutlineViewArray: NSArray?
-    @objc private(set) var originalOutlineViewStudies: NSSet?
-    @objc var searchString: String?
+    private(set) var originalOutlineViewArray: NSArray?
+    private(set) var originalOutlineViewStudies: NSSet?
+    var searchString: String?
     @objc var searchType: Int32 = 7
-    @objc var filterPredicate: NSPredicate?
-    @objc var filterPredicateDescription: String?
-    @objc var fetchPredicate: NSPredicate?
-    @objc var testPredicate: NSPredicate?
-    @objc var timeIntervalType: Int32 = 0
-    @objc var timeIntervalStart: Date?
-    @objc var timeIntervalEnd: Date?
-    @objc var modalityFilter: String?
-    @objc var previousItem: Any?
-    @objc var previousNoOfFiles: Int = 0
-    @objc var DatabaseIsEdited = false
+    var filterPredicate: NSPredicate?
+    var filterPredicateDescription: String?
+    var fetchPredicate: NSPredicate?
+    var testPredicate: NSPredicate?
+    var timeIntervalType: Int32 = 0
+    var timeIntervalStart: Date?
+    var timeIntervalEnd: Date?
+    var modalityFilter: String?
+    var previousItem: Any?
+    var previousNoOfFiles: Int = 0
+    var DatabaseIsEdited = false
     @objc var refreshDeferredWhileEditing = false
-    @objc var columnsMenu: NSMenu?
-    @objc var distantEntireDBResultCount: Int32 = 0
-    @objc var localEntireDBResultCount: Int32 = 0
+    var distantEntireDBResultCount: Int32 = 0
+    var localEntireDBResultCount: Int32 = 0
     /// The letters typed in the list to select a patient.
-    @objc var pressedKeys: NSMutableString? = NSMutableString(string: "")
-    @objc var previousFlags: UInt = 0
+    var pressedKeys: NSMutableString? = NSMutableString(string: "")
+    var previousFlags: UInt = 0
 
     func setOriginalOutlineViewArray(_ array: NSArray?) {
         originalOutlineViewArray = array
@@ -108,91 +113,79 @@ final class BrowserStudyListState: NSObject, @unchecked Sendable {
     }
 }
 
-/// The patient's history beside the thumbnails, the studies of the PACS
-/// On-Demand smart albums and searches, and a study waited for from a node.
+/// The patient's history beside the thumbnails, what the PACS On-Demand smart
+/// albums and searches last found, and a study waited for from a node. The
+/// distant studies the list shows are kept by the process's PACSOnDemandSearch.
 final class BrowserComparativeState: NSObject, @unchecked Sendable {
-    @objc var searchForComparativeStudiesLock: NSRecursiveLock?
     /// The patient whose history is shown.
-    @objc var comparativePatientUID: String?
-    /// The queue of patient histories to search.
-    @objc var comparativeStudySearchArray: NSMutableArray?
+    var comparativePatientUID: String?
     /// The studies of the history list.
-    @objc var comparativeStudies: NSArray?
-    @objc var dontSelectStudyFromComparativeStudies = false
-    @objc var lastRefreshComparativeStudies: TimeInterval = 0
-    /// The studies being retrieved: a study is not retrieved twice at once.
-    @objc var comparativeRetrieveQueue: NSMutableArray?
+    var comparativeStudies: NSArray?
+    var dontSelectStudyFromComparativeStudies = false
+    var lastRefreshComparativeStudies: TimeInterval = 0
+    /// The studies retrieved from the nodes: a study is not retrieved twice at once.
+    let retrieves = DistantStudyRetrieves()
     /// The study to select or open when it arrives, its viewer, since when, and what to do.
-    @objc var comparativeStudyWaited: DCMTKStudyQueryNode?
-    @objc var comparativeStudyWaitedViewer: ViewerController?
-    @objc var comparativeStudyWaitedTime: TimeInterval = 0
-    @objc var comparativeStudyWaitedToOpen = false
-    @objc var comparativeStudyWaitedToSelect = false
-    @objc var smartAlbumDistantName: String?
-    @objc var smartAlbumDistantArray: NSArray?
-    /// The queue of smart albums to search.
-    @objc var smartAlbumDistantSearchArray: NSMutableArray?
-    @objc var lastRefreshSmartAlbumDistantStudies: TimeInterval = 0
+    var comparativeStudyWaited: DCMTKStudyQueryNode?
+    var comparativeStudyWaitedViewer: ViewerController?
+    var comparativeStudyWaitedTime: TimeInterval = 0
+    var comparativeStudyWaitedToOpen = false
+    var comparativeStudyWaitedToSelect = false
+    var smartAlbumDistantName: String?
+    var lastRefreshSmartAlbumDistantStudies: TimeInterval = 0
     /// The text the thumbnails show for a distant study.
-    @objc var distantStudyMessage: String?
-    @objc var distantTimeIntervalStart: Date?
-    @objc var distantTimeIntervalEnd: Date?
-    @objc var distantSearchString: String?
-    @objc var distantSearchType: Int32 = 0
-    @objc var autoretrievingPACSOnDemandSmartAlbum = false
-    @objc var distantSearchThread: Thread?
+    var distantStudyMessage: String?
+    var distantTimeIntervalStart: Date?
+    var distantTimeIntervalEnd: Date?
+    var distantSearchString: String?
+    var distantSearchType: Int32 = 0
 }
 
-/// The albums: their study counts, local and on the nodes, the albums
-/// fetched, and the refreshes an import asks for.
+/// The albums: the catalog of the database's albums and their study counts,
+/// local and on the nodes, when they are counted, and the refreshes an import
+/// asks for.
 final class BrowserAlbumState: NSObject, @unchecked Sendable {
-    @objc var albumNoOfStudiesCache: NSMutableArray? = NSMutableArray()
-    @objc var distantAlbumNoOfStudiesCache: NSMutableDictionary? = NSMutableDictionary()
-    @objc var lastComputeAlbumsForDistantStudies: TimeInterval = 0
-    @objc var computingNumberOfStudiesForAlbums = false
-    @objc var cachedAlbums: NSArray?
-    @objc var cachedAlbumsIDs: NSArray?
-    /// The context the albums were fetched in, not retained (compared only).
-    @objc weak var cachedAlbumsContext: NSManagedObjectContext?
+    let catalog = DatabaseAlbumCatalog()
+    let countScheduler = AlbumCountScheduler<DatabaseAlbumCounter>()
     /// The album an import adds its studies to; read on any thread.
-    @objc var selectedAlbumName: String?
-    @objc var lastImportListRefresh: TimeInterval = 0
-    @objc var lastImportAlbumsRefresh: TimeInterval = 0
-    @objc var importListRefreshPending = false
-    @objc var importAlbumsRefreshPending = false
+    var selectedAlbumName: String?
+    var lastImportListRefresh: TimeInterval = 0
+    var lastImportAlbumsRefresh: TimeInterval = 0
+    var importListRefreshPending = false
+    var importAlbumsRefreshPending = false
 }
 
 /// The files of the list's selection, and the images with ROIs and key
 /// images of the last selections, kept until the selection changes.
 final class BrowserSelectionCache: NSObject, @unchecked Sendable {
-    @objc var cachedFilesForDatabaseOutlineSelectionSelectedFiles: NSMutableArray?
-    @objc var cachedFilesForDatabaseOutlineSelectionCorrespondingObjects: NSMutableArray?
-    @objc var cachedFilesForDatabaseOutlineSelectionTreeObjects: NSMutableSet?
-    @objc var cachedFilesForDatabaseOutlineSelectionIndex: IndexSet?
-    @objc var lastROIsAndKeyImagesSelectedFiles: Any?
-    @objc var lastROIsImagesSelectedFiles: Any?
-    @objc var lastKeyImagesSelectedFiles: Any?
-    @objc var ROIsAndKeyImagesCache: NSArray?
-    @objc var ROIsImagesCache: NSArray?
-    @objc var KeyImagesCache: NSArray?
-    @objc var ROIsAndKeyImagesCacheSameSeries = false
-    @objc var ROIsImagesCacheSameSeries = false
-    @objc var ROIsAndKeyImagesButtonAvailable = false
+    var cachedFilesForDatabaseOutlineSelectionSelectedFiles: NSMutableArray?
+    var cachedFilesForDatabaseOutlineSelectionCorrespondingObjects: NSMutableArray?
+    var cachedFilesForDatabaseOutlineSelectionTreeObjects: NSMutableSet?
+    var cachedFilesForDatabaseOutlineSelectionIndex: IndexSet?
+    /// The selections the images below were found in (SelectionMarkedImages.swift).
+    var lastROIsAndKeyImagesSelectedFiles: [NSObject]?
+    var lastROIsImagesSelectedFiles: [NSObject]?
+    var lastKeyImagesSelectedFiles: [NSObject]?
+    var ROIsAndKeyImagesCache: [DicomImage]?
+    var ROIsImagesCache: [DicomImage]?
+    var KeyImagesCache: [DicomImage]?
+    var ROIsAndKeyImagesCacheSameSeries = false
+    var ROIsImagesCacheSameSeries = false
+    var ROIsAndKeyImagesButtonAvailable = false
 }
 
-/// Sending, receiving and deleting files: the network logs, the delete
-/// queue and its locks.
+/// Sending, receiving and deleting files: the network logs and the delete
+/// queue.
 final class BrowserTransferState: NSObject, @unchecked Sendable {
-    @objc var activeSends: NSMutableDictionary?
-    @objc var sendLog: NSMutableArray?
-    @objc var activeReceives: NSMutableDictionary?
-    @objc var receiveLog: NSMutableArray?
-    @objc var isNetworkLogsActive = false
-    @objc var logWindowController: LogWindowController?
-    @objc var deleteQueueArray: NSMutableArray?
-    @objc var deleteQueue: NSRecursiveLock?
-    @objc var deleteInProgress: NSRecursiveLock?
-    @objc var processorsLock: NSConditionLock? = NSConditionLock(condition: 1)
+    var activeSends: NSMutableDictionary?
+    var sendLog: NSMutableArray?
+    var activeReceives: NSMutableDictionary?
+    var receiveLog: NSMutableArray?
+    var isNetworkLogsActive = false
+    var logWindowController: LogWindowController?
+    /// The files removed from the database, waiting to be deleted from the disk.
+    let deleteQueue = DatabaseDeleteQueue()
+    var processorsLock: NSConditionLock? = NSConditionLock(condition: 1)
 }
 
 /// What a person types in the browser's sheets, which the sheets' fields are
@@ -200,42 +193,41 @@ final class BrowserTransferState: NSObject, @unchecked Sendable {
 /// open, the address and the text of a notification e-mail.
 final class BrowserSheetValues: NSObject, @unchecked Sendable {
     @objc var CDpassword: String?
-    @objc var pathToEncryptedFile: String?
-    @objc var passwordForExportEncryption: String?
-    @objc var temporaryNotificationEmail: String?
-    @objc var customTextNotificationEmail: String?
+    var pathToEncryptedFile: String?
+    var passwordForExportEncryption: String?
+    var temporaryNotificationEmail: String?
+    var customTextNotificationEmail: String?
 }
 
 /// Opening viewers: the sub-selection of a series and its sheet.
 final class BrowserViewerOpeningState: NSObject, @unchecked Sendable {
     /// Why the last study asked for did not open; cleared when one is selected.
     @objc var lastStudyNotOpenedReason: String?
-    @objc var subFrom: Int32 = 0
-    @objc var subTo: Int32 = 0
-    @objc var subInterval: Int32 = 0
-    @objc var subMax: Int32 = 0
-    @objc var openSubSeriesFlag = false
-    @objc var openReparsedSeriesFlag = false
-    @objc var subSeriesWindowIsOn = false
-    @objc var waitOpeningWindow: WaitRendering?
+    var subFrom: Int32 = 0
+    var subTo: Int32 = 0
+    var subInterval: Int32 = 0
+    var subMax: Int32 = 0
+    var openSubSeriesFlag = false
+    var openReparsedSeriesFlag = false
+    var subSeriesWindowIsOn = false
+    var waitOpeningWindow: WaitRendering?
 }
 
 /// The window around the lists: its toolbar, its frame before full screen,
-/// the divider of the drawer, the reports' toolbar item, the helpers of the
-/// Sources and activity lists, Bonjour, the periodic refresh, the formats.
+/// the divider of the drawer, the helpers of the Sources and activity lists,
+/// Bonjour, the periodic refresh, the formats. The reports' state is
+/// StudyReports'.
 final class BrowserWindowState: NSObject, @unchecked Sendable {
     @objc var toolbar: NSToolbar?
-    @objc var toolbarSearchItem: NSToolbarItem?
-    @objc var databaseWindowedFrame = NSRect.zero
-    @objc var splitViewVertDividerRatio: CGFloat = 0
-    @objc var reportFilesToCheck: NSMutableDictionary? = NSMutableDictionary()
-    @objc var reportToolbarItemType: Int = 0
+    var toolbarSearchItem: NSToolbarItem?
+    var databaseWindowedFrame = NSRect.zero
+    var splitViewVertDividerRatio: CGFloat = 0
     @objc var sourcesHelper: Any?
-    @objc var activityHelper: Any?
-    @objc var bonjourBrowser: BonjourBrowser?
-    @objc var refreshTimer: Timer?
-    @objc var TimeFormat: DateFormatter?
-    @objc var TimeWithSecondsFormat: DateFormatter?
-    @objc var DateTimeWithSecondsFormat: DateFormatter?
-    @objc var databaseIndexDictionary: NSMutableDictionary? = NSMutableDictionary()
+    var activityHelper: Any?
+    var bonjourBrowser: BonjourBrowser?
+    var refreshTimer: Timer?
+    var TimeFormat: DateFormatter?
+    var TimeWithSecondsFormat: DateFormatter?
+    var DateTimeWithSecondsFormat: DateFormatter?
+    var databaseIndexDictionary: NSMutableDictionary? = NSMutableDictionary()
 }

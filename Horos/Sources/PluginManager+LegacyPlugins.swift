@@ -21,7 +21,6 @@ extension PluginManager {
 
     /// Whether a plugin is in one of this app's own plugins folders, active or
     /// disabled. Only these are activated, deactivated, deleted or recovered.
-    @objc(isInOwnPluginsFolder:)
     public class func isInOwnPluginsFolder(_ path: String) -> Bool {
         guard !path.isEmpty else { return false }
         func resolved(_ folder: String) -> String {

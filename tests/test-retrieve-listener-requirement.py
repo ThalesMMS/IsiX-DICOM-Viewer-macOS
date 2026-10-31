@@ -26,13 +26,13 @@ from sources import class_text  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import isix_modules  # noqa: E402  - the retrieve modes are IsiXDICOMNetwork's
 controller = class_text('QueryController')
-gates, at = [], 0
-while True:
-    at = controller.find('AppController.shared()?.isStoreSCPRunning() == false', at)
-    if at < 0:
-        break
-    gates.append(controller[at:at + 900])
-    at += 1
+# The listener's state is the application controller's, reached through the
+# window's process graph, or the process graph's listener controller itself,
+# which the retrieve threads reach through the graph handed to the workers.
+import re  # noqa: E402
+gates = [controller[found.start():found.start() + 900] for found in re.finditer(
+    r'(?:(?:AppController\.shared\(\)|processGraph\.appController)\?\.isStoreSCPRunning\(\)'
+    r'|workerGraph\?\.dicomListener\.isListening) == false', controller)]
 if len(gates) != 2:
     failures.append('found %d listener gates in the query window, expected 2' % len(gates))
 if not any('listenerRequired(forEveryRetrieveMode:' in gate for gate in gates):

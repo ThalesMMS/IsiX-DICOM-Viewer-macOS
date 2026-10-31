@@ -51,7 +51,7 @@ require('MPRController.syncItemIdentifier' in update and 'SyncLock.pdf' in updat
         'the Sync item image does not follow the synchronization state')
 
 state = body(mpr, 'fileprivate var isSyncOn: Bool')
-require('SyncButtonBehaviorIsBetweenStudies' in state and 'horos_SYNCSERIES' in state
+require('horos_syncButtonBehaviorIsBetweenStudies()' in state and 'horos_SYNCSERIES' in state
         and 'DCMView.syncro() != Int16(syncroOFF)' in state,
         'the MPR does not read the 2D synchronization state')
 toggle = body(mpr, 'fileprivate dynamic func toggleSync(_ sender: Any?)')

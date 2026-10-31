@@ -79,46 +79,48 @@ with tempfile.TemporaryDirectory(prefix='horos-vr-4d-time-') as tmp:
     ], check=True)
     subprocess.run([str(p / 'test')], check=True)
 
-viewer = (root / 'Horos/Sources/ViewerController+ThreeDViewers.swift').read_text(encoding='utf-8')
+# The 3D viewers are opened by ThreeDViewerLauncher; the viewer's selectors are its façade.
+viewer = (root / 'Horos/Sources/ThreeDViewerLauncher.swift').read_text(encoding='utf-8')
 
-for name, signature in (('openVRViewerForMode', 'func openVRViewer(forMode mode: String!) -> VRController!'),
-                        ('Panel3D', 'func panel3D(_ sender: Any!)')):
+for name, signature in (('openVRViewerForMode', 'func volumeRenderingWindow(mode: String?) -> VRController?'),
+                        ('Panel3D', 'func openVolumeRenderingPanel(_ sender: Any?)')):
     scope = body(viewer, signature)
     check(scope, '%s is missing' % name)
-    check('FourDSeriesGuard.alignedTimeIndex(requested: Int(horos_curMovieIndex), count: movies)' in scope,
+    check('FourDSeriesGuard.alignedTimeIndex(requested: Int(viewer.horos_curMovieIndex), count: movies)' in scope,
           '%s must wrap the shared 4D index through FourDSeriesGuard' % name)
-    check('viewer?.setMovieFrame(time)' in scope,
+    check('renderer?.setMovieFrame(time)' in scope,
           '%s must apply the shared index with setMovieFrame:' % name)
     # The times have to reach the renderer in order for the index to mean the
     # same thing on both sides, so time 0 still seeds the renderer.
-    load = scope.find('addMovie(i, to: viewer)')
-    apply_at = scope.find('viewer?.setMovieFrame(time)')
+    load = scope.find('addMovie(i, to: renderer)')
+    apply_at = scope.find('renderer?.setMovieFrame(time)')
     check(load >= 0, '%s must still load every time' % name)
     check(load >= 0 and apply_at > load,
           '%s must call setMovieFrame: after loading the times in order' % name)
-    check('pixTime.object(at: 0) as! DCMPix).isRGB' in scope and 'pix0.object(at: 0)' not in scope,
+    check('let firstAtTime = viewer.horos_pixArray(time).first' in scope and 'firstAtTime.isRGB' in scope
+          and 'horos_pixArray(0)' not in scope,
           '%s must read the displayed time, not volume 0, for the CLUT choice' % name)
 
-lookup = body(viewer, 'fileprivate func openRenderer(style: String, modes: [String]?) -> VRController?')
-check('FindRelatedViewers(horos_pixList(at: 0))' in lookup,
+lookup = body(viewer, 'private func openRenderer(style: String, modes: [String]?) -> VRController?')
+check('findRelatedViewers(pixList: viewer.horos_pixList(at: 0))' in lookup,
       'FindRelatedViewers may still identify the series by pixList[0]')
-standard = body(viewer, 'func openVRViewer(forMode mode: String!) -> VRController!')
+standard = body(viewer, 'func volumeRenderingWindow(mode: String?) -> VRController?')
 check('openRenderer(style: "standard", modes: ["VR", "MIP"])' in standard,
       'openVRViewerForMode must look for an open VR or MIP window')
-panel = body(viewer, 'func panel3D(_ sender: Any!)')
+panel = body(viewer, 'func openVolumeRenderingPanel(_ sender: Any?)')
 check('openRenderer(style: "panel", modes: nil)' in panel,
       'Panel3D must look for an open panel')
 
 # Leaves from earlier issues must not be reopened by this one.
-sr = body(viewer, 'func openSRViewer() -> SRController!')
-check('FourDSeriesGuard.wrappedIndex(Int(horos_curMovieIndex)' in sr, 'Surface Rendering wrap must stay')
-mpr = body(viewer, 'func openOrthogonalMPRViewer() -> OrthogonalMPRViewer!')
+sr = body(viewer, 'func surfaceRenderingWindow() -> SRController?')
+check('FourDSeriesGuard.wrappedIndex(Int(viewer.horos_curMovieIndex)' in sr, 'Surface Rendering wrap must stay')
+mpr = body(viewer, 'func orthogonalMPRWindow() -> OrthogonalMPRViewer?')
 check('FourDSeriesGuard.alignedTimeIndex(requested:' in mpr, 'Orthogonal MPR wrap must stay')
-petct = body(viewer, 'func openOrthogonalMPRPETCTViewer() -> OrthogonalMPRPETCTViewer!')
+petct = body(viewer, 'func orthogonalPETCTWindow() -> OrthogonalMPRPETCTViewer?')
 check('FourDSeriesGuard.fusionOverlayIndex(hostTime:' in petct, 'PET-CT overlay pin must stay')
-# ActivateBlending: is Swift (ViewerController+Blending.swift); its
-# body, under the reentry guard, is activateBlendingInside.
-blending_source = sources.source_text('ViewerController+Blending')
+# ActivateBlending: is ViewerFusion's (ViewerController+Blending.swift keeps
+# the selector); its body, under the reentry guard, is activateBlendingInside.
+blending_source = sources.source_text('ViewerFusion')
 blend = body(blending_source, 'func activateBlending(_ bC: ViewerController!)') + \
     body(blending_source, 'func activateBlendingInside(_ bC: ViewerController!)')
 check('fourDFusionRefusalReason' in blend or 'refuseFourDFusionWithTitle' in blend

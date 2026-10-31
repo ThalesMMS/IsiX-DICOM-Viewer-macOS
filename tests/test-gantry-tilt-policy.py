@@ -59,7 +59,7 @@ with tempfile.TemporaryDirectory(prefix='horos-tilt-') as directory:
 # --- the wiring --------------------------------------------------------------
 should = policy[policy.index('public static func shouldCorrect'):policy.index('// MARK: Corrected viewers')]
 for needed in ('case .alwaysCorrect: return true', 'case .neverCorrect: return false', 'showsSuppressionButton = true',
-               '"Do not ask again"', 'UserDefaults.standard.set(next.rawValue, forKey: defaultsKey)'):
+               '"Do not ask again"', '.set(next.rawValue, for: ViewerPreferences.gantryTiltCorrectionPolicy)'):
     if needed not in should:
         failures.append('the question misses %s' % needed)
 # -displayWarningIfGantryTitled is Swift (ViewerController+SliceInterval.swift).

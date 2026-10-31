@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXPreferences
 
 /// The name of the series that "Save as DICOM SC and mark as Key Image" adds
 /// its captures to: the one set in the Viewer preferences, or a default.
@@ -22,7 +23,7 @@ import Foundation
 /// accent, and the archive the captures are sent to may show it wrongly.
 @objc(HorosScreenCaptureSeriesName)
 public final class ScreenCaptureSeriesName: NSObject {
-    @objc public static let defaultsKey = "screenCaptureKeyImageSeriesName"
+    @objc public static let defaultsKey = ApplicationPreferences.screenCaptureSeriesName.name
 
     /// The default name where the application's language cannot give one.
     @objc public static let englishName = "IsiX Screen Captures"
@@ -71,7 +72,12 @@ public final class ScreenCaptureSeriesName: NSObject {
     /// The name in use: the preference, or the default when it is not set or
     /// nothing of it can be written.
     @objc public static func current() -> String {
-        return name(preference: UserDefaults.standard.string(forKey: defaultsKey))
+        return current(in: PreferencesSource.process.preferences)
+    }
+
+    /// The name in use in `preferences`.
+    static func current(in preferences: any PreferenceStore) -> String {
+        return name(preference: preferences[ApplicationPreferences.screenCaptureSeriesName])
     }
 
     static func name(preference: String?) -> String {
@@ -83,13 +89,18 @@ public final class ScreenCaptureSeriesName: NSObject {
     /// preferences shows the name a capture gets; one that leaves nothing is
     /// removed, and the field shows the default again.
     @objc public static func normalizePreference() {
-        let defaults = UserDefaults.standard
-        guard let stored = defaults.string(forKey: defaultsKey) else { return }
+        normalizePreference(in: PreferencesSource.process.preferences)
+    }
+
+    /// The same, in `preferences`.
+    static func normalizePreference(in preferences: any PreferenceStore) {
+        let key = ApplicationPreferences.screenCaptureSeriesName
+        guard let stored = preferences[key] else { return }
         let name = sanitized(stored)
         if name.isEmpty {
-            defaults.removeObject(forKey: defaultsKey)
+            preferences.remove(key)
         } else if name != stored {
-            defaults.set(name, forKey: defaultsKey)
+            preferences.set(name, for: key)
         }
     }
 

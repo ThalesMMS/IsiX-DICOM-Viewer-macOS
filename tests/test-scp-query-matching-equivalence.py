@@ -16,7 +16,8 @@ revision that still has the Objective-C++ handler:
 - the new side is the module, the adapter's IsiXDCMTKDataset and the
   listener's own environment and attribute reading, cut from
   SCPDatabaseSession+Find.swift and SCPDatabaseSession.swift;
-- the browser's patient name search and the string decoding are the same
+- the patient name search (the browser's on the old side, the database's on
+  the new one) and the string decoding are the same
   stand-ins on both sides;
 - for every identifier below - each key of each level, with values, empty
   and absent, wildcards, date and time ranges, lists, unknown keys and
@@ -246,6 +247,13 @@ DRIVER = r'''
 import Foundation
 import IsiXDICOMNetwork
 import IsiXDICOMFile
+
+// The database's name search, the same stand-in as the old side's browser.
+enum PatientNameMatching {
+    static func namePredicate(_ name: String?, soundex: ((String) -> String?)?) -> NSPredicate {
+        BrowserController.currentBrowser()!.patientsnamePredicate(name, soundex: soundex != nil)!
+    }
+}
 
 ENVIRONMENT
 enum Session {

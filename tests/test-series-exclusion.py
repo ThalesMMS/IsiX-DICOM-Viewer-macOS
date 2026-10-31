@@ -28,6 +28,8 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import retrieve_inventory_harness  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -112,7 +114,7 @@ with tempfile.TemporaryDirectory(prefix='horos-series-exclusion-') as tmp:
     (p / 'main.swift').write_text(driver)
     (p / 'db').mkdir()
     subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', str(root / 'Horos/Sources/RetrievePlan.swift'),
-                    str(root / 'Horos/Sources/RetrieveInventory.swift'), str(p / 'main.swift'), '-o', str(p / 'test')],
+                    *retrieve_inventory_harness.swiftc_arguments(p / 'harness'), str(p / 'main.swift'), '-o', str(p / 'test')],
                    check=True, timeout=300)
     run = subprocess.run([str(p / 'test'), str(p / 'db')], capture_output=True, text=True, timeout=60)
     print((run.stdout + run.stderr).strip())
@@ -159,8 +161,9 @@ check('node.excludedSeries = RetrievePlan.exclusionRules(forStoredValue: text)' 
 pane = (root / 'Preference Panes/OSILocationsPreferencePane/OSILocationsPreferencePanePref.swift').read_text()
 check('field.bind(.value, to: self, withKeyPath: "WADOExcludeSeries"' in pane and 'forKey: RetrievePlan.wadoExclusionKey as NSString' in pane,
       'the WADO sheet edits and saves the rules')
-dicomweb_node = (root / 'Horos/Sources/DICOMwebNode.swift').read_text()
-check('node[Key.excludeSeries] = excludedSeries' in dicomweb_node and 'public var excludedSeries: [String] = []' in dicomweb_node,
+# The stored form is the module's record.
+dicomweb_node = (root / 'Horos/Sources/DICOMwebNode.swift').read_text() + (root / 'Modules/IsiXDICOMNetwork/Sources/DICOMwebNodeRecord.swift').read_text()
+check('node[Key.excludeSeries] = excludedSeries.isEmpty ? nil' in dicomweb_node and 'public var excludedSeries: [String] = []' in dicomweb_node,
       'a DICOMweb node keeps its rules, none by default')
 keys = ['Exclude Series', 'Exclude Series:', 'e.g. scout, localizer', 'Nothing Retrieved', 'Series Left Out', 'Series Retrieved Despite a Rule']
 for catalog in sorted((root / 'Horos/Resources').glob('*.lproj/Localizable.strings')):

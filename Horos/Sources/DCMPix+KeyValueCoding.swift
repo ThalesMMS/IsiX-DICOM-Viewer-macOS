@@ -161,7 +161,9 @@ extension DCMPix {
         "fSetClut16": number({ $0.horos_clut.set16 }, { $0.horos_clut.set16 = $1.boolValue }, { NSNumber(value: $0) }),
         "savedHeightInDB": number({ $0.horos_savedHeightInDB }, { $0.horos_savedHeightInDB = $1.int32Value }, { NSNumber(value: $0) }),
         "savedWidthInDB": number({ $0.horos_savedWidthInDB }, { $0.horos_savedWidthInDB = $1.int32Value }, { NSNumber(value: $0) }),
-        "retainedCacheGroup": object({ $0.horos_retainedCacheGroup }, { $0.horos_retainedCacheGroup = $1 }),
+        "retainedCacheGroup": object({ DCMPixParsedFileCache.group(of: $0) }, { pix, group in
+            pix.horos_retainedCacheGroup = group.map { ObjectIdentifier($0) }
+        }),
         "cachedFileKey": object({ $0.horos_cachedFileKey }, { $0.horos_cachedFileKey = $1 }),
         "loadedFileRevision": object({ $0.horos_loadedFileRevision }, { $0.horos_loadedFileRevision = $1 }),
     ]

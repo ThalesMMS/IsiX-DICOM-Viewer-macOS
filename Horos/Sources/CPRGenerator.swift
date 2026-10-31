@@ -135,7 +135,7 @@ public final class CPRGenerator: NSObject {
         super.init()
     }
 
-    @objc public override convenience init() {
+    public override convenience init() {
         self.init(volumeData: nil)
     }
 
@@ -287,10 +287,5 @@ public final class CPRGenerator: NSObject {
                 done = true
             }
         }
-    }
-
-    @objc(_logFrameRate:)
-    private func _logFrameRate(_ timer: Timer?) {
-        NSLog("CPRGenerator frame rate: %f", frameRate())
     }
 }

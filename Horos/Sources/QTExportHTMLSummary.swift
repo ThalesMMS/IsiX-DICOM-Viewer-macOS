@@ -171,6 +171,10 @@ public final class QTExportHTMLSummary: NSObject {
     private var uniqueSeriesID: Int32 = 0
     private let dateFormat = DateFormatter()
     private let timeFormat = DateFormatter()
+    /// Where the database the browser shows is read, whose folder holds the
+    /// templates: the browser's export and the plugins make the summary
+    /// without a viewer, from any thread, so through the graph of the process.
+    private let databases = BrowserDatabaseSource.process
 
     @objc public var imagePathsDictionary: NSMutableDictionary!
 
@@ -202,8 +206,8 @@ public final class QTExportHTMLSummary: NSObject {
 
     @objc(readTemplates)
     public func readTemplates() {
-        let database = BrowserController.currentBrowser()?.database
-        database?.checkForHtmlTemplates()
+        let database = databases.browserDatabase
+        DatabaseTemplateInstaller(database: database).install()
         let directory = database?.htmlTemplatesDirPath()
         func template(_ name: String) -> NSString? {
             guard let path = htmlAppendingPathComponent(directory, name) else { return nil }
@@ -589,7 +593,7 @@ public final class QTExportHTMLSummary: NSObject {
 
     @objc(createHTMLExtraDirectory)
     public func createHTMLExtraDirectory() {
-        let htmlExtraDirectory = htmlAppendingPathComponent(BrowserController.currentBrowser()?.database?.htmlTemplatesDirPath(), "html-extra")
+        let htmlExtraDirectory = htmlAppendingPathComponent(databases.browserDatabase?.htmlTemplatesDirPath(), "html-extra")
         let destination = htmlAppendingPathComponent(rootPath, "html-extra")
         // -copyItemAtPath:toPath:error: raised for a nil path.
         guard let htmlExtraDirectory else {

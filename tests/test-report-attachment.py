@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 """Run production attachment transaction against Core Data and real files."""
 from pathlib import Path
+import sys
 import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
 root=Path(__file__).resolve().parent.parent
-# The attachment is Swift (BrowserController+ReportImport.swift); it runs here
-# against a stand-in database with the real context helper, exception bridge
-# and file replacement.
-source=(root/'Horos/Sources/BrowserController+ReportImport.swift').read_text()
-start=source.index('    @objc(importReport:UID:error:)')
+# The attachment is StudyReports.attach (StudyReports.swift), to which the
+# browser's -importReport:UID:error: forwards; it runs here against a stand-in
+# database with the real context helper, exception bridge and file replacement.
+source=(root/'Horos/Sources/StudyReports.swift').read_text()
+start=source.index('    static func attach(')
 method=source[start:source.index('\n    /// The study selected alone in the list',start)]
-support=(root/'Horos/Sources/BrowserController+DatabaseSupport.swift').read_text()
-attempt_start=support.index('    /// Runs `body` as an @try block')
-attempt=support[attempt_start:support.index('\n    /// `@synchronized',attempt_start)]
+facade=(root/'Horos/Sources/BrowserController+ReportImport.swift').read_text()
+assert 'try reports.attachReport(atPath: path, toStudyWithUID: uid)' in facade[facade.index('@objc(importReport:UID:error:)'):],'the browser does not forward the attachment'
+assert 'try Self.attach(path, toStudyWithUID: uid, in: browser.database)' in source,'StudyReports does not attach to the browser\'s database'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import objc_exception_guards
+attempt=objc_exception_guards.between('BrowserObjC')
 context_source=(root/'Nitrogen/Sources/N2ManagedDatabase+CAPI.m').read_text()
 queue_helper=context_source[context_source.index('void N2ManagedObjectContextPerformAndWait'):context_source.index('@implementation N2ManagedObjectContext (CAPI)')]
 bridge=r"""
@@ -41,15 +45,24 @@ final class Database: NSObject {
  var reportsDir=""
  func reportsDirPath() -> String? { reportsDir }
 }
+typealias DicomDatabase = Database
+@objc(DicomStudy) final class DicomStudy: NSManagedObject {
+ @NSManaged var studyInstanceUID: String?
+ @NSManaged var reportURL: String?
+ @NSManaged var lockedStudy: NSNumber?
+}
+enum StudyReports {
+METHOD
+}
 final class Browser: NSObject {
  var database: Database?
-METHOD
+ func attachReport(atPath path: String?, toStudyWithUID uid: String?) throws { try StudyReports.attach(path, toStudyWithUID: uid, in: database) }
 }
 func check(_ ok: Bool, _ line: Int = #line) { if !ok { print("FAIL: check at line \(line)"); exit(1) } }
 func fails(_ body: () throws -> Void) -> Bool { do { try body(); return false } catch { return true } }
 let dir=CommandLine.arguments[1]
 let model=NSManagedObjectModel()
-let entity=NSEntityDescription();entity.name="Study";entity.managedObjectClassName="NSManagedObject"
+let entity=NSEntityDescription();entity.name="Study";entity.managedObjectClassName="DicomStudy"
 entity.properties=["studyInstanceUID","reportURL","lockedStudy"].map { name in
  let a=NSAttributeDescription();a.name=name;a.attributeType=name=="lockedStudy" ? .booleanAttributeType : .stringAttributeType;a.isOptional=true;return a }
 model.entities=[entity]

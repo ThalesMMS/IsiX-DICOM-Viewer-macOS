@@ -12,6 +12,7 @@
 
 import CoreGraphics
 import Foundation
+import IsiXPreferences
 
 /// Which object a newly drawn contour belongs to.
 ///
@@ -22,10 +23,10 @@ import Foundation
 /// outlined slice by slice comes out as one object with its own volume.
 @objc(HorosROIObjectJoin)
 public final class ROIObjectJoin: NSObject {
-    @objc public static let preferenceKey = "ROIJoinOverlappingOnAdjacentImage"
+    @objc public static let preferenceKey = ViewerPreferences.roiJoinOverlappingOnAdjacentImage.name
 
     @objc public static var isEnabled: Bool {
-        UserDefaults.standard.bool(forKey: preferenceKey)
+        PreferencesSource.process.preferences[ViewerPreferences.roiJoinOverlappingOnAdjacentImage]
     }
 
     /// How many images before and after the new contour's image are searched,

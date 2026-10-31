@@ -39,13 +39,13 @@
 
 import AppKit
 import IsiXDatabase
-import UniformTypeIdentifiers
 
 // The browser's database: switching to another one, the notifications of the
 // database shown, the refreshes they cause (throttled during an import), the
 // study asked for by a viewer, a link or a plugin, and the deprecated
 // accessors of the database's contexts. -setDatabase:, the property's setter
-// (BrowserController.swift), hands the switch to -horos_switchToDatabase:. The selectors are those of the former
+// (BrowserController.swift), hands the switch to -horos_switchToDatabase:;
+// what to switch to is DatabaseOpener's. The selectors are those of the former
 // Objective-C methods.
 
 extension BrowserController {
@@ -60,38 +60,12 @@ extension BrowserController {
     /// Forgets everything the browser holds of the database it is leaving.
     @objc(willChangeContext)
     func willChangeContext() {
-        waitForRunningProcesses()
-
-        BrowserObjC.synchronized(horos_previewPixThumbnails) {
-            horos_matrixLoadIconsThread?.cancel()
-            horos_matrixLoadIconsThread = nil
-        }
-
-        self.comparativePatientUID = nil
-        self.comparativeStudies = nil
-
-        BrowserObjC.synchronized(BrowserController.horos_smartAlbumDistantArraySync as NSString) {
-            horos_smartAlbumDistantArray = nil
-        }
-
-        horos_outlineViewArray = nil
-
-        horos_cachedFilesForDatabaseOutlineSelectionSelectedFiles = nil
-        horos_cachedFilesForDatabaseOutlineSelectionCorrespondingObjects = nil
-        horos_cachedFilesForDatabaseOutlineSelectionTreeObjects = nil
-        horos_cachedFilesForDatabaseOutlineSelectionIndex = nil
-
-        forgetROIsAndKeyImages()
-        forgetCachedAlbums()
-
-        horos_databaseOutline?.reloadData()
-        horos_albumTable?.reloadData()
-        horos_comparativeTable?.reloadData()
+        databaseOpener.forgetDatabaseShown()
     }
 
     /// The ROIs and key images found for the selection, kept until the
     /// database changes.
-    private func forgetROIsAndKeyImages() {
+    func forgetROIsAndKeyImages() {
         horos_ROIsAndKeyImagesCache = nil
         horos_ROIsImagesCache = nil
         horos_KeyImagesCache = nil
@@ -100,168 +74,22 @@ extension BrowserController {
         horos_lastKeyImagesSelectedFiles = nil
     }
 
-    /// -setDatabase:: closes the viewers, saves the database it leaves and
-    /// shows `db` (which may be nil) in every list of the browser. Main thread.
-    @objc(horos_switchToDatabase:)
+    /// -setDatabase:: DatabaseOpener closes the viewers, saves the database it
+    /// leaves and shows `db` (which may be nil) in every list of the browser.
+    /// Main thread.
     func horos_switchToDatabase(_ db: DicomDatabase?) {
-        if !Thread.isMainThread {
-            BrowserObjC.logStackTrace("setDatabase MUST be performed on MAIN thread")
-        }
-        guard horos_databaseIvar !== db else { return }
-
-        let raised = BrowserObjC.attempt {
-            (LogManager.currentLogManager() as? LogManager)?.resetLogs()
-
-            willChangeValue(forKey: "database")
-
-            saveLoadAlbumsSortDescriptors()
-            waitForRunningProcesses()
-
-            _ = horos_databaseIvar?.save(nil)
-            horos_databaseIvar = nil
-
-            willChangeContext()
-            horos_reportFilesToCheck?.removeAllObjects()
-
-            self.window?.display()
-
-            DCMPix.purgeCachedDictionaries()
-            DCMView.purgeStringTextureCache()
-
-            resetLogWindowController()
-            AppController.shared()?.closeAllViewers(self)
-
-            _ = BrowserObjC.attempt {
-                if UserDefaults.standard.bool(forKey: "clearSearchAndTimeIntervalWhenSelectingAlbum") {
-                    showEntireDatabase()
-                }
-            }
-
-            horos_databaseIvar = db
-            // Our own 'clean' managed object context, used by no other thread.
-            db?.renewManagedObjectContext()
-
-            if let db, UserDefaults.canActivateAnyLocalDatabase() && db.isLocal() && !db.isReadOnly {
-                DicomDatabase.setActiveLocal(db)
-            }
-            Monochrome1Thumbnails.rebuildOnce(in: db)
-            if db != nil {
-                selectCurrentDatabaseSource()
-            }
-
-            let center = NotificationCenter.default
-            center.addObserver(self, selector: #selector(_observeDatabaseAddNotification(_:)),
-                               name: ._O2AddToDBAnyway, object: db)
-            center.addObserver(self, selector: #selector(_observeDatabaseDidChangeContextNotification(_:)),
-                               name: .OsirixDicomDatabaseDidChangeContext, object: db)
-            center.addObserver(self, selector: #selector(_observeDatabaseInvalidateAlbumsCacheNotification(_:)),
-                               name: .O2DatabaseInvalidateAlbumsCache, object: db)
-            center.addObserver(self, selector: #selector(_newStudiesRefreshComparativeStudies(_:)),
-                               name: .OsirixAddNewStudiesDB, object: db)
-
-            horos_albumTable?.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
-            saveLoadAlbumsSortDescriptors()
-
-            BrowserObjC.synchronized(horos_albumNoOfStudiesCache) {
-                horos_albumNoOfStudiesCache?.removeAllObjects()
-                horos_distantAlbumNoOfStudiesCache?.removeAllObjects()
-            }
-
-            N2ManagedObjectContextPerformAndWait(db?.managedObjectContext) {
-                if let exception = BrowserObjC.attempt({ showDatabaseInEveryList() }) {
-                    BrowserObjC.log(exception, stack: true, "-[BrowserController setDatabase:]")
-                }
-            }
-
-            (LogManager.currentLogManager() as? LogManager)?.resetLogs()
-        }
-        didChangeValue(forKey: "database")
-        raised?.raise()
-    }
-
-    /// Reloads every list of the browser from the database just shown.
-    private func showDatabaseInEveryList() {
-        horos_databaseOutline?.reloadData()
-        horos_albumTable?.reloadData()
-        horos_comparativeTable?.reloadData()
-
-        self.window?.display()
-        setDBWindowTitle()
-        refreshPACSOnDemandResults(self)
-
-        setNetworkLogs()
-        outlineViewRefresh()
-        refreshMatrix(self)
-        refreshAlbums()
-
-        if let query = QueryController.current() {
-            query.refresh(self)
-        } else if let query = QueryController.currentAuto() {
-            query.refresh(self)
-        }
+        databaseOpener.switchTo(db) { AppController.shared()?.closeAllViewers(self) }
     }
 
     @objc(openDatabase:)
     func openDatabase(_ sender: Any!) {
-        let panel = NSOpenPanel()
-        #if MACAPPSTORE
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        #else
-        panel.allowedContentTypes = [UTType(filenameExtension: "sql")!]
-        #endif
-        if let sqlFilePath = self.database?.sqlFilePath {
-            panel.directoryURL = URL(fileURLWithPath: sqlFilePath)
-        }
-
-        panel.begin { result in
-            guard result == .OK, let url = panel.url,
-                  BrowserObjC.literallyEqual(self.database?.sqlFilePath, url.path) == false else { return }
-            #if MACAPPSTORE
-            if SandboxFileAccess.remember(url) && ForeignDatabaseChoice.confirmOpening(path: url.path) {
-                self.openDatabasePath(url.path)
-            }
-            #else
-            self.subSelectFilesAndFolders(toAdd: [url.path])
-            #endif
-        }
+        databaseOpener.chooseIndexFile()
     }
 
     /// "Create a Database Folder" (tag 1) and "Open a Database Folder".
     @objc(createDatabaseFolder:)
     func createDatabaseFolder(_ sender: Any!) {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-
-        if ((sender as? NSView)?.tag ?? (sender as? NSMenuItem)?.tag ?? 0) == 1 {
-            panel.prompt = NSLocalizedString("Create", comment: "")
-            panel.title = NSLocalizedString("Create a Database Folder", comment: "")
-        } else {
-            panel.prompt = NSLocalizedString("Open", comment: "")
-            panel.title = NSLocalizedString("Open a Database Folder", comment: "")
-        }
-        if let base = self.database?.baseDirPath {
-            panel.directoryURL = URL(fileURLWithPath: (base as NSString).deletingLastPathComponent)
-        }
-
-        panel.begin { result in
-            guard result == .OK, let url = panel.url, SandboxFileAccess.remember(url) else { return }
-            // A Horos database is opened only after the user has read what that
-            // does to it, and then as itself, not as the folder holding it.
-            guard var location = ForeignDatabaseChoice.confirmedPath(forChosenPath: url.path) else { return }
-            #if !MACAPPSTORE
-            if DatabaseLocation.isOwnDataDirectoryName((location as NSString).lastPathComponent) {
-                location = (location as NSString).deletingLastPathComponent
-            }
-            let parent = (location as NSString).deletingLastPathComponent
-            if (location as NSString).lastPathComponent == "DATABASE.noindex"
-                && DatabaseLocation.isOwnDataDirectoryName((parent as NSString).lastPathComponent) {
-                location = (parent as NSString).deletingLastPathComponent
-            }
-            #endif
-            self.openDatabasePath(location)
-        }
+        databaseOpener.chooseFolder(creating: ((sender as? NSView)?.tag ?? (sender as? NSMenuItem)?.tag ?? 0) == 1)
     }
 
     /// Every study: no time interval, modality, album or search.
@@ -298,18 +126,18 @@ extension BrowserController {
     @objc(_observeDatabaseAddNotification:)
     nonisolated func _observeDatabaseAddNotification(_ notification: NSNotification!) {
         if self.database == nil { return }
-        guard Thread.isMainThread else {
-            performSelector(onMainThread: #selector(_observeDatabaseAddNotification(_:)), with: notification, waitUntilDone: false,
-                            modes: [RunLoop.Mode.common.rawValue])
-            return
-        }
-        nonisolated(unsafe) let added = notification
-        MainActor.assumeIsolated {
-            forgetROIsAndKeyImages()
-            _refreshDatabaseDisplayAfterImport()
-            let images = (added?.userInfo as NSDictionary?)?.value(forKey: OsirixAddToDBNotificationImagesArray) as AnyObject?
-            checkIfLocalStudyHasMoreOrSameNumberOfImages(ofADistantStudy: images?.value(forKeyPath: "series.study") as? [Any])
-        }
+        // On the main thread the refresh runs now; from another it is handed
+        // to the main thread and the poster goes on.
+        performSelector(onMainThread: #selector(refreshAfterDatabaseAdd(_:)), with: notification, waitUntilDone: Thread.isMainThread,
+                        modes: [RunLoop.Mode.common.rawValue])
+    }
+
+    @objc private func refreshAfterDatabaseAdd(_ notification: NSNotification?) {
+        if self.database == nil { return }
+        forgetROIsAndKeyImages()
+        _refreshDatabaseDisplayAfterImport()
+        let images = (notification?.userInfo as NSDictionary?)?.value(forKey: OsirixAddToDBNotificationImagesArray) as AnyObject?
+        checkIfLocalStudyHasMoreOrSameNumberOfImages(ofADistantStudy: images?.value(forKeyPath: "series.study") as? [Any])
     }
 
     /// A study arriving reloads the outline. Reloading it under someone typing
@@ -472,13 +300,12 @@ extension BrowserController {
         return false
     }
 
-    /// Selects the study in the list, switching to its database, and to the
-    /// whole database when an album, a search or a time interval hides it.
-    /// A local study or a study on a PACS node; NO, with the reason, when it
-    /// cannot be listed.
-    @discardableResult
+    /// Selects the study in the list, and the whole database when an album, a search or a time interval hides it; a
+    /// study of another database shows that database only when `switchingDatabase`, asked for (BrowserStudySelection).
+    /// A local study or a study on a PACS node; NO, with the reason, when it cannot be listed.
     @objc(selectThisStudy:)
-    func selectThisStudy(_ study: Any!) -> Bool {
+    func selectThisStudy(_ study: Any!) -> Bool { selectThisStudy(study, switchingDatabase: true) }
+    func selectThisStudy(_ study: Any!, switchingDatabase: Bool) -> Bool {
         guard self.database != nil else {
             return refuseToSelectStudy(study as? NSManagedObject, reason: StudyNotOpenedReason.reasonForNoDatabase())
         }
@@ -489,14 +316,14 @@ extension BrowserController {
         let uid = study.value(forKey: "studyInstanceUID") as? String
 
         var answer: Bool?
-        if let exception = BrowserObjC.attempt({ answer = selectListedStudy(study, uid: uid) }) {
+        if let exception = HorosObjCException.caught({ answer = selectListedStudy(study, uid: uid, switchingDatabase: switchingDatabase) }) {
             BrowserObjC.log(exception, "-[BrowserController selectThisStudy:]")
         }
         // Only an exception leaves no answer, and it does not mean the study is gone.
         return answer ?? refuseToSelectStudy(managedStudy, reason: StudyNotOpenedReason.reasonForErrorWhileSelecting())
     }
 
-    private func selectListedStudy(_ study: AnyObject, uid: String?) -> Bool {
+    private func selectListedStudy(_ study: AnyObject, uid: String?, switchingDatabase: Bool) -> Bool {
         let managedStudy = study as? NSManagedObject
         let outline = horos_databaseOutline
         let selectedRow = outline?.selectedRowIndexes.first ?? NSNotFound
@@ -507,15 +334,16 @@ extension BrowserController {
         }
 
         if let local = study as? DicomStudy {
-            guard let studyCoordinator = local.managedObjectContext?.persistentStoreCoordinator else {
-                return refuseToSelectStudy(local, reason: StudyNotOpenedReason.reasonForStudyOutsideAnyDatabase(uid))
-            }
-            // Another database is selected: select the study's.
-            if studyCoordinator !== self.database?.managedObjectContext?.persistentStoreCoordinator {
-                guard let database = DicomDatabase(for: local.managedObjectContext) else {
-                    return refuseToSelectStudy(local, reason: StudyNotOpenedReason.reasonForUnknownDatabase(uid))
-                }
-                self.database = database
+            let context = local.managedObjectContext, shown = self.database
+            var studyDatabase: DicomDatabase?
+            switch BrowserStudySelection.decision(requested: switchingDatabase, studyStore: context?.persistentStoreCoordinator,
+                                                  shownStore: shown?.managedObjectContext?.persistentStoreCoordinator,
+                                                  studyDatabase: { studyDatabase = DicomDatabase(for: context); return studyDatabase }, shownDatabase: shown) {
+            case .select: break
+            case .switchDatabase: self.database = studyDatabase // Another database is selected: select the study's.
+            case .refuseOutsideAnyDatabase: return refuseToSelectStudy(local, reason: StudyNotOpenedReason.reasonForStudyOutsideAnyDatabase(uid))
+            case .refuseUnknownDatabase: return refuseToSelectStudy(local, reason: StudyNotOpenedReason.reasonForUnknownDatabase(uid))
+            case .refuseNotShown: return refuseToSelectStudy(local, reason: StudyNotOpenedReason.reasonForStudyNotListed(uid))
             }
         }
 
@@ -676,7 +504,6 @@ extension BrowserController {
     }
 
     @available(*, deprecated)
-    @objc(openDatabaseInBonjour:)
     func openDatabaseInBonjour(_ path: String!) {
         openDatabase(in: path, bonjour: true, refresh: true)
     }

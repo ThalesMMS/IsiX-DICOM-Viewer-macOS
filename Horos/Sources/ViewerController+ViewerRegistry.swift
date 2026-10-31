@@ -38,147 +38,81 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXImaging
 
-// The register of the 2D viewers: every ViewerController from its
+// The register of the 2D viewers, as the class methods of the former
+// Objective-C class answered it: every ViewerController from its
 // -viewerControllerInit to its -windowWillClose:, the ones displayed (on a
 // screen, front first), and the studies and series they show, with the
-// colour and number that tell their windows apart. The selectors are those of
-// the former Objective-C class methods.
+// colour and number that tell their windows apart. The register itself is
+// the process graph's (ViewerRegistry.swift); these selectors, which the
+// plugins and the Objective-C code send, keep their Foundation collections.
 
-/// The viewers registered, in the order they opened, retained; any thread
-/// may read it under its own lock (objc_sync on the array).
-nonisolated(unsafe) fileprivate var registeredViewers: NSMutableArray? = nil
+/// The study colours as one array, made once: the views compare it by identity.
+/// Immutable once made, so any thread may read it.
+private struct StudyColourList: @unchecked Sendable {
+    let colours: NSArray
 
-/// How many viewers are registered.
-nonisolated(unsafe) fileprivate var registeredViewerCount: Int32 = 0
-
-/// The study colours, made once.
-nonisolated(unsafe) fileprivate var studyColorList: NSArray? = nil
+    static let viewers = StudyColourList(colours: StudyColourPalette.viewers.colours.map { NSColor(deviceRed: $0.red, green: $0.green, blue: $0.blue, alpha: 1) } as NSArray)
+}
 
 public extension ViewerController {
 
-    /// Registers a viewer, from its -viewerControllerInit.
+    /// Registers a viewer, from the set-up of its window.
     @objc(horos_register2DViewer:)
-    nonisolated class func horos_register2DViewer(_ viewer: ViewerController) {
-        registeredViewerCount += 1
-        if registeredViewers == nil { registeredViewers = NSMutableArray() }
-        let list = registeredViewers!
-        objc_sync_enter(list)
-        list.add(viewer)
-        objc_sync_exit(list)
-    }
-
-    /// Unregisters a closing viewer; answers how many are left.
-    nonisolated internal class func unregister2DViewer(_ viewer: ViewerController) -> Int32 {
-        registeredViewerCount -= 1
-        // @synchronized(nil) neither locks nor runs differently: the list
-        // exists once a viewer has been registered.
-        if let list = registeredViewers {
-            objc_sync_enter(list)
-            list.remove(viewer)
-            objc_sync_exit(list)
-        }
-        return registeredViewerCount
+    class func horos_register2DViewer(_ viewer: ViewerController) {
+        viewerRegistry.register(viewer, isFullScreen: viewer.window is NSFullScreenWindow)
     }
 
     @objc(numberOf2DViewer)
-    nonisolated class func numberOf2DViewer() -> Int32 {
-        return registeredViewerCount
-    }
+    nonisolated class func numberOf2DViewer() -> Int32 { viewerRegistry.count }
 
-    /// The registered viewers, on screen and off screen: a copy taken under the
-    /// lock, so any thread may ask.
+    /// The registered viewers, on screen and off screen, from any thread, as
+    /// an immutable copy under the declared type; nil before the first registration.
     @objc(get2DViewers)
-    nonisolated class func get2DViewers() -> NSMutableArray! {
-        guard let list = registeredViewers else { return nil }
-        objc_sync_enter(list)
-        defer { objc_sync_exit(list) }
-        // [[arrayOf2DViewers copy] autorelease]: an immutable copy under the
-        // declared NSMutableArray type, as before.
-        return unsafeBitCast(list.copy() as AnyObject, to: NSMutableArray.self)
-    }
+    nonisolated class func get2DViewers() -> NSMutableArray! { viewerRegistry.viewers.map { unsafeBitCast(NSMutableArray(array: $0).copy() as AnyObject, to: NSMutableArray.self) } }
 
     /// The registered viewers whose window is neither closing nor the full
-    /// screen one. The windows are read on the calling thread, as before.
+    /// screen one, from any thread: the register keeps what the windows published.
     @objc(getDisplayed2DViewers)
-    nonisolated class func getDisplayed2DViewers() -> NSMutableArray! {
-        let viewers = NSMutableArray()
-        for case let viewer as ViewerController in (get2DViewers() as NSArray? ?? []) {
-            // -window through the runtime: the AppKit getter is main-actor
-            // isolated in Swift, and this read keeps any thread, as before.
-            if (viewer as NSObject).value(forKey: "window") is NSFullScreenWindow { continue }
-            if !viewer.windowWillClose() { viewers.add(viewer) }
-        }
-        return viewers
-    }
+    nonisolated class func getDisplayed2DViewers() -> NSMutableArray! { NSMutableArray(array: viewerRegistry.displayedViewers) }
 
     /// The studies of the displayed viewers, each once, in their order.
     @objc(getDisplayedStudies)
     nonisolated class func getDisplayedStudies() -> NSArray! {
-        let studies = NSMutableArray()
-        for case let viewer as NSObject in (getDisplayed2DViewers() as NSArray? ?? []) {
-            if let study = (viewer.value(forKeyPath: "imageView.seriesObj") as? NSObject)?.value(forKey: "study"), !studies.contains(study) {
-                studies.add(study)
-            }
+        var studies: [DicomStudy] = []
+        for case let series as DicomSeries in displayedSeriesObjects() {
+            if let study = series.study, !studies.contains(where: { $0 === study }) { studies.append(study) }
         }
-        return studies
+        return NSMutableArray(array: studies)
     }
 
     /// The series of the displayed viewers, each once, in their order.
     @objc(getDisplayedSeries)
     nonisolated class func getDisplayedSeries() -> NSArray! {
-        let series = NSMutableArray()
-        for case let viewer as NSObject in (getDisplayed2DViewers() as NSArray? ?? []) {
-            if let one = viewer.value(forKeyPath: "imageView.seriesObj"), !series.contains(one) {
-                series.add(one)
-            }
-        }
-        return series
+        var series: [AnyObject] = []
+        for one in displayedSeriesObjects() where !series.contains(where: { $0 === one }) { series.append(one) }
+        return NSMutableArray(array: series)
     }
 
-    /// The visible 2D viewers of `screen` (all screens when nil) that are not
-    /// closing, front first.
+    /// The visible 2D viewers of `screen` (all screens when nil) that are not closing, front first.
     @objc(displayed2DViewerForScreen:)
-    class func displayed2DViewer(for screen: NSScreen?) -> NSArray! {
-        let viewers = NSMutableArray()
-        for window in NSApp.orderedWindows {
-            guard let viewer = window.windowController as? ViewerController, window.isVisible else { continue }
-            if screen == nil || (window.screen as NSObject?)?.isEqual(screen) == true {
-                if !viewer.windowWillClose() { viewers.add(viewer) }
-            }
-        }
-        return viewers
-    }
+    class func displayed2DViewer(for screen: NSScreen?) -> NSArray! { NSMutableArray(array: viewerRegistry.displayedViewers(on: screen)) }
 
     /// Kept for its callers and plugins: the front viewer is read from AppKit's
     /// current order, with no cache to clear.
     @objc(clearFrontMost2DViewerCache)
-    nonisolated class func clearFrontMost2DViewerCache() {
-    }
+    nonisolated class func clearFrontMost2DViewerCache() {}
 
-    /// The front visible 2D viewer of `screen` (any screen when nil) that is
-    /// not closing. AppKit's orderedWindows can lag the key and main viewers
-    /// during activation, so the key window and then the main window are asked
-    /// first.
     @objc(frontMostDisplayed2DViewerForScreen:)
-    class func frontMostDisplayed2DViewer(for screen: NSScreen?) -> ViewerController! {
-        let windows = [NSApp.keyWindow, NSApp.mainWindow].compactMap { $0 } + NSApp.orderedWindows
-        for window in windows {
-            guard window.isVisible, let viewer = window.windowController as? ViewerController else { continue }
-            if let screen, (window.screen as NSObject?)?.isEqual(screen) != true { continue }
-            if !viewer.windowWillClose() { return viewer }
-        }
-        return nil
-    }
+    class func frontMostDisplayed2DViewer(for screen: NSScreen?) -> ViewerController! { viewerRegistry.frontMostDisplayedViewer(on: screen) }
 
     @objc(frontMostDisplayed2DViewer)
-    class func frontMostDisplayed2DViewer() -> ViewerController! {
-        return frontMostDisplayed2DViewer(for: nil)
-    }
+    class func frontMostDisplayed2DViewer() -> ViewerController! { viewerRegistry.frontMostDisplayedViewer(on: nil) }
 
     @objc(isFrontMost2DViewer:)
     class func isFrontMost2DViewer(_ window: NSWindow?) -> Bool {
-        return window != nil && frontMostDisplayed2DViewer()?.window === window
+        window != nil && viewerRegistry.frontMostDisplayedViewer(on: nil)?.window === window
     }
 
     /// Each displayed series shares its colour across windows and thumbnails;
@@ -186,12 +120,9 @@ public extension ViewerController {
     @objc(horosSeriesWindowColors)
     class func horosSeriesWindowColors() -> NSMapTable<AnyObject, AnyObject>! {
         let colors = NSMapTable<AnyObject, AnyObject>.strongToStrongObjects()
-        let viewers = getDisplayed2DViewers() as NSArray? ?? []
-        if viewers.count < 2 || !SeriesListIdentification.showsColors(in: .standard) { return colors }
-        for case let viewer as ViewerController in ViewerWindowColors.viewersInColorOrder(viewers as [AnyObject]) {
-            if let series = viewer.imageView()?.seriesObj() as AnyObject?, colors.object(forKey: series) == nil {
-                colors.setObject(ViewerWindowColors.color(for: viewer), forKey: series)
-            }
+        if viewerRegistry.displayedViewers.count < 2 || !SeriesListIdentification.showsColors(in: processGraph.preferences) { return colors }
+        for (series, viewer) in viewerRegistry.displayedSeriesInColourOrder() {
+            colors.setObject(ViewerWindowColors.color(for: viewer), forKey: series)
         }
         return colors
     }
@@ -199,39 +130,26 @@ public extension ViewerController {
     @objc(horosSeriesWindowNumbers)
     class func horosSeriesWindowNumbers() -> NSMapTable<AnyObject, AnyObject>! {
         let numbers = NSMapTable<AnyObject, AnyObject>.strongToStrongObjects()
-        guard SeriesListIdentification.showsNumbers(in: .standard) else { return numbers }
-        let viewers = getDisplayed2DViewers() as NSArray? ?? []
-        for case let viewer as ViewerController in ViewerWindowColors.viewersInColorOrder(viewers as [AnyObject]) {
-            if let series = viewer.imageView()?.seriesObj() as AnyObject?, numbers.object(forKey: series) == nil {
-                numbers.setObject(NSNumber(value: ViewerWindowColors.number(for: viewer)), forKey: series)
-            }
+        guard SeriesListIdentification.showsNumbers(in: processGraph.preferences) else { return numbers }
+        for (series, viewer) in viewerRegistry.displayedSeriesInColourOrder() {
+            numbers.setObject(NSNumber(value: ViewerWindowColors.number(for: viewer)), forKey: series)
         }
         return numbers
     }
 
-    /// The colours of the studies, in the order they are given out.
+    /// The colours of the studies, in the order they are given out
+    /// (IsiXImaging's StudyColourPalette); the same array at every call.
     @objc(studyColors)
-    nonisolated class func studyColors() -> NSArray! {
-        if studyColorList == nil {
-            // The components are float literals (0.4f), except the blue of
-            // the last colour, a double (0.6).
-            func color(_ red: Float, _ green: Float, _ blue: CGFloat) -> NSColor {
-                NSColor(deviceRed: CGFloat(red), green: CGFloat(green), blue: blue, alpha: 1)
-            }
-            func f(_ value: Float) -> CGFloat { CGFloat(value) }
-            studyColorList = [
-                color(0.4, 0.4, f(0.0)), color(0.4, 0.0, f(0.4)), color(0.0, 0.4, f(0.4)),
-                color(0.4, 0.0, f(0.0)), color(0.0, 0.4, f(0.0)), color(0.0, 0.0, f(0.4)),
-                color(0.3, 0.5, f(0.0)), color(0.3, 0.0, f(0.6)), color(0.0, 0.5, f(0.6)),
-                color(0.3, 0.0, f(0.0)), color(0.0, 0.5, f(0.0)), color(0.0, 0.0, 0.6),
-            ] as NSArray
-        }
-        return studyColorList
-    }
+    nonisolated class func studyColors() -> NSArray! { StudyColourList.viewers.colours }
 
     /// Always YES: this controller is a 2D viewer.
     @objc(is2DViewer)
-    func is2DViewer() -> Bool {
-        return true
+    func is2DViewer() -> Bool { true }
+
+    /// The series each displayed viewer shows, read on the calling thread
+    /// through the runtime: the image view's accessor is main-actor isolated
+    /// in Swift, and these readers keep any thread, as before.
+    nonisolated private class func displayedSeriesObjects() -> [AnyObject] {
+        viewerRegistry.displayedViewers.compactMap { ($0 as NSObject).value(forKeyPath: "imageView.seriesObj") as AnyObject? }
     }
 }

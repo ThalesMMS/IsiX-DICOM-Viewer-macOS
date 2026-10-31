@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 import OSLog
 import Darwin
 
@@ -19,7 +20,7 @@ import Darwin
 /// is the overlay committed at the end of drawRect:, not a claim of compositor display.
 @MainActor @objc(HorosPlanarPerformanceTrace)
 public final class PlanarPerformanceTrace: NSObject {
-    @objc public static let enabled = UserDefaults.standard.bool(forKey: "HorosPlanarPerformanceTrace")
+    @objc public static let enabled = PreferencesSource.process.preferences[ViewerPreferences.planarPerformanceTrace]
     private static let log = OSLog(subsystem: Bundle.main.bundleIdentifier ?? "thalesmms.isis.workstation",
                                    category: "PlanarPerformance")
     private static var nextView: UInt64 = 0

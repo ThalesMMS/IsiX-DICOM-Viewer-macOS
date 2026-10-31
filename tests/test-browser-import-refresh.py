@@ -5,8 +5,10 @@ Every indexed batch posts OsirixAddToDBNotification, and the browser answered
 each one by refetching every study on the main thread and starting an album
 count. Compile the production coalescing methods with short intervals and a
 recording outline, post a burst of arrivals, and count the refreshes. Also check
-that the album count is marked as running before its thread starts, so a burst
-cannot start several counts at once.
+that the album count is asked of IsiXDatabase's AlbumCountScheduler, which marks
+a count as running before it starts it and defers the requests that arrive
+meanwhile, so a burst cannot start several counts at once (its module tests run
+such a burst).
 """
 from pathlib import Path
 import re
@@ -50,33 +52,35 @@ if 'listInterval: TimeInterval = 5' not in schedule_text or 'albumsInterval: Tim
 methods = methods.replace('ImportRefreshSchedule.listInterval', 'Harness.listInterval') \
                  .replace('ImportRefreshSchedule.albumsInterval', 'Harness.albumsInterval')
 
-# -refreshAlbums and its thread are Swift too (BrowserController+StudyList.swift).
-study_list = (root / 'Horos/Sources/BrowserController+StudyList.swift').read_text()
+# -refreshAlbums asks StudyListContent's count of the albums, which IsiXDatabase's
+# AlbumCountScheduler runs one at a time.
+content = (root / 'Horos/Sources/StudyListContent.swift').read_text()
+scheduler = (root / 'Modules/IsiXDatabase/Sources/AlbumCountScheduler.swift').read_text()
 
 
-def swift_body(signature):
-    at = study_list.find(signature)
+def swift_body(source, signature):
+    at = source.find(signature)
     if at < 0:
         failures.append('%s is gone' % signature)
         return ''
-    opening = study_list.index('{', at)
+    opening = source.index('{', at)
     depth = 0
-    for index in range(opening, len(study_list)):
-        if study_list[index] == '{':
+    for index in range(opening, len(source)):
+        if source[index] == '{':
             depth += 1
-        elif study_list[index] == '}':
+        elif source[index] == '}':
             depth -= 1
             if depth == 0:
-                return study_list[at:index + 1]
+                return source[at:index + 1]
     return ''
 
 
-albums = swift_body('func refreshAlbums()')
-thread = swift_body('func _computeNumberOfStudiesForAlbumsThread()') + swift_body('private func computeNumberOfStudiesForAlbums()')
-if not re.search(r'horos_computingNumberOfStudiesForAlbums = true\s*Thread\.detachNewThreadSelector\(#selector\(BrowserController\._computeNumberOfStudiesForAlbumsThread\)', albums):
-    failures.append('the album count is not marked as running before its thread starts')
-if re.search(r'if horos_computingNumberOfStudiesForAlbums', thread):
-    failures.append('the album thread checks the mark its caller has just set, and would never count')
+albums = swift_body(content, 'func refreshAlbums()')
+request = swift_body(scheduler, 'public func request(')
+if 'scheduler.request(counter' not in albums:
+    failures.append('the album count is not asked of the scheduler that runs one at a time')
+if not re.search(r'guard counting == nil else \{\s*askLater\(again\)\s*return \.deferred\s*\}\s*counting = Task', request):
+    failures.append('the album count is not marked as running before it starts, or a request while it runs starts another')
 
 NATIVE = r'''
 import AppKit

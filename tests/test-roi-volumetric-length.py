@@ -5,9 +5,13 @@ The click-session methods are Swift, in DCMView+LengthClick.swift, with the
 messages they send the window controller (DCMView+Tools.swift); -mouseDragged:
 is in DCMView+MouseDragging.swift. They, and the length-click replay of
 -mouseDragged:, the part before the curImage guard, are compiled as they are,
+with a plugin host that loads no plugin, so no plugin takes the drag,
 with xcrun swiftc, as an extension of the Objective-C double of DCMView, whose
 state has the names of DCMView.swift's stored horos_* properties.
-So is -removeROIFromSliceOrVolume: of DCMView+ROIEditing.swift. The click
+So is -removeROIFromSliceOrVolume: of DCMView+ROIEditing.swift. What each
+click does is IsiXROI's TwoClickLengthPlacement, over the endpoints
+ViewROIEditing reads from the view's dictionaries (its two-click section,
+compiled as it is, without the main actor of the view it serves). The click
 session creates its lengths as a double of HorosVolumeLengthROI that answers
 with IsiXROI's geometry, as the class does.
 
@@ -20,10 +24,12 @@ import re, subprocess, sys, tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
 import isix_modules  # noqa: E402
+import process_graph_stand_in  # noqa: E402  - the 2D viewer's sources read the catalog's keys through PreferencesSource
 import roi_harness  # noqa: E402
 root=Path(__file__).resolve().parents[1]
 length_source=source_text('DCMView+LengthClick')
 gesture=length_source[length_source.index('extension DCMView {\n')+len('extension DCMView {\n'):length_source.rindex('\n}\n')]
+hit_test=length_source[length_source.index('extension ROI {\n'):length_source.index('extension DCMView {\n')]
 tools=source_text('DCMView+Tools')
 messages=re.search(r'@objc protocol DCMViewInputMessages \{.*?\n\}\n', tools, re.S).group(0)
 messages+=re.search(r'@inline\(__always\)\nfunc inputMessages\(.*?\n\}\n', tools, re.S).group(0)
@@ -34,7 +40,14 @@ assert remove.count('roi is HorosVolumeLengthROI')==1 and remove.count('(fromSli
 remove=remove.replace('(fromSliceOrVolume roi: ROI!)','(fromSliceOrVolume roi: NSObject!)')
 swift=source_text('DCMView+MouseDragging')
 drag=swift[swift.index('    @objc(mouseDragged:)'):];drag=drag[:drag.index('        if self.horos_curImage < 0 {')]+'        self.dragReplayCount += 1\n    }\n'
-extension='import Cocoa\n'+messages+'extension DCMView {\n'+drag+remove+gesture+'}\n'
+# -mouseDragged: first offers the event to the plugins (IsiXPluginHost, which
+# needs the whole plugin host); here none is loaded, and none takes it.
+assert drag.count('IsiXPluginHost.shared.takesViewerInput(event, in: self)')==1
+host='final class IsiXPluginHost {\n    static let shared = IsiXPluginHost()\n    func takesViewerInput(_ event: NSEvent, in view: DCMView) -> Bool { false }\n}\n'
+view_editing=source_text('ViewROIEditing')
+placement='enum ViewROIEditing {\n'+view_editing[view_editing.index('    // MARK: - Two-click Length'):view_editing.rindex('\n}\n')]+'\n}\n'
+assert placement.count('typealias LengthPlacement = TwoClickLengthPlacement<ObjectValue>')==1
+extension='import Cocoa\nimport IsiXROI\n'+messages+host+placement+hit_test+'extension DCMView {\n'+drag+remove+gesture+'}\n'
 bridge=r'''
 #import <Cocoa/Cocoa.h>
 #import "HorosAlertPanel.h"
@@ -106,6 +119,7 @@ struct{float red,green,blue;} color; float opacity;
 @property(retain) NSString *textualBoxLine1,*textualBoxLine2,*textualBoxLine3,*textualBoxLine4,*textualBoxLine5,*textualBoxLine6;
 @property(assign) DCMView *curView;
 @property(copy) NSString *name;
+@property NSRect labelRect;
 @property(getter=ROImode, setter=setROIMode:) NSInteger roImode;
 -(id)initWithType:(ToolMode)t :(float)sx :(float)sy :(NSPoint)origin;
 -(NSInteger)clickInROI:(NSPoint)point :(float)width :(float)height :(float)scale :(BOOL)test;
@@ -214,7 +228,8 @@ static NSDictionary *_hotKeyDictionary;
 -(void)encodeWithCoder:(NSCoder*)c{[c encodeObject:points];}
 -(id)initWithCoder:(NSCoder*)c{if((self=[self init])){[points release];points=[[c decodeObject] mutableCopy];}return self;}
 -(id)copyWithZone:(NSZone*)z{ROI*r=[[[self class] alloc] init];[r->points addObjectsFromArray:points];return r;}
--(NSInteger)clickInROI:(NSPoint)point :(float)width :(float)height :(float)scale :(BOOL)test{return ROI_sleep;}
+// Only the label is hit here: the text box test of the real ROI, on labelRect.
+-(NSInteger)clickInROI:(NSPoint)point :(float)width :(float)height :(float)scale :(BOOL)test{return test&&NSPointInRect(point,self.labelRect)?ROI_selected:ROI_sleep;}
 -(void)recompute{}
 -(void)prepareTextualData:(NSPoint)p{}
 -(NSPoint)lowerRightPoint{return NSZeroPoint;}
@@ -314,6 +329,11 @@ int main(){@autoreleasepool{
  p.originZ=12;check([g beginLengthClick:shifted(NSEventTypeLeftMouseDown,2,3,NSEventModifierFlagShift)]);[g finishLengthClick:shifted(NSEventTypeLeftMouseUp,2,3,NSEventModifierFlagShift)];
  check(!g->lengthFirstEndpoint&&g.controller.added.count==addedBefore+1);
  for(NSNumber*f in @[@(NSEventModifierFlagShift|NSEventModifierFlagCommand),@(NSEventModifierFlagOption),@(NSEventModifierFlagControl)])check(![g beginLengthClick:shifted(NSEventTypeLeftMouseDown,2,3,f.unsignedIntegerValue)]);
+ // A click on a ROI's label is the ROI's: the established path selects it.
+ ROI *labelled=[[ROI new] autorelease];labelled.labelRect=NSMakeRect(20,20,6,3);[g->curRoiList addObject:labelled];
+ check(![g beginLengthClick:event(NSEventTypeLeftMouseDown,22,21)]&&!g->lengthClickEvent&&!g->lengthFirstEndpoint);
+ check([g beginLengthClick:event(NSEventTypeLeftMouseDown,28,21)]);[g cancelLengthPlacement];
+ [g->curRoiList removeObject:labelled];
  g.viewer2D=NO;check(![g beginLengthClick:event(NSEventTypeLeftMouseDown,2,3)]);p.originZ=0;
  p.pixelSpacingX=.5;p.orientation=@[@1,@0,@0,@1,@0,@0,@0,@0,@0];
  // Without valid patient geometry a click is still a point of its own image:
@@ -336,14 +356,15 @@ int main(){@autoreleasepool{
 '''
 with tempfile.TemporaryDirectory(prefix='horos-volume-length-') as d:
  p=Path(d);(p/'test.m').write_text(code);(p/'bridge.h').write_text(bridge);(p/'drag.swift').write_text(extension)
- subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','Harness',
-   '-import-objc-header',str(p/'bridge.h'),'-Xcc','-I'+str(root/'Horos/Sources'),'-c',str(p/'drag.swift'),'-o',str(p/'drag.o')],check=True)
  isix_modules.build_module('IsiXROI',p)
+ subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','Harness','-I',d,
+   '-import-objc-header',str(p/'bridge.h'),'-Xcc','-I'+str(root/'Horos/Sources'),'-c',str(p/'drag.swift'),'-o',str(p/'drag.o')],check=True)
  subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','LengthPresentation',
-   '-emit-objc-header-path',str(p/'LengthPresentation-Swift.h'),'-c',str(root/'Horos/Sources/LengthPresentation.swift'),'-o',str(p/'length.o')],check=True)
+   '-emit-objc-header-path',str(p/'LengthPresentation-Swift.h'),'-c',str(root/'Horos/Sources/LengthPresentation.swift'),
+   *process_graph_stand_in.swift_flags(p),'-wmo','-o',str(p/'length.o')],check=True)
  subprocess.run(['xcrun','clang','-c','-Werror','-fblocks','-fno-objc-arc','-Wno-deprecated-declarations','-Wno-objc-property-no-attribute','-fsanitize=undefined','-I',str(p),'-I',str(root/'Horos/Sources'),str(p/'test.m'),'-o',str(p/'test.o')],check=True)
  subprocess.run(['xcrun','clang','-c','-Werror','-Wdeprecated-declarations','-fblocks',str(root/'Horos/Sources/HorosAlertPanel.m'),'-I',str(root/'Horos/Sources'),'-o',str(p/'alert.o')],check=True)
- subprocess.run(['xcrun','swiftc',str(p/'drag.o'),str(p/'test.o'),str(p/'alert.o'),str(p/'length.o'),'-L',d,'-lIsiXROI','-framework','Cocoa','-framework','OpenGL','-sanitize=undefined','-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','swiftc',str(p/'drag.o'),str(p/'test.o'),str(p/'alert.o'),str(p/'length.o'),'-L',d,'-lIsiXROI','-lIsiXPreferences','-lIsiXLogging','-framework','Cocoa','-framework','OpenGL','-sanitize=undefined','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)
 
 

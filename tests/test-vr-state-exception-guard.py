@@ -15,7 +15,7 @@ HorosObjCException.caught and answer nil after _N2LogExceptionImpl;
 preset there and logs "Applying 3d preset exception".
 
 At run time: -load3DState as VRController+State.swift has it, with
-HorosObjCException.m and the `caught` helper of DCMPix+Database.swift, is
+HorosObjCException.m and the guards of HorosObjCException+Guards.swift, is
 compiled into a stand-in controller whose body reads a state file the way
 -[VRView set3DStateDictionary:] reads ShadingValues (that method's first
 statements and the readers of the saved values, cut from VRView+State.swift,
@@ -87,7 +87,9 @@ check(re.search(r'if let e = HorosObjCException\.caught\(\{ applySelectedPreset\
 view = read('Horos/Sources/VRView+State.swift')
 setter = re.search(r'    func set3DStateDictionary\(_ dict: \[AnyHashable: Any\]\?\) \{\n.*?        if let dict \{\n(.*?)\n            if renderingMode == 0', view, re.S)
 readers = re.search(r'\n(/// `\[x floatValue\]`.*?)\nextension VRView \{', view, re.S)
-helper = re.search(r'extension HorosObjCException \{.*?\n\}\n', read('Horos/Sources/DCMPix+Database.swift'), re.S)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import objc_exception_guards
+helper = objc_exception_guards.source()
 if not (setter and readers and helper and load):
     print('FAIL: the sources this probe compiles moved; the test needs a new look')
     sys.exit(1)
@@ -156,7 +158,7 @@ with tempfile.TemporaryDirectory() as tmp:
     t = Path(tmp)
     (t / 'stub.h').write_text(STUB_H)
     (t / 'stub.m').write_text(STUB_M)
-    (t / 'main.swift').write_text(MAIN.replace('@@HELPER@@', helper.group(0)).replace('@@READERS@@', readers.group(1))
+    (t / 'main.swift').write_text(MAIN.replace('@@HELPER@@', helper).replace('@@READERS@@', readers.group(1))
                                   .replace('@@SETTER@@', setter.group(1))
                                   .replace('@@LOAD@@', load.replace('public override func load3DState', 'func load3DState')))
     import plistlib

@@ -7,18 +7,23 @@ neither hidden, locked nor unselectable, so that the next Delete removes it.
 The list runs from the front to the back and a new ROI is brought to the
 front, so the first is the newest, and the list keeps that order through a
 save and a reopening. -[ViewerController bringToFrontROI:], called on every
-new ROI, is checked to still insert at the start. Nothing is selected while another ROI is still selected or
+new ROI, is checked to still insert at the start (ROIGroups.broughtToFront,
+whose order IsiXROI's module tests check). Nothing is selected while another ROI is still selected or
 being edited, and nothing when ROISelectPreviousAfterDelete is off.
 
-The production -selectSuccessorOfDeletedROIs (DCMView+ROIEditing.swift) and
-HorosROIDeletionSuccessor run here against a stand-in ROI with the properties
-they read. The switch is registered on and bound once in every localization of
+The production -selectSuccessorOfDeletedROIs (DCMView+ROIEditing.swift), with
+the ROIs read as ViewROIEditing reads them, IsiXROI's ROIEditingSession that
+chooses the successor and ROIEventEmitter that announces it, runs here against
+a stand-in ROI with the properties they read; HorosROIDeletionSuccessor gives
+the switch. The switch is registered on and bound once in every localization of
 the Viewer pane.
 """
 from pathlib import Path
 import re
 import subprocess
 import tempfile
+import process_graph_stand_in  # the 2D viewer's sources read the catalog's keys through PreferencesSource
+import isix_modules
 import xml.etree.ElementTree as ET
 
 root = Path(__file__).resolve().parents[1]
@@ -33,10 +38,31 @@ def swift_method(selector):
 
 method = swift_method('selectSuccessorOfDeletedROIs')
 
+
+def static_member(text, start):
+    begin = text.index(start)
+    return text[begin:text.index('\n    }\n', begin) + 7]
+
+
+# The ROIs as ViewROIEditing reads them, and ROIEventEmitter, without the main
+# actor of the view they serve.
+view_editing = (root / 'Horos/Sources/ViewROIEditing.swift').read_text()
+helpers = 'enum ViewROIEditing {\n' + static_member(view_editing, '    static func rois(') + \
+    static_member(view_editing, '    static func session(') + '}\n'
+emitter = (root / 'Horos/Sources/ROIEventEmitter.swift').read_text().replace('@MainActor\n', '')
+
 code = r"""
 import Cocoa
+import IsiXROI
 let ROI_sleep = 0, ROI_drawing = 1, ROI_selected = 2, ROI_selectedModify = 3
-extension NSNotification.Name { static let OsirixROISelected = NSNotification.Name("OsirixROISelectedNotification") }
+extension NSNotification.Name {
+    static let OsirixROISelected = NSNotification.Name("OsirixROISelectedNotification")
+    static let OsirixRemoveROI = NSNotification.Name("OsirixRemoveROINotification")
+    static let OsirixROIRemovedFromArray = NSNotification.Name("OsirixROIRemovedFromArrayNotification")
+    static let OsirixAddROI = NSNotification.Name("OsirixAddROINotification")
+    static let OsirixROIChange = NSNotification.Name("OsirixROIChangeNotification")
+}
+HELPERS
 final class ROI: NSObject {
     @objc dynamic var hidden = false, locked = false, selectable = true
     @objc(ROImode) dynamic var roImode = 0
@@ -93,13 +119,15 @@ v.selectSuccessorOfDeletedROIs()
 check(last.roImode == ROI_sleep && notified == nil, "switch off")
 check(ROIDeletionSuccessor.preferenceKey == "KEY", "the preference key")
 print("PASS: front of the list first, repeated deletions, hidden/locked/unselectable skipped, selection kept, switch off")
-""".replace('METHOD', method).replace('KEY', KEY)
+""".replace('HELPERS', helpers).replace('METHOD', method).replace('KEY', KEY)
 
 with tempfile.TemporaryDirectory(prefix='horos-delete-successor-') as folder:
     p = Path(folder)
     (p / 'main.swift').write_text(code)
+    (p / 'emitter.swift').write_text(emitter)
     subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-module-cache-path', str(p / 'modules'),
-                    str(p / 'main.swift'), str(root / 'Horos/Sources/ROIDeletionSuccessor.swift'),
+                    str(p / 'main.swift'), str(p / 'emitter.swift'), str(root / 'Horos/Sources/ROIDeletionSuccessor.swift'),
+                    *process_graph_stand_in.swift_flags(p / 'isix'), *isix_modules.module_flags('IsiXROI', p / 'isix'),
                     '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test')], check=True)
 
@@ -119,10 +147,22 @@ assert 'if removed {\n                self.selectSuccessorOfDeletedROIs()' in te
 mouse = (root / 'Horos/Sources/DCMView+Mouse.swift').read_text()
 creation = mouse[mouse.index('self.horos_curRoiList?.add(aNewROI)'):]
 assert creation.index('wc?.inputBringToFrontROI(aNewROI)') < 1200, 'a new ROI is no longer brought to the front'
+# -bringToFrontROI: is a façade over ViewerROISelection.bringToFront, which
+# puts in the image's list the order ROIGroups.broughtToFront (IsiXROI) gives:
+# an ungrouped ROI first, then the others in their order.
 editing = (root / 'Horos/Sources/ViewerController+ROI+Editing.swift').read_text()
-front = editing[editing.index('func bring(toFrontROI roi: ROI!)'):]
-front = front[:front.index('} else {')]
-assert 'objcInsert(self.roi2CurrentSlice(), roi, 0)' in front, 'Bring to Front no longer inserts at the start of the list'
+facade = editing[editing.index('func bring(toFrontROI roi: ROI!)'):]
+assert 'ViewerROISelection.bringToFront(roi, in: self)' in facade[:facade.index('\n    }\n')], \
+    'Bring to Front no longer goes through ViewerROISelection'
+front = editing[editing.index('static func bringToFront(_ roi: ROI?, in viewer: ViewerController)'):]
+front = front[:front.index('\n    }\n')]
+assert 'shown.replace(with: ROIGroups.broughtToFront(shown.rois, roi,' in front, 'Bring to Front no longer reorders the image\'s list'
+groups = (root / 'Modules/IsiXROI/Sources/ROIGroups.swift').read_text()
+rule = groups[groups.index('public static func broughtToFront<Item>'):]
+rule = rule[:rule.index('\n    }\n')]
+moving = groups[groups.index('private static func moving<Item>'):]
+assert 'return moved.front + moved.rest' in rule and 'front = [target]' in moving, \
+    'Bring to Front no longer inserts at the start of the list'
 
 import sys  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent))

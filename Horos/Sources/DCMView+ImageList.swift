@@ -40,6 +40,7 @@
 import Cocoa
 import IsiXImaging
 import IsiXDICOMFile
+import IsiXPreferences
 
 // The series a DCMView shows and the image on screen: the lists of pixels,
 // files and ROIs it is given, the index that picks the image, and what follows
@@ -62,10 +63,10 @@ extension DCMView {
 
             self.horos_curImage = SeriesDisplay.clampedIndex(index, count: dcmPixList.count)
 
-            self.curDCM = (dcmPixList.object(at: Int(self.horos_curImage)) as! DCMPix)
+            self.curDCM = dcmPixList.object(at: Int(self.horos_curImage)) as? DCMPix
 
             if let dcmRoiList = self.horos_dcmRoiList {
-                self.horos_curRoiList = (dcmRoiList.object(at: Int(self.horos_curImage)) as! NSMutableArray)
+                self.horos_curRoiList = dcmRoiList.object(at: Int(self.horos_curImage)) as? NSMutableArray
             } else {
                 self.horos_curRoiList = NSMutableArray(capacity: 0)
             }
@@ -78,13 +79,11 @@ extension DCMView {
             }
 
             let curDCM: DCMPix = self.curDCM
-            self.horos_curWL = curDCM.wl
-            self.horos_curWW = curDCM.ww
-            self.horos_curWLWWSUVConverted = curDCM.suvConverted
-            self.horos_curWLWWSUVFactor = 1.0
-            if self.horos_curWLWWSUVConverted && self.is2DViewer() {
-                self.horos_curWLWWSUVFactor = viewerMessages(self.windowController())?.viewerFactorPET2SUV() ?? 0
+            var state = self.windowLevelState
+            state.mirror(level: curDCM.wl, width: curDCM.ww, suvConverted: curDCM.suvConverted) {
+                self.is2DViewer() ? (viewerMessages(self.windowController())?.viewerFactorPET2SUV() ?? 0) : 1
             }
+            self.windowLevelState = state
 
             self.horos_origin.x = 0
             self.horos_origin.y = 0
@@ -93,7 +92,7 @@ extension DCMView {
             // get Presentation State info from series Object
             self.updatePresentationStateFromSeries()
 
-            curDCM.checkImageAvailble(self.horos_curWW, self.horos_curWL)
+            curDCM.checkImageAvailble(self.windowLevelState.width, self.windowLevelState.level)
 
             if sizeToFit && self.is2DViewer() == false {
                 self.scaleToFit()
@@ -125,17 +124,16 @@ extension DCMView {
     @objc(setPixels:files:rois:firstImage:level:reset:)
     public dynamic func setPixels(_ pixels: NSMutableArray!, files: NSArray!, rois: NSMutableArray!, firstImage: Int, level: CChar, reset: Bool) {
         self.horosDiscardScrollPreview()
-        DCMView.horos_static_drawLock?.lock()
 
         // The caller's array itself, not a bridged copy: the view lists the
         // files the viewer lists, as the instance variable did.
-        inputLogException(inputCatch {
+        inputLogException(HorosObjCException.caughtWithoutAllocation {
             if self.is2DViewer() {
-                let defaults = UserDefaults.standard
-                self.horos_currentToolRight = ToolMode(rawValue: Int16(truncatingIfNeeded: defaults.integer(forKey: "DEFAULTRIGHTTOOL"))) ?? .tWL
+                let preferences = PreferencesSource.process.preferences
+                self.horos_currentToolRight = ToolMode(rawValue: Int16(truncatingIfNeeded: preferences[ViewerPreferences.defaultRightTool])) ?? .tWL
 
-                if defaults.bool(forKey: "RestoreLeftMouseTool") {
-                    self.horos_currentTool = ToolMode(rawValue: Int16(truncatingIfNeeded: defaults.integer(forKey: "DEFAULTLEFTTOOL"))) ?? .tWL
+                if preferences[ViewerPreferences.restoresLeftMouseTool] {
+                    self.horos_currentTool = ToolMode(rawValue: Int16(truncatingIfNeeded: preferences[ViewerPreferences.defaultLeftTool])) ?? .tWL
                 }
             }
 
@@ -147,14 +145,13 @@ extension DCMView {
 
             if self.horos_dcmPixList !== pixels {
                 self.cancelLengthPlacement()
-                self.horos_slabScrollRemainder = 0
-                self.horos_slabScrollTimestamp = 0
+                self.stackNavigation.forgetSlabScroll()
                 self.horos_dcmPixList = pixels
 
                 self.horos_volumicSeries = true
 
                 if let files, files.count > 0 {
-                    let sopClassUID = (files.object(at: 0) as AnyObject).value(forKeyPath: "series.seriesSOPClassUID") as? String
+                    let sopClassUID = (files.object(at: 0) as? DicomImage)?.series?.seriesSOPClassUID
                     if !(DICOMSOPClass.isImageStorage(sopClassUID) || DICOMSOPClass.isRadiotherapy(sopClassUID)
                          || DICOMSOPClass.isStructuredReport(sopClassUID) || sopClassUID == nil) {
                         NSLog("*** DCMView ! ****** It's not a DICOM image ? SOP Class UID: %@", sopClassUID ?? "")
@@ -191,8 +188,6 @@ extension DCMView {
 
             self.needsDisplay = true
         }, "-[DCMView setPixels:files:rois:firstImage:level:reset:]")
-
-        DCMView.horos_static_drawLock?.unlock()
     }
 
     @objc(setDCM::::::)
@@ -205,15 +200,13 @@ extension DCMView {
     /// shown, the mouse values, the tiles.
     @objc(setIndex:)
     public dynamic func setIndex(_ index: Int) {
-        DCMView.horos_static_drawLock?.lock()
-
-        inputLogException(inputCatch {
+        inputLogException(HorosObjCException.caughtWithoutAllocation {
             self.stopROIEditing()
 
             self.window?.acceptsMouseMovedEvents = true
 
             if let dcmPixList = self.horos_dcmPixList, index > -1, dcmPixList.count > 0 {
-                let firstPath = ((self.horos_dcmFilesList?.object(at: 0) as AnyObject?)?.value(forKey: "completePath") as? NSString)?.lastPathComponent
+                let firstPath = ((self.horos_dcmFilesList?.object(at: 0) as? DicomImage)?.completePath() as NSString?)?.lastPathComponent
                 self.horos_noScale = firstPath == "Empty.tif"
 
                 self.horos_curImage = SeriesDisplay.clampedIndex(index, count: dcmPixList.count)
@@ -221,14 +214,14 @@ extension DCMView {
                 // The former image is released after the new one is loaded, which
                 // keeps the cached group of a multi-frame image.
                 let formerPix = self.curDCM
-                self.curDCM = (dcmPixList.object(at: Int(self.horos_curImage)) as! DCMPix)
+                self.curDCM = dcmPixList.object(at: Int(self.horos_curImage)) as? DCMPix
 
                 self.curDCM.checkLoad()
 
                 withExtendedLifetime(formerPix) {}
 
                 if let dcmRoiList = self.horos_dcmRoiList {
-                    self.horos_curRoiList = (dcmRoiList.object(at: Int(self.horos_curImage)) as! NSMutableArray)
+                    self.horos_curRoiList = dcmRoiList.object(at: Int(self.horos_curImage)) as? NSMutableArray
                 } else {
                     self.horos_curRoiList = NSMutableArray(capacity: 0)
                 }
@@ -284,8 +277,6 @@ extension DCMView {
 
             self.updateTilingViews()
         }, "-[DCMView setIndex:]")
-
-        DCMView.horos_static_drawLock?.unlock()
     }
 
     /// The view's window applied to the new image when it differs from the
@@ -293,10 +284,11 @@ extension DCMView {
     /// available with it.
     private func applyWindowLevelOfImage() {
         let curDCM: DCMPix = self.curDCM
-        if self.horos_curWW != curDCM.ww || self.horos_curWL != curDCM.wl || curDCM.updateToApply() == true {
+        let window = self.windowLevelState
+        if window.width != curDCM.ww || window.level != curDCM.wl || curDCM.updateToApply() == true {
             self.reapplyWindowLevel()
         } else {
-            curDCM.checkImageAvailble(self.horos_curWW, self.horos_curWL)
+            curDCM.checkImageAvailble(window.width, window.level)
         }
     }
 
@@ -310,9 +302,9 @@ extension DCMView {
 
     /// The patient's age shown with the image, and at acquisition when different.
     private func updateYearOld() {
-        let file = self.horos_dcmFilesList?.object(at: Int(self.horos_curImage)) as AnyObject?
-        let now = file?.value(forKeyPath: "series.study.yearOld") as? String
-        let acquisition = file?.value(forKeyPath: "series.study.yearOldAcquisition") as? String
+        let study = (self.horos_dcmFilesList?.object(at: Int(self.horos_curImage)) as? DicomImage)?.series?.study
+        let now = study?.yearOld()
+        let acquisition = study?.yearOldAcquisition()
         self.yearOld = SeriesDisplay.ageText(now: now, atAcquisition: acquisition)
     }
 
@@ -325,10 +317,10 @@ extension DCMView {
             let v = note?.object as AnyObject?
 
             if v === self.horos_dcmPixList {
-                let userInfo = note?.userInfo as NSDictionary?
-                let x = DCMViewSettings.intValue(userInfo?.value(forKey: "x"))
-                let y = DCMViewSettings.intValue(userInfo?.value(forKey: "y"))
-                let z = DCMViewSettings.intValue(userInfo?.value(forKey: "z"))
+                let userInfo = note?.userInfo
+                let x = DCMViewSettings.intValue(userInfo?["x"])
+                let y = DCMViewSettings.intValue(userInfo?["y"])
+                let z = DCMViewSettings.intValue(userInfo?["z"])
                 self.horos_display2DPoint.x = CGFloat(x)
                 self.horos_display2DPoint.y = CGFloat(y)
                 self.horos_display2DPointIndex = z

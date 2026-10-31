@@ -25,14 +25,14 @@ import sys
 import tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from python_with import prefer  # noqa: E402
-from sources import class_text
+from sources import class_text, source_text
 prefer('import numpy')
 
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-# DicomDatabase is Swift: the incoming scan is DicomDatabase+IncomingImport.swift.
-database = class_text('DicomDatabase')
+# The incoming scan is IncomingAdmission.swift.
+database = source_text('IncomingAdmission')
 at = database.find('let indexesAnything =')
 accepted = database[at:at + 1600] if at >= 0 else ''
 if not accepted:

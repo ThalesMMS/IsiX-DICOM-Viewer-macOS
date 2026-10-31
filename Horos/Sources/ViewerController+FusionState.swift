@@ -25,6 +25,13 @@ final class ViewerFusionState: @unchecked Sendable {
 }
 
 extension ViewerController {
+    /// The fusion of this viewer, for one call: the fusion with another
+    /// viewer, the sheet of a viewer dropped on it, its slider and mode, and
+    /// the re-alignment of a fused series.
+    var fusion: ViewerFusion {
+        ViewerFusion(viewer: self, processGraph: sessionGraph.processGraph, preferences: sessionGraph.preferences)
+    }
+
     var horos_blending: ViewerController? {
         get { fusionState.blendingController }
         set { fusionState.blendingController = newValue }

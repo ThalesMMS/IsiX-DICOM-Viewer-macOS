@@ -87,7 +87,7 @@ public extension ViewerController {
         NSLog("executeFilter")
 
         var failed = false
-        if let exception = viewerObjCTry({
+        if let exception = HorosObjCException.caught({
             let result = viewerObjCSendLong(filter as AnyObject, "prepareFilter:", self)
             if result != 0 {
                 HorosAlertPanel.run(title: NSLocalizedString("Plugins Error", comment: ""),
@@ -108,7 +108,7 @@ public extension ViewerController {
             return
         }
 
-        if let exception = viewerObjCTry({
+        if let exception = HorosObjCException.caught({
             let result = viewerObjCSendLong(filter as AnyObject, "filterImage:", name as NSString?)
             if result != 0 {
                 HorosAlertPanel.run(title: NSLocalizedString("Plugins Error", comment: ""),
@@ -147,14 +147,7 @@ public extension ViewerController {
 
     @objc(resampleDataBy2:)
     func resampleDataBy2(_ sender: Any!) {
-        let waitWindow = startWaitWindow(NSLocalizedString("Resampling data...", comment: ""))
-        let isResampled = resampleDataBy2()
-        endWaitWindow(waitWindow)
-        if !isResampled {
-            HorosAlertPanel.run(title: NSLocalizedString("Not enough memory", comment: ""),
-                                message: NSLocalizedString("Cannot complete the resampling.\r\rClose other studies or open a smaller series. Nothing was reduced silently.", comment: ""),
-                                defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-        }
+        SeriesResampling(viewer: self).resampleBy2ShowingProgress()
     }
 
     @objc(resampleDataBy2)
@@ -176,84 +169,7 @@ public extension ViewerController {
     @objc(resampleDataWithXFactor:yFactor:zFactor:)
     @discardableResult
     func resampleData(withXFactor xFactor: Float, yFactor: Float, zFactor: Float) -> Bool {
-        checkEverythingLoaded()
-        horos_imageView?.stopROIEditingForce(true)
-
-        var resampled: [(pix: NSMutableArray, files: NSMutableArray, data: NSData?)] = []
-        let wasDataFlipped = horos_imageView?.flippedData ?? false
-        let index = horos_imageView?.curImage ?? 0
-
-        // Each movie frame's ROIs, copied before the series changes.
-        var savedROIs: [[[ROI]]] = []
-
-        for j in 0..<horos_movieCount {
-            var snapshots: [[ROI]] = []
-            for case let rois as NSArray in horos_roiList(at: j) ?? NSMutableArray() {
-                var snapshot: [ROI] = []
-                for case let roi as ROI in rois {
-                    guard let copy = roi.copy() as? ROI else { return false }
-                    snapshot.append(copy)
-                }
-                snapshots.append(snapshot)
-            }
-            savedROIs.append(snapshots)
-
-            let newPixList = NSMutableArray(), newDcmList = NSMutableArray()
-            var newData: NSData? = nil
-            guard ViewerController.resampleData(fromViewer: self, inPixArray: newPixList, fileArray: newDcmList, data: &newData,
-                                                withXFactor: xFactor, yFactor: yFactor, zFactor: zFactor, movieIndex: Int32(j)) else { return false }
-            resampled.append((newPixList, newDcmList, newData))
-            horos_postprocessed = true
-        }
-
-        horos_resampleRatio = xFactor
-
-        for (j, series) in resampled.enumerated() {
-            if j == 0 {
-                viewerChangeImageData(self, series.pix, series.files, series.data, false)
-            } else {
-                viewerAddMovieSerie(self, series.pix, series.files, series.data)
-            }
-        }
-
-        setPostprocessed(true)
-
-        _ = computeInterval()
-        setWindowTitle(self)
-
-        if wasDataFlipped { flipDataSeries(self) }
-
-        horos_imageView?.setIndex(index)
-        horos_imageView?.sendSyncMessage(0)
-
-        adjustSlider()
-
-        for j in 0..<min(horos_movieCount, savedROIs.count) {
-            let snapshots = savedROIs[j]
-            if snapshots.isEmpty { continue }
-            let pixCount = horos_pixList(at: j)?.count ?? 0
-            guard let rois = horos_roiList(at: j) else { continue }
-            for x in 0..<pixCount {
-                // The snapshot of the source slice: each new slice owns
-                // distinct ROIs, even when several map to one source.
-                var source = (x * snapshots.count) / pixCount
-                if source >= snapshots.count { source = snapshots.count - 1 }
-                guard let sliceROIs = rois.object(at: x) as? NSMutableArray else { continue }
-                for roi in snapshots[source] {
-                    if let copy = roi.copy() as? ROI { sliceROIs.add(copy) }
-                }
-
-                let current = horos_imageView?.curDCM
-                for case let roi as ROI in sliceROIs {
-                    roi.setOriginAndSpacing(Float(current?.pixelSpacingX ?? 0), Float(current?.pixelSpacingY ?? 0),
-                                            DCMPix.originCorrected(accordingToOrientation: current))
-                }
-            }
-        }
-        horos_imageView?.roiSet()
-        if let imageView = horos_imageView { imageView.scaleValue = imageView.scaleValue * xFactor }
-
-        return true
+        SeriesResampling(viewer: self).resample(xFactor: xFactor, yFactor: yFactor, zFactor: zFactor)
     }
 
     @objc(resampleDataFromViewer:inPixArray:fileArray:data:withXFactor:yFactor:zFactor:)
@@ -285,10 +201,139 @@ public extension ViewerController {
                                         inPixArray aPixList: NSMutableArray!, fileArray aFileList: NSMutableArray!,
                                         data aData: AutoreleasingUnsafeMutablePointer<NSData?>!,
                                         withXFactor xFactor: Float, yFactor: Float, zFactor: Float) -> Bool {
+        guard let made = SeriesResampling.resample(originalPixlist, files: originalFileList ?? [],
+                                                   xFactor: xFactor, yFactor: yFactor, zFactor: zFactor) else { return false }
+        for (z, pix) in made.slices.enumerated() {
+            aFileList?.add(made.files[z])
+            aPixList?.add(pix)
+
+            // The slice keeps the list it is in: the list itself, not a copy.
+            if let aPixList, let last = aPixList.lastObject as? DCMPix {
+                viewerSetArrayPix(last, aPixList, Int(truncatingIfNeeded: z))
+                last.id = z
+            }
+        }
+        aData?.pointee = made.data
+        return true
+    }
+}
+
+/// The resampling of a 2D viewer's series, made for each call: it holds the
+/// viewer for that call only. The sizes, geometry and pixel passes are
+/// IsiXImaging's VolumeResamplingPlan, ResampledStackOrigin and
+/// VolumeResampler; here the viewer's DCMPix are copied, their values and
+/// buffers handed over, and the new series, with its ROIs, takes the place of
+/// the old one.
+@MainActor struct SeriesResampling {
+
+    let viewer: ViewerController
+
+    /// Halves the series along each axis behind a wait window, with an alert
+    /// when there is not enough memory.
+    func resampleBy2ShowingProgress() {
+        let waitWindow = viewer.startWaitWindow(NSLocalizedString("Resampling data...", comment: ""))
+        let isResampled = viewer.resampleDataBy2()
+        viewer.endWaitWindow(waitWindow)
+        if !isResampled {
+            HorosAlertPanel.run(title: NSLocalizedString("Not enough memory", comment: ""),
+                                message: NSLocalizedString("Cannot complete the resampling.\r\rClose other studies or open a smaller series. Nothing was reduced silently.", comment: ""),
+                                defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+        }
+    }
+
+    /// Resamples every movie frame of the series by these factors and shows
+    /// the result in the viewer, with its ROIs spread over the new slices;
+    /// false, with the series as it was, when there is not enough memory.
+    func resample(xFactor: Float, yFactor: Float, zFactor: Float) -> Bool {
+        viewer.checkEverythingLoaded()
+        viewer.horos_imageView?.stopROIEditingForce(true)
+
+        var resampled: [(pix: NSMutableArray, files: NSMutableArray, data: NSData?)] = []
+        let wasDataFlipped = viewer.horos_imageView?.flippedData ?? false
+        let index = viewer.horos_imageView?.curImage ?? 0
+
+        // Each movie frame's ROIs, copied before the series changes.
+        var savedROIs: [[[ROI]]] = []
+
+        for j in 0..<viewer.horos_movieCount {
+            var snapshots: [[ROI]] = []
+            for case let rois as [Any] in viewer.horos_roiList(at: j) ?? [] {
+                var snapshot: [ROI] = []
+                for case let roi as ROI in rois {
+                    guard let copy = roi.copy() as? ROI else { return false }
+                    snapshot.append(copy)
+                }
+                snapshots.append(snapshot)
+            }
+            savedROIs.append(snapshots)
+
+            let newPixList = NSMutableArray(), newDcmList = NSMutableArray()
+            var newData: NSData? = nil
+            guard ViewerController.resampleData(fromViewer: viewer, inPixArray: newPixList, fileArray: newDcmList, data: &newData,
+                                                withXFactor: xFactor, yFactor: yFactor, zFactor: zFactor, movieIndex: Int32(j)) else { return false }
+            resampled.append((newPixList, newDcmList, newData))
+            viewer.horos_postprocessed = true
+        }
+
+        viewer.horos_resampleRatio = xFactor
+
+        for (j, series) in resampled.enumerated() {
+            if j == 0 {
+                viewerChangeImageData(viewer, series.pix, series.files, series.data, false)
+            } else {
+                viewerAddMovieSerie(viewer, series.pix, series.files, series.data)
+            }
+        }
+
+        viewer.setPostprocessed(true)
+
+        _ = viewer.computeInterval()
+        viewer.setWindowTitle(viewer)
+
+        if wasDataFlipped { viewer.flipDataSeries(viewer) }
+
+        viewer.horos_imageView?.setIndex(index)
+        viewer.horos_imageView?.sendSyncMessage(0)
+
+        viewer.adjustSlider()
+
+        for j in 0..<min(viewer.horos_movieCount, savedROIs.count) {
+            let snapshots = savedROIs[j]
+            if snapshots.isEmpty { continue }
+            let pixCount = viewer.horos_pixList(at: j)?.count ?? 0
+            guard let rois = viewer.horos_roiList(at: j) else { continue }
+            for x in 0..<pixCount {
+                // The snapshot of the source slice: each new slice owns
+                // distinct ROIs, even when several map to one source.
+                var source = (x * snapshots.count) / pixCount
+                if source >= snapshots.count { source = snapshots.count - 1 }
+                guard let sliceROIs = rois.object(at: x) as? NSMutableArray else { continue }
+                for roi in snapshots[source] {
+                    if let copy = roi.copy() as? ROI { sliceROIs.add(copy) }
+                }
+
+                let current = viewer.horos_imageView?.curDCM
+                for case let roi as ROI in sliceROIs {
+                    roi.setOriginAndSpacing(Float(current?.pixelSpacingX ?? 0), Float(current?.pixelSpacingY ?? 0),
+                                            DCMPix.originCorrected(accordingToOrientation: current))
+                }
+            }
+        }
+        viewer.horos_imageView?.roiSet()
+        if let imageView = viewer.horos_imageView { imageView.scaleValue = imageView.scaleValue * xFactor }
+
+        return true
+    }
+
+    /// Resamples `originals` (DCMPix) by these factors: copies of the source
+    /// slices with the new size and geometry, the source file of each, and
+    /// the buffer that holds their pixels. Nil when there is not enough
+    /// memory, or no slice.
+    nonisolated static func resample(_ originals: [Any]?, files originalFiles: [Any],
+                                     xFactor: Float, yFactor: Float, zFactor: Float) -> ResampledSeries? {
         NSLog("resampleDataFromPixArray - factor : %f", Double(xFactor))
 
-        guard let originals = originalPixlist as? [DCMPix], let first = originals.first else { return false }
-        let originalFiles = originalFileList ?? []
+        guard let originals = originals as? [DCMPix], let first = originals.first else { return nil }
 
         let sliceInterval = Float(first.sliceInterval)
         if sliceInterval == 0 {
@@ -297,7 +342,7 @@ public extension ViewerController {
 
         guard let plan = VolumeResamplingPlan(width: first.pwidth, height: first.pheight, count: originals.count,
                                               sliceInterval: sliceInterval, xFactor: xFactor, yFactor: yFactor, zFactor: zFactor),
-              let buffer = plan.allocateBuffer() else { return false }
+              let buffer = plan.allocateBuffer() else { return nil }
 
         let stack = ResampledStackOrigin(first: sliceGeometry(first), second: originals.count > 1 ? sliceGeometry(originals[1]) : nil,
                                          zFactor: plan.zFactor)
@@ -307,7 +352,7 @@ public extension ViewerController {
         var newPixList: [DCMPix] = []
         for z in 0..<plan.count {
             let curPix = originals[plan.sourceIndex(ofSlice: z)]
-            guard let copyPix = curPix.copy() as? DCMPix else { return false }
+            guard let copyPix = curPix.copy() as? DCMPix else { return nil }
             newPixList.append(copyPix)
 
             copyPix.pwidth = plan.width
@@ -337,18 +382,16 @@ public extension ViewerController {
         VolumeResampler.scaleSlices(plan, slices: originals.map { $0.fImage }, isRGB: originals.map { $0.isRGB }, into: buffer)
         VolumeResampler.scaleAlongZ(plan, buffer: buffer, isRGB: newPixList[0].isRGB)
 
-        for z in 0..<plan.count {
-            aFileList?.add(originalFiles[plan.sourceIndex(ofSlice: z)])
-            aPixList?.add(newPixList[z])
-
-            if let aPixList, let last = aPixList.lastObject as? DCMPix {
-                viewerSetArrayPix(last, aPixList, Int(truncatingIfNeeded: z))
-                last.id = z
-            }
-        }
-        aData?.pointee = newData
-        return true
+        return ResampledSeries(slices: newPixList, files: (0..<plan.count).map { originalFiles[plan.sourceIndex(ofSlice: $0)] }, data: newData)
     }
+}
+
+/// The slices, files and pixels of a resampled series: copies of the source
+/// slices, the source file of each, and the buffer their pixels point into.
+struct ResampledSeries {
+    let slices: [DCMPix]
+    let files: [Any]
+    let data: NSData
 }
 
 /// What the resampling reads of a DCMPix.

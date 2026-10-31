@@ -4,14 +4,14 @@
 Source level, with `<git revision>` as an optional argument for the negative
 control (run against 56c91e586, before the fix, it must fail).
 
--saveLoadAlbumsSortDescriptors of BrowserController (Swift) keeps
-the selected album as an identifier: the album's objectID, or an empty
-dictionary for the Database row. It returned early when the selected album was
-the same as before, but it compared the album itself with that identifier,
-which never matched, so the outline's sort descriptors and columns were loaded
-again on every call. The comparison now uses the identifier computed the same
-way as the one stored, and it happens after the previous album's descriptors
-are saved, as before.
+-saveLoadAlbumsSortDescriptors of BrowserController forwards to
+StudyListContent.saveLoadSortDescriptors(), which keeps the album shown as a
+layout key: the album's objectID, or the database for the Database row. It
+returned early when the selected album was the same as before, but it once
+compared the album itself with the stored identifier, which never matched, so
+the outline's sort descriptors and columns were loaded again on every call. The
+comparison uses the key computed the same way as the one stored, and it happens
+after the previous album's layout is saved, as before.
 
 The selected row is read from the albums only when it is inside them:
 a table not yet reloaded after the albums changed can select a row past their
@@ -26,7 +26,7 @@ import subprocess
 import sys
 
 root = Path(__file__).resolve().parents[1]
-PATH = 'Horos/Sources/BrowserController+AlbumsTableView.swift'
+PATH = 'Horos/Sources/StudyListContent.swift'
 
 
 def read(path):
@@ -53,34 +53,33 @@ def block(source, start):
 
 
 source = read(PATH)
-body = block(source, source.find('@objc(saveLoadAlbumsSortDescriptors)'))
+body = block(source, source.find('func saveLoadSortDescriptors()'))
 failures = []
 
 if not body:
-    failures.append('no -saveLoadAlbumsSortDescriptors in %s' % PATH)
+    failures.append('no saveLoadSortDescriptors() in %s' % PATH)
 else:
-    if re.search(r'\(selectedAlbum as\? \w+\)\??\.isEqual\(previousSelectedAlbumId\)'
-                 r'|[^(]selectedAlbum\??\.isEqual\(previousSelectedAlbumId\)', body):
-        failures.append('the selected album itself is still compared with the stored identifier')
-    compared = re.search(r'(\w+)\(selectedAlbum\)\??\.isEqual\(previousSelectedAlbumId\)', body)
-    stored = re.search(r'previousSelectedAlbumId = (\w+)\(selectedAlbum\)', body)
+    if re.search(r'[^(]selectedAlbum\??\s*==\s*shownLayout|\(selectedAlbum as\? \w+\)\??\s*==\s*shownLayout', body):
+        failures.append('the selected album itself is still compared with the stored key')
+    compared = re.search(r'(\w+)\(of: selectedAlbum\) == shownLayout', body)
+    stored = re.search(r'shownLayout = [^\n]*?(\w+)\(of: selectedAlbum\)', body)
     if not compared:
-        failures.append('the selected album is not compared by identifier')
+        failures.append('the selected album is not compared by its key')
     elif not stored or stored.group(1) != compared.group(1):
-        failures.append('the compared identifier is not computed as the stored one')
-    helper = block(body, body.find('func %s(' % compared.group(1))) if compared else ''
-    if helper and ('.objectID' not in helper or 'NSDictionary()' not in helper):
-        failures.append('the identifier is no longer the objectID, or an empty dictionary for the Database row')
-    access = body.find('albums?.object(at: selection)')
-    guard = re.search(r'if selection >= 0 && selection < \(?albums\??\.count(?: \?\? 0\))? \{', body)
+        failures.append('the compared key is not computed as the stored one')
+    helper = block(source, source.find('func %s(of' % compared.group(1))) if compared else ''
+    if helper and ('.objectID' not in helper or '.database' not in helper):
+        failures.append('the key is no longer the objectID, or the database for the Database row')
+    access = body.find('albums[selection]')
+    guard = re.search(r'if selection >= 0 && selection < albums\.count \{', body)
     if access < 0:
         failures.append('the selected album is no longer read from the albums at the selected row')
     elif not guard or guard.end() > access or body.find('}', guard.end()) < access:
         failures.append('the selected row is read from the albums without checking it is inside them')
-    save = body.find('self.saveSortDescriptors(self._album(withID: previousSelectedAlbumId))')
-    early = body.find('return', body.find('.isEqual(previousSelectedAlbumId)'))
+    save = body.find('saveLayout(for: shownLayout)')
+    early = body.find('return', body.find('== shownLayout'))
     if save < 0 or early < 0 or save > early:
-        failures.append('the previous album\'s descriptors are no longer saved before the early return')
+        failures.append('the previous album\'s layout is no longer saved before the early return')
 
 if failures:
     print('FAIL:\n  ' + '\n  '.join(failures))

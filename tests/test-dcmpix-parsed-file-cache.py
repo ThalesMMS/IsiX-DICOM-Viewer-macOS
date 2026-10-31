@@ -40,11 +40,16 @@ except (subprocess.CalledProcessError, FileNotFoundError):
 pix_objc = '- (BOOL)loadDICOMWithDCMTK' in pix
 header = read('Horos/Sources/DCMPix.h')
 browser = class_text('BrowserController')
-# The preview's reuse of a viewer's frame is Swift (BrowserController+Thumbnails.swift).
+# The preview's reuse of a viewer's frame is Swift: BrowserController+Thumbnails.swift,
+# whose selector now hands it to the database preview (BrowserPreviewPane.swift).
 try:
     thumbnails = read('Horos/Sources/BrowserController+Thumbnails.swift')
 except (subprocess.CalledProcessError, FileNotFoundError):
     thumbnails = ''
+try:
+    pane = read('Horos/Sources/BrowserPreviewPane.swift')
+except (subprocess.CalledProcessError, FileNotFoundError):
+    pane = ''
 failures = []
 
 
@@ -172,8 +177,10 @@ if reuse:
         failures.append('the copy must only be taken when the pix is loaded and current')
 else:
     reuse = method(thumbnails, 'nonisolated func getDCMPix(fromViewerIfAvailable pathToFind: String!, frameNumber: Int32, expectedFrame:', '\n    }\n}\n')
+    if 'BrowserPreviewPane.lentFrame(path: pathToFind, frame: frameNumber, expected: expectedFrame)' in reuse:
+        reuse = method(pane, '    private static func lentFrameOnMainActor(', '\n    }\n}\n')
     if not reuse:
-        failures.append('getDCMPixFromViewerIfAvailable:frameNumber:expectedFrame: is in neither BrowserController.m nor BrowserController+Thumbnails.swift')
+        failures.append('getDCMPixFromViewerIfAvailable:frameNumber:expectedFrame: is in neither BrowserController.m, BrowserController+Thumbnails.swift nor BrowserPreviewPane.swift')
     if 'if dcmPix.isLoaded() && !dcmPix.loadedFileMatchesDisk() {' not in reuse:
         failures.append('the browser reuses a viewer frame without checking the file on disk')
     if reuse.find('dcmPix.checkLoad()') < 0 or reuse.find('dcmPix.checkLoad()') > reuse.find('loadedFileMatchesDisk'):

@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Foundation
+import IsiXPreferences
 
 // AppController (DCMTK codecs): the codecs DCMTK decodes and encodes pixel
 // data with, registered at launch through Adapters/DCMTK/IsiXDCMTKCodecs, and
@@ -47,14 +48,17 @@ import Foundation
 /// Photometric Interpretation decodes by the marker. Followed as it changes;
 /// before the defaults are registered, its default (on) applies.
 private enum JPEGColourPreference {
-    nonisolated(unsafe) static let observation: NSObjectProtocol = {
+    /// Follows the preference from the first read on, for the life of the
+    /// application: nothing removes the observer, so its token is not kept.
+    static let observation: Void = {
         follow()
-        return NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil,
-                                                      queue: nil) { _ in follow() }
+        _ = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil,
+                                                   queue: nil) { _ in follow() }
     }()
 
     static func follow() {
-        let value = UserDefaults.standard.object(forKey: "UseJPEGColorSpace")
+        // Read raw: before the defaults are registered, absent means on.
+        let value = PreferencesSource.process.preferences.object(forKey: DatabasePreferences.useJPEGColorSpace.name)
         let on: Bool
         if value == nil { on = true }
         else if let number = value as? NSNumber { on = number.boolValue }

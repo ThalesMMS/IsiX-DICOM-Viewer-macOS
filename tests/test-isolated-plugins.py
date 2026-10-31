@@ -11,9 +11,9 @@ plugin to the disabled folder.
 `-IsolatedPluginsFolder <folder>`, honoured only by the development bundle
 identifier, stands that folder in for the user's and the computer's plugins
 folders, and puts the marker there too; `--LoadPlugin <bundle>` still loads a
-given version 1 plugin, and refuses a given former one. Checked here with the
+given plugin, version 1 or made for Horos or OsiriX. Checked here with the
 production `+discoverPlugins`, its folder helpers, the crash marker, the loader
-entry, the version 1 loader and `+pluginsList`, compiled from
+entry, the version 1 and the former loaders and `+pluginsList`, compiled from
 PluginManager.swift, PluginManager+IsiXPlugins.swift and
 PluginManager+LegacyPlugins.swift into a probe bundle with the development
 identifier or the released one; only IsiXPluginHost, which runs a version 1
@@ -22,8 +22,9 @@ that moment. The probe runs with a temporary home that holds, in
 Application Support/IsiX/Plugins, a version 1 plugin and a former plugin, with
 a marker left behind naming the version 1 one, and, in Application
 Support/Horos, the folder earlier versions used, a former plugin and an old
-marker naming it. Former plugins, in either folder, are listed as incompatible
-from their Info.plist, never loaded, and nothing in them changes; the old
+marker naming it. The former plugin in the IsiX folder is listed as the
+others; the one in the folder earlier versions used is listed as incompatible
+from its Info.plist, never loaded; nothing in either changes, and the old
 marker is not read. The probe records every folder listed and every existence
 check, and refuses listings outside the temporary folder, so the real /Library
 folders are never enumerated. The real home is never used.
@@ -43,6 +44,7 @@ import sys
 import tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from isix_modules import module_flags  # noqa: E402
+import process_graph_stand_in  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -113,6 +115,10 @@ methods = [swift_block(source, source.index(anchor)) for anchor in (
     '@objc(startProtectForCrashWithPath:)',
     '@objc public class func endProtectForCrash()',
     '@objc(isPluginBundleSignatureValid:)',
+    '@objc(loadPluginBundle:)',
+    '    private class func registerFormerPlugin(',
+    '@objc(loadHorosPluginAtPath:)',
+    '@objc(loadOsiriXPluginAtPath:)',
     '@objc(loadPluginAtPath:)',
     '@objc public class func discoverPlugins()',
     '@objc(movePluginFromPath:toPath:)',
@@ -198,6 +204,7 @@ NSArray<NSString *> *ProbeRefused(void) { return [[refused copy] autorelease]; }
 program = r'''
 import AppKit
 import IsiXPluginLoading
+import IsiXPreferences
 import IsiXStorage
 
 REGISTRY
@@ -259,7 +266,10 @@ enum HorosAlertPanel {
         alerts.append(title ?? ""); return NSAlertAlternateReturn
     }
 }
-final class ProbeAuthentication { func executeCommand(_ command: String, withArgs arguments: [Any]?) -> Bool { return false } }
+final class ProbeAuthentication {
+    func authenticate(_ forCommands: [Any]?) -> Bool { return false }
+    func executeCommand(_ command: String, withArgs arguments: [Any]?) -> Bool { return false }
+}
 
 @objc(PluginManager) final class PluginManager: NSObject {
     class func authentication() -> ProbeAuthentication? { return nil }
@@ -368,10 +378,14 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
                             str(work / 'PluginManager+LegacyPlugins.swift'),
                             *objects, *module_flags('IsiXStorage', work / 'modules'),
                             *module_flags('IsiXPluginLoading', work / 'modules'),
+                            # PluginManager reads its preferences through PreferencesSource.
+                            *process_graph_stand_in.swift_flags(work / 'modules'),
                             # IsiXStorage's NSString path methods are an Objective-C
                             # category called by selector: no symbol pulls their
-                            # object file out of the static library without -ObjC.
-                            '-Xlinker', '-ObjC', '-lc++', '-framework', 'Security', '-o', str(executable)],
+                            # object file out of the static library unless it is
+                            # loaded whole. Only that library: each module library
+                            # carries IsiXLogging, and -ObjC would load it twice.
+                            '-Xlinker', '-force_load', '-Xlinker', str(work / 'modules' / 'libIsiXStorage.a'), '-lc++', '-framework', 'Security', '-o', str(executable)],
                            capture_output=True, text=True, cwd=directory)
     if built.returncode != 0:
         print('FAIL: the PluginManager probe did not compile')
@@ -462,7 +476,7 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
         if isolated['alerts'] or isolated['protected']:
             failures.append(f'isolated: the marker left in the home raised {isolated["alerts"]}, '
                             f'protected mode {isolated["protected"]}')
-        if isolated['outcomes'] != {'home': 'Not loaded', 'given': 'Loaded', 'givenFormer': 'Incompatible'}:
+        if isolated['outcomes'] != {'home': 'Not loaded', 'given': 'Loaded', 'givenFormer': 'Loaded'}:
             failures.append(f'isolated: load outcomes {isolated["outcomes"]}')
         if isolated['loaded'] != ['QAGiven.isixplugin']:
             failures.append(f'isolated: the host was asked to load {isolated["loaded"]}, not only the given version 1 plugin')
@@ -486,10 +500,13 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
             failures.append('isolated: the folder earlier versions used changed')
         if isolated['ran']:
             failures.append(f'isolated: plugin code ran: {isolated["ran"]}')
-        # Beside the isolated folder, only the bundle's own PlugIns and the folder
-        # of the --LoadPlugin bundle, where a loaded plugin's previous copy is discarded.
+        # Beside the isolated folder, only the bundle's own PlugIns, the folder
+        # of the --LoadPlugin bundle, where a loaded plugin's previous copy is
+        # discarded, and the folder the given former plugin's +load looks into.
+        ran_folder = isolated['case'] / 'ran'
         strays = [path for path in isolated['listed'] if not (
-            under(path, *iso) or path.startswith(bundle_plugins) or under(path, str(fixtures), os.path.realpath(fixtures)))]
+            under(path, *iso) or path.startswith(bundle_plugins) or under(path, str(fixtures), os.path.realpath(fixtures))
+            or under(path, str(ran_folder), os.path.realpath(ran_folder)))]
         if not isolated['listed'] or strays:
             failures.append('isolated: listed outside the isolated folder: ' + ', '.join(strays))
 
@@ -508,20 +525,20 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
         # code in this run, the home's plugin included.
         if 'IsiX DICOM Viewer crashed' not in report['alerts']:
             failures.append(f'{label}: the marker left in the home did not raise the recovery alert')
-        if not report['protected'] or report['outcomes'] != {'home': 'Blocked', 'given': 'Blocked', 'givenFormer': 'Incompatible'}:
-            failures.append(f'{label}: expected the marker to block the home\'s plugin and the given one, '
-                            f'and the given former plugin to be refused, got protected={report["protected"]} {report["outcomes"]}')
+        if not report['protected'] or report['outcomes'] != {'home': 'Blocked', 'given': 'Blocked', 'givenFormer': 'Blocked'}:
+            failures.append(f'{label}: expected the marker to block the home\'s plugin and the given ones, '
+                            f'got protected={report["protected"]} {report["outcomes"]}')
         if not under(report['marker'], str(report['support'] / 'IsiX'), os.path.realpath(report['support'] / 'IsiX')) \
                 or not report['markerWritten']:
             failures.append(f'{label}: the crash marker {report["marker"]} is not written beside the user\'s plugins')
         if report['loaded'] or report['ran']:
             failures.append(f'{label}: protected mode let the host load {report["loaded"]}, or plugin code ran: {report["ran"]}')
-        if 'QAVersion1' not in report['listedPlugins']:
-            failures.append(f'{label}: the Plugins window would not list the user\'s version 1 plugin')
-        # Former plugins, in the app's own folder and in the folder earlier
-        # versions used: listed as incompatible, never loaded, nothing in them
-        # changed; the old marker is never read.
-        if report['legacyPlugins'] != ['QADisabled Incompatible', 'QALegacy Incompatible']:
+        if 'QAVersion1' not in report['listedPlugins'] or 'QADisabled' not in report['listedPlugins']:
+            failures.append(f'{label}: the Plugins window would not list the user\'s plugins: {report["listedPlugins"]}')
+        # The former plugin in the folder earlier versions used: listed as
+        # incompatible, never loaded, nothing in it changed; the old marker is
+        # never read. The one in the app's own folder is the user's plugin.
+        if report['legacyPlugins'] != ['QALegacy Incompatible']:
             failures.append(f'{label}: the former plugins are listed as {report["legacyPlugins"]}')
         if not report['ownFormerUnchanged']:
             failures.append(f'{label}: the former plugin in the app\'s own folder changed')
@@ -538,6 +555,6 @@ if failures:
     sys.exit(1)
 print('PASS: an isolated development launch lists no user or system plugins folder, raises no alert for the '
       'marker in the home, changes nothing there, keeps its marker in the isolated folder, still loads a version 1 '
-      '--LoadPlugin and refuses a former one; without the switch, or in a release bundle given it, the home\'s IsiX '
-      'folder is listed, its marker raises the recovery alert and a new marker is written beside it, and the former '
-      'plugins, in the IsiX and the Horos folders, are listed as incompatible, not loaded, unchanged, the old marker ignored')
+      '--LoadPlugin and a former one; without the switch, or in a release bundle given it, the home\'s IsiX '
+      'folder is listed, its marker raises the recovery alert and a new marker is written beside it, the former plugin '
+      'of the IsiX folder is listed with the others, and the one of the Horos folder as incompatible, not loaded, unchanged, the old marker ignored')

@@ -470,13 +470,23 @@ refresh = query[query.find('public func refreshSources()'):query.find('nonisolat
 popup = refresh.find('Update Send To popup menu')
 check('serversArray.append(contentsOf: DICOMwebSources.queryRetrieveServers() as [Any])' in refresh[:popup],
       'the Query window appends the DICOMweb Q&R nodes to its sources')
-check(refresh.find('DICOMNodeService.nodes(sendOnly: false, queryRetrieveOnly: false)') < refresh.find('DICOMwebSources.queryRetrieveServers()')
-      and 'DICOMwebSources' not in refresh[popup:] and 'DICOMNodeService.nodes(sendOnly: false, queryRetrieveOnly: false)' in refresh[popup:],
+check(refresh.find('DICOMNodeService.dicomNodes(sendOnly: false, queryRetrieveOnly: false)') < refresh.find('DICOMwebSources.queryRetrieveServers()')
+      and 'DICOMwebSources' not in refresh[popup:] and 'DICOMNodeService.dicomNodes(sendOnly: false, queryRetrieveOnly: false)' in refresh[popup:],
       'the DIMSE sources come first and the retrieve destinations stay DIMSE')
 matcher = query[query.find('func findCorrespondingServer('):query.find('public func refreshSources()')]
 check('DICOMwebSources.nodeKey' in matcher and 'continue' in matcher,
       'a saved DICOMweb source is matched by its identifier and never taken for a DIMSE one')
-check('"values.DICOMWEB_SERVERS"' in query and 'forKeyPath: "values.DICOMWEB_SERVERS"' in query, 'the Query window follows DICOMWEB_SERVERS')
+# The window observes the user defaults controller with the catalog's key path for
+# DICOMWEB_SERVERS and refreshes its sources when that path changes.
+network_preferences = text('Modules/IsiXPreferences/Sources/NetworkPreferences.swift') or ''
+dicomweb_key_path = 'NetworkPreferences.controllerKeyPath(NetworkPreferences.dicomwebNodes)'
+observed = query[query.find('func observeValue('):]
+check('static let dicomwebNodes = PreferenceKey<[PropertyListValue]?>("DICOMWEB_SERVERS")' in network_preferences
+      and '"values." + key.name' in network_preferences
+      and 'addObserver(self, forKeyPath: ' + dicomweb_key_path in query
+      and 'removeObserver(self, forKeyPath: ' + dicomweb_key_path in query
+      and dicomweb_key_path in observed[:observed.find('controller.refreshSources()')],
+      'the Query window follows DICOMWEB_SERVERS')
 check('if DICOMwebSources.isDICOMwebServer(serverParameters) {' in query, 'Verify in the Query window reaches the node')
 # The query node is Swift, split by responsibility into DCMTKQueryNode+*.swift.
 node = '\n'.join(text('Horos/Sources/DCMTKQueryNode%s.swift' % part) or ''
@@ -492,10 +502,13 @@ listener = text('Horos/Sources/RetrieveListenerRequirement.swift') or ''
 check(re.search(r'case wado, dicomweb:\s*return false', listener) is not None, 'a DICOMweb source needs no listener')
 send = text('Horos/Sources/SendController.swift') or ''
 check('DICOMwebSources.sendDestinations()' in send and send.count('SendController.destinations()') >= 5
-      and send.count('DICOMNodeService.nodes(sendOnly: true') == 1, 'the Send sheet lists DIMSE then DICOMweb destinations everywhere')
-offis = send[send.find('public func sendDICOMFilesOffis'):send.find('// MARK: DICOMweb')]
-check(offis.find('isDICOMwebServer') < offis.find('DirectTransferPolicy.route'), 'a DICOMweb destination is sent to before any DIMSE path')
-check('DICOMwebSendActivity.send(files:' in send and 'thread: Thread.current' in send, 'the send runs on the activity thread')
+      and send.count('DICOMNodeService.dicomNodes(sendOnly: true') == 1, 'the Send sheet lists DIMSE then DICOMweb destinations everywhere')
+request = send[send.find('private func sendRequest(to node'):send.find('// MARK: serversArray functions')]
+check(request.find('isDICOMwebServer') < request.find('DirectTransferPolicy.route') and 'route = .dicomweb' in request,
+      'a DICOMweb destination is sent to before any DIMSE path')
+transport = text('Horos/Sources/ActivitySendTransport.swift') or ''
+check('DICOMwebSendActivity.send(files:' in transport and 'thread: thread' in transport
+      and 'ActivityThread.run(' in transport, 'the send runs on the activity thread')
 activity = text('Horos/Sources/DICOMwebSendActivity.swift') or ''
 check('DICOMwebSender(node: node)' in activity and 'HorosDICOMWriter.transcodeFile(atPath:' in activity
       and 'cancelled: { thread.isCancelled }' in activity and 'thread.progress = CGFloat(fraction)' in activity,

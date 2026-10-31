@@ -39,6 +39,7 @@
 
 import Cocoa
 import IsiXImaging
+import IsiXPreferences
 import Metal
 import QuartzCore
 
@@ -91,16 +92,6 @@ private func roiEnterPixelGrid(_ size: NSSize) {
     roiTranslatef(grid.translateX, grid.translateY, 0.0)
 }
 
-/// Runs `body` as an @try block: the NSException it raises is returned.
-private func drawingTry(_ body: () -> Void) -> NSException? {
-    do {
-        try HorosObjCException.perform(body)
-    } catch {
-        return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    return nil
-}
-
 /// N2LogExceptionWithStackTrace(e) in `function`.
 private func logDrawingException(_ exception: NSException, _ function: StaticString) {
     function.withUTF8Buffer { buffer in
@@ -125,8 +116,7 @@ extension DCMView {
         AnnotationText.purgeCache()
     }
 
-    @objc(horosAnnotationRect:pixels:)
-    public dynamic func horosAnnotationRect(_ r: NSRect, pixels: UnsafeMutablePointer<NSRect>!) -> Bool {
+    public func horosAnnotationRect(_ r: NSRect, pixels: UnsafeMutablePointer<NSRect>!) -> Bool {
         guard let a = annotationPixel(Double(NSMinX(r)), Double(NSMinY(r))),
               let b = annotationPixel(Double(NSMaxX(r)), Double(NSMaxY(r))) else { return false }
         pixels.pointee = DrawingGeometry.overlayRect(a, b)
@@ -239,76 +229,37 @@ extension DCMView {
 
     // MARK: - Description in large
 
-    @objc(allIdenticalValues:inArray:)
-    public dynamic func allIdenticalValues(_ v: String!, inArray a: [Any]!) -> Bool {
-        let array = (a ?? []) as NSArray
-        if array.count > 0 {
-            // -isEqualToString: sent to nil, or with nil, answered NO.
-            guard let s = (array.object(at: 0) as AnyObject).value(forKey: v) as? NSString else { return false }
-            for i in array {
-                guard let value = (i as AnyObject).value(forKey: v) as? String, s.isEqual(to: value) else { return false }
-            }
-            return true
-        }
-        return false
+    /// Whether the objects of `a` all have the same text under the key `v` (DescriptionInLarge).
+    public func allIdenticalValues(_ v: String!, inArray a: [Any]!) -> Bool {
+        return DescriptionInLarge.allIdentical((a ?? []).map { ($0 as AnyObject).value(forKey: v) as? String })
     }
 
-    @objc(computeDescriptionInLarge)
-    public dynamic func computeDescriptionInLarge() {
+    /// The large description of the view's series and its box, in the colour
+    /// of its study (DescriptionInLarge).
+    public func computeDescriptionInLarge() {
         let drawLock = DCMView.horos_static_drawLock
         drawLock?.lock()
 
-        if let exception = drawingTry({
-            let curSeries = self.seriesObj() as NSObject?
-            let curStudy = curSeries?.value(forKey: "study") as AnyObject?
+        if let exception = HorosObjCException.caught({
+            let curSeries = self.seriesObj()
+            let curStudy = curSeries?.study
 
-            let viewers = dcmViewersByStudyDate(ViewerController.getDisplayed2DViewers() as NSArray? ?? [])
-
-            let studiesArray = NSMutableArray()
-            let seriesArray = NSMutableArray()
-
-            for v in viewers {
-                if let study = v.currentStudy(), let series = v.currentSeries() {
-                    studiesArray.add(study)
-                    seriesArray.add(series)
+            var openPatientNames: [String?] = [], openStudyNames: [String?] = []
+            for v in dcmViewersByStudyDate(ViewerController.getDisplayed2DViewers() as NSArray? ?? []) {
+                if let study = v.currentStudy(), v.currentSeries() != nil {
+                    openPatientNames.append(study.name)
+                    openStudyNames.append(study.studyName)
                 }
             }
 
-            let description = NSMutableString(string: "")
-            // same patients?
-            if !self.allIdenticalValues("name", inArray: studiesArray as? [Any]) {
-                if let name = curStudy?.value(forKey: "name") as? String {
-                    if description.length > 0 { description.append("\r") }
-                    description.append(name)
-                }
-            }
-
-            if description.length > 0 { description.append("\r") }
-
-            if let date = UserDefaults.formatDateTime(curSeries?.value(forKey: "date") as? Date) {
-                description.append(date)
-            }
-
-            if !self.allIdenticalValues("studyName", inArray: studiesArray as? [Any]) {
-                if let studyName = curStudy?.value(forKey: "studyName") as? String {
-                    if description.length > 0 { description.append("\r") }
-                    description.append(studyName)
-                }
-            }
-
-            if let name = curSeries?.value(forKey: "name") as? String {
-                if description.length > 0 { description.append("\r") }
-                description.append(name)
-            }
-
-            let stanStringAttrib = NSMutableDictionary()
-            stanStringAttrib.setObject(NSFont(name: "Helvetica-Bold", size: 30) as Any, forKey: NSAttributedString.Key.font as NSCopying)
-
-            let text = NSAttributedString(string: description as String, attributes: stanStringAttrib as? [NSAttributedString.Key: Any])
+            let description = DescriptionInLarge.text(patientName: curStudy?.name, studyName: curStudy?.studyName, seriesName: curSeries?.name,
+                                                      date: UserDefaults.formatDateTime(curSeries?.date),
+                                                      openPatientNames: openPatientNames, openStudyNames: openStudyNames)
+            let text = NSAttributedString(string: description, attributes: [.font: NSFont(name: "Helvetica-Bold", size: 30) as Any])
 
             self.computeColor()
 
-            var boxColor = (ViewerController.studyColors() as NSArray?)?.object(at: 0) as? NSColor ?? NSColor.clear
+            var boxColor = ViewerController.studyColors()?.firstObject as? NSColor ?? NSColor.clear
             if self.studyColorR != 0 || self.studyColorG != 0 || self.studyColorB != 0 {
                 boxColor = NSColor(calibratedRed: CGFloat(self.studyColorR), green: CGFloat(self.studyColorG), blue: CGFloat(self.studyColorB), alpha: 0.7)
             }
@@ -343,8 +294,7 @@ extension DCMView {
 
     // MARK: - 2D point, repulsor, selector
 
-    @objc(erase2DPointMarker)
-    public dynamic func erase2DPointMarker() {
+    public func erase2DPointMarker() {
         self.horos_display2DPoint = NSMakePoint(0, 0)
     }
 
@@ -455,7 +405,7 @@ extension DCMView {
             return
         }
 
-        if !UserDefaults.standard.bool(forKey: "magnifyingLens") {
+        if !PreferencesSource.process.preferences[ViewerPreferences.magnifyingLens] {
             return
         }
 
@@ -476,7 +426,7 @@ extension DCMView {
             self.horos_lensActive = true
 
             // In the corner the lens is away from the pointer, which stays to aim with.
-            if !self.horos_cursorhidden && !UserDefaults.standard.bool(forKey: MagnifierPresentation.cornerDefaultsKey) {
+            if !self.horos_cursorhidden && !PreferencesSource.process.preferences[ViewerPreferences.magnifyingLensInCorner] {
                 self.horos_cursorhidden = true
                 NSCursor.hide()
             }
@@ -486,11 +436,10 @@ extension DCMView {
     }
 
     /// The magnifier's zoom and size, as the keys last set them in any view.
-    @objc(horosLoadMagnifierFactors)
-    public dynamic func horosLoadMagnifierFactors() {
-        let defaults = UserDefaults.standard
-        self.horos_lensZoomFactor = MagnifierPresentation.storedZoomFactor(in: defaults)
-        self.horos_lensSizeFactor = MagnifierPresentation.storedSizeFactor(in: defaults)
+    public func horosLoadMagnifierFactors() {
+        let settings = MagnifierPresentation.settings(in: PreferencesSource.process.preferences)
+        self.horos_lensZoomFactor = settings.zoomFactor
+        self.horos_lensSizeFactor = settings.sizeFactor
     }
 
     /// A point of a ROI is being placed under the pointer: a ROI still being drawn,
@@ -523,7 +472,7 @@ extension DCMView {
     public dynamic func horosShiftLensWanted(with flags: NSEvent.ModifierFlags) -> Bool {
         return self.roiTool(self.currentTool)
             && flags.intersection([.shift, .command, .control, .option]) == .shift
-            && UserDefaults.standard.bool(forKey: "magnifyingLens")
+            && PreferencesSource.process.preferences[ViewerPreferences.magnifyingLens]
             && !self.horosShiftHidesMeasurementMagnifier(with: flags)
     }
 
@@ -533,7 +482,7 @@ extension DCMView {
     @objc(horosShiftHidesMeasurementMagnifierWithFlags:)
     public dynamic func horosShiftHidesMeasurementMagnifier(with flags: NSEvent.ModifierFlags) -> Bool {
         return flags.intersection([.shift, .command, .control, .option]) == .shift
-            && UserDefaults.standard.bool(forKey: MagnifierPresentation.measurementDefaultsKey)
+            && PreferencesSource.process.preferences[ViewerPreferences.magnifyingLensWhileMeasuring]
             && self.roiTool(self.currentTool)
             && self.horosPlacingROIPoint()
     }
@@ -541,7 +490,7 @@ extension DCMView {
     /// The magnifier is up for a point the mouse is holding: the keys are its own.
     @objc(horosMeasurementMagnifierHoldsKeys)
     public dynamic func horosMeasurementMagnifierHoldsKeys() -> Bool {
-        return (NSEvent.pressedMouseButtons & 1) != 0 && UserDefaults.standard.bool(forKey: MagnifierPresentation.measurementDefaultsKey)
+        return (NSEvent.pressedMouseButtons & 1) != 0 && PreferencesSource.process.preferences[ViewerPreferences.magnifyingLensWhileMeasuring]
             && self.horosPlacingROIPoint()
             && !self.horosShiftHidesMeasurementMagnifier(with: NSEvent.modifierFlags)
     }
@@ -653,9 +602,9 @@ extension DCMView {
     /// place, as the lens does; off, the cursor stays.
     @objc(horosDrawMeasurementMagnifier)
     public dynamic func horosDrawMeasurementMagnifier() {
-        let defaults = UserDefaults.standard
-        let corner = defaults.bool(forKey: MagnifierPresentation.cornerDefaultsKey)
-        let shown = defaults.bool(forKey: MagnifierPresentation.measurementDefaultsKey) && self.horosPlacingROIPoint()
+        let settings = MagnifierPresentation.settings(in: PreferencesSource.process.preferences)
+        let corner = settings.inCorner
+        let shown = settings.whileMeasuring && self.horosPlacingROIPoint()
             && !self.horosShiftHidesMeasurementMagnifier(with: NSEvent.modifierFlags)
             && self.horosDrawSquareMagnifier(inCorner: corner)
         self.horosHideCursor(forMagnifier: shown && !corner)
@@ -664,13 +613,12 @@ extension DCMView {
     /// The lens of the Shift key: the same square magnifier, where the preference puts it.
     @objc(drawMagnifyingLens)
     public dynamic func drawMagnifyingLens() {
-        self.horosDrawSquareMagnifier(inCorner: UserDefaults.standard.bool(forKey: MagnifierPresentation.cornerDefaultsKey))
+        self.horosDrawSquareMagnifier(inCorner: PreferencesSource.process.preferences[ViewerPreferences.magnifyingLensInCorner])
     }
 
     // MARK: - Pending length
 
-    @objc(drawPendingLength)
-    public dynamic func drawPendingLength() {
+    public func drawPendingLength() {
         guard let first = self.horos_lengthFirstEndpoint as NSDictionary? else { return }
         let pix = self.curDCM
         let point: NSPoint
@@ -792,8 +740,7 @@ extension DCMView {
         self.draw(self.bounds)
     }
 
-    @objc(horosUpdateDrawableSize)
-    public dynamic func horosUpdateDrawableSize() {
+    public func horosUpdateDrawableSize() {
         if self.layer == nil {
             return
         }
@@ -924,11 +871,14 @@ extension DCMView {
         roiEnable(GL_LINE_SMOOTH)
         roiEnable(GL_POLYGON_SMOOTH)
 
+        // What is drawn is decided on the lines' value; the subclasses' hook
+        // gets the view's float[2][3] arrays.
+        let lines = self.referenceLines
         let sliceFromTo = self.horos_sliceFromTo!, sliceFromToS = self.horos_sliceFromToS!
         let sliceFromToE = self.horos_sliceFromToE!, sliceFromTo2 = self.horos_sliceFromTo2!
 
-        if DISPLAYCROSSREFERENCELINES != 0 && sliceFromTo[0] != Float.infinity {
-            if sliceFromToS[0] != Float.infinity {
+        if DISPLAYCROSSREFERENCELINES != 0 && lines.cut.isDrawn {
+            if lines.seriesStart.isDrawn {
                 roiColor3f(1.0, 0.6, 0.0)
 
                 roiLineWidth(Float(2.0 * Double(sf)))
@@ -942,7 +892,7 @@ extension DCMView {
             roiLineWidth(Float(2.0 * Double(sf)))
             self.drawCrossLinesHook(sliceFromTo, perpendicular: true)
 
-            if sliceFromTo2[0] != Float.infinity {
+            if lines.farEnd.isDrawn {
                 roiLineWidth(Float(2.0 * Double(sf)))
                 self.drawCrossLinesHook(sliceFromTo2, perpendicular: true)
             }
@@ -956,11 +906,10 @@ extension DCMView {
                                                    width: pix?.pwidth ?? 0, height: pix?.pheight ?? 0)
 
             // Across the reference line, when there is one: its unit normal.
-            let sliceVector = self.horos_sliceVector!
-            let hasLine = sliceFromTo[0] != Float.infinity && (sliceVector[0] != 0 || sliceVector[1] != 0 || sliceVector[2] != 0)
+            let hasLine = lines.hasLine
             var a: (Float, Float) = (0, 0)
             if hasLine {
-                let normal = DrawingGeometry.crossLineNormal(x0: sliceFromTo[0], y0: sliceFromTo[1], x1: sliceFromTo[3], y1: sliceFromTo[4])
+                let normal = DrawingGeometry.crossLineNormal(x0: lines.cut.x0, y0: lines.cut.y0, x1: lines.cut.x1, y1: lines.cut.y1)
                 a = (normal.a0, normal.a1)
             }
             PlanarFrameGraphics.drawSlicePoint(NSMakePoint(CGFloat(point.x), CGFloat(point.y)), across: NSMakePoint(CGFloat(a.0), CGFloat(a.1)),
@@ -978,14 +927,13 @@ extension DCMView {
 
     /// The CLUT bars of a 2D viewer's frame: the image's, and the fused series'
     /// with its own table (the PET one in B/W Inverse mode) and window.
-    @objc(horosDrawCLUTBars:scale:)
-    public dynamic func horosDrawCLUTBars(_ clutBars: Int, scale sf: Float) {
+    public func horosDrawCLUTBars(_ clutBars: Int, scale sf: Float) {
         let size = self.horos_drawingFrameRect.size
-        let curWW = self.horos_curWW
+        let curWW = self.curWW
         PlanarFrameGraphics.beginCLUTBars(size: size)
         if clutBars == Int(barOrigin) || clutBars == Int(barBoth) {
             PlanarFrameGraphics.drawCLUTBar(red: self.horos_redTable, green: self.horos_greenTable, blue: self.horos_blueTable, fused: false,
-                                            level: self.horos_curWL, width: (self.curDCM?.displayInverted ?? false) ? -curWW : curWW,
+                                            level: self.curWL, width: (self.curDCM?.displayInverted ?? false) ? -curWW : curWW,
                                             precise: curWW < 50, size: size, scale: CGFloat(sf), in: self)
         }
 
@@ -993,14 +941,14 @@ extension DCMView {
             var bred: UnsafeMutablePointer<UInt8>? = nil, bgreen: UnsafeMutablePointer<UInt8>? = nil, bblue: UnsafeMutablePointer<UInt8>? = nil
             var bwl: Float = 0, bww: Float = 0
 
-            if UserDefaults.standard.string(forKey: "PET Clut Mode") == "B/W Inverse" {
-                if DCMView.horos_static_PETredTable == nil {
+            if PETBlendingTables.drawFusedSeries {
+                if !PETBlendingTables.isComputed {
                     DCMView.computePETBlendingCLUT()
                 }
 
-                bred = DCMView.horos_static_PETredTable
-                bgreen = DCMView.horos_static_PETgreenTable
-                bblue = DCMView.horos_static_PETblueTable
+                bred = PETBlendingTables.redTable
+                bgreen = PETBlendingTables.greenTable
+                bblue = PETBlendingTables.blueTable
             } else {
                 blending.getCLUT(&bred, &bgreen, &bblue)
             }
@@ -1037,7 +985,7 @@ extension DCMView {
                     var i = sortedROIs.count - 1
                     while i >= 0 {
                         if let r = sortedROIs.object(at: i) as? ROI,
-                           let exception = drawingTry({ r.drawTextualData() }) {
+                           let exception = HorosObjCException.caught({ r.drawTextualData() }) {
                             NSLog("drawTextualData ROI Exception : %@", exception)
                         }
                         i -= 1
@@ -1067,15 +1015,13 @@ extension DCMView {
             self.updatePresentationStateFromSeries()
         }
 
-        DCMView.horos_static_drawLock = nil
-
         // The frame's presentation cycle: the overlay and its canvas, the
         // picture in the Metal layer, the notice and the commit that shows them
         // together. The graphics and the subclass hooks below are drawn between.
         let frame = PlanarFrameCycle.begin(in: self, size: aRect.size, scale: CGFloat(sf),
                                            inverted: DCMView.horos_static_gInvertColors && self.stringID != "export")
 
-        if let exception = drawingTry({
+        if let exception = HorosObjCException.caught({
             if self.horos_noScale {
                 self.scaleValue = 1.0
                 self.setOriginX(0, y: 0)
@@ -1246,7 +1192,7 @@ extension DCMView {
                 } // Annotation != None
 
                 self.horos_recordAnnotationRects = preparedROILabels
-                if let exception = drawingTry({ self.drawTextualData(self.horos_drawingFrameRect, annotations) }) {
+                if let exception = HorosObjCException.caught({ self.drawTextualData(self.horos_drawingFrameRect, annotations) }) {
                     NSLog("drawTextualData Annotations Exception : %@", exception)
                 }
 
@@ -1301,32 +1247,37 @@ extension DCMView {
 
     // MARK: - Fonts
 
+    /// The label font sizes the menu steps through.
+    private static let labelFontSizes: ClosedRange<Float> = 6 ... 60
+
     @objc(labelFontSizeMenuItemIsEnabled:)
     public dynamic class func labelFontSizeMenuItemIsEnabled(_ item: NSMenuItem!) -> Bool {
-        let size = UserDefaults.standard.float(forKey: "LabelFONTSIZE")
+        let size = PreferencesSource.process.preferences[ViewerPreferences.labelFONTSIZE]
         if item.action == NSSelectorFromString("increaseFontSize:") {
-            return size < 60
+            return size < labelFontSizes.upperBound
         }
         if item.action == NSSelectorFromString("decreaseFontSize:") {
-            return size > 6
+            return size > labelFontSizes.lowerBound
         }
         return true
     }
 
     @objc(increaseFontSize:)
     public dynamic func increaseFontSize(_ sender: Any!) {
-        let defaults = UserDefaults.standard
-        if defaults.float(forKey: "LabelFONTSIZE") < 60 {
-            defaults.set(defaults.float(forKey: "LabelFONTSIZE") + 1, forKey: "LabelFONTSIZE")
-            NotificationCenter.default.post(name: NSNotification.Name.OsirixLabelGLFontChange, object: sender)
-        }
+        self.stepLabelFontSize(by: 1, sender: sender)
     }
 
     @objc(decreaseFontSize:)
     public dynamic func decreaseFontSize(_ sender: Any!) {
-        let defaults = UserDefaults.standard
-        if defaults.float(forKey: "LabelFONTSIZE") > 6 {
-            defaults.set(defaults.float(forKey: "LabelFONTSIZE") - 1, forKey: "LabelFONTSIZE")
+        self.stepLabelFontSize(by: -1, sender: sender)
+    }
+
+    /// One point more or less for the labels, within the menu's sizes.
+    private func stepLabelFontSize(by step: Float, sender: Any!) {
+        let preferences = PreferencesSource.process.preferences
+        let size = preferences[ViewerPreferences.labelFONTSIZE]
+        if step > 0 ? size < DCMView.labelFontSizes.upperBound : size > DCMView.labelFontSizes.lowerBound {
+            preferences.set(size + step, for: ViewerPreferences.labelFONTSIZE)
             NotificationCenter.default.post(name: NSNotification.Name.OsirixLabelGLFontChange, object: sender)
         }
     }
@@ -1334,9 +1285,9 @@ extension DCMView {
     @objc(changeLabelGLFontNotification:)
     public dynamic func changeLabelGLFontNotification(_ note: Notification!) {
         if (self.window?.backingScaleFactor ?? 0) != 0 {
-            let defaults = UserDefaults.standard
-            var font = NSFont(name: defaults.string(forKey: "LabelFONTNAME") ?? "", size: CGFloat(defaults.float(forKey: "LabelFONTSIZE")))
-            if font == nil { font = NSFont.userFixedPitchFont(ofSize: CGFloat(defaults.float(forKey: "LabelFONTSIZE"))) }
+            let preferences = PreferencesSource.process.preferences
+            let size = CGFloat(preferences[ViewerPreferences.labelFONTSIZE])
+            let font = NSFont(name: preferences[ViewerPreferences.labelFONTNAME] ?? "", size: size) ?? NSFont.userFixedPitchFont(ofSize: size)
             self.horos_labelFont = font
 
             ROI.setFontHeight(Float(DCMView.size(ofString: "B", forFont: font).height))
@@ -1348,9 +1299,9 @@ extension DCMView {
     @objc(changeGLFontNotification:)
     public dynamic func changeGLFontNotification(_ note: Notification!) {
         if (self.window?.backingScaleFactor ?? 0) != 0 {
-            let defaults = UserDefaults.standard
-            var font = NSFont(name: defaults.string(forKey: "FONTNAME") ?? "", size: CGFloat(defaults.float(forKey: "FONTSIZE")))
-            if font == nil { font = NSFont(name: "Geneva", size: 14) }
+            let preferences = PreferencesSource.process.preferences
+            let font = NSFont(name: preferences[ViewerPreferences.fontName] ?? "", size: CGFloat(preferences[ViewerPreferences.fontSize]))
+                ?? NSFont(name: "Geneva", size: 14)
             self.horos_fontGL = font
 
             self.horos_stringSize = self.convertToBacking(DCMView.size(ofString: "B", forFont: font))
@@ -1364,8 +1315,9 @@ extension DCMView {
         let oldFont = self.horos_fontGL
         let newFont = (sender as AnyObject?)?.perform(NSSelectorFromString("convertFont:"), with: oldFont)?.takeUnretainedValue() as? NSFont
 
-        UserDefaults.standard.set(newFont?.fontName, forKey: "FONTNAME")
-        UserDefaults.standard.set(Float(newFont?.pointSize ?? 0), forKey: "FONTSIZE")
+        let preferences = PreferencesSource.process.preferences
+        preferences.set(newFont?.fontName, for: ViewerPreferences.fontName)
+        preferences.set(Float(newFont?.pointSize ?? 0), for: ViewerPreferences.fontSize)
 
         NotificationCenter.default.post(name: NSNotification.Name.OsirixGLFontChange, object: sender)
     }

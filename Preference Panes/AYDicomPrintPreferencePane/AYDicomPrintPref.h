@@ -42,7 +42,7 @@
 //  Copyright (c) 2006 aycan digitalsysteme gmbh. All rights reserved.
 //
 
-// AYDicomPrintPref is implemented in Swift since #711 (Preference
+// AYDicomPrintPref is implemented in Swift (Preference
 // Panes/AYDicomPrintPreferencePane/AYDicomPrintPref.swift). This header keeps
 // <Horos/AYDicomPrintPref.h>: it brings in the generated interface, which declares the
 // same class name and selectors.

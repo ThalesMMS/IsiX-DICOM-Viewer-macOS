@@ -9,6 +9,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 
 /// The patient crosshair as a 2D viewer publishes and reads it: through the
 /// viewer's volume session, or, for a second window on a series another
@@ -42,7 +43,7 @@ extension PatientCrosshairController {
         default: source = nil
         }
         let registered = source.map { viewer.registeredViewer() === $0 || $0.registeredViewer() === viewer } ?? false
-        let useFrame = UserDefaults.standard.bool(forKey: ViewerReferenceLines.frameOfReferencePreferenceKey)
+        let useFrame = PreferencesSource.process.preferences[ViewerPreferences.useFrameofReferenceUID]
         if let session = viewer.horosVolumeSession() {
             return point(for: session, registered: registered, useFrameOfReference: useFrame)
         }

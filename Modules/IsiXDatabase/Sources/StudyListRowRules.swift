@@ -448,15 +448,29 @@ public enum StudyListTree {
 
 public enum StudyListColumns {
     /// The order of the columns in the header's menu: by title, as
-    /// -sortUsingComparator: with -compare: put them.
+    /// -sortUsingComparator: with -compare: put them (code unit by code unit;
+    /// equal titles keep the order of the columns, as that sort is stable).
     public static func menuOrder(titles: [String]) -> [Int] {
-        let pairs = NSMutableArray()
-        for (index, title) in titles.enumerated() { pairs.add([index, title] as NSArray) }
-        pairs.sort(comparator: { a, b in
-            let x = (a as! NSArray)[1] as! NSString, y = (b as! NSArray)[1] as! NSString
-            return x.compare(y as String)
-        })
-        return pairs.map { (($0 as! NSArray)[0] as! NSNumber).intValue }
+        titles.indices.sorted { a, b in
+            switch (titles[a] as NSString).compare(titles[b]) {
+            case .orderedAscending: return true
+            case .orderedDescending: return false
+            case .orderedSame: return a < b
+            }
+        }
+    }
+
+    /// The column whose header has `title`, compared code unit by code unit,
+    /// as -indexOfObject: found it among the headers' titles.
+    public static func column(titled title: String, in titles: [String]) -> Int? {
+        titles.firstIndex { same($0, title) }
+    }
+
+    /// Whether the COLUMNSDATABASE preference can be read: absent, or a
+    /// dictionary of the state of each column by title. Anything else made the
+    /// former code raise, which it logged without changing a column.
+    public static func savedIsReadable(_ saved: Any?) -> Bool {
+        saved == nil || saved is [String: Any]
     }
 
     /// Whether a column's menu item is checked: the patient's name unless it
@@ -470,12 +484,13 @@ public enum StudyListColumns {
 
     /// The COLUMNSDATABASE preference: the state of each item, by title,
     /// leaving out the items without one.
-    public static func saved(titles: [String], states: [Int]) -> NSMutableDictionary {
-        let dictionary = NSMutableDictionary()
+    /// A later item with the same title replaces the earlier one's state.
+    public static func saved(titles: [String], states: [Int]) -> [String: Int32] {
+        var saved: [String: Int32] = [:]
         for (title, state) in zip(titles, states) where (title as NSString).length > 0 {
-            dictionary.setValue(NSNumber(value: Int32(truncatingIfNeeded: state)), forKey: title)
+            saved[title] = Int32(truncatingIfNeeded: state)
         }
-        return dictionary
+        return saved
     }
 
     public struct Change: Equatable, Sendable {
@@ -608,6 +623,23 @@ public enum StudyMerge {
     public static func edits(tags: [String], values: [Any?]) -> [(tag: String, value: Any)] {
         zip(tags, values).map { ($0, $1 ?? "") }
     }
+
+    /// The studies the selected rows stand for, each once, in row order: a
+    /// study selected twice, or with one of its series, is listed once. A row
+    /// that stands for no study is left out.
+    public static func distinctStudies<Study: AnyObject>(_ rows: [Study?]) -> [Study] {
+        var studies: [Study] = []
+        for case let study? in rows where !studies.contains(where: { $0 === study }) {
+            studies.append(study)
+        }
+        return studies
+    }
+
+    /// Whether merging the selection merges series rather than studies: every
+    /// selected row is a series. The rows are read until one is not.
+    public static func mergesSeriesOnly<Rows: Sequence>(_ rowIsSeries: Rows) -> Bool where Rows.Element == Bool {
+        rowIsSeries.allSatisfy { $0 }
+    }
 }
 
 // MARK: - Deleting
@@ -658,5 +690,30 @@ public enum StudyDeletion {
         let contents = contents ?? []
         if contents.isEmpty { return true }
         return contents.count == 1 && (contents[0] as NSString).uppercased.hasSuffix(".DS_STORE")
+    }
+
+    /// Whether every selected row is a study of a node, which cannot be
+    /// deleted here. The rows are read until one is local.
+    public static func onlyDistant<Rows: Sequence>(_ rowIsDistant: Rows) -> Bool where Rows.Element == Bool {
+        rowIsDistant.allSatisfy { $0 }
+    }
+
+    /// What becomes of a series or a study some of whose images were deleted.
+    public enum Leftover: Equatable, Sendable {
+        /// Nothing is left in it: it goes too.
+        case remove
+        /// It keeps images: its counts are taken again.
+        case recount
+    }
+
+    /// A series goes with its last image.
+    public static func series(remainingImages: Int) -> Leftover {
+        remainingImages == 0 ? .remove : .recount
+    }
+
+    /// A study goes with its last image series: the series that hold no
+    /// images of their own, such as a structured report, do not keep it.
+    public static func study(remainingImageSeries: Int) -> Leftover {
+        remainingImageSeries == 0 ? .remove : .recount
     }
 }

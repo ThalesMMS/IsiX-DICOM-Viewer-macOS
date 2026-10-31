@@ -60,11 +60,11 @@ import SecurityInterface
 
 /// The Listener preference pane: the DICOM listener and its TLS sheet.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors, the
+/// Implemented in Swift: the Objective-C name, the selectors, the
 /// outlets and the bindings of OSIListenerPreferencePanePref.xib are those
 /// of the former class. The user defaults it reads and writes (AETITLE,
 /// AEPORT, DICOMTimeout and the TLSStoreSCP* keys) keep their names and
-/// stored types (#184).
+/// stored types.
 // Main actor: a preferences pane, which the preferences window creates, shows
 // and hides on the main thread. Its NSPreferencePane overrides, nonisolated in
 // the SDK, run their bodies on the main actor through assumeMainActor.

@@ -10,7 +10,6 @@ in a class that stands in for the session, with the fetch replaced by the
 files, or the failure, the test injects.
 """
 from pathlib import Path
-import re
 import subprocess
 import sys
 import tempfile
@@ -23,11 +22,19 @@ reset = '        retrievePaths = nil\n        retrievePosition = 0\n'
 failures = []
 if reset not in start:
     failures.append('a retrieve no longer resets the previous one')
-elif not start.index(reset) < start.index('guard let context') < start.index('prepareRetrieve('):
-    failures.append('the previous retrieve is reset after something that can fail or leave early')
+elif 'prepareRetrieve(' not in start or not start.index(reset) < start.index('prepareRetrieve('):
+    failures.append('the previous retrieve is reset after the fetch, which can fail or leave early')
+else:
+    # Only the refusal of the request itself leaves before the reset; the
+    # adapter then sends nothing (its count of files to send stays 0).
+    early = start[:start.index(reset)]
+    if early.count('return') != 1 or 'return refused' not in early:
+        failures.append('something other than a refused request leaves before the previous retrieve is reset')
 prepare = source[source.index('    private func prepareRetrieve('):]
 prepare = prepare[:prepare.index('\n    }\n')]
-if not re.search(r'guard failure == nil else \{ return \}.*retrievePaths = ', prepare, re.S):
+# The fetch gives its files only at its end: every failure (no level, a read
+# that raised or failed, a log entry that could not be written) returns first.
+if prepare.count('retrievePaths = ') != 1 or prepare.rfind('return') > prepare.index('retrievePaths = '):
     failures.append('a fetch that failed can still leave files to send')
 
 

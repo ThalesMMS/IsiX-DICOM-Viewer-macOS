@@ -39,6 +39,7 @@
 
 import AppKit
 import IsiXDICOMNetwork
+import IsiXPreferences
 
 /// The methods that find studies and series in the database, bring a study
 /// from the PACS On-Demand nodes when it is not there, and have it opened or
@@ -50,42 +51,73 @@ extension XMLRPCInterface {
 
     /// Runs `body` with the database a request reads and writes: off the main
     /// thread a private-queue database, on its queue; on the main thread, the
-    /// UI's. The failure `body` reports is the call's.
+    /// UI's. What `body` throws is the call's error, and the call then
+    /// answers nil: XMLRPCMethodTable calls the `…:error:` entry points by
+    /// their selectors, and the connection answers the error.
     private func onRequestDatabase(_ error: NSErrorPointer,
-                                   _ body: (DicomDatabase, inout NSError?) -> NSDictionary?) -> NSDictionary? {
+                                   _ body: (DicomDatabase) throws -> NSDictionary?) -> NSDictionary? {
         guard let database = Thread.isMainThread ? self.database : privateQueueDatabase(self.database) else {
             error?.pointee = nil
             return nil
         }
         var result: NSDictionary?
-        var failure: NSError?
+        var failure: Error?
         database.performBlockAndWait {
-            result = body(database, &failure)
+            do {
+                result = try body(database)
+            } catch let thrown {
+                failure = thrown
+            }
         }
-        error?.pointee = failure
+        error?.pointee = failure as NSError?
         return result
     }
 
+    /// The objects of `entity` in `database` that match `predicate`; a failed
+    /// fetch is thrown.
+    private func objects(_ entity: String, _ predicate: NSPredicate, in database: DicomDatabase) throws -> [Any]? {
+        var failure: NSError?
+        let found = database.objects(forEntity: entity, predicate: predicate, error: &failure, fetchLimit: 0, sortDescriptors: nil)
+        if let failure { throw failure }
+        return found
+    }
+
     /// The studies of `database` that match `predicate`.
-    private func studies(_ predicate: NSPredicate, in database: DicomDatabase, _ failure: inout NSError?) -> [Any]? {
-        database.objects(forEntity: "Study", predicate: predicate, error: &failure, fetchLimit: 0, sortDescriptors: nil)
+    private func studies(_ predicate: NSPredicate, in database: DicomDatabase) throws -> [Any]? {
+        try objects("Study", predicate, in: database)
+    }
+
+    /// One look of a wait for a study: what matches, if the last study has a
+    /// series of images.
+    private func studiesWithImages(_ predicate: NSPredicate, in database: DicomDatabase) throws -> [Any]? {
+        let found = try studies(predicate, in: database)
+        if ((found as NSArray?)?.lastObject as? DicomStudy)?.imageSeries()?.count ?? 0 == 0 {
+            return nil
+        }
+        return found
     }
 
     /// The study PACS On-Demand is retrieving, once it has a series of images:
     /// looked for every 0.3 s, importing what has arrived, for up to 20 s.
-    private func studiesRetrievedOnDemand(_ predicate: NSPredicate, in database: DicomDatabase,
-                                          _ failure: inout NSError?) -> [Any]? {
+    private func studiesRetrievedOnDemand(_ predicate: NSPredicate, in database: DicomDatabase) throws -> [Any]? {
         let start = Date.timeIntervalSinceReferenceDate
         var found: [Any]?
+        var failure: Error?
         repeat {
-            _ = database.importFilesFromIncomingDir()
+            _ = DatabaseIngest.process.importQueueNow(in: database)
             Thread.sleep(forTimeInterval: 0.3)
             // And find the study locally.
-            found = studies(predicate, in: database, &failure)
-            if ((found as NSArray?)?.lastObject as? DicomStudy)?.imageSeries()?.count ?? 0 == 0 {
+            // A failed look is looked at again: the wait keeps only the last
+            // look's failure.
+            do {
+                found = try studiesWithImages(predicate, in: database)
+                failure = nil
+            } catch {
                 found = nil
+                failure = error
             }
         } while (found?.count ?? 0) == 0 && Date.timeIntervalSinceReferenceDate - start < 20
+        if let failure { throw failure }
         return found
     }
 
@@ -94,21 +126,28 @@ extension XMLRPCInterface {
     /// This looks again every half second, importing what has arrived, for up
     /// to the seconds set there. Never on the main thread, which it would
     /// freeze.
-    private func studiesArriving(for predicate: NSPredicate, in database: DicomDatabase, _ failure: inout NSError?) -> [Any]? {
-        let seconds = UserDefaults.standard.integer(forKey: XMLRPCServerAccess.waitForStudyKey)
+    private func studiesArriving(for predicate: NSPredicate, in database: DicomDatabase) throws -> [Any]? {
+        let seconds = PreferencesSource.process.preferences[NetworkPreferences.xmlrpcServerWaitForStudy]
         if seconds <= 0 || Thread.isMainThread {
             return nil
         }
         let start = Date.timeIntervalSinceReferenceDate
         var found: [Any]?
+        var failure: Error?
         repeat {
             Thread.sleep(forTimeInterval: 0.5)
-            _ = database.importFilesFromIncomingDir()
-            found = studies(predicate, in: database, &failure)
-            if ((found as NSArray?)?.lastObject as? DicomStudy)?.imageSeries()?.count ?? 0 == 0 {
+            _ = DatabaseIngest.process.importQueueNow(in: database)
+            // A failed look is looked at again: the wait keeps only the last
+            // look's failure.
+            do {
+                found = try studiesWithImages(predicate, in: database)
+                failure = nil
+            } catch {
                 found = nil
+                failure = error
             }
         } while (found?.count ?? 0) == 0 && Date.timeIntervalSinceReferenceDate - start < Double(seconds)
+        if let failure { throw failure }
         return found
     }
 
@@ -120,13 +159,15 @@ extension XMLRPCInterface {
         let nodes = servers.map { String(describing: ($0["Description"] ?? NSNull()) as AnyObject) }
         let studies = QueryController.queryStudies(forFilters: keys, servers: servers, showErrors: false) ?? NSMutableArray()
         guard studies.count > 0 else { return (nodes, false) }
-        startRetrieveThread(#selector(pacsOnDemandRetrieve(_:)), with: studies, count: studies.count)
+        let order = RetrieveOrder(interface: self, value: studies)
+        startRetrieveThread(count: studies.count) { order.interface.pacsOnDemandRetrieve(order.value) }
         return (nodes, true)
     }
 
     /// Whether PACS On-Demand is on for these requests.
     private var retrievesOnDemand: Bool {
-        UserDefaults.standard.bool(forKey: "XMLRPCWithPOD") && UserDefaults.standard.bool(forKey: "searchForComparativeStudiesOnDICOMNodes")
+        let preferences = PreferencesSource.process.preferences
+        return preferences[NetworkPreferences.xmlrpcWithPACSOnDemand] && preferences[NetworkPreferences.searchesComparativeStudiesOnDICOMNodes]
     }
 
     /// A wait window, for a request made on the main thread.
@@ -156,9 +197,13 @@ extension XMLRPCInterface {
     /// Opens what was found: on the main thread now, or, for a study being
     /// retrieved, once a thread has imported what has arrived.
     private func open(_ objects: [Any], downloading: Bool) {
-        let objectIDs = (objects as NSArray).value(forKey: "objectID")
+        let objectIDs = (objects as NSArray).value(forKey: "objectID") as? NSArray
         if downloading {
-            Thread.detachNewThreadSelector(#selector(openWithDelay(objectsWithIDs:)), toTarget: self, with: objectIDs)
+            // The import waits for the database's queue: a thread of its own.
+            let order = RetrieveOrder(interface: self, value: objectIDs)
+            ActivityThread.startUnlisted(name: "XML-RPC open after a retrieve") { _ in
+                order.interface.openWithDelay(objectsWithIDs: order.value)
+            }
         } else {
             performSelector(onMainThread: #selector(openObjects(withIDs:)), with: objectIDs, waitUntilDone: false)
         }
@@ -178,35 +223,46 @@ extension XMLRPCInterface {
     /// Response: {error: "0", elements: array of elements corresponding to the request}
     @objc(DisplayStudy:error:)
     public func displayStudy(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
-        onRequestDatabase(error) { database, failure in
-            self.displayStudy(paramDict, in: database, &failure)
+        onRequestDatabase(error) { database in
+            try self.displayStudy(paramDict, in: database)
         }
     }
 
-    private func displayStudy(_ paramDict: NSDictionary?, in database: DicomDatabase, _ failure: inout NSError?) -> NSDictionary? {
+    private func displayStudy(_ paramDict: NSDictionary?, in database: DicomDatabase) throws -> NSDictionary? {
         let wait = waitWindow()
         defer { close(wait) }
 
         var result: NSDictionary?
-        var error = failure
+        var failure: Error?
         if let exception = HorosObjCException.caught({
-            result = self.findStudies(paramDict, in: database, &error)
+            do {
+                result = try self.findStudies(paramDict, in: database)
+            } catch {
+                failure = error
+            }
         }) {
             Self.log(exception, stack: false, "-[XMLRPCInterface _DisplayStudy:inDatabase:error:]")
             result = nil
         }
-        failure = error
+        if let failure { throw failure }
         return result
     }
 
-    private func findStudies(_ paramDict: NSDictionary?, in database: DicomDatabase, _ failure: inout NSError?) -> NSDictionary? {
+    private func findStudies(_ paramDict: NSDictionary?, in database: DicomDatabase) throws -> NSDictionary? {
         let identifiers = RISRequestRules.StudyIdentifiers { paramDict?.value(forKey: $0) }
         guard let predicate = identifiers.predicate else {
-            failure = Self.error(withCode: 400) // Bad Request
-            return nil
+            throw Self.error(withCode: 400) // Bad Request
         }
 
-        var found = studies(predicate, in: database, &failure)
+        // A failed fetch is the call's error once PACS On-Demand has had its
+        // chance, as it was; a later look replaces it.
+        var failure: Error?
+        var found: [Any]?
+        do {
+            found = try studies(predicate, in: database)
+        } catch {
+            failure = error
+        }
         var downloading = false
         // nil while PACS On-Demand is off for these requests.
         var onDemandNodes: [String]?
@@ -218,21 +274,25 @@ extension XMLRPCInterface {
                 let onDemand = retrieveOnDemand(keys)
                 onDemandNodes = onDemand.nodes
                 if onDemand.retrieving {
-                    found = studiesRetrievedOnDemand(predicate, in: database, &failure)
+                    do {
+                        found = try studiesRetrievedOnDemand(predicate, in: database)
+                        failure = nil
+                    } catch {
+                        found = nil
+                        failure = error
+                    }
                     downloading = true
                 }
             }
         }
 
         if (found?.count ?? 0) == 0 && failure == nil,
-           let arrived = studiesArriving(for: predicate, in: database, &failure), !arrived.isEmpty {
+           let arrived = try studiesArriving(for: predicate, in: database), !arrived.isEmpty {
             found = arrived
             downloading = true
         }
 
-        if let failure {
-            return Self.answer(failure.code)
-        }
+        if let failure { throw failure }
         guard let found, !found.isEmpty else {
             RISRequestAlert.report(RISRequestAlert.notInDatabase(filters: RISRequestRules.describe(filters: keys),
                                                                  onDemandNodes: onDemandNodes), code: -1)
@@ -255,24 +315,20 @@ extension XMLRPCInterface {
     /// Response: {error: "0", elements: array of elements corresponding to the request}
     @objc(DisplaySeries:error:)
     public func displaySeries(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
-        onRequestDatabase(error) { database, failure in
-            self.displaySeries(paramDict, in: database, &failure)
+        onRequestDatabase(error) { database in
+            try self.displaySeries(paramDict, in: database)
         }
     }
 
-    private func displaySeries(_ paramDict: NSDictionary?, in database: DicomDatabase, _ failure: inout NSError?) -> NSDictionary? {
+    private func displaySeries(_ paramDict: NSDictionary?, in database: DicomDatabase) throws -> NSDictionary? {
         let identifiers = RISRequestRules.SeriesIdentifiers { paramDict?.value(forKey: $0) }
         guard let predicate = identifiers.predicate else {
-            failure = Self.error(withCode: 400) // Bad Request
-            return nil
+            throw Self.error(withCode: 400) // Bad Request
         }
 
         // PACS On-Demand is not supported at the series level.
-        let found = database.objects(forEntity: "Series", predicate: predicate, error: &failure, fetchLimit: 0, sortDescriptors: nil)
+        let found = try objects("Series", predicate, in: database)
 
-        if let failure {
-            return Self.answer(failure.code)
-        }
         guard let found, !found.isEmpty else {
             return Self.answer(-1)
         }
@@ -298,42 +354,53 @@ extension XMLRPCInterface {
     /// Response: {error: "0", elements: array of elements corresponding to the request}
     @objc(FindObject:error:)
     public func findObject(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
-        onRequestDatabase(error) { database, failure in
-            self.findObject(paramDict, in: database, &failure)
+        onRequestDatabase(error) { database in
+            try self.findObject(paramDict, in: database)
         }
     }
 
-    private func findObject(_ paramDict: NSDictionary?, in database: DicomDatabase, _ failure: inout NSError?) -> NSDictionary? {
+    private func findObject(_ paramDict: NSDictionary?, in database: DicomDatabase) throws -> NSDictionary? {
         let wait = waitWindow()
         defer { close(wait) }
 
         var result: NSDictionary?
-        var error = failure
+        var failure: Error?
         // A request that is not a predicate format raises.
         if let exception = HorosObjCException.caught({
-            result = self.findObjects(paramDict, in: database, &error)
+            do {
+                result = try self.findObjects(paramDict, in: database)
+            } catch {
+                failure = error
+            }
         }) {
             Self.log(exception, stack: false, "-[XMLRPCInterface _FindObject:inDatabase:error:]")
             result = nil
         }
-        failure = error
+        if let failure { throw failure }
         return result
     }
 
-    private func findObjects(_ paramDict: NSDictionary?, in database: DicomDatabase, _ failure: inout NSError?) -> NSDictionary? {
+    private func findObjects(_ paramDict: NSDictionary?, in database: DicomDatabase) throws -> NSDictionary? {
         let request = RISRequestRules.nonEmptyText(paramDict?.value(forKey: "request"))
         let entityName = RISRequestRules.nonEmptyText(paramDict?.value(forKey: "table"))
         let command = RISRequestRules.text(paramDict?.value(forKey: "execute")) as NSString?
 
         guard let request, let entityName else {
-            failure = Self.error(withCode: 400) // Bad Request
-            return nil
+            throw Self.error(withCode: 400) // Bad Request
         }
         let isStudy = (entityName as NSString).isEqual(to: "Study")
         let opens = command?.isEqual(to: "Open") ?? false
 
         let predicate = NSPredicate(format: request, argumentArray: nil)
-        var found = database.objects(forEntity: entityName, predicate: predicate, error: &failure, fetchLimit: 0, sortDescriptors: nil)
+        // A failed fetch is the call's error once PACS On-Demand has had its
+        // chance, as it was; a later look replaces it.
+        var failure: Error?
+        var found: [Any]?
+        do {
+            found = try objects(entityName, predicate, in: database)
+        } catch {
+            failure = error
+        }
         var downloading = false
         // nil while PACS On-Demand is off for these requests.
         var onDemandNodes: [String]?
@@ -345,21 +412,25 @@ extension XMLRPCInterface {
                 let onDemand = retrieveOnDemand(keys)
                 onDemandNodes = onDemand.nodes
                 if onDemand.retrieving {
-                    found = studiesRetrievedOnDemand(predicate, in: database, &failure)
+                    do {
+                        found = try studiesRetrievedOnDemand(predicate, in: database)
+                        failure = nil
+                    } catch {
+                        found = nil
+                        failure = error
+                    }
                     downloading = true
                 }
             }
         }
 
         if (found?.count ?? 0) == 0 && failure == nil && isStudy && opens,
-           let arrived = studiesArriving(for: predicate, in: database, &failure), !arrived.isEmpty {
+           let arrived = try studiesArriving(for: predicate, in: database), !arrived.isEmpty {
             found = arrived
             downloading = true
         }
 
-        if let failure {
-            return Self.answer(failure.code)
-        }
+        if let failure { throw failure }
         guard let found, !found.isEmpty else {
             // Only a request to open is one the user waits on; a search that
             // finds nothing is an answer.
@@ -396,8 +467,8 @@ extension XMLRPCInterface {
     /// The browser logs the reason it refused, so this speaks only when it had
     /// none to give: every study matched carries no series of images, or none
     /// matched.
-    func reportStudyNotOpened(_ study: DicomStudy?) {
-        if (BrowserController.currentBrowser()?.lastStudyNotOpenedReason as NSString?)?.length ?? 0 > 0 {
+    @MainActor func reportStudyNotOpened(_ study: DicomStudy?) {
+        if (browser?.lastStudyNotOpenedReason as NSString?)?.length ?? 0 > 0 {
             return
         }
         let reason = study.map { StudyNotOpenedReason.reasonForNoImageSeries($0.studyInstanceUID) }
@@ -417,15 +488,14 @@ extension XMLRPCInterface {
     /// Response: {error: "0"}
     @objc(SelectAlbum:error:)
     public func selectAlbum(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
-        onRequestDatabase(error) { database, failure in
-            self.selectAlbum(paramDict, in: database, &failure)
+        onRequestDatabase(error) { database in
+            try self.selectAlbum(paramDict, in: database)
         }
     }
 
-    private func selectAlbum(_ paramDict: NSDictionary?, in database: DicomDatabase, _ failure: inout NSError?) -> NSDictionary? {
+    private func selectAlbum(_ paramDict: NSDictionary?, in database: DicomDatabase) throws -> NSDictionary? {
         guard let name = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "name")) else {
-            failure = Self.error(withCode: 400) // Bad Request
-            return nil
+            throw Self.error(withCode: 400) // Bad Request
         }
         let albums = (database.albums() ?? []) as NSArray
         for index in 0..<albums.count {

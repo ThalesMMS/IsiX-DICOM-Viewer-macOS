@@ -62,21 +62,11 @@ import IsiXDatabase
 //
 // The methods run on any thread, as the Objective-C ones did: the work on a
 // context goes onto its queue through N2ManagedObjectContextPerformAndWait. An
-// @try is N2ManagedDatabaseObjC.attempt; an exception that went on through
+// @try is HorosObjCException.caught; an exception that went on through
 // the former code goes on, raised again once the state is put back.
 
 /// What the Objective-C did implicitly, for N2ManagedDatabase and its context.
 enum N2ManagedDatabaseObjC {
-
-    /// Runs `body` as an @try block: the NSException it raised is returned.
-    static func attempt(_ body: () -> Void) -> NSException? {
-        do {
-            try HorosObjCException.perform(body)
-        } catch {
-            return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-        }
-        return nil
-    }
 
     /// N2LogException (stack: false) or N2LogExceptionWithStackTrace (stack:
     /// true), with the __PRETTY_FUNCTION__ of the former method.
@@ -100,6 +90,15 @@ enum N2ManagedDatabaseObjC {
         context.undoManager = nil
         return context
     }
+}
+
+/// A database whose -save: does more than save its context. When the UI's
+/// context is released with its database off the main thread, the save of its
+/// unsaved changes runs later on the main queue, without the database: it saves
+/// the context and then runs what this answers, on the context's queue.
+protocol N2ManagedDatabaseSaveFollowUp: AnyObject {
+    /// What -save: does once the context saved, without using the database.
+    func saveFollowUpWithoutDatabase() -> @Sendable (NSManagedObjectContext) -> Void
 }
 
 @objc @implementation extension N2ManagedDatabase {
@@ -228,13 +227,18 @@ enum N2ManagedDatabaseObjC {
 
         NotificationCenter.default.removeObserver(self)
 
-        // Asked on the context's queue: a private-queue context is not ours to read here.
-        var hasChanges = false
         let context = self.managedObjectContext
-        N2ManagedObjectContextPerformAndWait(context) { hasChanges = context?.hasChanges ?? false }
-        if hasChanges, let folder = (self.sqlFilePath as NSString?)?.deletingLastPathComponent,
-           FileManager.default.fileExists(atPath: folder) {
-            _ = self.save()
+        let folder = (self.sqlFilePath as NSString?)?.deletingLastPathComponent
+        let handsOver = context?.concurrencyType == .mainQueueConcurrencyType && !Thread.isMainThread
+        if let context, handsOver {
+            self.handOverUnsavedChanges(of: context, folder: folder)
+        } else {
+            // Asked on the context's queue: a private-queue context is not ours to read here.
+            var hasChanges = false
+            N2ManagedObjectContextPerformAndWait(context) { hasChanges = context?.hasChanges ?? false }
+            if hasChanges, let folder, FileManager.default.fileExists(atPath: folder) {
+                _ = self.save()
+            }
         }
 
         if let main = storedMainDatabase {
@@ -242,9 +246,48 @@ enum N2ManagedDatabaseObjC {
         }
 
         storedMainDatabase = nil
-        self.managedObjectContext = nil
+        if handsOver {
+            // Not autoreleased, as the setter does: the block handed to the main
+            // queue holds the last reference, so that the context also goes
+            // there, on the thread whose context it is.
+            self.willChangeValue(forKey: "managedObjectContext")
+            storedManagedObjectContext = nil
+            self.didChangeValue(forKey: "managedObjectContext")
+        } else {
+            self.managedObjectContext = nil
+        }
         storedSqlFilePath = nil
         contextMergePolicy = nil
+    }
+
+    /// The last release of a database whose context is the UI's, on the main
+    /// queue, came on another thread. Reading that context from here waits for
+    /// the main thread, which may itself be waiting for this thread (for the
+    /// registry, or for an update of a shared index): so its unsaved changes are
+    /// saved on the main queue, later, and nothing here waits. The database is
+    /// gone by then: the block saves the context itself, then runs what a
+    /// subclass's -save: does besides (N2ManagedDatabaseSaveFollowUp), and keeps
+    /// the context alive until it has run. The folder is looked for when the save
+    /// runs: a database that removes its folder once deallocated has nothing left
+    /// to save into.
+    private final func handOverUnsavedChanges(of context: NSManagedObjectContext, folder: String?) {
+        let followUp = (self as? N2ManagedDatabaseSaveFollowUp)?.saveFollowUpWithoutDatabase()
+        context.perform {
+            guard context.hasChanges, let folder, FileManager.default.fileExists(atPath: folder) else { return }
+            var saveError: Error? = nil
+            if let exception = HorosObjCException.caught({
+                do {
+                    try context.save()
+                    followUp?(context)
+                } catch {
+                    saveError = error
+                }
+            }) {
+                N2ManagedDatabaseObjC.log(exception, stack: false, "-[N2ManagedDatabase dealloc]")
+            } else if let saveError {
+                NSLog("N2ManagedDatabase dealloc: the unsaved changes of %@ were not saved: %@", folder, saveError as NSError)
+            }
+        }
     }
 
     // MARK: - Contexts
@@ -288,9 +331,13 @@ enum N2ManagedDatabaseObjC {
 
     func privateQueueIndependentContext() -> NSManagedObjectContext! {
         // Like -contextAtPath: for an independent context: the coordinator and the
-        // merge policy are the main database's.
+        // merge policy are the main database's. Asked from any thread, it reads the
+        // stored context, not the getter, which in an optimized build can leave
+        // the UI's context in the asking thread's autorelease pool: a context the
+        // browser replaced meanwhile would go when that pool drains, off the main
+        // thread.
         guard let main = self.isMainDatabase() ? self : (self.mainDatabase as? N2ManagedDatabase),
-              let coordinator = main.managedObjectContext?.persistentStoreCoordinator else {
+              let coordinator = main.storedManagedObjectContext?.persistentStoreCoordinator else {
             return nil
         }
 
@@ -315,7 +362,8 @@ enum N2ManagedDatabaseObjC {
     }
 
     func privateQueueContext() -> N2ManagedObjectContext! {
-        guard let coordinator = self.managedObjectContext?.persistentStoreCoordinator else {
+        // The stored context, as -privateQueueIndependentContext reads it.
+        guard let coordinator = self.storedManagedObjectContext?.persistentStoreCoordinator else {
             return nil
         }
 
@@ -331,28 +379,33 @@ enum N2ManagedDatabaseObjC {
     /// on the main thread. Not in the header: the notification center calls it.
     @objc(mergeChangesFromContextDidSaveNotification:)
     final func mergeChanges(fromContextDidSave n: Notification) {
-        let moc = n.object as? NSManagedObjectContext
-
-        if self.managedObjectContext?.persistentStoreCoordinator !== moc?.persistentStoreCoordinator {
-            return
-        }
-
-        if self.managedObjectContext === moc {
-            return
-        }
-
+        // The thread that saved does not read this database's context, the UI's
+        // when it is on the main queue: its getter can leave it in that thread's
+        // autorelease pool, and a context replaced meanwhile would go when the
+        // pool drains, off the main thread. Everything below runs on the main thread.
         if !Thread.isMainThread {
             self.performSelector(onMainThread: #selector(N2ManagedDatabase.mergeChanges(fromContextDidSave:)), with: n, waitUntilDone: false)
-        } else {
-            // On the main thread, and on the queue of the context that merges.
-            let context = self.managedObjectContext
-            if let exception = N2ManagedDatabaseObjC.attempt({
-                N2ManagedObjectContextPerformAndWait(context) {
-                    context?.mergeChanges(fromContextDidSave: n)
-                }
-            }) {
-                N2ManagedDatabaseObjC.log(exception, stack: true, "-[N2ManagedDatabase mergeChangesFromContextDidSaveNotification:]")
+            return
+        }
+
+        let moc = n.object as? NSManagedObjectContext
+        let context = self.managedObjectContext
+
+        if context?.persistentStoreCoordinator !== moc?.persistentStoreCoordinator {
+            return
+        }
+
+        if context === moc {
+            return
+        }
+
+        // On the queue of the context that merges.
+        if let exception = HorosObjCException.caught({
+            N2ManagedObjectContextPerformAndWait(context) {
+                context?.mergeChanges(fromContextDidSave: n)
             }
+        }) {
+            N2ManagedDatabaseObjC.log(exception, stack: true, "-[N2ManagedDatabase mergeChangesFromContextDidSaveNotification:]")
         }
     }
 

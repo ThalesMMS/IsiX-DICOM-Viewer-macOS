@@ -38,21 +38,14 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
-import IsiXDatabase
 
 // Bonjour and the databases the browser opens: a shared database's password,
 // the local copy of a shared database's image, the sources list, going back
 // to the default database when Bonjour sharing changes, and opening a
-// database folder. What decides without the app's classes is IsiXDatabase's
-// DefaultDatabase. The selectors are those of the former Objective-C methods.
+// database folder, which DatabaseOpener does. The selectors are those of the
+// former Objective-C methods.
 
 extension BrowserController {
-
-    @available(*, deprecated)
-    @objc(setBonjourDatabaseValue:value:forKey:)
-    func setBonjourDatabaseValue(_ obj: NSManagedObject!, value: Any!, forKey key: String!) {
-        (horos_databaseIvar as? RemoteDicomDatabase)?.object(obj, setValue: value, forKey: key)
-    }
 
     /// The password of a shared database, asked in a sheet: nil when cancelled.
     @objc(askPassword)
@@ -74,14 +67,11 @@ extension BrowserController {
         return nil
     }
 
-    /// The local file of an image: its path, or for a shared database its
-    /// copy in the cache, with up to `no` files fetched at once.
+    /// The local file of an image of the database the browser shows, with up
+    /// to `no` files fetched at once (DatabaseImageFiles.localFile).
     @objc(getLocalDCMPath::)
     func getLocalDCMPath(_ obj: NSManagedObject!, _ no: Int) -> String! {
-        if !(horos_databaseIvar?.isLocal() ?? false) {
-            return (horos_databaseIvar as? RemoteDicomDatabase)?.cacheData(for: obj as? DicomImage, maxFiles: no)
-        }
-        return obj?.value(forKey: "completePath") as? String
+        DatabaseImageFiles.localFile(of: obj, in: horos_databaseIvar, maxFiles: no)
     }
 
     @objc(displayBonjourServices)
@@ -89,56 +79,45 @@ extension BrowserController {
         horos_sourcesTableView?.reloadData()
     }
 
-    @available(*, deprecated)
-    @objc(switchToDefaultDBIfNeeded)
-    func switchToDefaultDBIfNeeded() {
-        resetToDefaultDatabaseIfNecessary()
-    }
-
     /// Back to the local default database, unless it is the one shown.
     @objc(resetToDefaultDatabaseIfNecessary)
     func resetToDefaultDatabaseIfNecessary() {
-        let defaults = UserDefaults.standard
-        let defaultPath = DicomDatabase.baseDirPath(forMode: Int32(truncatingIfNeeded: defaults.integer(forKey: "DEFAULT_DATABASELOCATION")),
-                                                    path: defaults.string(forKey: "DEFAULT_DATABASELOCATIONURL"))
-
-        if DefaultDatabase.needsReset(shown: self.database?.baseDirPath, defaultPath: defaultPath) {
-            resetToLocalDatabase()
-        }
+        databaseOpener.resetToDefaultIfNeeded()
     }
 
-    /// Shows the database of a folder, refusing a folder whose Database.sql is
-    /// not a database index; on failure, back to the local database.
+    /// Shows the database of a folder; on failure, back to the local database.
     @objc(openDatabasePath:)
     func openDatabasePath(_ path: String!) {
-        let thread = Thread.current
-        thread.name = NSLocalizedString("Opening database...", comment: "")
-        let modal = thread.startModal(for: window)
-
-        if let raised = BrowserObjC.attempt({
-            let indexPath = (DicomDatabase.baseDirPath(forPath: path) as NSString?)?.appendingPathComponent("Database.sql")
-            if let indexPath, FileManager.default.fileExists(atPath: indexPath), !HorosIsDatabaseFile(indexPath) {
-                NSException(name: .genericException, reason: "The selected folder contains an unrecognized database index.", userInfo: nil).raise()
-            }
-            if let db = DicomDatabase(atPath: path) {
-                self.database = db
-            } else {
-                NSException(name: .genericException, reason: "DicomDatabase == nil", userInfo: nil).raise()
-            }
-        }) {
-            BrowserObjC.log(raised, stack: true, "-[BrowserController openDatabasePath:]")
-            HorosAlertPanel.run(title: NSLocalizedString("IsiX DICOM Viewer Database", comment: ""),
-                                message: NSLocalizedString("IsiX DICOM Viewer cannot read/create this file/folder. Permissions error?", comment: ""),
-                                defaultButton: nil, alternateButton: nil, otherButton: nil)
-            resetToLocalDatabase()
-        }
-
-        modal?.invalidate()
+        databaseOpener.openFolder(path)
     }
 
     @available(*, deprecated)
-    @objc(localDatabasePath)
     var localDatabasePath: String! {
         DicomDatabase.activeLocal()?.sqlFilePath
+    }
+}
+
+/// The file here of a database's image: its path, or for a shared database of
+/// another computer its copy in the cache, fetched from the server when it is
+/// missing.
+enum DatabaseImageFiles {
+    /// The file of `image`, a row of `database`, with up to `maxFiles` files
+    /// fetched at once; nil without a database.
+    static func localFile(of image: NSManagedObject?, in database: DicomDatabase?, maxFiles: Int) -> String? {
+        guard let database else { return nil }
+        if !database.isLocal() {
+            return (database as? RemoteDicomDatabase)?.cacheData(for: image as? DicomImage, maxFiles: maxFiles)
+        }
+        return (image as? DicomImage)?.completePath()
+    }
+
+    /// The file of `image`, asked of the database it is a row of, which the
+    /// browser may not show: a viewer of a shared study stays open beside a
+    /// browser showing a local database, and the reverse.
+    static func localFile(ofRow image: NSManagedObject?) -> String? {
+        if let shared = RemoteDicomDatabase.database(of: image) {
+            return localFile(of: image, in: shared, maxFiles: 0)
+        }
+        return (image as? DicomImage)?.completePath()
     }
 }

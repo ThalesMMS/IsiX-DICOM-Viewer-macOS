@@ -4,12 +4,13 @@
 No events are posted to the desktop. NSWindow/renderer/plugin side effects are
 test doubles; preference policy, delta selection, index and sync logic are real.
 
--scrollWheel: (DCMView+Scrolling, with IsiXImaging's WheelSteps),
--mouseDraggedImageScroll: (DCMView+MouseDragging) and
--getThickSlabThickness:location: (DCMView+WindowLevel+Coordinates) are Swift.
+-scrollWheel: (DCMView+Scrolling, with IsiXImaging's StackNavigation and
+IsiXPreferences' ScrollSettings), -mouseDraggedImageScroll: (DCMView+MouseDragging)
+and -getThickSlabThickness:location: (DCMView+WindowLevel+Coordinates) are Swift.
 They are compiled as they are, with xcrun swiftc, as an extension of the
 Objective-C double of DCMView, whose state has the names of DCMView.swift's
-stored horos_* properties, which also answers the planar host's
+horos_* properties and which answers the view's StackNavigation over them and
+the planar host's
 -horosPlanarPerformanceTrace the wheel asks for; the messages to the window
 controller and the frames go through the production inputMessages,
 msg/windowControllerOf and objcObject helpers. -adjustThickSlabBySteps:
@@ -26,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
 import harness_defaults  # the harness's preferences stay in its own process
 import isix_modules  # noqa: E402
+import process_graph_stand_in  # noqa: E402  - the 2D viewer's sources read the catalog's keys through PreferencesSource
 import re
 
 root = Path(__file__).resolve().parents[1]
@@ -40,6 +42,17 @@ show = tools[tools.rindex('extension DCMView {'):]
 thick = source_text('ViewerController+ThickSlab')
 a = thick.index('    @objc(adjustThickSlabBySteps:)')
 adjust = thick[a:thick.index('    /// The thick slab\'s on/off button', a)]
+# The selector is a façade of the viewer's ViewerThickSlab, in the same file,
+# made over the preferences of the viewer's graph: the standard ones here.
+if 'ViewerThickSlab(' in adjust:
+    a = thick.index('    func adjust(bySteps steps: Int) {')
+    # The double of the viewer is not main-actor isolated: neither are these.
+    slab = ('struct ViewerThickSlab {\n    let viewer: ViewerController\n    let preferences: any PreferenceStore\n\n'
+            + thick[a:thick.index('    /// Fuses `stacks` slices in every movie', a)] + '}\n'
+            'final class HarnessSessionGraph {\n    var preferences: any PreferenceStore { UserDefaults.standard }\n}\n')
+    adjust += '    var sessionGraph: HarnessSessionGraph { HarnessSessionGraph() }\n'
+else:
+    slab = ''
 movies = re.search(r'    var horos_movieCount: Int \{[^\n]*\}\n', source_text('ViewerController+ImagePipelineSupport')).group(0)
 swift = source_text('DCMView+MouseDragging')
 start = swift.index('    @objc(mouseDraggedImageScroll:)')
@@ -51,8 +64,26 @@ a = coordinates.index('    @objc(getThickSlabThickness:location:)')
 thickness = coordinates[a:coordinates.index('    @objc(displayedScaleValue)', a)]
 a = coordinates.index('@inline(__always)\nprivate func objcObject<T: AnyObject>(')
 object_helper = coordinates[a:coordinates.index('/// An `id` that may be nil', a)]
+# The view's StackNavigation, over the double's index, drag start and slab scroll.
+stack = '''    var stackNavigation: StackNavigation {
+        get {
+            var stack = StackNavigation(current: self.horos_curImage, start: self.horos_startImage)
+            stack.slabRemainder = self.horos_slabScrollRemainder
+            stack.slabTimestamp = self.horos_slabScrollTimestamp
+            stack.consumesSlabTail = self.horos_consumeSlabScrollTail
+            return stack
+        }
+        set {
+            self.horos_curImage = newValue.current; self.horos_startImage = newValue.start
+            self.horos_slabScrollRemainder = newValue.slabRemainder
+            self.horos_slabScrollTimestamp = newValue.slabTimestamp
+            self.horos_consumeSlabScrollTail = newValue.consumesSlabTail
+        }
+    }
+'''
 extension = '''import Cocoa
 import IsiXImaging
+import IsiXPreferences
 typealias ROI = NSObject
 typealias HorosVolumeLengthROI = NSObject
 // The selectors of DCMViewDraggingMessages the drag sends.
@@ -60,8 +91,8 @@ typealias HorosVolumeLengthROI = NSObject
     @objc(windowController) func draggingWindowController() -> AnyObject?
     @objc(adjustSlider) func draggingAdjustSlider()
 }
-''' + messages + helpers + object_helper + 'extension DCMView {\n' + drag + thickness + wheel + '}\n' + show + \
-    'extension ViewerController {\n' + movies + adjust + '}\n'
+''' + messages + helpers + object_helper + 'extension DCMView {\n' + stack + drag + thickness + wheel + '}\n' + show + \
+    'extension ViewerController {\n' + movies + adjust + '}\n' + slab
 bridge = r'''
 #import <AppKit/AppKit.h>
 @class ViewerController, DCMView;
@@ -137,7 +168,7 @@ bridge = r'''
 -(BOOL)scrollThroughSeriesIfNecessary:(int)i;
 -(void)setBlendingFactor:(float)v;
 -(void)setOriginX:(float)x Y:(float)y;
-// DCMView.swift's stored horos_* properties, on the same ivars.
+// DCMView.swift's horos_* properties, on the same ivars.
 @property NSInteger horos_curImage,horos_startImage;
 @property long horos_scrollMode;
 @property NSPoint horos_start;
@@ -391,14 +422,16 @@ with tempfile.TemporaryDirectory(prefix='horos-scroll-events-') as directory:
     # Swift traps a float-to-integer conversion that overflows, as the
     # float-cast-overflow sanitizer did for the Objective-C drag.
     module = isix_modules.module_flags('IsiXImaging', p/'module')
+    # PreciseMouse reads the catalog's keys: IsiXPreferences, beside IsiXImaging, and the source's stand-in.
+    preferences = process_graph_stand_in.swift_flags(p/'module')
     subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','Horos','-wmo',*module,
                     '-import-objc-header',str(p/'bridge.h'),
                     '-emit-objc-header','-emit-objc-header-path',str(p/'Horos-Swift.h'),'-c',
                     str(root/'Horos/Sources/ScrollDirection.swift'),str(root/'Horos/Sources/PreciseMouse.swift'),str(p/'drag.swift'),
-                    '-o',str(p/'policy.o')],check=True)
+                    *preferences,'-o',str(p/'policy.o')],check=True)
     subprocess.run(['xcrun','clang','-c',str(p/'test.m'),'-o',str(p/'test.o'),'-I',str(p),
                     '-fno-objc-arc','-Wno-deprecated-declarations','-Wno-objc-method-access',
                     '-fsanitize=undefined,float-cast-overflow','-fno-sanitize-recover=all'],check=True)
-    subprocess.run(['xcrun','swiftc',str(p/'policy.o'),str(p/'test.o'),*module,'-framework','AppKit',
+    subprocess.run(['xcrun','swiftc',str(p/'policy.o'),str(p/'test.o'),*module,*preferences[1:],'-framework','AppKit',
                     '-sanitize=undefined','-o',str(p/'test')],check=True)
     subprocess.run([str(p/'test')],check=True)

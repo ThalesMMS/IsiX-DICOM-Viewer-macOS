@@ -118,6 +118,19 @@ for relative in ('ITK/CMake.sh', 'VTK/CMake.sh'):
     else:
         report(not re.search(r'args\+=\(-D(?:ITK_USE_SYSTEM_(?:PNG|JPEG|TIFF)|(?:PNG|JPEG|TIFF)_).*', text),
                'ITK still configures unused codec inputs')
+# DCMTK and OpenSSL take their source only from the archive pinned in
+# external-sources.json: each resolves its own entry before its configure stamp
+# can declare a hit, and configures the tree the resolver printed.
+for relative, name, stamp_file in (('DCMTK/CMake.sh', 'DCMTK', '.buildhash'),
+                                   ('OpenSSL/Config.sh', 'OpenSSL', '.cmakehash')):
+    text = (scripts / relative).read_text()
+    call = text.find('source_dir="$(sh "$external_inputs" --source %s "$source_prefix"' % name)
+    stamp = text.find(stamp_file)
+    report(0 <= call < stamp, '%s does not resolve its pinned source before its stamp check' % relative)
+    report('source_prefix="$TARGET_TEMP_DIR/Source"' in text,
+           '%s does not stage its source beside its own outputs' % relative)
+    report('UPSTREAM_REVISION' not in text and 'git -C' not in text and '$PROJECT_DIR/$TARGET_NAME' not in text,
+           '%s still compiles a checkout in the repository' % relative)
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 report('/opt/homebrew' not in project, 'the project still searches /opt/homebrew')
 report(project.count('"$CONFIGURATION_TEMP_DIR/ExternalInputs.build/Install/lib"') == 2,
@@ -140,6 +153,34 @@ for name, pin in source_pins.items():
     else:
         report(pin['revision'] in pin['url'].split('/'), 'source pin has a mutable URL')
     report(re.fullmatch(r'[0-9a-f]{64}', pin['sha256']) is not None, 'source pin has no SHA-256')
+    report(re.fullmatch(r'[0-9a-f]{64}', pin['licenseSha256']) is not None, '%s: license has no SHA-256' % name)
+    # A declared source is compiled as the archive has it: never writable, never patched.
+    report(pin.get('readOnly', True) is True and pin.get('sourcePatches', []) == [],
+           '%s: source is declared writable or patched' % name)
+    for notice in pin.get('notices', []):
+        report(set(notice) == {'path', 'sha256'} and not notice['path'].startswith('/') and
+               '..' not in notice['path'].split('/') and re.fullmatch(r'[0-9a-f]{64}', notice['sha256']) is not None,
+               '%s: malformed notice %s' % (name, notice))
+# The two libraries that used to be repository checkouts are declared here too,
+# explicitly read-only and unpatched: DCMTK as the archive of one upstream
+# commit, OpenSSL as the original release asset.
+for name, kind in (('DCMTK', 'commit'), ('OpenSSL', 'release')):
+    pin = source_pins.get(name)
+    report(pin is not None, '%s is not declared in external-sources.json' % name)
+    if pin is None:
+        continue
+    report(pin.get('archiveKind', 'commit') == kind, '%s is not declared as a %s archive' % (name, kind))
+    report(pin.get('readOnly') is True and pin.get('sourcePatches') == [],
+           '%s does not declare a read-only, unpatched source' % name)
+dcmtk_pin = source_pins.get('DCMTK', {})
+report(dcmtk_pin.get('url') == 'https://codeload.github.com/DCMTK/dcmtk/tar.gz/' + dcmtk_pin.get('revision', '-'),
+       'DCMTK is not the codeload archive of its pinned commit')
+report({notice['path'] for notice in dcmtk_pin.get('notices', [])} ==
+       {'dcmjpls/docs/License.txt', 'dcmjpeg/docs/ijg_readme.txt'},
+       'DCMTK does not declare the CharLS and IJG notices it compiles')
+# Everything above reads only the repository, so its failures stand even where
+# the resolver and the bottles below cannot run.
+declaration_failures = list(failures)
 
 with tempfile.TemporaryDirectory(prefix='external-source-') as directory:
     temporary = Path(directory)
@@ -346,6 +387,12 @@ def resolve(prefix, downloads, lock_text, mirror, deployment='26.0', archs='arm6
 
 
 if shutil.which('xcrun') is None:
+    # The declaration and script checks need no toolchain; a failure among them
+    # is a failure even where the bottle half has to be skipped.
+    for failure in declaration_failures:
+        print('FAIL: %s' % failure)
+    if declaration_failures:
+        sys.exit(1)
     print('skipped: needs xcrun clang to make the test bottles', file=sys.stderr)
     sys.exit(2)
 

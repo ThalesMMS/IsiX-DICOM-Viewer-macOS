@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Foundation
+import IsiXPreferences
 import Synchronization
 
 /// The preferences the import of a file reads, taken together once: how the
@@ -68,65 +69,39 @@ public struct ImportSettings: Sendable, Equatable {
     /// The key whose presence says the application's defaults are registered.
     public static let registeredKey = "TOOLKITPARSER4"
 
-    /// From the user's defaults, when the application registered its own.
-    public init(defaults: UserDefaults) {
-        commentsFromDICOMFiles = defaults.bool(forKey: "CommentsFromDICOMFiles")
-        commentsAutoFill = defaults.bool(forKey: "COMMENTSAUTOFILL")
-        separateCardiac4D = defaults.bool(forKey: "SEPARATECARDIAC4D")
-        let int = { (key: String) in Self.intValue(defaults.object(forKey: key)) }
-        commentsGroup = int("COMMENTSGROUP")
-        commentsElement = int("COMMENTSELEMENT")
-        commentsGroup2 = int("COMMENTSGROUP2")
-        commentsElement2 = int("COMMENTSELEMENT2")
-        commentsGroup3 = int("COMMENTSGROUP3")
-        commentsElement3 = int("COMMENTSELEMENT3")
-        commentsGroup4 = int("COMMENTSGROUP4")
-        commentsElement4 = int("COMMENTSELEMENT4")
-        useSeriesDescription = defaults.bool(forKey: "useSeriesDescription")
-        splitMultiEchoMR = defaults.bool(forKey: "splitMultiEchoMR")
-        noLocalizer = defaults.bool(forKey: "NOLOCALIZER")
-        oneFileOnSeriesForUS = defaults.bool(forKey: "oneFileOnSeriesForUS")
-        combineProjectionSeries = defaults.bool(forKey: "combineProjectionSeries")
-        combineProjectionSeriesMode = defaults.bool(forKey: "combineProjectionSeriesMode") ? 1 : 0
-        usePatientBirthDateForUID = defaults.bool(forKey: "UsePatientBirthDateForUID")
-        usePatientIDForUID = defaults.bool(forKey: "UsePatientIDForUID")
-        usePatientNameForUID = defaults.bool(forKey: "UsePatientNameForUID")
+    /// Whether the application's defaults are registered in `preferences`.
+    public static func defaultsAreRegistered(in preferences: any PreferenceStore) -> Bool {
+        preferences.object(forKey: DatabasePreferences.toolkitParser.name) != nil
     }
 
-    /// From a dictionary of preferences: the factory settings with the user's
-    /// own over them, for a tool that has not registered the application's.
-    /// Each value is read with -intValue, and a switch keeps what a BOOL keeps
-    /// of it (its low byte).
-    public init(dictionary: NSDictionary) {
-        let int = { (key: String) in Self.intValue(dictionary.object(forKey: key)) }
-        let bool = { (key: String) in Int8(truncatingIfNeeded: int(key)) != 0 }
-        commentsFromDICOMFiles = bool("CommentsFromDICOMFiles")
-        commentsAutoFill = bool("COMMENTSAUTOFILL")
-        separateCardiac4D = bool("SEPARATECARDIAC4D")
-        commentsGroup = int("COMMENTSGROUP")
-        commentsElement = int("COMMENTSELEMENT")
-        commentsGroup2 = int("COMMENTSGROUP2")
-        commentsElement2 = int("COMMENTSELEMENT2")
-        commentsGroup3 = int("COMMENTSGROUP3")
-        commentsElement3 = int("COMMENTSELEMENT3")
-        commentsGroup4 = int("COMMENTSGROUP4")
-        commentsElement4 = int("COMMENTSELEMENT4")
-        useSeriesDescription = bool("useSeriesDescription")
-        splitMultiEchoMR = bool("splitMultiEchoMR")
-        noLocalizer = bool("NOLOCALIZER")
-        combineProjectionSeries = bool("combineProjectionSeries")
-        oneFileOnSeriesForUS = bool("oneFileOnSeriesForUS")
-        combineProjectionSeriesMode = int("combineProjectionSeriesMode")
-        usePatientBirthDateForUID = bool("UsePatientBirthDateForUID")
-        usePatientIDForUID = bool("UsePatientIDForUID")
-        usePatientNameForUID = bool("UsePatientNameForUID")
-    }
-
-    /// -intValue of a number or a string; 0 for anything else.
-    static func intValue(_ value: Any?) -> Int32 {
-        if let number = value as? NSNumber { return number.int32Value }
-        if let string = value as? NSString { return string.intValue }
-        return 0
+    /// From the preferences: the application's, once it registered its
+    /// defaults, or, for a tool that has not, the factory settings with the
+    /// user's own over them, in memory.
+    public init(preferences: any PreferenceStore) {
+        typealias Keys = DatabasePreferences
+        commentsFromDICOMFiles = preferences[Keys.commentsFromDICOMFiles]
+        commentsAutoFill = preferences[Keys.commentsAutoFill]
+        separateCardiac4D = preferences[Keys.separateCardiac4D]
+        // The preference pane writes each tag as an integer; as before, a
+        // number keeps its low 32 bits.
+        let tag = { (key: PreferenceKey<Int>) in Int32(truncatingIfNeeded: preferences[key]) }
+        commentsGroup = tag(Keys.commentsGroup)
+        commentsElement = tag(Keys.commentsElement)
+        commentsGroup2 = tag(Keys.commentsGroup2)
+        commentsElement2 = tag(Keys.commentsElement2)
+        commentsGroup3 = tag(Keys.commentsGroup3)
+        commentsElement3 = tag(Keys.commentsElement3)
+        commentsGroup4 = tag(Keys.commentsGroup4)
+        commentsElement4 = tag(Keys.commentsElement4)
+        useSeriesDescription = preferences[Keys.useSeriesDescription]
+        splitMultiEchoMR = preferences[Keys.splitMultiEchoMR]
+        noLocalizer = preferences[Keys.noLocalizer]
+        oneFileOnSeriesForUS = preferences[Keys.oneFileOnSeriesForUS]
+        combineProjectionSeries = preferences[Keys.combineProjectionSeries]
+        combineProjectionSeriesMode = preferences[Keys.combineProjectionSeriesMode] ? 1 : 0
+        usePatientBirthDateForUID = preferences[Keys.usePatientBirthDateForUID]
+        usePatientIDForUID = preferences[Keys.usePatientIDForUID]
+        usePatientNameForUID = preferences[Keys.usePatientNameForUID]
     }
 }
 

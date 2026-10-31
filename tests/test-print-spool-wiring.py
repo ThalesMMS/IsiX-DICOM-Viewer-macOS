@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """File > Print spools database pages without opening a viewer.
 
--printDatabaseSelection: is Swift (BrowserController+DatabaseDragExport+
-Selection.swift), exported to Objective-C under its selectors.
+-printDatabaseSelection: and -printDatabaseSpool: are the browser's selectors
+(BrowserController+DatabaseDragExport+Selection.swift); the work is
+PrintSelection's (PrintSelection+DatabaseSelection.swift).
 """
 from pathlib import Path
 import sys
@@ -11,9 +12,13 @@ root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
 source = (root / 'Horos/Sources/PrintSelection.swift').read_text(encoding='utf-8')
-browser = source_text('BrowserController+DatabaseDragExport+Selection')
+facade = source_text('BrowserController+DatabaseDragExport+Selection')
+browser = source_text('PrintSelection+DatabaseSelection')
+if 'PrintSelection.printSelection(of: self' not in facade:
+    print('FAIL: printDatabaseSelection: does not hand the print to PrintSelection')
+    sys.exit(1)
 
-start = browser.find('func printDatabaseSelection(_ sender: Any!)')
+start = browser.find('static func printSelection(of browser: BrowserController, sender: Any?)')
 if start < 0:
     print('FAIL: printDatabaseSelection is missing')
     sys.exit(1)
@@ -38,16 +43,16 @@ if 'requiresViewerToSpool' not in source or 'return true' in source.split('requi
 if 'Open a viewer to spool' in body:
     print('FAIL: printDatabaseSelection still asks the user to open a viewer')
     sys.exit(1)
-if 'PrintSelection.spool(' not in body:
+if 'spool(job, directory:' not in body:
     print('FAIL: printDatabaseSelection must call the Swift spooler')
     sys.exit(1)
-if 'DCMPix' not in body:
+if 'DCMPix' not in browser or 'raster(of:' not in body:
     print('FAIL: database images must be rasterized with DCMPix, not a viewer')
     sys.exit(1)
 if 'printOperationWithView' not in body and 'printDatabaseSpool' not in body:
     print('FAIL: spooled pages must reach NSPrintOperation')
     sys.exit(1)
-if 'printDatabaseSpool' in body and '@objc(printDatabaseSpool:)' not in browser:
+if 'printDatabaseSpool' in body and ('@objc(printDatabaseSpool:)' not in facade or 'PrintSelection.printSpool(' not in facade):
     print('FAIL: printDatabaseSpool must be exported')
     sys.exit(1)
 if 'implementsRegisteredGIF' in source and 'return true' in source.split('implementsRegisteredGIF')[1][:80]:

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// ServerTableView is implemented in Swift since #711 (Preference
+// ServerTableView is implemented in Swift (Preference
 // Panes/OSILocationsPreferencePane/ServerTableView.swift), but for
 // -draggingSourceOperationMaskForLocal:, which Swift cannot override and
 // ServerTableView+CAPI.m implements in a category. This header keeps its path:

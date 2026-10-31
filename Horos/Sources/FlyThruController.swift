@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 
 /// Window Controller for FlyThru.
 ///
@@ -49,6 +50,9 @@ import Cocoa
 /// through FlyThruViewMessages.
 @objc(FlyThruController)
 public final class FlyThruController: NSWindowController, NSWindowDelegate {
+    /// The preferences the window reads and writes: those of the process graph.
+    let preferenceStore: any PreferenceStore = PreferencesSource.process.preferences
+
     @IBOutlet private var LOD: NSMatrix?
     @IBOutlet private var boxPlay: NSBox?
     @IBOutlet private var boxExport: NSBox?
@@ -450,7 +454,7 @@ public final class FlyThruController: NSWindowController, NSWindowDelegate {
 
                         flyThruView(controller3D?.view())?.getOrientation(&o)
 
-                        if UserDefaults.standard.bool(forKey: "exportOrientationIn3DExport") {
+                        if self.preferenceStore[VolumeRenderingPreferences.exportOrientationIn3DExport] {
                             dcmSequence.setOrientation(&o)
                         }
 
@@ -477,24 +481,7 @@ public final class FlyThruController: NSWindowController, NSWindowDelegate {
             progress?.close()
 
             if producedFiles.count > 0 {
-                let database = BrowserController.currentBrowser()?.database
-                var objects = database?.addFiles(atPaths: producedFiles.value(forKey: "file") as? [Any],
-                                                 postNotifications: true,
-                                                 dicomOnly: true,
-                                                 rereadExistingItems: true,
-                                                 generatedByOsiriX: true)
-
-                objects = BrowserController.currentBrowser()?.database?.objects(withIDs: objects)
-
-                if UserDefaults.standard.bool(forKey: "afterExportSendToDICOMNode") {
-                    BrowserController.currentBrowser()?.selectServer(objects)
-                }
-
-                if UserDefaults.standard.bool(forKey: "afterExportMarkThemAsKeyImages") {
-                    for case let im as NSManagedObject in (objects as NSArray?) ?? NSArray() {
-                        im.setValue(NSNumber(value: true), forKey: "isKeyImage")
-                    }
-                }
+                GeneratedSeriesImport.process.add(producedFiles.value(forKey: "file") as? [Any] ?? [])
             }
         }
 

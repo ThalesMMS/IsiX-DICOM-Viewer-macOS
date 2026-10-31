@@ -49,7 +49,7 @@ private let placeHolderCornerSize: Float = 5.0
 /// One of the eight drop areas of the custom annotations layout, holding a
 /// column of CIAAnnotation views.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// CIAPlaceHolder.h are those of the former class. The C enums
 /// CIAPlaceHolderAlignement and CIAPlaceHolderOrientationWidgetPosition stay
 /// declared in CIAPlaceHolder.h.

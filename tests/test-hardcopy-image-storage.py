@@ -52,7 +52,7 @@ with tempfile.TemporaryDirectory(prefix='horos-hardcopy-') as tmp:
     build_module('IsiXImaging', modules)
     build_module('IsiXDICOMFile', modules, ['-I', str(modules)])
     (p / 'main.swift').write_text(program)
-    subprocess.run(['xcrun', 'swiftc', '-I', str(modules), '-L', str(modules), '-lIsiXDICOMFile', '-lIsiXImaging',
+    subprocess.run(['xcrun', 'swiftc', '-I', str(modules), '-L', str(modules), '-lIsiXDICOMFile', '-lIsiXImaging', '-lIsiXPreferences',
                     str(p / 'main.swift'), '-o', str(p / 'test')], check=True)
     done = subprocess.run([str(p / 'test')], capture_output=True, text=True)
     print(done.stdout.strip() or done.stderr.strip())

@@ -11,11 +11,11 @@ and it takes it away. The removal refuses any path that is not one of its own
 under the temporary directory, so a wrong argument removes nothing rather than
 something else.
 
-The database print (-printDatabaseSelection:) is Swift, in
-BrowserController+DatabaseDragExport+Selection.swift. Its @try/@catch/@finally
-is an objcTry closure followed by the code of the former @finally: every return
-of the former @try is a return from that closure, and the method goes on to the
-removal.
+The database print (-printDatabaseSelection:) hands its work to
+PrintSelection.printSelection(of:sender:), in PrintSelection+DatabaseSelection.swift.
+Its @try/@catch/@finally is a HorosObjCException.caught closure followed by the code of
+the former @finally: every return of the former @try is a return from that
+closure, and the method goes on to the removal.
 """
 from pathlib import Path
 import re
@@ -96,7 +96,7 @@ else:
 # And the caller has to use both ends of it.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
-browser = source_text('BrowserController+DatabaseDragExport+Selection')
+browser = source_text('PrintSelection+DatabaseSelection')
 if 'newSpoolDirectory' not in browser:
     failures.append('the database print must ask HorosPrintSelection for its spool directory')
 if 'discardSpoolDirectory' not in browser:
@@ -105,15 +105,15 @@ if re.search(r'horos-print-(%@|\\\()', browser):
     failures.append('the spool path is built by hand again instead of asked for')
 # Every way out of the printing method has to reach the removal. The method's
 # own statements are indented eight spaces; it ends at the first brace at four.
-body = re.search(r'\n        let dir = PrintSelection\.newSpoolDirectory\(\)(.*?)\n    \}\n', browser, re.S)
+body = re.search(r'\n        let dir = newSpoolDirectory\(\)(.*?)\n    \}\n', browser, re.S)
 if not body:
     failures.append('the spool directory is no longer created in the print path')
 else:
     # The @finally: the removal is a statement of the method itself, after the
-    # objcTry closure that stands for the @try, and nothing outside that closure
+    # HorosObjCException.caught closure that stands for the @try, and nothing outside that closure
     # returns or throws before it.
     tail = re.sub(r'//[^\n]*', '', body.group(1))
-    guarded = tail.find('objcTry({')
+    guarded = tail.find('HorosObjCException.caught({')
     outside = tail
     if guarded >= 0:
         depth = 0
@@ -122,7 +122,7 @@ else:
             if depth == 0:
                 outside = tail[:guarded] + tail[index + 1:]
                 break
-    removal = re.search(r'\n        _ = PrintSelection\.discardSpoolDirectory\(dir\)', outside)
+    removal = re.search(r'\n        _ = discardSpoolDirectory\(dir\)', outside)
     exits = [m.start() for m in re.finditer(r'\b(return|throw)\b', outside)]
     if (guarded < 0 or not removal or removal.start() < guarded
             or any(at < removal.start() for at in exits)):

@@ -39,6 +39,7 @@
 
 import Cocoa
 import IsiXImaging
+import IsiXPreferences
 
 /// The level and width the Set WL/WW sheet opened with, which Cancel restores.
 /// One pair for every 3D window, as the former file statics were.
@@ -142,9 +143,9 @@ import IsiXImaging
 
         if tag != 0 {
             let name = newNameOutlet?.stringValue ?? ""
-            let presets = (UserDefaults.standard.dictionary(forKey: "WLWW3") as NSDictionary?)?.mutableCopy() as? NSMutableDictionary
-            presets?[name] = [NSNumber(value: iwl), NSNumber(value: iww)]
-            UserDefaults.standard.set(presets, forKey: "WLWW3")
+            var presets = windowLevelPresets
+            presets.set(IsiXPreferences.WindowLevelPreset(level: iwl, width: iww), named: name)
+            presets.write(to: processGraph.preferences)
 
             currentWLWWMenu = name
             NotificationCenter.default.post(name: .OsirixUpdateWLWWMenu, object: currentWLWWMenu, userInfo: nil)
@@ -160,9 +161,9 @@ import IsiXImaging
         let name = Unmanaged<NSString>.fromOpaque(contextInfo).takeRetainedValue()
 
         if returnCode == 1 {
-            let presets = (UserDefaults.standard.dictionary(forKey: "WLWW3") as NSDictionary?)?.mutableCopy() as? NSMutableDictionary
-            presets?.removeObject(forKey: name)
-            UserDefaults.standard.set(presets, forKey: "WLWW3")
+            var presets = windowLevelPresets
+            presets.set(nil, named: name as String)
+            presets.write(to: processGraph.preferences)
             NotificationCenter.default.post(name: .OsirixUpdateWLWWMenu, object: currentWLWWMenu, userInfo: nil)
         }
     }

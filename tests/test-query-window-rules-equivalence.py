@@ -40,6 +40,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import harness_defaults  # noqa: E402
 import history_reference  # noqa: E402
 from isix_modules import build_module, link_flags  # noqa: E402
+import process_graph_stand_in  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 OLD = 'Horos/Sources/QueryController.mm'
@@ -423,6 +424,8 @@ with tempfile.TemporaryDirectory(prefix='isix-query-rules-') as folder:
         objects.append(str(obj))
     built = subprocess.run(['xcrun', 'swiftc', *flags, '-Xcc', '-DHOROS_BRIDGING_HEADER=1', '-import-objc-header', str(work / 'Bridge.h'),
                             str(ROOT / 'Horos/Sources/QueryFilter.swift'), str(work / 'Harness.swift'), str(work / 'main.swift'),
+                            # The preferences of QueryFilter and of the window's filters, from PreferencesSource.
+                            str(process_graph_stand_in.source(work)),
                             *objects, *link_flags('IsiXStorage', work / 'modules'), *link_flags('IsiXDICOMNetwork', work / 'modules'),
                             *link_flags('IsiXDICOMFile', work / 'modules'), *link_flags('IsiXImaging', work / 'modules'),
                             '-o', str(work / 'test')], capture_output=True, text=True)

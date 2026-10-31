@@ -8,6 +8,7 @@ reserves, and a case whose driver cannot bind it is retried with another
 port, a few times. A listener that exits before READY fails with its exit
 code and its standard error.
 """
+import json
 import os
 from pathlib import Path
 import re
@@ -19,8 +20,11 @@ from dcmtk_build import ROOT, BUILD, dcmtk_flags
 from python_with import interpreter
 python = Path(os.environ.get('HOROS_TEST_PYTHON') or interpreter('import pynetdicom') or '')
 openssl = BUILD/'OpenSSL.build/Install'
-if not python.is_file() or not (openssl/'lib/libssl.a').is_file():
-    print('skipped: needs built OpenSSL and a Python with pynetdicom, such as local-validation/fixture-venv')
+# The installation carries the record of the original release it was compiled
+# from; an installation from before that record is rebuilt, not trusted.
+record = openssl/'share/source.json'
+if not python.is_file() or not (openssl/'lib/libssl.a').is_file() or not record.is_file():
+    print('skipped: needs built OpenSSL with its source record and a Python with pynetdicom, such as local-validation/fixture-venv')
     raise SystemExit(2)
 # The query node's mapping is in its DCMTK adapter, on the setting the node
 # normalised; the driver below normalises the same way.
@@ -138,8 +142,13 @@ with tempfile.TemporaryDirectory(prefix='horos-tls-') as directory:
     subprocess.run(['xcrun', 'clang++', '-std=c++11', '-I'+str(openssl/'include'), str(p/'main.mm'),
         *dcmtk_flags('dcmtls', 'dcmnet'), str(openssl/'lib/libssl.a'), str(openssl/'lib/libcrypto.a'),
         str(p/'libPolicy.dylib'), '-framework', 'Foundation', '-framework', 'Security', '-o', str(p/'driver')], check=True)
-    version_fields = dict(line.split('=', 1) for line in (ROOT/'OpenSSL/upstream/VERSION.dat').read_text().splitlines() if '=' in line)
-    expected_version = '.'.join(version_fields[key] for key in ('MAJOR', 'MINOR', 'PATCH'))
+    # The installed record must name the release external-sources.json pins,
+    # and the archive linked into the driver must report that same release.
+    compiled = json.loads(record.read_text())
+    pinned = json.loads((ROOT/'Horos/Scripts/external-sources.json').read_text())['OpenSSL']
+    assert (compiled['version'], compiled['sha256']) == (pinned['version'], pinned['sha256']), \
+        'the installed OpenSSL is not the pinned release: rebuild it (%s, expected %s)' % (compiled['version'], pinned['version'])
+    expected_version = compiled['version']
     linked_version = subprocess.check_output([str(p/'driver'), 'version'], text=True).strip()
     assert linked_version.startswith('OpenSSL '+expected_version+' '), linked_version
     print('PASS: DCMTK compiled version and linked archive:', linked_version, flush=True)

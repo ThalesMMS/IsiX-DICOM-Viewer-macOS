@@ -70,3 +70,48 @@ public enum SeriesListDock {
         x >= 0 && x <= cellWidth + 13 && y >= 0 && y <= (listShown ? height : height - 20)
     }
 }
+
+// The dock's decisions the viewer's split view delegate and its automatic
+// hiding take: the height of the thumbnails, the scroller set aside, when
+// the list hides or shows by itself, when its visibility passes to the other
+// viewers and when its scrolling does.
+extension SeriesListDock {
+    /// The height of the list's thumbnails: the matrix's cell height, or 120
+    /// without a matrix or for a cell less than a point high.
+    public static func thumbnailHeight(cellHeight: CGFloat?) -> CGFloat {
+        guard let cellHeight, !(cellHeight < 1) else { return 120 }
+        return cellHeight
+    }
+
+    /// The width of the vertical scroller a dragged divider sets aside: none
+    /// across the top or the bottom, for overlay scrollers or a scroller not
+    /// shown; `shownScrollerWidth` is the scroller's width when the scroll view
+    /// has one and it is not hidden.
+    public static func scrollerWidth(across: Bool, overlayScrollers: Bool, shownScrollerWidth: CGFloat?) -> CGFloat {
+        guard !across, !overlayScrollers else { return 0 }
+        return shownScrollerWidth ?? 0
+    }
+
+    /// The visibility the automatic hiding gives the list, nil to leave it: a
+    /// list hides when its window is not the key window (out of full screen)
+    /// or when the mouse leaves its edge, and shows again otherwise. Where the
+    /// mouse is matters, and is asked, only when the window does not hide it.
+    public static func autoHiddenVisibility(fullScreen: Bool, windowIsKey: Bool, listShown: Bool,
+                                            mouseKeepsListShown: () -> Bool) -> Bool? {
+        let hide = (!fullScreen && !windowIsKey) || !mouseKeepsListShown()
+        return listShown == hide ? !hide : nil
+    }
+
+    /// The other viewers' lists follow a resize of this one's split view only
+    /// when lists do not hide by themselves, out of full screen, and unless
+    /// Option is held.
+    public static func propagatesVisibility(autoHides: Bool, fullScreen: Bool, optionDown: Bool) -> Bool {
+        !autoHides && !fullScreen && !optionDown
+    }
+
+    /// The other viewers' lists scroll with this one by the preference;
+    /// Command reverses it.
+    public static func syncsScrolling(preference: Bool, commandDown: Bool) -> Bool {
+        commandDown ? !preference : preference
+    }
+}

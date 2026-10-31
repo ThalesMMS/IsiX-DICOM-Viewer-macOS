@@ -39,12 +39,14 @@
 
 import Cocoa
 import IsiXImaging
+import IsiXPreferences
 
 // The scroll wheel, the trackpad's gestures and the slider of DCMView are
 // implemented in Swift: an extension of DCMView, with
-// the same selectors. How far an event moves through the images, the movie or
-// the slab, and when it goes on to the next series, are IsiXImaging's
-// WheelSteps rules.
+// the same selectors. Where the view is in its stack and how an event moves
+// through the images, the slab and on to the next series is the view's
+// StackNavigation (IsiXImaging); how far it moves the movie is WheelSteps';
+// the preferences it follows are ScrollSettings (IsiXPreferences).
 
 extension DCMView {
 
@@ -87,43 +89,29 @@ extension DCMView {
         if self.is2DViewer() && self.horos_dcmPixList != nil && self.stringID != "previewDatabase" {
             let phase = theEvent.phase, momentum = theEvent.momentumPhase
             let flags = theEvent.modifierFlags
-            let slabGesture = flags.contains(.option) && flags.intersection([.command, .shift]).isEmpty
-            if !phase.intersection([.began, .mayBegin]).isEmpty {
-                self.horos_consumeSlabScrollTail = false
-                self.horos_slabScrollRemainder = 0
-            }
-            if self.horos_consumeSlabScrollTail && !slabGesture {
-                // Releasing Option in the same gesture must not turn its remaining
-                // finger or momentum events into slice, phase, zoom or blend input.
-                if momentum != [] || phase != [] {
-                    return
-                }
-                self.horos_consumeSlabScrollTail = false // A fresh discrete wheel event.
-            }
-            if slabGesture {
-                // The momentum of a trackpad or Magic Mouse gesture keeps changing
-                // the thickness while Option is held, as it keeps scrolling slices
-                // without it.
-                self.horos_consumeSlabScrollTail = theEvent.hasPreciseScrollingDeltas || phase != []
-                if theEvent.timestamp - self.horos_slabScrollTimestamp > WheelSteps.slabRemainderLifetime {
-                    self.horos_slabScrollRemainder = 0
-                }
-                self.horos_slabScrollTimestamp = theEvent.timestamp
-                // The series' backing order has no bearing on slab thickness.
-                var remainder = self.horos_slabScrollRemainder
-                let steps = WheelSteps.slabSteps(deltaY: deltaY, sign: ScrollDirection.wheelSign(flippedData: false),
-                                                 precise: theEvent.hasPreciseScrollingDeltas, remainder: &remainder)
-                self.horos_slabScrollRemainder = remainder
-                guard let steps else { return }
-                if steps != 0 {
-                    inputMessages(self.windowController())?.inputAdjustThickSlab(bySteps: steps)
-                }
+            // Releasing Option in the same gesture must not turn its remaining
+            // finger or momentum events into slice, phase, zoom or blend input;
+            // the momentum of a trackpad or Magic Mouse gesture keeps changing
+            // the thickness while Option is held. The series' backing order has
+            // no bearing on slab thickness.
+            switch self.stackNavigation.slabScroll(deltaY: deltaY, sign: ScrollDirection.wheelSign(flippedData: false),
+                                                   precise: theEvent.hasPreciseScrollingDeltas,
+                                                   begins: !phase.intersection([.began, .mayBegin]).isEmpty,
+                                                   inGesture: phase != [], inMomentum: momentum != [],
+                                                   option: flags.contains(.option) && flags.intersection([.command, .shift]).isEmpty,
+                                                   timestamp: theEvent.timestamp) {
+            case .stack:
+                break
+            case .none:
+                return
+            case .steps(let steps):
+                inputMessages(self.windowController())?.inputAdjustThickSlab(bySteps: steps)
                 return
             }
-            self.horos_slabScrollRemainder = 0
         }
 
-        var selectWindowScrollWheel = UserDefaults.standard.bool(forKey: "SelectWindowScrollWheel")
+        let settings = ScrollSettings(preferences: PreferencesSource.process.preferences)
+        var selectWindowScrollWheel = settings.selectsWindowUnderPointer
 
         if theEvent.modifierFlags.contains(.capsLock) { // Caps Lock
             selectWindowScrollWheel = !selectWindowScrollWheel
@@ -141,7 +129,7 @@ extension DCMView {
             }
         }
 
-        if UserDefaults.standard.bool(forKey: "ZoomWithHorizonScroll") == false { deltaX = 0 }
+        if settings.zoomsWithHorizontalScroll == false { deltaX = 0 }
 
         let reverseScrollWheel = Float(ScrollDirection.wheelSign(flippedData: self.horos_flippedData))
 
@@ -172,12 +160,10 @@ extension DCMView {
                     wc?.inputSetMovieIndex(Int16(truncatingIfNeeded: next))
                 }
             } else if modifiers.contains(.shift) {
-                let change = WheelSteps.stackChange(reverseScrollWheel * deltaY / 2.5)
-                (self.horos_curImage, inc) = WheelSteps.imageIndex(self.horos_curImage, adding: Double(self.curDCM?.stack ?? 0) * Double(change))
+                inc = self.stackNavigation.scrollStacks(reverseScrollWheel * deltaY / 2.5, stackSize: Int(self.curDCM?.stack ?? 0))
             } else {
-                let change = WheelSteps.imageChange(reverseScrollWheel * deltaY / 2.5, comPACS: PluginManager.isComPACS())
-                (self.horos_curImage, inc) = WheelSteps.imageIndex(self.horos_curImage,
-                                                                   adding: Double(self.horos_imageRows) * Double(self.horos_imageColumns) * Double(change))
+                inc = self.stackNavigation.scrollImages(reverseScrollWheel * deltaY / 2.5, rows: Int(self.horos_imageRows),
+                                                        columns: Int(self.horos_imageColumns), comPACS: PluginManager.isComPACS())
             }
         } else if abs(Double(deltaX)) > 0.7 {
             // Slice navigation must not cancel the pending series fit.
@@ -200,13 +186,8 @@ extension DCMView {
             self.needsDisplay = true
         }
 
-        if self.scrollThroughSeriesIfNecessary(Int32(self.horos_curImage)) {
-        } else if dcmPixList.count > 3 && UserDefaults.standard.bool(forKey: "loopScrollWheel") {
-            if self.horos_curImage < 0 { self.horos_curImage = dcmPixList.count - 1 }
-            if inputBeyondLast(self.horos_curImage, dcmPixList.count) { self.horos_curImage = 0 }
-        } else {
-            if self.horos_curImage < 0 { self.horos_curImage = 0 }
-            if inputBeyondLast(self.horos_curImage, dcmPixList.count) { self.horos_curImage = dcmPixList.count - 1 }
+        if !self.scrollThroughSeriesIfNecessary(Int32(self.horos_curImage)) {
+            self.stackNavigation.endWheelStep(count: dcmPixList.count, loops: settings.loops)
         }
 
         self.inputShowCurrentImage()
@@ -230,59 +211,35 @@ extension DCMView {
 
     // MARK: - Scrolling through the study
 
-    /// Whether a modality of the study scrolls on into the next series.
-    @objc(containsScrollThroughModality)
-    public dynamic func containsScrollThroughModality() -> Bool {
-        for m in (self.studyObj()?.modalities())?.components(separatedBy: "\\") ?? [] {
-            if UserDefaults.standard.bool(forKey: "scrollThroughSeriesFor\(m)") {
-                return true
-            }
-        }
-
-        return false
-    }
-
     /// Past the first or the last image, the previous or the next series of
     /// the study is loaded, if the study scrolls through its series; the
     /// index stays within the series. True when a series is loaded.
-    @objc(scrollThroughSeriesIfNecessary:)
-    public dynamic func scrollThroughSeriesIfNecessary(_ i: Int32) -> Bool {
-        var switchSeries = false
-
-        if self.is2DViewer() && UserDefaults.standard.bool(forKey: "scrollThroughSeries") && self.containsScrollThroughModality() {
-            let count = self.horos_dcmPixList?.count ?? 0
-            var imIndex = Int(self.horos_curImage)
-
-            if self.horos_flippedData {
-                imIndex = count - 1 - imIndex
-            }
-
-            if imIndex < 0 || imIndex >= count {
-                let seriesObj = self.seriesObj()
-                let seriesArray = BrowserController.currentBrowser()?.childrenArray((seriesObj as NSObject?)?.value(forKey: "study")) as NSArray?
-                let index = seriesArray.map { $0.index(of: seriesObj as Any) }
-                let windowController = self.windowController() as AnyObject
-
-                switch WheelSteps.seriesStep(imageIndex: imIndex, imageCount: count,
-                                             seriesIndex: index == NSNotFound ? nil : index, seriesCount: seriesArray?.count ?? 0) {
-                case .previous?:
-                    NSObject.cancelPreviousPerformRequests(withTarget: windowController, selector: NSSelectorFromString("loadSeriesDown"), object: nil)
-                    windowController.perform(NSSelectorFromString("loadSeriesDown"), with: nil, afterDelay: 0.01)
-                    switchSeries = true
-                case .next?:
-                    NSObject.cancelPreviousPerformRequests(withTarget: windowController, selector: NSSelectorFromString("loadSeriesUp"), object: nil)
-                    windowController.perform(NSSelectorFromString("loadSeriesUp"), with: nil, afterDelay: 0.01)
-                    switchSeries = true
-                case nil:
-                    break
-                }
-            }
-
-            if self.horos_curImage < 0 { self.horos_curImage = 0 }
-            if inputBeyondLast(self.horos_curImage, count) { self.horos_curImage = count - 1 }
+    public func scrollThroughSeriesIfNecessary(_ i: Int32) -> Bool {
+        guard self.is2DViewer(),
+              ScrollSettings.scrollsThroughSeries(modalities: self.studyObj()?.modalities(),
+                                                  preferences: PreferencesSource.process.preferences) else { return false }
+        let graph = PreferencesSource.process.processGraph
+        // On a copy: the series is found through the image shown, which reads
+        // the view's navigation while it would be changing.
+        var navigation = self.stackNavigation
+        let step = navigation.passEnd(count: self.horos_dcmPixList?.count ?? 0, flipped: self.horos_flippedData) {
+            // The series of the study in the database window's order.
+            let seriesObj = self.seriesObj()
+            let seriesArray = graph.currentBrowser?.childrenArray(seriesObj?.study)
+            let index = seriesArray?.firstIndex { ($0 as? NSObject)?.isEqual(seriesObj) == true }
+            return (index, seriesArray?.count ?? 0)
         }
-
-        return switchSeries
+        self.stackNavigation = navigation
+        let selector: String
+        switch step {
+        case .previous?: selector = "loadSeriesDown"
+        case .next?: selector = "loadSeriesUp"
+        case nil: return false
+        }
+        let windowController = self.windowController() as AnyObject
+        NSObject.cancelPreviousPerformRequests(withTarget: windowController, selector: NSSelectorFromString(selector), object: nil)
+        windowController.perform(NSSelectorFromString(selector), with: nil, afterDelay: 0.01)
+        return true
     }
 
     // MARK: - Slider
@@ -294,11 +251,7 @@ extension DCMView {
         let x = Int(self.horos_curImage) // x = curImage before sliderAction
         let value = Int(inputMessages(sender)?.inputIntValue() ?? 0)
 
-        if self.horos_flippedData {
-            self.horos_curImage = (self.horos_dcmPixList?.count ?? 0) - 1 - value
-        } else {
-            self.horos_curImage = value
-        }
+        self.stackNavigation.slide(to: value, count: self.horos_dcmPixList?.count ?? 0, flipped: self.horos_flippedData)
 
         self.setIndex(self.horos_curImage)
 
@@ -344,20 +297,11 @@ extension DCMView {
         if self.is2DViewer() {
             let v = inputMessages(self.windowController())
 
-            if anEvent.deltaX < -0.5 {
-                v?.inputLoadSeriesUp()
-            }
-
-            if anEvent.deltaX > 0.5 {
-                v?.inputLoadSeriesDown()
-            }
-
-            if anEvent.deltaY < -0.5 {
-                v?.inputLoadSeriesUp()
-            }
-
-            if anEvent.deltaY > 0.5 {
-                v?.inputLoadSeriesDown()
+            for step in StackNavigation.swipeSteps(deltaX: Double(anEvent.deltaX), deltaY: Double(anEvent.deltaY)) {
+                switch step {
+                case .next: v?.inputLoadSeriesUp()
+                case .previous: v?.inputLoadSeriesDown()
+                }
             }
         }
     }

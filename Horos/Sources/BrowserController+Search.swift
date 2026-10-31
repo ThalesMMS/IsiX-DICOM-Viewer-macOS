@@ -39,13 +39,16 @@
 
 import AppKit
 import IsiXDatabase
+import IsiXPreferences
 
 // The search field's type, the time interval and the modality filter of the
-// browser's study list, and when they also ask the PACS On-Demand nodes. The
-// predicate of the search field is createFilterPredicate
-// (BrowserController+Plugins.swift); the start of each time interval and the
-// rules for asking the nodes are IsiXDatabase's StudyDateInterval and
-// StudySearchRules. The selectors are those of the former Objective-C methods.
+// browser's study list, as the nib, the menus and the bindings set them, and
+// when they also ask the PACS On-Demand nodes, through the searches of
+// BrowserController+DistantSearch.swift, which hand the question to the
+// process's PACSOnDemandSearch. The predicate of the search field, the start
+// of each time interval and the rules for asking the nodes are IsiXDatabase's
+// StudySearchRules and StudyDateInterval. The selectors are those of the
+// former Objective-C methods.
 
 extension BrowserController {
 
@@ -57,20 +60,31 @@ extension BrowserController {
         }
     }
 
-    /// Stops the search of the PACS On-Demand nodes in progress.
-    private func cancelDistantSearch() {
-        BrowserObjC.synchronized(self) {
-            horos_distantSearchThread?.cancel()
-            horos_distantSearchThread = nil
+    /// The search field's text drawn in its background's colour while the
+    /// patient's name is searched with the names hidden.
+    func applySearchFieldTextColour() {
+        let hidden = StudySearchRules.hidesSearchText(searchType: Int(horos_searchType),
+                                                      hidePatientName: PreferencesSource.process.preferences[DatabasePreferences.hidesPatientName])
+        horos_searchField?.textColor = hidden ? NSColor.controlBackgroundColor : NSColor.controlTextColor
+    }
+
+    /// Asks the nodes for the search field's string when it is long enough,
+    /// or else for the time interval; the last question asked wins.
+    func askDistantNodesForSearch() {
+        if StudySearchRules.queriesDistantNodes(searchLength: (horos_searchString as NSString?)?.length ?? 0,
+                                                searchType: Int(horos_searchType)) {
+            searchDistantNodes(forSearch: horos_searchString, type: horos_searchType,
+                               selectedAlbumIndex: Int32(truncatingIfNeeded: horos_albumTable?.selectedRow ?? 0))
+        } else if horos_timeIntervalStart != nil || horos_timeIntervalEnd != nil {
+            askDistantNodesForTimeInterval()
         }
     }
 
     /// Asks the nodes for the studies of the time interval, when "Database"
     /// is the album selected.
-    private func searchDistantNodesForTimeInterval() {
+    private func askDistantNodesForTimeInterval() {
         if (horos_albumTable?.selectedRow ?? 0) == 0 {
-            Thread.detachNewThreadSelector(#selector(BrowserController.searchForTimeIntervalFrom(to:)), toTarget: self,
-                                           with: BrowserObjC.dictionary(horos_timeIntervalStart, "from", horos_timeIntervalEnd, "to"))
+            searchDistantNodes(from: horos_timeIntervalStart, to: horos_timeIntervalEnd)
         }
     }
 
@@ -78,11 +92,7 @@ extension BrowserController {
     @objc(setSearchType:)
     func setSearchType(_ sender: Any!) {
         let item = sender as? NSMenuItem
-        if horos_searchType == 0 && UserDefaults.standard.bool(forKey: "HIDEPATIENTNAME") {
-            horos_searchField?.textColor = NSColor.controlBackgroundColor
-        } else {
-            horos_searchField?.textColor = NSColor.controlTextColor
-        }
+        applySearchFieldTextColour()
 
         for menuItem in item?.menu?.items ?? [] {
             menuItem.state = .off
@@ -99,20 +109,9 @@ extension BrowserController {
             outline.scrollRowToVisible(outline.selectedRow)
         }
 
-        let length = (horos_searchString as NSString?)?.length ?? 0
-        if StudySearchRules.queriesDistantNodes(searchLength: length, searchType: Int(horos_searchType)) {
-            cancelDistantSearch()
-            Thread.detachNewThreadSelector(#selector(BrowserController.search(forSearchField:)), toTarget: self,
-                                           with: BrowserObjC.dictionary(NSNumber(value: horos_searchType), "searchType", horos_searchString, "searchString",
-                                                                        NSNumber(value: Int32(truncatingIfNeeded: horos_albumTable?.selectedRow ?? 0)), "selectedAlbumIndex"))
-        } else if horos_timeIntervalStart != nil || horos_timeIntervalEnd != nil {
-            cancelDistantSearch()
-            searchDistantNodesForTimeInterval()
-        } else {
-            cancelDistantSearch()
-        }
+        askDistantNodesForSearch()
 
-        UserDefaults.standard.set(tag, forKey: "searchType")
+        PreferencesSource.process.preferences.set(tag, forKey: "searchType")
     }
 
     /// The time interval of `timeIntervalType`, from now; then the nodes are
@@ -138,20 +137,16 @@ extension BrowserController {
         if start != nil || end != nil {
             if StudyDateInterval.needsDistantQuery(start: start, end: end, askedStart: self.distantTimeIntervalStart,
                                                    askedEnd: self.distantTimeIntervalEnd) {
-                cancelDistantSearch()
-                searchDistantNodesForTimeInterval()
+                askDistantNodesForTimeInterval()
             }
         } else if StudySearchRules.queriesDistantNodes(searchLength: (horos_searchString as NSString?)?.length ?? 0,
                                                        searchType: Int(horos_searchType)) {
             self.searchString = horos_searchString
-        } else {
-            cancelDistantSearch()
         }
     }
 
     /// -setTimeIntervalType:, the time interval menu: the custom interval
     /// shows its panel.
-    @objc(horos_applyTimeIntervalType:)
     func horos_applyTimeIntervalType(_ type: Int32) {
         willChangeValue(forKey: "timeIntervalType")
         horos_timeIntervalTypeValue = type
@@ -167,7 +162,6 @@ extension BrowserController {
     /// -setModalityFilter:, the modality menu: nil is its first item, every
     /// modality. The modality filter is only offered with a time interval for
     /// PACS On-Demand, so the interval is asked again.
-    @objc(horos_applyModalityFilter:)
     func horos_applyModalityFilter(_ modality: String?) {
         let modality = modality ?? horos_modalityFilterMenu?.item(at: 0)?.title
         willChangeValue(forKey: "modalityFilter")

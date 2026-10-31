@@ -181,7 +181,6 @@ public final class DCMPixelDataAttribute: DCMAttribute {
     // MARK: Decoding
 
     /// Big endian to host order, in place.
-    @objc(convertDataFromBigEndianToHost:)
     public func convertDataFromBigEndianToHost(_ data: NSMutableData) -> NSData {
         #if _endian(little)
             if pixelDepth <= 16 && pixelDepth > 8 {
@@ -324,7 +323,6 @@ public final class DCMPixelDataAttribute: DCMAttribute {
     // MARK: Frames
 
     /// The stored frame `index` (decoded by the source when there is one).
-    @objc(createFrameAtIndex:)
     public func createFrame(at index: Int32) -> NSMutableData? {
         if frameSource != nil && !detachedFromSource {
             return decodeFrame(at: index)?.mutableCopy() as? NSMutableData
@@ -405,7 +403,7 @@ public final class DCMPixelDataAttribute: DCMAttribute {
     /// that wants to hand the video to a decoder needs the bytes as they were
     /// written, not a frame's worth of them. Nil when the value is not
     /// encapsulated or has already been taken apart into frames.
-    @objc public func encapsulatedStream() -> Data? {
+    public func encapsulatedStream() -> Data? {
         guard transferSyntax?.isEncapsulated == true, !framesCreated, let values, values.count >= 2 else { return nil }
         let stream = NSMutableData()
         for index in 1..<values.count {
@@ -419,7 +417,6 @@ public final class DCMPixelDataAttribute: DCMAttribute {
     // MARK: Interleaving
 
     /// The samples of a planar frame (Planar Configuration 1 to 4) interleaved.
-    @objc(interleavePlanesInData:)
     public func interleavePlanes(in planarData: NSData) -> NSData {
         let planes = Self.int(dcmObject?.attribute(for: DICOMAttributeTag.tag(withName: "PlanarConfiguration"))?.value())
         guard planes > 0 && planes <= 4 else { return planarData }

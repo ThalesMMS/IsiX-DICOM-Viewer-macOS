@@ -74,32 +74,31 @@ public final class PagesPDFConversion: NSObject {
         return attributes
     }
 
-    /// Writes `pdfPath` from `reportPath`. false leaves `reportPath` as it was
-    /// and does not leave a PDF that anyone should import.
+    /// Writes `pdfPath` from `reportPath`. A failure leaves `reportPath` as it
+    /// was and does not leave a PDF that anyone should import.
     @objc(convertReportAtPath:toPDFAtPath:error:)
     public static func convertReport(at reportPath: String,
-                                     toPDFAt pdfPath: String,
-                                     error outError: NSErrorPointer) -> Bool {
+                                     toPDFAt pdfPath: String) throws {
         let report = URL(fileURLWithPath: reportPath).resolvingSymlinksInPath()
         let destination = URL(fileURLWithPath: pdfPath).resolvingSymlinksInPath()
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: report.path, isDirectory: &isDirectory) else {
-            return fail(1, "The Pages report is missing. Nothing was converted.", outError)
+            throw failure(1, "The Pages report is missing. Nothing was converted.")
         }
         if destination.path == report.path || isInside(destination, parent: report) {
-            return fail(2, "The PDF cannot replace the Pages report. The original report has been left unchanged.", outError)
+            throw failure(2, "The PDF cannot replace the Pages report. The original report has been left unchanged.")
         }
         guard let application = PagesApplication.url() else {
-            return fail(3, "Pages is not installed or could not be located. The original report has been left unchanged.", outError)
+            throw failure(3, "Pages is not installed or could not be located. The original report has been left unchanged.")
         }
         guard let identifier = Bundle(url: application)?.bundleIdentifier,
               ["com.apple.iWork.Pages", "com.apple.Pages"].contains(identifier) else {
-            return fail(3, "Pages is not installed or could not be located. The original report has been left unchanged.", outError)
+            throw failure(3, "Pages is not installed or could not be located. The original report has been left unchanged.")
         }
 
         if let document = openDocumentID(for: report, identifier: identifier),
            run(script(saveIfModifiedScriptSource, for: identifier), [document, identifier]) == nil {
-            return fail(7, "The report open in Pages could not be saved, so the PDF would miss its last changes. No PDF was generated, and the report has been left open.", outError)
+            throw failure(7, "The report open in Pages could not be saved, so the PDF would miss its last changes. No PDF was generated, and the report has been left open.")
         }
 
         let work = FileManager.default.temporaryDirectory
@@ -107,7 +106,7 @@ public final class PagesPDFConversion: NSObject {
         do {
             try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
         } catch {
-            return fail(4, "The Pages report could not be copied for export. The original report has been left unchanged.", outError)
+            throw failure(4, "The Pages report could not be copied for export. The original report has been left unchanged.")
         }
         defer { try? FileManager.default.removeItem(at: work) }
 
@@ -115,7 +114,7 @@ public final class PagesPDFConversion: NSObject {
         do {
             try FileManager.default.copyItem(at: report, to: copy)
         } catch {
-            return fail(4, "The Pages report could not be copied for export. The original report has been left unchanged.", outError)
+            throw failure(4, "The Pages report could not be copied for export. The original report has been left unchanged.")
         }
 
         let configuration = NSWorkspace.OpenConfiguration()
@@ -139,7 +138,7 @@ public final class PagesPDFConversion: NSObject {
             }
         }
         guard let exported else {
-            return fail(5, "Pages could not export the report as PDF. Check that IsiX DICOM Viewer is allowed to control Pages in System Settings > Privacy & Security > Automation. The original report has been left unchanged.", outError)
+            throw failure(5, "Pages could not export the report as PDF. Check that IsiX DICOM Viewer is allowed to control Pages in System Settings > Privacy & Security > Automation. The original report has been left unchanged.")
         }
 
         do {
@@ -151,16 +150,15 @@ public final class PagesPDFConversion: NSObject {
             try FileManager.default.copyItem(at: exported, to: destination)
         } catch {
             try? FileManager.default.removeItem(at: destination)
-            return fail(6, "The PDF was exported but could not be stored. The original report has been left unchanged.", outError)
+            throw failure(6, "The PDF was exported but could not be stored. The original report has been left unchanged.")
         }
         if exported.path != destination.path {
             try? FileManager.default.removeItem(at: exported)
         }
         guard isUsablePDF(at: destination.path) else {
             try? FileManager.default.removeItem(at: destination)
-            return fail(5, "Pages could not export the report as PDF. The original report has been left unchanged.", outError)
+            throw failure(5, "Pages could not export the report as PDF. The original report has been left unchanged.")
         }
-        return true
     }
 
     /// Closes the report if it is open in Pages, once validation has its DICOM
@@ -382,13 +380,11 @@ public final class PagesPDFConversion: NSObject {
         return result
     }
 
-    @discardableResult
-    private static func fail(_ code: Int, _ message: String, _ error: NSErrorPointer) -> Bool {
+    /// The failure of a conversion, logged: the error an Objective-C caller
+    /// receives too.
+    private static func failure(_ code: Int, _ message: String) -> NSError {
         NSLog("---- Pages PDF conversion failed: %@", message)
-        if let error {
-            error.pointee = NSError(domain: "HorosPagesPDFConversion", code: code,
-                                    userInfo: [NSLocalizedDescriptionKey: message])
-        }
-        return false
+        return NSError(domain: "HorosPagesPDFConversion", code: code,
+                       userInfo: [NSLocalizedDescriptionKey: message])
     }
 }

@@ -4,6 +4,9 @@ set -e; set -o xtrace
 
 cmake_dir="$TARGET_TEMP_DIR/CMake"
 install_dir="$TARGET_TEMP_DIR/Install"
+# The original source that CMake.sh resolved and configured.
+source_prefix="$TARGET_TEMP_DIR/Source"
+source_dir="$source_prefix/source"
 copy_dir="$BUILT_PRODUCTS_DIR/DCMTK"
 
 [ -d "${copy_dir}" ] && [ ! -f "${copy_dir}/.incomplete" ] && exit 0
@@ -41,7 +44,19 @@ cp "${install_dir}/bin/dsr2html" "${copy_dir}"
 cp "${install_dir}/bin/echoscu" "${copy_dir}"
 # A built-in dictionary is used by the library; the external dictionary is
 # also bundled for the application's existing dictionary consumers.
-cp "$PROJECT_DIR/$TARGET_NAME/dcmdata/data/dicom.dic" "${copy_dir}"
+# The source is extracted read-only; the copy stays writable so the next
+# refresh can replace it.
+install -m 0644 "$source_dir/dcmdata/data/dicom.dic" "${copy_dir}/dicom.dic"
+
+# Install the identity of the compiled source with its license and the notices
+# of the code it carries (CharLS, IJG), for the bundle and the release record.
+licenses_dir="$install_dir/share/licenses/DCMTK"
+rm -rf "$licenses_dir"
+mkdir -p "$licenses_dir"
+cp "$source_prefix/share/source.json" "$install_dir/share/source.json"
+cp "$source_dir/COPYRIGHT" "$licenses_dir/COPYRIGHT"
+cp "$source_dir/dcmjpls/docs/License.txt" "$licenses_dir/CharLS-License.txt"
+cp "$source_dir/dcmjpeg/docs/ijg_readme.txt" "$licenses_dir/ijg_readme.txt"
 
 rm -f "$copy_dir/.incomplete"
 

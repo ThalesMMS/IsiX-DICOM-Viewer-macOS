@@ -40,6 +40,7 @@
 
 import Cocoa
 import UniformTypeIdentifiers
+import IsiXPreferences
 
 /// What leaves the VR window: the picture by mail, to Photos, in a JPEG,
 /// TIFF or DICOM file, and the camera path of the fly-thru window.
@@ -69,14 +70,14 @@ extension VRController {
         panel.begin { [self] result in
             guard result == .OK, let url = panel.url else { return }
             try? jpegData(image)?.write(to: url, options: .atomic)
-            if UserDefaults.standard.bool(forKey: "OPENVIEWER") { NSWorkspace.shared.open(url) }
+            if processGraph.preferences[ReconstructionPreferences.opensViewer] { NSWorkspace.shared.open(url) }
         }
     }
 
     @objc(export2iPhoto:)
     public final func export2iPhoto(_ sender: Any!) {
         let image = vrView?.nsimage(false)
-        let path = ((BrowserController.currentBrowser()?.database?.tempDirPath() ?? "") as NSString)
+        let path = ((browserWindowGraph?.database?.tempDirPath() ?? "") as NSString)
             .appendingPathComponent("IsiX DICOM Viewer.jpg")
         try? jpegData(image)?.write(to: URL(fileURLWithPath: path), options: .atomic)
         Photos().importInPhotos([path])
@@ -92,10 +93,11 @@ extension VRController {
         if !["tif", "tiff"].contains((panel.nameFieldStringValue as NSString).pathExtension.lowercased()) {
             panel.nameFieldStringValue += ".tif"
         }
+        let preferences = processGraph.preferences
         panel.begin { result in
             guard result == .OK, let url = panel.url else { return }
             try? image?.tiffRepresentation?.write(to: url)
-            if UserDefaults.standard.bool(forKey: "OPENVIEWER") { NSWorkspace.shared.open(url) }
+            if preferences[ReconstructionPreferences.opensViewer] { NSWorkspace.shared.open(url) }
         }
     }
 

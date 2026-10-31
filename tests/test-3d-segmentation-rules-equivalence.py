@@ -39,6 +39,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import private_tmpdir  # noqa: F401,E402  - its own TMPDIR for the tools it runs
 import history_reference  # noqa: E402
+import harness_defaults  # noqa: E402  the harness's preferences stay in its own process
 
 ROOT = Path(__file__).resolve().parents[1]
 CALCIUM = 'Horos/Sources/CalciumScoringWindowController.m'
@@ -537,6 +538,14 @@ objc = objc.replace('[[NSUserDefaults standardUserDefaults] setObject:[NSNumber 
 objc = objc.replace('NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];', '')
 objc = objc.replace('[userDefaults objectForKey:@"CalciumScoreCTType"]', '[harnessDefaults objectForKey:@"CalciumScoreCTType"]')
 objc = objc.replace('[[self window] beginSheet:setWLWWWindow completionHandler:nil];', '')
+# The reference dropped four characters of a window level item's title to find its preset, which left a
+# space ahead of the name from the tenth item on ("10 - Abdomen"). The windows now drop the number of any
+# length and its " - ": the reference is held to that rule, and keeps its own for every other title.
+FOUR_CHARACTERS = 'str = [[item title] substringFromIndex: 4];'
+assert FOUR_CHARACTERS in objc, 'the reference no longer drops four characters of a window level title'
+objc = objc.replace(FOUR_CHARACTERS, 'NSRange number = [[item title] rangeOfString: @"^[0-9]+ - " options: NSRegularExpressionSearch]; '
+                    'str = number.location != NSNotFound ? [[item title] substringFromIndex: NSMaxRange(number)] '
+                    ': [[item title] substringFromIndex: 4];', 1)
 
 SWIFT = r'''
 import Cocoa
@@ -754,7 +763,8 @@ CONFIGURATIONS = {'Debug': (['-O0'], ['-Onone']), 'Release': (['-Os'], ['-O'])}
 MODULE_SOURCES = ['Modules/IsiXROI/Sources/CalciumScoring.swift',
                   'Modules/IsiXSegmentation/Sources/RegionGrowingParameters.swift',
                   'Modules/IsiXImaging/Sources/ViewerReconstruction/ThreeDViewerPresets.swift',
-                  'Modules/IsiXImaging/Sources/ViewerMenus/ViewerMenus.swift']
+                  'Modules/IsiXImaging/Sources/ViewerMenus/ViewerMenus.swift',
+                  'Modules/IsiXImaging/Sources/ViewerPipeline/WindowLevel.swift']
 
 failures = []
 lines = 0
@@ -770,7 +780,8 @@ with tempfile.TemporaryDirectory(prefix='horos-3d-segmentation-rules-') as name:
             return {k: plain(v) for k, v in value.items()}
         return value
     (work / 'cases.json').write_text(json.dumps(plain(cases), allow_nan=False))
-    (work / 'old.m').write_text(objc, encoding='latin1')
+    # The reference's own NSUserDefaults is a macro for the stand-in; the real class is the one to swap.
+    (work / 'old.m').write_text(objc + '\n#undef NSUserDefaults\n' + harness_defaults.OBJC, encoding='latin1')
     (work / 'main.swift').write_text(SWIFT)
     for configuration, (clang_flags, swift_flags) in CONFIGURATIONS.items():
         built = subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-w', *clang_flags, str(work / 'old.m'),

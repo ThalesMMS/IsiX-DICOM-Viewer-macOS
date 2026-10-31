@@ -53,7 +53,10 @@ else:
         failures.append('the refresh no longer refreshes')
 
 # --- and the arrival notification has to go through it ----------------------
+# The notification hands the refresh to the main thread's own method.
 arrival = body('func _observeDatabaseAddNotification(', switching)
+if arrival and 'refreshAfterDatabaseAdd' in arrival:
+    arrival += body('func refreshAfterDatabaseAdd(', switching) or ''
 if not arrival:
     failures.append('-_observeDatabaseAddNotification: is gone')
 else:
@@ -82,9 +85,9 @@ else:
                         'thing it exists to avoid')
 
 # Committing an edit is BrowserController+OutlineDataSource.swift, the
-# timer-driven refresh BrowserController+StudyList.swift.
+# timer-driven refresh StudyListContent.swift (-refreshDatabase: forwards to it).
 outline = (root / 'Horos/Sources/BrowserController+OutlineDataSource.swift').read_text()
-study_list = (root / 'Horos/Sources/BrowserController+StudyList.swift').read_text()
+study_list = (root / 'Horos/Sources/StudyListContent.swift').read_text()
 commit = body('func setDatabaseValue(', outline)
 if not commit:
     failures.append('-setDatabaseValue:item:forKey: is gone')
@@ -92,7 +95,7 @@ elif '_refreshDatabaseDisplayIfDeferred' not in commit:
     failures.append('committing an edit does not catch the outline up on what arrived meanwhile')
 
 # --- the timer-driven refresh must keep its own guard ------------------------
-timer = body('func refreshDatabase(_ sender: Any!)', study_list)
+timer = body('func refreshDatabase()', study_list)
 if not timer:
     failures.append('-refreshDatabase: is gone')
 elif 'editedRow' not in timer:

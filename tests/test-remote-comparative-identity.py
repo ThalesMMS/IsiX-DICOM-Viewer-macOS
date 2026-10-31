@@ -12,7 +12,7 @@ root=Path(__file__).resolve().parents[1]
 s=(root/'Horos/Sources/QueryController+Network.swift').read_text(encoding='utf-8')
 signature='    @objc(queryStudiesForPatient:usePatientID:usePatientName:usePatientBirthDate:servers:showErrors:)\n'
 a=s.index(signature)
-b=s.index('\n    }\n',a)+len('\n    }\n')
+b=s.index('    // MARK: Verification', a)
 method=s[a:b]
 assert 'QueryController.queryStudies(forFilters:' in method, 'the history no longer asks the nodes through queryStudiesForFilters'
 harness=r'''
@@ -25,6 +25,7 @@ public class DicomStudy: NSObject {
 }
 final class DCMTKStudyQueryNode: NSObject {
  var nameValue: String?, patientIDValue: String?, birth: Date?
+ var comparativeIdentity: ComparativePatientIdentity?
  @objc func name() -> String! { nameValue }
  @objc func patientID() -> String! { patientIDValue }
  @objc func dateOfBirth() -> Date! { birth }
@@ -84,9 +85,27 @@ check(queryCount == before, "a refused history asks no node")
 let sameDay = node(target.patientID, target.name, birth.addingTimeInterval(3600))
 responses = [sameDay]; check(same(query(target, true, true, true), [sameDay]), "the same day")
 responses = []; check(query(target, true, true, true)?.count == 0, "no answer")
+let indexed = study("QA1", "SAMPLE^JO^A", birth)
+let identity = ComparativePatientIdentity(patientID: "QA1", issuer: "PACS1", universalIssuer: nil, name: indexed.name, birthDate: birth)
+func identified(_ name: String, _ date: Date?, _ issuer: String?) -> DCMTKStudyQueryNode {
+ let result = node("QA1", name, date)
+ result.comparativeIdentity = ComparativePatientIdentity(patientID: "QA1", issuer: issuer, universalIssuer: nil, name: name, birthDate: date)
+ return result
+}
+let variation = identified("SAMPLE^JO^B", birth, "PACS1")
+let unknownBirth = identified("SAMPLE^JO^A", nil, "PACS1")
+let foreignIssuer = identified("SAMPLE^JO^A", birth, "PACS2")
+let conflictingBirth = identified("SAMPLE^JO^A", other, "PACS1")
+let unknownIssuer = identified("SAMPLE^JO^B", birth, nil)
+responses = [variation, unknownBirth, foreignIssuer, conflictingBirth, unknownIssuer]
+let matched = QueryController.queryStudies(forPatient: indexed, usePatientID: true, usePatientName: true,
+    usePatientBirthDate: true, servers: [], showErrors: false, identity: identity)
+check(same(matched, [variation, unknownBirth]), "corroborate same-issuer history and exclude conflicts")
+check(sentFilters["PatientBirthDate"] == nil, "allow a same-issuer result with no birth date")
+check(same(query(indexed, true, true, true), [foreignIssuer]), "legacy callers retain exact demographic matching")
 print("PASS: remote history validates enabled identity fields; wrong/missing IDs and birthdates, wildcard IDs, optional name/birthdate, empty responses and invalid query guards")
 '''
 with tempfile.TemporaryDirectory(prefix='horos-remote-comparative-') as t:
  p=Path(t);(p/'Harness.swift').write_text(harness);(p/'main.swift').write_text(driver)
- subprocess.run(['xcrun','swiftc',str(p/'Harness.swift'),str(p/'main.swift'),'-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','swiftc',str(root/'Horos/Sources/PatientIdentity.swift'),str(p/'Harness.swift'),str(p/'main.swift'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True,timeout=60)

@@ -39,6 +39,7 @@
 
 import Cocoa
 import IsiXSegmentation
+import IsiXPreferences
 
 // The algorithms of the region growing window: the popup that chooses one
 // (bound to the growingRegionAlgorithm preference), the parameter fields it
@@ -97,7 +98,7 @@ extension ITKSegmentation3DController {
         algorithmPopup?.removeAllItems()
         algorithmPopup?.menu = items
         algorithmPopup?.bind(NSBindingName("selectedIndex"), to: NSUserDefaultsController.shared,
-                             withKeyPath: "values.growingRegionAlgorithm", options: nil)
+                             withKeyPath: "values." + VolumeRenderingPreferences.growingRegionAlgorithm.name, options: nil)
     }
 
     /// Shows the parameter fields of the chosen algorithm, bound to their

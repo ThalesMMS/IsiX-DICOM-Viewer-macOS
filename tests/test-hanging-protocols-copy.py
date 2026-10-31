@@ -37,6 +37,7 @@ sys.path.insert(0, str(root / "tools"))
 sys.path.insert(0, str(root / "tests"))
 import object_probe  # noqa: E402
 from sources import source_path  # noqa: E402
+import process_graph_stand_in  # noqa: E402  - the layouts read the catalog's keys through PreferencesSource
 
 failures = []
 with tempfile.TemporaryDirectory(prefix="horos-hanging-protocols-") as temporary:
@@ -69,7 +70,9 @@ with tempfile.TemporaryDirectory(prefix="horos-hanging-protocols-") as temporary
                                          source_path("NSWindow+N2")], objects,
                                         Path(temporary) / "libHangingPane.dylib", bridging_header=bridging,
                                         include_dirs=(root / "Horos/Sources", root / "Nitrogen/Sources"),
-                                        frameworks=("Cocoa", "PreferencePanes"))
+                                        frameworks=("Cocoa", "PreferencePanes"),
+                                        flags=process_graph_stand_in.swift_flags(Path(temporary) / "isix",
+                                                                                 ["-target", "arm64-apple-macos26.0"]))
     except subprocess.CalledProcessError as error:
         print(f"the pane does not compile: {error}")
         raise SystemExit(1)

@@ -22,6 +22,8 @@ import json
 import subprocess
 import sys
 import tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import retrieve_inventory_harness  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -74,7 +76,12 @@ query = b'\n'.join(read('Horos/Sources/%s.swift' % name) for name in (
 retrieve = block(query, 'func retrieve(_ sender: Any?, onlyIfNotAvailable: Bool, forViewing: Bool, items: [Any]!, showGUI: Bool)')
 if '!inventory.isSatisfied' not in retrieve:
     failures.append('the auto-query still retrieves a study whose only gaps are expected absences')
-if 'if inventory.isSatisfied { localFiles = totalFiles }' not in block(query, 'nonisolated func addStudyIfNotAvailable('):
+# The automatic query chooses in IsiXDICOMNetwork, from what the app reports
+# of the inventory.
+choice = read('Modules/IsiXDICOMNetwork/Sources/AutoRetrieveChoice.swift').decode('utf-8', 'replace')
+ports = read('Horos/Sources/QueryWindowAutoQueryPorts.swift').decode('utf-8', 'replace')
+if 'if inventory.isSatisfied { here = total }' not in block(choice, 'func addIfNotHere(') or \
+        'isSatisfied: inventory.isSatisfied' not in block(ports, 'func retrieveInventory(of study: AutoQueryStudy)'):
     failures.append('the automatic retrieve of new studies still fetches a satisfied one again')
 column = block(query, 'nonisolated func inventoryCompleteness(forItem item: Any?, inventory: RetrieveInventory)')
 if 'inventory.reportedCount' not in column or 'completeButExpectedAbsences' not in column:
@@ -153,8 +160,8 @@ print(first.path)
 
 with tempfile.TemporaryDirectory(prefix='horos-expected-absence-') as directory:
     work = Path(directory)
-    sources = []
-    for name in ('RetrieveInventory.swift', 'LocalCompleteness.swift'):
+    sources = retrieve_inventory_harness.swiftc_arguments(work / 'harness')
+    for name in ('LocalCompleteness.swift',):
         (work / name).write_bytes(read('Horos/Sources/' + name))
         sources.append(str(work / name))
     (work / 'main.swift').write_text(driver)

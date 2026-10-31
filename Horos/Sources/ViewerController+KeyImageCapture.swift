@@ -40,65 +40,11 @@
 import Foundation
 
 // ViewerController (key image capture): the screen capture made a key image.
-// The capture is exported as a new DICOM file; when the study already has a
-// series of the captures' name, the file joins it (its series UID and number,
-// and the next instance number), written through
-// Adapters/DCMTK/IsiXDCMTKTagEditor; then it is imported and marked as a key
-// image.
+// The selector stays for the menu; the capture is ViewerImageExporter's.
 
 extension ViewerController {
 
     @IBAction func captureAndSetKeyImage(_ sender: Any?) {
-        AppController.shared()?.playGrabSound()
-
-        let study = currentStudy()
-
-        // The name is read once: the series looked for below is the one the capture was just named after.
-        let seriesName = ScreenCaptureSeriesName.current()
-
-        // export the reconstruction as a new DICOM file
-        let result = exportDICOMFileInt(1, withName: seriesName, allViewers: false)
-        let path = result?["file"] as? String
-
-        // if a series of that name already existed, put it in that series
-        var series: DicomSeries? = nil
-        for case let iseries as DicomSeries in study?.series ?? NSSet()
-        where (iseries.name as NSString?)?.isEqual(to: seriesName) == true {
-            series = iseries
-        }
-        if let series, let path {
-            // find highest instanceNumber in the series
-            var instanceNumber = 0
-            for case let image as DicomImage in series.images ?? []
-            where (image.instanceNumber?.intValue ?? 0) > instanceNumber {
-                instanceNumber = image.instanceNumber.intValue
-            }
-            instanceNumber += 1
-            let instance = NSNumber(value: instanceNumber).stringValue
-
-            // clone seriesinstanceUID and seriesNumber; a value the series
-            // lacks is written empty, as DCMTK writes a missing one.
-            let values: [NSNumber: String] = [
-                NSNumber(value: UInt32(0x0020_000E)): series.seriesDICOMUID ?? "", // SeriesInstanceUID
-                NSNumber(value: UInt32(0x0020_0011)): series.id?.stringValue ?? "", // SeriesNumber
-                NSNumber(value: UInt32(0x0020_0013)): instance, // InstanceNumber
-                NSNumber(value: UInt32(0x0020_0012)): instance, // AcquisitionNumber
-            ]
-            do {
-                try IsiXDCMTKTagEditor.replaceStringValues(values, inFileAtPath: path)
-            } catch {
-                NSLog("---- the capture could not join its series: %@", error.localizedDescription)
-            }
-        }
-
-        // import the file into our DB
-        guard let context = study?.managedObjectContext, let database = DicomDatabase(for: context) else { return }
-        let imageIDs = database.addFiles(atPaths: path.map { [$0] } ?? [], postNotifications: true, dicomOnly: true,
-                                         rereadExistingItems: true, generatedByOsiriX: true) ?? []
-
-        // set the new images as key images
-        for imageID in imageIDs {
-            (database.object(withID: imageID) as? DicomImage)?.setIsKey(NSNumber(value: true))
-        }
+        imageExporter.captureKeyImage()
     }
 }

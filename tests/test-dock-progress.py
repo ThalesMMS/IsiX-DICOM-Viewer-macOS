@@ -20,17 +20,20 @@ an application process:
   database) is rendered once per appearance and icon style: setting an icon
   and taking it away does not render it again; forgetting it, or another
   appearance, does.
-- wiring: the application starts it when it has finished launching, and sets
-  the receiving icon through it, only when receiving starts or stops (after two
+- wiring: the application starts it when it has finished launching, and the
+  receiving indicator (ReceivingIndicator, started then too) sets the
+  receiving icon through it, only when receiving starts or stops (after two
   seconds without a reception) or the appearance changes, with the icon drawn
   once per appearance, the bundle's icon rendered again when the appearance
   changes; the General settings no longer offer an icon of their own, which
   now follows only the system.
 
-`<git revision>` as an optional argument reads AppController.swift from
-that revision, the negative control for the wiring.
+`<git revision>` as an optional argument reads AppController.swift and
+ReceivingIndicator.swift from that revision, the negative control for the
+wiring.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
+import process_graph_stand_in
 from pathlib import Path
 import re
 import shutil
@@ -46,20 +49,39 @@ if shutil.which('xcrun') is None:
     print('skipped: needs xcrun (swiftc)', file=sys.stderr)
     sys.exit(SKIPPED)
 
-if revision:
-    app = subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:Horos/Sources/AppController.swift']).decode()
-else:
-    app = (root / 'Horos/Sources/AppController.swift').read_text()
+def read(path):
+    """`path` in the working tree, or at `revision`; empty when it is not there."""
+    if not revision:
+        file = root / path
+        return file.read_text() if file.is_file() else ''
+    shown = subprocess.run(['git', '-C', str(root), 'show', f'{revision}:{path}'], capture_output=True)
+    return shown.stdout.decode() if shown.returncode == 0 else ''
+
+
+app = read('Horos/Sources/AppController.swift')
+# The receiving arrow left AppController for ReceivingIndicator, which the
+# application starts when it has finished launching.
+indicator = read('Horos/Sources/ReceivingIndicator.swift')
+receiving = indicator or app
 launch = re.search(r'func applicationDidFinishLaunching\(.*?\n    \}\n', app, re.S)
+if launch and 'lifecycle.didFinishLaunching()' in launch.group(0):
+    # The launch left AppController for ApplicationLifecycle, which the
+    # application's -applicationDidFinishLaunching: calls.
+    launch = re.search(r'\n    func didFinishLaunching\(\) \{.*?\n    \}\n',
+                       read('Horos/Sources/ApplicationLifecycle.swift'), re.S)
 if not launch or 'DockProgress.shared.start()' not in launch.group(0):
     print('FAIL: the application must start the Dock progress when it has finished launching')
+    sys.exit(1)
+start = re.search(r'\n    func start\(\) \{.*?\n    \}\n', indicator, re.S) if indicator else launch
+if indicator and 'receivingIndicator.start()' not in launch.group(0):
+    print('FAIL: the application does not start the receiving indicator when it has finished launching')
     sys.exit(1)
 
 # The Dock icon follows only the system: the receiving arrow goes through the
 # same call as the progress, and the app no longer offers an icon of its own.
-update = re.search(r'func _receivingIconUpdate\(\) \{.*?\n    \}\n', app, re.S)
-setter = re.search(r'func updateReceivingIcon\(force: Bool[^)]*\) \{.*?\n    \}\n', app, re.S)
-if setter and update and 'updateReceivingIcon(' in update.group(0):
+update = re.search(r'func _receivingIconUpdate\(\) \{.*?\n    \}\n', receiving, re.S)
+setter = re.search(r'func updateReceivingIcon\(force: Bool[^)]*\) \{.*?\n    \}\n', receiving, re.S)
+if setter and (indicator or (update and 'updateReceivingIcon(' in update.group(0))):
     update = setter
 if not update or 'DockProgress.shared.setApplicationIcon(' not in update.group(0) or 'applicationIconImage' in update.group(0):
     print('FAIL: the receiving icon must be set through DockProgress, over the bundle\'s rendered icon')
@@ -70,17 +92,22 @@ if not revision and (not setter or 'shownReceivingIconState' not in setter.group
                      or not re.search(r'if !force && state == shownReceivingIconState \{ return \}', setter.group(0))):
     print('FAIL: the receiving icon is drawn and handed to the Dock even when nothing it shows changed')
     sys.exit(1)
-if not revision and ('perform(#selector(AppController.receivingIconSettled), with: nil, afterDelay: 2)' not in setter.group(0)
-                     or 'func receivingIconSettled()' not in app):
+# The arrow stays two seconds after the last reception, each end starting the
+# two seconds again.
+if not revision and (not re.search(r'settleTimer\?\.invalidate\(\)\s*settleTimer = Timer\.scheduledTimer\(withTimeInterval: 2, repeats: false\)',
+                                   setter.group(0))
+                     or 'func receivingIconSettled()' not in receiving
+                     or 'updateReceivingIcon(force: false, settled: true)' not in receiving):
     print('FAIL: the arrow goes away between two batches of the same retrieve')
     sys.exit(1)
 # The bundle's icon is rendered once per style: a change of appearance, which
 # may come with another icon style, has it rendered again.
-observer = re.search(r'NSApp\.observe\(\\\.effectiveAppearance\).*?\n        \}\n', launch.group(0), re.S)
+observer = re.search(r'NSApp\.observe\(\\\.effectiveAppearance\).*?\n        \}\n', start.group(0) if start else '', re.S)
 # The images an import shows first, and Pages for the report toolbar item, are
 # read at launch: read right after an import, each asked LaunchServices, which
 # then copied its database on top of the import's memory peak.
-loader = re.search(r'private func loadImportStatusImages\(\) \{.*?\n    \}\n', app, re.S)
+loader = re.search(r'private (?:static )?func loadImportStatusImages\(\) \{.*?\n    \}\n',
+                   app + read('Horos/Sources/ApplicationLifecycle.swift'), re.S)
 if not revision and ('loadImportStatusImages()' not in launch.group(0) or not loader
                      or any(name not in loader.group(0) for name in ('"Activity_Stop"', '"Activity_StopPressed"', '"Receiving.tif"',
                                                                      '"Realised1.tif"', '"Realised4.tif"', 'PagesApplication.url()', '.size'))):
@@ -239,5 +266,6 @@ with tempfile.TemporaryDirectory(prefix='horos-dock-progress-') as directory:
     (p / 'main.swift').write_text(DRIVER)
     subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-parse-as-library',
                     str(root / 'Horos/Sources/DockProgress.swift'),
-                    str(p / 'doubles.swift'), str(p / 'main.swift'), '-o', str(p / 'test')], check=True)
+                    str(p / 'doubles.swift'), str(process_graph_stand_in.source(p)), str(p / 'main.swift'),
+                    '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test')], check=True, timeout=120)

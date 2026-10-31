@@ -95,9 +95,10 @@ with tempfile.TemporaryDirectory(prefix='horos-node-limit-') as tmp:
     print((run.stdout + run.stderr).strip())
     check(run.returncode == 0, 'the limiter check failed')
 
-node = (root / 'Horos/Sources/DICOMwebNode.swift').read_text()
+# The stored form is the module's record.
+node = (root / 'Horos/Sources/DICOMwebNode.swift').read_text() + (root / 'Modules/IsiXDICOMNetwork/Sources/DICOMwebNodeRecord.swift').read_text()
 check('public static let maximumRequests = "MaxRequests"' in node and 'defaultMaximumRequests = 4' in node and
-      'min(max(value, 1), 16)' in node and 'node[Key.maximumRequests] = maximumRequests' in node,
+      'min(max(value, 1), 16)' in node and 'node[Key.maximumRequests] = .integer(maximumRequests)' in node,
       'a DICOMweb node stores MaxRequests, 4 by default, clamped')
 wado = (root / 'Horos/Sources/WADODownload.swift').read_text()
 check('!NodeRequestLimiter.shared.tryAcquire(node: node!, limit: Int(WADOMaximumConcurrentDownloads), adaptive: self.adaptiveRequests)' in wado,
@@ -116,16 +117,20 @@ check('downloader.limiterNode = NodeRequestLimiter.wadoKey(forServer: extraParam
       and wado_node.count('WADODownload()') == 1,
       'every WADO-URI retrieve of a node uses its limit')
 session = (root / 'Horos/Sources/DCMTKQueryNode+DICOMweb.swift').read_text()
-retrieve = session[session.index('func queue(_ request: DICOMwebRetrieveRequest)'):]
+# The queue of the requests, with its limit of workers and its first failure,
+# is IsiXDICOMNetwork's; the workers and the node's slots are the session's.
+queue = (root / 'Modules/IsiXDICOMNetwork/Sources/DICOMwebRetrieveQueue.swift').read_text()
+retrieve = session[session.index('private func startWorker()'):]
 retrieve = retrieve[:retrieve.index('\n    }\n')]
-check('if pool.running >= limit { return false }' in retrieve, 'at most the node limit of workers')
+check('if state.running >= limit { return false }' in queue and 'if queue.enqueue(request) { startWorker() }' in session,
+      'at most the node limit of workers')
 acquire = retrieve.index('NodeRequestLimiter.shared.acquire(node: limiterNode, limit: limit')
-check(acquire < retrieve.index('let requestError = take(request)') < retrieve.index('NodeRequestLimiter.shared.release(node: limiterNode)'),
+check(acquire < retrieve.index('let failure = take(request)') < retrieve.index('NodeRequestLimiter.shared.release(node: limiterNode)'),
       'each request holds a node slot')
-check('pool.modify { if $0.firstError == nil { $0.firstError = error } }' in session
-      and 'pool.firstError == nil' in retrieve and "error = session.pool.read { $0.firstError ?? $0.unresolved }" in session,
+check('if state.firstFailure == nil { state.firstFailure = failure }' in queue
+      and 'state.firstFailure == nil' in queue and "error = session.queue.failure?.error" in session,
       'the first error stops the rest and is kept across threads')
-check('if thread.isCancelled { pool.workers.forEach { $0.cancel() } }' in session
+check('if thread.isCancelled { cancelWorkers() }' in session
       and 'session.cancelWorkers()' in session, 'cancellation reaches the workers')
 editor = (root / 'Horos/Sources/DICOMwebNodeEditor.swift').read_text()
 check('NSTableColumn(identifier: NSUserInterfaceItemIdentifier(Column.maximumRequests))' in editor and

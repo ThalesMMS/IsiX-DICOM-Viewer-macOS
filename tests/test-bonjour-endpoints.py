@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess, sys, tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import isix_modules  # noqa: E402  - the retrieve modes are IsiXDICOMNetwork's
+import process_graph_stand_in  # noqa: E402
 root = Path(__file__).resolve().parents[1]
 code = r'''
 #import <Foundation/Foundation.h>
@@ -124,13 +125,17 @@ int main(){@autoreleasepool{
 with tempfile.TemporaryDirectory(prefix='horos-bonjour-') as folder:
     p = Path(folder)
     (p / 'test.m').write_text(code)
+    # The process graph the node service reads its preferences from, and the
+    # source of the preferences of the Bonjour discovery.
+    graph = process_graph_stand_in.source(p)
     subprocess.run(['xcrun', 'swiftc', *isix_modules.module_flags('IsiXDICOMNetwork', p / 'modules'),
                     '-emit-library', '-emit-objc-header', '-emit-objc-header-path',
                     str(p / 'NodeService-Swift.h'), '-module-name', 'NodeService',
                     str(root / 'Horos/Sources/DICOMNodeService.swift'),
                     # Its Bonjour discovery, which the service starts.
                     str(root / 'Horos/Sources/DICOMBonjourDiscovery.swift'),
-                    str(root / 'Horos/Sources/BonjourDiscovery.swift'), '-o', str(p / 'libNodeService.dylib')], check=True)
+                    str(root / 'Horos/Sources/BonjourDiscovery.swift'), str(graph),
+                    '-o', str(p / 'libNodeService.dylib')], check=True)
     subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fmodules', '-fsanitize=address,undefined',
                     '-fno-sanitize-recover=all', '-framework', 'Foundation', '-framework', 'AppKit',
                     '-I', str(p), '-L', str(p), '-lNodeService', '-Wl,-rpath,' + str(p),

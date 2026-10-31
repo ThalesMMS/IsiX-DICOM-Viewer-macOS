@@ -23,52 +23,63 @@ import Testing
         #expect(PluginAdmission.kind(of: "/a/isixplugin") == .other)
     }
 
-    @Test func onlyVersion1BundlesAreManaged() {
-        #expect(PluginAdmission.isManaged("Example.isixplugin"))
-        #expect(!PluginAdmission.isManaged("Example.horosplugin"))
-        #expect(!PluginAdmission.isManaged("Example.osirixplugin"))
+    @Test func eachFormatHasItsLoader() {
+        #expect(PluginAdmission.loader(for: "Example.isixplugin") == .version1)
+        #expect(PluginAdmission.loader(for: "/a/Old.horosplugin") == .formerAPI)
+        #expect(PluginAdmission.loader(for: "/a/Old.OsiriXPlugin") == .formerAPI)
+        #expect(PluginAdmission.loader(for: "/a/Old.plugin") == nil)
+        for name in ["Example.isixplugin", "Example.horosplugin", "Example.osirixplugin"] {
+            #expect(PluginAdmission.isManaged(name))
+            #expect(PluginAdmission.isPluginBundle(name))
+        }
         #expect(!PluginAdmission.isManaged("Example"))
-        #expect(PluginAdmission.isPluginBundle("Example.osirixplugin"))
-        #expect(PluginAdmission.isPluginBundle("Example.isixplugin"))
         #expect(!PluginAdmission.isPluginBundle("Example.zip"))
     }
 
-    @Test func refusals() throws {
+    @Test func admissions() throws {
         let inspector = PluginInspector(hostArchitecture: "arm64",
                                         runningSystem: OperatingSystemVersion(majorVersion: 15, minorVersion: 0, patchVersion: 0))
         let valid = try SyntheticBundle()
         #expect(withExtendedLifetime(valid) { PluginAdmission.refusal(forBundleAt: valid.url, inspector: inspector) } == nil)
 
-        // A former plugin, even one whose Info.plist and executable look like a
-        // version 1 plugin's, is refused by its extension.
-        let former = try SyntheticBundle(name: "Old.horosplugin")
-        let refusal = withExtendedLifetime(former) { PluginAdmission.refusal(forBundleAt: former.url, inspector: inspector) }
-        #expect(refusal?.diagnostics == [.formerPluginAPI(pathExtension: "horosplugin")])
-        #expect(refusal?.summary.contains("Horos or OsiriX") == true)
-        #expect(refusal?.manifest == nil)
-
-        // A former plugin renamed to .isixplugin is refused by what it declares.
-        var info = SyntheticBundle.validInfo()
-        info["pluginType"] = "imageFilter"
-        info.removeValue(forKey: "IsiXPluginAPIVersion")
-        let renamed = try SyntheticBundle(name: "Renamed.isixplugin", info: info)
-        let renamedRefusal = withExtendedLifetime(renamed) { PluginAdmission.refusal(forBundleAt: renamed.url, inspector: inspector) }
-        #expect(renamedRefusal?.isRenamedLegacyPlugin == true)
-
-        // Which bundles the plugin manager may move or delete.
-        withExtendedLifetime([valid, former, renamed]) {
-            #expect(PluginAdmission.mayManage(bundleAt: valid.url, inspector: inspector))
-            #expect(!PluginAdmission.mayManage(bundleAt: former.url, inspector: inspector))
-            #expect(!PluginAdmission.mayManage(bundleAt: renamed.url, inspector: inspector))
-            #expect(PluginAdmission.isFormerPlugin(bundleAt: former.url, inspector: inspector))
-            #expect(PluginAdmission.isFormerPlugin(bundleAt: renamed.url, inspector: inspector))
-            #expect(!PluginAdmission.isFormerPlugin(bundleAt: valid.url, inspector: inspector))
+        // A former plugin as it was built: its former keys, no API version, a
+        // former SDK linked and not the kit. It goes to its own loader.
+        var image = SyntheticMachO()
+        image.libraries = ["@executable_path/../Frameworks/OsiriXAPI.framework/Versions/A/OsiriXAPI", "/usr/lib/libSystem.B.dylib"]
+        let formerInfo: [String: Any] = ["CFBundleExecutable": "Example", "CFBundleIdentifier": "com.example.former",
+                                         "NSPrincipalClass": "FormerFilter", "pluginType": "imageFilter", "MenuTitles": ["Run"]]
+        for name in ["Old.horosplugin", "Old.osirixplugin"] {
+            let former = try SyntheticBundle(name: name, info: formerInfo, executable: image.data())
+            withExtendedLifetime(former) {
+                #expect(PluginAdmission.refusal(forBundleAt: former.url, inspector: inspector) == nil)
+                #expect(inspector.inspect(bundleAt: former.url).loader == .formerAPI)
+                #expect(PluginAdmission.mayManage(bundleAt: former.url))
+            }
         }
-        // A version 1 bundle for another architecture is not a former plugin: the user may still remove it.
-        let intel = try SyntheticBundle(name: "Intel.isixplugin", executable: SyntheticMachO.x86_64().data())
-        withExtendedLifetime(intel) {
-            #expect(PluginAdmission.refusal(forBundleAt: intel.url, inspector: inspector) != nil)
-            #expect(PluginAdmission.mayManage(bundleAt: intel.url, inspector: inspector))
+
+        // The same bundle renamed to .isixplugin goes to the version 1 loader,
+        // which refuses it; it is not tried as a former plugin.
+        let renamed = try SyntheticBundle(name: "Renamed.isixplugin", info: formerInfo, executable: image.data())
+        withExtendedLifetime(renamed) {
+            let refusal = PluginAdmission.refusal(forBundleAt: renamed.url, inspector: inspector)
+            #expect(refusal?.loader == .version1)
+            #expect(refusal?.isRenamedLegacyPlugin == true)
+            #expect(refusal?.summary.contains(".horosplugin or .osirixplugin") == true)
+            // It stays the user's to deactivate or delete.
+            #expect(PluginAdmission.mayManage(bundleAt: renamed.url))
+        }
+
+        // Another architecture is refused in either format, with that reason.
+        var intelFormer = SyntheticMachO.x86_64()
+        intelFormer.libraries = ["/usr/lib/libSystem.B.dylib"]
+        let intel = try SyntheticBundle(name: "Intel.horosplugin", info: formerInfo, executable: intelFormer.data())
+        let intel1 = try SyntheticBundle(name: "Intel.isixplugin", executable: SyntheticMachO.x86_64().data())
+        withExtendedLifetime([intel, intel1]) {
+            #expect(PluginAdmission.refusal(forBundleAt: intel.url, inspector: inspector)?.diagnostics
+                    == [.architectureMismatch(found: ["x86_64"], required: "arm64")])
+            #expect(PluginAdmission.refusal(forBundleAt: intel1.url, inspector: inspector) != nil)
+            #expect(PluginAdmission.mayManage(bundleAt: intel.url))
+            #expect(PluginAdmission.mayManage(bundleAt: intel1.url))
         }
     }
 }

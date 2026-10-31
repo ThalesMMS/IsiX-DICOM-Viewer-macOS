@@ -40,6 +40,7 @@
 import AppKit
 import Carbon
 import UniformTypeIdentifiers
+import IsiXPreferences
 
 // The cursors, the drag of the view's picture and the hot keys of VRView: a
 // Swift extension of the class, with the same selectors. The dragging-source
@@ -228,13 +229,12 @@ extension VRView: NSPasteboardItemDataProvider {
     func actionForHotKey(_ hotKey: String!) -> Bool {
         guard let hotKey, (hotKey as NSString).length > 0 else { return false }
 
-        let wlwwDict = UserDefaults.standard.dictionary(forKey: "WLWW3") as NSDictionary?
-        let wwwlValues = ((wlwwDict?.allKeys as NSArray?)?
-            .sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as NSArray?) ?? NSArray()
-
-        let opacityDict = UserDefaults.standard.dictionary(forKey: "OPACITY") as NSDictionary?
-        let opacityValues = ((opacityDict?.allKeys as NSArray?)?
-            .sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as NSArray?) ?? NSArray()
+        // The presets in the order of their menus.
+        let preferences = processGraph.preferences
+        let wwwlValues = PresetTable(ImagePresetPreferences.windowLevelPresets, in: preferences).names
+            .sorted { $0.caseInsensitiveCompare($1) == .orderedAscending }
+        let opacityValues = PresetTable(ImagePresetPreferences.opacityTables, in: preferences).names
+            .sorted { $0.caseInsensitiveCompare($1) == .orderedAscending }
 
         let lowercaseHotKey = hotKey.lowercased() as NSString
         guard let action = DCMView.hotKeyDictionary()?.object(forKey: lowercaseHotKey) else { return false }
@@ -257,7 +257,7 @@ extension VRView: NSPasteboardItemDataProvider {
         case Preset1WWWLHotKeyAction.rawValue...Preset9WWWLHotKeyAction.rawValue: // 1 - 9 will be presets WW/WL
             let index = Int(key) - Int(Preset1WWWLHotKeyAction.rawValue)
             if wwwlValues.count > index {
-                let wwwlMenuString = wwwlValues.object(at: index) as? String
+                let wwwlMenuString = wwwlValues[index]
                 windowController?.applyWLWW(for: wwwlMenuString)
                 NotificationCenter.default.post(name: .OsirixUpdateWLWWMenu, object: wwwlMenuString, userInfo: nil)
             }
@@ -266,7 +266,7 @@ extension VRView: NSPasteboardItemDataProvider {
             if opacityValues.count >= Int(key) - Int(Preset1OpacityHotKeyAction.rawValue) {
                 let index = Int(key) - Int(Preset1OpacityHotKeyAction.rawValue) - 1
                 let opacityMenuString = index < 0 ? NSLocalizedString("Linear Table", comment: "")
-                                                  : opacityValues.object(at: index) as? String
+                                                  : opacityValues[index]
                 windowController?.applyOpacityString(opacityMenuString)
                 NotificationCenter.default.post(name: .OsirixUpdateOpacityMenu, object: opacityMenuString, userInfo: nil)
             }

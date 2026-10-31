@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 
 /// Choosing an annotation level, from the toolbar popup, the menu bar or the
 /// Custom Annotations sheet: what 2D Viewer > Annotations always did.
@@ -39,7 +40,7 @@ public final class AnnotationsMenu: NSObject, NSMenuItemValidation {
 
     /// Makes `level` the level of every image view, and redraws them.
     public static func choose(level: Int) {
-        UserDefaults.standard.set(level, forKey: AnnotationLevel.defaultsKey)
+        PreferencesSource.process.preferences.set(level, for: ViewerPreferences.annotations)
         DCMView.setDefaults()
         refreshViewers()
     }
@@ -163,7 +164,7 @@ public final class AnnotationsPopUpButton: NSPopUpButton {
     }
 
     private func showLevel() {
-        let level = UserDefaults.standard.integer(forKey: AnnotationLevel.defaultsKey)
+        let level = PreferencesSource.process.preferences[ViewerPreferences.annotations]
         menu?.item(withTag: AnnotationLevel.pluginOnly)?.isHidden = level != AnnotationLevel.pluginOnly
         selectItem(withTag: level)
     }
@@ -275,8 +276,9 @@ public final class CustomAnnotationsSheet: NSObject {
 
     @objc private func toggle(_ sender: NSButton) {
         guard let element = AnnotationElement(rawValue: sender.tag) else { return }
-        UserDefaults.standard.set(sender.state == .off, forKey: element.hiddenKey)
-        if UserDefaults.standard.integer(forKey: AnnotationLevel.defaultsKey) != AnnotationLevel.custom {
+        let preferences = PreferencesSource.process.preferences
+        preferences.set(sender.state == .off, for: element.hiddenPreference)
+        if preferences[ViewerPreferences.annotations] != AnnotationLevel.custom {
             AnnotationsMenu.choose(level: AnnotationLevel.custom)
         } else {
             AnnotationsMenu.refreshViewers()
@@ -300,7 +302,8 @@ private final class LevelObserver: NSObject, @unchecked Sendable {
     @MainActor static func start() {
         guard shared == nil else { return }
         let observer = LevelObserver()
-        UserDefaults.standard.addObserver(observer, forKeyPath: AnnotationLevel.defaultsKey, options: [], context: nil)
+        PreferencesSource.process.preferences.addObserver(observer, forKeyPath: ViewerPreferences.annotations.name,
+                                                          options: [], context: nil)
         shared = observer
     }
 

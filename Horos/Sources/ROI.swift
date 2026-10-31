@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 import IsiXROI
 
 /// Region of Interest on a 2D image: a length (tMesure), a rectangle (tROI),
@@ -65,21 +66,15 @@ public class ROI: NSObject, NSCoding {
 
     /// The ROI preferences, read once by +loadDefaultSettings and written back
     /// by +saveDefaultSettings: the thickness, opacity and colour a new ROI
-    /// gets, set again from the last ROI changed "globally".
-    struct Settings {
-        var regionOpacity: Float = 0, textThickness: Float = 0, thickness: Float = 0, opacity: Float = 0
-        var colorR: Float = 0, colorG: Float = 0, colorB: Float = 0
-        var textColorR: Float = 0, textColorG: Float = 0, textColorB: Float = 0
-        var regionThickness: Float = 0, regionColorR: Float = 0, regionColorG: Float = 0, regionColorB: Float = 0
-        var arrowThickness: Float = 0
-        var textIfSelected = false, textNameOnly = false, textIfMouseIsOver = false, drawPlainEdge = false
-        var loaded = false
-        var spline = false
-        var displayCobbAngle = false
+    /// gets, set again from the last ROI changed "globally". The ROI code runs
+    /// on any thread: it reads them from a snapshot, which the main thread
+    /// replaces from the preferences.
+    typealias Settings = ROISettings
+    private static let settingsSnapshot = PreferenceSnapshot(Settings())
+    static var settings: Settings {
+        get { settingsSnapshot.value }
+        set { settingsSnapshot.replace(newValue) }
     }
-    // nonisolated(unsafe): the ROI code ran on any thread with these as C
-    // statics, written on the main thread from the preferences.
-    nonisolated(unsafe) static var settings = Settings()
     /// The height of a label line, in points, set by the views from their label font.
     nonisolated(unsafe) static var fontHeight: Float = 0
     nonisolated(unsafe) static var defaultNameValue: String?
@@ -253,53 +248,11 @@ public class ROI: NSObject, NSCoding {
     @objc public class func saveDefaultSettings() {
         let s = settings
         guard s.loaded else { return }
-        let defaults = UserDefaults.standard
-        defaults.set(s.regionOpacity, forKey: "ROIRegionOpacity")
-        defaults.set(s.textThickness, forKey: "ROITextThickness")
-        defaults.set(s.thickness, forKey: "ROIThickness")
-        defaults.set(s.opacity, forKey: "ROIOpacity")
-        defaults.set(s.colorR, forKey: "ROIColorR")
-        defaults.set(s.colorG, forKey: "ROIColorG")
-        defaults.set(s.colorB, forKey: "ROIColorB")
-        defaults.set(s.textColorR, forKey: "ROITextColorR")
-        defaults.set(s.textColorG, forKey: "ROITextColorG")
-        defaults.set(s.textColorB, forKey: "ROITextColorB")
-        defaults.set(s.regionColorR, forKey: "ROIRegionColorR")
-        defaults.set(s.regionColorG, forKey: "ROIRegionColorG")
-        defaults.set(s.regionColorB, forKey: "ROIRegionColorB")
-        defaults.set(s.regionThickness, forKey: "ROIRegionThickness")
-        defaults.set(s.arrowThickness, forKey: "ROIArrowThickness")
+        s.write(to: PreferencesSource.process.preferences)
     }
 
     @objc public class func loadDefaultSettings() {
-        let defaults = UserDefaults.standard
-        var s = settings
-        s.regionOpacity = defaults.float(forKey: "ROIRegionOpacity")
-        if s.regionOpacity < 0.3 { s.regionOpacity = 0.3 }
-        s.textThickness = defaults.float(forKey: "ROITextThickness")
-        s.thickness = defaults.float(forKey: "ROIThickness")
-        if s.thickness < 0.3 { s.thickness = 0.3 }
-        s.opacity = defaults.float(forKey: "ROIOpacity")
-        if s.opacity < 0.3 { s.opacity = 0.3 }
-        s.colorR = defaults.float(forKey: "ROIColorR")
-        s.colorG = defaults.float(forKey: "ROIColorG")
-        s.colorB = defaults.float(forKey: "ROIColorB")
-        s.textColorR = defaults.float(forKey: "ROITextColorR")
-        s.textColorG = defaults.float(forKey: "ROITextColorG")
-        s.textColorB = defaults.float(forKey: "ROITextColorB")
-        s.regionColorR = defaults.float(forKey: "ROIRegionColorR")
-        s.regionColorG = defaults.float(forKey: "ROIRegionColorG")
-        s.regionColorB = defaults.float(forKey: "ROIRegionColorB")
-        s.regionThickness = defaults.float(forKey: "ROIRegionThickness")
-        s.arrowThickness = defaults.float(forKey: "ROIArrowThickness")
-        s.textIfSelected = defaults.bool(forKey: "ROITEXTIFSELECTED")
-        s.textIfMouseIsOver = defaults.bool(forKey: "ROITextIfMouseIsOver")
-        s.textNameOnly = defaults.bool(forKey: "ROITEXTNAMEONLY")
-        s.spline = defaults.bool(forKey: "splineForROI")
-        s.displayCobbAngle = defaults.bool(forKey: "displayCobbAngle")
-        s.drawPlainEdge = defaults.bool(forKey: "ROIDrawPlainEdge")
-        s.loaded = true
-        settings = s
+        settings = Settings(preferences: PreferencesSource.process.preferences)
     }
 
     @discardableResult
@@ -362,7 +315,7 @@ public class ROI: NSObject, NSCoding {
 
         _opacity = s.opacity
 
-        if UserDefaults.standard.bool(forKey: "ROIColorRotation") {
+        if PreferencesSource.process.preferences[ViewerPreferences.roiColorRotation] {
             color = ROI.colorRotationTable[ROI.colorRotationState % 10]
             ROI.colorRotationState += 1
         } else {

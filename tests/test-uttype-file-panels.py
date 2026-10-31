@@ -49,17 +49,17 @@ EXPECTED = json.loads(r'''{
       "albums"
     ]
   ],
-  "Horos/Sources/BrowserController+DatabaseDragExport+Selection.swift": [
+  "Horos/Sources/StudyListExport.swift": [
     [
-      "txt",
-      "csv",
-      "text"
+      "txt"
     ],
     [
       "csv"
     ],
     [
-      "txt"
+      "txt",
+      "csv",
+      "text"
     ]
   ],
   "Preference Panes/OSILocationsPreferencePane/OSILocationsPreferencePanePref.swift": [
@@ -92,9 +92,19 @@ EXPECTED = json.loads(r'''{
       "mov"
     ]
   ],
-  "Horos/Sources/BrowserController+Reports.swift": [
+  "Horos/Sources/StudyReports.swift": [
     [
       "pdf"
+    ],
+    [
+      "pdf",
+      "rtf",
+      "rtfd",
+      "doc",
+      "docx",
+      "pages",
+      "odt",
+      "txt"
     ]
   ],
   "Horos/Sources/BurnerWindowController.swift": [
@@ -141,7 +151,7 @@ EXPECTED = json.loads(r'''{
       "csv"
     ]
   ],
-  "Horos/Sources/ViewerController+ROIInterchange.swift": [
+  "Horos/Sources/ViewerROIInterchange.swift": [
     [
       "json"
     ]
@@ -159,7 +169,7 @@ EXPECTED = json.loads(r'''{
       "jpg"
     ]
   ],
-  "Horos/Sources/BrowserController+DatabaseSwitching.swift": [
+  "Horos/Sources/DatabaseOpener.swift": [
     [
       "sql"
     ]
@@ -169,18 +179,6 @@ EXPECTED = json.loads(r'''{
       "csv",
       "txt",
       "numbers"
-    ]
-  ],
-  "Horos/Sources/BrowserController+ReportImport.swift": [
-    [
-      "pdf",
-      "rtf",
-      "rtfd",
-      "doc",
-      "docx",
-      "pages",
-      "odt",
-      "txt"
     ]
   ],
   "Horos/Sources/OrthogonalMPRPETCTViewer.swift": [
@@ -233,7 +231,7 @@ EXPECTED = json.loads(r'''{
       "tif"
     ]
   ],
-  "Horos/Sources/ViewerController+Export.swift": [
+  "Horos/Sources/ViewerImageExporter.swift": [
     [
       "jpg"
     ],

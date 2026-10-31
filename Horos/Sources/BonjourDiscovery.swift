@@ -195,15 +195,22 @@ public final class BonjourService: NetService {
         schedule(reference, for: lookup, error: error)
     }
 
+    /// The service, as the completion of its resolution finds it, if it
+    /// still exists.
+    ///
+    /// `@unchecked Sendable`: the service is confined to the main queue its
+    /// resolution is scheduled on, where the completion runs, later.
+    private struct ResolvingService: @unchecked Sendable {
+        weak var service: BonjourService?
+    }
+
     private func queueCompletion() {
         guard !completionQueued else { return }
         completionQueued = true
         let currentGeneration = generation
-        // Unsafe only for the compiler: the service is confined to the main
-        // queue its resolution is scheduled on, where this block runs.
-        nonisolated(unsafe) weak let service = self
+        let resolving = ResolvingService(service: self)
         DispatchQueue.main.async {
-            guard let self = service, self.generation == currentGeneration, self.timeout != nil else { return }
+            guard let self = resolving.service, self.generation == currentGeneration, self.timeout != nil else { return }
             self.completionQueued = false
             let candidates = self.lookups.flatMap { lookup in lookup.addresses.map { (lookup, $0) } }
             // IPv4 first within what arrived, without waiting for a family or an
@@ -216,7 +223,7 @@ public final class BonjourService: NetService {
             let snapshot = Snapshot(addresses: ordered.map(\.1.socketAddress), hostName: first.0.hostName,
                                     port: first.0.port, txt: first.0.txt)
             self.stop()
-            self.lock.lock(); self.snapshot = snapshot; self.lock.unlock()
+            self.lock.withLock { self.snapshot = snapshot }
             self.delegate?.netServiceDidResolveAddress?(self)
         }
     }

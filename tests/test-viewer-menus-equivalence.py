@@ -29,7 +29,15 @@ everything they produce:
 * presentation: the flips, font sizes, rotations, overlays, LUT and VOI LUT,
   the refresh of the display, the image tiling from its menu and the rows
   and columns asked for, the accessors of the current image view, study,
-  series and image, and the post-processed flag.
+  series and image, and the post-processed flag; the window, scale,
+  rotation and flips also read from another thread, which the Swift answers
+  from what the view publishes for any thread.
+
+The validation and the contextual menus then left the extensions for the
+viewer's ViewerMenuValidation and ViewerContextualMenuBuilder, which reach
+the application's menus, its controller and the browser through the
+process's graph; the harness compiles them too, with a graph over the same
+stand-ins.
 
 The reference is the Objective-C of ViewerController.m in the last revision
 that has it (history_reference), compiled with clang as Xcode compiles it
@@ -53,14 +61,24 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import private_tmpdir  # noqa: F401,E402  - its own TMPDIR for the tools it runs
 import history_reference  # noqa: E402
+import harness_defaults  # noqa: E402  the harness's preferences stay in its own process
 
 ROOT = Path(__file__).resolve().parents[1]
 VC = 'Horos/Sources/ViewerController.m'
 MARK = '- (BOOL)validateMenuItem:(NSMenuItem *)item'
 SWIFT_FILES = ['ViewerController+%s.swift' % name for name in
                ('MenuValidation', 'PresetMenus', 'ContextualMenus', 'Presentation')]
+# The validation and the contextual menus the viewer's façades hand their work
+# to, once they left the viewer; a revision before has none of them.
+SWIFT_SUPPORT = ['ViewerMenuValidation.swift', 'ViewerContextualMenuBuilder.swift']
 # IsiXLogging first: the others that log write through it.
-MODULES = ['IsiXLogging', 'IsiXImaging']
+MODULES = ['IsiXLogging', 'IsiXPreferences', 'IsiXImaging']
+# The presets menus and the naming sheet are the viewer's ViewerWindowLevel,
+# whose menus are the process's PresetMenuCache; the harness compiles those
+# parts of it, over a graph that gives each stand-in viewer its own.
+WINDOW_LEVEL = 'Horos/Sources/ViewerWindowLevel.swift'
+WINDOW_LEVEL_SUPPORT = ['PresetMenuCache.swift']
+WINDOW_LEVEL_METHODS = ['openPresetNamingSheet', 'endPresetNamingSheet', 'refreshMenus', 'updatePresetMenu']
 SCENARIOS = ['validate', 'presets', 'contextual', 'presentation']
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -120,12 +138,21 @@ TOOL_MODES
 @interface DicomStudy : KVCStub
 - (NSSet*) keyImages;
 - (NSArray*) imageSeries;
+// Typed in the Swift; its setter is the key's, which the stub records.
+@property(retain) NSData *windowsState;
 @end
 
+// The attributes the Swift reads typed, as the model declares them, kept in
+// the stub's keys (the key-value reads of the reference reach them too).
 @interface DicomSeries : KVCStub
+@property(readonly) DicomStudy *study;
+@property(readonly) NSString *modality;
+@property(retain) NSString *comment;
 @end
 
 @interface DicomImage : KVCStub
+@property(readonly) DicomSeries *series;
+- (NSNumber*) isKeyImage;
 @end
 
 @interface DCMPix : NSObject
@@ -176,6 +203,11 @@ TOOL_MODES
 - (IBAction) realSize:(id) sender;
 - (IBAction) scaleToFit:(id) sender;
 @end
+
+/// What a view presents, as the app's view publishes it for any thread: read
+/// from the stand-in's properties, on whichever thread asks.
+typedef struct { float scale, originX, originY, rotation, level, width; bool xFlipped, yFlipped; } HarnessPresentation;
+HarnessPresentation HarnessPresentationOf(DCMView *view);
 
 @interface SeriesView : NSView
 @property(retain) NSArray *harnessImageViews;
@@ -233,6 +265,7 @@ TOOL_MODES
 - (IBAction) navigator:(id) sender;
 - (IBAction) threeDPanel:(id) sender;
 - (IBAction) morphoSelectedBrushROI:(id) sender;
+- (IBAction) convertBrushPolygon:(id) sender;
 - (IBAction) mergeBrushROI:(id) sender;
 - (IBAction) generateGeometryFromSelectedLine:(id) sender;
 - (IBAction) measureBetweenSelectedSlices:(id) sender;
@@ -243,9 +276,54 @@ TOOL_MODES
 - (void) ApplyOpacity:(id) sender NS_SWIFT_NAME(applyOpacity(_:));
 - (void) ApplyWLWW:(id) sender NS_SWIFT_NAME(applyWLWW(_:));
 - (IBAction) SetWLWW:(id) sender NS_SWIFT_NAME(setWLWW(_:));
+- (IBAction) togglePatientCrosshair:(id) sender;
+- (IBAction) clearPatientCrosshair:(id) sender;
+- (IBAction) seriesPopupSelect:(id) sender;
+- (IBAction) displaySUV:(id) sender;
+- (IBAction) flipDataSeries:(id) sender;
+- (IBAction) resetWindowsState:(id) sender;
+- (IBAction) setAllKeyImages:(id) sender;
+- (IBAction) setAllNonKeyImages:(id) sender;
+- (IBAction) findNextPreviousKeyImage:(id) sender;
+- (IBAction) loadWindowsState:(id) sender;
+- (IBAction) roiDeleteAllROIsWithSameName:(id) sender;
+- (IBAction) roiGetInfo:(id) sender;
+- (IBAction) roiHistogram:(id) sender;
+- (IBAction) roiVolume:(id) sender;
+- (IBAction) roiVolumeEraseRestore:(id) sender;
+- (IBAction) makeSelectedROIsUnselectable:(id) sender;
+- (IBAction) roiPropagateSetup:(id) sender;
+- (IBAction) roiPropagateSlab:(id) sender;
+- (IBAction) blendWindows:(id) sender;
+- (IBAction) createLayerROIFromSelectedROI:(id) sender;
+- (IBAction) groupSelectedROIs:(id) sender;
+- (IBAction) ungroupSelectedROIs:(id) sender;
+- (IBAction) lockSelectedROIs:(id) sender;
+- (IBAction) unlockSelectedROIs:(id) sender;
+- (IBAction) makeAllROIsSelectable:(id) sender;
+- (IBAction) roiDeleteGeneratedROIs:(id) sender;
+- (IBAction) roiSaveSeries:(id) sender;
+- (IBAction) roiSelectDeselectAll:(id) sender;
+- (IBAction) roiRename:(id) sender;
+- (IBAction) setROIsImagesKeyImages:(id) sender;
+- (IBAction) applyConvolutionOnSource:(id) sender;
+- (IBAction) setKeyImage:(id) sender;
+- (IBAction) setROITool:(id) sender;
+- (IBAction) setDefaultToolMenu:(id) sender;
+- (IBAction) ConvertToBWMenu:(id) sender NS_SWIFT_NAME(convertToBWMenu(_:));
+- (IBAction) ConvertToRGBMenu:(id) sender NS_SWIFT_NAME(convertToRGBMenu(_:));
+- (IBAction) SyncSeries:(id) sender NS_SWIFT_NAME(syncSeries(_:));
+- (IBAction) ApplyConv:(id) sender NS_SWIFT_NAME(applyConv(_:));
+- (IBAction) showSelectedROIsOnAllImagesOfSeries:(id) sender;
 @end
 
 // The accessors of ViewerController (SwiftIvars) the Swift blocks read.
+// The SEG command, named by #selector; the stand-in does not respond to it, so
+// the contextual menu leaves it out on both sides.
+@interface ViewerController (SEGSurfaces)
+- (IBAction) showSEGSurfaces:(id) sender;
+@end
+
 @interface ViewerController (SwiftIvars)
 IVAR_ACCESSORS
 + (BOOL)horos_SYNCSERIES;
@@ -288,6 +366,15 @@ NS_SWIFT_NAME(WindowLevelText)
 
 @interface RemoteDicomDatabase : NSObject
 - (void) object:(NSManagedObject*) object setValue:(id) value forKey:(NSString*) key NS_SWIFT_NAME(object(_:setValue:forKey:));
+- (BOOL) isMainDatabase;
+@property(readonly, nullable) id mainDatabase;
+@end
+
+// The context of the stand-in files, whose database the comment menu tells of
+// the comment it writes: the files are rows of the database the browser shows,
+// a shared one while harnessBonjour, where the Objective-C told it.
+@interface N2ManagedObjectContext : NSManagedObjectContext
+@property(readonly, nullable) id database;
 @end
 
 @interface BrowserController : NSObject
@@ -495,7 +582,7 @@ static NSManagedObjectContext *stubContext;
         }
         NSManagedObjectModel *model = [[NSManagedObjectModel new] autorelease];
         model.entities = entities;
-        stubContext = [[NSManagedObjectContext alloc] initWithConcurrencyType: NSMainQueueConcurrencyType];
+        stubContext = [[N2ManagedObjectContext alloc] initWithConcurrencyType: NSMainQueueConcurrencyType];
         stubContext.persistentStoreCoordinator = [[[NSPersistentStoreCoordinator alloc] initWithManagedObjectModel: model] autorelease];
     }
     return [[self alloc] initWithEntity: [NSEntityDescription entityForName: NSStringFromClass(self) inManagedObjectContext: stubContext]
@@ -512,12 +599,20 @@ static NSManagedObjectContext *stubContext;
 @implementation DicomStudy
 - (NSSet*) keyImages { return [values objectForKey: @"harnessKeyImages"]; }
 - (NSArray*) imageSeries { return [values objectForKey: @"harnessImageSeries"]; }
+- (NSData*) windowsState { return [values objectForKey: @"windowsState"]; }
+- (void) setWindowsState:(NSData*) value { [self setValue: value forUndefinedKey: @"windowsState"]; }
 @end
 
 @implementation DicomSeries
+- (DicomStudy*) study { return [values objectForKey: @"study"]; }
+- (NSString*) modality { return [values objectForKey: @"modality"]; }
+- (NSString*) comment { return [values objectForKey: @"comment"]; }
+- (void) setComment:(NSString*) value { [self setValue: value forUndefinedKey: @"comment"]; }
 @end
 
 @implementation DicomImage
+- (DicomSeries*) series { return [values objectForKey: @"series"]; }
+- (NSNumber*) isKeyImage { return [values objectForKey: @"isKeyImage"]; }
 @end
 
 @implementation DCMPix
@@ -567,6 +662,10 @@ static NSManagedObjectContext *stubContext;
 }
 @end
 
+HarnessPresentation HarnessPresentationOf(DCMView *view) {
+    return (HarnessPresentation){view.scaleValue, view.origin.x, view.origin.y, view.rotation, view.curWL, view.curWW, view.xFlipped, view.yFlipped};
+}
+
 @implementation SeriesView
 - (NSMutableArray*) imageViews { return [[self.harnessImageViews mutableCopy] autorelease]; }
 - (void) setImageViewMatrixForRows:(int) rows columns:(int) columns rescale:(BOOL) rescale {
@@ -611,6 +710,7 @@ static NSManagedObjectContext *stubContext;
 - (IBAction) navigator:(id) sender {}
 - (IBAction) threeDPanel:(id) sender {}
 - (IBAction) morphoSelectedBrushROI:(id) sender {}
+- (IBAction) convertBrushPolygon:(id) sender {}
 - (IBAction) mergeBrushROI:(id) sender {}
 - (IBAction) generateGeometryFromSelectedLine:(id) sender {}
 - (IBAction) measureBetweenSelectedSlices:(id) sender {}
@@ -620,6 +720,45 @@ static NSManagedObjectContext *stubContext;
 - (void) ApplyOpacity:(id) sender {}
 - (void) ApplyWLWW:(id) sender {}
 - (IBAction) SetWLWW:(id) sender {}
+- (IBAction) togglePatientCrosshair:(id) sender {}
+- (IBAction) clearPatientCrosshair:(id) sender {}
+- (IBAction) seriesPopupSelect:(id) sender {}
+- (IBAction) displaySUV:(id) sender {}
+- (IBAction) flipDataSeries:(id) sender {}
+- (IBAction) resetWindowsState:(id) sender {}
+- (IBAction) setAllKeyImages:(id) sender {}
+- (IBAction) setAllNonKeyImages:(id) sender {}
+- (IBAction) findNextPreviousKeyImage:(id) sender {}
+- (IBAction) loadWindowsState:(id) sender {}
+- (IBAction) roiDeleteAllROIsWithSameName:(id) sender {}
+- (IBAction) roiGetInfo:(id) sender {}
+- (IBAction) roiHistogram:(id) sender {}
+- (IBAction) roiVolume:(id) sender {}
+- (IBAction) roiVolumeEraseRestore:(id) sender {}
+- (IBAction) makeSelectedROIsUnselectable:(id) sender {}
+- (IBAction) roiPropagateSetup:(id) sender {}
+- (IBAction) roiPropagateSlab:(id) sender {}
+- (IBAction) blendWindows:(id) sender {}
+- (IBAction) createLayerROIFromSelectedROI:(id) sender {}
+- (IBAction) groupSelectedROIs:(id) sender {}
+- (IBAction) ungroupSelectedROIs:(id) sender {}
+- (IBAction) lockSelectedROIs:(id) sender {}
+- (IBAction) unlockSelectedROIs:(id) sender {}
+- (IBAction) makeAllROIsSelectable:(id) sender {}
+- (IBAction) roiDeleteGeneratedROIs:(id) sender {}
+- (IBAction) roiSaveSeries:(id) sender {}
+- (IBAction) roiSelectDeselectAll:(id) sender {}
+- (IBAction) roiRename:(id) sender {}
+- (IBAction) setROIsImagesKeyImages:(id) sender {}
+- (IBAction) applyConvolutionOnSource:(id) sender {}
+- (IBAction) setKeyImage:(id) sender {}
+- (IBAction) setROITool:(id) sender {}
+- (IBAction) setDefaultToolMenu:(id) sender {}
+- (IBAction) ConvertToBWMenu:(id) sender {}
+- (IBAction) ConvertToRGBMenu:(id) sender {}
+- (IBAction) SyncSeries:(id) sender {}
+- (IBAction) ApplyConv:(id) sender {}
+- (IBAction) showSelectedROIsOnAllImagesOfSeries:(id) sender {}
 @end
 
 @implementation ViewerController (SwiftIvars)
@@ -679,6 +818,12 @@ static NSMenu *SmallMenu(NSString *title, NSArray *items) {
 
 @implementation RemoteDicomDatabase
 - (void) object:(NSManagedObject*) object setValue:(id) value forKey:(NSString*) key { Record([NSString stringWithFormat: @"remote %@ %@ = %@", Name(object), key, Name(value)]); }
+- (BOOL) isMainDatabase { return YES; }
+- (id) mainDatabase { return nil; }
+@end
+
+@implementation N2ManagedObjectContext
+- (id) database { return harnessBonjour ? [[BrowserController currentBrowser] database] : nil; }
 @end
 
 @interface HarnessOutline : NSOutlineView
@@ -1166,6 +1311,19 @@ static void Presentation(void) {
         Record([NSString stringWithFormat: @"study %@ series %@ image %@", Name([v currentStudy]), Name([v currentSeries]), Name([v currentImage])]);
         Record([NSString stringWithFormat: @"ww %g wl %g x %d y %d rotation %g scale %g", [v curWW], [v curWL], [v xFlipped], [v yFlipped], [v rotation], [v scaleValue]]);
         Record([NSString stringWithFormat: @"postprocessed %d %d", [v postprocessed], [v isPostprocessed]]);
+        // The window, scale, rotation and flips read from another thread, as
+        // plugins and export threads read them.
+        __block NSString *read = nil;
+        dispatch_semaphore_t done = dispatch_semaphore_create(0);
+        [NSThread detachNewThreadWithBlock: ^{ @autoreleasepool {
+            read = [[NSString stringWithFormat: @"other thread %d: ww %g wl %g x %d y %d rotation %g scale %g", [NSThread isMainThread],
+                     [v curWW], [v curWL], [v xFlipped], [v yFlipped], [v rotation], [v scaleValue]] retain];
+            dispatch_semaphore_signal(done);
+        }}];
+        dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
+        dispatch_release(done);
+        Record(read);
+        [read release];
     };
     [series setValue: @"MR" forKey: @"modality"];
     accessors();
@@ -1239,6 +1397,133 @@ def module_sources(revision, module):
     return {p[len(base) + 1:]: read(revision, p) for p in listed if p.endswith('.swift')}
 
 
+PRESET_ITEM = re.compile(r'^(\s*\d+ - )(\S+)( .*)$')
+
+
+def untie(lines):
+    """`lines` with each run of preset items whose names differ only in case
+    put in one order. The Objective-C sorted the names with
+    caseInsensitiveCompare:, so such names kept the order of the
+    NSDictionary's keys, which nothing defines; the menus now put them in
+    the order the reconstruction viewers' menus use. The numbers stay where
+    they were."""
+    out, i = [], 0
+    while i < len(lines):
+        first = PRESET_ITEM.match(lines[i])
+        j = i + 1
+        while first and j < len(lines):
+            next_item = PRESET_ITEM.match(lines[j])
+            if not next_item or next_item.group(2).lower() != first.group(2).lower():
+                break
+            j += 1
+        if j - i > 1:
+            items = [PRESET_ITEM.match(line) for line in lines[i:j]]
+            ordered = sorted((m.group(2), m.group(3)) for m in items)
+            out += [m.group(1) + name + rest for m, (name, rest) in zip(items, ordered)]
+        else:
+            out.append(lines[i])
+        i = j
+    return out
+
+
+REMOTE_SERIES_COMMENT = re.compile(r'^(remote \S+ series\.comment = ).*$')
+
+
+def corrected(lines):
+    """The Objective-C's `lines` with the comment a contextual comment item
+    tells a shared database put right. It sent the comments panel's text
+    field, whatever the panel last held, after writing the item's composed
+    title locally, so the server's comment differed from the local one; the
+    server is now told the comment written here."""
+    out, local = [], None
+    for line in lines:
+        written = re.match(r'^series comment = (.*)$', line)
+        if written:
+            local = written.group(1)
+        remote = REMOTE_SERIES_COMMENT.match(line)
+        out.append(remote.group(1) + local if remote and local is not None else line)
+    return out
+
+
+def block_end(text, start):
+    """The index after the closing brace of the Swift declaration at `start`."""
+    depth, i = 0, text.index('{', start)
+    while True:
+        if text[i] == '{':
+            depth += 1
+        elif text[i] == '}':
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+
+
+def window_level_menus(text):
+    """The presets menus and the naming sheet of ViewerWindowLevel, with what
+    they read, and a graph that keeps one for each stand-in viewer."""
+    title = text.index('@MainActor fileprivate func setPopupTitle(')
+    head = text.index('@MainActor final class ViewerWindowLevel {')
+    init = text.index('    init(viewer: ViewerController', head)
+    parts = [text[title:block_end(text, title)], text[head:block_end(text, init)]]
+    for name in WINDOW_LEVEL_METHODS:
+        found = re.search(r'\n    func %s\(' % name, text)
+        if not found:
+            sys.exit('FAIL: no ViewerWindowLevel.%s in %s' % (name, WINDOW_LEVEL))
+        parts.append(text[found.start():block_end(text, found.start())])
+    return '\n'.join(['import AppKit', 'import IsiXImaging', 'import IsiXPreferences', '', *parts, '}', '''
+@MainActor let harnessPresetMenus = PresetMenuCache()
+@MainActor var harnessGraphs: [ObjectIdentifier: ViewerSessionGraph] = [:]
+
+@MainActor final class ViewerSessionGraph {
+    let windowLevel: ViewerWindowLevel
+    var preferences: any PreferenceStore { UserDefaults.standard }
+    let processGraph = ProcessGraph()
+    init(viewer: ViewerController) {
+        windowLevel = ViewerWindowLevel(viewer: viewer, preferences: UserDefaults.standard, menus: harnessPresetMenus)
+    }
+}
+
+// The process's graph and the application's menus, over the stand-ins of the
+// application controller and the browser the Objective-C reached directly.
+@MainActor final class ProcessGraph {
+    var appController: AppController? { AppController.shared() }
+    var currentBrowser: BrowserController? { BrowserController.currentBrowser() }
+    let applicationMenus = ApplicationMenus()
+}
+
+@MainActor final class ApplicationMenus {
+    func wlwwMenu() -> NSMenu? { AppController.shared()?.wlwwMenu() }
+    func orientationMenu() -> NSMenu? { AppController.shared()?.orientationMenu() }
+    func imageTilingMenu() -> NSMenu? { AppController.shared()?.imageTilingMenu() }
+    func exportMenu() -> NSMenu? { AppController.shared()?.exportMenu() }
+    func workspaceMenu() -> NSMenu? { AppController.shared()?.workspaceMenu() }
+}
+
+// The viewport and the window of the view, as the view keeps them, over the
+// stand-in's properties.
+extension DCMView {
+    var viewport: ViewportState { ViewportState(scale: scaleValue, origin: origin, rotation: rotation, xFlipped: xFlipped, yFlipped: yFlipped) }
+    var windowLevelState: WindowLevelState { WindowLevelState(level: curWL, width: curWW) }
+    /// What the app's view publishes behind a lock at each write, for any thread.
+    nonisolated var publishedPresentation: ViewPresentationSnapshot {
+        let p = HarnessPresentationOf(self)
+        let viewport = ViewportState(scale: p.scale, origin: CGPoint(x: CGFloat(p.originX), y: CGFloat(p.originY)), rotation: p.rotation,
+                                     xFlipped: p.xFlipped, yFlipped: p.yFlipped)
+        return ViewPresentationSnapshot(ViewPresentation(viewport: viewport, windowLevel: WindowLevelState(level: p.level, width: p.width)))
+    }
+}
+
+extension ViewerController {
+    var sessionGraph: ViewerSessionGraph {
+        if let graph = harnessGraphs[ObjectIdentifier(self)] { return graph }
+        let graph = ViewerSessionGraph(viewer: self)
+        harnessGraphs[ObjectIdentifier(self)] = graph
+        return graph
+    }
+}
+'''])
+
+
 def method_end(text, start):
     """The index after the closing brace of the method at `start` (braces counted)."""
     i = text.index('\n{', start) + 1
@@ -1297,7 +1582,9 @@ def run(command, what, cwd=None, keep_errors=False):
     if built.returncode:
         output = built.stdout + built.stderr
         if keep_errors:
-            output = '\n'.join(line for line in output.splitlines() if ' error: ' in line) or output
+            # The compiler's errors alone; a link failure keeps its undefined symbols.
+            errors = [line for line in output.splitlines() if ' error: ' in line and 'linker command failed' not in line]
+            output = '\n'.join(errors) or output
         sys.exit('FAIL: %s:\n%s' % (what, output[-6000:]))
 
 
@@ -1305,7 +1592,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-menus-') as tmp:
     folder = Path(tmp)
     (folder / 'Harness.h').write_text(HEADER)
     (folder / 'Stubs.m').write_text(STUBS)
-    (folder / 'Driver.m').write_text(DRIVER)
+    (folder / 'Driver.m').write_text(DRIVER + harness_defaults.OBJC)
     for name in ('HorosObjCException.h', 'HorosObjCException.m'):
         (folder / name).write_bytes((ROOT / 'Horos/Sources' / name).read_bytes())
     frameworks = ['-framework', 'Cocoa', '-framework', 'CoreData']
@@ -1343,11 +1630,27 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-menus-') as tmp:
                 sys.exit('FAIL: no Horos/Sources/%s' % name)
             (swift / name).write_bytes(text)
             sources.append(str(swift / name))
+        for name in SWIFT_SUPPORT:
+            text = read(args.current, 'Horos/Sources/' + name)
+            if text is not None:
+                (swift / name).write_bytes(text)
+                sources.append(str(swift / name))
         # [sender tag] as the blocks send it.
         support = read(args.current, 'Horos/Sources/ViewerController+ImagePipelineSupport.swift').decode('utf-8')
         sender = re.search(r'\nenum ViewerSender \{.*?\n}\n', support, re.S).group(0)
-        (swift / 'Helpers.swift').write_text('import AppKit\n' + sender)
+        # The shared database a file is a row of, once the menu asks RemoteDicomDatabase for it.
+        remote = read(args.current, 'Horos/Sources/RemoteDicomDatabase.swift').decode('utf-8')
+        row = re.search(r'\n    static func database\(of object: NSManagedObject\?\).*?\n    }\n', remote, re.S)
+        (swift / 'Helpers.swift').write_text('import AppKit\n' + sender
+                                             + ('\nextension RemoteDicomDatabase {' + row.group(0) + '}\n' if row else ''))
         sources.append(str(swift / 'Helpers.swift'))
+        window_level = read(args.current, WINDOW_LEVEL)
+        if window_level is not None:
+            for name in WINDOW_LEVEL_SUPPORT:
+                (swift / name).write_bytes(read(args.current, 'Horos/Sources/' + name))
+                sources.append(str(swift / name))
+            (swift / 'WindowLevelMenus.swift').write_text(window_level_menus(window_level.decode('utf-8')))
+            sources.append(str(swift / 'WindowLevelMenus.swift'))
         libraries = []
         for module in MODULES:
             directory = folder / module
@@ -1384,7 +1687,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-menus-') as tmp:
         if args.dump:
             for label, text in results.items():
                 (args.dump / ('%s-%s.txt' % (scenario, label))).write_text(text)
-        expected, got = results['reference'].splitlines(), results['current'].splitlines()
+        expected, got = untie(corrected(results['reference'].splitlines())), untie(results['current'].splitlines())
         if expected == got:
             print('%s: %d records identical (%s against the Objective-C of %s)' % (scenario, len(expected), current_label, reference))
         else:

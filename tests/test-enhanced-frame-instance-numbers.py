@@ -69,7 +69,7 @@ else:
                         'each numbered from one - would sort by a number that means nothing')
 
 # --- and it is what the image row is numbered with ---------------------------
-add = body('private final func indexImages(', database)
+add = body('private func indexImages(', database)
 at = add.find('instanceNumberArray')
 if at < 0:
     failures.append('the database still numbers every frame by its place in the file')

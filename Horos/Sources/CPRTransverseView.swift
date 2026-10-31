@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 
 // The OpenGL enumerants ROICanvasGL.h names, which Swift cannot import: that
 // header imports Horos-Swift.h.
@@ -104,6 +105,9 @@ private func dcmPixSetArrayPix(_ pix: AnyObject, _ array: NSArray, _ i: Int) {
 /// stored properties.
 @objc(CPRTransverseView)
 public final class CPRTransverseView: DCMView {
+    /// The preferences the view reads and writes: those of the process graph.
+    let preferenceStore: any PreferenceStore = PreferencesSource.process.preferences
+
     // MARK: - The former instance variables
 
     /// _delegate: assigned, not retained.
@@ -248,7 +252,7 @@ public final class CPRTransverseView: DCMView {
 
     // The properties of the former class extension.
 
-    @objc(lastRequest) private dynamic var lastRequest: CPRObliqueSliceGeneratorRequest? {
+    private var lastRequest: CPRObliqueSliceGeneratorRequest? {
         get { return _lastRequest }
         set { _lastRequest = newValue }
     }
@@ -333,7 +337,7 @@ public final class CPRTransverseView: DCMView {
 
     // MARK: - Events
 
-    @objc(applyNewScaleValue) private dynamic func applyNewScaleValue() {
+    private func applyNewScaleValue() {
         if self.scaleValue != previousScale {
             self.renderingScale /= CGFloat(previousScale / self.scaleValue)
 
@@ -358,13 +362,13 @@ public final class CPRTransverseView: DCMView {
     }
 
     public override func mouseDraggedZoom(_ event: NSEvent!) {
-        let copyMouseClickZoomCentered = UserDefaults.standard.bool(forKey: "MouseClickZoomCentered")
+        let copyMouseClickZoomCentered = self.preferenceStore[ViewerPreferences.mouseClickZoomCentered]
 
-        UserDefaults.standard.set(false, forKey: "MouseClickZoomCentered")
+        self.preferenceStore.set(false, for: ViewerPreferences.mouseClickZoomCentered)
 
         super.mouseDraggedZoom(event)
 
-        UserDefaults.standard.set(copyMouseClickZoomCentered, forKey: "MouseClickZoomCentered")
+        self.preferenceStore.set(copyMouseClickZoomCentered, for: ViewerPreferences.mouseClickZoomCentered)
 
         self.cprController?.propagateOriginRotationAndZoom(toTransverseViews: self)
     }
@@ -379,14 +383,8 @@ public final class CPRTransverseView: DCMView {
 
         var clickCount: Int32 = 1
 
-        do {
-            try HorosObjCException.perform {
-                if event.type == .leftMouseDown || event.type == .rightMouseDown || event.type == .leftMouseUp || event.type == .rightMouseUp {
-                    clickCount = Int32(truncatingIfNeeded: event.clickCount)
-                }
-            }
-        } catch {
-            clickCount = 1
+        if event.type == .leftMouseDown || event.type == .rightMouseDown || event.type == .leftMouseUp || event.type == .rightMouseUp {
+            clickCount = Int32(truncatingIfNeeded: event.clickCount)
         }
 
         if clickCount == 2 {
@@ -765,7 +763,7 @@ public final class CPRTransverseView: DCMView {
 
     /// Since we don't generate these asynchronously anymore, should we really
     /// have all this _sendNewRequest business?
-    @objc(_sendNewRequest) private dynamic func _sendNewRequest() {
+    private func _sendNewRequest() {
         var request: CPRObliqueSliceGeneratorRequest
         var subdividedAndFlattenedBezierPath: N3MutableBezierPath?
         var vector: N3Vector
@@ -805,7 +803,7 @@ public final class CPRTransverseView: DCMView {
         _needsNewRequest = false
     }
 
-    @objc(_relativeSegmentPosition) private dynamic func _relativeSegmentPosition() -> CGFloat {
+    private func _relativeSegmentPosition() -> CGFloat {
         switch _sectionType {
         case Int(CPRTransverseViewLeftSectionType.rawValue):
             return _curvedPath?.leftTransverseSectionPosition ?? 0

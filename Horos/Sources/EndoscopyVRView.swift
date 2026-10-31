@@ -39,6 +39,7 @@
 
 
 import Cocoa
+import IsiXPreferences
 
 /// The volume rendering view of the endoscopy: the camera's view along the
 /// path, with the path navigator on the arrow keys and, optionally, on the
@@ -47,6 +48,9 @@ import Cocoa
 /// VRView+Subclasses.swift.
 @objc(EndoscopyVRView)
 public final class EndoscopyVRView: VRView {
+    /// The preferences the view reads and writes: those of the process graph.
+    let preferenceStore: any PreferenceStore = PreferencesSource.process.preferences
+
 
     public override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -90,7 +94,7 @@ public final class EndoscopyVRView: VRView {
     // path navigator: the wheel moves along the path when the preference says
     // so, and does nothing else in this view.
     public override func scrollWheel(with event: NSEvent) {
-        guard UserDefaults.standard.bool(forKey: "PATH_ASSISTANT_USES_SCROLLWHEEL") else { return }
+        guard self.preferenceStore[ReconstructionPreferences.pathAssistantUsesScrollWheel] else { return }
         if event.deltaY > 0 {
             NotificationCenter.default.post(name: NSNotification.Name("PathAssistantGoForwardNotification"), object: nil, userInfo: nil)
         } else if event.deltaY < 0 {
@@ -123,11 +127,6 @@ public final class EndoscopyVRView: VRView {
     }
 
     public override func setShadingValues(_ ambient: Float, _ diffuse: Float, _ specular: Float, _ specularpower: Float) {
-        super.setShadingValues(ambient, diffuse, specular, specularpower)
-    }
-
-    @objc(setSelectionIndex::::)
-    public func setSelectionIndex(_ ambient: Float, _ diffuse: Float, _ specular: Float, _ specularpower: Float) {
         super.setShadingValues(ambient, diffuse, specular, specularpower)
     }
 

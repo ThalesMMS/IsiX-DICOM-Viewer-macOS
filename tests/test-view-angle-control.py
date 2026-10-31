@@ -19,6 +19,7 @@ Perspective item of Volume Rendering and the Endoscopy toolbar show the
 control; the text is in the twelve catalogs.
 """
 import harness_defaults
+import isix_modules
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import re
@@ -155,6 +156,13 @@ if shutil.which('xcrun') is None:
 
 DRIVER = r'''
 import AppKit
+import IsiXPreferences
+
+/// The process graph of the application, whose preferences keep which toolbar items were placed.
+final class ProcessGraph: Sendable {
+    static let process = ProcessGraph()
+    var preferences: UserDefaults { UserDefaults.standard }
+}
 
 extension NSNotification.Name {
     static let OsirixVRCameraDidChange = NSNotification.Name("VRCameraDidChange")
@@ -271,7 +279,9 @@ with tempfile.TemporaryDirectory(prefix='horos-view-angle-') as folder:
     main.write_text(harness_defaults.SWIFT + DRIVER)
     binary = Path(folder) / 'check'
     built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-module-cache-path', str(Path(folder) / 'modules'),
-                            str(root / 'Horos/Sources/ViewAngleControl.swift'), str(main), '-o', str(binary)],
+                            str(root / 'Horos/Sources/ViewAngleControl.swift'),
+                            str(root / 'Horos/Sources/PreferencesSource.swift'), str(main),
+                            *isix_modules.module_flags('IsiXPreferences', Path(folder) / 'isix'), '-o', str(binary)],
                            capture_output=True, text=True)
     if built.returncode:
         print(built.stderr, file=sys.stderr)

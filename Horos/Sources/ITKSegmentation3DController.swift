@@ -65,6 +65,10 @@ public final class ITKSegmentation3DController: NSWindowController, NSWindowDele
     /// The seed, in pixels of the current image; none at 0 on either axis.
     var seed = NSPoint.zero
 
+    /// The process's dependencies, made with the controller: the region
+    /// growing reads its preferences from their store.
+    let processGraph = PreferencesSource.process.processGraph
+
     // parameters
     @IBOutlet var parametersBox: NSBox?
     @IBOutlet var growingMode: NSMatrix?

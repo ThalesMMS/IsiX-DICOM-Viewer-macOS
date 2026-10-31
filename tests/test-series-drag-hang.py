@@ -17,9 +17,10 @@ those is still loading sleeps the main thread until that load finishes.
 This test keeps the drop path attached to that reading and refuses to mix the
 other fronts. It does not claim the 2018 Intel freeze is reproduced here.
 
--changeImageData:::: and -finalizeSeriesViewing are Swift
-(ViewerController+RetrieveAndView.swift): the peer probe and the cancel are read
-there, in their Swift spelling; so are the drop methods and the selection of a
+-changeImageData:::: and -finalizeSeriesViewing are Swift façades
+(ViewerController+RetrieveAndView.swift) of the viewer's ViewerSeriesLoad
+(ViewerSeriesLoad.swift): the peer probe and the cancel are read there, in
+their Swift spelling; so are the drop methods and the selection of a
 series, once ViewerController+DragAndDrop.swift and +SeriesPopup.swift have them.
 """
 import re
@@ -87,20 +88,38 @@ load_sel = body(viewer, '- (void) loadSelectedSeries: (id) series rightClick: (B
 entered = body(viewer, '- (NSDragOperation)draggingEntered:(id <NSDraggingInfo>)sender')
 updated = body(viewer, '- (NSDragOperation)draggingUpdated:(id <NSDraggingInfo>)sender')
 if drop_swift:
-    load_sel = body(sources.source_path('ViewerController+SeriesPopup'), 'func loadSelectedSeries(_ series: Any!, rightClick: Bool)')
+    popup_path = sources.source_path('ViewerController+SeriesPopup')
+    load_sel = body(popup_path, 'func loadSelectedSeries(_ series: Any!, rightClick: Bool)')
+    # The selector hands the series to SeriesMenuPresenter (same file), which
+    # loads it through the browser behind SeriesMenuBrowsing.
+    presenter_load = body(popup_path, 'func loadSelectedSeries(_ chosen: Any?, rightClick: Bool)')
+    if presenter_load:
+        load_sel += presenter_load + body(popup_path, 'func load(_ series: NSManagedObject?, into viewer: ViewerController?, keyImagesOnly: Bool) -> ViewerController?')
     entered = body(sources.source_path('ViewerController+DragAndDrop'), 'func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation')
     updated = body(sources.source_path('ViewerController+DragAndDrop'), 'func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation')
-change = body(retrieve_and_view, 'func changeImageData(_ f: NSMutableArray!, _ d: NSMutableArray!, _ v: NSData!, _ newViewerWindow: Bool)')
+# -changeImageData:::: and -finalizeSeriesViewing are façades of the viewer's
+# ViewerSeriesLoad: the position kept from a peer viewer and the release are read there.
+series_load_path = root / 'Horos/Sources/ViewerSeriesLoad.swift'
+facades = body(retrieve_and_view, 'func changeImageData(_ f: NSMutableArray!, _ d: NSMutableArray!, _ v: NSData!, _ newViewerWindow: Bool)') + \
+    body(retrieve_and_view, 'func finalizeSeriesViewing()')
+check('horosSeriesLoad.show(GivenSeries(' in facades and 'horosSeriesLoad.finalize(viewerStays: false)' in facades,
+      '-changeImageData:::: and -finalizeSeriesViewing do not reach the viewer\'s series load')
+change = body(series_load_path, 'private func keepPosition(previous: Previous, sameSeries: Bool, orientation: (equal: Bool, newIsSet: Bool), previousLocation: Float)')
 peer_at = change.find('Try to find another viewer')
 peer = change[peer_at:peer_at + 900] if peer_at >= 0 else ''
-finalize = body(retrieve_and_view, 'func finalizeSeriesViewing(viewerStays: Bool)')
-# -windowWillClose: is Swift, in ViewerController+WindowLifecycle.swift.
+finalize = body(series_load_path, 'func finalize(viewerStays: Bool)')
+# -windowWillClose: is Swift (ViewerController+WindowLifecycle.swift); the
+# viewer's graph closes the window (closeWindow, ViewerSessionGraph+WindowLife.swift).
 close = body(viewer, '- (void)windowWillClose:(NSNotification *)notification')
 close_swift = not close
 if close_swift:
-    close = body(sources.source_path('ViewerController+WindowLifecycle'), 'func windowWillClose(_ notification: Notification)')
-# -checkEverythingLoaded is Swift, in ViewerController+StudyNavigation.swift.
-loaded = body(sources.source_path('ViewerController+StudyNavigation'), 'func checkEverythingLoaded()')
+    close = (body(sources.source_path('ViewerController+WindowLifecycle'), 'func windowWillClose(_ notification: Notification)')
+             + body(sources.source_path('ViewerSessionGraph+WindowLife'), 'func closeWindow()'))
+# -checkEverythingLoaded is Swift, a façade in ViewerController+StudyNavigation.swift
+# of the viewer's ViewerLoadingWait.waitUntilLoaded() there, which waits.
+study_navigation = sources.source_path('ViewerController+StudyNavigation')
+loaded = (body(study_navigation, 'func waitUntilLoaded()')
+          if 'ViewerLoadingWait(viewer: self).waitUntilLoaded()' in body(study_navigation, 'func checkEverythingLoaded()') else '')
 two_arg = body(viewer, '- (BOOL) isDataVolumicIn4D: (BOOL) check4D checkEverythingLoaded:(BOOL) c;')
 # The volumic checks are Swift, in ViewerController+VolumeCheck.swift.
 two_arg_swift = not two_arg
@@ -130,9 +149,9 @@ check('O2PasteboardTypeDatabaseObjectXIDs' in thumb and 'beginDraggingSession(wi
       'thumbnail drag must still advertise series XIDs, not a file promise')
 
 # --- the hang-2 wait on this path is the peer volumic probe ------------------
-check(peer and 'v !== self' in peer,
+check(peer and 'other !== viewer' in peer,
       'changeImageData must still look at peer viewers for slice position')
-check(not re.search(r'\bv\.isDataVolumic\b', peer),
+check(not re.search(r'\bother\.isDataVolumic\b', peer),
       'peer probe still uses isDataVolumic, which waits for that viewer to finish loading')
 check('SeriesReplaceLoadPolicy.' in peer,
       'peer probe must take its wait/correct flags from SeriesReplaceLoadPolicy')
@@ -148,8 +167,8 @@ check(not re.search(r'isDataVolumicIn4D\(\s*false\s*,\s*checkEverythingLoaded:\s
 series_load = (root / 'Horos/Sources/ViewerSeriesLoad.swift').read_text()
 cancel = series_load[series_load.find('    @objc public func cancel()'):series_load.find('    @objc public func requestCancel()')]
 retire = series_load[series_load.find('    private func retire('):]
-check(finalize and 'self.horosSeriesLoad.cancel()' in finalize and 'retire(cancelling: true)' in cancel
-      and 'if cancelling { worker.cancel() }' in retire and 'sleep' not in cancel,
+check(finalize and '\n        cancel()\n' in finalize and 'retire(cancelling: true)' in cancel
+      and 'if cancelling { load.cancel() }' in retire and 'sleep' not in cancel,
       'finalizeSeriesViewing must still cancel the current load on replace')
 check('sleepForTimeInterval' not in finalize and 'sleep(forTimeInterval' not in finalize,
       'do not join the cancelled load the way windowWillClose: does (hang 1 of the 3.1.2 pair)')

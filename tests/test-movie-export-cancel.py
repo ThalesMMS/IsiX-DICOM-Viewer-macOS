@@ -12,7 +12,10 @@ path=sources.source_path('QuicktimeExport')
 source=(subprocess.check_output(['git','show',sys.argv[1]+':'+str(path.relative_to(root))]).decode('utf-8') if len(sys.argv)>1 else sources.source_text('QuicktimeExport'))
 a=source.index('            fileName = panel.url?.path')+len('            fileName = panel.url?.path')
 a=source.index('        }',a)+len('        }')
-b=source.index('        var returned: String? = nil',a)
+# The write follows: a revision whose write raised kept its result in a variable;
+# one whose write throws returns it from the guard.
+ends=[source.find(m,a) for m in ('        var returned: String? = nil','        do {\n            return try HorosObjCException.throwing')]
+b=min(e for e in ends if e>=0)
 body=source[a:b]
 code=r'''
 import AppKit

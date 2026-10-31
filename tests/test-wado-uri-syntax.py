@@ -19,6 +19,7 @@ import urllib.request
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import python_with
+from dcmtk_build import INSTALL, dcmtk_source
 python_with.require('import pydicom, numpy, pynetdicom', 'from openjpeg import encode, decode',
                     packages="'pydicom>=3,<4' numpy pynetdicom pylibjpeg pylibjpeg-openjpeg")
 import numpy as np
@@ -50,8 +51,13 @@ for item in [part.strip() for part in re.sub(r'//[^\n]*', '', enum).split(',') i
     name, _, explicit = item.partition('=')
     value = int(explicit) if explicit.strip() else value + 1
     codes[name.strip()] = value
-uids = dict(re.findall(r'^#define\s+(UID_\w+TransferSyntax)\s+"([^"]+)"',
-                       (root / 'DCMTK/dcmdata/include/dcmtk/dcmdata/dcuid.h').read_text(), re.M))
+# DCMTK's UIDs come from the header the application compiles against, the
+# installed one; without a build, the same public header of the pinned original
+# source the recipe installs it from.
+dcuid = INSTALL / 'include/dcmtk/dcmdata/dcuid.h'
+if not dcuid.is_file():
+    dcuid = dcmtk_source() / 'dcmdata/include/dcmtk/dcmdata/dcuid.h'
+uids = dict(re.findall(r'^#define\s+(UID_\w+TransferSyntax)\s+"([^"]+)"', dcuid.read_text(), re.M))
 assert 'Self.wadoSyntaxQuery(WADOTransferSyntax)' in block(pane, '    @IBAction public func testWADOUrl')
 assert '"1", "1", "1", syntax' in block(pane, '    @IBAction public func testWADOUrl')
 assert 'with test UIDs' in pane  # Test does not claim verified instance encoding.

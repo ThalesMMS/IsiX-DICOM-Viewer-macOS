@@ -34,7 +34,7 @@ extension ViewerController {
         case "openingScaleToFitRequested": return (true, imageViewsState.openingScaleToFitRequested)
         case "openingContentBoundsByPixels": return (true, imageViewsState.openingContentBoundsByPixels)
         case "roiLock": return (true, roiState.roiLock)
-        case "convThread": return (true, processingState.convThread)
+        case "convThread": return (true, nil) // apply on source has no worker lock now: nil, as between two runs
         case "loadingThread": return (true, loadingState.loadingThread)
         case "toolbarPanel": return (true, toolbarState.toolbarPanel)
         case "studyView": return (true, windowOutlets.studyView)

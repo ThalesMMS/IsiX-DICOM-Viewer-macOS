@@ -22,10 +22,10 @@ if '-(IBAction) fullScreenMenu:(id) sender' in viewer:
     switches = re.findall(r'\[self setImageRows: [^\]]*\]', method)
     ending = 'rescale: NO]'
 else:
-    # The full screen is Swift since ViewerController+FullScreen.swift.
-    swift = (root / 'Horos/Sources/ViewerController+FullScreen.swift').read_text()
-    start = swift.index('    func fullScreenMenu(_ sender: Any!) {')
-    method = swift[start:swift.index('\n    }\n', start)]
+    # The full screen is Swift: the viewer's FullScreenSession enters and leaves it.
+    swift = (root / 'Horos/Sources/FullScreenSession.swift').read_text()
+    start = swift.index('@MainActor struct FullScreenSession {')
+    method = swift[start:swift.index('\n}\n', start)]
     switches = re.findall(r'setImageRows\([^\n]*\)', method)
     ending = 'rescale: false)'
 

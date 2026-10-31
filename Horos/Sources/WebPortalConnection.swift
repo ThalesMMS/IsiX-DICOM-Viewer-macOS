@@ -40,19 +40,18 @@
 import CFNetwork
 import CoreData
 import Foundation
+import IsiXPreferences
+import Synchronization
 import IsiXHTTPServer
 import IsiXDICOMFile
+import IsiXDICOMNetwork
 
-// TODO: NSUserDefaults access for keys @"logWebServer", @"notificationsEmailsSender" and @"lastNotificationsDate" must be replaced with WebPortal properties
 
 /// The plugins that answer -httpResponseForPath:forConnection:, gathered by
 /// the first request that needs them, for the life of the application.
 /// Requests run on several connection threads, so the list is gathered and
-/// read under `pluginWithHTTPResponsesLock`, and published only once full.
-private let pluginWithHTTPResponsesLock = NSLock()
-// nonisolated(unsafe): read and written only inside
-// `pluginWithHTTPResponsesLock.withLock`; the array is not changed once set.
-nonisolated(unsafe) private var pluginWithHTTPResponses: NSArray?
+/// read under the Mutex, and published only once full.
+private let pluginWithHTTPResponses = Mutex<NSArray?>(nil)
 
 private let SessionDicomCStorePortKey = "DicomCStorePort" // NSNumber (int)
 
@@ -69,6 +68,32 @@ private func webPortalConnectionDLog(_ format: StaticString, _ arguments: CVarAr
 /// The NSException an HorosObjCException error carries.
 private func caughtException(_ error: Error) -> NSException? {
     return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
+}
+
+/// Why a page of the portal failed: an exception that Core Data, KVC or
+/// Foundation raised under a guard, or an argument the page's own code refuses
+/// where the Foundation method it replaced raised. The connection answers 500.
+/// It is thrown and caught on the connection's own thread, and an exception is
+/// not changed once raised, hence the unchecked conformance.
+enum WebPortalPageError: Error, @unchecked Sendable, CustomStringConvertible {
+    case raised(NSException)
+    case invalidArgument(String)
+
+    /// The exception the page raised before its failures were thrown: what the
+    /// log shows, and what an Objective-C caller of the page receives.
+    var exception: NSException {
+        switch self {
+        case .raised(let exception): return exception
+        case .invalidArgument(let reason): return NSException(name: .invalidArgumentException, reason: reason, userInfo: nil)
+        }
+    }
+
+    var description: String { exception.description }
+
+    static func exception(for error: Error) -> NSException {
+        return (error as? WebPortalPageError)?.exception
+            ?? NSException(name: .genericException, reason: (error as NSError).localizedDescription, userInfo: nil)
+    }
 }
 
 // MARK: - Objective-C messaging
@@ -106,12 +131,23 @@ private func messagePercentEscaped(_ object: Any) -> String {
 
 /// -setObject:forKey:, which raised NSInvalidArgumentException on a nil object.
 private func setObject(_ object: Any?, forKey key: Any, in dictionary: NSMutableDictionary) {
-    dictionary.perform(#selector(NSMutableDictionary.setObject(_:forKey:)), with: object, with: key)
+    guard let object else { raiseInvalidArgument("*** -[__NSDictionaryM setObject:forKey:]: object cannot be nil (key: \(key))") }
+    guard let key = key as AnyObject as? NSCopying else { raiseInvalidArgument("*** -[__NSDictionaryM setObject:forKey:]: key cannot be nil") }
+    dictionary.setObject(object, forKey: key)
 }
 
 /// -addObject:, which raised NSInvalidArgumentException on a nil object.
 private func addObject(_ object: Any?, to array: NSMutableArray) {
-    array.perform(#selector(NSMutableArray.add(_:)), with: object)
+    guard let object else { raiseInvalidArgument("*** -[__NSArrayM insertObject:atIndex:]: object cannot be nil") }
+    array.add(object)
+}
+
+/// The exception a Foundation method raises for an argument it refuses, such
+/// as nil, which the request's caller catches: the web portal's connections
+/// keep the Objective-C semantics their code was written for.
+func raiseInvalidArgument(_ reason: String, name: NSExceptionName = .invalidArgumentException) -> Never {
+    NSException(name: name, reason: reason, userInfo: nil).raise()
+    fatalError(reason)
 }
 
 /// A connection of the web portal: it reads the request, finds the session and
@@ -153,7 +189,7 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
     /// The other local databases the federated search includes, one
     /// private-queue database each for this connection, keyed by path.
     private func connectionFederatedDatabases() -> [String: DicomDatabase] {
-        let localPaths = UserDefaults.standard.object(forKey: "localDatabasePaths") as? [[String: Any]]
+        let localPaths = PreferencesSource.process.preferences[DatabasePreferences.localDatabaseSources]?.propertyList.object as? [[String: Any]]
         let included = FederatedSearch.includedPaths(fromLocalDatabasePaths: localPaths,
                                                      defaultPath: DicomDatabase.default()?.baseDirPath,
                                                      defaultIncluded: FederatedSearch.isDefaultDatabaseIncluded)
@@ -422,13 +458,11 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
     @objc public func guessDicomCStorePort() -> Int32 {
         webPortalConnectionDLog("Trying to guess DICOM C-Store Port...")
 
-        for case let node as NSDictionary in DICOMNodeService.serversList(sendOnly: true, queryRetrieveOnly: false) {
-            // NSString *dicomNodeAddress = NotNil([node objectForKey:@"Address"]);
-            let port = node.object(forKey: "Port")
-            let dicomNodePort = (port as? NSNumber)?.int32Value ?? (port as? NSString)?.intValue ?? 0
+        for node in DICOMNodeService.dicomNodes(sendOnly: true, queryRetrieveOnly: false) {
+            let dicomNodePort = node.associationPort
 
             var service = sockaddr_in()
-            let hostName = (node.value(forKey: "Address") as? NSString)?.utf8String
+            let hostName = (node.address as NSString?)?.utf8String
 
             service.sin_family = sa_family_t(AF_INET)
 
@@ -610,12 +644,12 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
         // GET params
         // -addEntriesFromDictionary: of the dictionary itself, so the entries go in
         // in the same order, and the parameters enumerate in the same order.
-        params.perform(#selector(NSMutableDictionary.addEntries(from:)), with: WebPortalConnection.ExtractParams(self.GETParams))
+        WebPortalConnection.ExtractParams(self.GETParams).map { params.addEntries(from: $0 as? [AnyHashable: Any] ?? [:]) }
         // POST params
         if (method as NSString?)?.isEqual(to: "POST") == true, multipartData?.count == 1 {
             let data = multipartData?.lastObject as? NSData
             let POSTParams = data.flatMap { NSString(bytes: $0.bytes, length: $0.length, encoding: String.Encoding.utf8.rawValue) }
-            params.perform(#selector(NSMutableDictionary.addEntries(from:)), with: WebPortalConnection.ExtractParams(POSTParams as String?))
+            WebPortalConnection.ExtractParams(POSTParams as String?).map { params.addEntries(from: $0 as? [AnyHashable: Any] ?? [:]) }
         }
         self.parameters = params
         if let parameters = parameters {
@@ -665,7 +699,7 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
             }
             if !assigned {
                 // The bundled distribution contains a weasis/ subdirectory.
-                let path = HorosWebFilePath(AppController.shared()?.weasisBasePath(), self.requestedPath)
+                let path = HorosWebFilePath((Bundle.main.resourcePath as NSString?)?.appendingPathComponent("weasis"), self.requestedPath)
                 if let path = path {
                     response?.data = NSData(contentsOfFile: path) as Data?
                 }
@@ -681,8 +715,8 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
                 try HorosObjCException.perform {
                     // Maybe a plugin has an answer ?
                     let selector = NSSelectorFromString("httpResponseForPath:forConnection:")
-                    let responders = pluginWithHTTPResponsesLock.withLock { () -> NSArray in
-                        if let gathered = pluginWithHTTPResponses { return gathered }
+                    let responders = pluginWithHTTPResponses.withLock { gathered -> NSArray in
+                        if let gathered { return gathered }
                         let plugins = NSMutableArray()
                         for case let (key, _) in PluginManager.plugins() ?? NSMutableDictionary() {
                             let plugin = PluginManager.plugins()?.object(forKey: key) as? NSObject
@@ -691,7 +725,7 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
                                 plugins.add(plugin as Any)
                             }
                         }
-                        pluginWithHTTPResponses = plugins
+                        gathered = plugins
                         return plugins
                     }
 
@@ -713,8 +747,8 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
 
             if !handledByPlugin {
                 do {
-                    try HorosObjCException.perform {
-                        self.route(currentPath)
+                    try HorosObjCException.throwing(WebPortalPageError.raised) {
+                        try self.route(currentPath)
 
                         if (self.response?.data?.count ?? 0) == 0 && (self.response?.statusCode() ?? 0) == 0 {
                             self.response?.setStatusCode(404)
@@ -722,7 +756,7 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
                     }
                 } catch {
                     response?.setStatusCode(500)
-                    NSLog("Error: [WebPortalConnection httpResponseForMethod:URI:] %@", caughtException(error) ?? (error as NSError))
+                    NSLog("Error: [WebPortalConnection httpResponseForMethod:URI:] %@", WebPortalPageError.exception(for: error))
                 }
             }
         }
@@ -734,8 +768,19 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
         }
     }
 
+    /// A page called from Objective-C, as a plugin may call it: its failure
+    /// reaches the caller as the exception the page raised before it threw.
+    func raisingForObjectiveC<T>(_ page: () throws -> T) -> T {
+        do {
+            return try page()
+        } catch {
+            WebPortalPageError.exception(for: error).raise()
+            fatalError("an exception was raised")
+        }
+    }
+
     /// The pages, in the former order; each test reads the path again.
-    private func route(_ currentPath: () -> NSString?) {
+    private func route(_ currentPath: () -> NSString?) throws {
         func equals(_ s: String) -> Bool { return currentPath()?.isEqual(to: s) == true }
         func prefix(_ s: String) -> Bool { return currentPath()?.hasPrefix(s) == true }
         func suffix(_ s: String) -> Bool { return currentPath()?.hasSuffix(s) == true }
@@ -743,25 +788,25 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
         if equals("/") || prefix("/index") {
             processIndexHtml()
         } else if equals("/main") {
-            processMainHtml()
+            try mainPage()
         } else if equals("/logs") {
-            processLogsListHtml()
+            try logsListPage()
         } else if equals("/studyList") {
-            processStudyListHtml()
+            try studyListPage()
         } else if equals("/studyList.json") {
             processStudyListJson()
         } else if equals("/study") {
-            processStudyHtml()
+            try studyPage()
         } else if equals("/wado") {
-            processWado()
+            try wadoPage()
         } else if equals("/thumbnail") {
-            processThumbnail()
+            try thumbnailPage()
         } else if equals("/series.pdf") {
-            processSeriesPdf()
+            try seriesPdfPage()
         } else if equals("/series") {
-            processSeriesHtml()
+            try seriesPage()
         } else if equals("/keyroisimages") {
-            processKeyROIsImagesHtml()
+            try keyROIsImagesPage()
         } else if equals("/series.json") {
             processSeriesJson()
         } else if prefix("/report") {
@@ -769,11 +814,11 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
         } else if suffix(".zip") || suffix(".osirixzip") {
             processZip()
         } else if prefix("/image.") {
-            processImage()
+            try imagePage()
         } else if prefix("/imageAsScreenCapture.") {
-            processImageAsScreenCapture(true)
+            try imageAsScreenCapturePage(true)
         } else if equals("/movie.mov") || equals("/movie.m4v") || equals("/movie.mp4") {
-            processMovie()
+            try moviePage()
         } else if equals("/password_forgotten") {
             processPasswordForgottenHtml()
         } else if equals("/account") {
@@ -785,11 +830,11 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
         } else if suffix("weasis.jnlp") {
             processWeasisJnlp()
         } else if equals("/weasis.xml") {
-            processWeasisXml()
+            try weasisXmlPage()
         } else if equals("/admin/") || equals("/admin/index") {
-            processAdminIndexHtml()
+            try adminIndexPage()
         } else if equals("/admin/user") {
-            processAdminUserHtml()
+            try adminUserPage()
         } else if equals("/quitOsiriX") && (user?.isAdmin?.boolValue ?? false) {
             exit(0)
         } else if equals("/testdbalive") {
@@ -935,15 +980,20 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
 
         let idatabase = self.independentDicomDatabase
         let filesAccumulator = NSMutableArray()
+        var uploadIsTheOnlyCopy = false
         // We want to find this file after db insert: get studyInstanceUID, patientUID and instanceSOPUID
         for case let oFile as String in filesArray {
             let f = DicomFile(oFile, dicomOnly: true)
 
             if let f = f {
-                file = BrowserController.currentBrowser()?.database?.uniquePathForNewDataFile(withExtension: "dcm")
+                // The folder of the database that indexes it; what did not reach
+                // that folder is not indexed, or the index would name no file.
+                file = idatabase?.uniquePathForNewDataFile(withExtension: "dcm")
 
-                if let file = file {
-                    try? FileManager.default.moveItem(atPath: oFile, toPath: file)
+                guard let file, (try? FileManager.default.moveItem(atPath: oFile, toPath: file)) != nil else {
+                    NSLog("****** the upload %@ could not be moved into the database folder and stays there", oFile)
+                    uploadIsTheOnlyCopy = true
+                    continue
                 }
 
                 addObject(file, to: filesAccumulator)
@@ -957,8 +1007,7 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
                 }
 
                 if !sameStudy || messageCompare(patientUID, previousPatientUID) != .orderedSame {
-                    _ = idatabase?.addFiles(atPaths: filesAccumulator as? [Any], postNotifications: true, dicomOnly: true,
-                                            rereadExistingItems: true, generatedByOsiriX: true, importedFiles: true, returnArray: false)
+                    if let idatabase { DatabaseIngest.process.index(filesAccumulator as? [Any], preset: .upload, in: idatabase) }
 
                     filesAccumulator.removeAllObjects()
 
@@ -982,14 +1031,15 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
             }
         }
 
-        _ = idatabase?.addFiles(atPaths: filesAccumulator as? [Any], postNotifications: true, dicomOnly: true,
-                                rereadExistingItems: true, generatedByOsiriX: true, importedFiles: true, returnArray: false)
+        if let idatabase { DatabaseIngest.process.index(filesAccumulator as? [Any], preset: .upload, in: idatabase) }
 
         // What was not imported: the unzipped folder, and an upload that is not
         // DICOM, which used to stay in the temporary folder.
-        try? FileManager.default.removeItem(atPath: unzipFolder)
-        if let name = POSTfilename {
-            try? FileManager.default.removeItem(atPath: name)
+        if !uploadIsTheOnlyCopy {
+            try? FileManager.default.removeItem(atPath: unzipFolder)
+            if let name = POSTfilename {
+                try? FileManager.default.removeItem(atPath: name)
+            }
         }
 
         multipartData = nil
@@ -1047,13 +1097,15 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
                 }) ?? NSNotFound
                 if uidIndex == NSNotFound || patientIndex == NSNotFound {
                     // +insertNewObjectForEntityForName:inManagedObjectContext: raised on a nil context.
-                    let studyLink = (NSEntityDescription.self as AnyObject)
-                        .perform(#selector(NSEntityDescription.insertNewObject(forEntityName:into:)), with: "Study", with: user?.managedObjectContext)?
-                        .takeUnretainedValue() as! NSManagedObject
+                    guard let context = user?.managedObjectContext else {
+                        raiseInvalidArgument("+entityForName: nil is not a legal NSManagedObjectContext parameter searching for entity name 'Study'",
+                                             name: .internalInconsistencyException)
+                    }
+                    let studyLink = NSEntityDescription.insertNewObject(forEntityName: "Study", into: context)
 
                     studyLink.setValue((studyUID as? NSObject)?.copy(), forKey: "studyInstanceUID")
                     studyLink.setValue((studyPatientUID as? NSObject)?.copy(), forKey: "patientUID")
-                    studyLink.setValue(Date(timeIntervalSinceReferenceDate: UserDefaults.standard.double(forKey: "lastNotificationsDate")), forKey: "dateAdded")
+                    studyLink.setValue(Date(timeIntervalSinceReferenceDate: PreferencesSource.process.preferences[WebPortalPreferences.lastNotificationsDate]), forKey: "dateAdded")
 
                     studyLink.setValue(user, forKey: "user")
 
@@ -1073,7 +1125,7 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
             }
         }
 
-        if user?.name != nil && UserDefaults.standard.bool(forKey: "WebServerTagUploadedStudiesWithUsername") {
+        if user?.name != nil && PreferencesSource.process.preferences[NetworkPreferences.webServerTagUploadedStudiesWithUsername] {
             for case let study as NSManagedObject in studies ?? [] {
                 var comment = study.value(forKey: "comment") as? String
 
@@ -1230,7 +1282,8 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
                 let path = root.appendingPathComponent(String(format: "WebPortal Upload %d", inc)) as NSString
                 inc += 1
                 // -stringByAppendingPathExtension: raised NSInvalidArgumentException on a nil extension.
-                POSTfilename = path.perform(#selector(NSString.appendingPathExtension(_:)), with: fileExtension)?.takeUnretainedValue() as? String
+                guard let fileExtension else { raiseInvalidArgument("*** -[NSPathStore2 stringByAppendingPathExtension:]: nil argument") }
+                POSTfilename = path.appendingPathExtension(fileExtension)
             } while POSTfilename.map { FileManager.default.fileExists(atPath: $0) } ?? false
 
             var fileDataRange = NSRange(location: Int(dataStartIndex),
@@ -1321,7 +1374,7 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
 
                 var authenticatedByPlugin = false
 
-                if UserDefaults.standard.bool(forKey: "AllowPluginAuthenticationForWebPortal") { // Authentication through a plugin? For example, add an LDAP plugin...
+                if PreferencesSource.process.preferences[NetworkPreferences.allowPluginAuthenticationForWebPortal] { // Authentication through a plugin? For example, add an LDAP plugin...
                     let selector = NSSelectorFromString("authenticateConnection:parameters:")
                     for case let (key, _) in PluginManager.plugins() ?? NSMutableDictionary() {
                         let plugin = PluginManager.plugins()?.object(forKey: key) as? NSObject
@@ -1399,13 +1452,19 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
         if let session = sessionValue,
            session.object(forKey: SessionUsernameKey) != nil,
            let userID = session.object(forKey: SessionUserIDKey) {
-            // -objectWithID: of whatever the session holds, as the former message was.
-            self.user = independentWebDatabase?.managedObjectContext?
-                .perform(#selector(NSManagedObjectContext.object(with:)), with: userID)?
-                .takeUnretainedValue() as? WebPortalUser
+            // -objectWithID: of what the session holds, which raised for
+            // anything but an object ID.
+            if let context = independentWebDatabase?.managedObjectContext {
+                guard let objectID = userID as? NSManagedObjectID else {
+                    raiseInvalidArgument("*** -[NSManagedObjectContext objectWithID:]: \(type(of: userID)) is not an object ID")
+                }
+                self.user = context.object(with: objectID) as? WebPortalUser
+            } else {
+                self.user = nil
+            }
 
             if let lastActivity = session.object(forKey: SessionLastActivityDateKey) as? Date {
-                if Date().timeIntervalSince(lastActivity) > Double(UserDefaults.standard.integer(forKey: "WebServerTimeOut")) {
+                if Date().timeIntervalSince(lastActivity) > Double(PreferencesSource.process.preferences[NetworkPreferences.webServerTimeOut]) {
                     self.session.setObject(nil, forKey: SessionUserIDKey) // logout
                     self.session.setObject(nil, forKey: SessionUsernameKey) // logout
                     self.user = nil
@@ -1481,7 +1540,7 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
 
         fillSessionAndUserVariables()
 
-        var webPortalDefaultTitle = UserDefaults.standard.string(forKey: "WebPortalTitle")
+        var webPortalDefaultTitle = PreferencesSource.process.preferences[WebPortalPreferences.title]
 
         if (webPortalDefaultTitle as NSString?)?.length ?? 0 == 0 {
             webPortalDefaultTitle = NSLocalizedString("IsiX DICOM Viewer Web Portal", comment: "Web Portal, general default title")
@@ -1495,7 +1554,8 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
         if let session = sessionValue {
             response?.tokens.setObject(session, forKey: "Session" as NSString)
         }
-        response?.tokens.setObject(UserDefaults.standard, forKey: "Defaults" as NSString)
+        // The templates read any preference by name through %Defaults.<key>%.
+        response?.tokens.setObject(PreferencesSource.process.preferences, forKey: "Defaults" as NSString)
 
         engine?.replyWithResponse()
 

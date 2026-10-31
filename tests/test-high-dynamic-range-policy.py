@@ -51,11 +51,11 @@ with tempfile.TemporaryDirectory(prefix='horos-dynamic-range-') as directory:
 # --- the wiring --------------------------------------------------------------
 should = policy[policy.index('public static func shouldClip'):]
 for needed in ('case .alwaysClip: return true', 'case .alwaysResample: return false', 'showsSuppressionButton = true',
-               '"Do not ask again"', 'UserDefaults.standard.set(next.rawValue, forKey: defaultsKey)', '"Clip"', '"Resample"'):
+               '"Do not ask again"', '.set(next.rawValue, for: ViewerPreferences.highDynamicRangePolicy)', '"Clip"', '"Resample"'):
     if needed not in should:
         failures.append('the question misses %s' % needed)
 start = controller.index('maximumValueStorage - minimumValueStorage > 8192')
-minmax = controller[start:controller.index('    @objc(windowDidResize:)', start)]
+minmax = controller[start:controller.index('    public override func windowDidResize(', start)]
 if 'HighDynamicRangePolicy.shouldClip()' not in minmax or 'HorosAlertPanel' in minmax:
     failures.append('the VR still asks about high dynamic values without the policy')
 if 'vImageClip_PlanarF(&srcf, &srcf, 7168, -1024, vImage_Flags(kvImageNoFlags))' not in minmax:

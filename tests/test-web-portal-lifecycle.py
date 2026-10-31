@@ -59,8 +59,10 @@ portal = read('Horos/Sources/WebPortal.swift')
 capi = read('Horos/Sources/WebPortal+CAPI.m')
 caught = between(portal, 'fileprivate func webPortalCaught(', '\n}\n', 'webPortalCaught', True)
 # The statics are behind a lock; an earlier revision starts at the first one.
-statics_start = ('    /// Guards the three statics below' if '    /// Guards the three statics below' in portal
-                 else '    private static var defaultWebPortalDatabasePath')
+statics_start = next(start for start in ("    /// The path of the portals' accounts", '    /// Guards the three statics below',
+                                         '    private static var defaultWebPortalDatabasePath') if start in portal)
+# The statics are one Mutex now; the test reaches them through these.
+held = "    private static let instances = Mutex(Instances())" in portal
 statics = between(portal, statics_start,
                   '\n\n', 'the class properties')
 finalize = between(portal, '    @objc(finalizeWebPortalClass)', '\n    }\n', 'finalizeWebPortalClass', True)
@@ -71,6 +73,7 @@ notifications = between(portal, '    // MARK: Notifications', '\n}\n', 'the noti
 MAIN = r'''
 import Foundation
 import ObjectiveC
+import Synchronization
 
 let THREAD_POOL_SIZE: Int32 = 4
 
@@ -85,6 +88,10 @@ fileprivate func webPortalSynchronized(_ object: AnyObject?, _ body: () -> Void)
     body()
     if let object { objc_sync_exit(object) }
 }
+// The portal's @synchronized, HorosObjCException.synchronized, behind the same gate.
+extension HorosObjCException {
+    static func synchronized(_ object: AnyObject?, _ body: () -> Void) { webPortalSynchronized(object, body) }
+}
 CAUGHT
 
 func _N2LogExceptionImpl(_ e: NSException, _ log: Bool, _ where_: String) {}
@@ -93,6 +100,25 @@ final class AppController: NSObject {
     class func shared() -> AppController? { instance }
     func reportListenBindFailure(forService service: String, port: Int, errnoCode: Int32) {}
 }
+/// What the server thread reports through: the graph, the notices and the
+/// threads of its own it starts.
+final class ProcessGraph: Sendable { static let process = ProcessGraph() }
+struct ApplicationNetworkNotices {
+    let processGraph: ProcessGraph
+    static let process = ApplicationNetworkNotices(processGraph: ProcessGraph.process)
+    func listenBindFailed(service: String, port: Int, errno: Int32) {}
+}
+enum ListenBindFailure { static let webPortalService = "web portal" }
+enum ActivityThread {
+    @discardableResult
+    static func startUnlisted(name: String, _ body: @escaping @Sendable (_ listInActivity: @Sendable () -> Void) -> Void) -> Thread {
+        let thread = Thread { body {} }
+        thread.name = name
+        thread.start()
+        return thread
+    }
+}
+struct SharedPortal: @unchecked Sendable { let portal: WebPortal }
 extension NSString {
     func resolvingSymlinksAndAliases() -> String? { self as String }
     func stringByComposingPath(with rel: NSString) -> String { rel as String }
@@ -147,8 +173,7 @@ NOTIFICATIONS
 extension WebPortal {
     @objc(deleteTemporaryUsers:) func deleteTemporaryUsers(_ timer: Timer!) {}
     @objc func emailNotifications() {}
-    static func setDefaultPath(_ path: String) { defaultWebPortalDatabasePath = path }
-    static var defaultInstance: WebPortal? { defaultWebPortalInstance }
+SETTERS
     var timers: [Timer] { [temporaryUsersTimer, notificationsTimer].compactMap { $0 } }
     /// Stops the timers, as -stopAcceptingConnections or a deallocation would.
     func stopTimersForTest() {
@@ -230,6 +255,11 @@ objc_sync_exit(gate)
 print("done")
 exit(0)
 '''
+SETTERS_HELD = """    static func setDefaultPath(_ path: String) { instances.withLock { $0.databasePath = path } }
+    static var defaultInstance: WebPortal? { instances.withLock { $0.defaultPortal }?.portal }"""
+SETTERS_LOCKED = """    static func setDefaultPath(_ path: String) { defaultWebPortalDatabasePath = path }
+    static var defaultInstance: WebPortal? { defaultWebPortalInstance }"""
+MAIN = MAIN.replace('SETTERS', SETTERS_HELD if held else SETTERS_LOCKED)
 MAIN = (MAIN.replace('CAUGHT', caught).replace('STATICS', statics).replace('FINALIZE', finalize)
         .replace('DEFAULT', default).replace('INSTANCE', instance).replace('NOTIFICATIONS', notifications))
 

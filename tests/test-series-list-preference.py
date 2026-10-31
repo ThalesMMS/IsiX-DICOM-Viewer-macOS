@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Run the preference observer and application transition with controlled peers.
 
-AppController is Swift: its transition is compiled with swiftc, as a
-Swift category method of the Objective-C test AppController, over the same
-Objective-C peers, with the helpers it reads previousDefaults through.
+The transition is PreferenceChangeResponder's answer to a change of the
+series lists' mode or visibility, with the marks of IsiXPreferences'
+PreferenceChange: it is compiled with swiftc, as a Swift category method of the
+Objective-C test AppController, over the same Objective-C peers, with the
+module it reads the preferences through.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
@@ -11,6 +13,7 @@ import subprocess
 import tempfile
 
 from sources import is_swift, source_text
+import isix_modules
 
 root = Path(__file__).resolve().parents[1]
 
@@ -42,25 +45,42 @@ def swift_block(text, at):
     return ''
 
 
-app = source_text('AppController')
-start = app.index('                let seriesListModeChanged =')
-transition = app[start:app.index('                if Int(ObjC.int(previousDefaults?.value(forKey: "DisplayDICOMOverlays")))', start)]
-# How the transition reads previousDefaults: the production helpers.
-helpers = ''.join('    ' + swift_block(app, app.index(signature)) + '\n' for signature in
-                  ('static func bool(_ value: Any?) -> Bool {', 'static func int(_ value: Any?) -> Int32 {'))
+responder = source_text('PreferenceChangeResponder')
+# The answer to the marks, and the placing of the series lists it calls.
+transition = swift_block(responder, responder.index('        if change.seriesListMode || change.seriesListVisible {'))
+place = swift_block(responder, responder.index('    private func placeSeriesLists('))
+# The series list panels give back their lists through the window arranger.
+arranger = (Path(__file__).resolve().parents[1] / 'Horos/Sources/ViewerWindowArranger.swift').read_text()
+at = arranger.index('    func prepareThumbnailsListsForScreenReconfiguration() {')
+prepare = arranger[at:arranger.index('\n    }\n', at) + 6].replace('Self.maximumScreens', 'MAXSCREENS').replace(
+    'AppControllerCAPIThumbnailsListPanel(i)', 'thumbnailsListPanelAt(i)')
 swift_transition = '''
 import Foundation
+import IsiXPreferences
 let MAXSCREENS = 3
 func thumbnailsListPanelAt(_ index: Int) -> Panel? { return testThumbnailsListPanel(Int32(index)) }
-enum ObjC {
-HELPERS}
-extension AppController {
-    @objc(transitionFrom:) func transition(from previousDefaults: NSDictionary?) {
-        let defaults = UserDefaults.standard
-TRANSITION
-    }
+final class WindowArranger {
+PREPARE
+    func tileWindows(sender: Any?) { AppController.shared().tileWindows(sender) }
 }
-'''.replace('HELPERS', helpers).replace('TRANSITION', transition)
+struct Registry {
+    var viewers: [ViewerController]? { ViewerController.get2DViewers() as? [ViewerController] }
+    var displayedViewers: [ViewerController] { (ViewerController.getDisplayed2DViewers() as? [ViewerController]) ?? [] }
+    func frontMostDisplayedViewer(on screen: NSScreen?) -> ViewerController? { ViewerController.frontMostDisplayed2DViewer(for: screen) }
+}
+struct Graph { let viewerRegistry = Registry() }
+extension AppController {
+    var windowArranger: WindowArranger { WindowArranger() }
+    var processGraph: Graph { Graph() }
+    @objc(transitionFrom:) func transition(from previousDefaults: NSDictionary?) {
+        let preferences = UserDefaults.standard
+        guard let change = PreferenceChange(from: (previousDefaults as? [String: Any]) ?? [:],
+                                            to: preferences.dictionaryRepresentation()) else { return }
+        TRANSITION
+    }
+PLACE
+}
+'''.replace('PREPARE', prepare).replace('TRANSITION', transition).replace('PLACE', place)
 pane = source_text('OSIViewerPreferencePanePref')
 swift_pane = is_swift('OSIViewerPreferencePanePref')
 if swift_pane:
@@ -211,8 +231,9 @@ with tempfile.TemporaryDirectory(prefix='horos-series-list-preference-') as fold
     (folder/'test.m').write_text(driver)
     (folder/'transition.swift').write_text(swift_transition)
     objects = [str(folder/'test.o'), str(folder/'transition.o')]
+    module = isix_modules.module_flags('IsiXPreferences', folder / 'modules')
     subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-module-name', 'Transition', '-emit-object',
-                    '-import-objc-header', str(folder/'peers.h'),
+                    '-import-objc-header', str(folder/'peers.h'), *module[:2],
                     str(folder/'transition.swift'), '-o', str(folder/'transition.o')], check=True)
     if swift_pane:
         (folder/'observer.swift').write_text(swift_observer)
@@ -220,5 +241,5 @@ with tempfile.TemporaryDirectory(prefix='horos-series-list-preference-') as fold
                         str(folder/'observer.swift'), '-o', str(folder/'observer.o')], check=True)
         objects.append(str(folder/'observer.o'))
     subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-I', str(folder), '-c', str(folder/'test.m'), '-o', str(folder/'test.o')], check=True)
-    subprocess.run(['xcrun', 'swiftc'] + objects + ['-framework', 'Foundation', '-o', str(folder/'test')], check=True)
+    subprocess.run(['xcrun', 'swiftc'] + objects + module[2:] + ['-framework', 'Foundation', '-o', str(folder/'test')], check=True)
     subprocess.run([str(folder/'test')], check=True)

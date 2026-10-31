@@ -56,7 +56,8 @@ extension BrowserController {
         get { windowState.activityHelper }
         set { windowState.activityHelper = newValue }
     }
-    nonisolated var horos_albumNoOfStudiesCache: NSMutableArray? { albumState.albumNoOfStudiesCache }
+    /// The counts of the albums table, which the database switch forgets.
+    nonisolated var horos_albumNoOfStudiesCache: AlbumCountsAccess? { AlbumCountsAccess(catalog: albumState.catalog) }
     var horos_bottomSplit: NSSplitView? { windowOutlets.bottomSplit }
     var horos_filterPredicate: NSPredicate? {
         get { studyListState.filterPredicate }
@@ -78,19 +79,11 @@ extension BrowserController {
         get { windowState.splitViewVertDividerRatio }
         set { windowState.splitViewVertDividerRatio = newValue }
     }
-    nonisolated var horos_timeIntervalOfLastLoadIconsDisplayIcons: TimeInterval {
-        get { previewState.timeIntervalOfLastLoadIconsDisplayIcons }
-        set { previewState.timeIntervalOfLastLoadIconsDisplayIcons = newValue }
-    }
     nonisolated var horos_albumTable: NSTableView? { windowOutlets.albumTable }
     var horos_animationCheck: NSButton? { windowOutlets.animationCheck }
     var horos_animationSlider: NSSlider? { windowOutlets.animationSlider }
     var horos_banner: NSButton? { windowOutlets.banner }
     var horos_bannerSplit: NSSplitView? { windowOutlets.bannerSplit }
-    nonisolated var horos_comparativeRetrieveQueue: NSMutableArray? {
-        get { comparativeState.comparativeRetrieveQueue }
-        set { comparativeState.comparativeRetrieveQueue = newValue }
-    }
     var horos_comparativeStudies: [Any]? { comparativeState.comparativeStudies as? [Any] }
     var horos_comparativeStudyWaited: DCMTKStudyQueryNode? {
         get { comparativeState.comparativeStudyWaited }
@@ -119,10 +112,6 @@ extension BrowserController {
         set { studyListState.DatabaseIsEdited = newValue }
     }
     var horos_databaseOutline: MyOutlineView? { windowOutlets.databaseOutline }
-    nonisolated var horos_distantSearchThread: Thread? {
-        get { comparativeState.distantSearchThread }
-        set { comparativeState.distantSearchThread = newValue }
-    }
     var horos_dontSelectStudyFromComparativeStudies: Bool {
         get { comparativeState.dontSelectStudyFromComparativeStudies }
         set { comparativeState.dontSelectStudyFromComparativeStudies = newValue }
@@ -137,19 +126,19 @@ extension BrowserController {
         get { transferState.isNetworkLogsActive }
         set { transferState.isNetworkLogsActive = newValue }
     }
-    var horos_KeyImagesCache: [Any]? {
-        get { selectionCache.KeyImagesCache as? [Any] }
-        set { selectionCache.KeyImagesCache = newValue.map { $0 as NSArray } }
+    var horos_KeyImagesCache: [DicomImage]? {
+        get { selectionCache.KeyImagesCache }
+        set { selectionCache.KeyImagesCache = newValue }
     }
-    var horos_lastKeyImagesSelectedFiles: Any? {
+    var horos_lastKeyImagesSelectedFiles: [NSObject]? {
         get { selectionCache.lastKeyImagesSelectedFiles }
         set { selectionCache.lastKeyImagesSelectedFiles = newValue }
     }
-    var horos_lastROIsAndKeyImagesSelectedFiles: Any? {
+    var horos_lastROIsAndKeyImagesSelectedFiles: [NSObject]? {
         get { selectionCache.lastROIsAndKeyImagesSelectedFiles }
         set { selectionCache.lastROIsAndKeyImagesSelectedFiles = newValue }
     }
-    var horos_lastROIsImagesSelectedFiles: Any? {
+    var horos_lastROIsImagesSelectedFiles: [NSObject]? {
         get { selectionCache.lastROIsImagesSelectedFiles }
         set { selectionCache.lastROIsImagesSelectedFiles = newValue }
     }
@@ -196,29 +185,27 @@ extension BrowserController {
         get { studyListState.previousFlags }
         set { studyListState.previousFlags = newValue }
     }
-    var horos_reportFilesToCheck: NSMutableDictionary? { windowState.reportFilesToCheck }
+    /// The reports opened in the session, which the database switch and the
+    /// deletion of studies forget.
+    var horos_reportFilesToCheck: OpenReports? { reports.openReports }
     var horos_reportTemplatesImageView: NSImageView? { sheetOutlets.reportTemplatesImageView }
     var horos_reportTemplatesListPopUpButton: NSPopUpButton? { sheetOutlets.reportTemplatesListPopUpButton }
     var horos_reportTemplatesView: NSView? { sheetOutlets.reportTemplatesView }
-    var horos_reportToolbarItemType: Int {
-        get { windowState.reportToolbarItemType }
-        set { windowState.reportToolbarItemType = newValue }
-    }
     var horos_ROIsAndKeyImagesButtonAvailable: Bool {
         get { selectionCache.ROIsAndKeyImagesButtonAvailable }
         set { selectionCache.ROIsAndKeyImagesButtonAvailable = newValue }
     }
-    var horos_ROIsAndKeyImagesCache: [Any]? {
-        get { selectionCache.ROIsAndKeyImagesCache as? [Any] }
-        set { selectionCache.ROIsAndKeyImagesCache = newValue.map { $0 as NSArray } }
+    var horos_ROIsAndKeyImagesCache: [DicomImage]? {
+        get { selectionCache.ROIsAndKeyImagesCache }
+        set { selectionCache.ROIsAndKeyImagesCache = newValue }
     }
     var horos_ROIsAndKeyImagesCacheSameSeries: Bool {
         get { selectionCache.ROIsAndKeyImagesCacheSameSeries }
         set { selectionCache.ROIsAndKeyImagesCacheSameSeries = newValue }
     }
-    var horos_ROIsImagesCache: [Any]? {
-        get { selectionCache.ROIsImagesCache as? [Any] }
-        set { selectionCache.ROIsImagesCache = newValue.map { $0 as NSArray } }
+    var horos_ROIsImagesCache: [DicomImage]? {
+        get { selectionCache.ROIsImagesCache }
+        set { selectionCache.ROIsImagesCache = newValue }
     }
     var horos_ROIsImagesCacheSameSeries: Bool {
         get { selectionCache.ROIsImagesCacheSameSeries }
@@ -264,26 +251,19 @@ extension BrowserController {
         get { viewerOpeningState.waitOpeningWindow }
         set { viewerOpeningState.waitOpeningWindow = newValue }
     }
-    nonisolated var horos_cachedAlbums: [Any]? {
-        get { albumState.cachedAlbums as? [Any] }
-        set { albumState.cachedAlbums = newValue.map { $0 as NSArray } }
-    }
-    nonisolated var horos_cachedAlbumsIDs: [Any]? {
-        get { albumState.cachedAlbumsIDs as? [Any] }
-        set { albumState.cachedAlbumsIDs = newValue.map { $0 as NSArray } }
-    }
+    /// The context the albums were fetched in: none is kept, and setting it
+    /// (to nil) makes the next request fetch them again.
     nonisolated var horos_cachedAlbumsContext: NSManagedObjectContext? {
-        get { albumState.cachedAlbumsContext }
-        set { albumState.cachedAlbumsContext = newValue }
+        get { nil }
+        set { albumState.catalog.forgetAlbums() }
     }
-    nonisolated var horos_distantAlbumNoOfStudiesCache: NSMutableDictionary? { albumState.distantAlbumNoOfStudiesCache }
-    var horos_matrixLoadIconsThread: Thread? {
-        get { previewState.matrixLoadIconsThread }
-        set { previewState.matrixLoadIconsThread = newValue }
-    }
-    nonisolated var horos_smartAlbumDistantArray: [Any]? {
-        get { comparativeState.smartAlbumDistantArray as? [Any] }
-        set { comparativeState.smartAlbumDistantArray = newValue.map { $0 as NSArray } }
+    /// The smart albums' distant studies, forgotten with the counts.
+    nonisolated var horos_distantAlbumNoOfStudiesCache: AlbumCountsAccess? { AlbumCountsAccess(catalog: albumState.catalog) }
+    /// The load of the thumbnails in progress, which a new selection and the
+    /// database switching cancel; under its former name, as the thread it was.
+    var horos_matrixLoadIconsThread: ThumbnailLoad? {
+        get { previewState.thumbnailLoad }
+        set { previewState.thumbnailLoad = newValue }
     }
     var horos_cachedFilesForDatabaseOutlineSelectionSelectedFiles: NSMutableArray? {
         get { selectionCache.cachedFilesForDatabaseOutlineSelectionSelectedFiles }
@@ -318,18 +298,6 @@ extension BrowserController {
     var horos_estimatedTime: NSTextField? { sheetOutlets.estimatedTime }
     var horos_newAlbum: NSWindow? { sheetOutlets.newAlbum }
     var horos_newAlbumName: NSTextField? { sheetOutlets.newAlbumName }
-    nonisolated var horos_deleteQueueArray: NSMutableArray? {
-        get { transferState.deleteQueueArray }
-        set { transferState.deleteQueueArray = newValue }
-    }
-    nonisolated var horos_deleteQueue: NSRecursiveLock? {
-        get { transferState.deleteQueue }
-        set { transferState.deleteQueue = newValue }
-    }
-    nonisolated var horos_deleteInProgress: NSRecursiveLock? {
-        get { transferState.deleteInProgress }
-        set { transferState.deleteInProgress = newValue }
-    }
     var horos_processorsLock: NSConditionLock? { transferState.processorsLock }
     var horos_CDpasswordWindow: NSWindow? { sheetOutlets.CDpasswordWindow }
     var horos_addStudiesToUserWindow: NSWindow? { sheetOutlets.addStudiesToUserWindow }
@@ -388,18 +356,6 @@ extension BrowserController {
         get { studyListState.localEntireDBResultCount }
         set { studyListState.localEntireDBResultCount = newValue }
     }
-    nonisolated var horos_autoretrievingPACSOnDemandSmartAlbum: Bool {
-        get { comparativeState.autoretrievingPACSOnDemandSmartAlbum }
-        set { comparativeState.autoretrievingPACSOnDemandSmartAlbum = newValue }
-    }
-    nonisolated var horos_computingNumberOfStudiesForAlbums: Bool {
-        get { albumState.computingNumberOfStudiesForAlbums }
-        set { albumState.computingNumberOfStudiesForAlbums = newValue }
-    }
-    nonisolated var horos_lastComputeAlbumsForDistantStudies: TimeInterval {
-        get { albumState.lastComputeAlbumsForDistantStudies }
-        set { albumState.lastComputeAlbumsForDistantStudies = newValue }
-    }
     nonisolated var horos_lastRefreshComparativeStudies: TimeInterval {
         get { comparativeState.lastRefreshComparativeStudies }
         set { comparativeState.lastRefreshComparativeStudies = newValue }
@@ -407,18 +363,6 @@ extension BrowserController {
     nonisolated var horos_lastRefreshSmartAlbumDistantStudies: TimeInterval {
         get { comparativeState.lastRefreshSmartAlbumDistantStudies }
         set { comparativeState.lastRefreshSmartAlbumDistantStudies = newValue }
-    }
-    nonisolated var horos_searchForComparativeStudiesLock: NSRecursiveLock? {
-        get { comparativeState.searchForComparativeStudiesLock }
-        set { comparativeState.searchForComparativeStudiesLock = newValue }
-    }
-    nonisolated var horos_smartAlbumDistantSearchArray: NSMutableArray? {
-        get { comparativeState.smartAlbumDistantSearchArray }
-        set { comparativeState.smartAlbumDistantSearchArray = newValue }
-    }
-    nonisolated var horos_comparativeStudySearchArray: NSMutableArray? {
-        get { comparativeState.comparativeStudySearchArray }
-        set { comparativeState.comparativeStudySearchArray = newValue }
     }
     nonisolated var horos_comparativePatientUID: String? { self.comparativePatientUID }
     nonisolated var horos_smartAlbumDistantName: String? {
@@ -449,10 +393,7 @@ extension BrowserController {
         get { studyListState.previousNoOfFiles }
         set { studyListState.previousNoOfFiles = newValue }
     }
-    var horos_columnsMenu: NSMenu? {
-        get { studyListState.columnsMenu }
-        set { studyListState.columnsMenu = newValue }
-    }
+    var horos_columnsMenu: NSMenu? { studyListColumns.menu }
     var horos_refreshTimer: Timer? { windowState.refreshTimer }
     var horos_lastImportListRefresh: TimeInterval {
         get { albumState.lastImportListRefresh }
@@ -536,6 +477,9 @@ extension BrowserController {
         guard let rows = studyListState.outlineViewArray, index >= 0, index < rows.count else { return nil }
         return rows.object(at: index)
     }
+
+    /// The number of rows of the list.
+    var horos_outlineViewRowCount: Int { studyListState.outlineViewArray?.count ?? 0 }
 
     /// The list set to the array itself, not a Swift array bridged back.
     func horos_storeOutlineViewArray(_ array: Any?) {

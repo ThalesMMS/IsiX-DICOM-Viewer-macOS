@@ -22,7 +22,7 @@ its static helpers, the NSArray writer and the character-set method) is
 compiled against the
 build's DCMTK and run on synthetic files; the values read back are the bytes in
 the files. The BrowserController wiring is read from the source: Unify and
-Merge are Swift (BrowserController+Merge.swift), with the rules of the former
+Merge are Swift (StudyMergeJob.swift), with the rules of the former
 identity and the character set in IsiXDatabase (StudyListRowRules.swift), and
 reach the writer's character-set method through XMLController+DICOMEditing.swift.
 """
@@ -37,7 +37,7 @@ import harness_defaults
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from dcmtk_build import BUILD  # noqa: E402
+from dcmtk_build import BUILD, dcmtk_dictionary  # noqa: E402
 from isix_modules import dicom_file_flags  # noqa: E402
 
 dcmtk = BUILD / 'DCMTK.build/Install'
@@ -241,13 +241,15 @@ with tempfile.TemporaryDirectory(prefix='horos-unify-identity-') as directory:
         print('FAIL: the writer does not compile\n' + build.stderr[-3000:])
         sys.exit(1)
     env = dict(os.environ)
-    env.setdefault('DCMDICTPATH', str(root / 'DCMTK/dcmdata/data/dicom.dic'))
+    if 'DCMDICTPATH' not in env:
+        # The external dictionary of the pinned DCMTK source, as the build ships it.
+        env['DCMDICTPATH'] = str(dcmtk_dictionary())
     run = subprocess.run([str(path / 'test'), str(path)], capture_output=True, text=True, env=env, timeout=120)
     print(run.stdout.strip())
     if run.returncode:
         failures.append('the writer: ' + run.stderr[-1500:])
 
-merge = (root / 'Horos/Sources/BrowserController+Merge.swift').read_text()
+merge = (root / 'Horos/Sources/StudyMergeJob.swift').read_text()
 rules = (root / 'Modules/IsiXDatabase/Sources/StudyListRowRules.swift').read_text()
 editing = (root / 'Horos/Sources/XMLController+DICOMEditing.swift').read_text(encoding='utf-8')
 former = between(merge, 'private func formerIdentity(of study: Any?)', '\n}\n')
@@ -257,7 +259,8 @@ if ('otherNames: own?.attributeValue(withName: "OtherPatientNames")' not in form
 rule = between(rules, 'public static func formerIdentity(', '\n    }\n')
 if 'prefix(otherNames) + ((name as? String)' not in rule or 'prefix(otherIDs) + ((patientID as? String)' not in rule:
     failures.append('the former names and IDs are not kept each in its own field')
-if 'firstPath(of: study)' not in former or 'study.paths()' not in between(merge, 'private func firstPath(of study', '\n}\n'):
+if 'firstPath(of: study)' not in former or 'paths(of: study)' not in between(merge, 'private func firstPath(of study', '\n}\n') \
+        or '.paths()' not in between(merge, 'private func paths(of study', '\n}\n'):
     failures.append("the former identity is not read from the study's own files")
 if 'otherNames: own?.attributeValue(withName: "OtherPatientIDs")' in merge:
     failures.append('a crossed read of OtherPatientIDs into the names is left')
@@ -270,7 +273,7 @@ if ('StudyMerge.unicodeCharacterSet' not in write or 'public static let unicodeC
         or 'IsiXDCMTKTagEditor.characterSetToDeclare(' not in declare_bridge):
     failures.append('the writes do not declare ISO_IR 192 where a file needs it')
 for title in ('Unify Patient Identity', 'Merge Studies'):
-    if 'writeIdentityEdits(files, tagAndValues, NSLocalizedString("%s", comment: ""))' % title not in merge:
+    if 'writeIdentityEdits(paths(of: study), tagAndValues, NSLocalizedString("%s", comment: ""))' % title not in merge:
         failures.append(f'{title} does not write through writeIdentityEdits')
 if merge.count('let former = formerIdentity(of: study)') != 2:
     failures.append('Unify and Merge do not both take the former identity from the study')

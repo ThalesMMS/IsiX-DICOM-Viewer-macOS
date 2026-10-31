@@ -47,7 +47,11 @@ import IsiXImaging
 /// Implemented in Swift: the Objective-C name and the selectors are those of
 /// the former class, which computed the registration with VTK's
 /// vtkLandmarkTransform.
-@objc(HornRegistration)
+/// @usableFromInline because plugins built against the former SDK look up its
+/// Objective-C class: without it, the class symbol of an internal Swift class is
+/// private external, which a Release build, having no testability, leaves
+/// unexported. The attribute gives it public linkage and changes nothing else.
+@objc(HornRegistration) @usableFromInline
 final class HornRegistration: NSObject {
     private var modelPoints: [SIMD3<Double>] = []
     private var sensorPoints: [SIMD3<Double>] = []

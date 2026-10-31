@@ -39,6 +39,7 @@
 
 import Foundation
 import IsiXDICOMFile
+import IsiXPreferences
 
 /// A value of the query window with the way it is matched, turned into the
 /// string of a C-FIND key by -filteredValue.
@@ -162,7 +163,7 @@ public final class QueryFilter: NSObject {
             return NSString(format: "-%@", describeNil(calendarDescription("%Y%m%d"))) // before
 
         case Self.searchAfter:
-            if UserDefaults.standard.bool(forKey: "DICOMQueryAllowFutureQuery") {
+            if PreferencesSource.process.preferences[NetworkPreferences.dicomQueryAllowsFutureQuery] {
                 return NSString(format: "%@-", describeNil(calendarDescription("%Y%m%d"))) // after
             } else {
                 return NSString(format: "%@-%@", describeNil(calendarDescription("%Y%m%d")),
@@ -229,7 +230,7 @@ public final class QueryFilter: NSObject {
 
         let start = DICOMCalendarDate.string(from: startDate, calendarFormat: "%Y%m%d")
         let dateRange: String
-        if UserDefaults.standard.bool(forKey: "DICOMQueryAllowFutureQuery") {
+        if PreferencesSource.process.preferences[NetworkPreferences.dicomQueryAllowsFutureQuery] {
             dateRange = String(format: "%@-", describeNil(start))
         } else {
             dateRange = String(format: "%@-%@", describeNil(start), describeNil(today))

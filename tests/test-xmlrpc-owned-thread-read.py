@@ -66,12 +66,19 @@ def method_body(source, signature):
 displayed = method_body(strip(viewer), '+ (NSMutableArray*) getDisplayed2DViewers')
 window_read = ('windowWillClose', 'isKindOfClass')
 if not displayed:
-    # The register is Swift since ViewerController+ViewerRegistry.swift: a
-    # nonisolated method that reads the window on the calling thread.
-    registry = (root / 'Horos/Sources/ViewerController+ViewerRegistry.swift').read_text()
-    start = registry.find('    nonisolated class func getDisplayed2DViewers() -> NSMutableArray! {')
-    displayed = registry[start:registry.index('\n    }\n', start)] if start >= 0 else ''
-    window_read = ('windowWillClose()', 'value(forKey: "window") is NSFullScreenWindow')
+    # The register is Swift: the class method answers from the process's
+    # ViewerRegistry, a mutex over what each window published on the main
+    # actor (closing, full screen), so the calling thread reads no window.
+    facade = (root / 'Horos/Sources/ViewerController+ViewerRegistry.swift').read_text()
+    registry = (root / 'Horos/Sources/ViewerRegistry.swift').read_text()
+    start = facade.find('    nonisolated class func getDisplayed2DViewers() -> NSMutableArray! {')
+    displayed = facade[start:facade.index('\n', start)] if start >= 0 else ''
+    start = registry.find('    var displayedViewers: [ViewerController] {')
+    if displayed and 'viewerRegistry.displayedViewers' in displayed and start >= 0:
+        displayed += registry[start:registry.index('\n    }\n', start)]
+    window_read = ('windowWillClose()', '!state.closing.contains(ObjectIdentifier($0)) && !state.fullScreen.contains(ObjectIdentifier($0))', 'state.withLock')
+    if re.search(r'\.window\b|value\(forKey: "window"\)', displayed):
+        failures.append('getDisplayed2DViewers reads a window off the main actor; the windows publish their state')
 if not displayed:
     failures.append('+[ViewerController getDisplayed2DViewers] is gone')
 else:
@@ -79,7 +86,7 @@ else:
         failures.append('getDisplayed2DViewers hops to main for every caller; the hop belongs '
                         'at the XML-RPC boundary so AppKit paths already on main stay put')
     if any(read not in displayed for read in window_read):
-        failures.append('getDisplayed2DViewers no longer reads the window on the calling thread')
+        failures.append('getDisplayed2DViewers no longer answers on the calling thread from what the windows published')
 
 # --- the five XML-RPC methods that used to read off-thread --------------------
 # The interface is Swift: XMLRPCInterface.swift and its extensions.
@@ -122,9 +129,9 @@ elements = method_body(rpc, 'private func elements(_ objects: [Any]) -> NSArray'
 if 'dictionaryForObject' not in elements:
     failures.append('the elements of an answer are no longer serialized through dictionaryForObject')
 for signature, label in (
-        ('private func findStudies(_ paramDict: NSDictionary?, in database: DicomDatabase, _ failure: inout NSError?) -> NSDictionary?', 'DisplayStudy'),
-        ('private func displaySeries(_ paramDict: NSDictionary?, in database: DicomDatabase, _ failure: inout NSError?) -> NSDictionary?', 'DisplaySeries'),
-        ('private func findObjects(_ paramDict: NSDictionary?, in database: DicomDatabase, _ failure: inout NSError?) -> NSDictionary?', 'FindObject')):
+        ('private func findStudies(_ paramDict: NSDictionary?, in database: DicomDatabase) throws -> NSDictionary?', 'DisplayStudy'),
+        ('private func displaySeries(_ paramDict: NSDictionary?, in database: DicomDatabase) throws -> NSDictionary?', 'DisplaySeries'),
+        ('private func findObjects(_ paramDict: NSDictionary?, in database: DicomDatabase) throws -> NSDictionary?', 'FindObject')):
     body = method_body(rpc, signature)
     if not body:
         failures.append('%s is gone' % label)

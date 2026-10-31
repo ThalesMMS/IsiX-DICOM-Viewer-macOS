@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Play/pause wrapping stays in range; inconsistent 4D geometry is named, not indexed."""
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -151,9 +152,11 @@ def objc_body(source, signature):
 
 # VRController is Swift, split by responsibility into VRController+*.swift.
 vr = sources.class_text('VRController')
-# The 3D block of the 2D viewer: its doors and its 4D checks, in Swift.
-viewer = ''.join((root / 'Horos/Sources' / name).read_text(encoding='utf-8')
-                 for name in ('ViewerController+ThreeDViewers.swift', 'ViewerController+ReconstructionChecks.swift'))
+# The 3D block of the 2D viewer: its doors and its 4D checks, in Swift, in
+# ThreeDViewerLauncher (the viewer's selectors are its façade); the checks each
+# door runs, in their order, are IsiXImaging's VolumeEligibility.
+viewer = (root / 'Horos/Sources/ThreeDViewerLauncher.swift').read_text(encoding='utf-8')
+eligibility = (root / 'Modules/IsiXImaging/Sources/ViewerReconstruction/VolumeEligibility.swift').read_text(encoding='utf-8')
 # MPRController is Swift, where the helper is FourDSeriesGuard.
 mpr = sources.source_text('MPRController')
 
@@ -162,25 +165,34 @@ assert 'FourDSeriesGuard.nextIndex(' in vr and 'FourDSeriesGuard.reconstructionR
 assert 'FourDSeriesGuard.wrappedIndex(' in vr, 'VR setMovieFrame does not wrap the requested time'
 assert 'FourDSeriesGuard.reconstructionRefusal(comparing:' in viewer or 'fourDReconstructionRefusalReason' in viewer, (
     '3D reconstruction does not ask whether the times share geometry')
-panel = objc_body(viewer, 'func panel3D(_ sender: Any!)')
-assert 'guard let pix0 = horos_pixList(at: 0)' in panel and 'makeVRController(pix0, files0, volume0, style: "panel"' in panel, (
+panel = objc_body(viewer, 'func openVolumeRenderingPanel(_ sender: Any?)')
+assert 'guard let pix0 = viewer.horos_pixList(at: 0)' in panel and 'makeVRController(pix0, files0, volume0, style: "panel"' in panel, (
     'the floating MIP panel still pairs the current time\'s pix with volume 0')
 assert '[NSMutableArray?](repeating: nil, count: Int(MAX4D))' in vr, (
     'VR still keeps only 100 times while the 2D viewer can hold 500')
 assert 'FourDSeriesGuard.nextIndex(' in mpr and 'FourDSeriesGuard.wrappedIndex(' in mpr, 'MPR play does not wrap with the same helper'
 assert 'fourDReconstructionRefusalReason' in viewer, 'reconstruction has no explicit refusal'
 
-sr_action = objc_body(viewer, 'func srViewer(_ sender: Any!)')
-assert 'refuseFourDReconstruction(withTitle:' in sr_action, (
+# The renderings check the 4D frames, refused under the door's own title.
+rendering_checks = re.search(r'case \.volumeRenderingPanel, \.volumeRendering, \.surfaceRendering, \.endoscopy:\s*return (\[[^\]]*\])',
+                             eligibility)
+assert rendering_checks and '.fourDFrames' in rendering_checks.group(1), (
+    'Surface Rendering and Endoscopy still open a 4D volume without the geometry refusal')
+assert 'return fourDReconstructionRefusalReason().map { .fourDFrames(reason: $0) }' in viewer, (
+    'the 4D frames check no longer asks for the refusal reason')
+
+sr_action = objc_body(viewer, 'func openSurfaceRendering(_ sender: Any?)')
+assert 'passesChecks(.surfaceRendering, sender: sender)' in sr_action, (
     'Surface Rendering still opens a 4D volume without the geometry refusal')
-assert 'Surface Rendering' in sr_action, 'SR refusal must keep the Surface Rendering title'
+assert re.search(r'case \.surfaceRendering: return NSLocalizedString\("Surface Rendering"', viewer), (
+    'SR refusal must keep the Surface Rendering title')
 
-endo_action = objc_body(viewer, 'func endoscopyViewer(_ sender: Any!)')
-assert 'refuseFourDReconstruction(withTitle:' in endo_action, (
+endo_action = objc_body(viewer, 'func openEndoscopy(_ sender: Any?)')
+assert 'passesChecks(.endoscopy, sender: sender)' in endo_action, (
     'Endoscopy still opens a 4D volume without the geometry refusal')
-assert 'Endoscopy' in endo_action, 'Endoscopy refusal must keep the Endoscopy title'
+assert re.search(r'case \.endoscopy: return NSLocalizedString\("Endoscopy"', viewer), 'Endoscopy refusal must keep the Endoscopy title'
 
-sr_open = objc_body(viewer, 'func openSRViewer() -> SRController!')
+sr_open = objc_body(viewer, 'func surfaceRenderingWindow() -> SRController?')
 assert 'FourDSeriesGuard.wrappedIndex(' in sr_open, 'openSRViewer does not wrap the requested 4D time'
 assert 'alignedTimeIndex' in (root / 'Horos/Sources/FourDSeriesGuard.swift').read_text(encoding='utf-8')
 assert 'horos_fileList(at: 0)' not in sr_open, 'openSRViewer still pairs the current pix with fileList[0]'

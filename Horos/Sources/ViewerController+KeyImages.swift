@@ -45,88 +45,165 @@ import IsiXImaging
 // and "previous key image" buttons (which move to another series of the study
 // when this one has no further key image), showing only the key images, and
 // the state of the check box. A series made by post processing has no key
-// images. Which way the buttons look and where they land is IsiXImaging's
-// KeyImageSearch. The selectors are those of the former Objective-C methods.
+// images. Where the buttons land and the state of the controls are
+// IsiXImaging's KeyImageNavigation; ViewerKeyImages applies them to the viewer
+// and reaches the database window through KeyImageBrowsing, taken from the
+// viewer's graph. The viewer keeps the selectors of the former Objective-C
+// methods as a façade.
 
-public extension ViewerController {
+/// What the key images ask of the database window: the shared database of a
+/// file, saving the databases of the files marked, the series of a study or
+/// the images of a series, and opening a series or images in a viewer.
+@MainActor protocol KeyImageBrowsing {
+    /// The shared database of another computer `file` is a row of, which the
+    /// browser may not show; nil for a database of this computer.
+    func remoteDatabase(of file: NSManagedObject?) -> RemoteDicomDatabase?
+    /// Saves the database of each of `files`, once each.
+    func saveDatabases(of files: [NSManagedObject])
+    /// The children of a study (its series) or of a series (its images), in
+    /// the browser's order.
+    func children(of item: Any?) -> [Any]?
+    /// Opens `series` in `viewer`.
+    func load(_ series: NSManagedObject?, into viewer: ViewerController, keyImagesOnly: Bool)
+    /// Opens `images` in `viewer`, as one series.
+    func open(_ images: [Any], in viewer: ViewerController, keyImagesOnly: Bool)
+}
 
-    /// The key image check box: marks the image shown as its state says.
-    @objc(keyImageCheckBox:)
-    func keyImageCheckBox(_ sender: Any!) {
-        guard !horos_postprocessed else { return }
+/// The browser of the process graph, asked at each call, as the key images'
+/// database window.
+@MainActor struct BrowserKeyImages: KeyImageBrowsing {
+    let processGraph: ProcessGraph
 
-        let flag = NSNumber(value: objcBool(ViewerSender.state(sender)))
-        currentImageFile()?.setValue(flag, forKey: "isKeyImage")
+    private var browser: BrowserController? {
+        processGraph.currentBrowser
+    }
 
-        if let browser = BrowserController.currentBrowser(), browser.isCurrentDatabaseBonjour {
-            (browser.database as? RemoteDicomDatabase)?.object(currentImageFile(), setValue: flag, forKey: "isKeyImage")
+    /// The file's own database, not the one the browser shows: a change of
+    /// mark the server is not told of is undone at the next update of the index.
+    func remoteDatabase(of file: NSManagedObject?) -> RemoteDicomDatabase? {
+        RemoteDicomDatabase.database(of: file)
+    }
+
+    /// The files' own databases, not the one the browser shows: a viewer of
+    /// a study of another database keeps its marks unsaved otherwise, until
+    /// some other save of that database.
+    func saveDatabases(of files: [NSManagedObject]) {
+        var saved = Set<ObjectIdentifier>()
+        for file in files {
+            guard let database = (file.managedObjectContext as? N2ManagedObjectContext)?.database,
+                  saved.insert(ObjectIdentifier(database)).inserted else { continue }
+            _ = database.save(nil)
         }
+    }
 
-        willChangeValue(forKey: "KeyImageCounter")
-        didChangeValue(forKey: "KeyImageCounter")
+    func children(of item: Any?) -> [Any]? {
+        browser?.childrenArray(item)
+    }
 
-        buildMatrixPreview(false)
+    func load(_ series: NSManagedObject?, into viewer: ViewerController, keyImagesOnly: Bool) {
+        _ = browser?.loadSeries(series, viewer, true, keyImagesOnly: keyImagesOnly)
+    }
 
-        horos_imageView?.needsDisplay = true
+    func open(_ images: [Any], in viewer: ViewerController, keyImagesOnly: Bool) {
+        _ = browser?.openViewer(fromImages: [images], movie: false, viewer: viewer, keyImagesOnly: keyImagesOnly)
+    }
+}
 
-        saveDatabase()
+/// The key image actions of one 2D viewer, made for one call over its graph.
+@MainActor struct ViewerKeyImages {
+    /// Held strongly for the length of a call: the viewer's teardown, which
+    /// its deinit runs, may move through its images, and forming an unowned or
+    /// weak reference to an object being deallocated traps.
+    let viewer: ViewerController
+    let browser: any KeyImageBrowsing
+
+    /// The key of the mark of a file, which the files the viewer shows answer
+    /// by key whatever their class (a plugin's viewer may hold its own).
+    private static let keyImageKey = "isKeyImage"
+
+    /// The file `index` of frame `movie`.
+    private func file(_ index: Int, movie: Int) -> NSManagedObject? {
+        viewer.horos_fileList(at: movie)?.object(at: index) as? NSManagedObject
+    }
+
+    /// The file of the image shown.
+    private var shownFile: NSManagedObject? {
+        file(Int(viewer.horos_imageView?.curImage ?? 0), movie: Int(viewer.horos_curMovieIndex))
+    }
+
+    /// Whether `file` is marked as a key image.
+    private static func isMarked(_ file: AnyObject?) -> Bool {
+        (file?.value(forKey: keyImageKey) as? NSNumber)?.boolValue ?? false
+    }
+
+    /// Marks `file` as a key image, or not.
+    private static func setMark(_ flag: NSNumber, of file: NSManagedObject?) {
+        file?.setValue(flag, forKey: keyImageKey)
+    }
+
+    /// Whether file `index` of the frame shown is marked as a key image.
+    func isKeyImageFile(_ index: Int) -> Bool {
+        Self.isMarked(viewer.horos_fileList(at: Int(viewer.horos_curMovieIndex))?.object(at: index) as AnyObject?)
+    }
+
+    /// The check box: marks the image shown as its state says.
+    func checkBoxChanged(_ sender: Any?) {
+        guard !viewer.horos_postprocessed else { return }
+
+        let flag = NSNumber(value: Self.objcBool(ViewerSender.state(sender)))
+        let file = shownFile
+        Self.setMark(flag, of: file)
+        browser.remoteDatabase(of: file)?.object(file, setValue: flag, forKey: Self.keyImageKey)
+
+        viewer.willChangeValue(forKey: "KeyImageCounter")
+        viewer.didChangeValue(forKey: "KeyImageCounter")
+
+        viewer.buildMatrixPreview(false)
+
+        viewer.horos_imageView?.needsDisplay = true
+
+        browser.saveDatabases(of: file.map { [$0] } ?? [])
     }
 
     /// The "next" (tag 0) and "previous" key image buttons: the next key
     /// image of the series shown, or else the first one of the next series of
     /// the study that has key images (beeping when there is none).
-    @objc(findNextPreviousKeyImage:)
-    func findNextPreviousKeyImage(_ sender: Any!) {
-        if horos_postprocessed {
+    func findNextPrevious(_ sender: Any?) {
+        if viewer.horos_postprocessed {
             alertPostProcessed()
             return
         }
 
-        checkEverythingLoaded()
+        viewer.checkEverythingLoaded()
 
-        let isPrevious = objcBool(ViewerSender.tag(sender))
-        let flipped = horos_imageView?.flippedData ?? false
-        let movie = Int(horos_curMovieIndex)
-        let current = Int(horos_imageView?.curImage ?? 0)
-        let fileCount = horos_fileList(at: movie)?.count ?? 0
-
-        let inSeries = KeyImageSearch.runsForward(isPrevious: isPrevious, flipped: flipped)
-            ? KeyImageSearch.firstKeyImage(in: stride(from: current + 1, to: fileCount, by: 1), isKey: isKeyImageFile)
-            : KeyImageSearch.firstKeyImage(in: stride(from: current - 1, through: 0, by: -1), isKey: isKeyImageFile)
-        if let index = inSeries {
+        let isPrevious = Self.objcBool(ViewerSender.tag(sender))
+        let movie = Int(viewer.horos_curMovieIndex)
+        if let index = KeyImageNavigation.nextInSeries(from: Int(viewer.horos_imageView?.curImage ?? 0), count: viewer.horos_fileList(at: movie)?.count ?? 0,
+                                                       isPrevious: isPrevious, flipped: viewer.horos_imageView?.flippedData ?? false,
+                                                       isKey: isKeyImageFile) {
             show(keyImage: index)
             return
         }
 
         // Nothing found: the next (or previous) series of the study.
-        let browser = BrowserController.currentBrowser()
-        let seriesObject = horos_imageView?.seriesObj()
-        let seriesArray = (browser?.childrenArray(seriesObject?.value(forKey: "study")) as NSArray?) ?? NSArray()
+        let seriesObject = viewer.horos_imageView?.seriesObj()
+        let seriesArray = browser.children(of: seriesObject?.value(forKey: "study")) ?? []
         let nextSeries = !isPrevious
-        let position = seriesArray.index(of: seriesObject as Any)
-        if position != NSNotFound {
-            // Next walks the later series in order, previous the earlier ones
-            // backwards, and each stops at its end of the list.
-            let step = nextSeries ? 1 : -1
-            var i = position + step
-            while nextSeries ? i < seriesArray.count : i >= 0 {
-                let candidate = seriesArray.object(at: i)
-                if ((candidate as? DicomSeries)?.keyImages()?.count ?? 0) > 0 {
-                    _ = browser?.loadSeries(candidate as? NSManagedObject, self, true, keyImagesOnly: horos_displayOnlyKeyImages)
+        let position = seriesArray.firstIndex { ($0 as AnyObject) === seriesObject }
+        for i in KeyImageNavigation.seriesToSearch(from: position, count: seriesArray.count, nextSeries: nextSeries) {
+            let candidate = seriesArray[i]
+            if ((candidate as? DicomSeries)?.keyImages()?.count ?? 0) > 0 {
+                browser.load(candidate as? NSManagedObject, into: viewer, keyImagesOnly: viewer.horos_displayOnlyKeyImages)
 
-                    showCurrentThumbnail(self)
-                    updateNavigator()
+                viewer.showCurrentThumbnail(viewer)
+                viewer.updateNavigator()
 
-                    let count = horos_fileList(at: Int(horos_curMovieIndex))?.count ?? 0
-                    let landing = KeyImageSearch.startsFromLastImage(nextSeries: nextSeries, flipped: horos_imageView?.flippedData ?? false)
-                        ? KeyImageSearch.firstKeyImage(in: stride(from: count - 1, through: 0, by: -1), isKey: isKeyImageFile)
-                        : KeyImageSearch.firstKeyImage(in: 0..<count, isKey: isKeyImageFile)
-                    if let index = landing {
-                        show(keyImage: index)
-                        return
-                    }
+                let count = viewer.horos_fileList(at: Int(viewer.horos_curMovieIndex))?.count ?? 0
+                if let index = KeyImageNavigation.landing(count: count, nextSeries: nextSeries, flipped: viewer.horos_imageView?.flippedData ?? false,
+                                                          isKey: isKeyImageFile) {
+                    show(keyImage: index)
+                    return
                 }
-                i += step
             }
         }
 
@@ -136,133 +213,117 @@ public extension ViewerController {
     /// The "all images" / "key images only" popup: reopens the series with
     /// all its images, or only with its key images (an alert, and back to all
     /// images, when it has none).
-    @objc(keyImageDisplayButton:)
-    func keyImageDisplayButton(_ sender: Any!) {
-        if horos_postprocessed {
+    func displayButtonChanged() {
+        if viewer.horos_postprocessed {
             alertPostProcessed()
             return
         }
 
-        let series = currentImageFile()?.value(forKey: "series")
+        let series = shownFile?.value(forKey: "series")
 
-        checkEverythingLoaded()
+        viewer.checkEverythingLoaded()
 
-        horos_displayOnlyKeyImages = objcBool(horos_keyImagePopUpButton?.indexOfSelectedItem ?? 0)
+        viewer.horos_displayOnlyKeyImages = Self.objcBool(viewer.horos_keyImagePopUpButton?.indexOfSelectedItem ?? 0)
         guard let series else { return }
 
-        let browser = BrowserController.currentBrowser()
-        let images = browser?.childrenArray(series) ?? []
-        if !horos_displayOnlyKeyImages {
-            _ = browser?.openViewer(fromImages: [images], movie: false, viewer: self, keyImagesOnly: horos_displayOnlyKeyImages)
+        let images = browser.children(of: series) ?? []
+        if !viewer.horos_displayOnlyKeyImages {
+            browser.open(images, in: viewer, keyImagesOnly: viewer.horos_displayOnlyKeyImages)
         } else {
-            let keyImages = images.filter { ((($0 as AnyObject).value(forKey: "isKeyImage") as? NSNumber)?.boolValue ?? false) }
+            let keyImages = images.filter { Self.isMarked($0 as AnyObject) }
 
             if keyImages.isEmpty {
                 HorosAlertPanel.run(title: NSLocalizedString("Key Images", comment: ""),
                                     message: NSLocalizedString("No key images have been selected in this series.", comment: ""),
                                     defaultButton: nil, alternateButton: nil, otherButton: nil)
-                horos_keyImagePopUpButton?.selectItem(at: 0)
+                viewer.horos_keyImagePopUpButton?.selectItem(at: 0)
             } else {
-                _ = browser?.openViewer(fromImages: [keyImages], movie: false, viewer: self, keyImagesOnly: horos_displayOnlyKeyImages)
+                browser.open(keyImages, in: viewer, keyImagesOnly: viewer.horos_displayOnlyKeyImages)
             }
         }
     }
 
     /// Marks as key images the images that have ROIs, in every frame.
-    @objc(setROIsImagesKeyImages:)
-    func setROIsImagesKeyImages(_ sender: Any!) {
-        if horos_postprocessed {
+    func markImagesWithROIs() {
+        if viewer.horos_postprocessed {
             alertPostProcessed()
             return
         }
 
         let yes = NSNumber(value: true)
-        markImagesWithROIs { $0.setValue(yes, forKey: "isKeyImage") }
-
-        if let browser = BrowserController.currentBrowser(), browser.isCurrentDatabaseBonjour {
-            markImagesWithROIs { (browser.database as? RemoteDicomDatabase)?.object($0, setValue: yes, forKey: "isKeyImage") }
+        let files = filesWithROIs()
+        for file in files {
+            Self.setMark(yes, of: file)
         }
 
-        buildMatrixPreview(false)
-        horos_imageView?.needsDisplay = true
-        saveDatabase()
+        for file in files {
+            browser.remoteDatabase(of: file)?.object(file, setValue: yes, forKey: Self.keyImageKey)
+        }
 
-        adjustKeyImage()
-    }
+        viewer.buildMatrixPreview(false)
+        viewer.horos_imageView?.needsDisplay = true
+        browser.saveDatabases(of: files)
 
-    /// Unmarks every image of every frame.
-    @objc(setAllNonKeyImages:)
-    func setAllNonKeyImages(_ sender: Any!) {
-        setEveryImage(asKeyImage: false)
-    }
-
-    /// Marks every image of every frame.
-    @objc(setAllKeyImages:)
-    func setAllKeyImages(_ sender: Any!) {
-        setEveryImage(asKeyImage: true)
+        adjustControls()
     }
 
     /// The key image shortcut: toggles the check box and applies it.
-    @objc(setKeyImage:)
-    func setKeyImage(_ sender: Any!) {
-        if horos_postprocessed {
+    func toggle() {
+        if viewer.horos_postprocessed {
             alertPostProcessed()
             return
         }
 
-        guard let check = keyImageCheck else {
-            keyImageCheckBox(nil)
+        guard let check = viewer.keyImageCheck else {
+            checkBoxChanged(nil)
             return
         }
-        check.state = check.state.rawValue == 0 ? .on : .off
-        keyImageCheckBox(check)
+        check.state = KeyImageNavigation.toggled(isChecked: check.state.rawValue != 0) ? .on : .off
+        checkBoxChanged(check)
     }
 
-    /// The check box and the popup: disabled for a post processed series,
-    /// otherwise enabled, the box showing whether the image shown is a key
-    /// image.
-    @objc(adjustKeyImage)
-    func adjustKeyImage() {
-        if horos_postprocessed {
-            keyImageCheck?.isEnabled = false
-            horos_keyImagePopUpButton?.isEnabled = false
+    /// The check box and the popup for the image shown.
+    func adjustControls() {
+        let controls = KeyImageNavigation.controls(postprocessed: viewer.horos_postprocessed, current: Int(viewer.horos_imageView?.curImage ?? 0),
+                                                   isKey: isKeyImageFile)
+        viewer.keyImageCheck?.isEnabled = controls.isEnabled
+        viewer.horos_keyImagePopUpButton?.isEnabled = controls.isEnabled
+        if let checked = controls.isChecked {
+            viewer.keyImageCheck?.state = checked ? .on : .off
+        }
+    }
+
+    /// Marks or unmarks every image of every frame, then refreshes the
+    /// thumbnails, the view, the database and the check box.
+    func markEveryImage(asKeyImage key: Bool) {
+        if viewer.horos_postprocessed {
+            alertPostProcessed()
             return
         }
 
-        // Multiframes keep the controls enabled: a key image of a multiframe
-        // marks the file (a sequence or a series) and is still useful, and
-        // the popup goes back to "all images" elsewhere when all the images
-        // are key images.
-        keyImageCheck?.isEnabled = true
-        horos_keyImagePopUpButton?.isEnabled = true
-
-        let current = Int(horos_imageView?.curImage ?? 0)
-        if current >= 0 && isKeyImageFile(current) {
-            keyImageCheck?.state = .on
-        } else {
-            keyImageCheck?.state = .off
+        let value = NSNumber(value: key)
+        let files = everyFile()
+        for file in files {
+            Self.setMark(value, of: file)
         }
-    }
 
-    /// Whether image `index` of the frame shown is a key image (never in a
-    /// post processed series).
-    @objc(isKeyImage:)
-    func isKeyImage(_ index: Int32) -> Bool {
-        if horos_postprocessed { return false }
-        return isKeyImageFile(Int(index))
-    }
+        for file in files {
+            browser.remoteDatabase(of: file)?.object(file, setValue: value, forKey: Self.keyImageKey)
+        }
 
-    @objc(displayOnlyKeyImages)
-    func displayOnlyKeyImages() -> Bool {
-        horos_displayOnlyKeyImages
-    }
-}
+        viewer.willChangeValue(forKey: "KeyImageCounter")
+        viewer.didChangeValue(forKey: "KeyImageCounter")
 
-extension ViewerController {
+        viewer.buildMatrixPreview(false)
+        viewer.horos_imageView?.needsDisplay = true
+        browser.saveDatabases(of: files)
+
+        adjustControls()
+    }
 
     /// A value read as Objective-C's BOOL reads it: any non-zero value on
     /// arm64, the low byte on x86_64.
-    fileprivate func objcBool(_ value: Int) -> Bool {
+    static func objcBool(_ value: Int) -> Bool {
         #if arch(x86_64)
         return Int8(truncatingIfNeeded: value) != 0
         #else
@@ -270,78 +331,112 @@ extension ViewerController {
         #endif
     }
 
-    /// The file of the image shown.
-    fileprivate func currentImageFile() -> NSManagedObject? {
-        horos_fileList(at: Int(horos_curMovieIndex))?.object(at: Int(horos_imageView?.curImage ?? 0)) as? NSManagedObject
-    }
-
-    /// Whether file `index` of the frame shown is marked as a key image.
-    fileprivate func isKeyImageFile(_ index: Int) -> Bool {
-        let file = horos_fileList(at: Int(horos_curMovieIndex))?.object(at: index) as AnyObject?
-        return (file?.value(forKey: "isKeyImage") as? NSNumber)?.boolValue ?? false
-    }
-
     /// Shows image `index` of the series and synchronizes the other viewers.
-    fileprivate func show(keyImage index: Int) {
-        horos_imageView?.setIndex(Int(truncatingIfNeeded: index))
-        horos_imageView?.sendSyncMessage(0)
-        adjustSlider()
-        horos_imageView?.displayIfNeeded()
+    private func show(keyImage index: Int) {
+        viewer.horos_imageView?.setIndex(Int(truncatingIfNeeded: index))
+        viewer.horos_imageView?.sendSyncMessage(0)
+        viewer.adjustSlider()
+        viewer.horos_imageView?.displayIfNeeded()
     }
 
-    fileprivate func alertPostProcessed() {
+    private func alertPostProcessed() {
         HorosAlertPanel.run(title: NSLocalizedString("Key Images", comment: ""),
                             message: NSLocalizedString("This dataset has been post processed (reslicing, MPR, ...). You cannot create/modify/search key images. Revert to the original series or create a secondary capture series to do this.", comment: ""),
                             defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
     }
 
-    fileprivate func saveDatabase() {
-        _ = BrowserController.currentBrowser()?.database?.save(nil)
-    }
-
-    /// Calls `mark` for each file whose image has ROIs, in every frame.
-    fileprivate func markImagesWithROIs(_ mark: (NSManagedObject) -> Void) {
-        for x in 0..<Int(horos_maxMovieIndex) {
-            guard let files = horos_fileList(at: x) else { continue }
-            for i in 0..<files.count {
-                let file = files.object(at: i) as! NSManagedObject
-                if ((horos_roiList(at: x)?.object(at: i) as? NSArray)?.count ?? 0) > 0 {
-                    mark(file)
-                }
-            }
+    /// Every file of every frame, in order.
+    private func everyFile() -> [NSManagedObject] {
+        (0..<Int(viewer.horos_maxMovieIndex)).flatMap { x in
+            (viewer.horos_fileList(at: x) ?? []).compactMap { $0 as? NSManagedObject }
         }
     }
 
-    /// Marks or unmarks every image of every frame, then refreshes the
-    /// thumbnails, the view, the database and the check box.
-    fileprivate func setEveryImage(asKeyImage key: Bool) {
-        if horos_postprocessed {
-            alertPostProcessed()
-            return
-        }
-
-        let value = NSNumber(value: key)
-        for x in 0..<Int(horos_maxMovieIndex) {
-            for case let file as NSManagedObject in horos_fileList(at: x) ?? NSMutableArray() {
-                file.setValue(value, forKey: "isKeyImage")
-            }
-        }
-
-        if let browser = BrowserController.currentBrowser(), browser.isCurrentDatabaseBonjour {
-            for x in 0..<Int(horos_maxMovieIndex) {
-                for case let file as NSManagedObject in horos_fileList(at: x) ?? NSMutableArray() {
-                    (browser.database as? RemoteDicomDatabase)?.object(file, setValue: value, forKey: "isKeyImage")
+    /// The files whose image has ROIs, in every frame.
+    private func filesWithROIs() -> [NSManagedObject] {
+        var files: [NSManagedObject] = []
+        for x in 0..<Int(viewer.horos_maxMovieIndex) {
+            guard let list = viewer.horos_fileList(at: x) else { continue }
+            for i in 0..<list.count {
+                if let file = list.object(at: i) as? NSManagedObject, ((viewer.horos_roiList(at: x)?.object(at: i) as? [Any])?.count ?? 0) > 0 {
+                    files.append(file)
                 }
             }
         }
+        return files
+    }
+}
 
-        willChangeValue(forKey: "KeyImageCounter")
-        didChangeValue(forKey: "KeyImageCounter")
+extension ViewerController {
 
-        buildMatrixPreview(false)
-        horos_imageView?.needsDisplay = true
-        saveDatabase()
+    /// The key image actions of the viewer, over its graph.
+    var keyImageActions: ViewerKeyImages {
+        ViewerKeyImages(viewer: self, browser: BrowserKeyImages(processGraph: sessionGraph.processGraph))
+    }
+}
 
-        adjustKeyImage()
+public extension ViewerController {
+
+    /// The key image check box: marks the image shown as its state says.
+    @objc(keyImageCheckBox:)
+    func keyImageCheckBox(_ sender: Any!) {
+        keyImageActions.checkBoxChanged(sender)
+    }
+
+    /// The "next" (tag 0) and "previous" key image buttons.
+    @objc(findNextPreviousKeyImage:)
+    func findNextPreviousKeyImage(_ sender: Any!) {
+        keyImageActions.findNextPrevious(sender)
+    }
+
+    /// The "all images" / "key images only" popup.
+    @objc(keyImageDisplayButton:)
+    func keyImageDisplayButton(_ sender: Any!) {
+        keyImageActions.displayButtonChanged()
+    }
+
+    /// Marks as key images the images that have ROIs, in every frame.
+    @objc(setROIsImagesKeyImages:)
+    func setROIsImagesKeyImages(_ sender: Any!) {
+        keyImageActions.markImagesWithROIs()
+    }
+
+    /// Unmarks every image of every frame.
+    @objc(setAllNonKeyImages:)
+    func setAllNonKeyImages(_ sender: Any!) {
+        keyImageActions.markEveryImage(asKeyImage: false)
+    }
+
+    /// Marks every image of every frame.
+    @objc(setAllKeyImages:)
+    func setAllKeyImages(_ sender: Any!) {
+        keyImageActions.markEveryImage(asKeyImage: true)
+    }
+
+    /// The key image shortcut: toggles the check box and applies it.
+    @objc(setKeyImage:)
+    func setKeyImage(_ sender: Any!) {
+        keyImageActions.toggle()
+    }
+
+    /// The check box and the popup: disabled for a post processed series,
+    /// otherwise enabled, the box showing whether the image shown is a key
+    /// image.
+    @objc(adjustKeyImage)
+    func adjustKeyImage() {
+        keyImageActions.adjustControls()
+    }
+
+    /// Whether image `index` of the frame shown is a key image (never in a
+    /// post processed series).
+    @objc(isKeyImage:)
+    func isKeyImage(_ index: Int32) -> Bool {
+        if horos_postprocessed { return false }
+        return keyImageActions.isKeyImageFile(Int(index))
+    }
+
+    @objc(displayOnlyKeyImages)
+    func displayOnlyKeyImages() -> Bool {
+        horos_displayOnlyKeyImages
     }
 }

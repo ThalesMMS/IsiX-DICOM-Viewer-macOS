@@ -40,6 +40,33 @@
 import Foundation
 import IsiXDICOMFile
 
+/// Why DICOMExport wrote nothing: an exception that a callee written in
+/// Objective-C, or a plugin reading a source that is not DICOM, raised, or a
+/// header value of the wrong kind, where the message the former code sent it
+/// raised. The export is written and its failure caught on the caller's
+/// thread, and an exception is not changed once raised, hence the unchecked
+/// conformance.
+enum SecondaryCaptureFailure: Error, @unchecked Sendable {
+    case raised(NSException)
+    case invalidValue(String)
+
+    /// The exception the former code raised, which the export logs.
+    var exception: NSException {
+        switch self {
+        case .raised(let exception):
+            return exception
+        case .invalidValue(let reason):
+            return NSException(name: .invalidArgumentException, reason: reason, userInfo: nil)
+        }
+    }
+
+    /// The exception of a failure the export threw, or one made of another error.
+    static func exception(of error: Error) -> NSException {
+        return (error as? SecondaryCaptureFailure)?.exception
+            ?? NSException(name: .genericException, reason: (error as NSError).localizedDescription, userInfo: nil)
+    }
+}
+
 /// The dataset DICOMExport writes, assembled over the adapter's file: the
 /// header of an image without a DICOM source, and the image itself over
 /// whatever the source had. What goes in is SecondaryCaptureExport's.
@@ -62,25 +89,20 @@ enum SecondaryCaptureDataset {
         return values
     }
 
-    /// `[value UTF8String]`, which raises for a value that is not a string,
-    /// as the message to it did.
-    private static func utf8(_ value: Any) -> UnsafePointer<CChar>? {
+    /// `[value UTF8String]`, which fails for a value that is not a string,
+    /// where the message to it raised.
+    private static func utf8(_ value: Any) throws -> UnsafePointer<CChar>? {
         guard let string = value as? NSString else {
-            NSException(name: .invalidArgumentException,
-                        reason: "-[\(type(of: value)) UTF8String]: unrecognized selector", userInfo: nil).raise()
-            return nil
+            throw SecondaryCaptureFailure.invalidValue("-[\(type(of: value)) UTF8String]: unrecognized selector")
         }
         return string.utf8String
     }
 
     /// A date as DICOMExport wrote it: DA, or TM of its whole seconds. A value
-    /// that is not a date raises, as reading its interval did.
-    private static func dateText(_ value: Any, time: Bool) -> String {
+    /// that is not a date fails, where reading its interval raised.
+    private static func dateText(_ value: Any, time: Bool) throws -> String {
         guard let date = value as? Date else {
-            NSException(name: .invalidArgumentException,
-                        reason: "-[\(type(of: value)) timeIntervalSinceReferenceDate]: unrecognized selector",
-                        userInfo: nil).raise()
-            return ""
+            throw SecondaryCaptureFailure.invalidValue("-[\(type(of: value)) timeIntervalSinceReferenceDate]: unrecognized selector")
         }
         return time ? DICOMDateTimeText.time(date, fraction: false) : DICOMDateTimeText.date(date)
     }
@@ -88,8 +110,8 @@ enum SecondaryCaptureDataset {
     /// The patient, study, series and instance of an image with no DICOM
     /// source, from `values` (metaDataDict's keys). Each step runs while the
     /// previous ones succeeded, but the modality is always written; whether
-    /// all did.
-    static func writeHeader(into dataset: IsiXDCMTKItem, values: NSDictionary) -> Bool {
+    /// all did. A value of the wrong kind fails the export.
+    static func writeHeader(into dataset: IsiXDCMTKItem, values: NSDictionary) throws -> Bool {
         var good = true
         func put(_ value: UnsafePointer<CChar>?, _ tag: UInt32) -> Bool {
             putText(value, dataset, tag)
@@ -103,26 +125,26 @@ enum SecondaryCaptureDataset {
         if good { good = put("ISO_IR 100", 0x0008_0005) }
         // There is no way to determine a meaningful series number: a constant.
         if good { good = put("1", 0x0020_0011) }
-        if good, let name = values["patientsName"] { good = put(utf8(name), 0x0010_0010) }
-        if good, let patientID = values["patientID"] { good = put(utf8(patientID), 0x0010_0020) }
-        if good, let birthDate = values["patientsBirthdate"] { good = put(dateText(birthDate, time: false), 0x0010_0030) }
-        if good, let sex = values["patientsSex"] { good = put(utf8(sex), 0x0010_0040) }
-        if good, let studyDate = values["studyDate"] { good = put(dateText(studyDate, time: false), 0x0008_0022) }
-        if good, let studyDate = values["studyDate"] { good = put(dateText(studyDate, time: true), 0x0008_0032) }
-        if good, let description = values["studyDescription"] { good = put(utf8(description), 0x0008_1030) }
+        if good, let name = values["patientsName"] { good = try put(utf8(name), 0x0010_0010) }
+        if good, let patientID = values["patientID"] { good = try put(utf8(patientID), 0x0010_0020) }
+        if good, let birthDate = values["patientsBirthdate"] { good = try put(dateText(birthDate, time: false), 0x0010_0030) }
+        if good, let sex = values["patientsSex"] { good = try put(utf8(sex), 0x0010_0040) }
+        if good, let studyDate = values["studyDate"] { good = try put(dateText(studyDate, time: false), 0x0008_0022) }
+        if good, let studyDate = values["studyDate"] { good = try put(dateText(studyDate, time: true), 0x0008_0032) }
+        if good, let description = values["studyDescription"] { good = try put(utf8(description), 0x0008_1030) }
         if good, let modality = values["modality"], ((modality as? NSString)?.length ?? 0) > 0 {
-            good = put(utf8(modality), 0x0008_0060)
+            good = try put(utf8(modality), 0x0008_0060)
         } else {
             good = put("OT", 0x0008_0060)
         }
         // A UID is made for each level whether or not the values give one.
         let study = IsiXDCMTKFile.generateUID(root: .study)
         if good {
-            if let studyUID = values["studyUID"] { good = put(utf8(studyUID), 0x0020_000d) } else { good = put(study, 0x0020_000d) }
+            if let studyUID = values["studyUID"] { good = try put(utf8(studyUID), 0x0020_000d) } else { good = put(study, 0x0020_000d) }
         }
         let series = IsiXDCMTKFile.generateUID(root: .series)
         if good {
-            if let seriesUID = values["seriesUID"] { good = put(utf8(seriesUID), 0x0020_000e) } else { good = put(series, 0x0020_000e) }
+            if let seriesUID = values["seriesUID"] { good = try put(utf8(seriesUID), 0x0020_000e) } else { good = put(series, 0x0020_000e) }
         }
         let instance = IsiXDCMTKFile.generateUID(root: .instance)
         if good { good = put(instance, 0x0008_0018) }

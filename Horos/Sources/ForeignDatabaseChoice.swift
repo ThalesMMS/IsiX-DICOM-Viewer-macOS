@@ -32,7 +32,13 @@ public final class ForeignDatabaseChoice: NSObject {
     /// answers no.
     @objc(confirmOpeningPath:)
     @MainActor public static func confirmOpening(path: String?) -> Bool {
-        return confirmedPath(forChosenPath: path) != nil
+        return confirmOpening(path: path, browserWindow: databaseWindow)
+    }
+
+    /// `confirmOpening(path:)` for the database window of `browserWindow`,
+    /// which imports the studies when the user chooses to.
+    @MainActor static func confirmOpening(path: String?, browserWindow: BrowserWindowGraph?) -> Bool {
+        return confirmedPath(forChosenPath: path, browserWindow: browserWindow) != nil
     }
 
     /// The path to open for the one the user chose: that path itself when it
@@ -42,10 +48,16 @@ public final class ForeignDatabaseChoice: NSObject {
     /// opened first; and `nil` when the user imported its studies or cancelled.
     @objc(confirmedPathForChosenPath:)
     @MainActor public static func confirmedPath(forChosenPath path: String?) -> String? {
+        return confirmedPath(forChosenPath: path, browserWindow: databaseWindow)
+    }
+
+    /// `confirmedPath(forChosenPath:)` for the database window of
+    /// `browserWindow`, which imports the studies when the user chooses to.
+    @MainActor static func confirmedPath(forChosenPath path: String?, browserWindow: BrowserWindowGraph?) -> String? {
         guard let horos = DatabaseLocation.horosDataDirectory(forChosenPath: path, adopted: []) else { return path }
         if DatabaseLocation.isAdopted(horos, in: DatabaseLocation.adoptedHorosDirectories()) { return horos }
         let open = apply(ask(horosDirectory: horos), horosDirectory: horos, defaults: .standard,
-                         startImport: { importIntoCurrentDatabase($0) })
+                         startImport: { importIntoCurrentDatabase($0, browserWindow: browserWindow) })
         return open ? horos : nil
     }
 
@@ -79,11 +91,19 @@ public final class ForeignDatabaseChoice: NSObject {
         }
     }
 
-    /// File > Import on `folder`, into the database the browser shows. That
-    /// flow asks whether to copy the files or only link to them.
-    @MainActor static func importIntoCurrentDatabase(_ folder: String) {
+    /// File > Import on `folder`, into the database the browser of
+    /// `browserWindow` shows. That flow asks whether to copy the files or only
+    /// link to them.
+    @MainActor static func importIntoCurrentDatabase(_ folder: String, browserWindow: BrowserWindowGraph?) {
         NSLog("Database: importing the studies of %@", folder)
-        BrowserController.currentBrowser()?.subSelectFilesAndFolders(toAdd: [folder])
+        browserWindow?.browser.subSelectFilesAndFolders(toAdd: [folder])
+    }
+
+    /// The graph of the database window, for the callers that do not hand
+    /// theirs: the selectors above, which Objective-C and the plugins send,
+    /// and the import that waited for the first database.
+    @MainActor private static var databaseWindow: BrowserWindowGraph? {
+        PreferencesSource.process.processGraph.browserWindow
     }
 
     /// At first use there is no database to import into yet: the import starts
@@ -97,6 +117,6 @@ public final class ForeignDatabaseChoice: NSObject {
     @objc @MainActor public static func startPendingImport() {
         guard let folder = pendingImport else { return }
         pendingImport = nil
-        DispatchQueue.main.async { importIntoCurrentDatabase(folder) }
+        DispatchQueue.main.async { importIntoCurrentDatabase(folder, browserWindow: databaseWindow) }
     }
 }

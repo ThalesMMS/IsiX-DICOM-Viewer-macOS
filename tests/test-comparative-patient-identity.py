@@ -6,10 +6,10 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-# The comparative search is Swift (BrowserController+DistantSearch.swift); its
-# fetch request's predicate format is the same Objective-C format string.
-source = (root / 'Horos/Sources/BrowserController+DistantSearch.swift').read_text()
-start = source.index('func comparativeStudies(of studySelectedID')
+# The local studies of a patient's history are read by PatientHistoryList.swift;
+# its fetch request's predicate format is the same Objective-C format string.
+source = (root / 'Horos/Sources/PatientHistoryList.swift').read_text()
+start = source.index('static func localStudies(of patientUID')
 match = re.search(r'request\.predicate = NSPredicate\(format: ("[^"\\]+"), patientUID', source[start:])
 assert match, 'production local-comparative predicate not found'
 code = r'''

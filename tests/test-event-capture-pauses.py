@@ -60,10 +60,13 @@ image_scroll = body(sources.source_path('DCMView+MouseDragging'),
 # So is its scroll wheel.
 viewer_wheel = body(sources.source_path('DCMView+Scrolling'),
                     'public override dynamic func scrollWheel(with theEvent: NSEvent)')
-# The database wheel is in the preview window policy block of BrowserController,
-# a Swift extension.
+# The database wheel: BrowserController's -scrollWheel: (the preview window
+# policy block, a Swift extension) hands the event to the database preview,
+# BrowserPreviewPane, which moves the slider.
 database_wheel = body(sources.source_path('BrowserController+Preview'),
                       'override func scrollWheel(with theEvent: NSEvent)')
+if database_wheel and 'previewPane.scroll(with: theEvent)' in database_wheel:
+    database_wheel = body(sources.source_path('BrowserPreviewPane'), 'func scroll(with event: NSEvent)')
 # BrowserMatrix is Swift.
 matrix_down = body(sources.source_path('BrowserMatrix'),
                    'public override func mouseDown(with event: NSEvent)')

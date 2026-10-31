@@ -259,10 +259,16 @@ def main() -> int:
         if swift:
             # The Swift method in a Swift stand-in of the class, which the probe calls
             # by its Objective-C name.
-            actual = method(read(remote).decode('utf-8'), '@objc(fetchDicomDestinationInfoForAddress:port:)')
+            text = read(remote).decode('utf-8')
+            actual = method(text, '@objc(fetchDicomDestinationInfoForAddress:port:)')
+            # Once the request throws, the Objective-C method raises what it throws.
+            helpers = ''
+            if 'raisingForObjectiveC' in actual:
+                helpers = '\n\n'.join(method(text, signature) for signature in (
+                    'private enum SharedDatabaseClientFailure', 'private func raisingForObjectiveC<'))
             (directory / 'remote.swift').write_text(
                 'import Foundation\n\n@objc(RemoteDicomDatabase) public final class RemoteDicomDatabase: NSObject {\n    '
-                + actual + '\n}\n')
+                + actual + '\n}\n\n' + helpers + '\n')
         else:
             actual = method(read(remote).decode('latin1'), '+(NSDictionary*)fetchDicomDestinationInfoForAddress:')
         # The request went through N2Connection.mm until it went through the
@@ -301,7 +307,11 @@ def main() -> int:
         remote_swift += [str(directory / 'remote.swift')] if swift else []
         remote_swift += [] if stream else [str(directory / 'DatabaseTransport.swift'),
                                            str(directory / 'SharedDatabaseAuthorization.swift')]
-        build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-suppress-warnings', '-module-name', 'Probe',
+        # The authorization class imports IsiXDICOMNetwork, whose framing it keeps the names of.
+        sys.path.insert(0, str(root / 'tests'))
+        import isix_modules
+        modules = isix_modules.module_flags('IsiXDICOMNetwork', directory / 'modules') if not stream else []
+        build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-suppress-warnings', '-module-name', 'Probe', *modules,
                                 *remote_swift, str(root / READER), *objects, '-lc++', '-framework', 'Cocoa', '-o', str(binary)],
                                capture_output=True, text=True)
         if build.returncode:

@@ -45,8 +45,7 @@ import IsiXPreferences
 // them (Metal, with VTK's ray cast mapper standing in for what Metal declines,
 // or the CPU ray cast of the MPR's hidden view), the shading, the level of
 // detail and the best rendering of the exports. A Swift extension of the
-// class, with the same selectors and properties. The @try of
-// -instantiateEngine: is HorosObjCException, with the same log.
+// class, with the same selectors and properties.
 
 extension VRView {
 
@@ -107,18 +106,20 @@ extension VRView {
     @objc(testGraphicBoard)
     static func testGraphicBoard() {
         let vramMB = Int32(truncatingIfNeeded: DefaultPreferences.gpuModelVRAMInfo())
+        // Called once at launch, before any view: the process's own preferences.
+        let preferences = PreferencesSource.process.preferences
 
-        if UserDefaults.standard.integer(forKey: "VRAMAmount") != Int(vramMB) {
+        if preferences[VolumeRenderingPreferences.vramAmount] != Int(vramMB) {
             if vramMB >= 2000 && AppController.hasMacOSXLion() {
-                UserDefaults.standard.set(1, forKey: "VRDefaultViewSize") // full screen
+                preferences.set(1, for: VolumeRenderingPreferences.vrDefaultViewSize) // full screen
             } else {
-                UserDefaults.standard.set(0, forKey: "VRDefaultViewSize") // square
+                preferences.set(0, for: VolumeRenderingPreferences.vrDefaultViewSize) // square
             }
 
             // The board decides the view size. The VR draws with Metal whatever the
             // board, and there is no engine left to choose.
 
-            UserDefaults.standard.set(Int(vramMB), forKey: "VRAMAmount")
+            preferences.set(Int(vramMB), for: VolumeRenderingPreferences.vramAmount)
 
             NSLog("--- Changing Volume Rendering settings (vram: %d)", vramMB)
         }
@@ -129,15 +130,7 @@ extension VRView {
         horos_vtk.allocateVolumeMapper()
     }
 
-    @objc(instantiateEngine:)
     func instantiateEngine(_ e: Int32) {
-        if let exception = HorosObjCException.caught({ self.instantiate(engine: e) }) {
-            NSLog("setEngine exception: %@", exception)
-        }
-    }
-
-    /// The body of the @try of -instantiateEngine:.
-    private func instantiate(engine e: Int32) {
         let vtk = horos_vtk
         // The crop in place - the box widget's or a saved camera's - carries
         // over to the new engine. Executing the crop callback re-applied the
@@ -176,7 +169,7 @@ extension VRView {
         }
 
         let LOD = horos_LOD
-        vtk.setVolumeMinimumImageSampleDistance(LOD, sampleDistance: UserDefaults.standard.float(forKey: "BESTRENDERING"),
+        vtk.setVolumeMinimumImageSampleDistance(LOD, sampleDistance: processGraph.preferences[VolumeRenderingPreferences.bestRendering],
                                                 maximumImageSampleDistance: LOD * lowResLODFactor)
 
         vtk.releaseHeldCrop()
@@ -355,7 +348,7 @@ extension VRView {
         }
 
         let LOD = horos_LOD
-        let best = UserDefaults.standard.float(forKey: "BESTRENDERING")
+        let best = processGraph.preferences[VolumeRenderingPreferences.bestRendering]
         vtk.setVolumeAutoAdjustSampleDistances(true)
         vtk.setVolumeMinimumImageSampleDistance(LOD, sampleDistance: best, maximumImageSampleDistance: LOD * lowResLODFactor)
 
@@ -392,11 +385,11 @@ extension VRView {
         // Standard Rendering...
 
         vtk.setVolumeMinimumImageSampleDistance(horos_LOD)
-        vtk.setVolumeSampleDistance(UserDefaults.standard.float(forKey: "BESTRENDERING"))
+        vtk.setVolumeSampleDistance(processGraph.preferences[VolumeRenderingPreferences.bestRendering])
 
         if horos_blendingController != nil {
             vtk.setBlendingMinimumImageSampleDistance(horos_LOD)
-            vtk.setBlendingSampleDistance(UserDefaults.standard.float(forKey: "BESTRENDERING"))
+            vtk.setBlendingSampleDistance(processGraph.preferences[VolumeRenderingPreferences.bestRendering])
         }
 
         vtk.showCornerText(true)
@@ -436,12 +429,12 @@ extension VRView {
 
                 NSLog("resol = 1.0")
             } else {
-                vtk.setVolumeMinimumImageSampleDistance(UserDefaults.standard.float(forKey: "BESTRENDERING"))
-                vtk.setVolumeSampleDistance(UserDefaults.standard.float(forKey: "BESTRENDERING"))
+                vtk.setVolumeMinimumImageSampleDistance(processGraph.preferences[VolumeRenderingPreferences.bestRendering])
+                vtk.setVolumeSampleDistance(processGraph.preferences[VolumeRenderingPreferences.bestRendering])
 
                 if horos_blendingController != nil {
-                    vtk.setBlendingMinimumImageSampleDistance(UserDefaults.standard.float(forKey: "BESTRENDERING"))
-                    vtk.setBlendingSampleDistance(UserDefaults.standard.float(forKey: "BESTRENDERING"))
+                    vtk.setBlendingMinimumImageSampleDistance(processGraph.preferences[VolumeRenderingPreferences.bestRendering])
+                    vtk.setBlendingSampleDistance(processGraph.preferences[VolumeRenderingPreferences.bestRendering])
                 }
             }
         }

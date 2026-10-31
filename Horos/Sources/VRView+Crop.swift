@@ -147,7 +147,6 @@ extension VRView {
     // MARK: - The camera inside the volume
 
     /// Whether `position` is strictly inside the volume's bounds.
-    @objc(checkPointInVolume:)
     func checkPointInVolume(_ position: UnsafeMutablePointer<Double>!) -> Bool {
         var bounds = [Double](repeating: 0, count: 6)
 
@@ -189,7 +188,6 @@ extension VRView {
 
     /// The camera's position brought back into the volume's bounds while the
     /// slab is on, the focal point moved with it.
-    @objc(checkInVolume)
     func checkInVolume() {
         if horos_clipRangeActivated {
             let vtk = horos_vtk
@@ -245,7 +243,6 @@ extension VRView {
 
     /// The box reappears on the crop in place, the widget's own or a saved
     /// camera's. Placing it on the whole volume at every toggle undid the crop.
-    @objc(placeCropBoxOnAppliedCrop)
     func placeCropBoxOnAppliedCrop() {
         let vtk = horos_vtk
         vtk.placeCropBox()

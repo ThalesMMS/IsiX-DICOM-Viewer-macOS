@@ -10,10 +10,9 @@
 
 import AppKit
 
-/// The processing threads: the lock of the reslice processors, the locks of the flip and convolution threads and the thick slab controller.
+/// The processing threads: the lock of the reslice processors and the thick slab controller.
 final class ViewerProcessingState: @unchecked Sendable {
     var processorsLock: NSConditionLock?
-    var convThread: NSConditionLock?
     /// Retained when replaced, never released by the holder (as the instance variable was).
     @ManuallyRetained var thickSlab: ThickSlabController?
 }
@@ -22,10 +21,6 @@ extension ViewerController {
     nonisolated var horos_processorsLock: NSConditionLock? {
         get { processingState.processorsLock }
         set { processingState.processorsLock = newValue }
-    }
-    var horos_convThread: NSConditionLock? {
-        get { processingState.convThread }
-        set { processingState.convThread = newValue }
     }
     var horos_thickSlab: ThickSlabController? {
         get { processingState.thickSlab }

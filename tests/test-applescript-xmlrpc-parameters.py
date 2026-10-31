@@ -36,7 +36,6 @@ final class HorosObjCException: NSObject {
 }
 
 final class BrowserController: NSObject {
-    static func currentBrowser() -> BrowserController? { nil }
     func addFilesAndFolder(toDatabase: [String]) {}
     @discardableResult func findAndSelectFile(_ path: String?, image: Any?, shouldExpand: Bool) -> Bool { false }
     func importURLs(_ urls: [NSURL], completion: @escaping ([Any]?, String?, Bool) -> Void) {}
@@ -95,7 +94,23 @@ final class XMLRPCInterface: NSObject {
 final class AppController: NSObject {
     static let instance = AppController()
     let xmlrpcServer: XMLRPCInterface? = XMLRPCInterface()
-    static func shared() -> AppController? { instance }
+}
+
+// The process graph, through which the commands reach the browser and the
+// application controller; no browser window here.
+final class BrowserWindowGraph {
+    let browser = BrowserController()
+}
+
+final class ProcessGraph {
+    static let process = ProcessGraph()
+    var browserWindow: BrowserWindowGraph? { nil }
+    var appController: AppController? { AppController.instance }
+}
+
+struct PreferencesSource {
+    let processGraph: ProcessGraph
+    static let process = PreferencesSource(processGraph: .process)
 }
 
 final class Delegate: NSObject, NSApplicationDelegate {

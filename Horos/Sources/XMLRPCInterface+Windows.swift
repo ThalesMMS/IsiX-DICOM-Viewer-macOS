@@ -51,7 +51,10 @@ extension XMLRPCInterface {
     @objc(KillOsiriX:error:)
     public func killOsiriX(_ params: NSDictionary?, error: NSErrorPointer) {
         error?.pointee = nil
-        AppController.shared()?.performSelector(onMainThread: NSSelectorFromString("terminate:"), with: self, waitUntilDone: false)
+        // From the main run loop, as a perform on the main thread did: quitting
+        // may ask about the operations still running.
+        let sender = UncheckedSendableBox(self)
+        onMainRunLoop { [processGraph] in processGraph.appController?.terminate(sender.value) }
     }
 
     /// Method: SwitchToDefaultDBIfNeeded
@@ -62,8 +65,7 @@ extension XMLRPCInterface {
     /// Response: {error: "0"}
     @objc(SelectDefaultDatabase:error:)
     public func selectDefaultDatabase(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
-        BrowserController.currentBrowser()?.performSelector(onMainThread: NSSelectorFromString("setDatabase:"),
-                                                            with: DicomDatabase.default(), waitUntilDone: false)
+        showInBrowser(processGraph.defaultDatabase)
         return Self.answer(0)
     }
 
@@ -79,15 +81,16 @@ extension XMLRPCInterface {
     /// Response: {error: "0"}
     @objc(OpenDatabase:error:)
     public func openDatabase(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
-        guard let path = RISRequestRules.nonEmptyText(paramDict?.value(forKey: "path")) else {
-            return Self.fail(400, error) // Bad Request
+        Self.answering(error) {
+            guard let path = RISRequestRules.nonEmptyText(paramDict?.value(forKey: "path")) else {
+                try Self.fail(400) // Bad Request
+            }
+            guard FileManager.default.fileExists(atPath: path) else {
+                return Self.answer(-1)
+            }
+            showInBrowser(DicomDatabase(atPath: path))
+            return Self.answer(0)
         }
-        guard FileManager.default.fileExists(atPath: path) else {
-            return Self.answer(-1)
-        }
-        BrowserController.currentBrowser()?.performSelector(onMainThread: NSSelectorFromString("setDatabase:"),
-                                                            with: DicomDatabase(atPath: path), waitUntilDone: false)
-        return Self.answer(0)
     }
 
     /// Method: CloseAllWindows
@@ -100,6 +103,18 @@ extension XMLRPCInterface {
         performSelector(onMainThread: #selector(closeAllWindowsMainThread(_:)), with: nil, waitUntilDone: false)
         Thread.sleep(forTimeInterval: 0.1)
         return Self.answer(0)
+    }
+
+    /// Shows `database` in the browser, from the main run loop, as a perform on
+    /// the main thread did; the browser switches to it there.
+    private func showInBrowser(_ database: DicomDatabase?) {
+        let database = UncheckedSendableBox(database)
+        onMainRunLoop { [processGraph] in processGraph.browserWindow?.browser.database = database.value }
+    }
+
+    /// Searches the browser's list for `text`, from the main run loop.
+    private func searchInBrowser(_ text: String) {
+        onMainRunLoop { [processGraph] in processGraph.browserWindow?.browser.searchString = text }
     }
 
     @objc(closeAllWindowsMainThread:)
@@ -152,11 +167,13 @@ extension XMLRPCInterface {
     /// Response: {error: "0"}
     @objc(Close2DViewerWithSeriesUID:error:)
     public func close2DViewerWithSeriesUID(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
-        guard let uid = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "uid")) else {
-            return Self.fail(400, error)
+        Self.answering(error) {
+            guard let uid = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "uid")) else {
+                try Self.fail(400)
+            }
+            closeViewers(whose: "imageView.seriesObj.seriesDICOMUID", is: uid)
+            return Self.answer(0)
         }
-        closeViewers(whose: "imageView.seriesObj.seriesDICOMUID", is: uid)
-        return Self.answer(0)
     }
 
     /// Method: Close2DViewerWithStudyUID
@@ -169,11 +186,13 @@ extension XMLRPCInterface {
     /// Response: {error: "0"}
     @objc(Close2DViewerWithStudyUID:error:)
     public func close2DViewerWithStudyUID(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
-        guard let uid = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "uid")) else {
-            return Self.fail(400, error)
+        Self.answering(error) {
+            guard let uid = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "uid")) else {
+                try Self.fail(400)
+            }
+            closeViewers(whose: "imageView.seriesObj.study.studyInstanceUID", is: uid)
+            return Self.answer(0)
         }
-        closeViewers(whose: "imageView.seriesObj.study.studyInstanceUID", is: uid)
-        return Self.answer(0)
     }
 
     /// Closes, on the main thread, the displayed 2D viewers whose value at
@@ -201,12 +220,13 @@ extension XMLRPCInterface {
     /// Response: {error: "0"}
     @objc(DisplayStudyListByPatientName:error:)
     public func displayStudyListByPatientName(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
-        guard let patientName = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "PatientName")) else {
-            return Self.fail(400, error)
+        Self.answering(error) {
+            guard let patientName = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "PatientName")) else {
+                try Self.fail(400)
+            }
+            searchInBrowser(patientName)
+            return Self.answer(0)
         }
-        BrowserController.currentBrowser()?.performSelector(onMainThread: NSSelectorFromString("setSearchString:"),
-                                                            with: patientName, waitUntilDone: false)
-        return Self.answer(0)
     }
 
     /// Method: DisplayStudyListByPatientId
@@ -219,12 +239,13 @@ extension XMLRPCInterface {
     /// Response: {error: "0"}
     @objc(DisplayStudyListByPatientId:error:)
     public func displayStudyListByPatientId(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
-        guard let patientID = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "PatientID")) else {
-            return Self.fail(400, error)
+        Self.answering(error) {
+            guard let patientID = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "PatientID")) else {
+                try Self.fail(400)
+            }
+            searchInBrowser(patientID)
+            return Self.answer(0)
         }
-        BrowserController.currentBrowser()?.performSelector(onMainThread: NSSelectorFromString("setSearchString:"),
-                                                            with: patientID, waitUntilDone: false)
-        return Self.answer(0)
     }
 
     /// Method: PathToFrontDCM
@@ -249,7 +270,9 @@ extension XMLRPCInterface {
                     guard let viewer = ViewerController.frontMostDisplayed2DViewer() else { return }
                     let files = viewer.fileList() ?? NSMutableArray()
                     let image = files.object(at: Int(viewer.imageView()?.curImage ?? 0)) as? NSManagedObject
-                    path = BrowserController.currentBrowser()?.getLocalDCMPath(image, 0)
+                    // Asked of the image's own database: the viewer may show
+                    // a study of a database the browser does not show.
+                    path = DatabaseImageFiles.localFile(ofRow: image)
                     if onlyFilename {
                         path = (path as NSString?)?.lastPathComponent
                     }

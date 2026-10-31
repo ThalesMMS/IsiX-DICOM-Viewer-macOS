@@ -53,10 +53,11 @@ with tempfile.TemporaryDirectory(prefix='horos-movie-finalization-') as folder:
  subprocess.run(['xcrun','swiftc','-sanitize=address',str(p/'main.swift'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)
 
-# The browser has an independent export path (BrowserController+MovieExport.swift).
-# Compile its real finalization sequence against a delayed writer peer, while
-# the QuicktimeExport path above retains its cancellation/failure scenarios.
-browser = sources.source_text('BrowserController+MovieExport')
+# The browser has an independent export path (SelectionMovieExport.swift, which
+# BrowserController+MovieExport.swift hands its movies to). Compile its real
+# finalization sequence against a delayed writer peer, while the
+# QuicktimeExport path above retains its cancellation/failure scenarios.
+browser = sources.source_text('SelectionMovieExport')
 a = browser.index('                let finished = DispatchSemaphore(value: 0)')
 b = browser.index('                finished.wait()\n', a) + len('                finished.wait()\n')
 native_body = browser[a:b]

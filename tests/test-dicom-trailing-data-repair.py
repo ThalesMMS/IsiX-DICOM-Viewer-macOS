@@ -128,8 +128,8 @@ with tempfile.TemporaryDirectory(prefix='horos-trailing-repair-') as directory:
     else:
         print('NOTE: no dcmdump in build/; DCMTK cross-check not run')
 
-# The import is DicomDatabase+Import.swift.
-source = (root/'Horos/Sources/DicomDatabase+Import.swift').read_text(encoding='utf-8')
+# The import is DicomFileIndexer.swift.
+source = (root/'Horos/Sources/DicomFileIndexer.swift').read_text(encoding='utf-8')
 repair = source.find('DICOMTrailingDataRepair.writeIntactCopy(ofFileAt:')
 refusal = source.find('refusals.refuse(newFile ?? "")', repair)
 assert repair != -1 and refusal != -1 and source.rfind('curFile = DicomFile(newFile)', 0, repair) != -1, \

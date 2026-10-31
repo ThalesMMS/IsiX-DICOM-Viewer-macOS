@@ -92,24 +92,33 @@ check('getDicomField:forFile:' in EXCERPT, 'workers still named getDicomField')
 
 # --- those selectors still exist, and still wait the way the log shows ------
 viewer = root / 'Horos/Sources/ViewerController.m'
-# -windowWillClose: is Swift, in ViewerController+WindowLifecycle.swift.
+# -windowWillClose: is Swift (ViewerController+WindowLifecycle.swift); the
+# viewer's graph closes the window (closeWindow, ViewerSessionGraph+WindowLife.swift).
 close = body(viewer, '- (void)windowWillClose:(NSNotification *)notification')
 close_swift = not close
 if close_swift:
-    close = body(source_path('ViewerController+WindowLifecycle'), 'func windowWillClose(_ notification: Notification)')
-# -checkEverythingLoaded is Swift, in ViewerController+StudyNavigation.swift.
-loaded = body(source_path('ViewerController+StudyNavigation'), 'func checkEverythingLoaded()')
+    close = (body(source_path('ViewerController+WindowLifecycle'), 'func windowWillClose(_ notification: Notification)')
+             + body(source_path('ViewerSessionGraph+WindowLife'), 'func closeWindow()'))
+# -checkEverythingLoaded is Swift, a façade in ViewerController+StudyNavigation.swift
+# of the viewer's ViewerLoadingWait.waitUntilLoaded() there, which waits.
+study_navigation = source_path('ViewerController+StudyNavigation')
+loaded = (body(study_navigation, 'func waitUntilLoaded()')
+          if 'ViewerLoadingWait(viewer: self).waitUntilLoaded()' in body(study_navigation, 'func checkEverythingLoaded()') else '')
 load_image = body(viewer, '+ (void) loadImageData:(id) dict')
 volumic = body(viewer,
                '- (BOOL) isDataVolumicIn4D: (BOOL) check4D checkEverythingLoaded:(BOOL) c tryToCorrect: (BOOL) tryToCorrect')
-# +loadImageData: and the volumic checks are Swift, in ViewerController+ImageLoading.swift
-# and ViewerController+VolumeCheck.swift, with the same selectors.
+# The volumic checks are Swift, in ViewerController+VolumeCheck.swift, with the same
+# selectors; +loadImageData: was Swift too, and the series is now decoded by the viewer's
+# SeriesImageLoader, an actor on the queue the spindump would name "Load Image Data".
 loader_swift = not load_image
 if loader_swift:
-    load_image = body(source_path('ViewerController+ImageLoading'), 'nonisolated class func loadImageData(_ dict: Any!)')
+    loader = source_path('SeriesImageLoader')
+    load_image = body(loader, 'private func decode(_ request: SeriesLoadRequest) -> SeriesLoadResult?') + \
+        loader.read_text()[loader.read_text().index('actor SeriesImageLoader {'):][:400]
 if not volumic:
+    # The selector is a façade of the viewer's SeriesVolumeCheck, in the same file.
     volumic = body(source_path('ViewerController+VolumeCheck'),
-                   'func isDataVolumicIn4D(_ check4D: Bool, checkEverythingLoaded c: Bool, tryToCorrect: Bool) -> Bool')
+                   'func isVolumic(allTimePoints check4D: Bool, waitForLoading c: Bool, tryToCorrect: Bool) -> Bool')
 launch = body(source_path('AppController'),
               'func applicationDidFinishLaunching(_ aNotification: Notification!)')
 isdicom = body(root / 'Horos/Sources/DicomFile.mm',
@@ -144,7 +153,7 @@ check(loaded and 'Thread.sleep(forTimeInterval: 0.1)' in loaded and '!(thread?.i
 check(volumic and 'checkEverythingLoaded' in volumic,
       'the hang-2 caller must still reach checkEverythingLoaded')
 check('Load Image Data' in load_image and ('DicomFile.isDICOMFile(' if loader_swift else 'isDICOMFile:') in load_image,
-      'the worker thread name and DICOM probe must still be this path')
+      'the loader queue name and DICOM probe must still be this path')
 check(('mayTranscode:NULL' in isdicom or 'mayTranscode: nil' in isdicom)
       and ('HorosDICOMProbe::inspect(path)' in probe_source or 'HorosDICOMProbe::inspect(fileSystemPath)' in probe_source),
       'DICOM identification must use the independent lazy probe')

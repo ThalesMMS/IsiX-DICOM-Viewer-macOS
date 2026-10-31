@@ -9,6 +9,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXPreferences
 
 /// A Specific Character Set (0008,0005) and the string encodings it names.
 ///
@@ -61,7 +62,12 @@ public final class DICOMCharacterSet: NSObject, NSCopying {
     /// `DefaultCharacterSetWhenAbsent` holds a DICOM term or a code page name and
     /// is empty by default. It applies only when the attribute is absent.
     @objc public static func characterSetWhenAbsent() -> String? {
-        let chosen = UserDefaults.standard.string(forKey: "DefaultCharacterSetWhenAbsent") ?? ""
+        characterSetWhenAbsent(in: UserDefaults.standard)
+    }
+
+    /// The choice as `preferences` hold it; nil when empty.
+    public static func characterSetWhenAbsent(in preferences: any PreferenceStore) -> String? {
+        let chosen = preferences[DatabasePreferences.defaultCharacterSetWhenAbsent] ?? ""
         return chosen.isEmpty ? nil : chosen
     }
 

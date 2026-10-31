@@ -39,12 +39,16 @@
 
 import Cocoa
 import IsiXImaging
+import IsiXPreferences
 
 // The capture, export and print block of DCMView is implemented in Swift: an
-// extension of DCMView, with the same selectors. The view gathers what
-// only it knows (what it draws, its geometry, its pixels, the windows of the
-// other viewers); the buffer arithmetic is in IsiXImaging (CaptureRaster). Every
-// buffer returned is allocated with malloc or calloc: the callers free() it.
+// extension of DCMView, with the same selectors. The view gathers what only it
+// knows (what it draws, its geometry, its pixels, the windows of the other
+// viewers, the database objects) and writes the DICOM file; the rules of a
+// capture (its tiles, its cropping, the form of its samples, its square pixels,
+// its thumbnail, the placing of several viewers) are ViewCaptureRequest's and
+// the buffer arithmetic CaptureRaster's, in IsiXImaging. Every buffer returned
+// is allocated with malloc or calloc: the callers free() it.
 
 /// The object a DCMView hands to DICOMExport when it writes a file: a hook,
 /// kept for its selectors, through which plugins once finished the written
@@ -62,11 +66,6 @@ public class DCMExportPlugin: NSObject {
     }
 }
 
-private func captureFileModality(_ files: NSArray?, _ index: Int) -> String? {
-    guard let files else { return nil }
-    return (files.object(at: index) as? NSObject)?.value(forKey: "modality") as? String
-}
-
 extension DCMView {
 
     // MARK: - Raw pixels
@@ -75,10 +74,13 @@ extension DCMView {
     public dynamic func getRawPixels(_ width: UnsafeMutablePointer<Int>!, _ height: UnsafeMutablePointer<Int>!,
                                      _ spp: UnsafeMutablePointer<Int>!, _ bpp: UnsafeMutablePointer<Int>!,
                                      _ screenCapture: Bool, _ force8bits: Bool) -> UnsafeMutablePointer<UInt8>! {
-        return self.getRawPixelsWidth(width, height: height, spp: spp, bpp: bpp, screenCapture: screenCapture,
-                                      force8bits: force8bits, removeGraphical: true, squarePixels: false,
-                                      allTiles: UserDefaults.standard.bool(forKey: "includeAllTiledViews"),
-                                      allowSmartCropping: false, origin: nil, spacing: nil)
+        let request = ViewCaptureRequest.rawPixels(
+            screenCapture: screenCapture, force8bits: force8bits,
+            includeAllTiledViews: PreferencesSource.process.preferences[ViewerPreferences.includeAllTiledViews])
+        return self.getRawPixelsWidth(width, height: height, spp: spp, bpp: bpp, screenCapture: request.screenCapture,
+                                      force8bits: request.force8bits, removeGraphical: request.removeGraphical,
+                                      squarePixels: request.squarePixels, allTiles: request.allTiles,
+                                      allowSmartCropping: request.allowSmartCropping, origin: nil, spacing: nil)
     }
 
     @objc(getRawPixelsWidth:height:spp:bpp:screenCapture:force8bits:removeGraphical:squarePixels:allTiles:allowSmartCropping:origin:spacing:)
@@ -106,44 +108,48 @@ extension DCMView {
                                           spacing imSpacing: UnsafeMutablePointer<Float>!,
                                           offset: UnsafeMutablePointer<Int32>!,
                                           isSigned: UnsafeMutablePointer<ObjCBool>!) -> UnsafeMutablePointer<UInt8>! {
-        let columns = self.columns, rows = self.rows
-        guard allTiles && self.is2DViewer() && (rows != 1 || columns != 1) else {
+        let request = ViewCaptureRequest(screenCapture: screenCapture, force8bits: force8bits,
+                                         removeGraphical: removeGraphical, squarePixels: squarePixels,
+                                         allTiles: allTiles, allowSmartCropping: allowSmartCropping)
+        let grid = ViewCaptureRequest.TileGrid(columns: self.columns, rows: self.rows)
+        guard request.capturesTiles(twoDViewer: self.is2DViewer(), rows: grid.rows, columns: grid.columns) else {
             return self.getRawPixelsViewWidth(width, height: height, spp: spp, bpp: bpp, screenCapture: screenCapture,
                                               force8bits: force8bits, removeGraphical: removeGraphical,
                                               squarePixels: squarePixels, allowSmartCropping: allowSmartCropping,
                                               origin: imOrigin, spacing: imSpacing, offset: offset, isSigned: isSigned)
         }
 
-        // One buffer for all the tiles, which are all the same size.
+        // One buffer for all the tiles, which are all the size of the first.
         guard let views = (self.windowController() as? ViewerController)?.seriesView()?.imageViews(),
               views.count > 0 else { return nil }
+        let tileRequest = request.forTile
         func tile(_ index: Int) -> UnsafeMutablePointer<UInt8>? {
             return (views.object(at: index) as? DCMView)?.getRawPixelsViewWidth(
-                width, height: height, spp: spp, bpp: bpp, screenCapture: screenCapture, force8bits: force8bits,
-                removeGraphical: removeGraphical, squarePixels: squarePixels, allowSmartCropping: false,
+                width, height: height, spp: spp, bpp: bpp, screenCapture: tileRequest.screenCapture,
+                force8bits: tileRequest.force8bits, removeGraphical: tileRequest.removeGraphical,
+                squarePixels: tileRequest.squarePixels, allowSmartCropping: tileRequest.allowSmartCropping,
                 origin: imOrigin, spacing: imSpacing, offset: offset, isSigned: isSigned)
         }
 
         guard let firstView = tile(0) else { return nil }
-        let viewSize = bpp.pointee * spp.pointee * (width.pointee + 4) * (height.pointee + 4) / 8
-        let globalWidth = width.pointee * columns
-        let globalHeight = height.pointee * rows
-        let globalView = malloc(viewSize * columns * rows)
+        let globalSize = grid.size(tileWidth: width.pointee, tileHeight: height.pointee)
+        let globalView = malloc(grid.byteCount(tileWidth: width.pointee, tileHeight: height.pointee,
+                                               samplesPerPixel: spp.pointee, bitsPerSample: bpp.pointee))
         free(firstView)
 
         if let globalView {
-            for x in 0..<columns {
-                for y in 0..<rows {
-                    if let aView = tile(x + y * columns) {
-                        CaptureRaster.copyTile(aView, into: globalView, column: x, row: y, gridWidth: globalWidth,
+            for x in 0..<grid.columns {
+                for y in 0..<grid.rows {
+                    if let aView = tile(grid.index(column: x, row: y)) {
+                        CaptureRaster.copyTile(aView, into: globalView, column: x, row: y, gridWidth: globalSize.width,
                                                width: width.pointee, height: height.pointee,
                                                samplesPerPixel: spp.pointee, bitsPerSample: bpp.pointee)
                         free(aView)
                     }
                 }
             }
-            width.pointee = globalWidth
-            height.pointee = globalHeight
+            width.pointee = globalSize.width
+            height.pointee = globalSize.height
         }
         return globalView?.assumingMemoryBound(to: UInt8.self)
     }
@@ -161,7 +167,7 @@ extension DCMView {
                                           isSigned: UnsafeMutablePointer<ObjCBool>!,
                                           views: [Any]!, viewsRect rects: [Any]!) -> UnsafeMutablePointer<UInt8>! {
         let views = views ?? [], rects = rects ?? []
-        guard views.count > 1 && views.count == rects.count else {
+        guard ViewCaptureRequest.assemblesViews(viewCount: views.count, rectCount: rects.count) else {
             return self.getRawPixelsWidth(width, height: height, spp: spp, bpp: bpp, screenCapture: screenCapture,
                                           force8bits: force8bits, removeGraphical: removeGraphical,
                                           squarePixels: squarePixels, allTiles: allTiles,
@@ -203,14 +209,14 @@ extension DCMView {
                 offset?.pointee = ioffset
                 isSigned?.pointee = iisSigned
 
-                dataSize = (4 + width.pointee) * (4 + height.pointee) * spp.pointee * bpp.pointee / 8
+                dataSize = ViewCaptureRequest.canvasByteCount(width: width.pointee, height: height.pointee,
+                                                              samplesPerPixel: spp.pointee, bitsPerSample: bpp.pointee)
                 data = calloc(1, dataSize)
-            } else if let imSpacing {
+            } else if let imSpacing,
+                      ViewCaptureRequest.spacingsDiffer((imSpacing[0], imSpacing[1]), (iimSpacing[0], iimSpacing[1])) {
                 // Views of different spacings: the picture has none.
-                if abs(Double(imSpacing[0] - iimSpacing[0])) > 0.005 || abs(Double(imSpacing[1] - iimSpacing[1])) > 0.005 {
-                    imSpacing[0] = 0
-                    imSpacing[1] = 0
-                }
+                imSpacing[0] = 0
+                imSpacing[1] = 0
             }
 
             var bounds = viewsRect[i]
@@ -261,28 +267,30 @@ extension DCMView {
                                               spacing imSpacing: UnsafeMutablePointer<Float>!,
                                               offset: UnsafeMutablePointer<Int32>!,
                                               isSigned: UnsafeMutablePointer<ObjCBool>!) -> UnsafeMutablePointer<UInt8>! {
+        let request = ViewCaptureRequest(screenCapture: screenCapture, force8bits: force8bits,
+                                         removeGraphical: removeGraphical, squarePixels: squarePixels,
+                                         allTiles: false, allowSmartCropping: allowSmartCropping)
         var buf: UnsafeMutableRawPointer?
 
         isSigned?.pointee = false
         offset?.pointee = 0
 
-        // The orthogonal MPR views are not cropped.
-        var allowSmartCropping = allowSmartCropping
-        if self.isMember(of: OrthogonalMPRPETCTView.self) || self.isMember(of: OrthogonalMPRView.self) {
-            allowSmartCropping = false
-        }
-
         if screenCapture {
             for roi in self.horos_curRoiList ?? [] { (roi as? ROI)?.roImode = ROI_sleep }
 
-            if force8bits || self.curDCM?.isRGB == true || self.horos_blending != nil {
+            let form = request.form(isRGB: self.curDCM?.isRGB == true, fused: self.horos_blending != nil,
+                                    thickSlabVR: false, stackMode: 0)
+            if form == .screenColour {
                 // Screen capture in RGB, 8 bits.
                 var shiftOrigin = NSPoint.zero
                 var smartCropped = false
                 var smartCroppedRect: NSRect
                 let frameSize = self.horos_drawingFrameRect.size
 
-                if allowSmartCropping && UserDefaults.standard.bool(forKey: "ScreenCaptureSmartCropping") {
+                // The orthogonal MPR views are not cropped.
+                let orthogonalMPR = self.isMember(of: OrthogonalMPRPETCTView.self) || self.isMember(of: OrthogonalMPRView.self)
+                let smartCropping = PreferencesSource.process.preferences[ViewerPreferences.screenCaptureSmartCropping]
+                if request.cropsSmartly(orthogonalMPR: orthogonalMPR, screenCaptureSmartCropping: smartCropping) {
                     smartCroppedRect = self.smartCrop(&shiftOrigin)
                     if smartCroppedRect.size.width != frameSize.width || smartCroppedRect.size.height != frameSize.height {
                         smartCropped = true
@@ -297,17 +305,18 @@ extension DCMView {
                 }
 
                 if let imSpacing {
-                    let spacing = Float((self.curDCM?.pixelSpacingX ?? 0) / Double(self.horos_scaleValue))
+                    let spacing = ViewCaptureRequest.screenSpacing(pixelSpacingX: self.curDCM?.pixelSpacingX ?? 0,
+                                                                   scale: self.horos_scaleValue)
                     imSpacing[0] = spacing
                     imSpacing[1] = spacing
                 }
 
                 width.pointee = Int(smartCroppedRect.size.width)
                 height.pointee = Int(smartCroppedRect.size.height)
-                spp.pointee = 3
-                bpp.pointee = 8
+                spp.pointee = form.samplesPerPixel
+                bpp.pointee = form.bitsPerSample
 
-                buf = calloc(1, 10 + width.pointee * height.pointee * 4 * bpp.pointee / 8)
+                buf = calloc(1, form.byteCount(width: width.pointee, height: height.pointee))
                 if let buf {
                     var formerID: String?
                     if removeGraphical {
@@ -322,12 +331,14 @@ extension DCMView {
 
                     // The picture Metal drew for this frame, drawn again and
                     // read back, rows from the top.
-                    let inverted = DCMView.horos_static_gInvertColors && self.horos_stringID != "export"
+                    let inverted = ViewCaptureRequest.readsInverted(invertColors: DCMView.horos_static_gInvertColors,
+                                                                    stringID: self.horos_stringID as String?)
                     let drawn = self.horos_drawingFrameRect.size
                     let frameWidth = Int(drawn.width), frameHeight = Int(drawn.height)
                     let frame = self.horosPlanarPixelsWidth(frameWidth, height: frameHeight, inverted: inverted)
-                    let white = self.whiteBackground && self.horos_dcmPixList != nil && self.horos_curImage > -1
-                    let clear: UInt8 = white != inverted ? 255 : 0
+                    let clear = ViewCaptureRequest.clearValue(
+                        whiteBackground: self.whiteBackground,
+                        showsImage: self.horos_dcmPixList != nil && self.horos_curImage > -1, inverted: inverted)
                     let rgb = buf.assumingMemoryBound(to: UInt8.self)
                     let x0 = Int(smartCroppedRect.origin.x), y0 = Int(smartCroppedRect.origin.y)
                     if let frame {
@@ -358,18 +369,13 @@ extension DCMView {
             } else {
                 // Screen capture in 16 bits, black and white: the image as
                 // shown, at full resolution, not less, not more.
-                var s = self.scaleValue
-                var o = self.origin
-                var destRectSize = self.horos_drawingFrameRect.size
-                destRectSize.width /= CGFloat(s)
-                destRectSize.height /= CGFloat(s)
-                o.x /= CGFloat(s)
-                o.y /= CGFloat(s)
-                s = 1
+                let rendering = ViewCaptureRequest.fullResolution(frameSize: self.horos_drawingFrameRect.size,
+                                                                  origin: self.origin, scale: self.scaleValue)
 
-                if let im = self.curDCM?.render(inRectSize: destRectSize, atPosition: o, rotation: self.rotation, scale: s,
-                                                          xFlipped: self.horos_xFlipped, yFlipped: self.horos_yFlipped,
-                                                          smartCrop: true) {
+                if let im = self.curDCM?.render(inRectSize: rendering.size, atPosition: rendering.origin,
+                                                rotation: self.rotation, scale: 1,
+                                                xFlipped: self.horos_xFlipped, yFlipped: self.horos_yFlipped,
+                                                smartCrop: true) {
                     if let imSpacing {
                         imSpacing[0] = Float(im.pixelSpacingX)
                         imSpacing[1] = Float(im.pixelSpacingX)
@@ -382,15 +388,13 @@ extension DCMView {
 
                     width.pointee = Int(im.pwidth)
                     height.pointee = Int(im.pheight)
-                    spp.pointee = 1
-                    bpp.pointee = 16
+                    spp.pointee = form.samplesPerPixel
+                    bpp.pointee = form.bitsPerSample
 
-                    buf = malloc(width.pointee * height.pointee * spp.pointee * bpp.pointee / 8)
+                    buf = malloc(form.byteCount(width: width.pointee, height: height.pointee))
 
-                    var slope: Float = 1
-                    if captureFileModality(self.horos_dcmFilesList as NSArray?, Int(self.horos_curImage)) == "PT" {
-                        slope = im.appliedFactorPET2SUV() * im.slope
-                    }
+                    let slope = ViewCaptureRequest.sampleSlope(modality: self.shownFileModality(),
+                                                               suvFactor: im.appliedFactorPET2SUV(), slope: im.slope)
 
                     if let buf {
                         let encoding = CaptureRaster.SixteenBitEncoding(minimumOfSeries: self.curDCM?.minValueOfSeries ?? 0)
@@ -421,51 +425,38 @@ extension DCMView {
                     imSpacing[1] = Float(dcm.pixelSpacingY)
                 }
 
-                var isRGB = dcm.isRGB
-                var force8bits = force8bits
-
                 width.pointee = Int(dcm.pwidth)
                 height.pointee = Int(dcm.pheight)
 
-                if dcm.thickSlabVRActivated() {
-                    force8bits = true
-                    if dcm.stackMode == 4 || dcm.stackMode == 5 { isRGB = true }
-                }
+                let form = request.form(isRGB: dcm.isRGB, fused: false, thickSlabVR: dcm.thickSlabVRActivated(),
+                                        stackMode: Int(dcm.stackMode))
+                spp.pointee = form.samplesPerPixel
+                bpp.pointee = form.bitsPerSample
 
-                if isRGB {
+                switch form {
+                case .colour:
                     self.display()
 
-                    spp.pointee = 3
-                    bpp.pointee = 8
-
-                    buf = malloc(width.pointee * height.pointee * spp.pointee * bpp.pointee / 8)
+                    buf = malloc(form.byteCount(width: width.pointee, height: height.pointee))
                     if let buf, let source = dcm.baseAddr {
                         CaptureRaster.rgbFromARGB(UnsafeRawPointer(source).assumingMemoryBound(to: UInt8.self),
                                                   pixelCount: width.pointee * height.pointee,
                                                   into: buf.assumingMemoryBound(to: UInt8.self))
                     }
-                } else if force8bits {
+                case .grey8:
                     // 8 bits only, as displayed.
                     self.display()
 
-                    spp.pointee = 1
-                    bpp.pointee = 8
-
-                    buf = malloc(width.pointee * height.pointee * spp.pointee * bpp.pointee / 8)
+                    buf = malloc(form.byteCount(width: width.pointee, height: height.pointee))
                     if let buf { memcpy(buf, dcm.baseAddr, width.pointee * height.pointee) }
-                } else {
+                default:
                     // 16 bits.
-                    spp.pointee = 1
-                    bpp.pointee = 16
-
                     let samples = dcm.computefImage()
 
-                    var slope: Float = 1
-                    if captureFileModality(self.horos_dcmFilesList as NSArray?, Int(self.horos_curImage)) == "PT" {
-                        slope = dcm.appliedFactorPET2SUV() * dcm.slope
-                    }
+                    let slope = ViewCaptureRequest.sampleSlope(modality: self.shownFileModality(),
+                                                               suvFactor: dcm.appliedFactorPET2SUV(), slope: dcm.slope)
 
-                    buf = malloc(width.pointee * height.pointee * spp.pointee * bpp.pointee / 8)
+                    buf = malloc(form.byteCount(width: width.pointee, height: height.pointee))
                     if let buf {
                         let encoding = CaptureRaster.SixteenBitEncoding(minimumOfSeries: dcm.minValueOfSeries)
                         isSigned?.pointee = ObjCBool(encoding.isSigned)
@@ -479,7 +470,8 @@ extension DCMView {
                 }
 
                 // 8 bits or RGB with pixels that are not square: square pixels.
-                if squarePixels && bpp.pointee == 8 && self.pixelSpacingX != self.pixelSpacingY {
+                if request.squaresPixels(bitsPerSample: bpp.pointee, spacingX: self.pixelSpacingX,
+                                         spacingY: self.pixelSpacingY) {
                     let squareHeight = CaptureRaster.squarePixelHeight(height: height.pointee, spacingX: self.pixelSpacingX,
                                                                        spacingY: self.pixelSpacingY)
                     let rowBytes = width.pointee * (bpp.pointee / 8) * spp.pointee
@@ -507,6 +499,13 @@ extension DCMView {
         }
 
         return buf?.assumingMemoryBound(to: UInt8.self)
+    }
+
+    /// The modality of the database image the view shows, by its index in the
+    /// files of the view.
+    private func shownFileModality() -> String? {
+        guard let files = self.horos_dcmFilesList else { return nil }
+        return (files.object(at: Int(self.horos_curImage)) as? DicomImage)?.modality
     }
 
     // MARK: - Smart cropping
@@ -552,21 +551,29 @@ extension DCMView {
         var imOrigin = [Float](repeating: 0, count: 3), imSpacing = [Float](repeating: 0, count: 2)
         var width = 0, height = 0, spp = 0, bpp = 0
 
-        guard var data = self.getRawPixelsViewWidth(&width, height: &height, spp: &spp, bpp: &bpp, screenCapture: true,
-                                                    force8bits: true, removeGraphical: true, squarePixels: true,
-                                                    allowSmartCropping: false, origin: &imOrigin, spacing: &imSpacing,
+        let request = ViewCaptureRequest.secondaryCapture
+        guard var data = self.getRawPixelsViewWidth(&width, height: &height, spp: &spp, bpp: &bpp,
+                                                    screenCapture: request.screenCapture,
+                                                    force8bits: request.force8bits,
+                                                    removeGraphical: request.removeGraphical,
+                                                    squarePixels: request.squarePixels,
+                                                    allowSmartCropping: request.allowSmartCropping,
+                                                    origin: &imOrigin, spacing: &imSpacing,
                                                     offset: nil, isSigned: nil) else {
             return NSImage(named: "Empty.tif")
         }
 
-        if size != 0 {
-            if spp != 3 {
-                NSLog("********* spp != 3 I'll NOT resize")
-            } else if let thumbnail = self.captureThumbnail(data, width: width, height: height, size: Int(size), zeroed: false) {
+        switch ViewCaptureRequest.thumbnail(size: size, samplesPerPixel: spp) {
+        case .asCaptured:
+            break
+        case .notResized:
+            NSLog("********* spp != 3 I'll NOT resize")
+        case .square(let side):
+            if let thumbnail = self.captureThumbnail(data, width: width, height: height, size: side, zeroed: false) {
                 free(data)
                 data = thumbnail
-                width = Int(size)
-                height = Int(size)
+                width = side
+                height = side
             }
         }
 
@@ -621,55 +628,57 @@ extension DCMView {
         var imOrigin = [Float](repeating: 0, count: 3), imSpacing = [Float](repeating: 0, count: 2)
         var width = 0, height = 0, spp = 0, bpp = 0
 
-        let defaults = UserDefaults.standard
-        let annotCopy = defaults.integer(forKey: "ANNOTATIONS")
-        let clutBarsCopy = defaults.integer(forKey: "CLUTBARS")
+        let preferences = PreferencesSource.process.preferences
+        let annotCopy = preferences[ViewerPreferences.annotations]
+        let clutBarsCopy = preferences[ViewerPreferences.clutBars]
+        let bars = ViewCaptureRequest.secondaryCaptureBars(
+            keepsCLUTBars: preferences.bool(forKey: "keepCLUTBarsForSecondaryCapture"),
+            current: clutBarsCopy, hidden: Int(barHide))
+        DCMView.setCLUTBARS(Int32(truncatingIfNeeded: bars), annotations: Int32(annotGraphics))
 
-        if defaults.bool(forKey: "keepCLUTBarsForSecondaryCapture") {
-            DCMView.setCLUTBARS(Int32(truncatingIfNeeded: clutBarsCopy), annotations: Int32(annotGraphics))
-        } else {
-            DCMView.setCLUTBARS(Int32(barHide), annotations: Int32(annotGraphics))
-        }
-
+        let request = ViewCaptureRequest.secondaryCapture
         let viewCount = views?.count ?? 0
+        let assembled = ViewCaptureRequest.assemblesViews(viewCount: viewCount, rectCount: viewsRect?.count ?? 0)
         var data: UnsafeMutablePointer<UInt8>?
-        if viewCount > 1 && viewCount == viewsRect?.count ?? 0 {
-            data = self.getRawPixelsWidth(&width, height: &height, spp: &spp, bpp: &bpp, screenCapture: true,
-                                          force8bits: true, removeGraphical: true, squarePixels: true, allTiles: false,
-                                          allowSmartCropping: false, origin: &imOrigin, spacing: &imSpacing,
-                                          offset: nil, isSigned: nil, views: views, viewsRect: viewsRect)
+        if assembled {
+            data = self.getRawPixelsWidth(&width, height: &height, spp: &spp, bpp: &bpp,
+                                          screenCapture: request.screenCapture, force8bits: request.force8bits,
+                                          removeGraphical: request.removeGraphical, squarePixels: request.squarePixels,
+                                          allTiles: request.allTiles, allowSmartCropping: request.allowSmartCropping,
+                                          origin: &imOrigin, spacing: &imSpacing, offset: nil, isSigned: nil,
+                                          views: views, viewsRect: viewsRect)
         } else {
-            data = self.getRawPixelsViewWidth(&width, height: &height, spp: &spp, bpp: &bpp, screenCapture: true,
-                                              force8bits: true, removeGraphical: true, squarePixels: true,
-                                              allowSmartCropping: false, origin: &imOrigin, spacing: &imSpacing,
-                                              offset: nil, isSigned: nil)
+            data = self.getRawPixelsViewWidth(&width, height: &height, spp: &spp, bpp: &bpp,
+                                              screenCapture: request.screenCapture, force8bits: request.force8bits,
+                                              removeGraphical: request.removeGraphical,
+                                              squarePixels: request.squarePixels,
+                                              allowSmartCropping: request.allowSmartCropping,
+                                              origin: &imOrigin, spacing: &imSpacing, offset: nil, isSigned: nil)
         }
 
         if var pixels = data {
-            if size != 0 {
-                if spp != 3 {
-                    NSLog("********* spp != 3 I'll NOT resize")
-                } else {
-                    let square = CaptureRaster.centredSquare(width: width, height: height)
-                    let rescale = Float(size) / Float(width > height ? height : width)
-                    let croppedOrigin = NSPoint(x: Double(width - square.side) / 2.0, y: Double(height - square.side) / 2.0)
+            switch ViewCaptureRequest.thumbnail(size: size, samplesPerPixel: spp) {
+            case .asCaptured:
+                break
+            case .notResized:
+                NSLog("********* spp != 3 I'll NOT resize")
+            case .square(let side):
+                let geometry = ViewCaptureRequest.thumbnailGeometry(width: width, height: height, size: size)
+                if let thumbnail = self.captureThumbnail(pixels, width: width, height: height, size: side, zeroed: true) {
+                    free(pixels)
+                    pixels = thumbnail
+                    width = side
+                    height = side
 
-                    if let thumbnail = self.captureThumbnail(pixels, width: width, height: height, size: Int(size), zeroed: true) {
-                        free(pixels)
-                        pixels = thumbnail
-                        width = Int(size)
-                        height = Int(size)
-
-                        // The spacing and origin of the thumbnail.
-                        let tempPt = self.convert(fromUpLeftView2GL: croppedOrigin)
-                        self.curDCM?.convertX(Float(tempPt.x), pixY: Float(tempPt.y), toDICOMCoords: &imOrigin, pixelCenter: true)
-                        imSpacing[0] /= rescale
-                        imSpacing[1] /= rescale
-                    }
+                    // The spacing and origin of the thumbnail.
+                    let tempPt = self.convert(fromUpLeftView2GL: geometry.origin)
+                    self.curDCM?.convertX(Float(tempPt.x), pixY: Float(tempPt.y), toDICOMCoords: &imOrigin, pixelCenter: true)
+                    imSpacing[0] /= geometry.rescale
+                    imSpacing[1] /= geometry.rescale
                 }
             }
 
-            exportDCM?.setSourceFile(self.imageObj()?.value(forKey: "completePath") as? String)
+            exportDCM?.setSourceFile(self.imageObj()?.completePath())
 
             var thickness: Float = 0, location: Float = 0
             self.getThickSlabThickness(&thickness, location: &location)
@@ -681,10 +690,7 @@ extension DCMView {
                 exportDCM?.setOrientation(&o)
             }
 
-            // As written before, the origin test is always true: spacing and
-            // origin are written whenever they are asked for.
-            if exportSpacingAndOrigin
-                && (imSpacing[0] != 0 || imSpacing[1] != 0 || imOrigin[0] != 0 || imOrigin[0] != 1 || imOrigin[0] != 2) {
+            if ViewCaptureRequest.writesSpacingAndOrigin(asked: exportSpacingAndOrigin) {
                 exportDCM?.setPosition(&imOrigin)
                 exportDCM?.setPixelSpacing(imSpacing[0], imSpacing[1])
             }
@@ -727,91 +733,74 @@ extension DCMView {
     public dynamic func nsimage(_ originalSize: Bool, allViewers: Bool) -> NSImage! {
         var width = 0, height = 0, spp = 0, bpp = 0
         let data: UnsafeMutablePointer<UInt8>?
-        let defaults = UserDefaults.standard
-        let tiled = self.is2DViewer() && (self.columns != 1 || self.rows != 1)
+        let preferences = PreferencesSource.process.preferences
+        let tiled = ViewCaptureRequest.isTiled(twoDViewer: self.is2DViewer(), rows: self.rows, columns: self.columns)
 
         // "copy" removes the red square around the selected image.
-        if self.horos_stringID == nil && !originalSize {
+        if ViewCaptureRequest.copyMarksViews(stringID: self.horos_stringID as String?, originalSize: originalSize) {
             if tiled {
-                let vs = (self.windowController() as? ViewerController)?.imageViews() as NSArray?
-                for view in vs ?? [] { (view as? DCMView)?.stringID = "copy" }
-                for view in vs ?? [] { (view as? NSView)?.display() }
+                let vs = self.viewerImageViews()
+                for view in vs { view.stringID = "copy" }
+                for view in vs { view.display() }
             } else {
                 self.stringID = "copy"
                 self.display()
             }
         }
 
-        if self.is2DViewer() && allViewers && ViewerController.numberOf2DViewer() > 1 {
-            let displayed = (ViewerController.getDisplayed2DViewers() as NSArray? as? [Any]) ?? []
-
+        let everyViewer = ViewCaptureRequest.copiesAllViewers(twoDViewer: self.is2DViewer(), allViewers: allViewers,
+                                                              viewerCount: Int(ViewerController.numberOf2DViewer()))
+        let request = ViewCaptureRequest.copy(originalSize: originalSize, allViewers: everyViewer,
+                                              includeAllTiledViews: preferences[ViewerPreferences.includeAllTiledViews],
+                                              allowSmartCropping: preferences[ViewerPreferences.allowSmartCropping])
+        if everyViewer {
             // The windows from the top left to the bottom right.
-            func frame(_ viewer: Any) -> NSRect { return (viewer as? NSWindowController)?.window?.frame ?? .zero }
-            var cWindows = displayed
-            var viewers: [Any] = []
-            for _ in 0..<cWindows.count {
-                var index = 0
-                var minY = Float(frame(cWindows[0]).origin.y)
-                for x in 0..<cWindows.count where frame(cWindows[x]).origin.y > CGFloat(minY) {
-                    minY = Float(frame(cWindows[x]).origin.y)
-                    index = x
-                }
-                var minX = Float(frame(cWindows[index]).origin.x)
-                for x in 0..<cWindows.count {
-                    let f = frame(cWindows[x])
-                    if f.origin.x < CGFloat(minX) && f.origin.y >= CGFloat(minY) {
-                        minX = Float(f.origin.x)
-                        index = x
-                    }
-                }
-                viewers.append(cWindows.remove(at: index))
-            }
+            let displayed = (ViewerController.getDisplayed2DViewers() as? [ViewerController]) ?? []
+            let viewers = ViewCaptureRequest.readingOrder(of: displayed.map { $0.window?.frame ?? .zero })
+                .map { displayed[$0] }
 
             // Their views, in screen pixels.
             var viewsRect: [Any] = []
-            for case let v as ViewerController in viewers {
+            for v in viewers {
                 v.seriesView()?.selectFirstTilingView()
 
                 let imageView = v.imageView()
-                var bounds = imageView?.bounds ?? .zero
-
-                if defaults.bool(forKey: "includeAllTiledViews") {
-                    bounds.size.width *= CGFloat(v.seriesView()?.imageColumns() ?? 0)
-                    bounds.size.height *= CGFloat(v.seriesView()?.imageRows() ?? 0)
-                }
-
+                let bounds = imageView?.bounds ?? .zero
                 let inWindow = NSRect(origin: imageView?.convert(bounds.origin, to: nil) ?? .zero, size: .zero)
-                bounds.origin = v.window?.convertToScreen(inWindow).origin ?? .zero
-                bounds = NSIntegralRect(bounds)
-
-                let scale = v.window?.backingScaleFactor ?? 0
-                bounds.origin.x *= scale
-                bounds.origin.y *= scale
-                bounds.size.width *= scale
-                bounds.size.height *= scale
-
-                viewsRect.append(NSValue(rect: bounds))
+                let tiles = request.allTiles
+                    ? ViewCaptureRequest.TileGrid(columns: Int(v.seriesView()?.imageColumns() ?? 0),
+                                                  rows: Int(v.seriesView()?.imageRows() ?? 0))
+                    : nil
+                let rect = ViewCaptureRequest.capturedRect(viewBounds: bounds,
+                                                           screenOrigin: v.window?.convertToScreen(inWindow).origin ?? .zero,
+                                                           tiles: tiles, backingScale: v.window?.backingScaleFactor ?? 0)
+                viewsRect.append(NSValue(rect: rect))
             }
 
-            data = self.getRawPixelsWidth(&width, height: &height, spp: &spp, bpp: &bpp, screenCapture: true,
-                                          force8bits: true, removeGraphical: false, squarePixels: true,
-                                          allTiles: defaults.bool(forKey: "includeAllTiledViews"),
-                                          allowSmartCropping: false, origin: nil, spacing: nil, offset: nil,
-                                          isSigned: nil, views: (viewers as NSArray).value(forKey: "imageView") as? [Any],
-                                          viewsRect: viewsRect)
+            // A viewer without an image view still takes its place, as an empty one.
+            let views = viewers.map { viewer -> Any in
+                if let view = viewer.imageView() { return view }
+                return NSNull()
+            }
+            data = self.getRawPixelsWidth(&width, height: &height, spp: &spp, bpp: &bpp,
+                                          screenCapture: request.screenCapture, force8bits: request.force8bits,
+                                          removeGraphical: request.removeGraphical, squarePixels: request.squarePixels,
+                                          allTiles: request.allTiles, allowSmartCropping: request.allowSmartCropping,
+                                          origin: nil, spacing: nil, offset: nil, isSigned: nil,
+                                          views: views, viewsRect: viewsRect)
         } else {
-            data = self.getRawPixelsWidth(&width, height: &height, spp: &spp, bpp: &bpp, screenCapture: !originalSize,
-                                          force8bits: true, removeGraphical: false, squarePixels: true,
-                                          allTiles: defaults.bool(forKey: "includeAllTiledViews"),
-                                          allowSmartCropping: defaults.bool(forKey: "allowSmartCropping"),
+            data = self.getRawPixelsWidth(&width, height: &height, spp: &spp, bpp: &bpp,
+                                          screenCapture: request.screenCapture, force8bits: request.force8bits,
+                                          removeGraphical: request.removeGraphical, squarePixels: request.squarePixels,
+                                          allTiles: request.allTiles, allowSmartCropping: request.allowSmartCropping,
                                           origin: nil, spacing: nil)
         }
 
         if self.horos_stringID == "copy" {
             if tiled {
-                let vs = (self.windowController() as? ViewerController)?.imageViews() as NSArray?
-                for view in vs ?? [] { (view as? DCMView)?.stringID = nil }
-                for view in vs ?? [] { (view as? NSView)?.display() }
+                let vs = self.viewerImageViews()
+                for view in vs { view.stringID = nil }
+                for view in vs { view.display() }
             } else {
                 self.stringID = nil
                 self.needsDisplay = true
@@ -830,6 +819,12 @@ extension DCMView {
         if let rep { image.addRepresentation(rep) }
         free(data)
         return image
+    }
+
+    /// The image views of this view's viewer.
+    private func viewerImageViews() -> [DCMView] {
+        guard let views = (self.windowController() as? ViewerController)?.imageViews() else { return [] }
+        return views.compactMap { $0 as? DCMView }
     }
 
     // MARK: - Print
@@ -873,7 +868,7 @@ extension DCMView {
     @objc(imageObj)
     public dynamic func imageObj() -> DicomImage! {
         self.warnIfNotOnMainThread()
-        let files = self.horos_dcmFilesList as NSArray?
+        let files = self.horos_dcmFilesList
         let curImage = Int(self.horos_curImage)
         if curImage >= 0 && curImage < files?.count ?? 0 {
             return files?.object(at: curImage) as? DicomImage
@@ -888,14 +883,14 @@ extension DCMView {
     @objc(seriesObj)
     public dynamic func seriesObj() -> DicomSeries! {
         self.warnIfNotOnMainThread()
-        let files = self.horos_dcmFilesList as NSArray?
+        let files = self.horos_dcmFilesList
         let curImage = Int(self.horos_curImage)
         if curImage >= 0 && curImage < files?.count ?? 0 {
-            return (files?.object(at: curImage) as? NSObject)?.value(forKey: "series") as? DicomSeries
+            return (files?.object(at: curImage) as? DicomImage)?.series
         }
         let index = self.indexOfShownPix()
         if index != NSNotFound {
-            return (files?.object(at: index) as? NSObject)?.value(forKey: "series") as? DicomSeries
+            return (files?.object(at: index) as? DicomImage)?.series
         }
         return self.curDCM?.seriesObj()
     }
@@ -903,14 +898,14 @@ extension DCMView {
     @objc(studyObj)
     public dynamic func studyObj() -> DicomStudy! {
         self.warnIfNotOnMainThread()
-        let files = self.horos_dcmFilesList as NSArray?
+        let files = self.horos_dcmFilesList
         let curImage = Int(self.horos_curImage)
         if curImage >= 0 && curImage < files?.count ?? 0 {
-            return (files?.object(at: curImage) as? NSObject)?.value(forKeyPath: "series.study") as? DicomStudy
+            return (files?.object(at: curImage) as? DicomImage)?.series?.study
         }
         let index = self.indexOfShownPix()
         if index != NSNotFound {
-            return (files?.object(at: index) as? NSObject)?.value(forKeyPath: "series.study") as? DicomStudy
+            return (files?.object(at: index) as? DicomImage)?.series?.study
         }
         return self.curDCM?.studyObj()
     }

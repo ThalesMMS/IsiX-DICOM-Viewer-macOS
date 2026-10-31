@@ -55,9 +55,11 @@ NS_ASSUME_NONNULL_BEGIN
 NSRecursiveLock* DicomDatabaseRegistryLock(void);
 
 /// Leaves the registry's lock that -release took, once the deallocating
-/// database is out of the registry: what it does next (its cleaning and routing
-/// threads, the superclass's -dealloc) must not hold the registry. -release
-/// then does not leave it a second time.
+/// database is out of the registry, which is the first thing its first deinit
+/// does (DicomDatabaseRegistry.leave): what it does next (a shared database's
+/// wait for its update, its cleaning and routing threads, the superclasses'
+/// -dealloc) must not hold the registry. -release then does not leave it a
+/// second time.
 void DicomDatabaseRegistryUnlockForDealloc(void);
 
 /// N2LogError(@"%@", message), with the function, file and line of the caller.

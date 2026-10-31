@@ -40,15 +40,10 @@
 // What ViewerController (Swift) keeps in Objective-C, because Swift cannot
 // write it: the methods of the "new" and "copy" families, whose result the
 // former code answered autoreleased (Swift would answer it retained, and a
-// caller that does not release it would leak it), the exported globals of the
-// viewers.
+// caller that does not release it would leak it).
 
 #import "ViewerController+CAPI.h"
 #import "MyPoint.h"
-
-int delayedTileWindows = NO;
-
-BOOL SyncButtonBehaviorIsBetweenStudies = NO;
 
 @implementation ViewerController (CAPI)
 

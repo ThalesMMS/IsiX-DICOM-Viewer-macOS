@@ -32,6 +32,7 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import private_tmpdir  # noqa: F401,E402  - its own TMPDIR for the tools it runs
+from isix_modules import module_flags  # noqa: E402
 from sources import source_text  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
@@ -61,19 +62,22 @@ for name, kind in (('OsiriXDB_Previous_DataModel2.5.xcdatamodel', 'wrapper.xcdat
 require((FORMER / 'elements').is_file(), 'the 2.5 model source is not kept')
 require((MODEL / 'OsiriXDB_DataModel.xcdatamodel/contents').is_file(), 'the current model is not the XML source')
 
-toolbar = source_text('ViewerController+Toolbar')
-identifier = re.search(r'fileprivate let (\w+) = "StudyNote"', toolbar)
+# The identifiers and lists are IsiXImaging's ViewerToolbarCatalog; the items
+# are made by ViewerToolbarItemFactory.
+catalog = (root / 'Modules/IsiXImaging/Sources/ViewerMenus/ViewerToolbarCatalog.swift').read_text()
+toolbar = source_text('ViewerToolbarItemFactory')
+identifier = re.search(r'public static let (\w+) = "StudyNote"', catalog)
 require(identifier, 'the toolbar has no StudyNote identifier')
 if identifier:
     name = identifier.group(1)
-    allowed = toolbar[toolbar.find('func toolbarAllowedItemIdentifiers'):]
-    allowed = allowed[:allowed.find('])')]
-    default = toolbar[toolbar.find('func toolbarDefaultItemIdentifiers'):]
-    default = default[:default.find('].map')]
-    require(name in allowed, 'the Note item is not among the allowed items of the 2D viewer')
-    require(name not in default, 'the Note item is among the default items of the 2D viewer')
-    branch = toolbar[toolbar.find('itemIdent == %s {' % name):]
-    branch = branch[:branch.find('} else if')]
+    allowed = catalog[catalog.find('public static func allowedIdentifiers'):]
+    allowed = allowed[:allowed.find('if canDisplay12Bit')]
+    default = catalog[catalog.find('public static let defaultIdentifiers'):]
+    default = default[:default.find(']')]
+    require(re.search(r'\b%s\b' % name, allowed), 'the Note item is not among the allowed items of the 2D viewer')
+    require(not re.search(r'\b%s\b' % name, default), 'the Note item is among the default items of the 2D viewer')
+    branch = toolbar[toolbar.find('case Catalog.%s:' % name):]
+    branch = branch[:branch.find('\n        case ', 1)]
     require('systemSymbolName: "note.text"' in branch, 'the Note item has no image of its own')
     require('#selector(ViewerController.showStudyNoteEditor(_:))' in branch, 'the Note item does not open the note editor')
     require('"Display the Note Editor"' in branch, 'the Note item has not the tooltip of the issue')
@@ -88,22 +92,21 @@ require('"note": .text' in shared, 'a client of a shared database cannot set the
 require('@objc func note() -> String! { nil }' in source_text('DCMTKStudyQueryNode'), 'a study of a DICOM node answers no note to the search and the sort')
 
 # --- 1-3. the models and the upgrade, against real stores ---------------------
-other = source_text('DicomDatabase+Other')
-helpers_start = other.find('/// The attributes that the former upgrade copied')
-helpers_end = other.find('public extension DicomDatabase {')
-method_start = other.find('    @objc(upgradeSqlFileFromModelVersion:)')
-method_end = other.find('    @objc(', method_start + 1)
+upgrade_source = source_text('DatabaseModelUpgrade')
+helpers_start = upgrade_source.find('/// `[NSEntityDescription entityForName:name inManagedObjectContext:context]`')
 note_start = editor.find('@objc(HorosStudyNote)\n')
 note_end = editor.find('@objc(HorosStudyNoteEditor)')
 plugins = source_text('BrowserController+Plugins')
 filter_start = plugins.find('    @objc(createFilterPredicate)')
 filter_end = plugins.find('    @objc(databaseSelection)', filter_start)
-require(min(helpers_start, helpers_end, method_start, method_end, note_start, note_end, filter_start, filter_end) >= 0,
+require(min(helpers_start, note_start, note_end, filter_start, filter_end) >= 0,
         'the upgrade, HorosStudyNote or -createFilterPredicate are not where this test reads them')
 
+# -createFilterPredicate hands the search to IsiXDatabase's StudySearchRules.
 DOUBLES = r'''
 import AppKit
 import CoreData
+import IsiXDatabase
 
 let NSAlertDefaultReturn = 1
 let NSAlertAlternateReturn = 0
@@ -114,6 +117,21 @@ var logged: [String] = []
 func N2ManagedObjectContextPerformAndWait(_ context: NSManagedObjectContext?, _ block: () -> Void) {
     guard let context, context.concurrencyType != .confinementConcurrencyType else { block(); return }
     context.performAndWait(block)
+}
+
+// The guards of HorosObjCException+Guards.swift, running each body.
+enum HorosObjCException {
+    @discardableResult
+    static func caught(_ body: () -> Void) -> NSException? { body(); return nil }
+    static func caught(_ body: () -> Void, catch handler: (NSException) -> Void) { body() }
+    static func caughtWithoutAllocation(_ body: () -> Void) -> NSException? { body(); return nil }
+    @discardableResult
+    static func logged(_ function: String, stack: Bool = false, _ body: () -> Void) -> Bool { body(); return false }
+    @discardableResult
+    static func synchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T { body() }
+    @discardableResult
+    static func raisingToCaller<T>(_ body: () -> T) -> T { body() }
+    static func throwing<T, Failure: Error>(_ failure: (NSException) -> Failure, _ body: () throws -> T) throws -> T { try body() }
 }
 
 enum DicomDatabaseObjC {
@@ -166,7 +184,17 @@ final class DicomDatabase: NSObject {
         managedObjectModel = model
     }
     func loadingFilePath() -> String? { return nil }
+    func modelVersionFilePath() -> String! { return (baseDirPath as NSString).appendingPathComponent("DB_VERSION") }
+    func rebuildAllowed() -> Bool { return true }
     func rebuild(_ complete: Bool) { rebuilt = true }
+    func upgradeSqlFile(fromModelVersion version: String!) -> Bool {
+        return DatabaseModelUpgrade(database: self, processGraph: ProcessGraph()).run(fromModelVersion: version)
+    }
+}
+
+final class ProcessGraph {
+    static let process = ProcessGraph()
+    var preferences: UserDefaults { .standard }
 }
 
 final class BrowserFixture: NSObject {
@@ -180,6 +208,7 @@ FILTER
 DRIVER = r'''
 import AppKit
 import CoreData
+import IsiXDatabase
 
 func emit(_ key: String, _ value: String) { print("\(key)\t\(value)") }
 
@@ -278,10 +307,10 @@ do {
             for name in study.entity.attributesByName.keys { entry[name] = study.value(forKey: name) ?? NSNull() }
             entry["~series"] = ((study.value(forKey: "series") as! NSSet).allObjects as! [NSManagedObject]).map { s -> String in
                 let images = ((s.value(forKey: "images") as! NSSet).allObjects as! [NSManagedObject]).map { i in
-                    i.entity.attributesByName.keys.filter { !upgradeImageSkippedKeys.contains($0) && !i.entity.attributesByName[$0]!.isTransient }
+                    i.entity.attributesByName.keys.filter { !ModelUpgradeRules.imageKeysLeftOut.contains($0) && !i.entity.attributesByName[$0]!.isTransient }
                         .sorted().map { "\($0)=\(i.value(forKey: $0) ?? "nil")" }.joined(separator: ",")
                 }.sorted()
-                return s.entity.attributesByName.keys.filter { !upgradeSeriesSkippedKeys.contains($0) }.sorted()
+                return s.entity.attributesByName.keys.filter { !ModelUpgradeRules.seriesKeysLeftOut.contains($0) }.sorted()
                     .map { "\($0)=\(s.value(forKey: $0) ?? "nil")" }.joined(separator: ",") + images.joined(separator: "|")
             }.sorted()
             entry["~albums"] = ((study.value(forKey: "albums") as! NSSet).allObjects as! [NSManagedObject])
@@ -329,10 +358,10 @@ if let (coordinator, store, context) = open(current) {
             }
             let series = ((study.value(forKey: "series") as! NSSet).allObjects as! [NSManagedObject]).map { s -> String in
                 let images = ((s.value(forKey: "images") as! NSSet).allObjects as! [NSManagedObject]).map { i in
-                    i.entity.attributesByName.keys.filter { !upgradeImageSkippedKeys.contains($0) && !i.entity.attributesByName[$0]!.isTransient }
+                    i.entity.attributesByName.keys.filter { !ModelUpgradeRules.imageKeysLeftOut.contains($0) && !i.entity.attributesByName[$0]!.isTransient }
                         .sorted().map { "\($0)=\(i.value(forKey: $0) ?? "nil")" }.joined(separator: ",")
                 }.sorted()
-                return s.entity.attributesByName.keys.filter { !upgradeSeriesSkippedKeys.contains($0) }.sorted()
+                return s.entity.attributesByName.keys.filter { !ModelUpgradeRules.seriesKeysLeftOut.contains($0) }.sorted()
                     .map { "\($0)=\(s.value(forKey: $0) ?? "nil")" }.joined(separator: ",") + images.joined(separator: "|")
             }.sorted()
             if series != entry["~series"] as! [String] { differences.append("\(uid) series or images") }
@@ -395,16 +424,16 @@ if not failures:
         if any(c.returncode != 0 for c in compiled) or not momd.exists() or not mom.exists():
             failures.append('the models do not compile with momc:\n%s' % ''.join(c.stderr for c in compiled)[-1500:])
         else:
-            helpers = other[helpers_start:helpers_end].replace('private let ', 'let ').replace('private func ', 'func ')
+            helpers = upgrade_source[helpers_start:]
             (directory / 'doubles.swift').write_text(DOUBLES.replace('VERSION', version.group(1))
                                                      .replace('FILTER', plugins[filter_start:filter_end]))
-            (directory / 'upgrade.swift').write_text('import AppKit\nimport CoreData\n\n' + helpers + '\nextension DicomDatabase {\n'
-                                                     + other[method_start:method_end] + '\n}\n')
+            (directory / 'upgrade.swift').write_text('import AppKit\nimport CoreData\nimport IsiXDatabase\nimport IsiXPreferences\n\n' + helpers)
             (directory / 'note.swift').write_text('import Foundation\nimport CoreData\n\n' + editor[note_start:note_end])
             (directory / 'main.swift').write_text(DRIVER)
             # Bundle.main of a tool is its folder: the former model is looked for there.
             binary = directory / 'study-note'
             built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-suppress-warnings', '-o', str(binary),
+                                    *module_flags('IsiXDatabase', directory / 'modules'),
                                     *(str(directory / f) for f in ('doubles.swift', 'upgrade.swift', 'note.swift', 'main.swift')),
                                     # The main-actor callbacks the upgrade uses.
                                     *([str(root / 'Horos/Sources/MainActorCallbacks.swift')]

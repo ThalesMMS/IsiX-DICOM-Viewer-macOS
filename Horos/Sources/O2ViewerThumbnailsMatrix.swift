@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 
 /// The viewer's series and studies thumbnails.
 ///
@@ -155,7 +156,8 @@ public final class O2ViewerThumbnailsMatrix: NSMatrix, NSDraggingSource {
 
             var screen: NSScreen? = nil
 
-            for case let s as NSScreen in AppController.shared().viewerScreens() ?? [] {
+            let processGraph = PreferencesSource.process.processGraph
+            for s in processGraph.windowArranger.viewerScreens() {
                 if NSPointInRect(screenPoint, s.frame) {
                     screen = s
                 }
@@ -169,12 +171,12 @@ public final class O2ViewerThumbnailsMatrix: NSMatrix, NSDraggingSource {
 
             if abs(screenPoint.x - draggingStartingPoint.x) > 50 && !(w?.windowController is ThumbnailsListPanel) && screen != nil && NSPointInRect(screenPoint, usefulRect) {
                 let series = (self.selectedCell()?.representedObject as? O2ViewerThumbnailsMatrixRepresentedObject)?.object as? NSManagedObject
-                let newViewer = BrowserController.currentBrowser()?.loadSeries(series, nil, true, keyImagesOnly: false)
+                let newViewer = OSIWindowController.browserWindowGraph(serving: self)?.browser.loadSeries(series, nil, true, keyImagesOnly: false)
                 newViewer?.setHighLighted(1.0)
-                if UserDefaults.standard.bool(forKey: "AUTOTILING") {
+                if PreferencesSource.process.preferences[ViewerPreferences.autoTiling] {
                     NSApp.sendAction(NSSelectorFromString("tileWindows:"), to: nil, from: self)
                 } else {
-                    AppController.shared().checkAllWindowsAreVisible(self, makeKey: true)
+                    processGraph.appController?.checkAllWindowsAreVisible(self, makeKey: true)
                 }
 
                 newViewer?.window?.makeKeyAndOrderFront(self)

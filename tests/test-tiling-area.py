@@ -5,8 +5,9 @@ Tiling took the whole visible frame of every screen, which is the wrong answer o
 a wide display where somebody wants a report application beside the images rather
 than behind them. The area is now a rectangle in fractions of the visible frame,
 kept per screen, and `+[AppController usefullRectForScreen:]` - the one place
-that decides where Horos puts a window - returns it. AppController is Swift,
-so its part is read in the Swift spelling.
+that decides where Horos puts a window - returns it, through
+ViewerWindowArranger, which also builds the Screen Area menu. Both are Swift,
+so their part is read in the Swift spelling.
 
 The arithmetic is a pure function, so the cases that matter can be stated: a
 fraction that runs off the edge, a reservation so large that nothing usable is
@@ -20,13 +21,15 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
+import process_graph_stand_in  # the 2D viewer's sources read the catalog's keys through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 failures = []
 application = sources.source_text('AppController')
+arranger = (root / 'Horos/Sources/ViewerWindowArranger.swift').read_text()
 
-at = application.find('class func usefullRect(for screen: NSScreen!, showFloatingWindows: Bool) -> NSRect {')
-body = application[at:application.index('\n    }\n', at)] if at >= 0 else ''
+at = arranger.find('static func usefulRect(for screen: NSScreen?, showFloatingWindows: Bool) -> NSRect {')
+body = arranger[at:arranger.index('\n    }\n', at)] if at >= 0 else ''
 if not body:
     failures.append('usefullRectForScreen:showFloatingWindows: is gone')
 else:
@@ -40,15 +43,17 @@ else:
         failures.append('the panels are taken off the screen before the area is chosen')
 
 # The menu is built in code because there is one nib per language.
-for wanted in ('func buildTilingAreaMenu()', '#selector(AppController.setTilingArea(_:))',
-               'TilingArea.presetNames', 'TilingArea.presetName(for:'):
-    if wanted not in application:
-        failures.append('AppController no longer has %s' % wanted)
+for wanted in ('func buildTilingAreaMenu(', '#selector(AppController.setTilingArea(_:))', 'TilingArea.presetNames'):
+    if wanted not in arranger:
+        failures.append('ViewerWindowArranger no longer has %s' % wanted)
+# The menu items show the area chosen for the key window's screen.
+if 'TilingArea.presetName(for:' not in application:
+    failures.append('AppController no longer checks the Screen Area item of the chosen area')
 
 # Each viewer has its own toolbar panel and they place themselves from the screen
 # parameters, so changing the area has to tell all of them, not just the front one.
-at = application.find('func setTilingArea(_ sender: Any!) {')
-action = application[at:application.index('\n    }\n', at)] if at >= 0 else ''
+at = arranger.find('func setTilingArea(presetNamed presetName: String?) {')
+action = arranger[at:arranger.index('\n    }\n', at)] if at >= 0 else ''
 if 'NSApplication.didChangeScreenParametersNotification' not in action:
     failures.append('changing the area leaves the other viewers\' panels where they were')
 
@@ -143,7 +148,7 @@ with tempfile.TemporaryDirectory(prefix='horos-tiling-area-') as tmp:
     p = Path(tmp)
     (p / 'main.swift').write_text(main)
     build = subprocess.run(['swiftc', str(root / 'Horos/Sources/TilingArea.swift'),
-                            str(p / 'main.swift'), '-o', str(p / 'test')],
+                            str(p / 'main.swift'), *process_graph_stand_in.swift_flags(p / 'isix'), '-o', str(p / 'test')],
                            capture_output=True, text=True)
     if build.returncode:
         print(build.stderr.strip()[-2000:])

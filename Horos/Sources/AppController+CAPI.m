@@ -42,7 +42,7 @@
 // - the globals and C functions the former AppController.m defined, which the
 //   executable exports and other files and plugins link: OsiriX, PapyrusLock,
 //   STORESCP, STORESCPTLS, thumbnailsListPanel, GetPrivateIP,
-//   GetAllPIDsForProcessName, HorosPathIsInsideBundle, screenFrame,
+//   GetAllPIDsForProcessName, HorosPathIsInsideBundle,
 //   and the others below, unchanged;
 // - +initialize, which Swift may not declare: it sends +initializeAppController,
 //   the Swift body of the former +initialize;
@@ -76,14 +76,10 @@
 ThumbnailsListPanel *thumbnailsListPanel[ MAXSCREENS] = {nil, nil, nil, nil, nil, nil, nil, nil, nil, nil};
 
 BOOL					NEEDTOREBUILD = NO;
-// The listener is Swift (DCMTKQueryRetrieveSCP.swift); these hold it.
-@class DCMTKQueryRetrieveSCP;
-
 BOOL					COMPLETEREBUILD = NO;
 BOOL					USETOOLBARPANEL = NO;
 //short					Altivec = 1;
 AppController			*appController = nil;
-DCMTKQueryRetrieveSCP   *dcmtkQRSCP = nil, *dcmtkQRSCPTLS = nil;
 NSRecursiveLock			*PapyrusLock = nil, *STORESCP = nil, *STORESCPTLS = nil;			// PapyrusLock: DCMPix parsed-file cache, annotations and the DCMTK reads of DicomFile (the name is kept: exported symbol)
 NSMutableArray			*accumulateAnimationsArray = nil, *recentStudies = nil;
 NSMutableDictionary     *recentStudiesAlbums = nil;
@@ -415,69 +411,6 @@ int GetAllPIDsForProcessName(const char* ProcessName,
         //found matches return success.
         return(kSuccess);
     }
-}
-
-NSRect screenFrame(void)
-{
-	int i = 0;
-	float height = 0.0;
-	float width = 0.0;
-	float singleWidth = 0.0;
-	int screenCount = [[NSScreen screens] count];
-	NSRect frame;
-	NSRect screenRect;
-	switch ([[NSUserDefaults standardUserDefaults] integerForKey: @"MULTIPLESCREENS"])
-	{
-		case 0:		// use main screen only
-			screenRect    = [[[NSScreen screens] objectAtIndex:0] visibleFrame];
-		break;
-		
-		case 1:		// use second screen only
-			if (screenCount == 2)
-			{
-				screenRect = [[[NSScreen screens] objectAtIndex: 1] visibleFrame];
-			}
-			else if ( screenCount > 2)
-			{
-				//multiple monitors. Need to span at least two monitors for viewing if they are the same size.
-				height = [[[NSScreen screens] objectAtIndex:1] frame].size.height;
-				singleWidth = width = [[[NSScreen screens] objectAtIndex:1] frame].size.width;
-				for (i = 2; i < screenCount; i ++)
-				{
-					frame = [[[NSScreen screens] objectAtIndex:i] frame];
-					if (frame.size.height == height && frame.size.width == singleWidth)
-						width = frame.size.width;
-				}	
-				screenRect = NSMakeRect([[[NSScreen screens] objectAtIndex:1] frame].origin.x, 
-										[[[NSScreen screens] objectAtIndex:1] frame].origin.y,
-										width,
-										height);	
-			}
-			else //only one screen
-			{
-				screenRect    = [[[NSScreen screens] objectAtIndex:0] visibleFrame];
-			}
-		break;
-		
-		case 2:		// use all screens
-			height = [[[NSScreen screens] objectAtIndex:0] frame].size.height;
-			singleWidth = width = [[[NSScreen screens] objectAtIndex:0] frame].size.width;
-			for (i = 1; i < screenCount; i ++)
-			{
-				frame = [[[NSScreen screens] objectAtIndex:i] frame];
-				if (frame.size.height == height && frame.size.width == singleWidth)
-					width = frame.size.width;
-			}
-			screenRect = NSMakeRect([[[NSScreen screens] objectAtIndex:0] frame].origin.x, 
-										[[[NSScreen screens] objectAtIndex:0] frame].origin.y,
-										width,
-										height);
-			//screenRect    = [[[NSScreen screens] objectAtIndex:0] visibleFrame];
-			
-			
-		break;
-	}
-	return screenRect;
 }
 
 #pragma mark - What the Swift class reaches through functions

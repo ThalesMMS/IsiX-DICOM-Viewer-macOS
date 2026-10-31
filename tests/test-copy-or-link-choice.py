@@ -33,12 +33,14 @@ sys.path.insert(0, str(root / 'tests'))
 from sources import source_text
 
 failures = []
-# The decision is IsiXDatabase's DatabaseCopyRule; the browser's Swift asks the
-# user and copies or links (BrowserController+DatabaseImport.swift).
-importing = (root / 'Horos/Sources/BrowserController+DatabaseImport.swift').read_text()
+# The decision is IsiXDatabase's DatabaseCopyRule; the browser's import asks
+# the user and copies or links (DroppedFilesImport.swift).
+importing = (root / 'Horos/Sources/DroppedFilesImport.swift').read_text()
 rule = (root / 'Modules/IsiXDatabase/Sources/ImportRules.swift').read_text()
-# AppController is Swift; the migration of the mode is read there.
-application = source_text('AppController')
+# The migration of the mode is a step of the launch in IsiXPreferences'
+# LaunchPreferenceMigrations, which ApplicationPreferencesSetup takes.
+migrations = source_text('LaunchPreferenceMigrations')
+setup = source_text('ApplicationPreferencesSetup')
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import default_preferences  # noqa: E402
 defaults = default_preferences.registered()
@@ -61,7 +63,7 @@ def body(source, signature):
     return ''
 
 
-region = body(importing, 'func copyFilesIntoDatabaseIfNeeded(')
+region = body(importing, 'func importFiles(')
 decision = body(rule, 'public static func decision(copyEnabled:')
 if not region or not decision:
     failures.append('the choice between copying and linking is gone')
@@ -81,8 +83,13 @@ else:
     for answer in ('Copy Files', 'Copy Links', 'Cancel'):
         if answer not in ask:
             failures.append('the panel no longer offers %r' % answer)
-    if 'removeAllObjects' not in ask:
+    if 'return false' not in ask:
         failures.append('cancelling no longer stops the import')
+    # The selector plugins send still empties the array it was given.
+    facade = body((root / 'Horos/Sources/BrowserController+DatabaseImport.swift').read_text(),
+                  'func copyFilesIntoDatabaseIfNeeded(')
+    if 'droppedFiles.importFiles(' not in facade or 'removeAllObjects' not in facade:
+        failures.append('a cancelled import no longer empties the files given to -copyFilesIntoDatabaseIfNeeded:options:')
 
     # A file whose path has no second component would be read out of bounds.
     drive = decision[decision.find('case notMainDrive:'):decision.find('case cdOnly:')]
@@ -95,7 +102,8 @@ else:
 
 # The removed mode is migrated on purpose, and the pane offers the three that are
 # left.
-if 'COPYDATABASEMODE' not in application:
+if 'if store[DatabasePreferences.copyToDatabaseMode] == 1 {\n            store.set(2, for: DatabasePreferences.copyToDatabaseMode)' \
+        not in migrations or 'LaunchPreferenceMigrations.migrateCopyToDatabaseMode(in: preferences)' not in setup:
     failures.append('a stored value for the mode that was taken out of the pane is no longer '
                     'migrated, so it would select nothing')
 if 'COPYDATABASEMODE' not in defaults:

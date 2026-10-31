@@ -2,13 +2,13 @@
 """Exercise the production 2D wheel stepping branches.
 
 The branches are DCMView+Scrolling.swift's, compiled as they are in a stand-in
-view with IsiXImaging, whose WheelSteps make the steps, and run: ordinary,
+view with IsiXImaging, whose StackNavigation (over WheelSteps) makes the steps
+and ends them around the series or at its ends, and run: ordinary,
 stack (Shift) and ComPACS steps, signed large deltas, an index past the
 short's range, the clamp of a huge step, and the clamp or wrap after the step.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
-import re
 import subprocess
 import sys
 import tempfile
@@ -19,26 +19,26 @@ import isix_modules  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 s = (root / 'Horos/Sources/DCMView+Scrolling.swift').read_text()
-tools = (root / 'Horos/Sources/DCMView+Tools.swift').read_text()
 wheel = s[s.index('    public override dynamic func scrollWheel(with theEvent: NSEvent) {'):]
 a = wheel.index('} else if modifiers.contains(.shift) {')
 b = wheel.index('\n        } else if abs(Double(deltaX)) > 0.7 {', a)
 branch = 'if' + wheel[a + len('} else if'):b]
-a = wheel.index('        if self.scrollThroughSeriesIfNecessary(Int32(self.horos_curImage)) {')
+a = wheel.index('        if !self.scrollThroughSeriesIfNecessary(Int32(self.horos_curImage)) {')
 b = wheel.index('        self.inputShowCurrentImage()', a)
 finish = wheel[a:b]
-beyond = re.search(r'@inline\(__always\)\nfunc inputBeyondLast\(.*?\n\}\n', tools, re.S).group(0)
+assert 'let settings = ScrollSettings(preferences: PreferencesSource.process.preferences)' in wheel, \
+    'the wheel no longer reads its preferences through ScrollSettings'
 
 code = harness_defaults.SWIFT + r'''
 import AppKit
 import IsiXImaging
 
-BEYOND
 nonisolated(unsafe) var compact = false
 enum PluginManager { static func isComPACS() -> Bool { compact } }
 final class Pix { var stack: Int16 = 3 }
 final class View {
-    var horos_curImage = 0
+    var stackNavigation = StackNavigation()
+    var horos_curImage: Int { get { stackNavigation.current } set { stackNavigation.current = newValue } }
     var horos_imageRows = 2, horos_imageColumns = 2
     var curDCM: Pix? = Pix()
     var dcmPixList: [Int] = []
@@ -51,6 +51,8 @@ BRANCH
     }
     func finish() {
         let dcmPixList = self.dcmPixList
+        // ScrollSettings' loopScrollWheel, as the module tests read it.
+        let settings = (loops: UserDefaults.standard.bool(forKey: "loopScrollWheel"), zooms: false)
 FINISH
     }
 }
@@ -91,7 +93,7 @@ compact = true; v.horos_curImage = 100
 v.step(1e12, reverse: 1, modifiers: [])
 check(v.horos_curImage == 104 && v.inc == 4, "ComPACS steps one row of images")
 print("PASS: ordinary/stack/ComPACS stepping, signed large deltas and stepping past the short's range")
-'''.replace('BEYOND', beyond).replace('BRANCH', branch).replace('FINISH', finish)
+'''.replace('BRANCH', branch).replace('FINISH', finish)
 
 with tempfile.TemporaryDirectory(prefix='horos-wheel-index-') as d:
     p = Path(d)

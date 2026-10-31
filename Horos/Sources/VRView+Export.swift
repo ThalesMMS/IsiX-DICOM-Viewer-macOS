@@ -39,6 +39,7 @@
 
 import AppKit
 import IsiXVolumeRendering
+import IsiXPreferences
 
 // The exports of VRView: the DICOM export of the current image, of the
 // movie's frames or of a turn around the volume; the QuickTime movies and
@@ -85,7 +86,6 @@ extension VRView {
         return nsimageQuicktime()
     }
 
-    @objc(imageForFrameVR:maxFrame:)
     func imageForFrameVR(_ cur: NSNumber!, maxFrame max: NSNumber!) -> NSImage! {
         let vtk = horos_vtk
         if cur.int32Value == -1 {
@@ -177,7 +177,6 @@ extension VRView {
         return nsimageQuicktime()
     }
 
-    @objc(resizeMatrix:size:)
     func resizeMatrix(_ currentImage: NSImage!, size matrixsize: Int32) -> NSImage! {
         let size = currentImage.size
         let sourceRect = NSMakeRect(0.0, 0.0, size.width, size.height)
@@ -248,7 +247,6 @@ extension VRView {
         dcmquality?.cell(withTag: 1)?.isEnabled = true
     }
 
-    @objc(centerRect:inRect:)
     func centerRect(_ smallRect: NSRect, inRect bigRect: NSRect) -> NSRect {
         var centerRect = NSRect.zero
         centerRect.size = smallRect.size
@@ -266,7 +264,7 @@ extension VRView {
     @objc(setViewSizeToMatrix3DExport)
     dynamic func setViewSizeToMatrix3DExport() {
         restoreSizeAfterMatrix3DExport()
-        let option = UserDefaults.standard.integer(forKey: "EXPORTMATRIXFOR3D")
+        let option = processGraph.preferences[ReconstructionPreferences.exportMatrixFor3D]
         let pixels: CGFloat = option == 1 ? 512 : (option == 2 ? 768 : 0)
         if pixels == 0 { return }
         horos_matrixExportLayout = VRExportLayout(view: self, pixelSize: pixels)
@@ -318,7 +316,7 @@ extension VRView {
             exportDCM.setDefaultWWWL(CConversion.long(horos_ww), CConversion.long(horos_wl))
 
             getOrientation(&o)
-            if UserDefaults.standard.bool(forKey: "exportOrientationIn3DExport") {
+            if processGraph.preferences[VolumeRenderingPreferences.exportOrientationIn3DExport] {
                 exportDCM.setOrientation(&o)
             }
 
@@ -501,7 +499,7 @@ extension VRView {
         }
 
         if !producedFiles.isEmpty {
-            HorosSceneView.importExportedFiles(producedFiles.compactMap { $0["file"] as? String })
+            GeneratedSeriesImport.process.add(producedFiles.compactMap { $0["file"] as? String })
         }
     }
 

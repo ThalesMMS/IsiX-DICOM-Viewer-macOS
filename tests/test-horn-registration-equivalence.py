@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The point-based registration gives the matrix the VTK one gave.
 
-HornRegistration (ViewerController+Registration.swift registers a series onto
+HornRegistration (ViewerRegistrationSession.swift registers a series onto
 another by pairs of 3D points) computed its matrix with vtkLandmarkTransform in
 its similarity mode. It is Swift now, over PointSetRegistration (IsiXImaging),
 which ports that arithmetic.
@@ -27,6 +27,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dcmtk_build import BUILD, ROOT  # noqa: E402
 import history_reference  # noqa: E402
 import isix_modules  # noqa: E402
+
+# The point-based registration of the viewers solves through this class.
+SESSION = (ROOT / 'Horos/Sources/ViewerRegistrationSession.swift').read_text(encoding='utf-8')
+if 'let horn = HornRegistration()' not in SESSION or 'horn.computeVTK(' not in SESSION:
+    print('FAIL: the point-based registration of the viewers no longer solves through HornRegistration')
+    raise SystemExit(1)
 
 VTK = BUILD / 'VTK.build/Install'
 if not (VTK / 'include/vtkLandmarkTransform.h').exists() or not (VTK / 'wlib/libVTK.a').exists():

@@ -31,12 +31,9 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 driver = root / 'tools/exercise-dictionary-iterator.cc'
-source = root / 'DCMTK'
 
 if not driver.exists():
     failures.append('the driver that walks the dictionary is gone')
-elif not source.exists():
-    failures.append('the vendored DCMTK is not here')
 else:
     with tempfile.TemporaryDirectory(prefix='horos-dict-') as directory:
         binary = Path(directory) / 'dicts'

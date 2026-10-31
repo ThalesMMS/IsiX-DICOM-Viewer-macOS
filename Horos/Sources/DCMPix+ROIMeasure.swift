@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 import IsiXROI
 
 // The ROI measures of DCMPix: the pixels and locations inside a ROI, a line's
@@ -115,98 +116,93 @@ extension DCMPix {
         var computed: UnsafeMutablePointer<Float>?
         var withoutPoints = false
 
-        do {
-            try HorosObjCException.perform {
-                if self.thickSlabVRActivated() {
-                    isRGBImage = true
-                } else {
-                    computed = self.computefImageForMeasurement()
-                }
-                if isRGBImage {
-                    computed = UnsafeMutableRawPointer(self.baseAddr).map { $0.assumingMemoryBound(to: Float.self) }
-                }
-                guard let roi else { return }
-                let width = self.horos_width, height = self.horos_height
+        // The ROI and its points are sent as messages, which a plugin's may not answer.
+        HorosObjCException.logged("-[DCMPix getROIValue:::]", stack: true) {
+            if self.thickSlabVRActivated() {
+                isRGBImage = true
+            } else {
+                computed = self.computefImageForMeasurement()
+            }
+            if isRGBImage {
+                computed = UnsafeMutableRawPointer(self.baseAddr).map { $0.assumingMemoryBound(to: Float.self) }
+            }
+            guard let roi else { return }
+            let width = self.horos_width, height = self.horos_height
 
-                if roi.type == .tPlain {
-                    let texture = DCMPix.texture(roi)
-                    let room = texture.width * texture.height
-                    values = malloc(room * MemoryLayout<Float>.size)?.assumingMemoryBound(to: Float.self)
-                    if let locations {
-                        locations.pointee = malloc(room * 2 * MemoryLayout<Float>.size)?.assumingMemoryBound(to: Float.self)
-                    }
-                    if let values, let computed {
-                        count = ROIBrushRaster.sample(texture, image: computed, imageWidth: width, imageHeight: height, isRGB: isRGBImage,
-                                                      values: values, locations: locations?.pointee)
-                    }
-                    return
-                }
-
-                let splinePoints = roi.splinePoints() ?? NSMutableArray()
-                if splinePoints.count == 0 {
-                    withoutPoints = true
-                    return
-                }
-                self.checkLoad()
-
-                var points = DCMPix.pixelPoints(splinePoints)
-                let clip = points.contains { $0.x < 0 || $0.y < 0 || $0.x >= width || $0.y >= height }
-
-                if points.count == 1 {
-                    values = malloc(MemoryLayout<Float>.size)?.assumingMemoryBound(to: Float.self)
-                    if let locations {
-                        locations.pointee = malloc(2 * MemoryLayout<Float>.size)?.assumingMemoryBound(to: Float.self)
-                    }
-                    let point = points[0]
-                    if clip {
-                        values?[0] = 0
-                    } else if let computed {
-                        let index = point.y &* width &+ point.x
-                        if isRGBImage {
-                            let pixel = UnsafeMutableRawPointer(computed).assumingMemoryBound(to: UInt8.self) + index * 4
-                            values?[0] = Float(Double(Int(pixel[1]) + Int(pixel[2]) + Int(pixel[3])) / 3.0)
-                        } else {
-                            values?[0] = computed[index]
-                        }
-                    }
-                    if let location = locations?.pointee {
-                        location[0] = Float(point.x)
-                        location[1] = Float(point.y)
-                    }
-                    count = 1
-                    return
-                }
-
-                if clip {
-                    points = ROIPolygonClip.clip(points, min: .zero, max: NSPoint(x: Double(width), y: Double(height)))
-                }
-                guard points.count > 2 else { return }
-
-                // The box of the points, on the image.
-                var upLeftX = points[0].x, upLeftY = points[0].y, downRightX = upLeftX, downRightY = upLeftY
-                for point in points {
-                    upLeftX = min(upLeftX, point.x); upLeftY = min(upLeftY, point.y)
-                    downRightX = max(downRightX, point.x); downRightY = max(downRightY, point.y)
-                }
-                upLeftX = min(max(upLeftX, 0), width); downRightX = min(max(downRightX, 0), width)
-                upLeftY = min(max(upLeftY, 0), height); downRightY = min(max(downRightY, 0), height)
-
-                let room = ((downRightX - upLeftX) + 2) * ((downRightY - upLeftY) + 2)
+            if roi.type == .tPlain {
+                let texture = DCMPix.texture(roi)
+                let room = texture.width * texture.height
                 values = malloc(room * MemoryLayout<Float>.size)?.assumingMemoryBound(to: Float.self)
                 if let locations {
                     locations.pointee = malloc(room * 2 * MemoryLayout<Float>.size)?.assumingMemoryBound(to: Float.self)
                 }
-                // Measurement reads this 2D buffer at slice zero. MPR planes
-                // have pixels without an owning pixArray.
                 if let values, let computed {
-                    count = ROIPolygonFill.sample(points, image: computed, width: width, height: height, isRGB: isRGBImage,
-                                                  values: values, locations: locations?.pointee, capacity: room,
-                                                  outOfRange: DCMPix.logEdgeOutOfRange)
+                    count = ROIBrushRaster.sample(texture, image: computed, imageWidth: width, imageHeight: height, isRGB: isRGBImage,
+                                                  values: values, locations: locations?.pointee)
                 }
+                return
             }
-        } catch {
-            if let exception = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                _N2LogExceptionImpl(exception, true, "-[DCMPix getROIValue:::]")
+
+            let splinePoints = roi.splinePoints() ?? NSMutableArray()
+            if splinePoints.count == 0 {
+                withoutPoints = true
+                return
+            }
+            self.checkLoad()
+
+            var points = DCMPix.pixelPoints(splinePoints)
+            let clip = points.contains { $0.x < 0 || $0.y < 0 || $0.x >= width || $0.y >= height }
+
+            if points.count == 1 {
+                values = malloc(MemoryLayout<Float>.size)?.assumingMemoryBound(to: Float.self)
+                if let locations {
+                    locations.pointee = malloc(2 * MemoryLayout<Float>.size)?.assumingMemoryBound(to: Float.self)
+                }
+                let point = points[0]
+                if clip {
+                    values?[0] = 0
+                } else if let computed {
+                    let index = point.y &* width &+ point.x
+                    if isRGBImage {
+                        let pixel = UnsafeMutableRawPointer(computed).assumingMemoryBound(to: UInt8.self) + index * 4
+                        values?[0] = Float(Double(Int(pixel[1]) + Int(pixel[2]) + Int(pixel[3])) / 3.0)
+                    } else {
+                        values?[0] = computed[index]
+                    }
+                }
+                if let location = locations?.pointee {
+                    location[0] = Float(point.x)
+                    location[1] = Float(point.y)
+                }
+                count = 1
+                return
+            }
+
+            if clip {
+                points = ROIPolygonClip.clip(points, min: .zero, max: NSPoint(x: Double(width), y: Double(height)))
+            }
+            guard points.count > 2 else { return }
+
+            // The box of the points, on the image.
+            var upLeftX = points[0].x, upLeftY = points[0].y, downRightX = upLeftX, downRightY = upLeftY
+            for point in points {
+                upLeftX = min(upLeftX, point.x); upLeftY = min(upLeftY, point.y)
+                downRightX = max(downRightX, point.x); downRightY = max(downRightY, point.y)
+            }
+            upLeftX = min(max(upLeftX, 0), width); downRightX = min(max(downRightX, 0), width)
+            upLeftY = min(max(upLeftY, 0), height); downRightY = min(max(downRightY, 0), height)
+
+            let room = ((downRightX - upLeftX) + 2) * ((downRightY - upLeftY) + 2)
+            values = malloc(room * MemoryLayout<Float>.size)?.assumingMemoryBound(to: Float.self)
+            if let locations {
+                locations.pointee = malloc(room * 2 * MemoryLayout<Float>.size)?.assumingMemoryBound(to: Float.self)
+            }
+            // Measurement reads this 2D buffer at slice zero. MPR planes
+            // have pixels without an owning pixArray.
+            if let values, let computed {
+                count = ROIPolygonFill.sample(points, image: computed, width: width, height: height, isRGB: isRGBImage,
+                                              values: values, locations: locations?.pointee, capacity: room,
+                                              outOfRange: DCMPix.logEdgeOutOfRange)
             }
         }
 
@@ -310,7 +306,7 @@ extension DCMPix {
                            _ dev: UnsafeMutablePointer<Float>?, _ min: UnsafeMutablePointer<Float>?, _ max: UnsafeMutablePointer<Float>?,
                            _ skewness: UnsafeMutablePointer<Float>?, _ kurtosis: UnsafeMutablePointer<Float>?) {
         var skewness = skewness, kurtosis = kurtosis
-        if !UserDefaults.standard.bool(forKey: "ROIComputeSkewnessAndKurtosis") {
+        if !PreferencesSource.process.preferences[ViewerPreferences.roiComputesSkewnessAndKurtosis] {
             skewness?.pointee = 0
             kurtosis?.pointee = 0
             skewness = nil

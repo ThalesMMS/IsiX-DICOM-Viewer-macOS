@@ -10,6 +10,7 @@
 
 import Foundation
 import Testing
+import IsiXPreferences
 @testable import IsiXDatabase
 
 @Suite struct DecompressConversionTests {
@@ -178,9 +179,7 @@ import Testing
     }
 
     @Test func theSettingsAreTheConversionKeysTheDefaultsHave() {
-        let defaults = UserDefaults(suiteName: "decompress-conversion-\(UUID().uuidString)")!
-        defaults.set(512, forKey: "CompressionResolutionLimit")
-        defaults.set("other", forKey: "Unrelated")
+        let defaults = MemoryPreferences(["CompressionResolutionLimit": 512, "Unrelated": "other"])
         let settings = DecompressConversion.settings(from: defaults)
         #expect(settings.count == 1)
         #expect((settings["CompressionResolutionLimit"] as? NSNumber)?.intValue == 512)

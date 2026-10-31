@@ -85,7 +85,11 @@ if not re.search(r'RequirePeerCertificate\s*=\s*0,\s*VerifyPeerCertificate,\s*Ig
 # Every place that turns a stored value into a verification level must normalise.
 # The listener is Swift: it reads its setting through the policy.
 listener = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.swift').read_text()
-at = listener.find('"TLSStoreSCPCertificateVerification"')
+# Through the catalog's key of TLSStoreSCPCertificateVerification.
+catalog = (root / 'Modules/IsiXPreferences/Sources/NetworkPreferences.swift').read_text()
+at = listener.find('NetworkPreferences.tlsListenerCertificateVerification')
+if 'tlsListenerCertificateVerification = PreferenceKey<PropertyListValue?>("TLSStoreSCPCertificateVerification")' not in catalog:
+    at = -1
 if at < 0:
     failures.append('DCMTKQueryRetrieveSCP.swift no longer reads TLSStoreSCPCertificateVerification; this test is stale')
 elif not re.match(r'[^\n]*\n\s*let verification = TLSVerificationPolicy\.normalise\(Int\(stored\)\)', listener[at:]):

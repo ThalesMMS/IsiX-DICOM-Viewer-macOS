@@ -42,7 +42,11 @@ import IsiXDICOMNetwork
 import IsiXDICOMFile
 
 /// An image of a node's series, as an IMAGE level search lists it.
-@objc(DCMTKImageQueryNode)
+/// @usableFromInline because plugins built against the former SDK look up its
+/// Objective-C class: without it, the class symbol of an internal Swift class is
+/// private external, which a Release build, having no testability, leaves
+/// unexported. The attribute gives it public linkage and changes nothing else.
+@objc(DCMTKImageQueryNode) @usableFromInline
 final class DCMTKImageQueryNode: DCMTKQueryNode, @unchecked Sendable {
     private var studyInstanceUIDValue: String?
     private var seriesInstanceUIDValue: String?

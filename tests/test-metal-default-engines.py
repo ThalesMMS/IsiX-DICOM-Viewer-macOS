@@ -120,7 +120,8 @@ if 'EngineToolbarItemIdentifier' in read('Horos/Sources/EndoscopyViewer.swift'):
     failures.append('Horos/Sources/EndoscopyViewer.swift still has an Engine toolbar item')
 
 # --- the pilot is still chosen by hand --------------------------------------
-if 'UserDefaults.standard.bool(forKey: PlanarBackend.pilotDefaultsKey)' not in read('Horos/Sources/PlanarHostRenderer.swift'):
+if 'PreferencesSource.process.preferences[ViewerPreferences.planarMetal4Pilot]' not in read('Horos/Sources/PlanarHostRenderer.swift') \
+        or 'planarMetal4Pilot = PreferenceKey<Bool>("HorosPlanarMetal4Pilot")' not in read('Modules/IsiXPreferences/Sources/ViewerPreferences.swift'):
     failures.append('the planar backend no longer reads the pilot preference as an opt-in')
 
 if failures:

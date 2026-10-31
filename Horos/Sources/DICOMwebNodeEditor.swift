@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 
 /// The "DICOMweb Nodes" area of the Locations pane.
 ///
@@ -62,7 +63,7 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
     @IBOutlet public weak var testButton: NSButton?
     @IBOutlet public weak var testProgress: NSProgressIndicator?
 
-    var defaults = UserDefaults.standard
+    var defaults = PreferencesSource.process.preferences
     private(set) var nodes: [DICOMwebNode] = []
     /// Credential summaries by identifier, read from the Keychain once each.
     private var summaries: [String: String] = [:]
@@ -202,13 +203,15 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
         logs.frame.origin = NSPoint(x: edge - logs.frame.width - 8, y: title.midY - logs.frame.height / 2)
         logs.autoresizingMask = box.autoresizingMask.contains(.width) ? [.minXMargin] : []
         if !container.isFlipped { logs.autoresizingMask.insert(.minYMargin) } else { logs.autoresizingMask.insert(.maxYMargin) }
-        logs.bind(.value, to: NSUserDefaultsController.shared, withKeyPath: "values.NETWORKLOGS", options: nil)
+        logs.bind(.value, to: NSUserDefaultsController.shared, withKeyPath: NetworkPreferences.controllerKeyPath(NetworkPreferences.networkLogs), options: nil)
         container.addSubview(logs, positioned: .above, relativeTo: box)
     }
 
-    /// The browser reads the setting once, as the Listener pane's switch has it read.
+    /// The browser reads the setting once, as the Listener pane's switch has it
+    /// read: the browser of the database window of the process, which the
+    /// Locations pane's nib, where this controller is made, does not know.
     @objc private func networkLogsChanged(_ sender: Any?) {
-        BrowserController.currentBrowser()?.setNetworkLogs()
+        PreferencesSource.process.processGraph.browserWindow?.browser.setNetworkLogs()
     }
 
     /// Reads the list again, as the pane is shown.
@@ -269,6 +272,8 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
         updateButtons()
     }
 
+    private static let verifications = DispatchQueue(label: "Horos.DICOMwebNodeVerification", qos: .userInitiated)
+
     /// Verifies the selected node with a QIDO query (limit=1) at its QIDO
     /// path and with its own credential, off the main thread, and says how it
     /// went: network, TLS, timeout, refused credentials (401/403) and a wrong
@@ -284,7 +289,9 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
         testing = true
         testProgress?.startAnimation(self)
         updateButtons()
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        // The query blocks its thread until the node answers or the timeout
+        // ends it: on the editor's own queue.
+        Self.verifications.async { [weak self] in
             let failure: NSError?
             do { try DICOMwebClient(node: configuration, timeout: 30).verify(); failure = nil } catch { failure = error as NSError }
             DispatchQueue.main.async { [weak self] in
@@ -318,7 +325,10 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
         if let window = tableView?.window, window.isVisible {
             alert.beginSheetModal(for: window, completionHandler: nil)
         } else {
-            alert.runModal()
+            // Without the window the alert is modal. It opens from the main run
+            // loop: a verification answers in a block of the main queue and a
+            // sign-in in a main-actor task, which the modal loop would hold.
+            onMainRunLoop { _ = alert.runModal() }
         }
     }
 

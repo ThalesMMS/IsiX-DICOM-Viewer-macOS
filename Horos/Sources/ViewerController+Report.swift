@@ -38,54 +38,38 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
-import IsiXImaging
 
 // The report of the 2D viewer's study: the Report toolbar item (its icon
 // after the reports application of the preferences, or a pop-up of the
 // templates when the study has no report yet and there is more than one), and
 // the commands that create and delete the report through the browser. The
-// selectors are those of the former Objective-C methods; the OSIRIX_LIGHT
-// branches, a build that is not made, are left out.
-
-/// The identifier of the Report toolbar item (a file-scope static of
-/// ViewerController.m before; ViewerController+Toolbar.swift has its own).
-private let ReportToolbarItemIdentifier = "Report.icns"
-
-/// The REPORTSMODE preference: 0 Word, 1 TextEdit, 2 Pages, 3 DICOM SR.
-private func reportsMode() -> Int32 {
-    (UserDefaults.standard.string(forKey: "REPORTSMODE") as NSString?)?.intValue ?? 0
-}
+// selectors are those of the former Objective-C methods; the work is
+// ViewerImageExporter's. The notifications reach these methods through
+// statics that receive the viewer.
 
 public extension ViewerController {
 
     @objc(deleteReport:)
     func deleteReport(_ sender: Any!) {
-        BrowserController.currentBrowser()?.deleteReport(sender)
-        perform(#selector(ViewerController.updateReportToolbarIcon(_:)), with: nil, afterDelay: 0.1)
+        imageExporter.deleteReport(sender)
     }
 
     @objc(generateReport:)
     func generateReport(_ sender: Any!) {
-        BrowserController.currentBrowser()?.generateReport(sender)
-        perform(#selector(ViewerController.updateReportToolbarIcon(_:)), with: nil, afterDelay: 0.1)
+        imageExporter.generateReport(sender)
     }
 
     /// The icon of the reports application of the preferences.
     @objc(reportIcon)
     func reportIcon() -> NSImage! {
-        return NSImage.toolbarImageNamed(ViewerReportIcon.name(reportsMode: UserDefaults.standard.string(forKey: "REPORTSMODE")))
+        ViewerImageExporter.reportIcon(preferences: sessionGraph.preferences)
     }
 
     /// Puts the Report toolbar item in again, so that it takes the icon or the
     /// pop-up that applies now.
     @objc(updateReportToolbarIcon:)
     func updateReportToolbarIcon(_ note: Notification!) {
-        guard let toolbar = horos_toolbar else { return }
-        let toolbarItems = toolbar.items
-        for (i, item) in toolbarItems.enumerated() where item.itemIdentifier.rawValue == ReportToolbarItemIdentifier {
-            toolbar.removeItem(at: i)
-            toolbar.insertItem(withItemIdentifier: NSToolbarItem.Identifier(ReportToolbarItemIdentifier), at: i)
-        }
+        ViewerImageExporter.updateReportToolbarIcon(of: self)
     }
 
     /// The Report toolbar item: the pop-up of the templates when the study has
@@ -93,49 +77,12 @@ public extension ViewerController {
     /// application's icon otherwise.
     @objc(setToolbarReportIconForItem:)
     func setToolbarReportIconFor(_ item: NSToolbarItem!) {
-        var templatesArray: NSMutableArray? = nil
-        switch reportsMode() {
-        case 2:
-            templatesArray = Reports.pagesTemplatesList()
-        case 0:
-            templatesArray = Reports.wordTemplatesList()
-        default:
-            break
-        }
-
-        let studySelected = (horos_fileList(at: 0)?.object(at: 0) as AnyObject?)?.value(forKeyPath: "series.study") as? DicomStudy
-
-        if studySelected?.reportURL == nil && (templatesArray?.count ?? 0) > 1 {
-            horos_reportTemplatesImageView?.image = reportIcon()
-            item?.view = horos_reportTemplatesView
-            let size = ToolbarPolicy.designedSize(of: horos_reportTemplatesView)
-            ToolbarPolicy.constrainView(of: item, minimum: size, maximum: size)
-        } else {
-            item?.image = reportIcon()
-        }
+        ViewerImageExporter.setReportToolbarIcon(for: item, of: self, preferences: sessionGraph.preferences)
     }
 
     /// Fills the templates pop-up of the Report toolbar item as it opens.
     @objc(reportToolbarItemWillPopUp:)
     func reportToolbarItemWillPopUp(_ notif: Notification!) {
-        guard let popUp = horos_reportTemplatesListPopUpButton,
-              (notif?.object as? NSObject)?.isEqual(to: popUp) ?? false else { return }
-
-        popUp.removeAllItems()
-        popUp.addItem(withTitle: "")
-
-        // Folders of the templates folder are submenus, as in the browser.
-        switch reportsMode() {
-        case 2:
-            ReportTemplateMenu.populate(popUp.menu!, templates: (Reports.pagesTemplatesList() as? [String]) ?? [],
-                                        folder: Reports.databasePagesTemplatesDirPath(), target: self, action: #selector(ViewerController.generateReport(_:)))
-        case 0:
-            ReportTemplateMenu.populate(popUp.menu!, templates: (Reports.wordTemplatesList() as? [String]) ?? [],
-                                        folder: Reports.resolvedDatabaseWordTemplatesDirPath(), target: self, action: #selector(ViewerController.generateReport(_:)))
-        default:
-            break
-        }
-
-        popUp.action = #selector(ViewerController.generateReport(_:))
+        ViewerImageExporter.reportTemplatesWillPopUp(notif, of: self, preferences: sessionGraph.preferences)
     }
 }

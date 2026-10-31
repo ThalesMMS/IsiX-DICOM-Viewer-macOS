@@ -118,7 +118,8 @@ public enum StudyDateInterval {
     }
 }
 
-/// When the search field also asks the PACS On-Demand nodes.
+/// What the browser's search field searches, the predicate of the study list
+/// it makes, and when it also asks the PACS On-Demand nodes.
 public enum StudySearchRules {
     /// The tag of the search menu's "Modality" item, which already asks with
     /// two characters.
@@ -128,5 +129,88 @@ public enum StudySearchRules {
     /// counts UTF-16 code units, as the field's string does.
     public static func queriesDistantNodes(searchLength length: Int, searchType: Int) -> Bool {
         return length > 2 || (length >= 2 && searchType == modalitySearchType)
+    }
+
+    /// The items of the search field's menu, by their tag (the browser's
+    /// `searchType`, saved as the "searchType" preference).
+    public enum Field: Int, Sendable, CaseIterable {
+        case patientName = 0
+        case patientID = 1
+        case studyID = 2
+        case comments = 3
+        case studyDescription = 4
+        case modality = 5
+        case accessionNumber = 6
+        case allFields = 7
+        case comments2 = 8
+        case comments3 = 9
+        case comments4 = 10
+        case seriesDescription = 11
+        /// The advanced search makes its predicate elsewhere.
+        case advanced = 100
+    }
+
+    /// The field a search of `searchType` looks in for a string the field
+    /// holds: nil without a string (no UTF-16 code unit) or for a tag the menu
+    /// does not have.
+    public static func field(searchType: Int, searchString: String?) -> Field? {
+        guard let searchString, (searchString as NSString).length > 0 else { return nil }
+        return Field(rawValue: searchType)
+    }
+
+    /// The study attribute that holds the string, in any case and with any
+    /// diacritics, for the fields that compare one attribute.
+    static func attribute(of field: Field) -> String? {
+        switch field {
+        case .patientID: return "patientID"
+        case .studyID: return "id"
+        case .comments: return "comment"
+        case .studyDescription: return "studyName"
+        // A Core Data relationship: the studies with a matching series, which
+        // the list shows whole.
+        case .seriesDescription: return "ANY series.name"
+        case .modality: return "modality"
+        case .accessionNumber: return "accessionNumber"
+        case .comments2: return "comment2"
+        case .comments3: return "comment3"
+        case .comments4: return "comment4"
+        case .patientName, .allFields, .advanced: return nil
+        }
+    }
+
+    /// The attributes "All fields" looks in, once its string has three
+    /// characters.
+    static let allFieldsAttributes = ["name", "patientID", "id", "comment", "comment2", "comment3", "comment4", "studyName",
+                                      "modality", "accessionNumber", "performingPhysician", "referringPhysician",
+                                      "institutionName", "note"]
+
+    /// The predicate of the study list for the search field's string, nil
+    /// for none (no string, the advanced search, a tag the menu does not
+    /// have). The patient's name is matched by `namePredicate`, which knows
+    /// the names that sound alike; "All fields" matches only the name with
+    /// fewer than three characters.
+    public static func filterPredicate(searchString: String?, searchType: Int,
+                                       namePredicate: (String) -> NSPredicate?) -> NSPredicate? {
+        guard let searchString, let field = field(searchType: searchType, searchString: searchString) else { return nil }
+        let string = searchString as NSString
+        switch field {
+        case .patientName:
+            return namePredicate(searchString)
+        case .allFields:
+            guard string.length >= 3 else { return namePredicate(searchString) }
+            let format = allFieldsAttributes.map { "(\($0) CONTAINS[cd] %@)" }.joined(separator: " OR ")
+            return NSPredicate(format: format, argumentArray: Array(repeating: string, count: allFieldsAttributes.count))
+        case .advanced:
+            return nil
+        default:
+            guard let attribute = attribute(of: field) else { return nil }
+            return NSPredicate(format: attribute + " CONTAINS[cd] %@", string)
+        }
+    }
+
+    /// Whether the field's text is drawn in the colour of its background: the
+    /// patient's name is searched while the names are hidden.
+    public static func hidesSearchText(searchType: Int, hidePatientName: Bool) -> Bool {
+        searchType == Field.patientName.rawValue && hidePatientName
     }
 }

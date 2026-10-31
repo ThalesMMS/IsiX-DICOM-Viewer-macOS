@@ -26,12 +26,13 @@ failures = []
 # What the project had besides Documentation. Grok went, as nothing linked it; CharLS stayed while
 # DCM.framework's JPEG-LS decoding used it, and went with that decoder; DCM went when its dataset
 # model moved into the DCMTK adapter. FeedbackReporter went when the crash report
-# became a window of the application.
+# became a window of the application. Submodules went when DCMTK and OpenSSL came
+# to be compiled from their pinned source archives instead of git submodules.
 EXPECTED_TARGETS = {"DCMTK", "Decompress", "Horos", "HorosFinderPreview",
-                    "HorosFinderThumbnail", "ITK", "OpenJPEG", "OpenSSL", "Submodules", "Unzip Binaries", "VTK"}
+                    "HorosFinderThumbnail", "ITK", "OpenJPEG", "OpenSSL", "Unzip Binaries", "VTK"}
 EXPECTED_SCHEMES = {"Cleanup Binaries", "DCMTK", "DICOMPrint", "Decompress", "Horos",
                     "HorosFinderPreview", "HorosFinderThumbnail", "ITK", "OpenJPEG",
-                    "OpenSSL", "Submodules", "Unzip Binaries", "VTK"}
+                    "OpenSSL", "Unzip Binaries", "VTK"}
 RETIRED_FILES = ["Doxyfile-horos", "Doxyfile-dcmframework", "LocalizationExtract.sh", "LocalizationGenerate.sh",
                  "README.txt", "To-Do.txt", "ramDiskScript.txt"]
 

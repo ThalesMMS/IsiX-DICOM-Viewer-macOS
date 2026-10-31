@@ -10,14 +10,21 @@ xcodebuild replaced by a stand-in that either fails or "builds" a small bundle:
 - a first good build leaves IsiX DICOM Viewer.app, BUILD-INFO.txt and SHA256SUMS.txt; the
   sums verify with shasum, BUILD-INFO names the executable's SHA-256, says the
   bundle is not Developer ID signed nor notarized, and names no home folder;
-- a failed build and a build whose bundle loads a library from outside itself
-  or lacks a license notice fail and leave those three files as they were;
+- a failed build and a build whose bundle loads a library from outside itself,
+  lacks a license notice or lacks the source record of a native dependency
+  compiled from its pinned archive fail and leave those three files as they were;
 - a second good build replaces the three and keeps the previous ones under the
   same date;
 - an x86_64 build (HOROS_RELEASE_ARCH=x86_64) passes that slice and its own
   derived data to xcodebuild, writes build/Release/x86_64 and leaves the arm64
   package alone; an arm64 bundle offered as x86_64 fails the audit, and an
-  unknown slice or an x86_64 App Store build is refused before building.
+  unknown slice or an x86_64 App Store build is refused before building;
+- the arm64 build also asks tools/export-isix-plugin-kit.py (a stand-in here)
+  for the plugin SDK zip, both architectures, named after the version in
+  Horos/Horos.xcconfig, and puts it in build/Release beside the slices; a
+  failed export leaves the package and the SDK as they were, a new SDK keeps
+  the previous one under the date of the other three, and the x86_64 build
+  makes none.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
@@ -51,8 +58,8 @@ checkout.mkdir()
 subprocess.run(['/usr/bin/git', 'init', '-q', str(checkout)], check=True)
 for relative in ('script/build_release.sh', 'script/release-metadata.py', 'tools/audit-release-bundle.py',
                  'Horos/Horos.entitlements', 'Decompress/Decompress.entitlements',
-                 'Horos/Configuration/GitHub.xcconfig', 'FinderPreview/FinderPreview.entitlements',
-                 'Horos/Scripts/DCMTK/PREPARATION.json'):
+                 'Horos/Configuration/GitHub.xcconfig', 'Horos/Horos.xcconfig', 'FinderPreview/FinderPreview.entitlements',
+                 'Horos/Scripts/DCMTK/PREPARATION.json', 'Horos/Scripts/external-sources.json'):
     (checkout / relative).parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(root / relative, checkout / relative)
 # The strict notices audit reads the app's authoritative catalog as well as the
@@ -81,6 +88,25 @@ itk_installed = checkout / 'build/Intermediates.noindex/Horos.build/Release/ITK.
 itk_pin = json.loads((root/'Horos/Scripts/external-sources.json').read_text())['ITK']
 itk_source_json = json.dumps(itk_pin)
 (itk_installed/'share/source.json').write_text(itk_source_json)
+# DCMTK and OpenSSL are compiled from their pinned original archives too: each
+# install carries the version header the metadata reads and its source record.
+dcmtk_pin = json.loads((root/'Horos/Scripts/external-sources.json').read_text())['DCMTK']
+dcmtk_source_json = json.dumps(dcmtk_pin)
+dcmtk_installed = checkout / 'build/Intermediates.noindex/Horos.build/Release/DCMTK.build/Install'
+(dcmtk_installed/'include/dcmtk/config').mkdir(parents=True)
+dcmtk_release, dcmtk_suffix = re.fullmatch(r'([0-9.]+)(\+?)', dcmtk_pin['version']).groups()
+(dcmtk_installed/'include/dcmtk/config/osconfig.h').write_text(
+    '#define PACKAGE_VERSION "%s"\n#define PACKAGE_VERSION_SUFFIX "%s"\n' % (dcmtk_release, dcmtk_suffix))
+(dcmtk_installed/'share').mkdir()
+(dcmtk_installed/'share/source.json').write_text(dcmtk_source_json)
+openssl_pin = json.loads((root/'Horos/Scripts/external-sources.json').read_text())['OpenSSL']
+openssl_source_json = json.dumps(openssl_pin)
+openssl_installed = checkout / 'build/Intermediates.noindex/Horos.build/Release/OpenSSL.build/Install'
+(openssl_installed/'include/openssl').mkdir(parents=True)
+(openssl_installed/'include/openssl/opensslv.h').write_text(
+    '# define OPENSSL_FULL_VERSION_STR "%s"\n' % openssl_pin['version'])
+(openssl_installed/'share').mkdir()
+(openssl_installed/'share/source.json').write_text(openssl_source_json)
 freetype_pin = json.loads((root/'Horos/Scripts/VTK/freetype-source.json').read_text())
 vtk_adaptation = json.dumps({'source':freetype_pin,'method':'Mach-O alias, original symbol localized',
     'publicSymbol':'_vtkfreetype_FT_MulFix','localSymbol':'_FT_MulFix',
@@ -147,6 +173,15 @@ def make_product(folder, outside=None, notices=True, marker='one', arch='arm64')
     shutil.copyfile(root/'Binaries/Splash/ThirdParty/Native/VTK/Copyright.txt',
                     resources/'CompiledSources/VTK/Copyright.txt')
     (resources/'CompiledSources/VTK/freetype-host-adaptation.json').write_text(vtk_adaptation)
+    (resources/'CompiledSources/DCMTK').mkdir()
+    (resources/'CompiledSources/DCMTK/source.json').write_text(dcmtk_source_json)
+    for installed_name, original in (('COPYRIGHT', 'COPYRIGHT'), ('CharLS-License.txt', 'dcmjpls/docs/License.txt'),
+                                     ('ijg_readme.txt', 'dcmjpeg/docs/ijg_readme.txt')):
+        shutil.copyfile(root/'Binaries/Splash/ThirdParty/Native/DCMTK'/original,
+                        resources/'CompiledSources/DCMTK'/installed_name)
+    (resources/'CompiledSources/OpenSSL').mkdir()
+    (resources/'CompiledSources/OpenSSL/source.json').write_text(openssl_source_json)
+    shutil.copyfile(root/'Binaries/Splash/OpenSSL-LICENSE.txt', resources/'CompiledSources/OpenSSL/LICENSE.txt')
     (resources / 'ExternalLibraries/embedded-libraries.txt').write_text(
         '# test\nfoo 1.0 arm64_tahoe %s libfoo.1.dylib\n' % ('0' * 64))
     (resources / 'ExternalLibraries/foo/LICENSE').write_text('license of foo\n')
@@ -164,6 +199,8 @@ missing_transitive = make_product(products / 'missing-transitive')
 (missing_transitive / 'IsiX DICOM Viewer.app/Contents/Resources/Splash/ThirdParty/Native/VTK/ThirdParty/freetype/vtkfreetype/docs/FTL.TXT').unlink()
 wrong_source = make_product(products / 'wrong-source')
 (wrong_source / 'IsiX DICOM Viewer.app/Contents/Resources/CompiledSources/OpenJPEG/source.json').write_text('{}\n')
+missing_dcmtk_source = make_product(products / 'missing-dcmtk-source')
+(missing_dcmtk_source / 'IsiX DICOM Viewer.app/Contents/Resources/CompiledSources/DCMTK/source.json').unlink()
 
 
 stub = work / 'bin'
@@ -188,18 +225,41 @@ mkdir -p "$symroot/Release"
 /usr/bin/ditto "$STUB_PRODUCT/IsiX DICOM Viewer.app" "$symroot/Release/IsiX DICOM Viewer.app"
 ''')
 (stub / 'xcodebuild').chmod(0o755)
+# The SDK export builds IsiXPluginKit with Xcode; its own test covers the zip.
+# The stand-in records its arguments and writes a zip that names the build.
+sdk_arguments = work / 'sdk-arguments.txt'
+(checkout / 'tools/export-isix-plugin-kit.py').write_text('''import os, sys, zipfile
+with open(os.environ['STUB_SDK_ARGUMENTS'], 'a') as record:
+    record.write(' '.join(sys.argv[1:]) + '\\n')
+if os.environ.get('STUB_SDK_FAIL'):
+    sys.exit('error: stub: the SDK export failed')
+with zipfile.ZipFile(sys.argv[sys.argv.index('--zip') + 1], 'w') as bundle:
+    bundle.writestr('sdk.txt', os.environ.get('STUB_PRODUCT', ''))
+''')
+sdk_version = re.search(r'^HUMAN_READABLE_VERSION = .* v([0-9][^\s]*)$',
+                        (root / 'Horos/Horos.xcconfig').read_text(), re.M).group(1)
+sdk_zip = checkout / 'build/Release' / ('IsiXPluginKit-SDK-%s.zip' % sdk_version)
+
+
+def sdk_state():
+    return hashlib.sha256(sdk_zip.read_bytes()).hexdigest() if sdk_zip.is_file() else None
 
 output = checkout / 'build/Release/arm64'
 ITEMS = ('IsiX DICOM Viewer.app', 'BUILD-INFO.txt', 'SHA256SUMS.txt')
 
 
-def build(product=None, fail=False, mutate_lock=False, public_ref=None, arch=None, channel=None, arguments=None):
+def build(product=None, fail=False, mutate_lock=False, public_ref=None, arch=None, channel=None, arguments=None,
+          sdk_fail=False):
     environment = dict(os.environ, PATH='%s:%s' % (stub, os.environ.get('PATH', '/usr/bin:/bin')))
+    environment['STUB_SDK_ARGUMENTS'] = str(sdk_arguments)
+    environment.pop('STUB_SDK_FAIL', None)
+    environment.pop('HOROS_SDK_VERSION', None)
+    if sdk_fail:
+        environment['STUB_SDK_FAIL'] = '1'
     for name, value in (('HOROS_RELEASE_ARCH', arch), ('ISIS_BUILD_CHANNEL', channel), ('STUB_ARGUMENTS', arguments)):
         environment.pop(name, None)
         if value is not None:
             environment[name] = str(value)
-    environment['GIT_ALLOW_PROTOCOL'] = 'file'
     environment.pop('HOROS_PUBLIC_SOURCE_REF', None)
     if public_ref is not None:
         environment['HOROS_PUBLIC_SOURCE_REF'] = public_ref
@@ -208,7 +268,7 @@ def build(product=None, fail=False, mutate_lock=False, public_ref=None, arch=Non
     if mutate_lock:
         environment['STUB_MUTATE_LOCK'] = str(checkout / 'Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved')
     if fail:
-        environment['STUB_FAIL'] = fail if isinstance(fail, str) else 'error: stub: build failed'
+        environment['STUB_FAIL'] = 'error: stub: build failed'
     if product is not None:
         environment['STUB_PRODUCT'] = str(product)
     return subprocess.run(['/bin/bash', str(checkout / 'script/build_release.sh')], env=environment,
@@ -268,14 +328,19 @@ if all(before.values()):
            'BUILD-INFO.txt does not identify the OpenJPEG archive consumed by this build')
     report(itk_pin['sha256'] in info and itk_pin['revision'] in info,
            'BUILD-INFO.txt does not identify the ITK archive consumed by this build')
+    report(dcmtk_pin['sha256'] in info and dcmtk_pin['revision'] in info and dcmtk_pin['archive'] in info,
+           'BUILD-INFO.txt does not identify the DCMTK archive consumed by this build')
+    report(openssl_pin['sha256'] in info and openssl_pin['revision'] in info and openssl_pin['archive'] in info,
+           'BUILD-INFO.txt does not identify the OpenSSL archive consumed by this build')
     report(freetype_pin['treeSha256'] in info and '_vtkfreetype_FT_MulFix' in info and
            'source patches: none in FreeType' in info,
            'BUILD-INFO.txt does not distinguish original FreeType source from its host ABI adaptation')
     report('ad hoc' in info and 'disable-library-validation' in info, 'BUILD-INFO.txt does not describe the signature')
     report('Xcode 99.0' in info, 'BUILD-INFO.txt does not name the toolchain')
     report('FeedbackReporter' not in info, 'BUILD-INFO.txt still describes the removed FeedbackReporter')
-    report('DCMTK compiled from the unmodified checkout' in info and 'prepared source differs from base' not in info,
-           'DCMTK metadata does not say that the pinned source is compiled unmodified')
+    report('DCMTK compiled from the unmodified original archive of %s' % dcmtk_pin['revision'] in info and
+           'prepared source differs from base' not in info,
+           'DCMTK metadata does not say that the pinned original archive is compiled unmodified')
     report('libarchive headers source 3.7.4' in info and 'runtime supplied by macOS' in info,
            'libarchive metadata confuses header version with runtime')
     report('/Users/' not in info and str(Path.home()) not in info and str(work) not in info,
@@ -283,14 +348,24 @@ if all(before.values()):
     signed = subprocess.run(['codesign', '-dv', str(output / 'IsiX DICOM Viewer.app')], capture_output=True, text=True).stderr
     report('flags=0x10002(adhoc,runtime)' in signed, 'the app is not signed ad hoc with the hardened runtime')
 
-for label, arguments, expected in (('a failed build', {'fail': True}, 'stub: build failed'),
-                                   ('a broken submodule', {'fail': "fatal: could not get a repository handle for submodule 'DCMTK'"},
-                                    "fatal: could not get a repository handle for submodule 'DCMTK'"),
+exported = sdk_arguments.read_text().splitlines() if sdk_arguments.is_file() else []
+report(len(exported) == 1 and exported[0].startswith('--xcode Release --archs arm64,x86_64 --output ')
+       and exported[0].endswith('/' + sdk_zip.name) and ' --zip ' in exported[0],
+       'the arm64 build did not ask once for the SDK of both architectures: %s' % exported)
+sdk_before = sdk_state()
+report(sdk_before is not None, 'the first good build left no %s in build/Release' % sdk_zip.name)
+report(not list(output.glob('*.zip')), 'the SDK was left inside the arm64 package folder')
+
+for label, arguments, expected in (('a failed SDK export', {'product': second, 'sdk_fail': True},
+                                    'stub: the SDK export failed'),
+                                   ('a failed build', {'fail': True}, 'stub: build failed'),
                                    ('a bundle loading from outside', {'product': external}, 'from outside the bundle'),
                                    ('a bundle without a notice', {'product': unnoticed}, 'DICOM-Swift-LICENSE.txt'),
                                    ('an empty native notice', {'product': empty_notice}, 'Native/ITK/NOTICE'),
                                    ('a missing transitive notice', {'product': missing_transitive}, 'FTL.TXT'),
-                                   ('a different bundled source record', {'product': wrong_source}, 'compiled source record')):
+                                   ('a different bundled source record', {'product': wrong_source}, 'compiled source record'),
+                                   ('a bundle without the DCMTK source record', {'product': missing_dcmtk_source},
+                                    'compiled source record of DCMTK')):
     signing_log = checkout / 'build/logs/release-signing-arm64.log'
     signing_before = signing_log.read_bytes() if signing_log.exists() else None
     outcome = build(**arguments)
@@ -301,6 +376,8 @@ for label, arguments, expected in (('a failed build', {'fail': True}, 'stub: bui
            '%s failed for another reason: %s' % (label, (outcome.stdout + outcome.stderr)[-800:]))
     report(state() == before, '%s changed the previous artifact' % label)
     report(not list(output.glob('*.previous-*')), '%s left a backup behind' % label)
+    report(sdk_state() == sdk_before and not list(sdk_zip.parent.glob('*.previous-*.zip')),
+           '%s changed the previous SDK' % label)
 
 again = build(second)
 report(again.returncode == 0, 'the second good build failed: %s' % (again.stdout + again.stderr)[-1500:])
@@ -309,6 +386,12 @@ report(after['IsiX DICOM Viewer.app'] != before['IsiX DICOM Viewer.app'] and all
 kept = sorted(p.name for p in output.glob('*.previous-*'))
 stamps = {re.sub(r'^.*\.previous-(.*?)\.(app|txt)$', r'\1', name) for name in kept}
 report(len(kept) == 3 and len(stamps) == 1, 'the previous artifact was not kept as three files of one date: %s' % kept)
+kept_sdk = sorted(p.name for p in sdk_zip.parent.glob('IsiXPluginKit-SDK-*.previous-*.zip'))
+report(len(kept_sdk) == 1 and re.sub(r'^.*\.previous-(.*?)\.zip$', r'\1', kept_sdk[0]) in stamps,
+       'the previous SDK was not kept under the date of the other three: %s %s' % (kept_sdk, kept))
+if kept_sdk:
+    report(hashlib.sha256((sdk_zip.parent / kept_sdk[0]).read_bytes()).hexdigest() == sdk_before
+           and sdk_state() not in (None, sdk_before), 'the second build did not replace the SDK and keep the first')
 if len(kept) == 3:
     previous_app = next(output.glob('IsiX DICOM Viewer.previous-*.app'))
     report(hashlib.sha256((previous_app / 'Contents/MacOS/IsiX DICOM Viewer').read_bytes()).hexdigest() == before['IsiX DICOM Viewer.app'],
@@ -316,11 +399,12 @@ if len(kept) == 3:
 
 # The x86_64 package: its own slice, derived data and output, the arm64 one untouched.
 intel = make_product(products / 'intel', marker='intel', arch='x86_64')
-for name in ('OpenJPEG', 'VTK', 'ITK'):
+for name in ('OpenJPEG', 'VTK', 'ITK', 'DCMTK', 'OpenSSL'):
     shutil.copytree(checkout / 'build/Intermediates.noindex/Horos.build/Release' / (name + '.build'),
                     checkout / 'build/x86_64/Intermediates.noindex/Horos.build/Release' / (name + '.build'))
 intel_output = checkout / 'build/Release/x86_64'
 arm_before_intel = state()
+exports_before_intel = len(sdk_arguments.read_text().splitlines())
 recorded = work / 'xcodebuild-arguments.txt'
 built_intel = build(intel, arch='x86_64', arguments=recorded)
 report(built_intel.returncode == 0, 'the x86_64 build failed: %s' % (built_intel.stdout + built_intel.stderr)[-1500:])
@@ -334,9 +418,14 @@ report(str(checkout / 'build/x86_64') in passed and 'SYMROOT=%s' % (checkout / '
 intel_state = state(intel_output)
 report(all(intel_state.values()), 'the x86_64 build did not leave all of %s: %s' % (ITEMS, intel_state))
 report(state() == arm_before_intel, 'the x86_64 build changed the arm64 package')
+report(len(sdk_arguments.read_text().splitlines()) == exports_before_intel,
+       'the x86_64 build exported the SDK, which the arm64 build makes')
 if all(intel_state.values()):
     report('architectures: x86_64' in (intel_output / 'BUILD-INFO.txt').read_text(),
            'BUILD-INFO.txt of the x86_64 package does not name its slice')
+    intel_build_info = (intel_output / 'BUILD-INFO.txt').read_text()
+    report(dcmtk_pin['sha256'] in intel_build_info and openssl_pin['sha256'] in intel_build_info,
+           'BUILD-INFO.txt of the x86_64 package does not identify the DCMTK and OpenSSL archives')
     check = subprocess.run(['shasum', '-a', '256', '-c', 'SHA256SUMS.txt'], cwd=str(intel_output),
                            capture_output=True, text=True)
     report(check.returncode == 0, 'the x86_64 SHA256SUMS.txt does not verify')
@@ -576,46 +665,13 @@ entitlements_source = checkout / 'Horos/Horos.entitlements'
 entitlements_source.write_bytes(entitlements_source.read_bytes() + b'\n<!-- changed local source -->\n')
 rejected('unpublished Horos source', 'do not match', public_ref='refs/heads/main')
 
-# Exercise the missing local repository with real Git and a disposable upstream.
-upstream = work / 'submodule-source'
-subprocess.run(['/usr/bin/git', 'init', '-q', str(upstream)], check=True)
-(upstream / 'source.txt').write_text('pinned source\n')
-for arguments in (['add', 'source.txt'], ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
-                                       'commit', '-qm', 'Synthetic dependency']):
-    subprocess.run(['/usr/bin/git', '-C', str(upstream), *arguments], check=True, capture_output=True)
-submodule_revision = subprocess.check_output(['/usr/bin/git', '-C', str(upstream), 'rev-parse', 'HEAD'], text=True).strip()
-subprocess.run(['/usr/bin/git', '-C', str(checkout), '-c', 'protocol.file.allow=always',
-                'submodule', 'add', '-q', str(upstream), 'SyntheticDependency'], check=True)
-dependency_tree = checkout / 'SyntheticDependency'
-original_gitfile = (dependency_tree / '.git').read_bytes()
-(dependency_tree / 'local-note.txt').write_text('preserve local work\n')
-shutil.rmtree(checkout / '.git/modules/SyntheticDependency')
-recovered = build(good)
-report(recovered.returncode == 0, 'missing submodule metadata did not recover: '
-       + (recovered.stdout + recovered.stderr)[-800:])
-backups = list((checkout / 'build/recovery').glob('submodules-*/SyntheticDependency'))
-report(len(backups) == 1, 'submodule recovery did not preserve exactly one worktree')
-if len(backups) == 1:
-    report((backups[0] / '.git').read_bytes() == original_gitfile
-           and (backups[0] / 'local-note.txt').read_text() == 'preserve local work\n'
-           and (backups[0] / 'source.txt').read_bytes() == (upstream / 'source.txt').read_bytes(),
-           'submodule recovery changed the preserved worktree')
-if recovered.returncode == 0:
-    restored_revision = subprocess.check_output(['/usr/bin/git', '-C', str(dependency_tree), 'rev-parse', 'HEAD'], text=True).strip()
-    report(restored_revision == submodule_revision, 'submodule recovery selected a different pin')
-    repeated = build(good)
-    report(repeated.returncode == 0 and list((checkout / 'build/recovery').glob('submodules-*/SyntheticDependency')) == backups,
-           'a healthy submodule was not reused on the next build')
-
-shutil.rmtree(checkout / '.git/modules/SyntheticDependency')
-subprocess.run(['/usr/bin/git', '-C', str(checkout), 'config', '-f', '.gitmodules',
-                'submodule.SyntheticDependency.url', str(work / 'missing-upstream')], check=True)
-before_acquisition_failure = state()
-acquisition_failure = build(good)
-report(acquisition_failure.returncode != 0 and 'fatal:' in acquisition_failure.stderr
-       and 'o Xcode não foi iniciado' in acquisition_failure.stderr,
-       'a failed submodule acquisition did not report its original error before Xcode')
-report(state() == before_acquisition_failure, 'a failed submodule acquisition replaced the previous artifact')
+# The native sources are pinned archives resolved by the Xcode recipes: the
+# release script neither initializes git submodules nor moves a worktree that
+# an older checkout may still hold where one used to be.
+release_script = (root / 'script/build_release.sh').read_text()
+report('git submodule' not in release_script and "'submodule'" not in release_script
+       and 'build/recovery' not in release_script,
+       'build_release.sh still acquires or recovers git submodules')
 
 shutil.rmtree(work, ignore_errors=True)
 for failure in failures:
@@ -625,4 +681,5 @@ if failures:
 print('ok: build_release.sh writes the app, BUILD-INFO.txt and SHA256SUMS.txt together, which verify and name '
       'no local path; a failed build, an external library and a missing notice leave the previous artifact; '
       'a new one keeps the previous three under one date; the x86_64 package is built with its own slice, '
-      'derived data and output beside the untouched arm64 one, and a wrong slice is refused')
+      'derived data and output beside the untouched arm64 one, and a wrong slice is refused; the arm64 build '
+      'asks for the plugin SDK zip and a failed export keeps the previous package and SDK')

@@ -37,31 +37,23 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
+
 import AppKit
-import IsiXImaging
 
-// The contextual menus of the 2D viewer's image: the tools, crosshair,
-// window level, size, orientation, layout, export and workspace menu of a
-// click on the image, the menu of a click on a ROI, their actions (remove the
-// ROI, apply a hanging protocol) and the comments menu. The selectors are
-// those of the former Objective-C methods. The tools menu is shared by every
-// viewer, as the file-scope static of ViewerController.m was, and rebuilt each
-// time; the image view gets a copy, which plugins can fill through
-// OsirixPopulatedContextualMenuNotification. A message to nil answered nil, 0
-// or NO: the optional chains below answer the same.
-
-/// The last contextual menu built, shared by every viewer.
-@MainActor fileprivate var viewerContextualMenu: NSMenu? = nil
-
-/// ToolsMenuIconSize, a macro of ViewerController.h that Swift does not import.
-private let toolsMenuIconSize = NSMakeSize(28.0, 28.0)
+// The contextual menus of the 2D viewer's image and of its ROIs, their
+// actions and the comments menu. The selectors are those of the former
+// Objective-C methods, which the image view, the menus and the former plugins
+// send; the menus are the viewer's ViewerContextualMenuBuilder.
 
 public extension ViewerController {
+
+    /// The contextual menus of this viewer.
+    internal var contextualMenus: ViewerContextualMenuBuilder { ViewerContextualMenuBuilder(sessionGraph) }
 
     /// Drops the shared contextual menu: the next one is built anew, with the
     /// presets menus as they are then.
     internal func dropViewerContextualMenu() {
-        viewerContextualMenu = nil
+        ViewerContextualMenuBuilder.dropSharedMenu()
     }
 
     @available(*, deprecated)
@@ -79,323 +71,42 @@ public extension ViewerController {
     /// after plugins have added to it, without the commands that do not apply.
     @objc(computeContextualMenu)
     func computeContextualMenu() {
-        NSLog("2D Viewer Contextual Menu - Generate")
-        let menu = contextualMenu()?.copy() as? NSMenu
-        NotificationCenter.default.post(name: .OsirixPopulatedContextualMenu, object: menu,
-                                        userInfo: [NSStringFromClass(ViewerController.self): self])
-        // Only the top level is pruned: its submenus are copies of the main menu's
-        // and keep their dimmed items, as there.
-        if let menu {
-            ContextMenuPruning.hideUnavailableItems(in: menu, groups: [], defaultTarget: self)
-        }
-        horos_imageView?.menu = menu
+        contextualMenus.computeContextualMenu(in: self)
     }
 
     /// Gives the image view the contextual menu of a click on `roi`.
     @objc(computeContextualMenuForROI:)
     func computeContextualMenu(for roi: ROI!) {
-        NSLog("2D Viewer Contextual Menu - Generate for ROI: %@", roi.map { String(describing: $0) } ?? "(null)")
-        let menu = contextualMenu(for: roi)?.copy() as? NSMenu
-        var userInfo: [AnyHashable: Any] = [NSStringFromClass(ViewerController.self): self]
-        if let roi { userInfo[NSStringFromClass(ROI.self)] = roi }
-        NotificationCenter.default.post(name: .OsirixPopulatedContextualMenu, object: menu, userInfo: userInfo)
-        horos_imageView?.menu = menu
+        contextualMenus.computeContextualMenu(for: roi, in: self)
     }
 
-    /// The menu of a click on `roi`: its name, and unless it is locked, Remove
-    /// and the geometry commands of a line or a point.
+    /// The menu of a click on `roi`.
     @objc(contextualMenuForROI:)
     func contextualMenu(for roi: ROI!) -> NSMenu! {
-        let menu = NSMenu()
-
-        menu.addItem(NSMenuItem(title: String(format: "ROI: %@", (roi?.name ?? "(null)") as NSString), action: nil, keyEquivalent: ""))
-
-        // A message to nil answered NO: no ROI counts as unlocked, as before.
-        if !(roi?.locked ?? false) {
-            menu.addItem(NSMenuItem.separator())
-
-            var temp = NSMenuItem(title: "Remove", action: #selector(ViewerController.roiContextualMenuActionRemove(_:)), keyEquivalent: "")
-            temp.representedObject = roi
-            temp.target = self
-            menu.addItem(temp)
-
-            if roi?.type == .tMesure && (roi?.points?.count ?? 0) >= 2 {
-                temp = NSMenuItem(title: NSLocalizedString("Generate Perpendicular, Parallel and Midpoint", comment: ""),
-                                  action: #selector(ViewerController.generateGeometryFromSelectedLine(_:)), keyEquivalent: "")
-                temp.representedObject = roi
-                temp.target = self
-                menu.addItem(temp)
-            }
-            if roi?.type == .t2DPoint {
-                temp = NSMenuItem(title: NSLocalizedString("Measure Between Slices (Projection vs 3D)", comment: ""),
-                                  action: #selector(ViewerController.measureBetweenSelectedSlices(_:)), keyEquivalent: "")
-                temp.representedObject = roi
-                temp.target = self
-                menu.addItem(temp)
-            }
-        }
-
-        return menu
+        contextualMenus.contextualMenu(for: roi, in: self)
     }
 
     /// Remove, in the menu of a ROI: takes the ROI off its image.
     @objc(roiContextualMenuActionRemove:)
     func roiContextualMenuActionRemove(_ source: NSMenuItem!) {
-        let roi = source?.representedObject as? ROI
-        withExtendedLifetime(roi) {
-            roi?.curView?.curRoiList?.remove(roi as Any)
-            NotificationCenter.default.post(name: .OsirixRemoveROI, object: roi)
-        }
+        contextualMenus.removeROI(of: source)
     }
 
-    /// A hanging protocol of the contextual menu: closes the viewers, forgets
-    /// the series' saved display and the study's saved layout, and opens the
-    /// study again with the protocol.
+    /// A hanging protocol of the contextual menu.
     @objc(applyWindowProtocol:)
     func applyWindowProtocol(_ sender: Any!) {
-        AppController.shared()?.closeAllViewers(self)
-
-        let s = currentStudy()
-        let imageSeries = s?.imageSeries() as NSArray?
-
-        for key in ["rotationAngle", "scale", "windowLevel", "windowWidth", "xFlipped", "yFlipped", "xOffset", "yOffset", "displayStyle"] {
-            imageSeries?.setValue(nil, forKey: key)
-        }
-        s?.setValue(nil, forKey: "windowsState")
-
-        let hangingProtocol = (sender as AnyObject?)?.representedObject as? NSDictionary
-        BrowserController.currentBrowser()?.databaseOpen(currentStudy(), withProtocol: hangingProtocol as? [AnyHashable: Any])
+        contextualMenus.applyWindowProtocol(sender, in: self)
     }
 
     /// The contextual menu of a click on the image, built anew.
     @objc(contextualMenu)
     func contextualMenu() -> NSMenu! {
-        viewerContextualMenu = nil
-
-        /******************* Tools menu ***************************/
-        let contextualMenu = NSMenu(title: NSLocalizedString("Tools", comment: ""))
-        viewerContextualMenu = contextualMenu
-
-        // ******************* series popup menu *********************
-
-        buildSeriesPopup()
-        if let seriesPopup = horos_seriesPopupContextualMenu {
-            // The previous menu let it go when it was released; one still held
-            // elsewhere gives it up here, as an item belongs to one menu only.
-            seriesPopup.menu?.removeItem(seriesPopup)
-            contextualMenu.addItem(seriesPopup)
-        }
-        contextualMenu.addItem(NSMenuItem.separator())
-
-        let submenu = NSMenu(title: NSLocalizedString("ROI", comment: ""))
-        let titles = [NSLocalizedString("Contrast", comment: ""), NSLocalizedString("Move", comment: ""), NSLocalizedString("Magnify", comment: ""),
-                      NSLocalizedString("Rotate", comment: ""), NSLocalizedString("Scroll", comment: "")]
-        var images = ["WLWW", "Move", "Zoom", "Rotate", "Stack", "Length"].makeIterator() // DO NOT LOCALIZE THIS LINE ! -> filenames !
-
-        for subItem in (horos_popupRoi?.itemArray ?? []).dropFirst() { // First item is pop main menu
-            let tag = Int(Int32(truncatingIfNeeded: subItem.tag))
-            if tag != 0 {
-                let item = NSMenuItem(title: subItem.title, action: Selector(("setROITool:")), keyEquivalent: "")
-                item.tag = tag
-                item.target = self
-                item.image?.size = toolsMenuIconSize
-                submenu.addItem(item)
-            } else {
-                submenu.addItem(NSMenuItem.separator())
-            }
-        }
-
-        for (i, title) in titles.enumerated() {
-            let image = images.next()
-            let item = NSMenuItem(title: title, action: #selector(ViewerController.setDefaultTool(_:)), keyEquivalent: "")
-            item.tag = i
-            item.target = self
-            item.image = image.flatMap { NSImage(named: $0) }
-            item.image?.size = toolsMenuIconSize
-            contextualMenu.addItem(item)
-        }
-
-        var item = NSMenuItem(title: NSLocalizedString("Patient Crosshair", comment: ""), action: #selector(ViewerController.setDefaultTool(_:)), keyEquivalent: "")
-        item.tag = Int(ToolMode.tCross.rawValue)
-        item.target = self
-        contextualMenu.addItem(item)
-
-        item = NSMenuItem(title: NSLocalizedString("ROI", comment: ""), action: nil, keyEquivalent: "")
-        item.tag = -1
-        item.target = self
-
-        let currentTool = horos_imageView?.currentTool ?? ToolMode(rawValue: 0)!
-        item.image = image(forROI: currentTool.rawValue >= ToolMode.tMesure.rawValue ? currentTool : .tMesure)
-        item.image?.size = toolsMenuIconSize
-
-        contextualMenu.addItem(item)
-        contextualMenu.item(at: contextualMenu.items.count - 1)?.submenu = submenu
-        contextualMenu.addItem(NSMenuItem.separator())
-
-        // Clear Patient Crosshair and the two geometry commands only apply to a
-        // placed crosshair or a selected line: they are hidden otherwise, in
-        // -computeContextualMenu.
-        item = NSMenuItem(title: NSLocalizedString("Show Patient Crosshair", comment: ""), action: Selector(("togglePatientCrosshair:")), keyEquivalent: "")
-        item.target = self
-        contextualMenu.addItem(item)
-        item = NSMenuItem(title: NSLocalizedString("Clear Patient Crosshair", comment: ""), action: Selector(("clearPatientCrosshair:")), keyEquivalent: "")
-        item.target = self
-        contextualMenu.addItem(item)
-        contextualMenu.addItem(withTitle: NSLocalizedString("Generate Perpendicular, Parallel and Midpoint", comment: ""),
-                               action: #selector(ViewerController.generateGeometryFromSelectedLine(_:)), keyEquivalent: "")
-        contextualMenu.addItem(withTitle: NSLocalizedString("Measure Between Slices (Projection vs 3D)", comment: ""),
-                               action: #selector(ViewerController.measureBetweenSelectedSlices(_:)), keyEquivalent: "")
-        contextualMenu.addItem(NSMenuItem.separator())
-
-        /******************* WW/WL menu items **********************/
-
-        let appController = AppController.shared()
-        item = NSMenuItem(title: NSLocalizedString("Window Width & Level", comment: ""), action: nil, keyEquivalent: "")
-        item.submenu = appController?.wlwwMenu()?.copy() as? NSMenu
-        contextualMenu.addItem(item)
-
-        /************* image and window size ****************/
-
-        let sizeMenu = NSMenu(title: NSLocalizedString("Size", comment: ""))
-        sizeMenu.addItem(withTitle: NSLocalizedString("No Rescale Size (100%)", comment: ""), action: #selector(DCMView.actualSize(_:)), keyEquivalent: "")
-        sizeMenu.addItem(withTitle: NSLocalizedString("Actual size", comment: ""), action: #selector(DCMView.realSize(_:)), keyEquivalent: "")
-        sizeMenu.addItem(withTitle: NSLocalizedString("Scale To Fit", comment: ""), action: #selector(DCMView.scaleToFit(_:)), keyEquivalent: "")
-        sizeMenu.addItem(NSMenuItem.separator())
-
-        let resizeMenu = NSMenu(title: "Resize window")
-        for (tag, titleMenu) in ["25%", "50%", "100%", "200%", "300%", "iPod Video"].enumerated() {
-            item = NSMenuItem(title: titleMenu, action: Selector(("resizeWindow:")), keyEquivalent: "")
-            item.tag = tag
-            item.target = horos_imageView
-            resizeMenu.addItem(item)
-        }
-
-        item = NSMenuItem(title: NSLocalizedString("Resize window", comment: ""), action: nil, keyEquivalent: "")
-        item.submenu = resizeMenu
-        sizeMenu.addItem(item)
-
-        item = NSMenuItem(title: NSLocalizedString("Size", comment: ""), action: nil, keyEquivalent: "")
-        item.submenu = sizeMenu
-        contextualMenu.addItem(item)
-
-        /********** Orientation submenu ************/
-
-        item = NSMenuItem(title: NSLocalizedString("Orientation", comment: ""), action: nil, keyEquivalent: "")
-        item.submenu = appController?.orientationMenu()?.copy() as? NSMenu
-        contextualMenu.addItem(item)
-
-        contextualMenu.addItem(withTitle: NSLocalizedString("Mark as Key image", comment: ""), action: Selector(("setKeyImage:")), keyEquivalent: "")
-        contextualMenu.addItem(NSMenuItem.separator())
-
-        /********** Tiling and protocols ************/
-
-        let layoutMenu = NSMenu(title: NSLocalizedString("Layout", comment: ""))
-
-        item = NSMenuItem(title: NSLocalizedString("Image Tiling", comment: ""), action: nil, keyEquivalent: "")
-        item.submenu = appController?.imageTilingMenu()?.copy() as? NSMenu
-        layoutMenu.addItem(item)
-
-        item = NSMenuItem(title: NSLocalizedString("Windows Tiling - Rows", comment: ""), action: nil, keyEquivalent: "")
-        item.submenu = appController?.windowsTilingMenuRows?.copy() as? NSMenu
-        layoutMenu.addItem(item)
-
-        item = NSMenuItem(title: NSLocalizedString("Windows Tiling - Columns", comment: ""), action: nil, keyEquivalent: "")
-        item.submenu = appController?.windowsTilingMenuColumns?.copy() as? NSMenu
-        layoutMenu.addItem(item)
-
-        layoutMenu.addItem(NSMenuItem.separator())
-
-        let protocolsMenu = NSMenu(title: NSLocalizedString("Apply Window Protocol", comment: ""))
-        let m = modality()
-        for case let hangingProtocol as NSDictionary in WindowLayoutManager.hangingProtocols(forModality: m) ?? [] {
-            let t = String(format: "%@ - %@", (m ?? "(null)") as NSString, (hangingProtocol.object(forKey: "Study Description") as? NSObject)?.description ?? "(null)")
-
-            item = NSMenuItem(title: t, action: #selector(ViewerController.applyWindowProtocol(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = hangingProtocol
-            protocolsMenu.addItem(item)
-        }
-
-        item = NSMenuItem(title: NSLocalizedString("Apply Window Protocol", comment: ""), action: nil, keyEquivalent: "")
-        item.submenu = protocolsMenu
-        layoutMenu.addItem(item)
-
-        item = NSMenuItem(title: NSLocalizedString("Layout", comment: ""), action: nil, keyEquivalent: "")
-        item.submenu = layoutMenu
-        contextualMenu.addItem(item)
-
-        /*************Export submenu**************/
-        item = NSMenuItem(title: NSLocalizedString("Export", comment: ""), action: nil, keyEquivalent: "")
-        item.submenu = appController?.exportMenu()?.copy() as? NSMenu
-        contextualMenu.addItem(item)
-
-        /*************Workspace submenu**************/
-        if let workspaceMenu = appController?.workspaceMenu() {
-            let workspace = NSMenu(title: NSLocalizedString("Workspace State", comment: ""))
-            workspace.addItem(withTitle: NSLocalizedString("Save Workspace State", comment: ""), action: #selector(ViewerController.saveWindowsState(_:)), keyEquivalent: "")
-            workspace.addItem(withTitle: NSLocalizedString("Save Workspace State as DICOM SR", comment: ""), action: #selector(ViewerController.saveWindowsStateAsDICOMSR(_:)), keyEquivalent: "")
-            let mi = NSMenuItem(title: NSLocalizedString("Load Workspace State DICOM SR", comment: ""), action: nil, keyEquivalent: "")
-            mi.submenu = workspaceMenu.copy() as? NSMenu
-            workspace.addItem(mi)
-
-            item = NSMenuItem(title: NSLocalizedString("Workspace State", comment: ""), action: nil, keyEquivalent: "")
-            item.submenu = workspace
-            contextualMenu.addItem(item)
-        }
-
-        // The SEG command is supplied by the separately integrated SEG category.
-        if responds(to: Selector(("showSEGSurfaces:"))) {
-            let segSurfaces = contextualMenu.addItem(withTitle: NSLocalizedString("SEG Surfaces...", comment: ""),
-                                                     action: Selector(("showSEGSurfaces:")), keyEquivalent: "")
-            segSurfaces.target = self
-        }
-
-        return contextualMenu
+        contextualMenus.contextualMenu(in: self)
     }
 
-    /// An item of the comments menu: "?" opens the comments sheet; any other
-    /// writes its composed title (the titles of the menus that hold it and its
-    /// own) as the series comment.
+    /// An item of the comments menu.
     @objc(contextualMenuEvent:)
     func contextualMenuEvent(_ sender: Any!) {
-        // Receives a NSMenuItem (each intermediate NSMenu is also a NSMenuItem)
-        // The complete title is obtain joining the ITEM title menu title with all its MENU supermenu titles, excepted the last one
-
-        // Window anchored annotations need to be updated
-        // Point clicked available in [imageView contextualMenuInWindowPosX] [imageView contextualMenuInWindowPosY]
-
-        let senderItem = sender as AnyObject?
-        var enclosing: [String] = []
-        var currentMenu = senderItem?.menu as NSMenu?
-        while let menu = currentMenu, let superMenu = menu.supermenu {
-            enclosing.append(menu.title)
-            currentMenu = superMenu
-        }
-        let composedMenuTitle = ViewerContextualMenus.composedTitle(itemTitle: ViewerSender.string(sender, "title") ?? "", enclosingMenuTitles: enclosing)
-
-        horosLoadViewerPanels()
-
-        if (composedMenuTitle as NSString).isEqual(to: "?") { // creating a content panel
-            if let sheet = horos_CommentsWindow {
-                window?.beginSheet(sheet, completionHandler: nil)
-            }
-        } else { // same action as endSetComments, but with composedMenuTitle
-            let movieIndex = Int(horos_curMovieIndex)
-            let image = Int(horos_imageView?.curImage ?? 0)
-            let file = horos_fileList(at: movieIndex)?.object(at: image) as AnyObject?
-            file?.setValue(composedMenuTitle, forKeyPath: "series.comment")
-
-            let browser = BrowserController.currentBrowser()
-            if browser?.isCurrentDatabaseBonjour ?? false {
-                (browser?.database as? RemoteDicomDatabase)?.object(horos_fileList(at: movieIndex)?.object(at: image) as? NSManagedObject,
-                                                                    setValue: horos_CommentsEditField?.stringValue, forKey: "series.comment")
-            }
-
-            browser?.databaseOutline?.reloadData()
-
-            horos_CommentsField?.title = composedMenuTitle
-
-            buildMatrixPreview(false)
-        }
+        contextualMenus.contextualMenuEvent(sender, in: self)
     }
 }

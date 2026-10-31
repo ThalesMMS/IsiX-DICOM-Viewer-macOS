@@ -111,7 +111,8 @@ check('if let attributes { updateReceiveLog(attributes) }' in stored[:stored.ind
 editor = (ROOT / 'Horos/Sources/DICOMwebNodeEditor.swift').read_text()
 switch = editor[editor.index('private func addNetworkLogsSwitch'):]
 switch = switch[:switch.index('\n    }\n')]
-check('logs.bind(.value, to: NSUserDefaultsController.shared, withKeyPath: "values.NETWORKLOGS", options: nil)' in switch
+check('logs.bind(.value, to: NSUserDefaultsController.shared, withKeyPath: '
+      'NetworkPreferences.controllerKeyPath(NetworkPreferences.networkLogs), options: nil)' in switch
       and 'container.addSubview(logs, positioned: .above, relativeTo: box)' in switch and 'box.addSubview' not in switch,
       'the DICOMweb area has the Listener pane\'s network logs switch, beside its box, where the box\'s title row does not cover it')
 
@@ -282,6 +283,17 @@ def objc_objects(work):
     return objects
 
 
+# The browser's network-log switch and database, which LogManager reads through
+# the process graph from any thread, over the stand-in graph of the preferences.
+GRAPH_LOGS = '''import Foundation
+
+extension ProcessGraph {
+    var networkLogsActive: Bool { BrowserController.currentBrowser()?.isNetworkLogsActive() ?? false }
+    var browserDatabase: DicomDatabase? { BrowserController.currentBrowser()?.database }
+}
+'''
+
+
 def dicomweb(work):
     python = python_with.interpreter('import pydicom', 'import numpy')
     if python is None:
@@ -290,11 +302,14 @@ def dicomweb(work):
     product_flags = swift_flags(work)
     objects = objc_objects(work)
     (work / 'driver.swift').write_text(DRIVER)
+    (work / 'graph.swift').write_text(GRAPH_LOGS)
     sources = [str(ROOT / 'Horos/Sources' / name) for name in
                ('DICOMwebClient.swift', 'DICOMwebNode.swift', 'DICOMwebCredentials.swift', 'DICOMwebMultipart.swift',
-                'NonInteractiveKeychainRead.swift', 'LogManager.swift', 'DICOMwebRetrieveLog.swift')]
+                'NonInteractiveKeychainRead.swift', 'LogManager.swift', 'DICOMwebRetrieveLog.swift',
+                'HorosObjCException+Guards.swift')]
     executable = work / 'dicomweb'
-    if failures or not compile_swift(work, executable, sources + [str(work / 'driver.swift'), *objects], product_flags):
+    if failures or not compile_swift(work, executable, sources + [str(work / 'graph.swift'), str(work / 'driver.swift'), *objects],
+                                     product_flags):
         return
     processes = []
     failing = ThreadingLocalHTTPServer(('127.0.0.1', 0), Failing)
@@ -414,7 +429,7 @@ def listener(work):
     adapter = (ADAPTER / 'IsiXDCMTKSCPDatabase.mm').read_text()
     attributes = between(adapter, 'NSDictionary<NSNumber *, NSData *> *StoredAttributes(DcmDataset* dataset)', '\n} // namespace')
     session = (ROOT / 'Horos/Sources/SCPDatabaseSession.swift').read_text()
-    properties = between(session, '    // The log entry of what this association received.', '    init(callingAETitle')
+    properties = between(session, '    // The log entry of what this association received.', '    /// The session of an association')
     active = between(session, '    /// Whether the network log records anything.', '    // MARK: - Received instances')
     receive = between(session, '    /// One network log entry per association', '    // MARK: - Shared by the find and the retrieve')
     code = r'''
@@ -458,8 +473,15 @@ NSDictionary<NSNumber *, NSData *> *HorosTestStoredAttributes(const char *patien
     if failures:
         return
     (work / 'session.swift').write_text('import Foundation\nimport IsiXDICOMNetwork\n\n'
+                                        '// The process graph\'s network-log switch and database: the browser\'s.\n'
+                                        'final class ProcessGraph: Sendable {\n'
+                                        '    static let process = ProcessGraph()\n'
+                                        '    var networkLogsActive: Bool { BrowserController.currentBrowser()?.isNetworkLogsActive() ?? false }\n'
+                                        '    var browserDatabase: DicomDatabase? { BrowserController.currentBrowser()?.database }\n'
+                                        '}\n\n'
                                         'final class SCPDatabaseSession: NSObject {\n'
                                         '    let callingAETitle: String\n'
+                                        '    let processGraph = ProcessGraph()\n'
                                         '    var retrievePaths: [String]?\n    var retrievePosition = 0\n'
                                         '    var retrieveLog: NSMutableDictionary?\n' + properties
                                         + '    init(callingAETitle: String) { self.callingAETitle = callingAETitle; super.init() }\n\n'
@@ -469,7 +491,8 @@ NSDictionary<NSNumber *, NSData *> *HorosTestStoredAttributes(const char *patien
     executable = work / 'handle'
     archives = [flag for flag in flags if not flag.startswith('-I')]
     modules = isix_modules.module_flags('IsiXDICOMNetwork', work / 'modules')
-    if not compile_swift(work, executable, [str(ROOT / 'Horos/Sources/LogManager.swift'), str(work / 'session.swift'),
+    if not compile_swift(work, executable, [str(ROOT / 'Horos/Sources/LogManager.swift'),
+                                            str(ROOT / 'Horos/Sources/HorosObjCException+Guards.swift'), str(work / 'session.swift'),
                                             str(work / 'handle-driver.swift'), *objects, str(work / 'attributes.o')],
                          [*modules, *archives, '-lc++']):
         return

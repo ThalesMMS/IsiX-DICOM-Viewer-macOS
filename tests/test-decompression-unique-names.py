@@ -9,7 +9,7 @@ path still went to the helper, which found nothing to read. The import moved
 two files per scan.
 
 This compiles IsiXDatabase's AvailablePath, which the importer calls
-(DicomDatabase+IncomingImport.swift and +ImportCleanup.swift), and checks that a
+(IncomingAdmission.swift and ImportDisposal.swift), and checks that a
 taken name gets a new one with the same extension, and that the three moves
 into the decompression folder (archives, deflated files, files to compress or
 decompress) use it and queue a path only once the file is there. The routing
@@ -24,8 +24,8 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import isix_modules  # noqa: E402
-source = (root / 'Horos/Sources/DicomDatabase+IncomingImport.swift').read_text()
-cleanup = (root / 'Horos/Sources/DicomDatabase+ImportCleanup.swift').read_text()
+source = (root / 'Horos/Sources/IncomingAdmission.swift').read_text()
+cleanup = (root / 'Horos/Sources/ImportDisposal.swift').read_text()
 failures = []
 
 if 'AvailablePath.inDirectory(directory, name: name)' not in cleanup:
@@ -70,11 +70,11 @@ with tempfile.TemporaryDirectory(prefix='horos-decompression-names-') as work:
             if results.get(key) != value:
                 failures.append('%s: expected %r, got %r' % (key, value, results.get(key)))
 
-importer = source[source.index('private final func importAdmittedFilesFromIncomingDir('):]
+importer = source[source.index('private func importAdmittedFilesFromIncomingDir('):]
 importer = importer[:importer.index('    func importFilesFromIncomingDirThread()')]
-if 'DicomDatabaseObjC.appending(self.decompressionDirPath(), lastPathComponent)' in importer:
+if 'DicomDatabaseObjC.appending(database.decompressionDirPath(), lastPathComponent)' in importer:
     failures.append('a move into the decompression folder still takes the file\'s own name')
-if importer.count('availablePath(inDirectory: self.decompressionDirPath(), name: lastPathComponent)') != 3:
+if importer.count('availablePath(inDirectory: database.decompressionDirPath(), name: lastPathComponent)') != 3:
     failures.append('the archive, deflated and compression moves do not all get a name of their own')
 if 'try? FileManager.default.moveItem(atPath: srcPath, toPath: compressedPath' in importer:
     failures.append('a move into the decompression folder still ignores its result')

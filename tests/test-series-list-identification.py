@@ -88,28 +88,44 @@ else:
     popup = (root / 'Horos/Sources/ViewerController+SeriesPopup.swift').read_text()
     thumbnails = (root / 'Horos/Sources/ViewerController+SeriesThumbnails.swift').read_text()
     dock = (root / 'Horos/Sources/ViewerController+SeriesListDock.swift').read_text()
-    assert 'seriesTitleWithName' not in popup + thumbnails, 'identification mode must not prepend DICOM SeriesNumber to thumbnail names'
-    assert 'cell.frameColor = SeriesListIdentification.showsColors(in: UserDefaults.standard) ? color : nil' in thumbnails
-    assert 'cell.windowNumber = 0' in thumbnails, 'reused cells must clear old window markers'
-    assert thumbnails.count('setThumbnailWindowNumber(cell, seriesWindowNumbers?.object(forKey: curSeries) as? NSNumber)') == 2
-# The window title and the window colours of the series are Swift since
-# ViewerController+WindowLifecycle.swift and +ViewerRegistry.swift.
-lifecycle = (root / 'Horos/Sources/ViewerController+WindowLifecycle.swift').read_text()
+    # The list and its dock moved to SeriesListPresenter.swift, which fills the
+    # cells from SeriesListModel (IsiXImaging).
+    presenter_path = root / 'Horos/Sources/SeriesListPresenter.swift'
+    presenter = presenter_path.read_text() if presenter_path.is_file() else None
+    assert 'seriesTitleWithName' not in popup + thumbnails + (presenter or ''), 'identification mode must not prepend DICOM SeriesNumber to thumbnail names'
+    if presenter is None:
+        assert 'cell.frameColor = SeriesListIdentification.showsColors(in: UserDefaults.standard) ? color : nil' in thumbnails
+        assert 'cell.windowNumber = 0' in thumbnails, 'reused cells must clear old window markers'
+        assert thumbnails.count('setThumbnailWindowNumber(cell, seriesWindowNumbers?.object(forKey: curSeries) as? NSNumber)') == 2
+    else:
+        assert 'cell.frameColor = SeriesListIdentification.showsColors(in: preferences) ? color : nil' in presenter
+        assert 'cell.windowNumber = 0' in presenter, 'reused cells must clear old window markers'
+        # A series cell, and a study cell framed by its first hidden series in a window.
+        assert 'setWindowNumber(cell, build.windowNumbers?.object(forKey: curSeries) as? NSNumber)' in presenter
+        assert 'setWindowNumber(cell, build.windowNumbers?.object(forKey: series[framing]) as? NSNumber)' in presenter
+        dock = presenter
+# The window title is the viewer's graph's (ViewerSessionGraph+WindowLife.swift)
+# and the window colours of the series are ViewerController+ViewerRegistry.swift's.
+lifecycle = (root / 'Horos/Sources/ViewerSessionGraph+WindowLife.swift').read_text()
 registry = (root / 'Horos/Sources/ViewerController+ViewerRegistry.swift').read_text()
-assert 'SeriesListIdentification.windowLabel(number: ViewerWindowColors.number(for: self))' in lifecycle
+assert 'SeriesListIdentification.windowLabel(number: ViewerWindowColors.number(for: viewer))' in lifecycle
 if objc_list:
     observation = viewer[viewer.index('-(void)observeValueForKeyPath:'):]
     observation = observation[:observation.index('\n- (void) autoHideMatrix')]
     assert observation.index('HorosSeriesListIdentification.defaultsKey') < observation.index('UseFloatingThumbnailsList')
     assert '[self setWindowTitle: self]' in observation and '[self buildMatrixPreview: NO]' in observation
-else:
+elif presenter is None:
     observation = dock[dock.index('override func observeValue(forKeyPath'):dock.index('@objc(autoHideMatrix)')]
     assert observation.index('SeriesListIdentification.defaultsKey') < observation.index('UseFloatingThumbnailsList')
     assert 'viewer.setWindowTitle(viewer)' in observation and 'viewer.buildMatrixPreview(false)' in observation
-# Removed in -dealloc, or in -horosTearDown (ViewerController+Lifecycle.swift) since the class is Swift.
-viewer_lifecycle = root / 'Horos/Sources/ViewerController+Lifecycle.swift'
+else:
+    observation = presenter[presenter.index('func preferenceChanged('):presenter.index('func autoHide()')]
+    assert observation.index('SeriesListIdentification.defaultsKey') < observation.index('if isFloating')
+    assert 'viewer.setWindowTitle(viewer)' in observation and 'viewer.buildMatrixPreview(false)' in observation
+# Removed in -dealloc, or in the graph's tearDown (ViewerSessionGraph+ViewerLife.swift) since the class is Swift.
+viewer_lifecycle = root / 'Horos/Sources/ViewerSessionGraph+ViewerLife.swift'
 assert 'removeObserver:self forKeyPath:HorosSeriesListIdentification.defaultsKey' in viewer or (
-    viewer_lifecycle.exists() and 'removeObserver(self, forKeyPath: SeriesListIdentification.defaultsKey)' in viewer_lifecycle.read_text())
+    viewer_lifecycle.exists() and 'removeObserver(viewer, forKeyPath: SeriesListIdentification.defaultsKey)' in viewer_lifecycle.read_text())
 draw = cell[cell.index('public override func draw(withFrame'):]
 assert draw.index('super.draw(withFrame:') < draw.index('guard windowNumber > 0')
 assert 'SeriesListIdentification.windowLabel(number: windowNumber)' in draw
@@ -118,7 +134,7 @@ print('PASS: series marks, stable window numbers, default behavior, contrast and
 
 # Every identification colour must follow Numbers, including already open windows.
 colors = registry[registry.index('    class func horosSeriesWindowColors()'):registry.index('    class func horosSeriesWindowNumbers()')]
-assert '!SeriesListIdentification.showsColors(in: .standard)' in colors
+assert '!SeriesListIdentification.showsColors(in: processGraph.preferences)' in colors
 if objc_list:
     for start, end, count in [('- (void) buildSeriesPopup', '- (void) loadSelectedSeries:', 1),
                               ('- (void) buildMatrixPreview: (BOOL) showSelected', '- (void) matrixPreviewSelectCurrentSeries', 2)]:
@@ -126,11 +142,35 @@ if objc_list:
         assert section.count('if( showsSeriesColors && [viewerSeries containsObject: curSeries])') == count
         assert section.count('if( showsSeriesColors && [[self blendingController] currentSeries] == curSeries)') == count
 else:
-    for text, start, end, count in [(popup, 'func buildSeriesPopup()', 'func loadSelectedSeries(', 1),
-                                    (thumbnails, 'func buildMatrixPreview(_ showSelected: Bool)', 'func matrixPreviewSelectCurrentSeries()', 2)]:
+    # The menu is built by SeriesMenuPresenter (in the same file) from a
+    # SeriesMenuModel (IsiXImaging) since the menu moved there.
+    menu_model_path = root / 'Modules/IsiXImaging/Sources/ViewerSeriesList/SeriesMenuModel.swift'
+    menu_model = menu_model_path.read_text() if 'SeriesMenuModel(' in popup and menu_model_path.is_file() else None
+    sections = [] if menu_model else [(popup, 'func buildSeriesPopup()', 'func loadSelectedSeries(', 1)]
+    if menu_model:
+        # The menu's model highlights a series shown, else fused, only when the
+        # menu colours them; the presenter reads both from the viewer.
+        highlight = menu_model[menu_model.index('public func highlight(of series: Series)'):]
+        assert highlight.index('if showsSeriesColors && series.isShown { return .shown }') < highlight.index('if showsSeriesColors && series.isFused { return .fused }')
+        assert 'let isShown = viewerSeries.contains(series)' in popup
+        assert 'isFused: showsSeriesColors && !isShown && self.viewer.blending()?.currentSeries() === series' in popup
+        assert 'showsSeriesColors = SeriesListIdentification.showsColors(in: preferences)' in popup
+    if presenter is None:
+        sections.append((thumbnails, 'func buildMatrixPreview(_ showSelected: Bool)', 'func matrixPreviewSelectCurrentSeries()', 2))
+    for text, start, end, count in sections:
         section = text[text.index(start):text.index(end, text.index(start))]
         assert section.count('if showsSeriesColors && viewerSeries.contains(curSeries) {') == count
         assert section.count('if showsSeriesColors && blending()?.currentSeries() === curSeries {') == count
+    if presenter is not None:
+        # The list's model tints the series shown, else fused, only when the
+        # list colours them; the presenter reads both from the viewer.
+        assert 'isShown: viewerSeries.contains(each), isFused: fused === each' in presenter
+        assert 'let fused = viewer.blending()?.currentSeries()' in presenter
+        model = (root / 'Modules/IsiXImaging/Sources/ViewerSeriesList/SeriesListModel.swift').read_text()
+        tint = model[model.index('private func seriesTint('):]
+        assert 'guard showsSeriesColors else { return nil }' in tint
+        assert tint.index('if series.isShown { return .shown }') < tint.index('if series.isFused { return .fused }')
+        assert 'let showsSeriesColors = SeriesListIdentification.showsColors(in: preferences)' in presenter
 # The frame is drawn by DCMView+Drawing.swift.
 drawing = (root / 'Horos/Sources/DCMView+Drawing.swift').read_text()
 border = drawing[drawing.index('if ViewerController.numberOf2DViewer() > 1'):drawing.index('PlanarFrameGraphics.drawWindowBorder(size:')]

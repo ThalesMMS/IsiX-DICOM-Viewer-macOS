@@ -38,10 +38,12 @@
 // PluginManager is implemented in Swift (Horos/Sources/PluginManager.swift).
 // This header keeps <Horos/PluginManager.h>: it brings in the generated interface,
 // which declares the same class name and selectors, and PluginFilter.h, which it
-// imported before.
+// imported before, with PluginFileFormatDecoder.h, the base class of the
+// file-format plugins it registers.
 
 #import <Cocoa/Cocoa.h>
 #import "PluginFilter.h"
+#import "PluginFileFormatDecoder.h"
 
 #if defined(HOROS_BRIDGING_HEADER)
 // Swift is compiling the class itself: headers it imports may only name it.

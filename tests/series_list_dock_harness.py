@@ -12,7 +12,9 @@ Where ViewerController.m still has that code (an older revision, the tests'
 negative control), its methods are taken from it and compiled with clang into
 the stand-in, as before. Where it has moved to ViewerController+SeriesListDock.swift,
 that file is compiled with swiftc as an extension of the stand-in, with the
-IsiXImaging rules it calls; the stand-in's accessors and methods are declared
+IsiXImaging rules it calls, and, once the dock's code moved on to
+SeriesListPresenter.swift, the presenter's part before the list's cells, with
+IsiXPreferences; the stand-in's accessors and methods are declared
 as ViewerController+SwiftIvars.h and the viewer's headers declare them.
 
 A test gives its scenario: Objective-C that defines main() over these names:
@@ -30,10 +32,15 @@ from pathlib import Path
 import re
 import subprocess
 import harness_defaults  # the harness's preferences stay in its own process
+import isix_modules
 
 ROOT = Path(__file__).resolve().parents[1]
 VIEWER = 'Horos/Sources/ViewerController.m'
 DOCK = 'Horos/Sources/ViewerController+SeriesListDock.swift'
+# Where the dock's code moved: the presenter of the list, whose part before the
+# list's cells is the dock's.
+PRESENTER = 'Horos/Sources/SeriesListPresenter.swift'
+CELLS_MARK = "\n// MARK: - The list's cells\n"
 
 # The dock's methods in ViewerController.m.
 OBJC_METHODS = (
@@ -53,14 +60,23 @@ IVARS = {'windowWillClose': 'BOOL', 'splitView': 'NSSplitView*', 'previewMatrixS
          'needsToBuildSeriesMatrix': 'BOOL', 'needsToBuildSeriesPopupMenu': 'BOOL', 'FullScreenWindow': 'NSWindow*', 'FullScreenOn': 'BOOL',
          'seriesView': 'SeriesView*', 'previewRootView': 'NSView*'}
 
-# The viewer's methods the Swift of the dock calls, and the headers that declare them.
-METHODS = (('Horos/Sources/ViewerController+Menus.h', '- (NSArray*) imageViews;'),
-           ('Horos/Sources/ViewerController+Navigation.h', '- (void) propagateSettings;'),
-           ('Horos/Sources/ViewerController+Windows.h', '+ (NSMutableArray*) getDisplayed2DViewers;'),
-           ('Horos/Sources/ViewerController+Windows.h', '+ (NSMutableArray*) get2DViewers;'),
-           ('Horos/Sources/ViewerController+Windows.h', '- (void) setWindowTitle:(id) sender;'),
-           ('Horos/Sources/ViewerController+Windows.h', '- (BOOL) FullScreenON;'),
-           ('Horos/Sources/ViewerController+SeriesList.h', '- (void) buildMatrixPreview: (BOOL) showSelected;'))
+# The viewer's methods the Swift of the dock calls: the Swift that gives each its
+# selector, the header that declared it before, and the declaration the stand-in
+# takes for it.
+METHODS = (('Horos/Sources/ViewerController+Presentation.swift', 'Horos/Sources/ViewerController+Menus.h',
+            'imageViews', '- (NSArray*) imageViews;'),
+           ('Horos/Sources/ViewerController+Synchronization.swift', 'Horos/Sources/ViewerController+Navigation.h',
+            'propagateSettings', '- (void) propagateSettings;'),
+           ('Horos/Sources/ViewerController+ViewerRegistry.swift', 'Horos/Sources/ViewerController+Windows.h',
+            'getDisplayed2DViewers', '+ (NSMutableArray*) getDisplayed2DViewers;'),
+           ('Horos/Sources/ViewerController+ViewerRegistry.swift', 'Horos/Sources/ViewerController+Windows.h',
+            'get2DViewers', '+ (NSMutableArray*) get2DViewers;'),
+           ('Horos/Sources/ViewerController+WindowLifecycle.swift', 'Horos/Sources/ViewerController+Windows.h',
+            'setWindowTitle:', '- (void) setWindowTitle:(id) sender;'),
+           ('Horos/Sources/ViewerController+FullScreen.swift', 'Horos/Sources/ViewerController+Windows.h',
+            'FullScreenON', '- (BOOL) FullScreenON;'),
+           ('Horos/Sources/ViewerController+SeriesThumbnails.swift', 'Horos/Sources/ViewerController+SeriesList.h',
+            'buildMatrixPreview:', '- (void) buildMatrixPreview: (BOOL) showSelected;'))
 
 COMMON = r'''
 @interface ThumbnailCell : NSButtonCell
@@ -221,10 +237,9 @@ def _swift_declarations(revision):
             raise SystemExit(f'FAIL: horos_{name} is gone from ViewerController+SwiftIvars.h; this harness needs a new look')
         accessors.append(match.group(0))
     methods = []
-    for path, declaration in METHODS:
-        header = read(revision, path)
-        if header is None or declaration not in header:
-            raise SystemExit(f'FAIL: {path} no longer declares {declaration}; this harness needs a new look')
+    for swift, header, selector, declaration in METHODS:
+        if f'@objc({selector})' not in (read(revision, swift) or '') and declaration not in (read(revision, header) or ''):
+            raise SystemExit(f'FAIL: neither {swift} nor {header} has {declaration}; this harness needs a new look')
         methods.append(declaration)
     return ('#import <Cocoa/Cocoa.h>\n' + COMMON
             + '@interface ViewerController : NSWindowController\n' + IVAR_BLOCK + '\n'.join(methods) + '\n@end\n'
@@ -250,7 +265,12 @@ def _helpers(revision):
         if not match:
             raise SystemExit(f'FAIL: {path} changed; this harness needs a new look')
         return match.group(0)
-    return ('import AppKit\n'
+    # The graphs the presenter is made over: the stand-in's preferences.
+    graphs = ('final class ProcessGraph: Sendable {\n    static let harness = ProcessGraph()\n'
+              '    var preferences: UserDefaults { UserDefaults.standard }\n}\n'
+              '@MainActor final class ViewerSessionGraph {\n    let processGraph = ProcessGraph.harness\n}\n'
+              'extension ViewerController {\n    var sessionGraph: ViewerSessionGraph! { ViewerSessionGraph() }\n}\n')
+    return ('import AppKit\n' + graphs
             + take('Horos/Sources/ViewerController+ImagePipelineSupport.swift', r'\nenum ViewerSender \{.*?\n}\n')
             + take('Horos/Sources/ViewerController+SeriesPopup.swift', r'\n(?:///[^\n]*\n)*func viewerSameString\(.*?\n}\n')
             + take('Horos/Sources/MainActorCallbacks.swift', r'\nfunc onMainActor\(.*?\n}\n'))
@@ -285,12 +305,21 @@ def build(revision, scenario, folder):
         (folder / 'ViewerController+SeriesListDock.swift').write_text(read(revision, DOCK))
         (folder / 'Helpers.swift').write_text(_helpers(revision))
         swift += [str(folder / 'ViewerController+SeriesListDock.swift'), str(folder / 'Helpers.swift')]
+        preferences = []
+        presenter = read(revision, PRESENTER)
+        if presenter is not None:
+            if CELLS_MARK not in presenter:
+                raise SystemExit(f'FAIL: {PRESENTER} has no "{CELLS_MARK.strip()}"; this harness needs a new look')
+            (folder / 'SeriesListPresenter.swift').write_text(presenter[:presenter.index(CELLS_MARK)])
+            swift.append(str(folder / 'SeriesListPresenter.swift'))
+            # The presenter reads the preferences through their catalog keys.
+            preferences = isix_modules.module_flags('IsiXPreferences', folder / 'preferences')
         run(['xcrun', 'swiftc', '-swift-version', '6', '-parse-as-library', '-module-name', 'SeriesListLayoutCheck', '-wmo',
-             '-I', str(module), '-import-objc-header', str(folder / 'StandIn.h'),
+             '-I', str(module), *preferences[:2], '-import-objc-header', str(folder / 'StandIn.h'),
              '-c', *swift, '-o', str(folder / 'layout.o'), '-emit-objc-header-path', str(folder / 'SeriesListLayoutCheck-Swift.h')])
         (folder / 'check.m').write_text('#import "StandIn.h"\n#import "SeriesListLayoutCheck-Swift.h"\n' + COMMON_IMPLEMENTATION
                                         + _swift_implementation() + scenario + harness_defaults.OBJC, encoding='latin1')
-        objects += [str(folder / 'layout.o'), str(folder / 'rules.o')]
+        objects += [str(folder / 'layout.o'), str(folder / 'rules.o'), *preferences[2:]]
     run(['xcrun', 'clang', '-c', '-fobjc-arc', '-fmodules', '-Wno-objc-method-access', '-I', str(folder),
          str(folder / 'check.m'), '-o', str(folder / 'check.o')])
     binary = folder / 'horos-series-list-dock-check'

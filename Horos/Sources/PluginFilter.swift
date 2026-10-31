@@ -42,23 +42,35 @@ import Foundation
 
 /** \brief Base class for plugins
 
- The messages the application sends a filter plugin's principal class, with
- what they answer when a filter does not override them. The optional ones (the
- events and toolbar items of the viewers, the web portal's pages) are declared
- by HorosPluginFilterMessages (PluginFilter.h) and implemented here by none.
+ The implementation of PluginFilter, declared in PluginFilter.h: the messages
+ the application sends a filter plugin's principal class, with what they answer
+ when a filter does not override them. The class is Objective-C for the runtime,
+ so that a plugin's Objective-C subclass, which has none of the metadata of a
+ Swift class, keeps every method and its own overrides; Swift reaches them by
+ Objective-C messages too. The optional messages (the events and toolbar items
+ of the viewers, the web portal's pages) are declared by
+ HorosPluginFilterMessages (PluginFilter.h) and implemented here by none.
  */
-@objc(PluginFilter)
-open class PluginFilter: NSObject {
+@objc @implementation extension PluginFilter {
     /// Current (frontmost and active) 2D viewer containing an image serie, as
     /// -prepareFilter: was given it.
-    @objc public var viewerController: ViewerController?
+    ///
+    /// A plugin built for Horos or OsiriX reads it as the instance variable
+    /// the former SDK declared, through the _OBJC_IVAR_$_PluginFilter.viewerController
+    /// symbol: the linker exports this property's offset under that name
+    /// (Horos/Scripts/Horos/legacy-plugin-ivar-aliases.rsp), so it keeps its
+    /// name and type.
+    var viewerController: ViewerController!
 
-    @objc(filter)
-    open class func filter() -> PluginFilter {
-        self.init()
+    /// `[[self alloc] init]`: allocated and initialized as the class of the
+    /// receiver, a plugin's subclass included. NSObject's -init, by message,
+    /// is the one a metatype may construct with: -init is not required of an
+    /// Objective-C class.
+    class func filter() -> PluginFilter! {
+        (self as NSObject.Type).init() as? PluginFilter
     }
 
-    @objc public required override init() {
+    override init() {
         super.init()
         initPlugin()
     }
@@ -70,80 +82,65 @@ open class PluginFilter: NSObject {
     // FUNCTIONS TO SUBCLASS
 
     /// Called to apply the plugin.
-    @discardableResult
-    @objc(filterImage:)
-    open func filterImage(_ menuName: String?) -> Int {
+    func filterImage(_ menuName: String!) -> Int {
         NSLog("Error, you should not be here!: %@", menuName ?? "(null)")
         return -1
     }
 
     /// The entry point of Pre-Process plugins.
-    @discardableResult
-    @objc(processFiles:)
-    open func processFiles(_ files: NSMutableArray?) -> Int {
+    func processFiles(_ files: NSMutableArray!) -> Int {
         0
     }
 
     /// The entry point of Report plugins: @"dateReport" answers the date the
     /// report was created or changed, @"deleteReport" deletes it, @"openReport"
     /// opens it, creating it when there is none.
-    @discardableResult
-    @objc(report:action:)
-    open func report(_ study: NSManagedObject?, action: String?) -> Any? {
+    func report(_ study: NSManagedObject!, action: String!) -> Any! {
         nil
     }
 
     /// Called at startup, for the plugin's allocations.
-    @objc open func initPlugin() {}
+    func initPlugin() {}
 
     /// Called when the application must unload the plugin, to install an update for example.
-    @objc open func willUnload() {}
+    func willUnload() {}
 
     /// Whether the plugin may run without the warning about plugins not certified for medical imaging.
-    @objc open func isCertifiedForMedicalImaging() -> Bool {
+    func isCertifiedForMedicalImaging() -> Bool {
         false
     }
 
     /// The plugin's opportunity to change the menus.
-    @objc open func setMenus() {}
+    func setMenus() {}
 
     // UTILITY FUNCTIONS
 
     /// The 2D viewers open in the application.
-    @MainActor @objc open func viewerControllersList() -> [Any]? {
+    func viewerControllersList() -> [Any]! {
         ViewerController.getDisplayed2DViewers() as? [Any]
     }
 
     /// A new 2D window, with a copy of the current series.
-    @discardableResult
-    @MainActor @objc open func duplicateCurrent2DViewerWindow() -> ViewerController? {
+    @MainActor func duplicateCurrent2DViewerWindow() -> ViewerController! {
         viewerController?.horosDuplicatedViewerWindow()
     }
 
     // Stubs that report filters override.
 
-    @discardableResult
-    @objc(reportDateForStudy:)
-    open func reportDate(forStudy study: NSManagedObject?) -> Any? {
+    func reportDate(forStudy study: NSManagedObject!) -> Any! {
         nil
     }
 
-    @discardableResult
-    @objc(deleteReportForStudy:)
-    open func deleteReport(forStudy study: NSManagedObject?) -> Bool {
+    func deleteReport(forStudy study: NSManagedObject!) -> Bool {
         false
     }
 
-    @discardableResult
-    @objc(createReportForStudy:)
-    open func createReport(forStudy study: NSManagedObject?) -> Bool {
+    func createReport(forStudy study: NSManagedObject!) -> Bool {
         false
     }
 
     /// PRIVATE FUNCTIONS - DON'T SUBCLASS OR MODIFY
-    @discardableResult
-    @objc(prepareFilter:)
-    open func prepareFilter(_ vC: ViewerController?) -> Int {
+    func prepareFilter(_ vC: ViewerController!) -> Int {
         NSLog("Prepare Filter")
         viewerController = vC
         return 0

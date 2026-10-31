@@ -125,12 +125,15 @@ check('let adaptive = node?.adaptiveRequests ?? false' in retrieve
 check('NodeRequestLimiter.shared.report(node: limiterNode, outcome: outcome' in retrieve and
       'latency: request.uid != nil ? ProcessInfo.processInfo.systemUptime - started : 0' in retrieve,
       'WADO-RS reports, with an instance latency only')
-check('request.attempts < 3' in retrieve and
-      'let handedOver = (requestError?.userInfo["HorosDICOMwebObjectsHandedOver"] as? NSNumber)?.uintValue ?? 0' in retrieve
-      and '&& handedOver == 0' in retrieve,
+# The decisions are the module's: the queue of the retrieve's requests.
+queue = (root / 'Modules/IsiXDICOMNetwork/Sources/DICOMwebRetrieveQueue.swift').read_text()
+check('busyOrTransient && request.attempts < adaptiveRepeats && (failure?.objectsHandedOver ?? 0) == 0' in queue
+      and 'public static let adaptiveRepeats = 3' in queue
+      and 'if adaptive && DICOMwebRetrieveQueue.repeatsAdaptively(request, failure: failure,' in retrieve,
       'a busy request that brought nothing is asked again, a bounded number of times')
-check('} else if let requestError {\n                        recover(request, error: requestError)' in retrieve,
-      'anything else recovers as HorosDICOMwebRetrieveRecovery says')
+check('} else if let failure {\n                        recover(request, failure: failure)' in retrieve
+      and 'var action = DICOMwebRecovery.action(for: failure, attempts: request.attempts + 1)' in queue,
+      'anything else recovers as DICOMwebRecovery says')
 check('requests at once (automatic)' in retrieve, 'the status shows the window')
 wado = (root / 'Horos/Sources/DCMTKQueryNode+WADO.swift').read_text()
 check('downloader.adaptiveRequests = NodeRequestLimiter.adaptive(forStoredValue:' in wado
@@ -139,7 +142,10 @@ check('downloader.adaptiveRequests = NodeRequestLimiter.adaptive(forStoredValue:
 download = (root / 'Horos/Sources/WADODownload.swift').read_text()
 check('tryAcquire(node: node!, limit: Int(WADOMaximumConcurrentDownloads), adaptive: self.adaptiveRequests)' in download and
       'report(NodeRequestLimiter.outcome(forStatus: statusCode), task: task, retryAfter:' in download and
-      'if adaptiveRequests { attempts = max(attempts, 4) }' in download, 'WADO-URI acquires, reports and retries in the automatic mode')
+      'WADORetrieveSettings.retryAttempts(preferences: processGraph.preferences, adaptive: adaptiveRequests)' in download
+      and 'if adaptive { attempts = max(attempts, adaptiveRetryAttempts) }' in
+      (root / 'Modules/IsiXDICOMNetwork/Sources/WADORetrieveRules.swift').read_text(),
+      'WADO-URI acquires, reports and retries in the automatic mode')
 client = (root / 'Horos/Sources/DICOMwebClient.swift').read_text()
 check('info[Self.retryAfterKey] = wait' in client and 'RequestOutcome' not in client, 'the client carries Retry-After and stays apart')
 editor = (root / 'Horos/Sources/DICOMwebNodeEditor.swift').read_text()

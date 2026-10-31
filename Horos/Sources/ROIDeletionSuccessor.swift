@@ -11,15 +11,16 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXPreferences
 
 /// The ROI a deletion leaves selected, so that pressing Delete again removes
 /// the slice's ROIs from the newest to the oldest without a click between.
 @objc(HorosROIDeletionSuccessor)
 public final class ROIDeletionSuccessor: NSObject {
-    @objc public static let preferenceKey = "ROISelectPreviousAfterDelete"
+    @objc public static let preferenceKey = ViewerPreferences.roiSelectPreviousAfterDelete.name
 
     @objc public static var isEnabled: Bool {
-        UserDefaults.standard.bool(forKey: preferenceKey)
+        PreferencesSource.process.preferences[ViewerPreferences.roiSelectPreviousAfterDelete]
     }
 
     /// The first ROI of `rois` that a click could select and Delete remove.

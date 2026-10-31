@@ -39,28 +39,10 @@
 
 import Cocoa
 import IsiXKeychain
+import IsiXPreferences
 import IsiXStorage
 import NIOCore
-
-/// @synchronized(object) { body }: the same recursive lock (objc_sync_enter).
-/// An NSException that body raises releases it and then goes on to the
-/// caller, as it did through @synchronized. A nil object takes no lock, as
-/// @synchronized(nil) did.
-fileprivate func webPortalSynchronized(_ object: AnyObject?, _ body: () -> Void) {
-    guard let object = object else {
-        body()
-        return
-    }
-    objc_sync_enter(object)
-    var raised: NSException? = nil
-    do {
-        try HorosObjCException.perform(body)
-    } catch {
-        raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    objc_sync_exit(object)
-    raised?.raise()
-}
+import Synchronization
 
 /// What a caught NSException (or another error) prints as with %@.
 fileprivate func webPortalCaught(_ error: Error) -> NSObject {
@@ -158,12 +140,12 @@ public final class WebPortalServer: NSObject, NetServiceDelegate, @unchecked Sen
 
     /// The run loop a new connection runs on: the one of the portal's thread
     /// pool with the fewest connections.
-    @objc public func runLoopForNewConnection() -> RunLoop? {
+    public func runLoopForNewConnection() -> RunLoop? {
         var m: UInt32 = 0
         var mLoop: RunLoop? = nil
         var mLoad: UInt32 = 0
 
-        webPortalSynchronized(portal?.runLoops) {
+        HorosObjCException.synchronized(portal?.runLoops) {
             let count = min(Int(THREAD_POOL_SIZE), self.portal?.runLoops?.count ?? 0)
             guard count > 0 else { return }
             mLoop = self.portal?.runLoops?.object(at: 0) as? RunLoop
@@ -189,7 +171,7 @@ public final class WebPortalServer: NSObject, NetServiceDelegate, @unchecked Sen
     /// A connection closed: the number of connections of its thread goes
     /// down. Called on that thread.
     private func connectionDidDie(_ engine: HTTPConnectionEngine, runLoop: RunLoop) {
-        webPortalSynchronized(portal?.runLoops) {
+        HorosObjCException.synchronized(portal?.runLoops) {
             let runLoopIndex = self.portal?.runLoops?.index(of: runLoop) ?? NSNotFound
 
             if runLoopIndex != NSNotFound && runLoopIndex < (self.portal?.runLoopsLoad?.count ?? 0) {
@@ -225,14 +207,16 @@ public final class WebPortalServer: NSObject, NetServiceDelegate, @unchecked Sen
 /// to the class, as from Objective-C, and runs +initialize first.
 @objc(WebPortal)
 public final class WebPortal: NSObject {
-    /// Guards the three statics below: the portal's connection threads ask
-    /// for the portals while the main thread makes or finalizes them. Recursive,
-    /// because making a portal reads the path again.
-    private static let instancesLock = NSRecursiveLock()
-    // nonisolated(unsafe): read and written only inside `instancesLock.withLock`.
-    nonisolated(unsafe) private static var defaultWebPortalDatabasePath: String? = nil
-    nonisolated(unsafe) private static var defaultWebPortalInstance: WebPortal? = nil
-    nonisolated(unsafe) private static var wadoOnlyWebPortalInstance: WebPortal? = nil
+    /// The path of the portals' accounts and the two portals of the class:
+    /// the portal's connection threads ask for the portals while the main
+    /// thread makes or finalizes them. A portal is made holding the lock, so
+    /// that two threads never make one each; making it reads nothing of these.
+    private struct Instances {
+        var databasePath: String?
+        var defaultPortal: SharedPortal?
+        var wadoOnlyPortal: SharedPortal?
+    }
+    private static let instances = Mutex(Instances())
 
     /// What the former +initialize did, called by it (WebPortal+CAPI.m).
     @objc(horosInitializeWebPortalClass)
@@ -242,12 +226,12 @@ public final class WebPortal: NSObject {
         // pointed at an isolated database still read and wrote the accounts of the
         // installed application. An explicit path keeps a development or test run
         // from touching them; unset, the location is the one above.
-        let configuredPath = (UserDefaults.standard.string(forKey: "WebPortalDatabasePath") as NSString?)?.expandingTildeInPath
+        let configuredPath = (PreferencesSource.process.preferences[DatabasePreferences.webPortalDatabasePath] as NSString?)?.expandingTildeInPath
         if let configuredPath = configuredPath, (configuredPath as NSString).length != 0 {
             databasePath = configuredPath
             NSLog("---- Web Portal accounts: %@", configuredPath as NSString)
         }
-        instancesLock.withLock { defaultWebPortalDatabasePath = databasePath }
+        instances.withLock { $0.databasePath = databasePath }
         NSUserDefaultsController.shared.addObserver(classObserver(self), forValuesKey: OsirixWadoServiceEnabledDefaultsKey, options: .initial, context: nil)
     }
 
@@ -288,14 +272,15 @@ public final class WebPortal: NSObject {
             _ = CSMailMailClient.mailClient() //If authentication is required to read email password: ask it now !
         }
 
-        if UserDefaults.standard.bool(forKey: "wadoOnlyServer") && ProtectedMode.isActive {
+        let preferences = PreferencesSource.process.preferences
+        if preferences[WebPortalPreferences.wadoOnlyServer] && ProtectedMode.isActive {
             ProtectedMode.skip("WADO server")
-        } else if UserDefaults.standard.bool(forKey: "wadoOnlyServer") {
+        } else if preferences[WebPortalPreferences.wadoOnlyServer] {
             let w: WebPortal! = self.wadoOnly()
 
             w?.usesSSL = false
-            w?.portNumber = UserDefaults.standard.integer(forKey: "wadoOnlyServerPort")
-            w?.address = UserDefaults.standard.string(forKey: "wadoOnlyServerURL")
+            w?.portNumber = preferences[WebPortalPreferences.wadoOnlyServerPort]
+            w?.address = preferences[WebPortalPreferences.wadoOnlyServerURL]
             w?.authenticationRequired = false
             w?.weasisEnabled = false
             w?.flashEnabled = false
@@ -364,33 +349,49 @@ public final class WebPortal: NSObject {
         // observations of the defaults carry the portal, unretained, as their
         // context. What its deallocation would have ended ends here: its
         // timers, which call it back.
-        instancesLock.withLock { defaultWebPortalInstance }?.invalidateTimers()
+        instances.withLock { $0.defaultPortal }?.portal.invalidateTimers()
     }
 
     @objc(defaultWebPortal)
     public dynamic class func `default`() -> WebPortal! {
-        return instancesLock.withLock { () -> WebPortal? in
-            guard let path = defaultWebPortalDatabasePath else { return nil }
+        if let made = instances.withLock({ $0.defaultPortal }) { return made.portal }
+        // Asked for before the lock: opening the database may notify observers
+        // that ask for the portals.
+        let dicomDatabase = DicomDatabase.default()
+        return instances.withLock { instances -> SharedPortal? in
+            guard let path = instances.databasePath else { return nil }
 
-            if defaultWebPortalInstance == nil {
-                defaultWebPortalInstance = self.init(databaseAtPath: path, dicomDatabase: DicomDatabase.default())
+            if instances.defaultPortal == nil {
+                instances.defaultPortal = SharedPortal(portal: self.init(databaseAtPath: path, dicomDatabase: dicomDatabase))
             }
 
-            return defaultWebPortalInstance
+            return instances.defaultPortal
+        }?.portal
+    }
+
+    /// A nib binding can make the default portal while the first-use choice
+    /// still holds the database back. The portal is kept, so it is handed the
+    /// database once that opens.
+    @MainActor static func adoptOpenedDatabase() {
+        let portals = instances.withLock { [$0.defaultPortal, $0.wadoOnlyPortal] }.compactMap { $0?.portal }
+        for portal in portals where portal.dicomDatabase == nil {
+            portal.dicomDatabase = DicomDatabase.default()
         }
     }
 
     @objc(wadoOnlyWebPortal)
     public dynamic class func wadoOnly() -> WebPortal! {
-        return instancesLock.withLock { () -> WebPortal? in
-            guard let path = defaultWebPortalDatabasePath else { return nil }
+        if let made = instances.withLock({ $0.wadoOnlyPortal }) { return made.portal }
+        let dicomDatabase = DicomDatabase.default()
+        return instances.withLock { instances -> SharedPortal? in
+            guard let path = instances.databasePath else { return nil }
 
-            if wadoOnlyWebPortalInstance == nil {
-                wadoOnlyWebPortalInstance = self.init(databaseAtPath: path, dicomDatabase: DicomDatabase.default())
+            if instances.wadoOnlyPortal == nil {
+                instances.wadoOnlyPortal = SharedPortal(portal: self.init(databaseAtPath: path, dicomDatabase: dicomDatabase))
             }
 
-            return wadoOnlyWebPortalInstance
-        }
+            return instances.wadoOnlyPortal
+        }?.portal
     }
 
     // MARK: Instance
@@ -512,7 +513,7 @@ public final class WebPortal: NSObject {
         self.locks = NSMutableDictionary()
 
         // -deleteTemporaryUsers: is in WebPortal+Email+Log.
-        temporaryUsersTimer = Timer.scheduledTimer(timeInterval: 60, target: self, selector: Selector(("deleteTemporaryUsers:")), userInfo: nil, repeats: true)
+        temporaryUsersTimer = Timer.scheduledTimer(timeInterval: 60, target: self, selector: #selector(WebPortal.deleteTemporaryUsers(_:)), userInfo: nil, repeats: true)
 
         preferredLocalizations = Bundle.main.preferredLocalizations as NSArray
     }
@@ -521,7 +522,7 @@ public final class WebPortal: NSObject {
     public convenience init(databaseAtPath sqlFilePath: String!, dicomDatabase dd: DicomDatabase!) {
         // The database at the path given; it used to be the default one
         // whatever the path. Both portals of the class pass the default path.
-        self.init(database: WebPortalDatabase(path: sqlFilePath ?? WebPortal.instancesLock.withLock { WebPortal.defaultWebPortalDatabasePath }), dicomDatabase: dd)
+        self.init(database: WebPortalDatabase(path: sqlFilePath ?? WebPortal.instances.withLock { $0.databasePath }), dicomDatabase: dd)
     }
 
     @objc(threadForRunLoopRef:)
@@ -590,9 +591,15 @@ public final class WebPortal: NSObject {
             Thread.current.name = "WebPortal server thread"
 
             // Start threads
+            // Each connection thread runs a run loop of its own, which serves
+            // the connections handed to it: real threads.
+            let portal = SharedPortal(portal: self)
             var i: UInt32 = 0
             while i < UInt32(THREAD_POOL_SIZE) {
-                Thread.detachNewThreadSelector(#selector(connectionsThread(_:)), toTarget: self, with: NSNumber(value: i))
+                let index = i
+                ActivityThread.startUnlisted(name: "WebPortal connection thread") { _ in
+                    portal.portal.connectionsThread(NSNumber(value: index))
+                }
                 i += 1
             }
 
@@ -623,9 +630,8 @@ public final class WebPortal: NSObject {
                     bindErrno = errno
                 }
                 NSLog("Exception: [WebPortal startAcceptingConnectionsThread:] %@", err.map { String(describing: $0) as NSString } ?? ("(null)" as NSString))
-                AppController.shared()?.reportListenBindFailure(forService: "web portal",
-                                                                             port: self.portNumber,
-                                                                             errnoCode: bindErrno)
+                ApplicationNetworkNotices.process.listenBindFailed(service: ListenBindFailure.webPortalService,
+                                                                    port: self.portNumber, errno: bindErrno)
                 return
             }
 
@@ -686,9 +692,11 @@ public final class WebPortal: NSObject {
                     server.txtRecord = ["ServerType": "OsiriX"]
                     server.port = UInt16(truncatingIfNeeded: self.portNumber)
 
-                    self.serverThread = Thread(target: self, selector: #selector(self.startServerThread), object: nil)
-
-                    self.serverThread?.start()
+                    // The server's run loop serves its listener: a thread of its own.
+                    let portal = SharedPortal(portal: self)
+                    self.serverThread = ActivityThread.startUnlisted(name: "WebPortal server thread") { _ in
+                        portal.portal.startServerThread()
+                    }
                 }
             } catch {
                 NSLog("Exception: [WebPortal startAcceptingConnections] %@", webPortalCaught(error))
@@ -707,7 +715,7 @@ public final class WebPortal: NSObject {
 
             do {
                 try HorosObjCException.perform {
-                    webPortalSynchronized(self.runLoops) {
+                    HorosObjCException.synchronized(self.runLoops) {
                         self.runLoops?.add(RunLoop.current)
                         self.runLoopsLoad?.add(NSNumber(value: UInt32(0)))
                         self.httpThreads?.add(Thread.current)
@@ -998,7 +1006,17 @@ public final class WebPortal: NSObject {
     public func notificationsTimerCallback(_ timer: Timer?) {
         if self.isAcceptingConnections {
             // -emailNotifications is in WebPortal+Email+Log.
-            _ = self.perform(Selector(("emailNotifications")))
+            self.emailNotifications()
         }
     }
+}
+
+/// A portal shared by threads: the two of the class, which any thread asks
+/// for, and the one the server thread and its connection threads serve.
+///
+/// `@unchecked Sendable`: WebPortal is not Sendable. Its threads share it as
+/// they always have: what they change of it, the run loops and their loads,
+/// they change under the portal's own locks.
+private struct SharedPortal: @unchecked Sendable {
+    let portal: WebPortal
 }

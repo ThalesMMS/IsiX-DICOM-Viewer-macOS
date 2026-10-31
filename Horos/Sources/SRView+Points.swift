@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 
 /// The surface view's 3D points: spheres the 2D viewer's points and the
 /// clicks on a surface put in the scene, their colours, radii and
@@ -296,34 +297,34 @@ extension SRView {
 
     @IBAction @objc(save3DPointsDefaultProperties:)
     func save3DPointsDefaultProperties(_ sender: Any?) {
-        let defaults = UserDefaults.standard
+        let preferences = processGraph.preferences
         if let color = point3DColorWell?.color.usingColorSpace(.genericRGB) {
             point3DDefaultColorRed = Float(color.redComponent)
             point3DDefaultColorGreen = Float(color.greenComponent)
             point3DDefaultColorBlue = Float(color.blueComponent)
             point3DDefaultColorAlpha = Float(color.alphaComponent)
         }
-        defaults.set(point3DDefaultColorRed, forKey: "points3DcolorRed")
-        defaults.set(point3DDefaultColorGreen, forKey: "points3DcolorGreen")
-        defaults.set(point3DDefaultColorBlue, forKey: "points3DcolorBlue")
-        defaults.set(point3DDefaultColorAlpha, forKey: "points3DcolorAlpha")
+        preferences.set(point3DDefaultColorRed, for: VolumeRenderingPreferences.points3DColorRed)
+        preferences.set(point3DDefaultColorGreen, for: VolumeRenderingPreferences.points3DColorGreen)
+        preferences.set(point3DDefaultColorBlue, for: VolumeRenderingPreferences.points3DColorBlue)
+        preferences.set(point3DDefaultColorAlpha, for: VolumeRenderingPreferences.points3DColorAlpha)
         point3DDefaultRadius = point3DRadiusSlider?.floatValue ?? 0
-        defaults.set(point3DDefaultRadius, forKey: "points3Dradius")
+        preferences.set(point3DDefaultRadius, for: VolumeRenderingPreferences.points3DRadius)
     }
 
     @objc func load3DPointsDefaultProperties() {
-        let defaults = UserDefaults.standard
-        point3DDefaultColorRed = defaults.float(forKey: "points3DcolorRed")
-        point3DDefaultColorGreen = defaults.float(forKey: "points3DcolorGreen")
-        point3DDefaultColorBlue = defaults.float(forKey: "points3DcolorBlue")
-        point3DDefaultColorAlpha = defaults.float(forKey: "points3DcolorAlpha")
+        let preferences = processGraph.preferences
+        point3DDefaultColorRed = preferences[VolumeRenderingPreferences.points3DColorRed]
+        point3DDefaultColorGreen = preferences[VolumeRenderingPreferences.points3DColorGreen]
+        point3DDefaultColorBlue = preferences[VolumeRenderingPreferences.points3DColorBlue]
+        point3DDefaultColorAlpha = preferences[VolumeRenderingPreferences.points3DColorAlpha]
         if point3DDefaultColorAlpha == 0.0 {
             point3DDefaultColorRed = 1.0
             point3DDefaultColorGreen = 0.0
             point3DDefaultColorBlue = 0.0
             point3DDefaultColorAlpha = 1.0
         }
-        point3DDefaultRadius = defaults.float(forKey: "points3Dradius")
+        point3DDefaultRadius = preferences[VolumeRenderingPreferences.points3DRadius]
         if point3DDefaultRadius == 0 { point3DDefaultRadius = 1.0 }
     }
 

@@ -4,9 +4,9 @@ IsiXPluginKit is the plugin API of IsiX DICOM Viewer, version 1: a small Swift
 framework that a plugin compiles against, and that the application provides at
 run time. A plugin is a `.isixplugin` bundle. It reaches viewers, images, ROIs
 and the database through the kit's types only; no class or header of the
-application is part of the API. Since IsiX DICOM Viewer 6.0 it is the only
-plugin API: plugins made for Horos or OsiriX (`.horosplugin`, `.osirixplugin`)
-are not loaded. The plugin template that builds against this SDK is at
+application is part of the API. Since IsiX DICOM Viewer 6.0 it is the plugin
+API for new plugins; plugins made for Horos or OsiriX (`.horosplugin`,
+`.osirixplugin`) still load as they are, through their own loader. The plugin template that builds against this SDK is at
 [github.com/ThalesMMS/IsiXPluginTemplate](https://github.com/ThalesMMS/IsiXPluginTemplate).
 
 ## The bundle
@@ -41,10 +41,11 @@ and refuses the bundle, with the reason shown in the Plugins window, when:
 - the bundle carries its own copy of IsiXPluginKit, or does not link it;
 - the code for Apple silicon (`arm64`) is not signed: macOS runs it only
   signed, ad hoc at least (`codesign --sign - MyPlugin.isixplugin`);
-- the bundle is a plugin of the former API: a `.horosplugin` or
-  `.osirixplugin`, or a bundle with former Info.plist keys (`pluginType`,
-  `MenuTitles`, ...) or a former SDK framework linked. Renaming such a bundle
-  to `.isixplugin` does not make it a version 1 plugin.
+- a `.isixplugin` bundle is a plugin of the former API: it has former
+  Info.plist keys (`pluginType`, `MenuTitles`, ...) or links a former SDK
+  framework. Renaming a `.horosplugin` or `.osirixplugin` to `.isixplugin`
+  does not make it a version 1 plugin; keep its own extension and it loads
+  through the loader of the former plugins.
 
 After loading, the entry class must resolve in the plugin's executable and
 adopt `IsiXPlugin`; otherwise the plugin is refused too.
@@ -373,6 +374,14 @@ SDK against the one published. It does not contain the application's private
 interface. Build it from the application's source with
 
     tools/export-isix-plugin-kit.py --xcode Release --output <folder>
+
+A release publishes it as `IsiXPluginKit-SDK-<version>.zip`, made with
+`--zip`: the same framework and `SDK.json`, the application's license files,
+this document as `README.md`, and `LegacyPorting/`, the kit and scripts that
+port a Horos or OsiriX plugin's source (`IsiXLegacyBridge/`,
+`tools/port-legacy-plugin.py`, `tools/build-isix-legacy-plugin.py` and
+`tools/inventory-plugin-api.py`, with `LICENSE`), whose `PORTING.json` gives
+the source revision and the SHA-256 of each file.
 
 The copy of the framework inside the application cannot be exported: Xcode
 leaves its module interfaces out when it embeds it. `--framework` takes the

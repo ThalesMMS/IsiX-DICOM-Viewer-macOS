@@ -39,6 +39,7 @@
 
 
 import Cocoa
+import IsiXPreferences
 
 /// The 3D presets: the window's settings (window level, colour table and
 /// opacity or 16-bit CLUT, shading, projection, background, filters) saved by
@@ -206,7 +207,7 @@ extension VRController {
     public final func save3DSettings(_ settings: NSMutableDictionary!, withName name: String!, group groupName: String!) {
         settings?.setObject(name ?? "", forKey: "name" as NSString)
         settings?.setObject(groupName ?? "", forKey: "groupName" as NSString)
-        var path = BrowserController.currentBrowser()?.database?.presetsDirPath() ?? ""
+        var path = browserWindowGraph?.database?.presetsDirPath() ?? ""
         var isDir: ObjCBool = true
         if !FileManager.default.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue {
             try? FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true, attributes: nil)
@@ -219,7 +220,7 @@ extension VRController {
 
     /// The presets' folders: the database's and the application's.
     private func presetsFolders() -> [String] {
-        let path1 = BrowserController.currentBrowser()?.database?.presetsDirPath() ?? ""
+        let path1 = browserWindowGraph?.database?.presetsDirPath() ?? ""
         let bundlePath = ((Bundle.main.resourcePath ?? "") as NSString).appendingPathComponent((path1 as NSString).lastPathComponent)
         return [path1, bundlePath]
     }
@@ -300,7 +301,7 @@ extension VRController {
     /// click on a preview) applies the selected preset.
     @IBAction @objc(load3DSettings:)
     public final func load3DSettings(_ sender: Any!) {
-        UserDefaults.standard.set(presetsGroupPopUpButton?.titleOfSelectedItem, forKey: "LAST_3D_PRESET")
+        processGraph.preferences.set(presetsGroupPopUpButton?.titleOfSelectedItem, for: VolumeRenderingPreferences.last3DPreset)
 
         // the toolbar policy makes plain items HorosFlatToolbarItem
         if (sender as? NSObject)?.className == "NSMenuItem" || sender is NSToolbarItem {
@@ -467,21 +468,21 @@ extension VRController {
         guard let preset, let preview else { return }
         let aClutName = preset.object(forKey: "CLUT") as? String
         if !flag(preset, "advancedCLUT") {
-            if let aCLUT = UserDefaults.standard.dictionary(forKey: "CLUT")?[aClutName ?? ""] as? NSDictionary {
-                var (red, green, blue) = clutTables(aCLUT)
+            if let aCLUT = colourTablePresets[aClutName] {
+                var (red, green, blue) = aCLUT.bytes
                 preview.setCLUT(&red, &green, &blue)
             } else {
                 preview.setCLUT(nil, nil, nil)
             }
             // opacity
-            if let aOpacity = UserDefaults.standard.dictionary(forKey: "OPACITY")?[(preset.object(forKey: "opacity") as? String) ?? ""] as? NSDictionary {
-                preview.setOpacity(aOpacity.object(forKey: "Points") as? [Any])
+            if let aOpacity = opacityTablePresets[preset.object(forKey: "opacity") as? String] {
+                preview.setOpacity(aOpacity.storedPoints)
             }
             // window level/width
             preview.setWLWW(number(preset, "wl"), number(preset, "ww"))
         } else {
             // read the 16-bit CLUT in the file
-            let clutsPath = BrowserController.currentBrowser()?.database?.clutsDirPath() ?? ""
+            let clutsPath = browserWindowGraph?.database?.clutsDirPath() ?? ""
             var path = (clutsPath as NSString).appendingPathComponent(aClutName ?? "")
             var curves: NSMutableArray?, pointColors: NSMutableArray?
             if FileManager.default.fileExists(atPath: path) {
@@ -523,16 +524,13 @@ extension VRController {
         // shadings
         if flag(preset, "useShading") {
             let shadingName = preset.object(forKey: "shading") as? String
-            var selectedShading: NSDictionary?
-            for case let shading as NSDictionary in (UserDefaults.standard.array(forKey: "shadingsPresets") ?? [])
-            where (shading.object(forKey: "name") as? String) == shadingName {
-                selectedShading = shading
-            }
-            if let shading = selectedShading {
-                let ambient = floatValue(shading.value(forKey: "ambient"))
-                let diffuse = floatValue(shading.value(forKey: "diffuse"))
-                let specular = floatValue(shading.value(forKey: "specular"))
-                let specularpower = floatValue(shading.value(forKey: "specularPower"))
+            // The last preset of that name, as the list was read through.
+            let presets: [ShadingPreset] = ImagePresetPreferences.shadingPresets.elements(in: processGraph.preferences)
+            if let shading = presets.last(where: { $0.name == shadingName }) {
+                let ambient = shading.ambient
+                let diffuse = shading.diffuse
+                let specular = shading.specular
+                let specularpower = shading.specularPower
                 var sambient: Float = 0, sdiffuse: Float = 0, sspecular: Float = 0, sspecularpower: Float = 0
                 preview.getShadingValues(&sambient, &sdiffuse, &sspecular, &sspecularpower)
                 if sambient != ambient || sdiffuse != diffuse || sspecular != specular || sspecularpower != specularpower {
@@ -605,7 +603,7 @@ extension VRController {
         }
         presetPageNumber = 0
         updatePresetsGroupPopUpButton()
-        selectGroup(withName: UserDefaults.standard.string(forKey: "LAST_3D_PRESET"))
+        selectGroup(withName: processGraph.preferences[VolumeRenderingPreferences.last3DPreset])
         presetsPanel?.makeKeyAndOrderFront(self)
     }
 

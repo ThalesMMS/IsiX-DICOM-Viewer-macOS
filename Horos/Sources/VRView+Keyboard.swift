@@ -169,8 +169,8 @@ extension VRView {
             NSLog("360 degree rotation - 100 images - END")
             NSLog("360 degree rotation - Result in [s]: %f", -now.timeIntervalSinceNow)
 
-            AppController.shared()?.notificationTitle(
-                NSLocalizedString("Performance Test", comment: ""),
+            processGraph.userNotifications.post(
+                title: NSLocalizedString("Performance Test", comment: ""),
                 description: String(format: NSLocalizedString("360 degree rotation - 100 images\rResult in [s] : %f", comment: ""),
                                     -now.timeIntervalSinceNow),
                 name: "result")

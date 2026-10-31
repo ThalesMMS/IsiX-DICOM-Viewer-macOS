@@ -255,13 +255,13 @@ for line in manifest.split(separator: "\n", omittingEmptySubsequences: true).map
                                                             needsCompression: { asked += 1; return f[4] == "1" })
         out = "\(decided ? 1 : 0) asked \(asked)"
     case "queue":
-        switch IncomingScanRules.queue(forListenerCompressionSettings: Int(f[1])!) {
+        switch IncomingScanRules.conversion(forListenerCompressionSettings: Int(f[1])!) {
         case .decompress: out = "decompress"
         case .compress: out = "compress"
         case .none: out = "none"
         }
     case "cloud":
-        // As DicomDatabase+Import.swift asks: the SOP Class first, then the rest.
+        // As DicomFileIndexer.swift asks: the SOP Class first, then the rest.
         let sop = field(f[1])
         out = CloudReportCandidate.looksLikeReport(isPDFOrStructuredReport: sop == "PDF_UID" || sop == "SR_UID",
                                                    modality: field(f[2]), seriesDescription: field(f[3]),

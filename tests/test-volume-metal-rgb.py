@@ -32,6 +32,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import process_graph_stand_in  # the Metal sources read their development switches through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -159,7 +160,8 @@ int main(int argc, char **argv) { @autoreleasepool {
         opt = arguments.optimization
         subprocess.run(['xcrun','swiftc','-Onone' if opt=='debug' else '-O','-emit-library','-emit-objc-header',
                         '-emit-objc-header-path',str(work/'Probe-Swift.h'),'-module-name','Probe','-suppress-warnings',
-                        *[str(work/s) for s in sources],'-o',str(work/'libProbe.dylib')],check=True)
+                        *[str(work/s) for s in sources],*process_graph_stand_in.swift_flags(work/'isix'),
+                        '-o',str(work/'libProbe.dylib')],check=True)
         subprocess.run(['xcrun','clang++','-O0' if opt=='debug' else '-O2','-std=c++17','-w','-fobjc-arc',
                         str(work/'Check.mm'),'-L'+str(work),'-lProbe','-Wl,-rpath,'+str(work),
                         '-framework','Foundation','-framework','Accelerate','-o',str(work/'check')],check=True)
@@ -385,7 +387,8 @@ with tempfile.TemporaryDirectory(prefix='horos-volume-rgb-') as name:
         (work / source).write_text(read('Horos/Sources/' + source))
     (work / 'Check.swift').write_text(DRIVER)
     build = subprocess.run(['xcrun', 'swiftc', '-Onone' if arguments.optimization == 'debug' else '-O', '-parse-as-library', '-suppress-warnings',
-                            *[str(work / s) for s in sources], str(work / 'Check.swift'), '-o', str(work / 'check')])
+                            *[str(work / s) for s in sources], *process_graph_stand_in.swift_flags(work / 'isix'),
+                            str(work / 'Check.swift'), '-o', str(work / 'check')])
     if build.returncode:
         print('FAIL: the renderer does not build with the RGB driver')
         raise SystemExit(1)

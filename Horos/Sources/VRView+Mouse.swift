@@ -39,6 +39,7 @@
 
 import AppKit
 import IsiXVolumeRendering
+import IsiXPreferences
 
 // The clicks and drags of VRView: the press of each tool (measurements, the
 // scissors, window and level, the camera's turns, pans and zooms, the 3D
@@ -46,8 +47,8 @@ import IsiXVolumeRendering
 // and the viewport's resize handle. A Swift extension of the class, with the
 // same selectors.
 //
-// The @try of -mouseDown: (around the click count) is HorosObjCException.
-// The arithmetic keeps the Objective-C's types; where clang fused a product
+// The click count is read only from the four button events that carry one,
+// so reading it cannot raise. The arithmetic keeps the Objective-C's types; where clang fused a product
 // into a sum (a*b + c, a - b*c), the Swift says so with addingProduct.
 
 extension VRView {
@@ -57,7 +58,6 @@ extension VRView {
     public override func mouseDown(with theEvent: NSEvent) {
         if eventToPlugins(theEvent) { return }
 
-        VRView.horos_snVRView = self
         IsiXVTKVolumeView.volumeRenderingSuppressed = false
 
         horos_hasChanged = true
@@ -66,10 +66,6 @@ extension VRView {
 
         let vtk = horos_vtk
         let LOD = horos_LOD, lowResLODFactor = self.lowResLODFactor
-
-        horos_snCloseEventTimer?.fire()
-
-        horos_snStopped = true
 
         var mouseLoc: NSPoint, mouseLocPre: NSPoint
         var tool: ToolMode
@@ -95,13 +91,9 @@ extension VRView {
 
         var clickCount = 1
 
-        if HorosObjCException.caught({
-            let type = theEvent.type
-            if type == .leftMouseDown || type == .rightMouseDown || type == .leftMouseUp || type == .rightMouseUp {
-                clickCount = theEvent.clickCount
-            }
-        }) != nil {
-            clickCount = 1
+        let type = theEvent.type
+        if type == .leftMouseDown || type == .rightMouseDown || type == .leftMouseUp || type == .rightMouseUp {
+            clickCount = theEvent.clickCount
         }
 
         if clickCount > 1 && tool != .t3Dpoint {
@@ -386,7 +378,7 @@ extension VRView {
                     // still turns about the focal point.
                     var pix = [Int](repeating: 0, count: 3)
                     var surface = [Float](repeating: 0, count: 3), value: Float = 0
-                    if !keep3DRotateCentered && UserDefaults.standard.bool(forKey: "rotate3DAroundPointUnderMouse")
+                    if !keep3DRotateCentered && processGraph.preferences[VolumeRenderingPreferences.rotate3DAroundPointUnderMouse]
                         && get3DPixelUnder2DPositionX(Float(mouseLoc.x), y: Float(mouseLoc.y), pixel: &pix, position: &surface, value: &value) {
                         let factor = horos_factor
                         let pivot = [Double(surface[0] * factor), Double(surface[1] * factor), Double(surface[2] * factor)]
@@ -502,8 +494,9 @@ extension VRView {
 
         var pix = [Int](repeating: 0, count: 3)
         var pos = [Float](repeating: 0, count: 3), value: Float = 0
-        let defaults = UserDefaults.standard
-        let minValue = Float(Double(defaults.float(forKey: "VRGrowingRegionValue")) - Double(defaults.float(forKey: "VRGrowingRegionInterval")) / 3.0)
+        let preferences = processGraph.preferences
+        let minValue = Float(Double(preferences[VolumeRenderingPreferences.vrGrowingRegionValue])
+                             - Double(preferences[VolumeRenderingPreferences.vrGrowingRegionInterval]) / 3.0)
 
         if get3DPixelUnder2DPositionX(Float(horos_mouseLocStart.x), y: Float(horos_mouseLocStart.y), pixel: &pix, position: &pos,
                                       value: &value, maxOpacity: 1.1, minValue: minValue) {
@@ -526,8 +519,8 @@ extension VRView {
 
                 let itkSegmentation = ITKSegmentation3D(viewer?.pixList(), viewer?.volumePtr(), -1)
 
-                let interval = Double(defaults.float(forKey: "VRGrowingRegionInterval"))
-                let regionValue = Double(defaults.float(forKey: "VRGrowingRegionValue"))
+                let interval = Double(preferences[VolumeRenderingPreferences.vrGrowingRegionInterval])
+                let regionValue = Double(preferences[VolumeRenderingPreferences.vrGrowingRegionValue])
                 itkSegmentation?.regionGrowing3D(viewer, // source viewer
                                                  nil, // destination viewer = nil means we don't want a new serie
                                                  -1, // slice = -1 means 3D region growing
@@ -798,7 +791,7 @@ extension VRView {
                 }
 
                 let text: String
-                if modality == "PT" || (UserDefaults.standard.bool(forKey: "mouseWindowingNM") && modality == "NM") {
+                if modality == "PT" || (processGraph.preferences[VolumeRenderingPreferences.mouseWindowingNM] && modality == "NM") {
                     if ww < 50 {
                         text = String(format: "From: %0.4f   To: %0.4f ", Double(wl - ww / 2), Double(wl + ww / 2))
                     } else {
@@ -925,10 +918,10 @@ extension VRView {
         let startWW = horos_startWW, startWL = horos_startWL, startMin = horos_startMin, startMax = horos_startMax
         let wwAdapter = Float(Double(startWW) / 100.0)
         let dx = Double(theEvent.deltaX), dy = Double(theEvent.deltaY)
-        let defaults = UserDefaults.standard
+        let preferences = processGraph.preferences
 
-        if modality == "PT" || (defaults.bool(forKey: "mouseWindowingNM") && modality == "NM") {
-            switch defaults.integer(forKey: "PETWindowingMode") {
+        if modality == "PT" || (preferences[VolumeRenderingPreferences.mouseWindowingNM] && modality == "NM") {
+            switch preferences[ViewerPreferences.petWindowingMode] {
             case 0:
                 wl = startWL.addingProduct(-Float(CConversion.long(dy)), wwAdapter)
                 ww = startWW.addingProduct(Float(CConversion.long(dx)), wwAdapter)
@@ -938,7 +931,7 @@ extension VRView {
             case 1:
                 let endlevel = Float(Double(startMax).addingProduct(-dy, Double(wwAdapter)))
 
-                wl = (endlevel - startMin) / 2 + Float(defaults.integer(forKey: "PETMinimumValue"))
+                wl = (endlevel - startMin) / 2 + Float(preferences[ViewerPreferences.petMinimumValue])
                 ww = endlevel - startMin
 
                 if ww < 0.1 { ww = 0.1 }

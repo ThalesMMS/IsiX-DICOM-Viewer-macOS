@@ -11,19 +11,22 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 
 /// The 2D viewer keeps its slice-count value and bounds. Only mouse position
 /// and knob geometry use the selected curve, so scroll, reslice and saved
 /// thickness continue to use the same units as the projection controller.
 @objc(HorosThickSlabSlider)
 public class HorosThickSlabSlider: HorosCellSlider {
+    /// The preferences of the process graph, whose curve of the ruler the slider reads and observes.
+    let preferenceStore: UserDefaults = PreferencesSource.process.preferences
     private var observesScalePreference = false
 
     fileprivate var storesNormalizedPosition: Bool { false }
 
     fileprivate var scale: ThickSlabSliderScale {
         ThickSlabSliderScale(minimum: minValue, maximum: maxValue,
-                             exponential: UserDefaults.standard.bool(forKey: ThickSlabSliderScale.defaultsKey))
+                             exponential: self.preferenceStore[ReconstructionPreferences.logarithmicThickSlabSlider])
     }
 
     public override init(frame frameRect: NSRect) {
@@ -37,21 +40,21 @@ public class HorosThickSlabSlider: HorosCellSlider {
     }
 
     private func observeScalePreference() {
-        UserDefaults.standard.addObserver(self, forKeyPath: ThickSlabSliderScale.defaultsKey,
-                                         options: .new, context: nil)
+        self.preferenceStore.addObserver(self, forKeyPath: ReconstructionPreferences.logarithmicThickSlabSlider.name,
+                                    options: .new, context: nil)
         observesScalePreference = true
     }
 
     isolated deinit {
         if observesScalePreference {
-            UserDefaults.standard.removeObserver(self, forKeyPath: ThickSlabSliderScale.defaultsKey)
+            self.preferenceStore.removeObserver(self, forKeyPath: ReconstructionPreferences.logarithmicThickSlabSlider.name)
         }
     }
 
     public override nonisolated func observeValue(forKeyPath keyPath: String?, of object: Any?,
                                                   change: [NSKeyValueChangeKey: Any]?,
                                                   context: UnsafeMutableRawPointer?) {
-        guard keyPath == ThickSlabSliderScale.defaultsKey else {
+        guard keyPath == ReconstructionPreferences.logarithmicThickSlabSlider.name else {
             super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
             return
         }
@@ -98,6 +101,6 @@ public final class HorosMPRThickSlabSlider: HorosThickSlabSlider {
 
     fileprivate override var scale: ThickSlabSliderScale {
         ThickSlabSliderScale(minimum: minimumThickness, maximum: maximumThickness,
-                             exponential: UserDefaults.standard.bool(forKey: ThickSlabSliderScale.defaultsKey))
+                             exponential: self.preferenceStore[ReconstructionPreferences.logarithmicThickSlabSlider])
     }
 }

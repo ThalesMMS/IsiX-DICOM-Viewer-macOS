@@ -39,25 +39,23 @@
 
 import Foundation
 
-// The lists of the hanging protocols, hot keys and compression preferences.
-extension DefaultPreferences {
+// The factory lists of the hanging protocols and hot keys.
+extension ViewerPreferences {
     /// One protocol per modality, the localized modality name as its key; two
     /// by two for mammography, in the order of the usual views.
-    static func hangingProtocols() -> NSMutableDictionary {
-        let protocols = NSMutableDictionary()
+    static func factoryHangingProtocols() -> [String: Any] {
         let modalities = ["CR", "CT", "DX", "ES", "MG", "MR", "NM", "OT", "PT", "RF", "SC", "US", "XA"]
             .map { NSLocalizedString($0, comment: "") }
+        var protocols: [String: Any] = [:]
         for modality in modalities {
-            let hangingProtocol = NSMutableDictionary()
-            hangingProtocol["Study Description"] = NSLocalizedString("Default", comment: "")
-            hangingProtocol["WindowsTiling"] = NSNumber(value: Int32(0))
-            hangingProtocol["ImageTiling"] = NSNumber(value: Int32(0))
+            var hangingProtocol: [String: Any] = ["Study Description": NSLocalizedString("Default", comment: ""),
+                                                  "WindowsTiling": 0, "ImageTiling": 0]
             if modality == "MG" {
-                hangingProtocol["WindowsTiling"] = NSNumber(value: 5) // 2 x 2
+                hangingProtocol["WindowsTiling"] = 5 // 2 x 2
                 hangingProtocol["SeriesOrder"] = "R CC,L CC,R MLO,L MLO"
-                hangingProtocol["NumberOfSeriesPerComparative"] = NSNumber(value: Int32(4))
+                hangingProtocol["NumberOfSeriesPerComparative"] = 4
             }
-            protocols[modality] = NSMutableArray(object: hangingProtocol)
+            protocols[modality] = [hangingProtocol]
         }
         return protocols
     }
@@ -65,7 +63,7 @@ extension DefaultPreferences {
     /// The key of each hot key action, in the order of the HotKeyActions enum
     /// (DefaultsOsiriX.h): a key maps to the index of its action. An empty key
     /// has no hot key.
-    static func hotKeys() -> NSMutableDictionary {
+    static func factoryHotKeys() -> [String: Int] {
         let keys = [
             "~",    //DefaultWWWLHotKeyAction
             "0",    //FullDynamicWWWLHotKeyAction
@@ -124,21 +122,22 @@ extension DefaultPreferences {
             "",     //ResliceCoronalHotKeyAction
             "",     //ResliceSagittalHotKeyAction
         ]
-        let hotKeys = NSMutableDictionary()
+        var hotKeys: [String: Int] = [:]
         // A key listed twice keeps its last action (\ is the dictation's).
         for (action, key) in keys.enumerated() where !key.isEmpty {
-            hotKeys[key] = NSNumber(value: Int32(action))
+            hotKeys[key] = action
         }
         return hotKeys
     }
+}
 
-    /// The compression of each modality: none, except the default (3); `quality`
-    /// "1" for the full resolution list, "0" for the low resolution one.
-    static func compressionSettings(quality: String) -> NSArray {
+// The compression of each modality, for the full and the low resolution lists.
+extension DatabasePreferences {
+    /// None, except the default (3); `quality` "1" for the full resolution
+    /// list, "0" for the low resolution one.
+    static func factoryCompression(quality: String) -> [[String: String]] {
         let modalities = ["CR", "CT", "DX", "ES", "MG", "MR", "NM", "OT", "PT", "RF", "SC", "US", "XA"]
-        var settings: [NSDictionary] = [["modality": NSLocalizedString("default", comment: ""), "compression": "3",
-                                         "quality": quality]]
-        settings += modalities.map { ["modality": $0, "compression": "0", "quality": quality] as NSDictionary }
-        return settings as NSArray
+        return [["modality": NSLocalizedString("default", comment: ""), "compression": "3", "quality": quality]]
+            + modalities.map { ["modality": $0, "compression": "0", "quality": quality] }
     }
 }

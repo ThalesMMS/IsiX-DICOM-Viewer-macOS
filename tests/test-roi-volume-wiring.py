@@ -3,14 +3,20 @@
 from pathlib import Path
 import sys
 root = Path(__file__).resolve().parents[1]
-# -computeVolume:... of the 2D viewer, in Swift; the thinning of the points is IsiXROI's.
+# -computeVolume:... of the 2D viewer is ViewerROIVolume's, over IsiXROI's
+# ROIVolumeJob, which also thins the points.
 controller = (root / 'Horos/Sources/ViewerController+ROIVolume.swift').read_text(encoding='utf-8')
+measure = (root / 'Horos/Sources/ViewerROIVolume.swift').read_text(encoding='utf-8')
+job = (root / 'Modules/IsiXROI/Sources/ROIVolumeJob.swift').read_text(encoding='utf-8')
 points = (root / 'Modules/IsiXROI/Sources/ROIValueStatistics.swift').read_text(encoding='utf-8')
 volume = (root / 'Horos/Sources/ROIVolume.swift').read_text(encoding='utf-8')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 xib = (root / 'Horos/Resources/en.lproj/Viewer.xib').read_text(encoding='latin1', errors='replace')
 start = controller.index('@objc(computeVolume:points:generateMissingROIs:generatedROIs:computeData:error:)')
-method = controller[start:controller.index('\nextension ViewerController {', start)]
+if 'ViewerROIVolume.measure(' not in controller[start:]:
+    print('FAIL: computeVolume does not measure through ViewerROIVolume', file=sys.stderr)
+    sys.exit(1)
+method = measure + job
 needed = [
     'ROIVolumeGeometry.volume(from:',
     'ROIPatientPoint(',

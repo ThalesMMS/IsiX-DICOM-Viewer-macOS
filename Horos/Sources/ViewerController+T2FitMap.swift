@@ -16,185 +16,137 @@
 */
 
 import AppKit
-
-/// The former T2FitMapSameOrigin.
-fileprivate func t2FitMapSameOrigin(_ a: DCMPix, _ b: DCMPix) -> Bool {
-    return fabs(a.originX - b.originX) < 1e-4
-        && fabs(a.originY - b.originY) < 1e-4
-        && fabs(a.originZ - b.originZ) < 1e-4
-}
-
-/// [value integerValue] and [value floatValue] on an id: 0 for nil.
-fileprivate func objcIntegerValue(_ value: Any?) -> Int {
-    if let number = value as? NSNumber { return number.intValue }
-    if let string = value as? NSString { return string.integerValue }
-    return 0
-}
-
-fileprivate func objcFloatValue(_ value: Any?) -> Float {
-    if let number = value as? NSNumber { return number.floatValue }
-    if let string = value as? NSString { return string.floatValue }
-    return 0
-}
+import IsiXImaging
 
 /// The ViewerController (T2FitMap) category, in Swift: the selectors
 /// and <Horos/ViewerController+T2FitMap.h> are those of the former category,
 /// which also adopted T2FitMapViewerProcessing. T2FitMapFilter sends
-/// -t2FitMapProcessCurrentSeries by selector.
+/// -t2FitMapProcessCurrentSeries by selector. Each hands over to the viewer's
+/// ViewerT2FitMap.
 extension ViewerController: @MainActor T2FitMapViewerProcessing {
 
+    /// The echoes of each slice, as [movie frame, image index] pairs.
     @objc(t2FitMapIndexGroups)
-    func t2FitMapIndexGroups() -> NSArray {
-        if self.maxMovieIndex() > 1 {
-            let base: NSMutableArray = self.pixList(0)
-            let groups = NSMutableArray(capacity: base.count)
-            for slice in 0..<base.count {
-                let group = NSMutableArray(capacity: Int(self.maxMovieIndex()))
-                var movie = 0
-                while movie < Int(self.maxMovieIndex()) {
-                    group.add([NSNumber(value: movie), NSNumber(value: UInt(slice))] as NSArray)
-                    movie += 1
-                }
-                groups.add(group)
-            }
-            return groups
-        }
-
-        let pixList: NSMutableArray = self.pixList()
-        let groups = NSMutableArray()
-        for index in 0..<pixList.count {
-            let pix = pixList[index] as! DCMPix
-            var found: NSMutableArray? = nil
-            for group in groups {
-                let group = group as! NSMutableArray
-                let first = (((group[0] as! NSArray)[1]) as! NSNumber).uintValue
-                if t2FitMapSameOrigin(pixList[Int(first)] as! DCMPix, pix) {
-                    found = group
-                    break
-                }
-            }
-            if let found = found {
-                found.add([NSNumber(value: Int32(0)), NSNumber(value: UInt(index))] as NSArray)
-            } else {
-                groups.add(NSMutableArray(object: [NSNumber(value: Int32(0)), NSNumber(value: UInt(index))] as NSArray))
-            }
-        }
-        for group in groups {
-            if (group as! NSArray).count < 2 {
-                let all = NSMutableArray(capacity: pixList.count)
-                for index in 0..<pixList.count {
-                    all.add([NSNumber(value: Int32(0)), NSNumber(value: UInt(index))] as NSArray)
-                }
-                return [all] as NSArray
-            }
-        }
-        return groups
+    func t2FitMapIndexGroups() -> [[[Int]]] {
+        ViewerT2FitMap(viewer: self).groups().map { $0.map { [$0.movie, $0.slice] } }
     }
 
     @objc(t2FitMapPixAtMovie:slice:)
     func t2FitMapPix(atMovie movie: Int, slice: UInt) -> DCMPix? {
-        let list: NSMutableArray = self.maxMovieIndex() > 1 ? self.pixList(movie) : self.pixList()
-        if slice >= UInt(list.count) {
-            return nil
-        }
-        return (list[Int(slice)] as! DCMPix)
+        ViewerT2FitMap(viewer: self).pix(at: T2FitMapping.Coordinate(movie: movie, slice: Int(slice)))
     }
 
     @objc(t2FitMapFileAtMovie:slice:)
     func t2FitMapFile(atMovie movie: Int, slice: UInt) -> Any? {
-        let list: NSMutableArray = self.maxMovieIndex() > 1 ? self.fileList(movie) : self.fileList()
-        if slice >= UInt(list.count) {
-            return nil
-        }
-        return list[Int(slice)]
+        ViewerT2FitMap(viewer: self).file(at: T2FitMapping.Coordinate(movie: movie, slice: Int(slice)))
     }
 
     @objc(t2FitMapProcessCurrentSeries)
     public func t2FitMapProcessCurrentSeries() -> NSDictionary {
-        let groups = self.t2FitMapIndexGroups()
-        let probe = self.t2FitMapPix(atMovie: 0, slice: 0)
-        guard groups.count != 0, let probe = probe else {
-            return ["code": NSNumber(value: Int32(3)), "reason": "T2 Fit Map needs an open multi-echo 2D viewer series, or prepared phantom frames.", "t2Milliseconds": NSArray()]
+        let outcome = ViewerT2FitMap(viewer: self).processCurrentSeries()
+        return ["code": NSNumber(value: outcome.code), "reason": outcome.reason, "t2Milliseconds": outcome.t2Milliseconds]
+    }
+}
+
+/// The T2 fit map of the series a 2D viewer shows. Which images are the
+/// echoes of a slice and how the maps are laid out are IsiXImaging's
+/// T2FitMapping; each slice is fitted by T2FitMap.fitSeries. Here the viewer's
+/// images are read and the map opens in a new viewer.
+@MainActor struct ViewerT2FitMap {
+
+    unowned let viewer: ViewerController
+
+    /// The echo groups of the series on screen: per slice when it has several
+    /// movie frames, otherwise by position.
+    func groups() -> [[T2FitMapping.Coordinate]] {
+        if viewer.maxMovieIndex() > 1 {
+            return T2FitMapping.groups(movieCount: Int(viewer.maxMovieIndex()), sliceCount: list(viewer.pixList(0)).count)
         }
-
-        let width = Int32(truncatingIfNeeded: probe.pwidth)
-        let height = Int32(truncatingIfNeeded: probe.pheight)
-        let pixels = UInt(bitPattern: Int(width)) &* UInt(bitPattern: Int(height))
-        if width <= 0 || height <= 0 {
-            return ["code": NSNumber(value: Int32(3)), "reason": "T2 Fit Map needs a non-empty multi-echo series.", "t2Milliseconds": NSArray()]
+        let origins = list(viewer.pixList()).map { item -> SIMD3<Double> in
+            guard let pix = item as? DCMPix else { return SIMD3(.nan, .nan, .nan) }
+            return SIMD3(pix.originX, pix.originY, pix.originZ)
         }
+        return T2FitMapping.groups(origins: origins)
+    }
 
-        let pixResult = NSMutableArray(capacity: groups.count)
-        let fileResult = NSMutableArray(capacity: groups.count)
-        let volume = NSMutableData(length: groups.count * Int(pixels) * MemoryLayout<Float>.size)!
-        var dst = volume.mutableBytes.assumingMemoryBound(to: Float.self)
-        let combined = NSMutableArray()
-        var lastCode = 0
-        var lastReason: Any = ""
+    /// The image of a movie frame (the one on screen for a single stack).
+    func pix(at coordinate: T2FitMapping.Coordinate) -> DCMPix? {
+        let images = list(viewer.maxMovieIndex() > 1 ? viewer.pixList(coordinate.movie) : viewer.pixList())
+        return images.indices.contains(coordinate.slice) ? images[coordinate.slice] as? DCMPix : nil
+    }
 
-        for group in groups {
-            let group = group as! NSArray
-            var frames: [Data] = []
-            frames.reserveCapacity(group.count)
-            var tes: [NSNumber] = []
-            tes.reserveCapacity(group.count)
-            for coordinate in group {
-                let coordinate = coordinate as! NSArray
-                let movie = (coordinate[0] as! NSNumber).intValue
-                let slice = (coordinate[1] as! NSNumber).uintValue
-                let pix = self.t2FitMapPix(atMovie: movie, slice: slice)
-                guard let pix = pix, pix.pwidth == Int(width), pix.pheight == Int(height), let samples = pix.fImage else {
-                    return ["code": NSNumber(value: Int32(4)), "reason": "T2 Fit Map frames must share the same width and height.", "t2Milliseconds": NSArray()]
-                }
-                frames.append(Data(bytes: samples, count: Int(pixels) * MemoryLayout<Float>.size))
-                tes.append(NSNumber(value: (pix.echotime as NSString?)?.floatValue ?? 0))
-            }
-            let fit = T2FitMapEngine.fit(frames: frames, echoTimesMilliseconds: tes, width: width, height: height)
-            lastCode = objcIntegerValue(fit["code"])
-            lastReason = fit["reason"] ?? ""
-            if lastCode != 0 {
-                return ["code": NSNumber(value: lastCode), "reason": lastReason, "t2Milliseconds": NSArray()]
-            }
+    /// The database image of a movie frame's image.
+    func file(at coordinate: T2FitMapping.Coordinate) -> Any? {
+        let files = list(viewer.maxMovieIndex() > 1 ? viewer.fileList(coordinate.movie) : viewer.fileList())
+        return files.indices.contains(coordinate.slice) ? files[coordinate.slice] : nil
+    }
 
-            let map = fit["t2Milliseconds"] as? NSArray
-            let mapCount = UInt(map?.count ?? 0)
-            var index: UInt = 0
-            while index < pixels {
-                let value: Float = index < mapCount ? objcFloatValue(map![Int(index)]) : 0
-                dst[Int(index)] = value
-                combined.add(NSNumber(value: value))
-                index += 1
-            }
+    /// Fits every slice and opens the maps in a new viewer: the code (0 when
+    /// the map opened), the reason and the maps one after the other, as
+    /// T2FitMapFilter reads them.
+    func processCurrentSeries() -> (code: Int, reason: String, t2Milliseconds: [Float]) {
+        let probe = pix(at: T2FitMapping.Coordinate(movie: 0, slice: 0))
+        let outcome = T2FitMapping.map(
+            groups: groups(),
+            size: probe.map { (width: $0.pwidth, height: $0.pheight) },
+            echo: { coordinate in
+                // The samples are copied only from an image of the first
+                // one's size: those are the only ones the fit can read.
+                guard let pix = pix(at: coordinate) else { return nil }
+                let width = probe?.pwidth ?? 0, height = probe?.pheight ?? 0
+                let samples = pix.pwidth == width && pix.pheight == height
+                    ? pix.fImage.map { Array(UnsafeBufferPointer(start: $0, count: width * height)) } : nil
+                return T2FitMapping.Echo(width: pix.pwidth, height: pix.pheight,
+                                         echoTimeMilliseconds: (pix.echotime as NSString?)?.floatValue ?? 0, samples: samples)
+            },
+            fit: { signals, echoTimes, width, height in
+                let result = T2FitMap.fitSeries(signals: signals, echoTimesMilliseconds: echoTimes, width: width, height: height)
+                return T2FitMapping.Fit(code: result.code, reason: result.reason, t2Milliseconds: result.t2Milliseconds)
+            })
 
-            let first = group[0] as! NSArray
-            let template = self.t2FitMapPix(atMovie: (first[0] as! NSNumber).intValue, slice: (first[1] as! NSNumber).uintValue)!
-            let copy = template.copy() as! DCMPix
-            copy.echotime = nil
-            copy.fImage = dst
-            pixResult.add(copy)
-            if let file = self.t2FitMapFile(atMovie: (first[0] as! NSNumber).intValue, slice: (first[1] as! NSNumber).uintValue) {
-                fileResult.add(file)
+        switch outcome {
+        case let .refused(code, reason):
+            return (code, reason, [])
+        case let .mapped(volume, width, height, templates):
+            let files = templates.compactMap { file(at: $0) }
+            if files.count != templates.count {
+                return (3, T2FitMapping.missingFilesReason, volume)
             }
-            dst += Int(pixels)
+            // The DCMPix copies point into `data`, which the new viewer keeps.
+            let pixels = width * height
+            let data = volume.withUnsafeBytes { NSMutableData(bytes: $0.baseAddress, length: $0.count) }
+            let first = data.mutableBytes.assumingMemoryBound(to: Float.self)
+            let maps: [DCMPix] = templates.enumerated().compactMap { index, coordinate in
+                guard let copy = pix(at: coordinate)?.copy() as? DCMPix else { return nil }
+                copy.echotime = nil
+                copy.fImage = first + index * pixels
+                return copy
+            }
+            openViewer(maps, files, data)
+            return (0, "", volume)
         }
+    }
 
-        if fileResult.count != pixResult.count {
-            return ["code": NSNumber(value: Int32(3)), "reason": "T2 Fit Map needs the original files of the open series to present the map.", "t2Milliseconds": combined]
-        }
+    private func list(_ items: Any?) -> [Any] {
+        items as? [Any] ?? []
+    }
 
-        // The DCMPix copies point into `volume`, so the viewer has to receive that
-        // same NSMutableData. The parameter is Data in Swift, and the bridge does
-        // not promise to hand the same object back to Objective-C, so the message
-        // is sent through the method's implementation with the NSData itself. The
-        // controller comes back retained (+1, a new-family selector): the
-        // Objective-C left that reference to the window, which releases itself
-        // when it closes, and so does this.
-        typealias NewWindow = @convention(c) (AnyObject, Selector, NSMutableArray, NSMutableArray, NSData) -> Unmanaged<ViewerController>
+    /// The map in a new 2D viewer, with the window of its whole range.
+    ///
+    /// The DCMPix copies point into `volume`, so the viewer has to receive that
+    /// same NSMutableData. The parameter is Data in Swift, and the bridge does
+    /// not promise to hand the same object back to Objective-C, so the message
+    /// is sent through the method's implementation with the NSData itself. The
+    /// controller comes back retained (+1, a new-family selector): the
+    /// Objective-C left that reference to the window, which releases itself
+    /// when it closes, and so does this.
+    private func openViewer(_ maps: [DCMPix], _ files: [Any], _ volume: NSData) {
+        typealias NewWindow = @convention(c) (AnyObject, Selector, AnyObject, AnyObject, NSData) -> Unmanaged<ViewerController>
         let newWindow = NSSelectorFromString("newWindow:::")
-        let send = unsafeBitCast(self.method(for: newWindow), to: NewWindow.self)
-        let created = send(self, newWindow, pixResult, fileResult, volume).takeUnretainedValue()
+        let send = unsafeBitCast(viewer.method(for: newWindow), to: NewWindow.self)
+        let lists: (maps: AnyObject, files: AnyObject) = ((maps as NSArray).mutableCopy() as AnyObject, (files as NSArray).mutableCopy() as AnyObject)
+        let created = send(viewer, newWindow, lists.maps, lists.files, volume).takeUnretainedValue()
         created.needsDisplayUpdate()
         created.imageView().setWLWW(0, 0)
-        return ["code": NSNumber(value: Int32(0)), "reason": "", "t2Milliseconds": combined]
     }
 }

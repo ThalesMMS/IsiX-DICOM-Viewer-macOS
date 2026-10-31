@@ -49,6 +49,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import process_graph_stand_in  # the Metal sources read their development switches through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -154,6 +155,14 @@ mirror = '    @objc(horosPixelAt:drawnIn:)\n' + \
     matched(bridge, bridge.index('    func horosPixel(at point: NSPoint, drawnIn host: DCMView) -> NSPoint {'))
 coordinates = read('Horos/Sources/DCMView+WindowLevel+Coordinates.swift')
 conversions = [matched(coordinates, coordinates.index('    @objc(%s)' % name)) for name in ('ConvertFromNSView2GL:', 'ConvertFromUpLeftView2GL:')]
+# Their arithmetic is IsiXImaging's ViewTransform over the view's ViewportState
+# (ViewGeometry, compiled with them), the image placed as the view places it.
+conversions.append(matched(coordinates, coordinates.index('    private var conversionImage: ViewTransform.ImageExtent? {')))
+VIEWPORT = """    var viewport: ViewportState {
+        ViewportState(scale: horos_scaleValue, origin: horos_origin, rotation: horos_rotation, xFlipped: horos_xFlipped,
+                      yFlipped: horos_yFlipped)
+    }"""
+conversions.append(VIEWPORT)
 settings = read('Horos/Sources/DCMViewSettings.swift')
 degrees = settings[settings.index('    @objc static var horos_static_deg2rad'):]
 degrees = degrees[:degrees.index('\n') + 1]
@@ -456,6 +465,7 @@ with tempfile.TemporaryDirectory(prefix='horos-planar-fusion-') as name:
                      '-import-objc-header', str(directory / 'bridge.h'),
                      '-emit-objc-header', '-emit-objc-header-path', str(directory / 'Horos-Swift.h'),
                      '-c', str(directory / 'conversions.swift'), str(root / 'Modules/IsiXImaging/Sources/ViewDrawing/PlanarPresentation.swift'),
+                     *sorted(str(f) for f in (root / 'Modules/IsiXImaging/Sources/ViewGeometry').glob('*.swift')),
                      '-o', str(directory / 'conversions.o')],
                     ['xcrun', 'clang', '-fobjc-arc', '-w', '-c', str(directory / 'probe.m'), '-o', str(directory / 'probe.o'),
                      '-I', str(directory)],
@@ -490,7 +500,7 @@ with tempfile.TemporaryDirectory(prefix='horos-planar-fusion-') as name:
         (directory / source).write_text(read('Horos/Sources/' + source))
     (directory / 'Check.swift').write_text(DRIVER)
     build_result = subprocess.run(['xcrun', 'swiftc', '-O', '-parse-as-library', '-suppress-warnings',
-                                   *[str(directory / source) for source in sources], str(directory / 'Check.swift'),
+                                   *[str(directory / source) for source in sources], *process_graph_stand_in.swift_flags(directory / 'isix'), str(directory / 'Check.swift'),
                                    '-o', str(directory / 'check')])
     if build_result.returncode:
         print('FAIL: the planar renderer does not build with the fusion driver')

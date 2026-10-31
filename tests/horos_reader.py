@@ -178,7 +178,7 @@ def model_objects(work, revision=None):
     if revision is None:
         build_module('IsiXDICOMDataset', modules, target)
         return [str(modules / 'libIsiXDICOMDataset.a'), str(modules / 'libIsiXDICOMFile.a'),
-                str(modules / 'libIsiXImaging.a')]
+                str(modules / 'libIsiXImaging.a'), *preferences_archive(modules)]
     build_module('IsiXImaging', modules, target)
     build_module('IsiXDICOMFile', modules, [*target, '-I', str(modules)])
     sources = work / 'model-sources'
@@ -197,7 +197,14 @@ def model_objects(work, revision=None):
                         '-I', str(sources), '-I', str(ADAPTERS), '-I', str(modules), '-x', language, '-c',
                         str(sources / name), '-o', str(obj)], check=True)
         objects.append(str(obj))
-    return objects + [str(modules / 'libIsiXDICOMFile.a'), str(modules / 'libIsiXImaging.a')]
+    return objects + [str(modules / 'libIsiXDICOMFile.a'), str(modules / 'libIsiXImaging.a'), *preferences_archive(modules)]
+
+
+def preferences_archive(modules):
+    """IsiXPreferences, which IsiXDICOMFile reads its settings through, when it
+    was built beside it; a revision before it had no such module."""
+    library = Path(modules) / 'libIsiXPreferences.a'
+    return [str(library)] if library.exists() else []
 
 
 def host_objects(products, work):

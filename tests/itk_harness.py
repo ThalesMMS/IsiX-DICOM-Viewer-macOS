@@ -320,8 +320,17 @@ STUB_HEADERS = ('ViewerController.h', 'ViewerController+CAPI.h', 'DCMPix.h', 'DC
                 'Notifications.h', 'HorosAlertPanel.h', 'options.h', 'OSIVoxel.h', 'AppController.h', 'N2Debug.h')
 
 # The Swift of ITKTransform+Viewer.swift opens a viewer; the probe has none.
+# ITKTransform reads its preferences through the process graph of
+# PreferencesSource, here the defaults of the probe.
 SWIFT_NO_VIEWER = r'''
 import Cocoa
+final class ProcessGraph: Sendable {
+    var preferences: UserDefaults { UserDefaults.standard }
+}
+struct PreferencesSource: Sendable {
+    let processGraph = ProcessGraph()
+    static let process = PreferencesSource()
+}
 extension ITKTransform {
     @objc(createNewViewerWithBuffer:length:resampleOnViewer:rescale:)
     public func createNewViewer(withBuffer fVolumePtr: UnsafeMutablePointer<Float>?, length: Int,
@@ -419,6 +428,9 @@ def build(kind, folder, driver, configuration='Debug'):
     (folder / 'NoViewer.swift').write_text(SWIFT_NO_VIEWER)
     modules = isix_modules.module_flags('IsiXSegmentation', folder / 'modules',
                                         ['-Onone'] if configuration == 'Debug' else ['-O'])
+    # ITKTransform reads the resampling's preference through the catalog.
+    modules += isix_modules.module_flags('IsiXPreferences', folder / 'modules',
+                                         ['-Onone'] if configuration == 'Debug' else ['-O'])
     swift_object = folder / 'swift.o'
     _run(['xcrun', 'swiftc', '-parse-as-library', '-swift-version', '6', '-module-name', 'Harness', '-wmo',
           '-Onone' if configuration == 'Debug' else '-O', '-import-objc-header', str(bridging), *modules,

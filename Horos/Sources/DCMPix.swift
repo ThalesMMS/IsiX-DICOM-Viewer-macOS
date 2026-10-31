@@ -299,9 +299,11 @@ struct DCMPixPaletteState {
 
     // MARK: - The parsed file this object shares
 
-    /// The group of the parsed-file cache a load took, not retained, as the class
-    /// never retained it: only compared with the cache's, which owns it.
-    final unowned(unsafe) var horos_retainedCacheGroup: NSMutableDictionary?
+    /// Which group of the parsed-file cache a load took, only compared with the
+    /// cache's, which owns it. An identity, not a reference: a purge frees the
+    /// groups while their images live, a strong reference would keep the parsed
+    /// file past it, and reading an unretained one retains freed memory.
+    final var horos_retainedCacheGroup: ObjectIdentifier?
     /// The key retainedCacheGroup was stored under: the path and its file revision.
     final var horos_cachedFileKey: NSString?
     /// The HorosFileRevision of the source file when fImage was decoded from it.
@@ -717,13 +719,9 @@ struct DCMPixPaletteState {
     func computePixMinPixMax() {
         guard let image = horos_fImage, horos_width * horos_height > 0 else { return }
         horos_checking?.lock()
-        if let exception = HorosObjCException.caught({
-            let window = ImageWindow.full(image, count: horos_width * horos_height, isRGB: horos_isRGB)
-            horos_fullwl = window.level
-            horos_fullww = window.width
-        }) {
-            _N2LogExceptionImpl(exception, true, "-[DCMPix computePixMinPixMax]")
-        }
+        let window = ImageWindow.full(image, count: horos_width * horos_height, isRGB: horos_isRGB)
+        horos_fullwl = window.level
+        horos_fullww = window.width
         horos_checking?.unlock()
     }
 

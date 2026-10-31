@@ -30,7 +30,6 @@ public protocol ImportValidationTester: Sendable {
 /// file at a time, so only the file that cannot be read is refused. That costs
 /// one call per file of the chunk, and only for a chunk the service did not
 /// survive.
-@objc(IsiXImportValidation)
 public final class ImportValidation: NSObject {
 
     /// What the helper wrote before the path of a file that cannot be read,
@@ -58,7 +57,6 @@ public final class ImportValidation: NSObject {
 
     /// The first `limit` paths, one per line, and an ellipsis when there are
     /// more: what the notice to the user names.
-    @objc(listOfRefusedFiles:limit:)
     public static func list(ofRefusedFiles paths: [String], limit: Int) -> String {
         var lines = Array(paths.prefix(max(limit, 0)))
         if paths.count > lines.count { lines.append("…") }

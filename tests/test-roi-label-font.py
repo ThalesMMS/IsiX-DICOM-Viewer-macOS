@@ -4,7 +4,7 @@
 The labels are pictures of the view's text layer (`HorosAnnotationText`). The
 ROI is this checkout's, linked as the application's build compiled it with the
 real rasterizer (tests/roi_harness.py); the viewer's font choice is that of
--changeLabelGLFontNotification: in DCMView+Drawing.swift, whose two statements
+-changeLabelGLFontNotification: in DCMView+Drawing.swift, whose choice
 the probe runs in Objective-C. Without a build the test is skipped.
 """
 from pathlib import Path
@@ -17,12 +17,15 @@ import roi_harness  # noqa: E402
 drawing = (root / 'Horos/Sources/DCMView+Drawing.swift').read_text()
 notification = drawing[drawing.index('@objc(changeLabelGLFontNotification:)'):]
 notification = notification[:notification.index('\n    }\n')]
+# The viewer reads the catalog's keys, which are the probe's names.
 SWIFT_FONT = (
-    '            var font = NSFont(name: defaults.string(forKey: "LabelFONTNAME") ?? "", '
-    'size: CGFloat(defaults.float(forKey: "LabelFONTSIZE")))\n'
-    '            if font == nil { font = NSFont.userFixedPitchFont(ofSize: CGFloat(defaults.float(forKey: "LabelFONTSIZE"))) }\n'
+    '            let size = CGFloat(preferences[ViewerPreferences.labelFONTSIZE])\n'
+    '            let font = NSFont(name: preferences[ViewerPreferences.labelFONTNAME] ?? "", size: size) '
+    '?? NSFont.userFixedPitchFont(ofSize: size)\n'
     '            self.horos_labelFont = font\n')
-if SWIFT_FONT not in notification:
+catalog = (root / 'Modules/IsiXPreferences/Sources/ViewerPreferences.swift').read_text()
+if SWIFT_FONT not in notification or 'let preferences = PreferencesSource.process.preferences' not in notification \
+        or 'PreferenceKey<String?>("LabelFONTNAME"' not in catalog or 'PreferenceKey<Float>("LabelFONTSIZE"' not in catalog:
     sys.exit('FAIL: the viewer no longer chooses its label font as this probe does')
 # The same choice in Objective-C (a missing name gives nil, as an empty one).
 VIEW_FONT = '''

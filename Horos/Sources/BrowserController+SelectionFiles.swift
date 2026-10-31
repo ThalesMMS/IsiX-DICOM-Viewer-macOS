@@ -43,8 +43,9 @@ import IsiXDatabase
 // What the browser's selection holds: the children of a study or a series,
 // the images a series or a study gives, and the files and objects of the
 // rows selected in the outline, downloaded first from a remote database.
-// Which image of each series a study gives and what an empty study loses are
-// IsiXDatabase's SelectionImages. The selectors are those of the former
+// The children of a row are DatabaseItemChildren's; which image of each series
+// a study gives and what an empty study loses are IsiXDatabase's
+// SelectionImages. The selectors are those of the former
 // Objective-C methods, which the viewers, the plugins and the web portal
 // call.
 
@@ -53,12 +54,6 @@ private let OpenKeyImagesAndROIsToolbarItemIdentifier = "ROIsAndKeys.tif"
 
 /// The files a remote database sends at a time.
 private let BONJOURPACKETS = 50
-
-/// `[object selector]` of an `id` answering an object: nil for nil.
-nonisolated private func send(_ object: Any?, _ selector: String) -> Any? {
-    guard let object = object as? NSObject else { return nil }
-    return object.perform(NSSelectorFromString(selector))?.takeUnretainedValue()
-}
 
 /// [object valueForKey: @"type"] is `type`.
 nonisolated private func isType(_ object: Any?, _ type: String) -> Bool {
@@ -78,50 +73,17 @@ extension BrowserController {
 
     // MARK: Children and images
 
-    /// The series of a study (the image series, or every series with the
-    /// documents after the pictures) or the sorted images of a series;
-    /// nothing for a distant or deleted object. Model objects only, on the
-    /// thread of their context.
+    /// The series of a study or the sorted images of a series: DatabaseItemChildren's.
     @discardableResult
     @objc(childrenArray:onlyImages:)
     nonisolated func childrenArray(_ item: Any!, onlyImages: Bool) -> [Any]! {
-        if (item as AnyObject?)?.isDistant?() ?? false {
-            return []
-        }
-
-        if let object = item as? NSManagedObject, object.isDeleted {
-            NSLog("----- isDeleted - childrenArray : we have to refresh the outlineView...")
-            return []
-        }
-
-        if isType(item, "Series") {
-            return send(item, "sortedImages") as? [Any]
-        }
-
-        if isType(item, "Study") {
-            var sortedArray: [Any]?
-            if let raised = BrowserObjC.attempt({
-                let object = item as AnyObject
-                if onlyImages {
-                    sortedArray = object.value(forKey: "imageSeries") as? [Any]
-                } else {
-                    // The ROI, comments, reports, PDF and other documents after the
-                    // series of pictures.
-                    sortedArray = DicomStudy.imagesBeforeDocuments((object.value(forKey: "allSeries") as? NSArray) ?? NSArray()) as? [Any]
-                }
-            }) {
-                BrowserObjC.log(raised, stack: true, "-[BrowserController childrenArray:onlyImages:]")
-            }
-            return sortedArray
-        }
-
-        return nil
+        DatabaseItemChildren.children(of: item, onlyImages: onlyImages)
     }
 
     @discardableResult
     @objc(childrenArray:)
     nonisolated func childrenArray(_ item: Any!) -> [Any]! {
-        return childrenArray(item, onlyImages: true)
+        DatabaseItemChildren.children(of: item)
     }
 
     /// The images of a series, or one image of each series of a study: any
@@ -133,7 +95,7 @@ extension BrowserController {
         guard let childrenArray = childrenArray(item, onlyImages: onlyImages) else { return nil }
         var imagesPathArray: NSMutableArray?
 
-        if let raised = BrowserObjC.attempt({
+        if let raised = HorosObjCException.caught({
             if isType(item, "Series") {
                 imagesPathArray = NSMutableArray(array: childrenArray)
             } else if isType(item, "Study") {
@@ -204,7 +166,6 @@ extension BrowserController {
 
     /// An image of the row selected: of its first series for a study.
     @discardableResult
-    @objc(firstObjectForDatabaseOutlineSelection)
     func firstObjectForDatabaseOutlineSelection() -> NSManagedObject! {
         guard let databaseOutline = horos_databaseOutline else { return nil }
         var aFile = databaseOutline.item(atRow: databaseOutline.selectedRow) as AnyObject?
@@ -247,7 +208,7 @@ extension BrowserController {
         let treeManagedObjects = treeManagedObjects ?? NSMutableSet()
 
         N2ManagedObjectContextPerformAndWait(context) {
-            if let raised = BrowserObjC.attempt({
+            if let raised = HorosObjCException.caught({
                 for row in rowEnumerator {
                     guard let curObj = databaseOutline?.item(atRow: row) as? NSManagedObject else { continue } // not a distant study
 
@@ -277,10 +238,10 @@ extension BrowserController {
 
                             let cleanup = SelectionImages.studyCleanup(imageCount: Int(totImage), hasNoAutodeletionSeries: dontDelete != nil,
                                                                        onlyImages: onlyImages)
-                            if cleanup.deleteSeries, let dontDelete { // there are images, remove the "OsiriX No Autodeletion" series
+                            if cleanup.deleteSeries, let dontDelete { // there are images, remove the "No Autodeletion" series
                                 context?.delete(dontDelete)
                             }
-                            if cleanup.deleteStudy { // We don't want empty studies, unless the "OsiriX No Autodeletion" series is there...
+                            if cleanup.deleteStudy { // We don't want empty studies, unless the "No Autodeletion" series is there...
                                 context?.delete(curObj)
                             }
                         }

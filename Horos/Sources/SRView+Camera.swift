@@ -39,6 +39,7 @@
 
 import Cocoa
 import IsiXVolumeRendering
+import IsiXPreferences
 
 /// The surface view's camera: the standard views, the turns of the exports,
 /// the orientation letters and cube, the projection and the view's size for
@@ -259,7 +260,7 @@ extension SRView {
 
     @objc(squareView:)
     func squareView(_ sender: Any?) {
-        let preference = UserDefaults.standard.integer(forKey: "VRDefaultViewSize")
+        let preference = processGraph.preferences[VolumeRenderingPreferences.vrDefaultViewSize]
         NSLog("%d", Int32(truncatingIfNeeded: preference))
         guard let square = SurfaceViewFrame.square(frame, preference: preference) else { return }
         frame = square
@@ -270,7 +271,7 @@ extension SRView {
         savedViewSizeFrame = frame
         let content = window?.contentView?.frame.size ?? .zero
         if let exportFrame = SurfaceViewFrame.matrixExport(content: content,
-                                                           preference: UserDefaults.standard.integer(forKey: "EXPORTMATRIXFOR3D")) {
+                                                           preference: processGraph.preferences[ReconstructionPreferences.exportMatrixFor3D]) {
             frame = exportFrame
         }
         display()

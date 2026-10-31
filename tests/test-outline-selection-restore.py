@@ -7,8 +7,8 @@ objects, so the lookup answered -1 - NSUIntegerMax as an index - and the
 selection was lost, which is the report of the list jumping back to the first
 patient on every refresh.
 
-The browser's selection sites are in the class's Swift files
-(BrowserController+DatabaseDragExport+Selection.swift and the others).
+The browser's selection sites are in the class's Swift files and in the types
+they hand their work to (ViewerOpener and its navigation, and the others).
 """
 from pathlib import Path
 from sources import class_text
@@ -19,14 +19,24 @@ browser = class_text('BrowserController')
 # Part of BrowserController is Swift extensions (BrowserController+*.swift); the
 # selection sites of the database drag export block are there.
 extensions = '\n'.join(path.read_text() for path in sorted((root / 'Horos/Sources').glob('BrowserController+*.swift')))
+# Opening the selected studies one by one is the browser's ViewerOpener's, and
+# finding a study or the next patient its navigation's (ViewerOpener+Navigation.swift).
+extensions += '\n' + (root / 'Horos/Sources/ViewerOpener.swift').read_text()
+extensions += '\n' + (root / 'Horos/Sources/ViewerOpener+Navigation.swift').read_text()
 assert 'indexSetWithIndex: [databaseOutline rowForItem:' not in browser, \
     'a row that the outline does not hold can reach selectRowIndexes: again as -1'
 assert not re.search(r'(IndexSet\(integer|NSIndexSet\(index):[^\n)]*[dD]atabaseOutline[?!]?\.row\(forItem:', extensions), \
     'a row that the outline does not hold can reach selectRowIndexes: again as -1'
-assert browser.count('HorosOutlineSelectionRestore selectItem:') + extensions.count('OutlineSelectionRestore.select(') >= 8, \
-    'the guarded selection is no longer used everywhere it was'
-# -outlineViewRefresh (BrowserController+StudyList.swift) restores it.
-assert 'OutlineSelectionRestore.rows(matching: OutlineSelectionRestore.identifiers(for: previousObjects)' in extensions, \
+# Merging and unifying studies left the class for StudyMergeJob.swift, whose
+# three selections go through one guarded helper, refresh(selecting:).
+merging = (root / 'Horos/Sources/StudyMergeJob.swift').read_text()
+assert merging.count('OutlineSelectionRestore.select(') == 1 and 'private func refresh(selecting study: Any?)' in merging, \
+    'the merge no longer selects its study through the guarded selection'
+assert browser.count('HorosOutlineSelectionRestore selectItem:') + extensions.count('OutlineSelectionRestore.select(') \
+    + merging.count('refresh(selecting:') >= 8, 'the guarded selection is no longer used everywhere it was'
+# -outlineViewRefresh restores it, building the list in StudyListContent.swift.
+study_list = (root / 'Horos/Sources/StudyListContent.swift').read_text()
+assert 'OutlineSelectionRestore.rows(matching: OutlineSelectionRestore.identifiers(for: previousObjects)' in study_list, \
     'the browser no longer restores the selection by identifier'
 
 source = r'''

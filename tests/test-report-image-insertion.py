@@ -31,17 +31,22 @@ for needle, reason in (
         failures.append(reason)
 
 browser = class_text('BrowserController')
-# The action and the image rendering are Swift (BrowserController+ReportImport.swift);
-# the generated interface, which BrowserController.h imports, declares them for
-# the Objective-C callers.
+# The action is the browser's (BrowserController+ReportImport.swift), declared
+# for the Objective-C callers by the generated interface, which
+# BrowserController.h imports; it forwards to StudyReports, which inserts the
+# images and renders them.
 report_import = (root / 'Horos/Sources/BrowserController+ReportImport.swift').read_text()
+reports = (root / 'Horos/Sources/StudyReports.swift').read_text()
 header = (root / 'Horos/Sources/BrowserController.h').read_bytes().decode('latin1')
 if '#import "Horos-Swift.h"' not in header:
     failures.append('BrowserController.h does not expose the Swift actions')
 if '@objc(insertSelectedImagesIntoReport:)' not in report_import:
     failures.append('BrowserController does not implement the insertion action')
 start = report_import.find('@objc(insertSelectedImagesIntoReport:)')
-action = report_import[start:report_import.find('\n    }\n}\n', start)] if start >= 0 else ''
+if start < 0 or 'reports.insertSelectedImages()' not in report_import[start:report_import.find('\n    }\n', start)]:
+    failures.append('the insertion action does not reach StudyReports')
+start = reports.find('    func insertSelectedImages()')
+action = reports[start:reports.find('    // MARK: The toolbar item', start)] if start >= 0 else ''
 if 'ReportImageInsertion.insert(' not in action:
     failures.append('the action does not call the Swift inserter')
 if 'lastErrorMessage' not in action:
@@ -50,9 +55,9 @@ if 'nsimage(false)' not in action:
     failures.append('a front viewer does not contribute the displayed image')
 if 'files(forDatabaseMatrixSelection:' not in action:
     failures.append('database thumbnails are not the selected images when no viewer is open')
-# -validateMenuItem: is BrowserController+Menus.swift.
-menus = (root / 'Horos/Sources/BrowserController+Menus.swift').read_text()
-if '#selector(insertSelectedImagesIntoReport(_:))' not in menus or 'ReportImageInsertion.kind(ofReportPath: report) != .unsupported' not in menus:
+# -validateMenuItem: hands the browser's commands to BrowserToolbar.
+menus = (root / 'Horos/Sources/BrowserToolbar.swift').read_text()
+if '#selector(BrowserController.insertSelectedImagesIntoReport(_:))' not in menus or 'ReportImageInsertion.kind(ofReportPath: report) != .unsupported' not in menus:
     failures.append('validateMenuItem does not know the new action')
 
 # Stay off the Pages→PDF files and the conversion selectors.

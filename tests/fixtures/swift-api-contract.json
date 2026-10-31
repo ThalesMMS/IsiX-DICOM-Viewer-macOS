@@ -2324,6 +2324,10 @@
         "header": "Horos/Sources/SendController.h",
         "implementation": "Horos/Sources/SendController.m",
         "interface": "SendController"
+      },
+      "removed": {
+        "-releaseSelfWhenDone:": "The thread that waited for the send to end, to release the controller, left when the send moved to the send queue: the controller gives back its creator's reference once the request is queued. Nothing in the application, its nibs or the public plugin API sent it; the legacy plugin bridge has a SendController of its own.",
+        "-sendDICOMFilesOffis:": "The body of the send thread, which the send queue (DICOMSendQueue) and its activity transport replaced: the request is a typed value and each association runs on an activity thread. Nothing in the application, its nibs or the public plugin API sent it; the legacy plugin bridge has a SendController of its own."
       }
     },
     {
@@ -2376,16 +2380,6 @@
         "header": "Horos/Sources/LogManager.h",
         "implementation": "Horos/Sources/LogManager.mm",
         "interface": "LogManager"
-      }
-    },
-    {
-      "name": "MoveManager",
-      "swift": "Horos/Sources/MoveManager.swift",
-      "header": "Horos/Sources/MoveManager.h",
-      "former": {
-        "header": "Horos/Sources/MoveManager.h",
-        "implementation": "Horos/Sources/MoveManager.m",
-        "interface": "MoveManager"
       }
     },
     {
@@ -3147,6 +3141,9 @@
         "header": "Horos/Sources/BrowserController+Sources.h",
         "implementation": "Horos/Sources/BrowserController+Sources.m",
         "interface": "BrowserController(Sources)"
+      },
+      "removed": {
+        "-findDBPath:dbFolder:": "Deprecated: the row of a local database by its path or its folder, which SourceList answers by the source. Nothing in the application, its nibs or the plugin API version 1 called it, and no known plugin uses it."
       }
     },
     {
@@ -3287,6 +3284,14 @@
         "header": "Horos/Sources/AppController.h",
         "implementation": "Horos/Sources/AppController.m",
         "interface": "AppController"
+      },
+      "removed": {
+        "-buildTilingAreaMenu": "Built the Screen Area menu beside the Rows and Columns menus; the tiling menus moved to ViewerWindowArranger, which builds it when -initTilingWindows installs them, and no known plugin called it.",
+        "-dbScreen": "The database window's screen when a screen is reserved for it; ViewerWindowArranger reads it where the viewers' screens are chosen, and nothing in the application, its nibs or a known plugin called it.",
+        "-runPreferencesUpdateCheck:": "The check half a second after a preference is written; the comparison moved to PreferenceChange (IsiXPreferences) and the answer to PreferenceChangeResponder, which schedules it itself, and nothing in the application, its nibs or a known plugin called it.",
+        "-startSTORESCP:": "The entry of the plain DICOM listener's thread; the listener's life cycle moved to DICOMListenerController, whose own thread runs the listener, and no known plugin called it.",
+        "-startSTORESCPTLS:": "The entry of the TLS DICOM listener's thread; the listener's life cycle moved to DICOMListenerController, whose own thread runs the listener, and no known plugin called it.",
+        "-tileWindows:windows:display2DViewerToolbar:displayThumbnailsList:": "The tiling itself, for a list of windows; the choice of the grid moved to ViewerTilingLayout (IsiXImaging) and the moving of the windows to ViewerWindowArranger, which -tileWindows: and -tile3DWindows: reach, and no known plugin called it."
       }
     },
     {
@@ -3328,6 +3333,39 @@
         "header": "Horos/Sources/BrowserController.h",
         "implementation": "Horos/Sources/BrowserController.m",
         "interface": "BrowserController"
+      },
+      "removed": {
+        "+addFiles:toContext:onlyDICOM:notifyAddedFiles:parseExistingObject:dbFolder:": "Deprecated since the DicomDatabase transition and logged as such: a direct way into the index beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers these selectors with its own classes.",
+        "+addFiles:toContext:toDatabase:onlyDICOM:notifyAddedFiles:parseExistingObject:dbFolder:": "Deprecated since the DicomDatabase transition and logged as such: a direct way into the index beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers these selectors with its own classes.",
+        "+addFiles:toContext:toDatabase:onlyDICOM:notifyAddedFiles:parseExistingObject:dbFolder:generatedByOsiriX:mountedVolume:": "Deprecated since the DicomDatabase transition and logged as such: a direct way into the index beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers these selectors with its own classes.",
+        "-ROIsAndKeyImages:sameSeries:": "The images with ROIs and the key images of the selection, with whether they are of one series, which SelectionMarkedImages answers; -ROIsAndKeyImages: still gives the images. Only the browser asked for the series; nothing in its nibs or the plugin API version 1 called it, and no known plugin uses it.",
+        "-addFiles:withRule:": "Deprecated: queued images for one routing rule beside the routing by hand, which SourceCopyJob does now. Nothing in the application, its nibs or the plugin API version 1 called it, and no known plugin uses it.",
+        "-addFilesToDatabase:": "Deprecated since the DicomDatabase transition and logged as such: a direct way into the index beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers these selectors with its own classes.",
+        "-addFilesToDatabase:onlyDICOM:produceAddedFiles:": "Deprecated since the DicomDatabase transition and logged as such: a direct way into the index beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers these selectors with its own classes.",
+        "-addFilesToDatabase:onlyDICOM:produceAddedFiles:parseExistingObject:": "Deprecated since the DicomDatabase transition and logged as such: a direct way into the index beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers these selectors with its own classes.",
+        "-addFilesToDatabase:onlyDICOM:produceAddedFiles:parseExistingObject:context:dbFolder:": "Deprecated since the DicomDatabase transition and logged as such: a direct way into the index beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers these selectors with its own classes.",
+        "-addFilesToDatabase:onlyDICOM:safeRebuild:produceAddedFiles:": "Deprecated since the DicomDatabase transition and logged as such: a direct way into the index beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers these selectors with its own classes.",
+        "-buildAllThumbnails:": "The thumbnails missing from the database, made sixty at a time with the recovery of a study that crashed while they were made. Nothing in the application, its nibs, its timers or the plugin API version 1 called it, and no known plugin uses it.",
+        "-checkIncoming:": "Deprecated, a way of asking for the import beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers it with its own class.",
+        "-checkIncomingNow:": "Deprecated, a way of asking for the import beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers it with its own class.",
+        "-checkIncomingThread:": "Deprecated, a way of asking for the import beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers it with its own class.",
+        "-checkReportsDICOMSRConsistency": "Deprecated: the consistency of the reports with their structured reports is the database's rebuilding service. Nothing in the application, its nibs or the plugin API version 1 called it, and no known plugin uses it.",
+        "-compressDICOMJPEG:": "Deprecated, for a folder the conversion of the database now serves itself. Nothing in the application, its nibs or the plugin API version 1 called it.",
+        "-decompressArrayOfFiles:work:": "Deprecated, for a folder the conversion of the database now serves itself. Nothing in the application, its nibs or the plugin API version 1 called it.",
+        "-decompressDICOMJPEG:": "Deprecated, for a folder the conversion of the database now serves itself. Nothing in the application, its nibs or the plugin API version 1 called it.",
+        "-distantStudiesForSmartAlbum:": "The studies the PACS On-Demand nodes find for a smart album, asked on the calling thread, which DatabaseAlbumCounter asks itself when it counts the album. Nothing else in the application, its nibs or the plugin API version 1 called it, and no known plugin uses it.",
+        "-findSeriesUID:":"The series of the browser's database by its UID, which read the database of the browser singleton; the outline and the plugin API version 1 find them through the database. Nothing in the application, its nibs or a known plugin called it.",
+        "-findStudyUID:": "The study of the browser's database by its UID, which read the database of the browser singleton; the outline and the plugin API version 1 find them through the database. Nothing in the application, its nibs or a known plugin called it.",
+        "-getNewFileDatabasePath:": "Deprecated: the path of a new file comes from the database that will index it. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers it with its own class.",
+        "-getNewFileDatabasePath:dbFolder:": "Deprecated: the path of a new file comes from the database that will index it. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers it with its own class.",
+        "-matrixLoadIcons:": "The body of the thumbnail thread of the database preview, which ThumbnailLoader replaced. Only the browser started it; nothing in its nibs or the plugin API version 1 called it, and no known plugin uses it.",
+        "-sendFilesToCurrentBonjourDB:": "Deprecated: sent files to the shared database the browser shows, which the Bonjour upload of the remote database does. Nothing in the application, its nibs or a known plugin called it.",
+        "-setBonjourDatabaseValue:value:forKey:": "Deprecated: wrote a value of an object of a shared database through its server, which RemoteDicomDatabase does itself. Nothing in the application, its nibs or the plugin API version 1 called it, and no known plugin uses it.",
+        "-switchToDefaultDBIfNeeded": "Deprecated: the former name of -resetToDefaultDatabaseIfNecessary, which DatabaseOpener answers. Nothing in the application, its nibs or the plugin API version 1 called it, and no known plugin uses it.",
+        "-toolbar:itemForItemIdentifier:willBeInsertedIntoToolbar:": "A method of the database window's toolbar delegate, which BrowserToolbar is now. Only AppKit called it on the delegate; nothing in the nibs or the plugin API version 1 called it, and no known plugin uses it.",
+        "-toolbarAllowedItemIdentifiers:": "A method of the database window's toolbar delegate, which BrowserToolbar is now. Only AppKit called it on the delegate; nothing in the nibs or the plugin API version 1 called it, and no known plugin uses it.",
+        "-toolbarDefaultItemIdentifiers:": "A method of the database window's toolbar delegate, which BrowserToolbar is now. Only AppKit called it on the delegate; nothing in the nibs or the plugin API version 1 called it, and no known plugin uses it.",
+        "-writeDatabaseFilePromise:": "The body of the activity thread of a database drag's file promise, which DatabaseFilePromiseWriter runs on a thread of its own. Only the browser started it; nothing in its nibs or the plugin API version 1 called it, and no known plugin uses it."
       }
     },
     {
@@ -3584,13 +3622,11 @@
       "name": "DicomDatabase+Other",
       "base": "DicomDatabase",
       "block": "Other",
-      "swift": "Horos/Sources/DicomDatabase+Other.swift",
+      "swift": "Horos/Sources/DicomDatabase+Maintenance.swift",
       "header": "Horos/Sources/DicomDatabase+Other.h",
       "selectors": [
         "-rebuildAllowed",
         "-upgradeSqlFileFromModelVersion:",
-        "+repairEmptySeriesIdentifiersInContext:",
-        "+repairFabricatedPatientIdentifiersInContext:",
         "+recomputePatientUIDsInContext:",
         "-rebuild",
         "-rebuild:",
@@ -3606,6 +3642,10 @@
         "header": "Horos/Sources/DicomDatabase.h",
         "implementation": "Horos/Sources/DicomDatabase.mm",
         "interface": "DicomDatabase"
+      },
+      "removed": {
+        "+repairEmptySeriesIdentifiersInContext:": "Moved to DatabaseStartupRepairs, a Swift type of the application: only the opening of a database called it, and no Objective-C, nib or plugin reached it by name.",
+        "+repairFabricatedPatientIdentifiersInContext:": "Moved to DatabaseStartupRepairs, a Swift type of the application: only the opening of a database called it, and no Objective-C, nib or plugin reached it by name."
       }
     },
     {
@@ -3704,13 +3744,16 @@
         "-computeSubCtrlMinMax",
         "-enableSubtraction",
         "-resampleDataIfNeeded:",
-        "+areLoadingViewers",
-        "-finishLoadImageData:"
+        "+areLoadingViewers"
       ],
       "former": {
         "header": "Horos/Sources/ViewerController.h",
         "implementation": "Horos/Sources/ViewerController.m",
         "interface": "ViewerController"
+      },
+      "removed": {
+        "-finishLoadImageData:": "The main-thread completion of the former load thread, a dictionary of its pixel lists and thread; the viewer's ViewerSeriesLoad accepts the typed result of its SeriesImageLoader instead, and nothing in the application, its nibs or a known plugin called it.",
+        "+loadImageData:": "The body of the former load thread (ViewerController+ImageLoading.swift); the series is decoded by SeriesImageLoader, an actor, and nothing in the application, its nibs or a known plugin called it."
       }
     },
     {
@@ -3720,8 +3763,6 @@
       "swift": "Horos/Sources/ViewerController+Convolution.swift",
       "header": "Horos/Sources/ViewerController+Convolution.h",
       "selectors": [
-        "-applyConvolutionXYThread:",
-        "-applyConvolutionZThread:",
         "-applyConvolutionOnSource:",
         "-computeSum:",
         "-changeMatrixSize:",
@@ -3738,6 +3779,10 @@
         "header": "Horos/Sources/ViewerController.h",
         "implementation": "Horos/Sources/ViewerController.m",
         "interface": "ViewerController"
+      },
+      "removed": {
+        "-applyConvolutionXYThread:": "The worker thread of the filter's pass over each slice; apply on source hands the slices to SeriesConvolution (IsiXImaging), whose shares run at once without threads of their own, and nothing in the application, its nibs or a known plugin called it.",
+        "-applyConvolutionZThread:": "The worker thread of the filter's pass across the slices; it is SeriesConvolution's (IsiXImaging) now, and nothing in the application, its nibs or a known plugin called it."
       }
     },
     {
@@ -4529,8 +4574,6 @@
       "swift": "Horos/Sources/ViewerController+Reslice.swift",
       "header": "Horos/Sources/ViewerController+SeriesOperations.h",
       "selectors": [
-        "-waitForAProcessor",
-        "-resliceThread:",
         "-processReslice::"
       ],
       "former": {
@@ -4603,21 +4646,6 @@
         "-isDataVolumicIn4D:",
         "-isDataVolumicIn4D:checkEverythingLoaded:",
         "-isDataVolumicIn4D:checkEverythingLoaded:tryToCorrect:"
-      ],
-      "former": {
-        "header": "Horos/Sources/ViewerController.h",
-        "implementation": "Horos/Sources/ViewerController.m",
-        "interface": "ViewerController"
-      }
-    },
-    {
-      "name": "ViewerController+ImageLoading",
-      "base": "ViewerController",
-      "block": "image loading",
-      "swift": "Horos/Sources/ViewerController+ImageLoading.swift",
-      "header": "Horos/Sources/ViewerController+SeriesOperations.h",
-      "selectors": [
-        "+loadImageData:"
       ],
       "former": {
         "header": "Horos/Sources/ViewerController.h",
@@ -7051,12 +7079,6 @@
       "+currentLogManager",
       "-addLogLine:",
       "-resetLogs"
-    ],
-    "MoveManager": [
-      "+sharedManager",
-      "-addMove:",
-      "-containsMove:",
-      "-removeMove:"
     ],
     "OsiriXScripts": [
       "-performDefaultImplementation"

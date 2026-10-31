@@ -5,6 +5,7 @@
 + (id)activeLocalDatabase;- (NSString*)dataBaseDirPath;
 - (id)initWithDataset:(void*)d callingAET:(id)a calledAET:(id)b hostname:(id)c port:(int)p transferSyntax:(int)t compression:(float)f extraParameters:(id)e;
 - (id)initWithCallingAET:(id)a distantServer:(id)s;
+- (id)initAutoQuery:(BOOL)automatic;
 - (void)setShowErrorMessage:(BOOL)b;- (void)setNoSmartMode:(BOOL)b;
 - (void)queryWithValues:(id)v;- (NSArray*)children;- (void)performRetrieve:(NSArray*)a;
 - (void)retrieve:(id)sender onlyIfNotAvailable:(BOOL)only forViewing:(BOOL)view items:(NSArray*)items showGUI:(BOOL)gui;
@@ -35,7 +36,11 @@ __attribute__((constructor)) static void install(void) {
    NSLog(@"CGET_REAL_LISTENER available=%d",((BOOL(*)(id,SEL))originalListener)(NSClassFromString(@"DCMTKQueryRetrieveSCP"),NSSelectorFromString(@"storeSCP")));
    controllers=[NSMutableArray new];inventoryNodes=[NSMutableArray new];NSMutableArray *workers=[NSMutableArray new];
    for(NSDictionary *server in servers) {
-    id controller=[[NSClassFromString(@"QueryController") alloc] initWithWindow:nil];
+    // The window's factory, not -initWithWindow:: only the factory hands the
+    // controller the process graph, and a retrieve thread without it sees no
+    // database and returns at once. It finds the node in the -SERVERS argument
+    // of the launch, or it raises the modal panel that no node is defined.
+    id controller=[[NSClassFromString(@"QueryController") alloc] initAutoQuery:NO];
     id manager=[[NSClassFromString(@"QueryArrayController") alloc] initWithCallingAET:@"HOROSDEV" distantServer:server];
     [controller setValue:manager forKey:@"queryManager"];[controllers addObject:controller];
     NSThread *worker=[[NSThread alloc] initWithBlock:^{@autoreleasepool{

@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 
 // NSSplitView (Defaults) is implemented in Swift. The selectors and
 // <Horos/NSSplitViewSave.h> are those of the former category.
@@ -47,13 +48,13 @@ public extension NSSplitView {
 
     @objc(restoreDefault:)
     func restoreDefault(_ defaultName: String) {
-        let frames = UserDefaults.standard.array(forKey: defaultName)
+        let frames = PreferencesSource.process.preferences[ApplicationPreferences.splitViewFrames(defaultName)]
 
         if (frames?.count ?? 0) == subviews.count {
             var i = 0
 
             for v in subviews {
-                v.frame = NSRectFromString(frames?[i] as? String ?? "")
+                v.frame = NSRectFromString(frames?[i].stringValue ?? "")
                 i += 1
             }
         }
@@ -63,7 +64,7 @@ public extension NSSplitView {
 
     @objc(saveDefault:)
     func saveDefault(_ defaultName: String) {
-        let frameArray = NSMutableArray()
+        var frameArray: [PropertyListValue] = []
 
         for v in subviews {
             if isSubviewCollapsed(v) {
@@ -78,11 +79,11 @@ public extension NSSplitView {
                 }
                 _ = frame
 
-                frameArray.add(NSStringFromRect(v.frame))
+                frameArray.append(.string(NSStringFromRect(v.frame)))
             } else {
-                frameArray.add(NSStringFromRect(v.frame))
+                frameArray.append(.string(NSStringFromRect(v.frame)))
             }
         }
-        UserDefaults.standard.set(frameArray, forKey: defaultName)
+        PreferencesSource.process.preferences.set(frameArray, for: ApplicationPreferences.splitViewFrames(defaultName))
     }
 }

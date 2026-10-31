@@ -156,10 +156,16 @@ enum CurvedMPRPathAssistant {
     }
 
     /// The node count the simplification slider asks for: from 3 nodes at 0 %
-    /// to one per centerline point at 100 %. Counted signed, so that a
-    /// centerline of fewer than 3 points does not wrap to 2^64 - 3.
-    static func simplificationTarget(centerlineCount: Int, sliderPercent: Float) -> Int {
-        let target = Float(centerlineCount - 3) * sliderPercent / 100 + 3
+    /// to the whole path at 100 %, the nodes the path has now and those the
+    /// slider removed and can bring back. The count at 100 % was that of the
+    /// centerline kept from the assistant's last segment, which is only part
+    /// of a path traced through more than two nodes: a path of 41 nodes made
+    /// of two segments of 21 points came back to 21 nodes, not 41. Counted
+    /// signed, so that a path of fewer than 3 nodes does not wrap to
+    /// 2^64 - 3.
+    static func simplificationTarget(pathNodeCount: Int, removedNodeCount: Int, sliderPercent: Float) -> Int {
+        let wholePath = pathNodeCount + max(removedNodeCount, 0)
+        let target = Float(wholePath - 3) * sliderPercent / 100 + 3
         if target.isNaN { return 0 }
         if target >= Float(Int32.max) { return Int(Int32.max) }
         if target <= Float(Int32.min) { return Int(Int32.min) }

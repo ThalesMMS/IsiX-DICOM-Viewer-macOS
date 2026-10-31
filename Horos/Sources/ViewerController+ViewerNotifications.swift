@@ -42,74 +42,37 @@ import AppKit
 // Notifications the viewer answers or posts for itself: another viewer
 // closes (the fused one ends the fusion), the image view of this window
 // changes (the tiling makes new views), and the volume data of a movie frame
-// is freed or allocated (posted for plugins).
+// is freed or allocated (posted for plugins). The viewer's graph does the work
+// (ViewerSessionGraph+ViewerLife.swift).
 
 extension ViewerController {
 
-    /// A viewer closes: the fused series, when it is the one, ends the
-    /// fusion, and the main or key window's toolbar is refreshed.
     @objc(CloseViewerNotification:)
     func CloseViewerNotification(_ note: Notification!) {
-        if (note?.object as AnyObject?) === horos_blending { // our blended serie is closing itself....
-            activateBlending(nil)
-        }
-
-        if window?.isMainWindow ?? false || window?.isKeyWindow ?? false {
-            refreshToolbar()
-        }
+        sessionGraph.viewerDidClose(note?.object as AnyObject?)
     }
 
-    /// The current image view changed (OsirixDCMUpdateCurrentImageNotification):
-    /// the view of this window becomes the viewer's, and a tiled view updates
-    /// its tiles.
+    /// OsirixDCMUpdateCurrentImageNotification.
     @objc(updateImageView:)
     func updateImageView(_ note: Notification!) {
-        let view = note?.object as? DCMView
-        guard let window, window.isEqual(view?.window) else { return }
-
-        horos_imageView = view
-
-        if (view?.columns ?? 0) != 1 || (view?.rows ?? 0) != 1 {
-            view?.updateTilingViews()
-        }
+        sessionGraph.currentImageViewDidChange(to: note?.object as? DCMView)
     }
 
-    /// OsirixViewerControllerWillFreeVolumeDataNotification for the volume of
-    /// `movieIndex`, when there is one.
     func horos_sendWillFreeVolumeDataNotification(forMovieIndex movieIndex: Int) {
         sendWillFreeVolumeDataNotification(withVolumeData: horos_volumeData(at: movieIndex), movieIndex: movieIndex)
     }
 
-    /// OsirixViewerControllerDidAllocateVolumeDataNotification for the volume
-    /// of `movieIndex`, when there is one.
     func horos_sendDidAllocateVolumeDataNotification(forMovieIndex movieIndex: Int) {
         sendDidAllocateVolumeDataNotification(withVolumeData: horos_volumeData(at: movieIndex), movieIndex: movieIndex)
     }
 
-    /// OsirixViewerControllerWillFreeVolumeDataNotification with the volume
-    /// ("volumeData") and the movie index ("movieIndex"), when there is a
-    /// volume.
     @objc(sendWillFreeVolumeDataNotificationWithVolumeData:movieIndex:)
     func sendWillFreeVolumeDataNotification(withVolumeData volumeData: NSObject?, movieIndex: Int) {
-        postVolumeDataNotification(.OsirixViewerControllerWillFreeVolumeData, volumeData: volumeData, movieIndex: movieIndex)
+        sessionGraph.postVolumeData(.OsirixViewerControllerWillFreeVolumeData, volumeData: volumeData, movieIndex: movieIndex)
     }
 
-    /// OsirixViewerControllerDidAllocateVolumeDataNotification with the volume
-    /// ("volumeData") and the movie index ("movieIndex"), when there is a
-    /// volume.
     @objc(sendDidAllocateVolumeDataNotificationWithVolumeData:movieIndex:)
     func sendDidAllocateVolumeDataNotification(withVolumeData volumeData: NSObject?, movieIndex: Int) {
-        postVolumeDataNotification(.OsirixViewerControllerDidAllocateVolumeData, volumeData: volumeData, movieIndex: movieIndex)
-    }
-
-    /// The notification, in its own autorelease pool: the former code kept it
-    /// against a crash in the run loop when the viewer was retained and
-    /// autoreleased while it was freed.
-    private func postVolumeDataNotification(_ name: Notification.Name, volumeData: NSObject?, movieIndex: Int) {
-        guard let volumeData else { return }
-        autoreleasepool {
-            NotificationCenter.default.post(Notification(name: name, object: self,
-                                                         userInfo: ["volumeData": volumeData, "movieIndex": NSNumber(value: movieIndex)]))
-        }
+        sessionGraph.postVolumeData(.OsirixViewerControllerDidAllocateVolumeData, volumeData: volumeData, movieIndex: movieIndex)
     }
 }

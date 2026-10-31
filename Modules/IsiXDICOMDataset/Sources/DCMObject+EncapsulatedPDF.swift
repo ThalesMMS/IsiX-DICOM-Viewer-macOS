@@ -44,7 +44,6 @@ extension DCMObject {
 
     /// An Encapsulated PDF object holding `pdf`, in UTF-8, with new UIDs and the
     /// patient and study identification left empty for the caller to fill.
-    @objc(encapsulatedPDF:)
     public class func encapsulatedPDF(_ pdf: Data) -> DCMObject {
         let object = DCMObject()
         func set(_ name: String, _ value: Any?) {

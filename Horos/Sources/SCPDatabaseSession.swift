@@ -37,30 +37,35 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
-import CoreData
 import Darwin
 import Foundation
+import IsiXContracts
 import IsiXDICOMNetwork
+import IsiXPreferences
 
 /// The listener's database for one association: the C-FIND, C-MOVE and C-GET
 /// requests it answers from the index (SCPDatabaseSession+Find.swift and
 /// +Retrieve.swift), and the C-STOREs it receives, which it hands to the
 /// active database's incoming folder. The C-STORE sub-operations a C-GET of
 /// the query nodes receives use one too. The DCMTK adapter calls it on its
-/// association's thread only; the index is read inside the queue of a
-/// private-queue context of its own, never in the UI's context.
+/// association's thread only. The index is read through `LocalMetadataQuerying`,
+/// on a private-queue context of the default database made for each read,
+/// never in the UI's context; only values come back.
 final class SCPDatabaseSession: NSObject, IsiXDCMTKSCPDatabase, @unchecked Sendable {
 
     /// The peer's AE title; for a C-GET's own sub-operations, the title it called.
     let callingAETitle: String
 
-    /// The context the finds and retrieves read the index in, made the first
-    /// time one asks: an association that only stores never makes one.
-    private(set) lazy var context: NSManagedObjectContext? = DicomDatabase.default()?.privateQueueIndependentContext()
+    /// What the process shares: the default database, the preferences and the
+    /// browser's network-log switch.
+    let processGraph: ProcessGraph
+
+    /// The records the finds and retrieves read, from the default database.
+    let localMetadata: any LocalMetadataQuerying
 
     // The current find: its matches, the next one to answer, the keys asked
     // for, and the character set of its responses.
-    var findObjects: [NSManagedObject]?
+    var findRecords: [LocalMetadataRecord]?
     var findPosition = 0
     var findKeys: [DICOMTag] = []
     var responseCharacterSet = SCPResponseCharacterSet(name: nil, encoding: 0)
@@ -77,48 +82,48 @@ final class SCPDatabaseSession: NSObject, IsiXDCMTKSCPDatabase, @unchecked Senda
     private var receivedCount: Int32 = 0
     private var incomplete = false
 
-    init(callingAETitle: String) {
+    /// The session of an association: the listener's, and a C-GET's for its
+    /// own sub-operations.
+    convenience init(callingAETitle: String) {
+        self.init(callingAETitle: callingAETitle, processGraph: ProcessGraph.process)
+    }
+
+    init(callingAETitle: String, processGraph: ProcessGraph) {
         self.callingAETitle = callingAETitle
+        self.processGraph = processGraph
+        localMetadata = processGraph.localStudyReader(reading: .defaultDatabase)
         super.init()
     }
 
     /// Whether the network log records anything.
-    static var networkLogsActive: Bool {
-        BrowserController.currentBrowser()?.isNetworkLogsActive() ?? false
+    var networkLogsActive: Bool {
+        processGraph.networkLogsActive
     }
 
     // MARK: - Received instances
 
     var receivingDirectory: String {
-        guard let path = DicomDatabase.activeLocal()?.tempDirPathC() else { return "" }
-        return String(cString: path)
+        processGraph.databaseIngest.receivingFolder
     }
 
     /// Moves a complete received file into the incoming folder, where the
     /// database imports it, before the C-STORE response promises Success.
     func publishReceivedFile(atPath path: String) -> String? {
-        let incoming = DicomDatabase.activeLocal()?.incomingDirPathC().map { String(cString: $0) } ?? ""
+        let ingest = processGraph.databaseIngest
         let name = path.split(separator: "/", omittingEmptySubsequences: false).last.map(String.init) ?? path
-        let destination = incoming + "/" + name
-        var failure: Int32 = 0
-        if incoming.isEmpty || name.isEmpty {
-            failure = EINVAL
-        } else if destination.utf8.count >= Int(MAXPATHLEN) + 1 {
-            failure = ENAMETOOLONG
-        } else if rename(path, destination) != 0 {
-            failure = errno
-        }
-        guard failure != 0 else { return nil }
-        let folder = String(decoding: incoming.utf8.prefix(2048), as: UTF8.self)
+        let publication = ingest.publish(fileAt: path, named: name, into: ingest.listenerFolder(), preset: .listener)
+        guard !publication.succeeded else { return nil }
+        let failure = publication.errorNumber
+        let folder = String(decoding: publication.folder.path.utf8.prefix(2048), as: UTF8.self)
         return "Cannot publish received DICOM to import directory \(folder): \(String(cString: strerror(failure))) (errno \(failure))"
     }
 
     var namesSenderInReceivedFiles: Bool {
-        UserDefaults.standard.bool(forKey: "putSrcAETitleInSourceApplicationEntityTitle")
+        processGraph.preferences[NetworkPreferences.putsSourceAETitleInSourceApplicationEntityTitle]
     }
 
     var namesCalledTitleInReceivedFiles: Bool {
-        UserDefaults.standard.bool(forKey: "putDstAETitleInPrivateInformationCreatorUID")
+        processGraph.preferences[NetworkPreferences.putsDestinationAETitleInPrivateInformationCreatorUID]
     }
 
     func didStoreInstance(attributes: [NSNumber: Data]?) {
@@ -135,7 +140,7 @@ final class SCPDatabaseSession: NSObject, IsiXDCMTKSCPDatabase, @unchecked Senda
 
     /// One network log entry per association: what it received, and from whom.
     private func updateReceiveLog(_ attributes: [NSNumber: Data]) {
-        guard Self.networkLogsActive else { return }
+        guard networkLogsActive else { return }
         func value(_ tag: DICOMTag) -> [UInt8]? { attributes[NSNumber(value: tag.rawValue)].map { Array($0) } }
         // The values come from the sender: each is bounded, as the log's buffers were.
         let characterSet = value(.specificCharacterSet).map { NSString(bytes: $0, length: $0.count, encoding: String.Encoding.utf8.rawValue) as String? } ?? "ISO_IR 100"
@@ -210,14 +215,9 @@ final class SCPDatabaseSession: NSObject, IsiXDCMTKSCPDatabase, @unchecked Senda
         return elements
     }
 
-    /// The NSException an Objective-C call raised inside
-    /// HorosObjCException.perform, or else the error.
-    static func caught(_ error: Error) -> NSObject {
-        (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException ?? (error as NSError)
-    }
-
-    static func description(of error: Error) -> String {
-        ((error as NSError).userInfo[HorosObjCExceptionKey] as? NSException)?.description ?? error.localizedDescription
+    /// The Query/Retrieve Level of a request identifier, as it came.
+    static func level(of identifier: IsiXDCMTKDataset) -> String? {
+        identifier.rawValue(forTag: DICOMTag.queryRetrieveLevel.rawValue).map { String(decoding: $0, as: UTF8.self) }
     }
 
     /// -[value intValue]: 0 for nil.

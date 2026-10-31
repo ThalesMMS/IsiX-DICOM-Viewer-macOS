@@ -3,10 +3,12 @@
 
 -writeCopySettingsInSeriesForPixels: is Swift (DCMView+SeriesSettings.swift),
 with what it writes to each image decided by IsiXImaging's
-SeriesSettingsPropagation. It is compiled as it is, with xcrun swiftc, as an
-extension of an Objective-C double of DCMView that has the same horos_*
-properties; the images and pixels are doubles too, with DCMPix's own
--storedWindowLevelForCalibratedLevel:.
+SeriesSettingsPropagation and written by ImagePresentationStore. Both are
+compiled as they are, with xcrun swiftc, the method as an extension of an
+Objective-C double of DCMView that has the same horos_* properties (the
+view's ViewportState is made from them), beside the real HorosObjCException;
+the images and pixels are doubles too, the images with the typed attributes of
+DicomImage, the pixels with DCMPix's own -storedWindowLevelForCalibratedLevel:.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
@@ -24,7 +26,15 @@ root = Path(__file__).resolve().parents[1]
 settings = source_text('DCMView+SeriesSettings')
 start = settings.index('    @objc(writeCopySettingsInSeriesForPixels:)')
 method = settings[start:settings.index('    /// The toolbar\'s switch', start)]
-extension = 'import Cocoa\nimport IsiXImaging\n\nextension DCMView {\n' + method + '}\n'
+# The view's viewport, as DCMView.swift keeps it, from the double's horos_* properties.
+VIEWPORT = """
+    var viewport: ViewportState {
+        ViewportState(scale: horos_scaleValue, origin: horos_origin, rotation: horos_rotation, xFlipped: horos_xFlipped,
+                      yFlipped: horos_yFlipped)
+    }
+"""
+extension = 'import Cocoa\nimport IsiXImaging\n\n@MainActor extension DCMView {\n' + VIEWPORT + method + '}\n'
+store = root / 'Horos/Sources/ImagePresentationStore.swift'
 
 pix_source = class_text('DCMPix')
 if '- (float) storedWindowLevelForCalibratedLevel:' in pix_source:
@@ -48,11 +58,19 @@ else:
 
 bridge = r'''
 #import <AppKit/AppKit.h>
+#import "HorosObjCException.h"
 
-// The presentation state of one image, as key-value pairs. A nil value means
-// the image has none of its own and falls back to what the file says.
+void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf);
+
+// The presentation state of one image, as DicomImage's attributes. A nil value
+// means the image has none of its own and falls back to what the file says.
 @interface DicomImage : NSObject
-@property(retain) NSMutableDictionary *values;
+@property(retain) NSNumber *windowWidth, *windowLevel, *scale, *rotationAngle, *yFlipped, *xFlipped, *xOffset, *yOffset;
+@end
+
+// The series' attributes ImagePresentationStore reads and writes.
+@interface DicomSeries : NSObject
+@property(retain) NSNumber *windowWidth, *windowLevel, *scale, *displayStyle, *rotationAngle, *yFlipped, *xFlipped, *xOffset, *yOffset;
 @end
 
 @interface DCMPix : NSObject
@@ -70,7 +88,8 @@ bridge = r'''
 
 // The state DCMView+SeriesSettings.swift reads, under the view's names.
 @interface DCMView : NSObject
-@property float horos_curWL, horos_curWW, horos_scaleValue, horos_rotation;
+// The window the view answers through curWL and curWW, which it keeps in a Swift value.
+@property float curWL, curWW, horos_scaleValue, horos_rotation;
 @property BOOL horos_yFlipped, horos_xFlipped, horos_COPYSETTINGSINSERIES;
 @property NSPoint horos_origin;
 @property BOOL scaledFit;
@@ -85,13 +104,19 @@ program = r'''
 #import "Horos-Swift.h"
 
 @implementation DicomImage
-- (id) init { if ((self = [super init])) self.values = [NSMutableDictionary dictionary]; return self; }
-- (void) setValue:(id)value forKey:(NSString*)key {
-    if (value) [self.values setObject:value forKey:key];
-    else [self.values removeObjectForKey:key];
-}
-- (id) valueForKey:(NSString*)key { return [self.values objectForKey:key]; }
 @end
+
+@implementation DicomSeries
+@end
+
+void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf) { NSLog(@"Exception: %@", e); }
+
+// Whether the image keeps nothing of its own.
+static BOOL keepsNothing(DicomImage *im) {
+    for (NSString *key in @[@"windowWidth", @"windowLevel", @"scale", @"rotationAngle", @"yFlipped", @"xFlipped", @"xOffset", @"yOffset"])
+        if ([im valueForKey:key]) return NO;
+    return YES;
+}
 
 @implementation DCMPix
 - (DicomImage *) imageObj { return self.image; }
@@ -119,7 +144,7 @@ static DCMPix *pixel(void) {
 
 int main(void) { @autoreleasepool {
     DCMView *view = [DCMView new];
-    view.horos_curWL = 1234; view.horos_curWW = 88;
+    view.curWL = 1234; view.curWW = 88;
     view.horos_scaleValue = 2.5; view.horos_rotation = 90;
     view.horos_yFlipped = YES; view.horos_xFlipped = NO;
     view.horos_origin = NSMakePoint(3, 4);
@@ -189,17 +214,17 @@ int main(void) { @autoreleasepool {
     // A MONOCHROME1 image retains the old cache sign while the live window
     // and its samples use calibrated values.
     DCMPix *mono = pixels[1]; mono.displayInverted = YES;
-    view.horos_curWL = -1888;
+    view.curWL = -1888;
     [view writeCopySettingsInSeriesForPixels:pixels];
     check([[shown valueForKey:@"windowLevel"] floatValue] == 1888);
-    mono.displayInverted = NO; view.horos_curWL = 1234;
+    mono.displayInverted = NO; view.curWL = 1234;
 
     // On: the flattening the option promises. Every image loses its own
     // settings and every loaded one takes the window on screen.
     view.horos_COPYSETTINGSINSERIES = YES;
     [view writeCopySettingsInSeriesForPixels: pixels];
     for (DCMPix *pix in pixels) {
-        check([[pix imageObj].values count] == 0);
+        check(keepsNothing([pix imageObj]));
         check(pix.appliedWL == 1234 && pix.appliedWW == 88);
     }
 
@@ -209,7 +234,7 @@ int main(void) { @autoreleasepool {
     [[unloaded imageObj] setValue:[NSNumber numberWithFloat:1] forKey:@"windowWidth"];
     [view writeCopySettingsInSeriesForPixels: @[ unloaded ]];
     check(unloaded.windowChanged == NO);
-    check([[unloaded imageObj].values count] == 0);
+    check(keepsNothing([unloaded imageObj]));
 
     NSLog(@"PASS: propagation off records the window only on the image on screen and the view on every image without its own, on flattens the series, xFlipped is xFlipped");
     return 0;
@@ -218,19 +243,24 @@ int main(void) { @autoreleasepool {
 
 # The database path that carries one series' presentation onto images gathered
 # from several series asked whether the destination already had the setting.
-# BrowserController's viewerKeyImagesAndROIsImages: is Swift
-# (BrowserController+Toolbar.swift).
-browser = source_text('BrowserController+Toolbar')
-block_start = browser.index('func viewerKeyImagesAndROIsImages(')
-block = browser[block_start:browser.index('AUTOTILING', block_start)]
-copies = re.findall(r'if (\w+)\??\.value\(forKey: "(\w+)"\) != nil \{\s*\n\s*'
-                    r'im\?\.setValue\(d\.value\(forKey: "\2"\)',
-                    block)
-assert copies, 'the presentation copy loop was not found'
-for guarded, key in copies:
-    assert guarded == 'd', (
-        f'the {key} copy asks whether the destination image already has one, '
+# BrowserController's viewerKeyImagesAndROIsImages: hands the opening to
+# SelectionMarkedImages (SelectionMarkedImages.swift), which reads each
+# series' presentation before the viewer opens and copies what it found.
+facade = source_text('BrowserController+Toolbar')
+facade_start = facade.index('func viewerKeyImagesAndROIsImages(')
+assert 'markedImages.openInViewer(sender)' in facade[facade_start:facade.index('\n    }\n', facade_start)], (
+    'viewerKeyImagesAndROIsImages: no longer hands the opening to SelectionMarkedImages; this test needs a new look')
+browser = source_text('SelectionMarkedImages')
+block_start = browser.index('func openInViewer(')
+block = browser[block_start:browser.index('autoTiling', block_start)]
+copies = re.findall(r'if let value = (\w+)\.(\w+) \{ (\w+)\.(\w+) = value \}', block)
+assert len(copies) >= 7, 'the presentation copy loop was not found'
+for guarded, key, destination, written in copies:
+    assert guarded == 'presentation' and destination == 'image' and key == written, (
+        f'the {written} copy asks whether the destination image already has one, '
         'so an image with no presentation of its own is skipped')
+assert re.search(r'\} else if let value = presentation\.scale \{\s*image\.scale = value', block), (
+    'the scale copy asks whether the destination image already has one')
 
 with tempfile.TemporaryDirectory(prefix='horos-copy-settings-') as tmp:
     p = Path(tmp)
@@ -238,12 +268,15 @@ with tempfile.TemporaryDirectory(prefix='horos-copy-settings-') as tmp:
     (p / 'settings.swift').write_text(extension)
     (p / 'test.m').write_text(program + harness_defaults.OBJC)
     module = isix_modules.module_flags('IsiXImaging', p / 'module')
+    sources = root / 'Horos/Sources'
     subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library', '-module-name', 'Horos', '-wmo',
-                    '-import-objc-header', str(p / 'bridge.h'), *module,
+                    '-import-objc-header', str(p / 'bridge.h'), '-I', str(sources), *module,
                     '-emit-objc-header', '-emit-objc-header-path', str(p / 'Horos-Swift.h'),
-                    '-c', str(p / 'settings.swift'), '-o', str(p / 'settings.o')], check=True)
-    subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-c', str(p / 'test.m'), '-o', str(p / 'test.o'), '-I', str(p)],
+                    '-c', str(p / 'settings.swift'), str(store), '-o', str(p / 'settings.o')], check=True)
+    subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-c', str(p / 'test.m'), '-o', str(p / 'test.o'), '-I', str(p), '-I', str(sources)],
                    check=True)
-    subprocess.run(['xcrun', 'swiftc', str(p / 'settings.o'), str(p / 'test.o'), *module, '-o', str(p / 'test'),
+    subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-c', str(sources / 'HorosObjCException.m'), '-o', str(p / 'exception.o'),
+                    '-I', str(sources)], check=True)
+    subprocess.run(['xcrun', 'swiftc', str(p / 'settings.o'), str(p / 'test.o'), str(p / 'exception.o'), *module, '-o', str(p / 'test'),
                     '-framework', 'AppKit'], check=True)
     subprocess.run([str(p / 'test')], check=True)

@@ -54,23 +54,14 @@ import IsiXDICOMFile
     @objc(createDicomDirAtDir:error:)
     class func createDicomDirReportingError(atDir path: String!) throws {
         let folder = path ?? ""
-        var outcome: NSError?
-        var written = false
-        // What the former @try handled: an Objective-C exception raised on the
-        // way is logged and the export fails with its reason.
+        // What the former @try handled: an Objective-C exception the adapter
+        // raised on the way is logged and the export fails with its reason.
         do {
-            try caughtObjCException {
-                try writeDicomDir(in: folder)
-                written = true
-            }
+            try writeDicomDir(in: folder)
         } catch let raised as RaisedObjCException {
             _N2LogExceptionImpl(raised.exception, false, "+[DicomDir createDicomDirAtDir:error:]")
-            outcome = dicomDirExportError(reason: raised.exception.reason ?? "", folder: folder)
-        } catch {
-            outcome = error as NSError
+            throw dicomDirExportError(reason: raised.exception.reason ?? "", folder: folder)
         }
-        if written { return }
-        throw outcome ?? dicomDirExportError(reason: "", folder: folder)
     }
 }
 
@@ -78,7 +69,7 @@ import IsiXDICOMFile
 private func writeDicomDir(in folder: String) throws {
     var relativePaths: [String] = []
     do {
-        try caughtObjCException { relativePaths = try IsiXDCMTKDicomDir.relativePathsOfFiles(inFolder: folder) }
+        try HorosObjCException.throwing(RaisedObjCException.init) { relativePaths = try IsiXDCMTKDicomDir.relativePathsOfFiles(inFolder: folder) }
     } catch let raised as RaisedObjCException {
         throw raised
     } catch {
@@ -90,7 +81,7 @@ private func writeDicomDir(in folder: String) throws {
     // past this frame, which holds it.
     let replacement = try ExportArchive(destinationPath: dicomDirPath)
     do {
-        try caughtObjCException {
+        try HorosObjCException.throwing(RaisedObjCException.init) {
             try IsiXDCMTKDicomDir.writeDicomDir(atPath: replacement.archivePath, folder: folder,
                                                 relativePaths: relativePaths.filter(DicomDirExportRules.indexes))
         }
@@ -107,21 +98,6 @@ private func writeDicomDir(in folder: String) throws {
 /// only read on the thread that caught it.
 private struct RaisedObjCException: Error, @unchecked Sendable {
     let exception: NSException
-}
-
-private func caughtObjCException(_ body: () throws -> Void) throws {
-    var thrown: Error?
-    do {
-        try HorosObjCException.perform {
-            do { try body() } catch { thrown = error }
-        }
-    } catch {
-        if let exception = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-            throw RaisedObjCException(exception: exception)
-        }
-        throw error
-    }
-    if let thrown { throw thrown }
 }
 
 /// The export's error for what the adapter refused: a DCMTK condition, which

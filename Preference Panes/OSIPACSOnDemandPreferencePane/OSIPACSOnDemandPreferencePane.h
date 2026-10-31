@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// OSIPACSOnDemandPreferencePane is implemented in Swift since #711 (Preference
+// OSIPACSOnDemandPreferencePane is implemented in Swift (Preference
 // Panes/OSIPACSOnDemandPreferencePane/OSIPACSOnDemandPreferencePane.swift). This header keeps
 // <Horos/OSIPACSOnDemandPreferencePane.h>: it brings in the generated interface, which declares the same
 // class name and selectors.

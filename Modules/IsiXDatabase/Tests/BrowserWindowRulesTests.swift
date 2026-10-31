@@ -55,6 +55,9 @@ struct BrowserWindowRulesTests {
         #expect(!BrowserMenuValidation.validate(action: "retrieveSelectedPODStudies:", containsDistantStudy: false, facts: Facts(rows: [study])).enabled)
         #expect(!BrowserMenuValidation.validate(action: "delItem:", containsDistantStudy: false, facts: Facts(rows: [study], readOnly: true)).enabled)
         #expect(!BrowserMenuValidation.validate(action: "addAlbum:", containsDistantStudy: false, facts: Facts(local: false)).enabled)
+        #expect(BrowserMenuValidation.validate(action: "importSurgicalProcedureLog:", containsDistantStudy: false, facts: Facts()).enabled)
+        #expect(!BrowserMenuValidation.validate(action: "importSurgicalProcedureLog:", containsDistantStudy: false, facts: Facts(readOnly: true)).enabled)
+        #expect(!BrowserMenuValidation.validate(action: "importSurgicalProcedureLog:", containsDistantStudy: false, facts: Facts(local: false)).enabled)
 
         let merge = BrowserMenuValidation.validate(action: "mergeStudies:", containsDistantStudy: false, facts: Facts(rows: [series, series]))
         #expect(merge == .init(enabled: true, title: .mergeSelectedSeries))
@@ -101,5 +104,17 @@ struct BrowserWindowRulesTests {
         #expect(!DefaultDatabase.needsReset(shown: "/a", defaultPath: "/a"))
         #expect(PreviewReuse.index(count: 3, path: { ["/a", "/b", "/b"][$0] as NSString }, frame: { [0, 0, 2][$0] as NSNumber },
                                    pathToFind: "/b", frameNumber: 2) == 2)
+    }
+
+    @Test func aThumbnailTagOutsideTheRowsNamesNone() {
+        // The placeholders of series left out count down from -1000.
+        #expect(ThumbnailCellTag.rowIndex(tag: 0, count: 3) == 0)
+        #expect(ThumbnailCellTag.rowIndex(tag: 2, count: 3) == 2)
+        #expect(ThumbnailCellTag.rowIndex(tag: 3, count: 3) == nil)
+        #expect(ThumbnailCellTag.rowIndex(tag: -1000, count: 3) == nil)
+        #expect(ThumbnailCellTag.rowIndex(tag: -1, count: 3) == nil)
+        #expect(ThumbnailCellTag.rowIndex(tag: 0, count: 0) == nil)
+        #expect(ThumbnailCellTag.rows(tags: [1, -1000, 0, -1001, 7], of: ["a", "b", "c"]) == ["b", "a"])
+        #expect(ThumbnailCellTag.rows(tags: [-1000], of: ["a"]).isEmpty)
     }
 }

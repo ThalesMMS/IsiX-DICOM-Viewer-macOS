@@ -39,6 +39,7 @@
 
 import AppKit
 import CoreData
+import IsiXPreferences
 import IsiXStorage
 
 // The "Instance" methods of DicomDatabase are implemented in Swift:
@@ -50,37 +51,14 @@ import IsiXStorage
 // C paths the DICOM listener reads are in DicomDatabase.swift; -release, which
 // takes the registry lock of the databases by path, in DicomDatabase+CAPI.m.
 //
-// An @try is HorosObjCException.perform (DicomDatabaseObjC.attempt), and the
+// An @try is HorosObjCException.caught, and the
 // code of its @finally runs after it. An @synchronized is
-// DicomDatabaseObjC.synchronized, the same recursive lock on the same object.
+// HorosObjCException.synchronized, the same recursive lock on the same object.
 // A message to nil answered nil, NO or 0: the optionals give that value.
 
 /// What the Objective-C did implicitly, for the DicomDatabase blocks that are
 /// Swift.
 enum DicomDatabaseObjC {
-
-    /// Runs `body` as an @try block: the NSException it raised is returned.
-    static func attempt(_ body: () -> Void) -> NSException? {
-        do {
-            try HorosObjCException.perform(body)
-        } catch {
-            return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-        }
-        return nil
-    }
-
-    /// `@synchronized (object) { … }`: the same recursive lock, taken on
-    /// nothing when the object is nil, and left before an exception raised
-    /// inside goes on.
-    static func synchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T {
-        guard let object else { return body() }
-        objc_sync_enter(object)
-        var result: T?
-        let raised = attempt { result = body() }
-        objc_sync_exit(object)
-        if let raised { raised.raise() }
-        return result!
-    }
 
     /// N2LogException (stack: false) or N2LogExceptionWithStackTrace (stack:
     /// true), with the __PRETTY_FUNCTION__ of the former method.
@@ -206,14 +184,16 @@ enum DicomDatabaseObjC {
 }
 
 /// -[DicomDatabase managedObjectModel]'s `static NSManagedObjectModel*`,
-/// created once and never released. Databases are opened on several threads,
-/// so it is made and read under `sharedManagedObjectModelLock`; the model
-/// itself no longer changes once a coordinator uses it, and Core Data shares
-/// such a model between threads.
-private let sharedManagedObjectModelLock = NSLock()
-// nonisolated(unsafe): read and written only inside
-// `sharedManagedObjectModelLock.withLock`, in -managedObjectModel.
-nonisolated(unsafe) private var sharedManagedObjectModel: NSManagedObjectModel? = nil
+/// created once and never released. Databases are opened on several threads:
+/// a global is made once, on first use, whichever thread asks first.
+private let sharedManagedObjectModel = SharedManagedObjectModel(
+    model: NSManagedObjectModel(contentsOf: URL(fileURLWithPath: (Bundle.main.resourcePath! as NSString).appendingPathComponent(DicomDatabase.modelName()))))
+
+/// @unchecked Sendable: the model no longer changes once a coordinator uses
+/// it, and Core Data shares such a model between threads.
+private struct SharedManagedObjectModel: @unchecked Sendable {
+    let model: NSManagedObjectModel?
+}
 
 /// `static NSString* const SqlFileName`.
 private let SqlFileName = "Database.sql"
@@ -242,17 +222,22 @@ public extension DicomDatabase {
 
     @objc(deleteSQLFileIfOpeningFailed)
     override func deleteSQLFileIfOpeningFailed() -> Bool {
-        return true
+        // An index waiting for its upgrade is not damaged: set aside, the database
+        // would open empty and the upgrade would never be tried again.
+        return !DatabaseModelUpgrade(database: self).indexAwaitsUpgrade
+    }
+
+    @objc(migratePersistentStoresAutomatically)
+    override func migratePersistentStoresAutomatically() -> Bool {
+        // Nor for Core Data to migrate in place, which it can, as the store holds
+        // its model: the next opening would find an index the record no longer
+        // describes, and rebuild it instead of keeping what only the index holds.
+        return !DatabaseModelUpgrade(database: self).indexAwaitsUpgrade
     }
 
     @objc(managedObjectModel)
     override var managedObjectModel: NSManagedObjectModel! {
-        return sharedManagedObjectModelLock.withLock {
-            if sharedManagedObjectModel == nil {
-                sharedManagedObjectModel = NSManagedObjectModel(contentsOf: URL(fileURLWithPath: (Bundle.main.resourcePath! as NSString).appendingPathComponent(DicomDatabase.modelName())))
-            }
-            return sharedManagedObjectModel
-        }
+        return sharedManagedObjectModel.model
     }
 
     @objc(observeIndependentDatabaseNotification:)
@@ -270,7 +255,7 @@ public extension DicomDatabase {
 
             let idatabase = (self.isMainDatabase() ? self : self.mainDatabase) as? DicomDatabase
             N2ManagedObjectContextPerformAndWait(idatabase?.managedObjectContext) {
-            if let exception = DicomDatabaseObjC.attempt({
+            if let exception = HorosObjCException.caught({
 
                 let independentObjects = DicomDatabaseObjC.objectForKey(notification.userInfo as NSDictionary?, OsirixAddToDBNotificationImagesArray) as? NSArray
                 if let independentObjects {
@@ -339,18 +324,7 @@ public extension DicomDatabase {
         }
 
         if independentContext == false { // avoid doing this for independent contexts: we know it's already ok, and this leads to very bad crashes
-            var modelVersion: String? = nil
-            if let path = self.modelVersionFilePath() {
-                modelVersion = try? String(contentsOfFile: path, encoding: .utf8)
-            }
-            if modelVersion == nil { modelVersion = UserDefaults.standard.string(forKey: "DATABASEVERSION") }
-
-            if let modelVersion, (modelVersion as NSString).length != 0, !DicomDatabaseObjC.isEqual(modelVersion, CurrentDatabaseVersion) {
-                rebuildPatientUIDs = self.upgradeSqlFile(fromModelVersion: modelVersion)
-                if let path = self.modelVersionFilePath() {
-                    try? (CurrentDatabaseVersion as NSString).write(toFile: path, atomically: true, encoding: String.Encoding.utf8.rawValue)
-                }
-            }
+            rebuildPatientUIDs = DatabaseModelUpgrade(database: self).upgradeBeforeOpening(indexPath: sqlFilePath)
         }
 
         // super + spec
@@ -367,11 +341,11 @@ public extension DicomDatabase {
             if let coordinator = context?.persistentStoreCoordinator, coordinator.persistentStores.count == 1 {
                 let metaData = coordinator.metadata(for: coordinator.persistentStores.last!) as NSDictionary
 
-                let defaults = UserDefaults.standard
+                let defaults = PreferencesSource.process.preferences
                 let PatientUIDVersion = String(format: "%@ - %d - %d - %d", PATIENTUIDVERSION,
-                                               Int32(defaults.bool(forKey: "UsePatientBirthDateForUID") ? 1 : 0),
-                                               Int32(defaults.bool(forKey: "UsePatientIDForUID") ? 1 : 0),
-                                               Int32(defaults.bool(forKey: "UsePatientNameForUID") ? 1 : 0))
+                                               Int32(defaults[DatabasePreferences.usePatientBirthDateForUID] ? 1 : 0),
+                                               Int32(defaults[DatabasePreferences.usePatientIDForUID] ? 1 : 0),
+                                               Int32(defaults[DatabasePreferences.usePatientNameForUID] ? 1 : 0))
 
                 if metaData.object(forKey: "patientUIDVersion") == nil || !DicomDatabaseObjC.isEqual(metaData.object(forKey: "patientUIDVersion") as? String, PatientUIDVersion) {
                     rebuildPatientUIDs = true //recompute patient UIDs
@@ -386,7 +360,7 @@ public extension DicomDatabase {
 
         if rebuildPatientUIDs {
             N2ManagedObjectContextPerformAndWait(context) {
-                DicomDatabase.recomputePatientUIDs(in: context) // if upgradeSqlFileFromModelVersion returns NO, the database was rebuilt so no need to recompute IDs
+                DatabaseStartupRepairs.recomputePatientUIDs(in: context) // if upgradeSqlFileFromModelVersion returns NO, the database was rebuilt so no need to recompute IDs
             }
         }
 
@@ -397,35 +371,26 @@ public extension DicomDatabase {
     override func save(_ err: NSErrorPointer) -> Bool {
 
         var b = false
+        // Held here and handed over after the queue: the caller's pointer is
+        // autoreleasing, and the pool of the block would free what it was given.
+        var saveError: NSError? = nil
 
         let context = self.managedObjectContext
         N2ManagedObjectContextPerformAndWait(context) {
-        if let exception = DicomDatabaseObjC.attempt({
-            // err, or a local NSError when the caller passed NULL.
-            func save(_ err: AutoreleasingUnsafeMutablePointer<NSError?>) {
-                b = super.save(err)
+        if let exception = HorosObjCException.caught({
+            b = super.save(&saveError)
 
-                if let saveError = err.pointee {
-                    NSLog("DicomDatabase save error: %@", saveError)
-                } else {
-                    UserDefaults.standard.set(CurrentDatabaseVersion, forKey: "DATABASEVERSION")
-                    if let path = self.modelVersionFilePath() {
-                        try? (CurrentDatabaseVersion as NSString).write(toFile: path, atomically: true, encoding: String.Encoding.utf8.rawValue)
-                    }
-                }
-            }
-
-            if let err {
-                save(err)
-            } else {
-                var error: NSError? = nil
-                save(&error)
+            if let saveError {
+                NSLog("DicomDatabase save error: %@", saveError)
+            } else if let context {
+                DatabaseVersionRecord.record(in: context, versionFile: self.modelVersionFilePath())
             }
         }) {
             DicomDatabaseObjC.log(exception, stack: true, "-[DicomDatabase save:]")
         }
         }
 
+        err?.pointee = saveError
         return b
     }
 
@@ -459,44 +424,44 @@ public extension DicomDatabase {
         return DicomDatabaseObjC.appending(basePath, SqlFileName)
     }
 
-    /// `[[self.dataBaseDirPath stringByAppendingPathComponent:component] stringByResolvingSymlinksAndAliases]`.
-    private func resolvedDataBasePath(_ component: String) -> String? {
-        return (DicomDatabaseObjC.appending(self.dataBaseDirPath, component) as NSString?)?.resolvingSymlinksAndAliases()
+    /// `folder` of the data folder, through its links and aliases.
+    private func resolvedDataBasePath(_ folder: DocumentsLocation.DataFolder) -> String? {
+        DocumentsLocation(documentsDirectory: self.baseDirPath, dataDirectory: self.dataBaseDirPath).path(of: folder)
     }
 
     @objc(dataDirPath)
     dynamic func dataDirPath() -> String! {
-        return resolvedDataBasePath("DATABASE.noindex")
+        return resolvedDataBasePath(.images)
     }
 
     @objc(incomingDirPath)
     dynamic func incomingDirPath() -> String! {
-        return resolvedDataBasePath("INCOMING.noindex")
+        return resolvedDataBasePath(.incoming)
     }
 
     @objc(decompressionDirPath)
     dynamic func decompressionDirPath() -> String! {
-        return resolvedDataBasePath("DECOMPRESSION.noindex")
+        return resolvedDataBasePath(.decompression)
     }
 
     @objc(toBeIndexedDirPath)
     dynamic func toBeIndexedDirPath() -> String! {
-        return resolvedDataBasePath("TOBEINDEXED.noindex")
+        return resolvedDataBasePath(.toBeIndexed)
     }
 
     @objc(tempDirPath)
     dynamic func tempDirPath() -> String! {
-        return resolvedDataBasePath("TEMP.noindex")
+        return resolvedDataBasePath(.temporary)
     }
 
     @objc(dumpDirPath)
     dynamic func dumpDirPath() -> String! {
-        return resolvedDataBasePath("DUMP")
+        return resolvedDataBasePath(.dump)
     }
 
     @objc(errorsDirPath)
     dynamic func errorsDirPath() -> String! {
-        let path = resolvedDataBasePath("NOT READABLE")
+        let path = resolvedDataBasePath(.unreadable)
         // Nothing created this directory, so every -moveItemAtPath: into it failed
         // and the fallback removed the file instead: the preference that is meant to
         // keep unreadable files for inspection kept nothing.
@@ -506,37 +471,37 @@ public extension DicomDatabase {
 
     @objc(reportsDirPath)
     dynamic func reportsDirPath() -> String! {
-        return resolvedDataBasePath("REPORTS")
+        return resolvedDataBasePath(.reports)
     }
 
     @objc(pagesDirPath)
     dynamic func pagesDirPath() -> String! {
-        return resolvedDataBasePath("PAGES")
+        return resolvedDataBasePath(.pages)
     }
 
     @objc(roisDirPath)
     dynamic func roisDirPath() -> String! {
-        return resolvedDataBasePath("ROIs")
+        return resolvedDataBasePath(.rois)
     }
 
     @objc(htmlTemplatesDirPath)
     dynamic func htmlTemplatesDirPath() -> String! {
-        return resolvedDataBasePath("HTML_TEMPLATES")
+        return resolvedDataBasePath(.htmlTemplates)
     }
 
     @objc(statesDirPath)
     dynamic func statesDirPath() -> String! {
-        return resolvedDataBasePath("3DSTATE")
+        return resolvedDataBasePath(.states3D)
     }
 
     @objc(clutsDirPath)
     dynamic func clutsDirPath() -> String! {
-        return resolvedDataBasePath("CLUTs")
+        return resolvedDataBasePath(.colourTables)
     }
 
     @objc(presetsDirPath)
     dynamic func presetsDirPath() -> String! {
-        return resolvedDataBasePath("3DPRESETS")
+        return resolvedDataBasePath(.presets3D)
     }
 
     @objc(modelVersionFilePath)
@@ -549,162 +514,57 @@ public extension DicomDatabase {
         return DicomDatabaseObjC.appending(self.baseDirPath, "Loading")
     }
 
+    /// Reads the data folder and goes on from what it holds; answers the
+    /// number of the data file given last. DataFileAllocator.
     @objc(computeDataFileIndex)
     dynamic func computeDataFileIndex() -> UInt {
-        let dataFileIndex = self.dataFileIndex
-        var value: UInt { return dataFileIndex?.unsignedIntegerValue ?? 0 }
-
-        return DicomDatabaseObjC.synchronized(dataFileIndex) { () -> UInt in
-            DicomDatabaseObjC.DLog("In -[DicomDatabase computeDataFileIndex] for %@ initially %d", DicomDatabaseObjC.arg(self.sqlFilePath), Int32(truncatingIfNeeded: value))
-
-            let hereBecauseZero = (value == 0)
-            let early = DicomDatabaseObjC.synchronized(dataFileIndex) { () -> UInt? in
-                if hereBecauseZero && value != 0 {
-                    let incremented = value &+ 1
-                    dataFileIndex?.unsignedIntegerValue = incremented
-                    return incremented
-                }
-                if let exception = DicomDatabaseObjC.attempt({
-                    let path = self.dataDirPath()
-                    //			NSLog(@"Path is %@", path);
-
-                    // delete empty dirs and scan for files with number names
-                    //			NSLog(@"Scanning %d dirs", fs.count);
-                    let enumerator = DicomDatabaseObjC.enumerator(path)
-                    while let object = enumerator?.nextObject() {
-                        guard let f = object as? String else { continue }
-                        //				NSLog(@"Scanning dir %@", f);
-                        let fpath = DicomDatabaseObjC.appending(path, f)
-                        //NSDictionary* fattr = [NSFileManager.defaultManager fileAttributesAtPath:fpath traverseLink:YES];
-                        //NSLog(@"Has %d attrs", fattr.count);
-
-                        // check if this folder is empty, and delete it if necessary
-                        var isDir = false
-                        if DicomDatabaseObjC.fileExists(fpath, isDirectory: &isDir) && isDir {
-                            autoreleasepool {
-                                if let exception = DicomDatabaseObjC.attempt({
-                                    var hasValidFiles = false
-
-                                    //						NSLog(@"Content of %@", f);
-                                    let n2de = DicomDatabaseObjC.enumerator(fpath)
-                                    while let s = n2de?.nextObject() as? String { // [NSFileManager.defaultManager contentsOfDirectoryAtPath:fpath error:nil])
-                                        if DicomDatabaseObjC.integerValueWithoutExtension(s) > 0 {
-                                            hasValidFiles = true
-                                            break
-                                        }
-                                    }
-
-                                    if !hasValidFiles {
-                                        if let fpath { try? FileManager.default.removeItem(atPath: fpath) }
-                                    } else {
-                                        let fi = UInt(bitPattern: DicomDatabaseObjC.integerValue(f))
-                                        if fi > value {
-                                            dataFileIndex?.unsignedIntegerValue = fi
-                                        }
-                                    }
-                                }) {
-                                    DicomDatabaseObjC.log(exception, stack: true, "-[DicomDatabase computeDataFileIndex]")
-                                }
-                            }
-                        }
-                    }
-
-                    // scan directories
-
-                    if value > 0 {
-                        //				NSLog(@"datafileindex is %d", _dataFileIndex.unsignedIntegerValue);
-
-                        var t = Int(bitPattern: value)
-                        t = t &- Int(BrowserController.defaultFolderSizeForDB())
-                        if t < 0 { t = 0 }
-
-                        let paths = DicomDatabaseObjC.enumerator(DicomDatabaseObjC.appending(path, String(format: "%d", Int32(truncatingIfNeeded: value))))?.allObjects ?? [] // [NSFileManager.defaultManager contentsOfDirectoryAtPath:[path stringByAppendingPathComponent:[NSString stringWithFormat:@"%d", _dataFileIndex.unsignedIntegerValue]] error:nil];
-                        //				NSLog(@"contains %d files", paths.count);
-                        for case let s as String in paths {
-                            let si = DicomDatabaseObjC.integerValueWithoutExtension(s)
-                            if si > t {
-                                t = si
-                            }
-                        }
-
-                        dataFileIndex?.unsignedIntegerValue = UInt(bitPattern: t)
-                    }
-
-                    if value == 0 {
-                        dataFileIndex?.unsignedIntegerValue = 1
-                    }
-
-                    DicomDatabaseObjC.DLog("   -[DicomDatabase computeDataFileIndex] for %@ computed %d", DicomDatabaseObjC.arg(self.sqlFilePath), Int32(truncatingIfNeeded: value))
-                }) {
-                    DicomDatabaseObjC.log(exception, stack: true, "-[DicomDatabase computeDataFileIndex]")
-                }
-                return nil
-            }
-            if let early { return early }
-
-            return value
-        }
+        guard let dataDirPath = self.dataDirPath() else { return UInt(dataFileAllocator.lastNumber) }
+        return UInt(dataFileAllocator.resume(fromDataFolder: dataDirPath, folderSize: DicomDatabase.dataFolderSize))
     }
 
+    /// A path in the data folder for a new file, which no other caller gets,
+    /// on any thread. DataFileAllocator.
     @objc(uniquePathForNewDataFileWithExtension:)
     dynamic func uniquePathForNewDataFile(withExtension ext: String!) -> String! {
-        var path: String? = nil
-        var ext = ext
-
-        let length = (ext as NSString?)?.length ?? 0
-        if length > 4 || length < 3 {
-            if length != 0 {
-                NSLog("Warning: strange extension \"%@\", it will be replaced with \"dcm\"", DicomDatabaseObjC.arg(ext))
-            }
-            ext = "dcm"
+        let fileExtension = DataFileNumbering.fileExtension(ext)
+        if fileExtension.replaced {
+            NSLog("Warning: strange extension \"%@\", it will be replaced with \"dcm\"", DicomDatabaseObjC.arg(ext))
         }
+        guard let dataDirPath = self.dataDirPath() else { return nil }
+        let files = FileManager.default
+        files.confirmNoIndexDirectory(atPath: dataDirPath)
+        return dataFileAllocator.uniquePath(inDataFolder: dataDirPath, extension: fileExtension.value,
+                                            folderSize: DicomDatabase.dataFolderSize) { files.confirmDirectory(atPath: $0) }
+    }
 
-        let dataFileIndex = self.dataFileIndex
-        if let exception = DicomDatabaseObjC.attempt({
-            DicomDatabaseObjC.synchronized(dataFileIndex) {
-                let dataDirPath = self.dataDirPath()
-                FileManager.default.confirmNoIndexDirectory(atPath: dataDirPath) // old impl only did this every 3 secs..
+    /// The number of files a folder of the data folder holds, from the
+    /// preferences, as a value for the allocator.
+    private static var dataFolderSize: UInt64 {
+        UInt64(max(BrowserController.defaultFolderSizeForDB(), 1))
+    }
+}
 
-                var index: UInt = 0
-                DicomDatabaseObjC.synchronized(dataFileIndex) {
-                    if (dataFileIndex?.unsignedIntegerValue ?? 0) == 0 {
-                        _ = self.computeDataFileIndex()
-                    }
-                    dataFileIndex?.increment()
-                    index = dataFileIndex?.unsignedIntegerValue ?? 0
-                }
-
-                let defaultFolderSizeForDB = UInt64(bitPattern: Int64(BrowserController.defaultFolderSizeForDB()))
-
-                var fileExists = false, firstExists = true
-                repeat {
-                    let subFolderInt = defaultFolderSizeForDB &* (UInt64(index) / defaultFolderSizeForDB &+ 1)
-                    let subFolderPath = DicomDatabaseObjC.appending(dataDirPath, String(format: "%llu", subFolderInt))
-                    FileManager.default.confirmDirectory(atPath: subFolderPath)
-
-                    path = DicomDatabaseObjC.appending(subFolderPath, String(format: "%llu.%@", UInt64(dataFileIndex?.unsignedIntegerValue ?? 0), DicomDatabaseObjC.arg(ext)))
-                    fileExists = DicomDatabaseObjC.fileExists(path)
-
-                    if fileExists {
-                        if firstExists {
-                            firstExists = false
-                            DicomDatabaseObjC.synchronized(dataFileIndex) {
-                                _ = self.computeDataFileIndex()
-                                index = dataFileIndex?.unsignedIntegerValue ?? 0
-                            }
-                        } else {
-                            DicomDatabaseObjC.synchronized(dataFileIndex) {
-                                dataFileIndex?.increment()
-                                index = dataFileIndex?.unsignedIntegerValue ?? 0
-                            }
-                        }
-                    }
-                } while fileExists
-            }
-        }) {
-            DicomDatabaseObjC.log(exception, stack: true, "-[DicomDatabase uniquePathForNewDataFileWithExtension:]")
+/// What -[DicomDatabase save:] does once the context saved: the index is of the
+/// current model, said in the preferences and in the version file beside it.
+enum DatabaseVersionRecord {
+    /// On the context's queue. Only over an index that is open: with none, what
+    /// stays on disk may be an index waiting for its upgrade.
+    static func record(in context: NSManagedObjectContext, versionFile: String?) {
+        guard context.persistentStoreCoordinator?.persistentStores.isEmpty == false else { return }
+        PreferencesSource.process.preferences.set(CurrentDatabaseVersion, for: DatabasePreferences.databaseVersion)
+        if let versionFile {
+            try? (CurrentDatabaseVersion as NSString).write(toFile: versionFile, atomically: true, encoding: String.Encoding.utf8.rawValue)
         }
+    }
+}
 
-        return path
+// The save at dealloc that N2ManagedDatabase hands to the main queue records the
+// version as -save: does, with the database gone.
+extension DicomDatabase: N2ManagedDatabaseSaveFollowUp {}
+
+extension N2ManagedDatabaseSaveFollowUp where Self: DicomDatabase {
+    func saveFollowUpWithoutDatabase() -> @Sendable (NSManagedObjectContext) -> Void {
+        let versionFile: String? = self.modelVersionFilePath()
+        return { context in DatabaseVersionRecord.record(in: context, versionFile: versionFile) }
     }
 }

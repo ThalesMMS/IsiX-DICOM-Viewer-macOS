@@ -71,8 +71,8 @@ public final class DICOMwebSendActivity: NSObject {
                 let detail = report.detail(limit: 20)
                 NSLog("DICOMweb send to %@:\n%@", node.name, detail)
                 if report.failedCount > 0 {
-                    AppController.shared()?.notificationTitle(NSLocalizedString("DICOMweb Send", comment: ""),
-                                                             description: report.summary, name: "send")
+                    PreferencesSource.process.processGraph.userNotifications.post(title: NSLocalizedString("DICOMweb Send", comment: ""),
+                                                                                  description: report.summary, name: "send")
                 }
                 // A send cancelled before anything was stored says so in the panel only.
                 if !report.cancelled || report.sentCount > 0 { alert(detail) }
@@ -87,7 +87,7 @@ public final class DICOMwebSendActivity: NSObject {
     }
 
     private static func alert(_ message: String) {
-        DispatchQueue.main.async {
+        onMainRunLoop {
             HorosAlertPanel.runCritical(title: NSLocalizedString("DICOMweb Send", comment: ""), message: message,
                                         defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
         }

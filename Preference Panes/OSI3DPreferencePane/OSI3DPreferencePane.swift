@@ -42,7 +42,7 @@ import PreferencePanes
 
 /// The 3D preferences pane.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// OSI3DPreferencePane.h are those of the former class. Its xib connects the
 /// outlets by name.
 // Main actor: a preferences pane, which the preferences window creates, shows

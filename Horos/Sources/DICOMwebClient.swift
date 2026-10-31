@@ -16,6 +16,7 @@ import ImageIO
 import DicomData
 import DicomWebClient
 import Synchronization
+import IsiXPreferences
 
 // MARK: - Node
 
@@ -465,7 +466,7 @@ private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @uncheck
         self.deliveries = deliveries
         lastActivity = ProcessInfo.processInfo.systemUptime
         lock.unlock()
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + ceiling) { [weak self] in self?.expire() }
+        Task { [weak self] in try? await Task.sleep(for: .seconds(ceiling)); self?.expire() }
         if let inactivity { watch(every: max(0.05, inactivity / 4)) }
     }
 
@@ -474,16 +475,16 @@ private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @uncheck
     /// Neither the time it held a chunk for its reader nor the time another
     /// response of its session did counts: the delivery was held, not slow.
     private func watch(every interval: TimeInterval) {
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + interval) { [weak self] in
-            guard let self else { return }
-            self.lock.lock()
-            guard !self.finished, !self.abandoned, let inactivity = self.inactivity else { self.lock.unlock(); return }
-            let session = self.deliveries?.state ?? (held: false, released: 0)
-            let idle = !self.holding && !session.held &&
-                ProcessInfo.processInfo.systemUptime - max(self.lastActivity, session.released) >= inactivity
-            self.lock.unlock()
-            if idle { self.expire() } else { self.watch(every: interval) }
-        }
+        Task { [weak self] in try? await Task.sleep(for: .seconds(interval)); self?.lookForInactivity(every: interval) }
+    }
+
+    private func lookForInactivity(every interval: TimeInterval) {
+        lock.lock()
+        guard !finished, !abandoned, let inactivity else { lock.unlock(); return }
+        let session = deliveries?.state ?? (held: false, released: 0)
+        let idle = !holding && !session.held && ProcessInfo.processInfo.systemUptime - max(lastActivity, session.released) >= inactivity
+        lock.unlock()
+        if idle { expire() } else { watch(every: interval) }
     }
 
     /// The whole transfer took too long, or stopped progressing: the
@@ -977,7 +978,7 @@ public final class DICOMwebSessionPool: NSObject, @unchecked Sendable {
         let lifetime = _idleLifetime
         lock.unlock()
         ended.forEach { $0.finishTasksAndInvalidate() }
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + lifetime + 0.05) { [weak self] in self?.expireIdle() }
+        Task { [weak self] in try? await Task.sleep(for: .seconds(lifetime + 0.05)); self?.expireIdle() }
     }
 
     /// Ends the sessions idle for their lifetime.
@@ -1237,12 +1238,11 @@ public final class DICOMwebClient: NSObject {
     /// a deadline for large studies on slow links. A request that stops
     /// progressing ends sooner, after `timeout` seconds without data; one
     /// held while its objects are imported does not count as stopped.
-    /// Defaults to `DICOMwebTransferCeiling` (seconds) in the user defaults,
-    /// or a day, and is at most a week.
+    /// Defaults to `DICOMwebTransferCeiling` (seconds) in the preferences, or a day, and is at most a week.
     @objc public var transferCeiling: TimeInterval = DICOMwebClient.defaultTransferCeiling
     static let maximumTransferCeiling: TimeInterval = 7 * 24 * 3600
     @objc public static var defaultTransferCeiling: TimeInterval {
-        let configured = UserDefaults.standard.double(forKey: "DICOMwebTransferCeiling")
+        let configured = PreferencesSource.process.preferences[NetworkPreferences.dicomwebTransferCeiling]
         return configured > 0 ? min(configured, maximumTransferCeiling) : 24 * 3600
     }
     /// STOW-RS sends at most this many files in one request.

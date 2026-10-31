@@ -65,13 +65,15 @@ with tempfile.TemporaryDirectory(prefix='horos-contract-') as folder:
     subprocess.run([str(tmp / 'test')], check=True)
 
 # The comparative search and the same-patient expansion are Swift: the
-# browser's study list and distant searches, and the list's rules.
+# browser's study list, the patient's history and the list's rules.
 browser = '\n'.join((root / path).read_text() for path in (
-    'Horos/Sources/BrowserController+StudyList.swift', 'Horos/Sources/BrowserController+DistantSearch.swift',
+    'Horos/Sources/StudyListContent.swift', 'Horos/Sources/PatientHistoryList.swift',
     'Modules/IsiXDatabase/Sources/StudyListRules.swift'))
 surgical = (root / 'Horos/Sources/SurgicalProcedureImport.swift').read_text()
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
-assert 'AssociationContract.relatedStudiesLimit(in: UserDefaults.standard)' in browser, 'the browser takes the published limit'
+assert '.map(AssociationContract.relatedStudiesLimit(in:)) ?? AssociationContract.defaultRelatedStudiesLimit' in browser, \
+    'the study list takes the published limit from its preferences'
+assert 'AssociationContract.relatedStudiesLimit(in: preferences)' in browser, 'the history takes the published limit'
 assert browser.count('AssociationContract.relatedStudiesLimit(in:') >= 2, 'both the comparative search and the expansion take it'
 assert 'request.fetchLimit = comparativeLimit' in browser, 'the comparative search limits the fetch itself'
 assert 'request.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]' in browser, 'and sorts by date descending so the newest survive'

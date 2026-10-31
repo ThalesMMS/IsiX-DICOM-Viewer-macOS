@@ -16,7 +16,8 @@ import sources  # noqa: E402
 database = sources.class_text('DicomDatabase')  # DicomDatabase is Swift
 header = (root / 'Horos/Sources/DicomDatabase.h').read_bytes().decode('latin1')
 # The window's description is built by -outlineViewRefresh, in Swift.
-browser = (root / 'Horos/Sources/BrowserController+StudyList.swift').read_text()
+# The database description is written where the list is built (StudyListContent.swift).
+browser = (root / 'Horos/Sources/StudyListContent.swift').read_text()
 failures = []
 
 if 'lastImportRefusalSummary' not in header:
@@ -25,7 +26,7 @@ if 'addImportRefusalSummary(refusals.summary)' not in database:
     failures.append('the refusals of addFilesAtPaths: no longer reach the window')
 if 'is not a DICOM file this database can index", comment: ""), lastPathComponent))' not in database:
     failures.append("the scan's own refusal no longer reaches the window")
-if 'if let summary = database?.lastImportRefusalSummary, (summary as NSString).length > 0' not in browser:
+if 'if let summary = database?.lastImportRefusalSummary, !summary.isEmpty' not in browser:
     failures.append('the window no longer shows what the last import refused')
 if 'LAST IMPORT: ' not in browser:
     failures.append('the line that names the refusal is gone')

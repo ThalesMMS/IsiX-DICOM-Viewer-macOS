@@ -10,9 +10,11 @@ was deallocated with the window on screen, and the views, whose
 windowControllerIvar is unowned(unsafe), crashed in -roiColor:.
 
 FindViewer now skips a controller that answers YES to -windowWillClose, and a
-new viewer is opened. The method runs compiled with xcrun swiftc, taken from
-AppController.swift into a stand-in AppController, over real windows whose
-stand-in controllers have a nib name, a pixList and the -windowWillClose flag.
+new viewer is opened. AppController forwards it to ViewerWindowArranger's
+findViewer(nibName:pixList:). The method runs compiled with xcrun swiftc, taken
+from ViewerWindowArranger.swift (AppController.swift at a revision before it)
+into a stand-in, over real windows whose stand-in controllers have a nib name,
+a pixList and the -windowWillClose flag.
 The sources are also read for the other half of the fix: each viewer that
 FindViewer or the VR lookup of ViewerController.m can return sets the flag in
 its -windowWillClose:, and the VR lookup skips a closing viewer.
@@ -46,12 +48,25 @@ def method(source, signature, end='\n    }\n'):
 
 # -- The lookup, compiled ------------------------------------------------------
 
-application = read('Horos/Sources/AppController.swift')
-find_viewer = method(application, '    @objc(FindViewer::) public func FindViewer(')
-if find_viewer is None:
-    print('FAIL: -FindViewer:: is gone from AppController.swift; this test needs a new look')
-    sys.exit(1)
-helpers = ''.join(method(application, '    private func %s(' % name) or '' for name in ('viewerWindowWillClose', 'idSendBool', 'idSendObject'))
+arranger = read('Horos/Sources/ViewerWindowArranger.swift')
+find_viewer = method(arranger, '    func findViewer(nibName: String?, pixList: AnyObject?)')
+if find_viewer is not None:
+    # The arranger's lookup, with the messages it sends any window controller.
+    start = arranger.index('private enum ViewerMessages {')
+    messages = arranger[start:arranger.index('\n}\n', start) + 3]
+    helpers = (method(arranger, '    private static func windowWillClose(') or '') + '\n}\n\n' + messages + '\nextension AppController {\n'
+    find_viewer += '''
+    @objc(FindViewer::) func FindViewer(_ nib: String!, _ pixList: NSArray!) -> Any! { findViewer(nibName: nib, pixList: pixList) }
+'''
+    # The calls of the class's own static helper read as calls of the stand-in.
+    find_viewer = find_viewer.replace('Self.windowWillClose', 'AppController.windowWillClose')
+else:
+    application = read('Horos/Sources/AppController.swift')
+    find_viewer = method(application, '    @objc(FindViewer::) public func FindViewer(')
+    if find_viewer is None:
+        print('FAIL: the viewer lookup is gone from ViewerWindowArranger.swift; this test needs a new look')
+        sys.exit(1)
+    helpers = ''.join(method(application, '    private func %s(' % name) or '' for name in ('viewerWindowWillClose', 'idSendBool', 'idSendObject'))
 
 main = r'''import AppKit
 
@@ -164,7 +179,8 @@ elif not re.search(r'\n\s*horos_windowWillClose = true\n', body):
 # Three doors (the VR window, its panel, the VR of a given mode) look for an
 # open volume rendering: three Objective-C loops in ViewerController.m before
 # the 3D block moved to Swift, one function they share in
-# ViewerController+ThreeDViewers.swift since.
+# ViewerController+ThreeDViewers.swift then, and in ThreeDViewerLauncher.swift
+# since, which finds them through the arrangement of the windows.
 
 viewer = read('Horos/Sources/ViewerController.m')
 lookups = [m.start() for m in re.finditer(r'FindRelatedViewers:pixList\[0\]\]', viewer)]
@@ -178,10 +194,10 @@ if lookups:
         elif '[(VRController*) v windowWillClose] == NO' not in test.group(0):
             failures.append('a VR lookup of ViewerController.m reuses a viewer whose window is closing')
 else:
-    three_d = read('Horos/Sources/ViewerController+ThreeDViewers.swift')
-    lookup = method(three_d, '    fileprivate func openRenderer(style: String, modes: [String]?) -> VRController? {')
-    if lookup is None or 'FindRelatedViewers(horos_pixList(at: 0))' not in lookup:
-        failures.append('the VR lookup of ViewerController+ThreeDViewers.swift is gone; this test needs a new look')
+    three_d = read('Horos/Sources/ThreeDViewerLauncher.swift')
+    lookup = method(three_d, '    private func openRenderer(style: String, modes: [String]?) -> VRController? {')
+    if lookup is None or 'windowArranger.findRelatedViewers(pixList: viewer.horos_pixList(at: 0))' not in lookup:
+        failures.append('the VR lookup of ThreeDViewerLauncher.swift is gone; this test needs a new look')
     else:
         if not re.search(r'guard viewerIsEqualToString\(candidate\.windowNibName, "VR"\) else \{ continue \}', lookup):
             failures.append('the VR lookup no longer tests the nib; this test needs a new look')

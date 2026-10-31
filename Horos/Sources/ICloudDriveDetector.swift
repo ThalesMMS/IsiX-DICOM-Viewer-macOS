@@ -35,6 +35,7 @@
 //
 
 import AppKit
+import IsiXPreferences
 import ObjectiveC
 import Synchronization
 
@@ -70,6 +71,10 @@ public final class ICloudDriveDetector: NSWindowController {
     /// `assign` in the former header: weak here, so a closed browser is not
     /// kept alive nor left dangling.
     @objc public weak var browserController: BrowserController?
+
+    /// The process's dependencies, set by performStartupICloudDriveTasks(_:)
+    /// right after it makes the assistant, with the browser.
+    var processGraph: ProcessGraph!
 
     @objc(databasePath)
     class func databasePath() -> String! {
@@ -111,14 +116,8 @@ public final class ICloudDriveDetector: NSWindowController {
 
     @objc(hasUserIgnoredICloudDriveSyncRisk)
     class func hasUserIgnoredICloudDriveSyncRisk() -> Bool {
-        let flag = UserDefaults.standard.object(forKey: "ICLOUD_DRIVE_SYNC_RISK_USER_IGNORED")
-
         // -integerValue of the stored object, a number or a string.
-        if let flag = flag, ((flag as? NSNumber)?.intValue ?? (flag as? NSString)?.integerValue ?? 0) != 0 {
-            return true
-        }
-
-        return false
+        return (ProcessGraph.process.preferences[DatabasePreferences.iCloudDriveSyncRiskIgnored]?.intValue ?? 0) != 0
     }
 
     @objc(requiresUserNotificationOnICloudDrive)
@@ -149,6 +148,7 @@ public final class ICloudDriveDetector: NSWindowController {
             _ = Unmanaged.passRetained(detector)
 
             detector.browserController = browserController
+            detector.processGraph = ProcessGraph.process
 
             if NSApp.isHidden {
                 detector.window?.makeKeyAndOrderFront(self)
@@ -254,9 +254,11 @@ public final class ICloudDriveDetector: NSWindowController {
 
             alert.window.sheetParent?.endSheet(alert.window)
 
-            DispatchQueue.main.async {
+            // The detector's own modal loop serves this block, also when the
+            // launch raised that loop: nothing below waits for the launch to end.
+            onMainRunLoop {
                 // A message to a nil browser answered NO, and aborted too.
-                if (BrowserController.currentBrowser()?.shouldTerminate(nil) ?? false) == false {
+                if (self.processGraph.currentBrowser?.shouldTerminate(nil) ?? false) == false {
                     HorosAlertPanel.runInformational(title: NSLocalizedString("Abort", comment: ""),
                                                      message: NSLocalizedString("Operation was aborted because there are background tasks executing.", comment: ""),
                                                      defaultButton: NSLocalizedString("Return", comment: ""), alternateButton: nil, otherButton: nil)
@@ -306,13 +308,14 @@ public final class ICloudDriveDetector: NSWindowController {
                     return
                 }
 
-                UserDefaults.standard.set(newDatabasePath, forKey: "DEFAULT_DATABASELOCATIONURL")
-                UserDefaults.standard.set(1, forKey: "DEFAULT_DATABASELOCATION")
+                let preferences = self.processGraph.preferences
+                preferences.set(.folder(newDatabasePath), for: DatabasePreferences.defaultLocation)
 
-                UserDefaults.standard.set(UserDefaults.standard.integer(forKey: "DEFAULT_DATABASELOCATION"), forKey: "DATABASELOCATION")
-                UserDefaults.standard.set(UserDefaults.standard.string(forKey: "DEFAULT_DATABASELOCATIONURL"), forKey: "DATABASELOCATIONURL")
+                let chosen = preferences[DatabasePreferences.defaultLocation]
+                preferences.set(chosen.mode, for: DatabasePreferences.databaseLocation)
+                preferences.set(chosen.folder, for: DatabasePreferences.databaseLocationURL)
 
-                UserDefaults.standard.synchronize()
+                preferences.synchronize()
 
                 // Loading this static var to be used byt tge swizzling below
                 purgedDatabasePath.withLock { $0 = databasePath }
@@ -355,8 +358,8 @@ public final class ICloudDriveDetector: NSWindowController {
 
     @IBAction @objc(keepSync:)
     public func keepSync(_ sender: Any!) {
-        UserDefaults.standard.set(NSNumber(value: 1), forKey: "ICLOUD_DRIVE_SYNC_RISK_USER_IGNORED")
-        UserDefaults.standard.synchronize()
+        processGraph.preferences.set(.integer(1), for: DatabasePreferences.iCloudDriveSyncRiskIgnored)
+        processGraph.preferences.synchronize()
 
         self.window?.close()
     }

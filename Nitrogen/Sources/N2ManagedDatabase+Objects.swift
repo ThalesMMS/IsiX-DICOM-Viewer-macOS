@@ -64,7 +64,7 @@ import Foundation
         var result: Any? = nil
         // Resolve an input managed object's ID on its own context, before entering
         // the destination queue (the object may belong to another database).
-        _ = N2ManagedDatabaseObjC.attempt {
+        _ = HorosObjCException.caught {
             var identifier: Any? = oid
             if let object = oid as? NSManagedObject {
                 var objectID: NSManagedObjectID? = nil
@@ -85,7 +85,7 @@ import Foundation
         var identifiers: [Any] = []
         identifiers.reserveCapacity(objectIDs?.count ?? 0)
         for oid in objectIDs ?? [] {
-            _ = N2ManagedDatabaseObjC.attempt {
+            _ = HorosObjCException.caught {
                 var identifier: Any? = oid
                 if let object = oid as? NSManagedObject {
                     var objectID: NSManagedObjectID? = nil
@@ -149,7 +149,7 @@ import Foundation
         let context = self.managedObjectContext
         var result: [Any]? = nil
         var queueError: NSError? = nil
-        if let exception = N2ManagedDatabaseObjC.attempt({
+        if let exception = HorosObjCException.caught({
             N2ManagedObjectContextPerformAndWait(context) {
                 let request = self.fetchRequest(e, predicate: p)
                 request.sortDescriptors = sortDescriptors as? [NSSortDescriptor]
@@ -183,7 +183,7 @@ import Foundation
         let context = self.managedObjectContext
         var count = 0
         var queueError: NSError? = nil
-        if let exception = N2ManagedDatabaseObjC.attempt({
+        if let exception = HorosObjCException.caught({
             N2ManagedObjectContextPerformAndWait(context) {
                 let request = self.fetchRequest(e, predicate: p)
                 guard let context else { return }
@@ -229,7 +229,7 @@ import Foundation
         var queueError: NSError? = nil
         let context = self.managedObjectContext
         // dealloc also calls save:; do not capture/retain the deallocating database.
-        if let exception = N2ManagedDatabaseObjC.attempt({
+        if let exception = HorosObjCException.caught({
             N2ManagedObjectContextPerformAndWait(context) {
                 guard let context else { return }
                 do {

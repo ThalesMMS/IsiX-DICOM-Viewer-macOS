@@ -92,7 +92,7 @@ func ciaAttributedString(_ string: String?, attributes: [NSAttributedString.Key:
 /// An annotation of the custom annotations layout: a titled token list the user
 /// drags into a CIAPlaceHolder.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// CIAAnnotation.h are those of the former class.
 @objc(CIAAnnotation)
 public final class CIAAnnotation: NSView {

@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXPreferences
 
 /// A list of patients read from an image - an outpatient schedule, a clinical
 /// system's screen, a spreadsheet - turned into the studies of an album.
@@ -91,9 +92,9 @@ public final class PatientListFormat: NSObject {
 
     /// The format the preferences describe.
     @objc public static func fromDefaults() -> PatientListFormat {
-        let defaults = UserDefaults.standard
-        return PatientListFormat(identifierPattern: defaults.string(forKey: "PatientListIdentifierPattern"),
-                                 ignoredLines: defaults.stringArray(forKey: "PatientListIgnoredLines"))
+        let defaults = PreferencesSource.process.preferences
+        return PatientListFormat(identifierPattern: defaults[DatabasePreferences.patientListIdentifierPattern],
+                                 ignoredLines: defaults[DatabasePreferences.patientListIgnoredLines])
     }
 }
 

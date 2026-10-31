@@ -25,10 +25,18 @@ final class PluginAccessTestImage: NSManagedObject {
 
 /// A SQLite store with the attributes of the database's Study, Series,
 /// Image and Album entities that plugins read, search and change.
-final class PluginAccessStore {
+///
+/// Its contexts are on the main queue and belong to the main actor. While the
+/// test runner serves the main run loop, a main-queue context processes its
+/// changes there on its own, so using one from any other thread races with
+/// that processing over the context's sets of changed objects.
+@MainActor final class PluginAccessStore {
     let folder: URL
     let model: NSManagedObjectModel
     let context: NSManagedObjectContext
+    /// An object reads its values through its context, so the contexts opened
+    /// on the file live as long as the store.
+    private var reopenedContexts: [NSManagedObjectContext] = []
 
     init() throws {
         folder = FileManager.default.temporaryDirectory.appendingPathComponent("plugin-access-\(UUID().uuidString)")
@@ -49,7 +57,11 @@ final class PluginAccessStore {
     }
 
     /// A second context on the same file, as the next launch would see it.
-    func reopened() throws -> NSManagedObjectContext { try Self.open(model: model, at: folder) }
+    func reopened() throws -> NSManagedObjectContext {
+        let context = try Self.open(model: model, at: folder)
+        reopenedContexts.append(context)
+        return context
+    }
 
     static func makeModel() -> NSManagedObjectModel {
         func attribute(_ name: String, _ type: NSAttributeType) -> NSAttributeDescription {
@@ -123,7 +135,7 @@ final class PluginAccessStore {
 
 private struct SaveFailure: Error {}
 
-@Suite struct PluginDatabaseEditsTests {
+@Suite @MainActor struct PluginDatabaseEditsTests {
 
     @Test func refusedValuesChangeNothing() throws {
         let store = try PluginAccessStore()
@@ -202,7 +214,7 @@ private struct SaveFailure: Error {}
     }
 }
 
-@Suite struct PluginStudyQueryTests {
+@Suite @MainActor struct PluginStudyQueryTests {
 
     @Test func criteriaSelectTheStudiesNewestFirst() throws {
         let store = try PluginAccessStore()

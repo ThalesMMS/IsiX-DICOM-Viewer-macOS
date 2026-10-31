@@ -39,6 +39,7 @@
 
 import AppKit
 import IsiXHTTPServer
+import IsiXPreferences
 
 /// XML-RPC for RIS integration: the methods a RIS, a script, a horos:// link
 /// or AppleScript calls by name.
@@ -61,10 +62,18 @@ import IsiXHTTPServer
 public final class XMLRPCInterface: NSObject, N2XMLRPCConnectionDelegate {
     private var listener: XMLRPCListener?
     private let https: Bool
+    /// The graph of the process, which hands the methods the browser and its database.
+    let processGraph: ProcessGraph
 
-    public override init() {
-        let defaults = UserDefaults.standard
-        let port = defaults.integer(forKey: "httpXMLRPCServerPort")
+    /// Made by the application controller when the preferences turn the interface on.
+    public convenience override init() {
+        self.init(processGraph: ProcessGraph.process)
+    }
+
+    init(processGraph: ProcessGraph) {
+        self.processGraph = processGraph
+        let preferences = processGraph.preferences
+        let port = preferences[NetworkPreferences.xmlrpcServerPort]
 
         // This interface publishes KillOsiriX, Retrieve, DownloadURL and
         // dbwindowfind, and dbwindowfind returns the database: patient names
@@ -75,7 +84,7 @@ public final class XMLRPCInterface: NSObject, N2XMLRPCConnectionDelegate {
         // machine's own network address, so the socket listens on every
         // interface and each request is judged by its peer address, against
         // the settings of the Listener pane as they are when it arrives.
-        https = defaults.bool(forKey: XMLRPCServerAccess.httpsKey)
+        https = preferences[NetworkPreferences.xmlrpcServerHTTPS]
         super.init()
 
         // HTTPS presents the web portal's identity, made the first time either
@@ -99,7 +108,7 @@ public final class XMLRPCInterface: NSObject, N2XMLRPCConnectionDelegate {
         }
 
         if listener != nil {
-            let policy = XMLRPCAccessPolicy.policy(from: defaults)
+            let policy = XMLRPCAccessPolicy.policy(from: preferences)
             let scopes = ["this Mac only", "this Mac and the local network", "this Mac and any address"]
             NSLog("--- XML-RPC interface activated on port: %d (%@), answering %@%@%@", Int32(truncatingIfNeeded: port),
                   (https ? "HTTPS" : "HTTP") as NSString,
@@ -107,8 +116,8 @@ public final class XMLRPCInterface: NSObject, N2XMLRPCConnectionDelegate {
                   (policy.scope == .thisMac ? "" : (policy.requirePassword ? ", with a password" : ", WITHOUT a password")) as NSString,
                   (policy.allowedAddresses.isEmpty ? "" : ", and the listed addresses without one") as NSString)
         } else {
-            AppController.shared()?.reportListenBindFailure(forService: "XML-RPC", port: port,
-                                                            errnoCode: XMLRPCListener.lastBindErrno())
+            ApplicationNetworkNotices(processGraph: processGraph).listenBindFailed(service: "XML-RPC", port: port,
+                                                                                  errno: XMLRPCListener.lastBindErrno())
         }
     }
 
@@ -129,9 +138,14 @@ public final class XMLRPCInterface: NSObject, N2XMLRPCConnectionDelegate {
 
     // MARK: Utilities of the methods
 
-    /// The database the browser shows.
+    /// The database the browser shows, from any thread.
     var database: DicomDatabase? {
-        BrowserController.currentBrowser()?.database
+        processGraph.browserDatabase
+    }
+
+    /// The browser, on the main thread; nil before the application has made it.
+    @MainActor var browser: BrowserController? {
+        processGraph.browserWindow?.browser
     }
 
     /// What a method answers about a study, series or image: its attributes
@@ -158,9 +172,20 @@ public final class XMLRPCInterface: NSObject, N2XMLRPCConnectionDelegate {
     }
 
     /// Fails the call with `code` (400: the request cannot be read).
-    static func fail(_ code: Int, _ error: NSErrorPointer) -> NSDictionary? {
-        error?.pointee = Self.error(withCode: code)
-        return nil
+    static func fail(_ code: Int) throws -> Never {
+        throw Self.error(withCode: code)
+    }
+
+    /// The `…:error:` entry point of a method, which XMLRPCMethodTable calls
+    /// by its selector: what `body` throws is the call's error, and the call
+    /// then answers nil.
+    static func answering(_ error: NSErrorPointer, _ body: () throws -> NSDictionary?) -> NSDictionary? {
+        do {
+            return try body()
+        } catch let failure {
+            error?.pointee = failure as NSError
+            return nil
+        }
     }
 
     /// The answer `{error: code}`.

@@ -43,7 +43,7 @@ import PreferencePanes
 /// The Protocols preference pane: hanging protocols per modality, kept in the
 /// HANGINGPROTOCOLS default.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// the xib's outlets, actions and bindings are those of the former class.
 // Main actor: a preferences pane, which the preferences window creates, shows
 // and hides on the main thread. Its NSPreferencePane overrides, nonisolated in
@@ -56,7 +56,7 @@ public final class OSIHangingPreferencePanePref: NSPreferencePane {
     // class_createInstance, which zeroes them without running an initializer,
     // and reads the `hangingProtocols` instance variable by name.
 
-    /// The copy of HANGINGPROTOCOLS the pane edits (#618).
+    /// The copy of HANGINGPROTOCOLS the pane edits.
     private var hangingProtocols: NSMutableDictionary?
     /// What is stored cannot be edited, so it is not written back.
     private var hangingProtocolsUnusable = false
@@ -458,7 +458,7 @@ public final class OSIHangingPreferencePanePref: NSPreferencePane {
 
     private func willSelectOnMainActor() {
         // The protocols are edited in a copy that is mutable at every level and shares
-        // nothing with what NSUserDefaults holds (#618). It was made by a recursive
+        // nothing with what NSUserDefaults holds. It was made by a recursive
         // copy in Nitrogen; Core Foundation makes the same copy of a property list.
         // The copy of the previous visit is released here: the pane lives as long as
         // the application, and each return to it kept one more.

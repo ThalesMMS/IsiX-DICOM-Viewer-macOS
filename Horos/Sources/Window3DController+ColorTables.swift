@@ -39,6 +39,7 @@
 
 import Cocoa
 import IsiXImaging
+import IsiXPreferences
 
 // The colour tables (CLUT preference) and the opacity tables (OPACITY
 // preference) of the 3D viewers: their menus, the alerts that delete one and
@@ -72,18 +73,22 @@ import IsiXImaging
         addCLUTWindowOutlet?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: tag))
 
         if tag != 0 {
-            let clutDict = (UserDefaults.standard.dictionary(forKey: "CLUT") as NSDictionary?)?.mutableCopy() as? NSMutableDictionary
+            var tables = colourTablePresets
             var red = [UInt8](repeating: 0, count: 256), green = red, blue = red
 
             clutViewOutlet?.convertCLUT(&red, &green, &blue)
 
-            let points = (clutViewOutlet?.getPoints()?.copy() as? NSArray) as? [Any] ?? []
-            let colors = (clutViewOutlet?.getColors()?.copy() as? NSArray) as? [Any] ?? []
-            let preset = ColorLookupTable(red: red, green: green, blue: blue).preset(points: points, colors: colors)
+            // The editor's points are levels, its colours red, green and blue from 0 to 1.
+            let points = (clutViewOutlet?.getPoints() as? [Any] ?? []).map { ($0 as? NSNumber)?.intValue ?? 0 }
+            let colours = (clutViewOutlet?.getColors() as? [Any] ?? []).map { colour in
+                (colour as? [Any] ?? []).map { ($0 as? NSNumber)?.floatValue ?? 0 }
+            }
+            let preset = ColourTablePreset(red: red.map(Int.init), green: green.map(Int.init), blue: blue.map(Int.init),
+                                           points: points, colours: colours)
 
             let name = clutNameOutlet?.stringValue ?? ""
-            clutDict?[name] = preset
-            UserDefaults.standard.set(clutDict, forKey: "CLUT")
+            tables.set(preset, named: name)
+            tables.write(to: processGraph.preferences)
 
             // Apply it!
             currentCLUTMenu = name
@@ -112,8 +117,8 @@ import IsiXImaging
         } else if flags.contains(.option) {
             applyCLUTString(title)
 
-            guard let aCLUT = storedPreset("CLUT", currentCLUTMenu) else { return }
-            if let points = aCLUT.object(forKey: ColorLookupTable.pointsKey) {
+            guard let aCLUT = colourTablePresets[currentCLUTMenu] else { return }
+            if aCLUT.hasEditorPoints {
                 clutAction(self)
                 clutNameOutlet?.stringValue = title ?? ""
 
@@ -123,8 +128,8 @@ import IsiXImaging
                 pts?.removeAllObjects()
                 cols?.removeAllObjects()
 
-                pts?.addObjects(from: points as? [Any] ?? [])
-                cols?.addObjects(from: aCLUT.object(forKey: ColorLookupTable.colorsKey) as? [Any] ?? [])
+                pts?.addObjects(from: aCLUT.points.map { NSNumber(value: $0) })
+                cols?.addObjects(from: aCLUT.colours.map { colour in colour.map { NSNumber(value: Float($0)) } })
 
                 if let sheet = addCLUTWindowOutlet {
                     window?.beginSheet(sheet, completionHandler: nil)
@@ -152,11 +157,11 @@ import IsiXImaging
     @objc(deleteCLUT:returnCode:contextInfo:)
     func deleteCLUT(_ sheet: NSWindow!, returnCode: Int32, contextInfo: UnsafeMutableRawPointer!) {
         if returnCode == 1 {
-            let clutDict = (UserDefaults.standard.dictionary(forKey: "CLUT") as NSDictionary?)?.mutableCopy() as? NSMutableDictionary
+            var tables = colourTablePresets
             if let contextInfo {
-                clutDict?.removeObject(forKey: Unmanaged<NSString>.fromOpaque(contextInfo).takeUnretainedValue())
+                tables.set(nil, named: Unmanaged<NSString>.fromOpaque(contextInfo).takeUnretainedValue() as String)
             }
-            UserDefaults.standard.set(clutDict, forKey: "CLUT")
+            tables.write(to: processGraph.preferences)
 
             NotificationCenter.default.post(name: .OsirixUpdateCLUTMenu, object: currentCLUTMenu, userInfo: nil)
         }
@@ -166,8 +171,7 @@ import IsiXImaging
     /// alphabetical order and the 8-bit editor.
     @objc(UpdateCLUTMenu:)
     func updateCLUTMenu(_ note: Notification!) {
-        let keys = (UserDefaults.standard.dictionary(forKey: "CLUT") as NSDictionary?)?.allKeys ?? []
-        let sortedKeys = ViewerPresetMenus.sortedNames(keys)
+        let sortedKeys = ViewerPresetMenus.sortedNames(colourTablePresets.names)
 
         let menu = clutPopupOutlet?.menu
         menu?.removeAllItems()
@@ -217,21 +221,22 @@ import IsiXImaging
         } else if flags.contains(.option) {
             applyOpacityString(title)
 
-            guard let aOpacity = storedPreset("OPACITY", currentOpacityMenu) else { return }
+            // A table of the preferences has its points: the type reads none without them.
+            guard let aOpacity = opacityTablePresets[currentOpacityMenu] else { return }
 
-            if let aCLUT = storedPreset("CLUT", currentCLUTMenu), let table = ColorLookupTable(preset: aCLUT) {
-                var red = table.red, green = table.green, blue = table.blue
+            if let aCLUT = colourTablePresets[currentCLUTMenu], aCLUT.hasEveryLevel {
+                var (red, green, blue) = aCLUT.bytes
                 opacityViewOutlet?.setCurrentCLUT(&red, &green, &blue)
             }
 
-            if let points = OpacityTablePreset.points(of: aOpacity) {
+            do {
                 opacityNameOutlet?.stringValue = currentOpacityMenu ?? ""
 
                 let pts = opacityViewOutlet?.getPoints()
 
                 pts?.removeAllObjects()
 
-                pts?.addObjects(from: points as? [Any] ?? [])
+                pts?.addObjects(from: aOpacity.storedPoints)
 
                 if let sheet = addOpacityWindowOutlet {
                     window?.beginSheet(sheet, completionHandler: nil)
@@ -258,11 +263,11 @@ import IsiXImaging
         addOpacityWindowOutlet?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: tag))
 
         if tag != 0 {
-            let opacityDict = (UserDefaults.standard.dictionary(forKey: "OPACITY") as NSDictionary?)?.mutableCopy() as? NSMutableDictionary
-            let points = (opacityViewOutlet?.getPoints()?.copy() as? NSArray) ?? NSArray()
+            var tables = opacityTablePresets
+            let points = (opacityViewOutlet?.getPoints() as? [Any] ?? []).compactMap { $0 as? String }
             let name = opacityNameOutlet?.stringValue ?? ""
-            opacityDict?[name] = OpacityTablePreset.preset(points: points).mutableCopy()
-            UserDefaults.standard.set(opacityDict, forKey: "OPACITY")
+            tables.set(IsiXPreferences.OpacityTablePreset(storedPoints: points), named: name)
+            tables.write(to: processGraph.preferences)
 
             // Apply it!
 
@@ -278,11 +283,11 @@ import IsiXImaging
     @objc(deleteOpacity:returnCode:contextInfo:)
     func deleteOpacity(_ sheet: NSWindow!, returnCode: Int32, contextInfo: UnsafeMutableRawPointer!) {
         if returnCode == 1 {
-            let opacityDict = (UserDefaults.standard.dictionary(forKey: "OPACITY") as NSDictionary?)?.mutableCopy() as? NSMutableDictionary
+            var tables = opacityTablePresets
             if let contextInfo {
-                opacityDict?.removeObject(forKey: Unmanaged<NSString>.fromOpaque(contextInfo).takeUnretainedValue())
+                tables.set(nil, named: Unmanaged<NSString>.fromOpaque(contextInfo).takeUnretainedValue() as String)
             }
-            UserDefaults.standard.set(opacityDict, forKey: "OPACITY")
+            tables.write(to: processGraph.preferences)
 
             NotificationCenter.default.post(name: .OsirixUpdateOpacityMenu, object: currentOpacityMenu, userInfo: nil)
         }
@@ -295,10 +300,19 @@ import IsiXImaging
 }
 
 extension Window3DController {
-    /// The stored preset `name` of the preference dictionary `key`.
-    final func storedPreset(_ key: String, _ name: String?) -> NSDictionary? {
-        guard let name else { return nil }
-        return (UserDefaults.standard.dictionary(forKey: key) as NSDictionary?)?.object(forKey: name) as? NSDictionary
+    /// The colour tables of the preferences (CLUT), read now.
+    final var colourTablePresets: PresetTable<ColourTablePreset> {
+        PresetTable(ImagePresetPreferences.colourTables, in: processGraph.preferences)
+    }
+
+    /// The opacity tables of the preferences (OPACITY), read now.
+    final var opacityTablePresets: PresetTable<IsiXPreferences.OpacityTablePreset> {
+        PresetTable(ImagePresetPreferences.opacityTables, in: processGraph.preferences)
+    }
+
+    /// The window level presets of the preferences (WLWW3), read now.
+    final var windowLevelPresets: PresetTable<IsiXPreferences.WindowLevelPreset> {
+        PresetTable(ImagePresetPreferences.windowLevelPresets, in: processGraph.preferences)
     }
 
     /// The alert that asks whether to delete the table `name`, as a sheet of

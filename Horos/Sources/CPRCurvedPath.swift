@@ -125,7 +125,7 @@ public final class CPRCurvedPath: NSObject, NSCopying, NSSecureCoding {
         return _controlTokenForElement(nodeIndex)
     }
 
-    @objc public override init() {
+    public override init() {
         _bezierPath = N3MutableBezierPath()
         _nodes = NSMutableArray()
         _nodeRelativePositions = NSMutableArray()
@@ -404,43 +404,33 @@ public final class CPRCurvedPath: NSObject, NSCopying, NSSecureCoding {
         _nodesDidChange()
     }
 
-    /// Nonzero inside withPathRebuiltOnce(_:).
-    private var _deferredPathRebuilds = 0
     private var _pathNeedsRebuild = false
 
+    /// While true, removeNode(at:) and insertPatientNode(_:at:) change the
+    /// nodes only, and the path is not rebuilt: only the nodes may be read.
+    /// Set back to false, it rebuilds the path from the nodes once if they
+    /// changed, and the path and the nodes' relative positions are those the
+    /// last edit would have given. Each rebuild measures the path up to every
+    /// node, so the Path Assistant's simplification slider, which removes or
+    /// restores a node at a time, rebuilt a path of 200 nodes up to 200 times.
+    var holdsPathRebuild = false {
+        didSet {
+            if holdsPathRebuild == false && _pathNeedsRebuild {
+                _pathNeedsRebuild = false
+                self.bezierPath = _pathFromNodes()
+            }
+        }
+    }
+
     /// The path rebuilt from the nodes after removeNode(at:) or
-    /// insertPatientNode(_:at:), or, inside withPathRebuiltOnce(_:), once at
-    /// its end.
+    /// insertPatientNode(_:at:), or, while holdsPathRebuild, once it is
+    /// released.
     private func _nodesDidChange() {
-        if _deferredPathRebuilds > 0 {
+        if holdsPathRebuild {
             _pathNeedsRebuild = true
         } else {
             self.bezierPath = _pathFromNodes()
         }
-    }
-
-    /// Runs `edits`, in which removeNode(at:) and insertPatientNode(_:at:)
-    /// change the nodes only, then rebuilds the path from the nodes once: the
-    /// path and the nodes' relative positions are those the last edit would
-    /// have given. Each rebuild measures the path up to every node, so the
-    /// Path Assistant's simplification slider, which removes or restores a
-    /// node at a time, rebuilt a path of 200 nodes up to 200 times.
-    /// The path is not rebuilt inside `edits`: only the nodes may be read.
-    /// An exception `edits` raises goes on once the path is rebuilt.
-    func withPathRebuiltOnce(_ edits: () -> Void) {
-        _deferredPathRebuilds += 1
-        var raised: NSException? = nil
-        do {
-            try HorosObjCException.perform { edits() }
-        } catch {
-            raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-        }
-        _deferredPathRebuilds -= 1
-        if _deferredPathRebuilds == 0 && _pathNeedsRebuild {
-            _pathNeedsRebuild = false
-            self.bezierPath = _pathFromNodes()
-        }
-        raised?.raise()
     }
 
     @objc public func clearPath() {

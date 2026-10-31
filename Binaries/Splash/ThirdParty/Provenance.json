@@ -31,8 +31,8 @@
       "consumer": "Release AppController bootstrap via HorosApplicationInstaller.moveToApplicationsFolderIfNecessary; independent database aliases",
       "files": {
         "Horos/Sources/HorosApplicationInstaller.swift": {
-          "size": 19972,
-          "sha256": "40b56fca31413ce06de70f1d7ff31c41b50db74b9ccf68d5981638819278e679"
+          "size": 20040,
+          "sha256": "2a291fb5e9d713311da62868be1914d9d0cfc9d30513ad654473ba828c425627"
         },
         "Horos/Sources/HorosApplicationInstaller+Move.swift": {
           "size": 3727,
@@ -92,8 +92,8 @@
           "sha256": "7e18f1be6530fe9e331f209ab2ddadd65e6ec82af62952ca50a659bac8b8066f"
         },
         "Horos/Sources/BLAuthentication+CAPI.m": {
-          "size": 6536,
-          "sha256": "f689fd1a6cb8ea16cc1a8c27f947379e8251b57b79e3391895772d488259e364"
+          "size": 7316,
+          "sha256": "877a981e5e6cc853e66caafabecd8b2fff431c1ba28d78ccb1b0bca8e577455e"
         },
         "Horos/Sources/BLAuthentication.h": {
           "size": 3822,
@@ -108,8 +108,8 @@
           "sha256": "54546f8fe590128d3a415c31036aebbdc65c74ca41a3724ab0924e06ebc7c163"
         },
         "Horos/Sources/CSMailMailClient.swift": {
-          "size": 33489,
-          "sha256": "888c32b3171e6468113fe2c936919799df9140d6f4c25719215d7f9acc5e12bc"
+          "size": 33751,
+          "sha256": "b611cac9e9dde9bdb85a2546bf6b9829795ceda1e71ce038bd37a7517ab29b10"
         },
         "Horos/Sources/FlyAssistant.h": {
           "size": 2375,
@@ -124,8 +124,8 @@
           "sha256": "aa672504431c91c4ab4bb226dcb54478919b656c9eb0eed5cd3617de4b2d4dd4"
         },
         "Horos/Sources/KFSplitView.swift": {
-          "size": 20026,
-          "sha256": "05c71d9a36d1245ab21088b6cc233b6051471034513ece25ff045ea395112a48"
+          "size": 20239,
+          "sha256": "544362c7114ec7413cd215a826a5cc6b15df08ca8a48d3a3fd39a82253c160c8"
         },
         "Horos/Sources/OnOffSwitchControl.h": {
           "size": 2543,
@@ -982,8 +982,8 @@
           "sha256": "a86b021ef93a6bd3dd9d9bfffec2319bc78a80c18225d7ec1dfb26556fac4de6"
         },
         "Horos/Scripts/external-sources.json": {
-          "size": 3631,
-          "sha256": "bded84dfb5acc9f0b1de84e67d595648f9dee64f5381fa536e7cbd4542843f8c"
+          "size": 5491,
+          "sha256": "20e69a3f2dff02c1c0724826861b2b75a88772d79063080767c507e81b46b545"
         }
       },
       "source_selection": {
@@ -1162,8 +1162,8 @@
       },
       "files": {
         "Horos/Scripts/external-sources.json": {
-          "size": 3631,
-          "sha256": "bded84dfb5acc9f0b1de84e67d595648f9dee64f5381fa536e7cbd4542843f8c"
+          "size": 5491,
+          "sha256": "20e69a3f2dff02c1c0724826861b2b75a88772d79063080767c507e81b46b545"
         },
         "Horos/Scripts/VTK/freetype-source.json": {
           "size": 393,
@@ -1204,11 +1204,11 @@
         "kind": "remoteSourceControl",
         "location": "https://github.com/ThalesMMS/DICOM-Swift.git",
         "state": {
-          "revision": "2cb82e44c1041a2c1e85319fb5661f442d0b1ee9",
-          "version": "3.0.1"
+          "revision": "229714f81e3090a937a17c344ca804fa4473cbe7",
+          "version": "3.1.1"
         }
       },
-      "public_tree": "21234415decc02419c4e66fd9568958194c27f36",
+      "public_tree": "22c2c750cfbf36db7d120fdfa45875f5bc0509e9",
       "direct_products": [
         "DicomWebClient",
         "DicomWebOIDC"
@@ -1286,7 +1286,7 @@
         },
         "Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved": {
           "size": 2336,
-          "sha256": "cf9ed5cecdffa146bbe2bd0f461b93324ad6c25fe2f66889cff7fe88de1bc390"
+          "sha256": "679beb04ba7b508ab2bcfafc02208c0a8ac3e146a7b403992d43d5d4669965ff"
         }
       }
     },

@@ -12,7 +12,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parent))
 from isix_modules import module_flags,link_flags
 root=Path(__file__).resolve().parents[1]
 s=(root/'Horos/Sources/BrowserController+DICOMExport.swift').read_text()
-a=s.index('    @objc(replaceNotAdmitted:)\n');b=s.index('    /// The patient folder the export',a)
+a=s.index('    @objc(replaceNotAdmitted:)\n');b=s.index('    // MARK: Export',a)
 swift=r'''
 import Foundation
 import IsiXDatabase

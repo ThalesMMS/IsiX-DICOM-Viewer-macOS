@@ -188,15 +188,7 @@ public final class OrthogonalReslice: NSObject {
     @objc(xResliceThread:)
     public func xResliceThread(_ xNum: NSNumber!) {
         autoreleasepool {
-            do {
-                try HorosObjCException.perform {
-                    self.xReslice(Int(xNum.int32Value))
-                }
-            } catch {
-                if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                    _N2LogExceptionImpl(e, true, "-[OrthogonalReslice xResliceThread:]")
-                }
-            }
+            self.xReslice(Int(xNum.int32Value))
         }
     }
 

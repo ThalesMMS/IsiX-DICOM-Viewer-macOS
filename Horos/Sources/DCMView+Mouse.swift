@@ -39,13 +39,19 @@
 
 import Cocoa
 import IsiXImaging
+import IsiXPreferences
+import IsiXROI
 
 // The mouse buttons of DCMView are implemented in Swift: an extension of
 // DCMView, with the same selectors. Every method is
 // `dynamic`, so the MPR and CPR views that override them, and call super, reach
 // them as before. A click picks its tool with -getTool: (IsiXImaging's
 // ViewInput rule), starts a drag, a ROI, the repulsor or the ROI selector, and
-// -mouseDragged: carries it on. An @try is HorosObjCException.perform.
+// -mouseDragged: carries it on. An @try is
+// HorosObjCException.caughtWithoutAllocation. Which
+// ROI a click of a ROI tool takes and the repulsor's ROIs are IsiXROI's rules
+// (ROIEditingSession, ROIRepulsor); the ROI notifications go through
+// ROIEventEmitter.
 
 extension DCMView {
 
@@ -100,7 +106,7 @@ extension DCMView {
                 dict.setObject(NSNumber(value: false), forKey: "stopMouseDown" as NSString)
                 inputPost(.OsirixMouseDown, object: self.windowController(), userInfo: dict)
 
-                if inputMessages(dict.value(forKey: "stopMouseDown"))?.inputBoolValue() == true { return }
+                if inputMessages(dict.object(forKey: "stopMouseDown"))?.inputBoolValue() == true { return }
             }
         }
 
@@ -123,7 +129,7 @@ extension DCMView {
             DCMView.horos_static_drawLock?.lock()
             defer { DCMView.horos_static_drawLock?.unlock() }
 
-            inputLogException(inputCatch {
+            inputLogException(HorosObjCException.caughtWithoutAllocation {
                 self.mouseDownWithImages(event)
             }, "-[DCMView mouseDown:]")
         }
@@ -193,8 +199,9 @@ extension DCMView {
         }
 
         let currentFlags = NSApplication.shared.currentEvent?.modifierFlags ?? []
-        if clickCount == 2 && self.window === BrowserController.currentBrowser()?.window {
-            BrowserController.currentBrowser()?.matrixDoublePressed(nil)
+        let browser = PreferencesSource.process.processGraph.currentBrowser
+        if clickCount == 2 && self.window === browser?.window {
+            browser?.matrixDoublePressed(nil)
         } else if clickCount == 2 && roiHit == false && currentFlags.contains(.command) && self.actionForHotKey("dbl-click + cmd") {
             return
         } else if clickCount == 2 && roiHit == false && currentFlags.contains(.option) && self.actionForHotKey("dbl-click + alt") {
@@ -242,29 +249,19 @@ extension DCMView {
 
                 let pixSpacingRatio = ViewInput.pixelRatio(spacingX: self.pixelSpacingX, spacingY: self.pixelSpacingY)
 
-                var roiArray: NSArray = self.selectedROIs() ?? NSArray()
-                if roiArray.count == 0 { roiArray = self.horos_curRoiList ?? NSArray() }
+                let selected = ViewROIEditing.rois(self.selectedROIs())
+                let roiArray = selected.isEmpty ? ViewROIEditing.rois(self.horos_curRoiList) : selected
 
-                func pushed(_ r: ROI) -> Bool {
-                    return r.type != .tPlain && r.type != .tArrow && r.type != .tAngle && r.type != .tAxis && r.type != .tDynAngle && r.type != .tTAGT
-                }
+                // The ROIs the repulsor pushes, locked or not.
+                func pushed(_ r: ROI) -> Bool { ROIRepulsor.pushes(type: r.type.rawValue, locked: false) }
 
                 var firstROI: [CGPoint]? = nil
-                if roiArray.count > 0 {
-                    let r = roiArray.object(at: 0) as! ROI
-                    if pushed(r) {
-                        // An empty ROI raises here, as -objectAtIndex: did.
-                        firstROI = [(r.points.object(at: 0) as! MyPoint).point]
-                    }
+                if let r = roiArray.first, pushed(r) {
+                    // An empty ROI raises here, as -objectAtIndex: did.
+                    firstROI = [ViewROIEditing.point(r.points.object(at: 0))]
                 }
 
-                var pushedROIs: [[CGPoint]] = []
-                for i in 0..<roiArray.count {
-                    let r = roiArray.object(at: i) as! ROI
-                    if pushed(r) {
-                        pushedROIs.append((r.points ?? NSMutableArray()).map { ($0 as! MyPoint).point })
-                    }
-                }
+                let pushedROIs = roiArray.filter(pushed).map { ViewROIEditing.points($0.points) }
 
                 let distance = ViewInput.repulsorDistance(firstROI: firstROI, pushedROIs: pushedROIs, click: tempPt, pixelRatio: pixSpacingRatio)
                 self.horos_repulsorRadius = ViewInput.repulsorRadius(distance: distance, imageWidth: self.curDCM.pwidth)
@@ -278,13 +275,12 @@ extension DCMView {
         }
 
         if tool == .tROISelector {
-            let selectedList = NSMutableArray()
-            self.horos_ROISelectorSelectedROIList = selectedList
+            self.horos_ROISelectorSelectedROIList = []
 
             // if shift key is pressed, we need to keep track of the ROIs that were selected before the click
             if event.modifierFlags.contains(.shift) {
-                for case let r as ROI in (self.horos_curRoiList ?? NSMutableArray()) where r.roImode == Int(ROI_selected) {
-                    selectedList.add(r)
+                for r in ViewROIEditing.rois(self.horos_curRoiList) where r.roImode == Int(ROI_selected) {
+                    self.horos_ROISelectorSelectedROIList.add(r)
                 }
             }
 
@@ -317,14 +313,8 @@ extension DCMView {
                 wc?.inputAddToUndoQueue("roi")
             }
 
-            do {
-                try HorosObjCException.perform {
-                    self.mouseDownWithROITool(tool, event: event, clickCount: clickCount)
-                }
-            } catch {
-                if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                    NSLog("**** mouseDown ROI : %@", e)
-                }
+            if let e = HorosObjCException.caughtWithoutAllocation({ self.mouseDownWithROITool(tool, event: event, clickCount: clickCount) }) {
+                NSLog("**** mouseDown ROI : %@", e)
             }
         }
 
@@ -336,16 +326,16 @@ extension DCMView {
     /// Whether the point is on a ROI: on its handles first, then anywhere on it.
     private func anyROI(at tempPt: NSPoint) -> Bool {
         guard let curDCM = self.curDCM else { return false }
-        let rois = self.horos_curRoiList ?? NSMutableArray()
+        let rois = ViewROIEditing.rois(self.horos_curRoiList)
         var clickInROI = false
-        for case let r as ROI in rois {
+        for r in rois {
             if r.click(inROI: tempPt, Float(Double(curDCM.pwidth) / 2.0), Float(Double(curDCM.pheight) / 2.0), self.horos_scaleValue, true) != 0 {
                 clickInROI = true
             }
         }
 
         if !clickInROI {
-            for case let r as ROI in rois {
+            for r in rois {
                 if r.click(inROI: tempPt, Float(Double(curDCM.pwidth) / 2.0), Float(Double(curDCM.pheight) / 2.0), self.horos_scaleValue, false) != 0 {
                     clickInROI = true
                 }
@@ -362,63 +352,39 @@ extension DCMView {
         let wc = inputMessages(self.windowController())
         let curDCM = self.curDCM
         let halfWidth = Float(Double(curDCM?.pwidth ?? 0) / 2.0), halfHeight = Float(Double(curDCM?.pheight ?? 0) / 2.0)
-        let curRoiList = self.horos_curRoiList ?? NSMutableArray()
+        let rois = ViewROIEditing.rois(self.horos_curRoiList)
 
         self.deleteMouseDownTimer()
 
-        var doNothing = false
-        var selected = -1
         let tempPt = self.convert(fromNSView2GL: self.convert(event.locationInWindow, from: nil))
 
         if AnnotationLevel.revealROIs() {
             DCMView.setDefaults()
         }
 
-        var roiFound = false
-
+        // The ROI under the click: its handles first, then anywhere on it.
         let flags = event.modifierFlags
-        if !(flags.contains(.command) && flags.contains(.shift)) {
-            for case let r as ROI in curRoiList {
-                if r.click(inROI: tempPt, halfWidth, halfHeight, self.horos_scaleValue, true) != 0 {
-                    selected = curRoiList.index(of: r)
-                    roiFound = true
-                    break
-                }
-            }
+        let click = ViewROIEditing.session(rois).toolClick(shift: flags.contains(.shift), command: flags.contains(.command)) { index, handles in
+            rois[index].click(inROI: tempPt, halfWidth, halfHeight, self.horos_scaleValue, handles) != 0
         }
 
-        if roiFound == false {
-            for case let r as ROI in curRoiList {
-                if r.click(inROI: tempPt, halfWidth, halfHeight, self.horos_scaleValue, false) != 0 {
-                    selected = curRoiList.index(of: r)
-                    break
-                }
-            }
+        if click.deselectsTarget, let target = click.target {
+            let r = rois[target]
+            r.roImode = Int(ROI_sleep)
+            // unselect all ROIs in the same group
+            wc?.inputSetMode(Int(ROI_sleep), toROIGroupWithID: r.groupID)
+        }
+        if click.deselectsAll {
+            // Unselect previous ROIs
+            for r in rois { r.roImode = Int(ROI_sleep) }
         }
 
-        if flags.contains(.shift) && !flags.contains(.command) {
-            if selected != -1 {
-                let r = curRoiList.object(at: selected) as! ROI
-                if r.roImode == Int(ROI_selected) {
-                    r.roImode = Int(ROI_sleep)
-                    // unselect all ROIs in the same group
-                    wc?.inputSetMode(Int(ROI_sleep), toROIGroupWithID: (curRoiList.object(at: selected) as! ROI).groupID)
-                    doNothing = true
-                }
-            }
-        } else {
-            if selected == -1 || ((curRoiList.object(at: selected) as! ROI).roImode != Int(ROI_selected) && (curRoiList.object(at: selected) as! ROI).roImode != Int(ROI_selectedModify)) {
-                // Unselect previous ROIs
-                for case let r as ROI in curRoiList { r.roImode = Int(ROI_sleep) }
-            }
-        }
-
-        if doNothing == false {
-            if selected >= 0 && self.horos_drawingROI == false {
+        if click.deselectsTarget == false {
+            if let selected = click.target, self.horos_drawingROI == false {
                 self.horos_curROI = nil
 
                 // Bring the selected ROI to the first position in array
-                let roi = curRoiList.object(at: selected) as! ROI
+                let roi = rois[selected]
 
                 wc?.inputBringToFrontROI(roi)
 
@@ -470,12 +436,12 @@ extension DCMView {
                         self.horos_curROI = nil
                     }
 
-                    if self.horos_curROI?.roImode == Int(ROI_selected) {
-                        inputPost(.OsirixROISelected, object: self.horos_curROI)
+                    if let current = self.horos_curROI, current.roImode == Int(ROI_selected) {
+                        ROIEventEmitter.selected(current)
                     }
                 } else {
                     // Unselect previous ROIs
-                    for case let r as ROI in curRoiList { r.roImode = Int(ROI_sleep) }
+                    for r in rois { r.roImode = Int(ROI_sleep) }
 
                     self.horos_drawingROI = false
 
@@ -484,14 +450,14 @@ extension DCMView {
                     self.horos_curROI = aNewROI
 
                     var roiName: String? = ROI.defaultName()
-                    if roiName == nil && (UserDefaults.standard.bool(forKey: "EmptyNameForNewROIs") == false || tool == .t2DPoint) {
+                    if roiName == nil && (PreferencesSource.process.preferences[ViewerPreferences.emptyNameForNewROIs] == false || tool == .t2DPoint) {
                         roiName = DCMView.newROIName(for: tool)
                     }
 
                     if let roiName {
                         var names: [String] = []
-                        for case let slice as NSArray in (self.horos_dcmRoiList ?? NSMutableArray()) {
-                            for case let existingROI as ROI in slice {
+                        for slice in self.horos_dcmRoiList ?? [] {
+                            for case let existingROI as ROI in (slice as? [Any]) ?? [] {
                                 if let name = existingROI.name { names.append(name) }
                             }
                         }
@@ -511,7 +477,7 @@ extension DCMView {
 
                     aNewROI.curView = self
 
-                    if UserDefaults.standard.bool(forKey: "markROIImageAsKeyImage") {
+                    if ViewROIEditing.marksROIImageAsKeyImage {
                         if self.is2DViewer() == true && self.isKeyImage() == false && wc?.inputIsPostprocessed() == false {
                             wc?.inputSetKeyImage(self)
                         }
@@ -526,14 +492,10 @@ extension DCMView {
                     }
 
                     if aNewROI.roImode == Int(ROI_selected) {
-                        inputPost(.OsirixROISelected, object: aNewROI)
+                        ROIEventEmitter.selected(aNewROI)
                     }
 
-                    let userInfo = NSMutableDictionary()
-                    userInfo.setObject(aNewROI, forKey: "ROI" as NSString)
-                    userInfo.setObject(NSNumber(value: Int32(self.horos_curImage)), forKey: "sliceNumber" as NSString)
-
-                    inputPost(.OsirixAddROI, object: self, userInfo: userInfo)
+                    ROIEventEmitter.added(aNewROI, to: self, slice: Int32(self.horos_curImage))
                 }
             }
         }
@@ -590,11 +552,11 @@ extension DCMView {
 
             DCMView.horos_static_drawLock?.lock()
 
-            inputLogException(inputCatch {
+            inputLogException(HorosObjCException.caughtWithoutAllocation {
                 self.mouseUpWithImages(event)
             }, "-[DCMView mouseUp:]")
 
-            inputPost(.OsirixUpdateWLWWMenu, object: DCMView.findWLWWPreset(self.horos_curWL, self.horos_curWW, self.curDCM))
+            inputPost(.OsirixUpdateWLWWMenu, object: DCMView.findWLWWPreset(self.windowLevelState.level, self.windowLevelState.width, self.curDCM))
 
             DCMView.horos_static_drawLock?.unlock()
         }
@@ -607,7 +569,7 @@ extension DCMView {
     private func mouseUpWithImages(_ event: NSEvent) {
         self.mouseMoved(with: event) // Update some variables...
 
-        if self.horos_curImage != self.horos_startImage && (self.horos_matrix != nil && BrowserController.currentBrowser() != nil), let matrix = self.horos_matrix {
+        if self.horos_curImage != self.horos_startImage && (self.horos_matrix != nil && PreferencesSource.process.processGraph.currentBrowser != nil), let matrix = self.horos_matrix {
             var rows = 0, cols = 0
             matrix.getNumberOfRows(&rows, columns: &cols)
             if cols < 1 { cols = 1 }
@@ -632,11 +594,11 @@ extension DCMView {
         if self.roiTool(tool) {
             let tempPt = self.convert(fromNSView2GL: self.convert(event.locationInWindow, from: nil))
 
-            for case let r as ROI in (self.horos_curRoiList ?? NSMutableArray()) {
+            for r in ViewROIEditing.rois(self.horos_curRoiList) {
                 _ = r.mouseRoiUp(tempPt, scaleValue: self.horos_scaleValue)
 
                 if r.roImode == Int(ROI_selected) {
-                    inputPost(.OsirixROISelected, object: r)
+                    ROIEventEmitter.selected(r)
                     break
                 }
             }
@@ -695,14 +657,12 @@ extension DCMView {
         let point = self.convert(fromNSView2GL: self.convert(event.locationInWindow, from: nil))
         let tolerance = ViewInput.doubleClickTolerance(scale: self.horos_scaleValue)
         guard let started = self.horos_curROI else { return false }
-        let points = (started.points ?? NSMutableArray()).map { p -> CGPoint in
-            let p = p as! MyPoint
-            return CGPoint(x: CGFloat(p.x), y: CGFloat(p.y))
-        }
+        // The points as MyPoint's -x and -y read them, in single precision.
+        let points = ViewROIEditing.points(started.points).map { CGPoint(x: CGFloat(Float($0.x)), y: CGFloat(Float($0.y))) }
         if !ViewInput.allPoints(points, within: tolerance, of: point) { return false }
         self.horos_curROI = nil
         self.horos_drawingROI = false
-        inputPost(.OsirixRemoveROI, object: started)
+        ROIEventEmitter.willRemove(started)
         self.removeROI(fromSliceOrVolume: started)
         inputMessages(self.windowController())?.inputRemoveLastItemFromUndoQueue()
         return true
@@ -711,7 +671,7 @@ extension DCMView {
     /// The first ROI of the image under the point, nil if none.
     @objc(clickInROI:)
     public dynamic func click(inROI tempPt: NSPoint) -> ROI! {
-        for case let r as ROI in (self.horos_curRoiList ?? NSMutableArray()) {
+        for case let r as ROI in (self.horos_curRoiList ?? []) {
             if r.click(inROI: tempPt, Float(Double(self.curDCM?.pwidth ?? 0) / 2.0), Float(Double(self.curDCM?.pheight ?? 0) / 2.0), self.horos_scaleValue, false) != 0 {
                 return r
             }
@@ -723,17 +683,9 @@ extension DCMView {
     /// The window level a drag starts from, of the image and of the blended one.
     @objc(setStartWLWW)
     public dynamic func setStartWLWW() {
-        let ww = self.curDCM?.ww ?? 0, wl = self.curDCM?.wl ?? 0
-        self.horos_startWW = ww
-        self.horos_startWL = wl
-        self.horos_startMin = wl - ww / 2
-        self.horos_startMax = wl + ww / 2
-
-        let bww = self.blending?.curDCM?.ww ?? 0, bwl = self.blending?.curDCM?.wl ?? 0
-        self.horos_bdstartWW = bww
-        self.horos_bdstartWL = bwl
-        self.horos_bdstartMin = bwl - bww / 2
-        self.horos_bdstartMax = bwl + bww / 2
+        self.windowLevelDrag = WindowLevelDrag(variant: .image, level: self.curDCM?.wl ?? 0, width: self.curDCM?.ww ?? 0)
+        self.fusedWindowLevelDrag = WindowLevelDrag(variant: .fused, level: self.blending?.curDCM?.wl ?? 0,
+                                                    width: self.blending?.curDCM?.ww ?? 0)
     }
 
     // MARK: - Other buttons
@@ -809,7 +761,7 @@ extension DCMView {
             }
         }
 
-        inputPost(.OsirixUpdateWLWWMenu, object: DCMView.findWLWWPreset(self.horos_curWL, self.horos_curWW, self.curDCM))
+        inputPost(.OsirixUpdateWLWWMenu, object: DCMView.findWLWWPreset(self.windowLevelState.level, self.windowLevelState.width, self.curDCM))
     }
 
     @objc(otherMouseDragged:)

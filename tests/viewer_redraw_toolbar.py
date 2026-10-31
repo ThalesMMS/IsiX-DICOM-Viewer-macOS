@@ -2,7 +2,8 @@
 the tests of the floating thumbnails panels.
 
 -redrawToolbar was Objective-C in ViewerController.m and is Swift now
-(ViewerController+ToolbarRefresh.swift). This compiles whichever the
+(ViewerController+ToolbarRefresh.swift, then the viewer's
+ViewerToolbarItemFactory.redrawToolbar(in:)). This compiles whichever the
 revision has, against the same peers: the screens, windows, the toolbar
 panel, the thumbnails panels (two, MAXSCREENS), AppController and the
 toolbar policy (the app's own ToolbarPolicy method). The test gives the
@@ -113,12 +114,36 @@ def program(folder, revision, class_methods, main):
         viewer += source[start:source.index('- (void) refreshToolbar', start)]
         swift_flags = []
     else:
-        # Swift: the method of ViewerController+ToolbarRefresh.swift, in an
-        # extension of the peer, with the peers' MAXSCREENS.
-        text = read('Horos/Sources/ViewerController+ToolbarRefresh.swift').decode()
-        start = text.index('    @objc(redrawToolbar)\n')
-        method = text[start:text.index('\n    }\n', start) + 7]
-        swift.append('let maxScreens = 2\nextension ViewerController {\n' + method + '}\n')
+        factory = read('Horos/Sources/ViewerToolbarItemFactory.swift')
+        factory = factory.decode() if factory else ''
+        if '    func redrawToolbar(in viewer: ViewerController) {\n' in factory:
+            # Swift: the viewer's -redrawToolbar hands its work to
+            # ViewerToolbarItemFactory.redrawToolbar(in:), compiled here in a
+            # peer of the factory whose preferences are the user defaults'
+            # booleans, with the peers' MAXSCREENS.
+            start = factory.index('    func redrawToolbar(in viewer: ViewerController) {\n')
+            method = factory[start:factory.index('\n    }\n', start) + 7]
+            swift.append('let maxScreens = 2\n'
+                         'enum ViewerPreferences {\n'
+                         '    static let useFloatingThumbnailsList = "UseFloatingThumbnailsList"\n'
+                         '    static let seriesListVisible = "SeriesListVisible"\n'
+                         '}\n'
+                         'struct HarnessPreferences {\n'
+                         '    subscript(key: String) -> Bool { UserDefaults.standard.bool(forKey: key) }\n'
+                         '}\n'
+                         'struct ViewerToolbarItemFactory {\n'
+                         '    let preferences = HarnessPreferences()\n' + method + '}\n'
+                         'extension ViewerController {\n'
+                         '    @objc(redrawToolbar)\n'
+                         '    func redrawToolbar() { ViewerToolbarItemFactory().redrawToolbar(in: self) }\n'
+                         '}\n')
+        else:
+            # Swift: the method of ViewerController+ToolbarRefresh.swift, in an
+            # extension of the peer, with the peers' MAXSCREENS.
+            text = read('Horos/Sources/ViewerController+ToolbarRefresh.swift').decode()
+            start = text.index('    @objc(redrawToolbar)\n')
+            method = text[start:text.index('\n    }\n', start) + 7]
+            swift.append('let maxScreens = 2\nextension ViewerController {\n' + method + '}\n')
         viewer += ('- (NSObject*)horos_previewMatrixScrollView{return previewMatrixScrollView;}\n'
                    '- (Panel*)horos_toolbarPanel{return toolbarPanel;}\n'
                    '- (BOOL)horos_FullScreenOn{return FullScreenOn;}\n')

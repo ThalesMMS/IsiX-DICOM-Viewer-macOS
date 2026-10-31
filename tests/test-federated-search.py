@@ -9,6 +9,7 @@ share a name stay two rows.
 from pathlib import Path
 import subprocess
 import tempfile
+import process_graph_stand_in  # the source reads the preferences through the process graph
 
 root = Path(__file__).resolve().parents[1]
 code = r'''
@@ -135,7 +136,7 @@ with tempfile.TemporaryDirectory(prefix='horos-federated-') as temp:
     (folder / 'main.swift').write_text(code)
     binary = folder / 'probe'
     build = subprocess.run(
-        ['xcrun', 'swiftc',
+        ['xcrun', 'swiftc', *process_graph_stand_in.swift_flags(folder / 'isix'),
          str(root / 'Horos/Sources/DatabaseLocation.swift'),
          str(root / 'Horos/Sources/FederatedSearch.swift'),
          str(folder / 'main.swift'),

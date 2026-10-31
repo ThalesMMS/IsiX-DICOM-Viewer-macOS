@@ -57,6 +57,7 @@ public extension DICOMTag {
     static let sourceImageSequence = DICOMTag(0x0008, 0x2112)
     static let patientName = DICOMTag(0x0010, 0x0010)
     static let patientID = DICOMTag(0x0010, 0x0020)
+    static let issuerOfPatientID = DICOMTag(0x0010, 0x0021)
     static let patientBirthDate = DICOMTag(0x0010, 0x0030)
     static let bodyPartExamined = DICOMTag(0x0018, 0x0015)
     static let studyInstanceUID = DICOMTag(0x0020, 0x000D)

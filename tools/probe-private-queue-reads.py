@@ -2,16 +2,19 @@
 """Time the query window's local reads before and after the private-queue reader, for tools/ab_protocol.py.
 
 `build` compiles one probe from the real N2ManagedDatabase (its Swift and its
-+CAPI.m, as tests/n2_database_harness.py prepares them), HorosObjCException.m
-and HorosLocalQueryReader.swift, with stand-ins for the entities (the same ones
-tests/test-private-queue-local-reads.py uses), at Debug or Release optimisation.
++CAPI.m, as tests/n2_database_harness.py prepares them), HorosObjCException.m,
+HorosLocalQueryReader.swift and LocalDatabaseStudyReader (+Series), with
+stand-ins for the entities (the same ones tests/test-private-queue-local-reads.py
+uses), at Debug or Release optimisation.
 The probe holds both reads:
 
 * `baseline`: what QueryController and DCMTKQueryNode did off the main thread
   before the private-queue reader, copied as it was - a confined context from -independentContext,
   locked, fetching Study objects and reading them with valueForKey:, a new
   context for every row count;
-* `candidate`: HorosLocalQueryReader, on a private-queue context.
+* `candidate`: HorosLocalQueryReader, on a private-queue context: the study
+  index from it, the row counts and the instances here through
+  LocalSeriesReading, which LocalDatabaseStudyReader answers with it.
 
 Run it as `probe <baseline|candidate> <store>`; it fills the store the first
 time, reads it from a background thread and prints one JSON object with the
@@ -44,6 +47,10 @@ STUBS = {
 @end
 @interface DicomStudy : NSManagedObject
 @property (nonatomic, retain) NSSet *series;
+// What the reader's study snapshots read; the probe does not time them.
+@property (nonatomic, retain) NSString *studyInstanceUID;
+@property (nonatomic, retain) NSNumber *stateText;
+@property (nonatomic, retain) NSString *comment;
 - (NSNumber*)rawNoFiles;
 @end
 ''',
@@ -57,7 +64,7 @@ STUBS = {
 - (NSNumber*)rawNoFiles { [self.managedObjectContext lock]; NSNumber *n = @(self.images.count); [self.managedObjectContext unlock]; return n; }
 @end
 @implementation DicomStudy
-@dynamic series;
+@dynamic series, studyInstanceUID, stateText, comment;
 - (NSNumber*)rawNoFiles { NSInteger n = 0; [self.managedObjectContext lock]; for (DicomSeries *s in self.series) n += s.rawNoFiles.integerValue; [self.managedObjectContext unlock]; return @(n); }
 @end
 ''',
@@ -122,6 +129,7 @@ STUBS = {
 DRIVER = r'''
 import CoreData
 import Foundation
+import IsiXContracts
 
 func attribute(_ name: String) -> NSAttributeDescription {
     let a = NSAttributeDescription(); a.name = name; a.attributeType = .stringAttributeType; a.isOptional = true; return a
@@ -186,6 +194,7 @@ Thread {
         let candidate = variant == "candidate"
         var index: [Double] = [], count: [Double] = [], sop: [Double] = []
         var ids: [NSManagedObjectID] = []
+        let series = LocalDatabaseStudyReader { database }
         do {
             for _ in 0..<20 {
                 try autoreleasepool {
@@ -201,13 +210,13 @@ Thread {
                 try autoreleasepool {
                     var files = 0
                     count.append(try time {
-                        files = candidate ? try HorosLocalQueryReader.fileCount(ofStudy: id, seriesInstanceUID: nil, in: database).intValue
+                        files = candidate ? try series.fileCount(ofStudy: LocalRecordIdentifier(uri: id.uriRepresentation()), seriesInstanceUID: nil)
                             : Baseline.fileCount(ofStudy: id, in: database)
                     } / 1e3)
                     precondition(files == 10)
                     var uids = 0
                     sop.append(try time {
-                        uids = candidate ? try HorosLocalQueryReader.sopInstanceUIDs(ofStudyInstanceUID: "1.2.\((n * 97) % 2000)", seriesInstanceUID: nil, in: database).count
+                        uids = candidate ? try series.sopInstanceUIDs(ofStudyInstanceUID: "1.2.\((n * 97) % 2000)", seriesInstanceUID: nil).count
                             : Baseline.sopInstanceUIDs(ofStudy: "1.2.\((n * 97) % 2000)", in: database).count
                     } / 1e6)
                     precondition(uids == 10)
@@ -238,7 +247,7 @@ def build(configuration, out):
         if error:
             raise SystemExit(error)
         subprocess.run(['xcrun', 'swiftc', swift_opt, '-D', 'DEBUG', '-sdk', sdk, '-import-objc-header', str(work / 'Bridge.h'),
-                        '-I', str(work)] + module + swift + [str(ROOT / 'Horos/Sources/HorosLocalQueryReader.swift'), str(work / 'main.swift')]
+                        '-I', str(work)] + module + swift + [str(ROOT / 'Horos/Sources' / name) for name in ('HorosLocalQueryReader.swift', 'LocalDatabaseStudyReader.swift', 'LocalDatabaseStudyReader+Series.swift')] + [str(work / 'main.swift')]
                        + objects + ['-framework', 'CoreData', '-framework', 'AppKit', '-lc++', '-o', str(out)], check=True)
     finally:
         shutil.rmtree(work, ignore_errors=True)

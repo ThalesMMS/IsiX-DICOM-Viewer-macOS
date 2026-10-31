@@ -25,6 +25,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import process_graph_stand_in  # the source reads the preferences through the process graph
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -236,7 +237,7 @@ else:
             (Path(directory) / 'main.swift').write_text(DRIVER)
             binary = Path(directory) / 'location'
             built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-o', str(binary),
-                                    str(location), str(Path(directory) / 'main.swift')],
+                                    *process_graph_stand_in.swift_flags(Path(directory) / 'isix'), str(location), str(Path(directory) / 'main.swift')],
                                    capture_output=True, text=True)
             if built.returncode != 0:
                 failures.append('the location resolver does not compile:\n%s' % built.stderr[-1500:])

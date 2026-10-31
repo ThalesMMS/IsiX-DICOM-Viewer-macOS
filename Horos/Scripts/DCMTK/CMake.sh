@@ -3,23 +3,27 @@
 export PATH="$PATH:/opt/local/bin:/opt/local/sbin:/opt/homebrew/bin/"
 
 path="$( cd "$(dirname "${BASH_SOURCE[0]}")" && pwd )/$(basename "${BASH_SOURCE[0]}")"
-revision_file="$(dirname "$path")/UPSTREAM_REVISION"
-cd "$TARGET_NAME"; pwd
+set -e
+# The original source archive pinned in external-sources.json, verified by its
+# SHA-256 and extracted read-only beside this target's outputs; never patched.
+external_inputs="$(dirname "$path")/../external-inputs.sh"
+source_prefix="$TARGET_TEMP_DIR/Source"
+source_dir="$(sh "$external_inputs" --source DCMTK "$source_prefix" \
+    "${EXTERNAL_SOURCES_DOWNLOADS:-$PROJECT_TEMP_DIR/ExternalSources.downloads}")"
+# OpenSSL resolves its own record first (DCMTK depends on that target), so a new
+# OpenSSL pin reconfigures DCMTK too.
+openssl_record="$CONFIGURATION_TEMP_DIR/OpenSSL.build/Source/share/source.json"
+[ -f "$openssl_record" ] || { echo "error: DCMTK needs the OpenSSL source record at $openssl_record; build the OpenSSL target first." >&2; exit 1; }
 
 # One narrow hash for every dependency; see Horos/Scripts/dependency-hash.sh.
+# The selected record carries the archive identity; resolve and validate the
+# pristine tree before considering a configure hit.
 . "$(dirname "$path")/../dependency-hash.sh"
 dependency_cross_cache "$path"
-dependency_hash "$path" "$revision_file" "$(dirname "$path")/Make.sh" "$(dirname "$path")/BuildStoredPrint.sh" "$PROJECT_DIR/DICOMPrint/Helper/main.swift" "$PROJECT_DIR/DICOMPrint/Helper/HorosStoredPrintBridge.h" "$PROJECT_DIR/DICOMPrint/Helper/HorosStoredPrintBridge.mm" "$PROJECT_DIR/tools/isolate-dcmtk-jpegls.py" "$(dirname "$path")/../OpenSSL/UPSTREAM_REVISION" ${cross_cache:+"$cross_cache"}
+dependency_hash "$path" "$(dirname "$path")/Make.sh" "$(dirname "$path")/BuildStoredPrint.sh" "$PROJECT_DIR/DICOMPrint/Helper/main.swift" "$PROJECT_DIR/DICOMPrint/Helper/HorosStoredPrintBridge.h" "$PROJECT_DIR/DICOMPrint/Helper/HorosStoredPrintBridge.mm" "$PROJECT_DIR/tools/isolate-dcmtk-jpegls.py" "$external_inputs" "$source_prefix/share/source.json" "$source_dir/CMakeLists.txt" "$source_dir/CMake/dcmtkPrepare.cmake" "$openssl_record" ${cross_cache:+"$cross_cache"}
 
 set -e; set -o xtrace
 
-source_dir="$PROJECT_DIR/$TARGET_NAME"
-expected_revision="$(cat "$revision_file")"
-if [ "$(git -C "$source_dir" rev-parse HEAD)" != "$expected_revision" ] || \
-   [ -n "$(git -C "$source_dir" status --porcelain --untracked-files=normal)" ]; then
-    echo "error: DCMTK must be the clean upstream revision $expected_revision. Local changes were preserved." >&2
-    exit 1
-fi
 # A copy an earlier recipe prepared here is no longer used; it is discarded below.
 stale_prepared_dir="$TARGET_TEMP_DIR/PatchedSource"
 cmake_dir="$TARGET_TEMP_DIR/CMake"
@@ -49,7 +53,7 @@ mv "$cmake_dir" "$cmake_dir.tmp"
 rm -Rf "$cmake_dir.tmp" "$install_dir.tmp" "$stale_prepared_dir"
 mkdir -p "$cmake_dir";
 
-# The clean upstream checkout is compiled as it is; no source is prepared.
+# The original archive is compiled as it is; no source is prepared.
 
 args=( "$source_dir" )
 # An x86_64 slice built on Apple Silicon: a cross configure; see dependency-hash.sh.

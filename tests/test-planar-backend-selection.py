@@ -40,9 +40,10 @@ legacy = read('Horos/Sources/PlanarMetalRenderer.swift')
 bridge = read('Horos/Sources/DCMView+PlanarHost.swift') + read('Horos/Sources/DCMView+PlanarSnapshot.swift')  # the planar bridge, Swift
 
 # --- the choice is explicit -------------------------------------------------
-if 'HorosPlanarMetal4Pilot' not in host:
+catalog = read('Modules/IsiXPreferences/Sources/ViewerPreferences.swift')
+if 'planarMetal4Pilot = PreferenceKey<Bool>("HorosPlanarMetal4Pilot")' not in catalog:
     failures.append('there is no preference that asks for the pilot')
-if 'UserDefaults.standard.bool(forKey: PlanarBackend.pilotDefaultsKey)' not in host:
+if 'PreferencesSource.process.preferences[ViewerPreferences.planarMetal4Pilot]' not in host:
     failures.append('the backend is not chosen from the preference')
 if 'guard wantsPilot else' not in host:
     failures.append('the pilot is used without being asked for')

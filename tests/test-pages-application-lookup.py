@@ -132,6 +132,7 @@ with tempfile.TemporaryDirectory(prefix='horos-pages-lookup-') as tmp:
     p = Path(tmp)
     (p / 'main.swift').write_text(source)
     subprocess.run(['xcrun', 'swiftc', str(root / 'Horos/Sources/PagesApplication.swift'),
+                    str(root / 'Horos/Sources/MainActorCallbacks.swift'),
                     str(p / 'main.swift'), '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test')], check=True)
 

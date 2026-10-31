@@ -58,8 +58,8 @@ WIRED = {
     'Horos/Sources/DCMTKQueryNode+DICOMweb.swift': ['ActivityProgressCount.set(done: Int(node.countOfSuccessfulSuboperations), total: Int(node.countOfSuboperations)'],
     'Horos/Sources/WADODownload.swift': ['ActivityProgressCount.set(done: Int((WADOTotal - WADOThreads) + WADOBaseTotal), total: Int(WADOGrandTotal)'],
     'Horos/Sources/DCMTKStoreSCU.swift': ['ActivityProgressCount.set(done: numberSent, total: numberOfFiles, on: Thread.current)'],
-    'Horos/Sources/BrowserController+Sources+Copy.swift': ['ActivityProgressCount.set(done: i, total: imagePaths.count'],
-    'Horos/Sources/DicomDatabase+Import.swift': ['total: total, on: thread', 'total: dicomFilesArray.count, on: thread'],
+    'Horos/Sources/SourceCopyJob.swift': ['ActivityProgressCount.set(done: index, total: sourcePaths.count'],
+    'Horos/Sources/DicomFileIndexer.swift': ['total: total, on: thread', 'total: dicomFilesArray.count, on: thread'],
     'Horos/Sources/SCPDatabaseSession.swift': ['ActivityProgressCount.countOne(on: Thread.current)'],
 }
 for path, needles in WIRED.items():

@@ -54,11 +54,19 @@ public enum WindowLevel {
         return (from + (to - from) / 2, to - from)
     }
 
-    /// The name of a stored preset from the title of its menu item, which
-    /// precedes it with four characters (its shortcut and a separator); nil
-    /// for a shorter title.
+    /// The name of a stored preset from the title of its menu item. The
+    /// window level menus of the viewers number their presets from 1
+    /// ("1 - CT - Bone", "12 - Lung"): the number, of any length, and the
+    /// " - " after it are dropped, and only the first such prefix, so a name
+    /// that holds " - " keeps it. A title without that prefix loses its first
+    /// four characters, as every title did when the number was assumed to
+    /// take one digit; nil for a shorter one.
     public static func presetName(fromMenuTitle title: String) -> String? {
         let title = title as NSString
+        let number = title.range(of: "^[0-9]+ - ", options: .regularExpression)
+        if number.location != NSNotFound {
+            return title.substring(from: NSMaxRange(number))
+        }
         guard title.length >= 4 else { return nil }
         return title.substring(from: 4)
     }

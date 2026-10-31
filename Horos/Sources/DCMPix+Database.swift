@@ -59,11 +59,18 @@ extension DCMPix {
         #endif
     }
 
+    /// The image's row in the database it is a row of (`databaseOfRow(_:)`),
+    /// which the browser may not show: a viewer of a shared study stays open
+    /// beside a browser showing a local database, and the reverse. Read through
+    /// that database's own context, on its queue, from any thread: the object
+    /// answered belongs to a context that outlives the call, which one made for
+    /// the call (a private-queue context) would not.
     private var imageRow: NSObject? {
-        BrowserController.currentBrowser()?.database?.object(withID: horos_imageObjectID) as? NSObject
+        guard let imageID = horos_imageObjectID else { return nil }
+        return databaseOfRow(imageID)?.object(withID: imageID) as? NSObject
     }
 
-    /// The image's row, from the browser's database, on the main thread.
+    /// The image's row, from its own database, on the main thread.
     @objc(imageObj)
     public dynamic func imageObj() -> DicomImage? {
         warnOffMainThread()
@@ -87,12 +94,13 @@ extension DCMPix {
 
 extension DCMPix {
     /// Writes the size read from a file to the image's row, by a private-queue
-    /// context of its own, on its queue; the UI context gets it by merge.
+    /// context of the database the row is of (whichever the browser shows), on
+    /// its queue; that database's UI context gets it by merge.
     /// Nothing without a row or a size. DCMPix.m and the readers in Swift call it.
     @objc(storeSize:inDatabaseForImageID:)
     public static dynamic func storeSize(_ size: NSDictionary?, inDatabaseForImageID imageID: NSManagedObjectID?) {
         guard let imageID, let size, size.count > 0 else { return }
-        guard let database = privateQueueDatabase(BrowserController.currentBrowser()?.database) else { return }
+        guard let database = privateQueueDatabase(databaseOfRow(imageID)) else { return }
         database.performBlockAndWait {
             if let exception = HorosObjCException.caught({
                 if let image = try? database.managedObjectContext.existingObject(with: imageID) {
@@ -104,6 +112,60 @@ extension DCMPix {
             }
         }
     }
+}
+
+extension DCMPix {
+    /// The file here of the image of a shared database of another computer
+    /// (isBonjour): its copy in the cache, fetched from the server when it is
+    /// missing. Asked of the database the image is a row of, which the browser
+    /// may not show: a viewer of a shared study stays open beside a browser
+    /// showing a local database, and the reverse, and the database the browser
+    /// shows has neither the row nor, when it is local, the server. The
+    /// browser's database is asked only when no open database holds the row.
+    /// On the main thread the database's own context reads the row; on another
+    /// thread, a private-queue context of it, on its queue.
+    final func localFileOfSharedImage() -> String? {
+        guard let imageID = horos_imageObjectID, let database = databaseOfRow(imageID) else { return nil }
+        if Thread.isMainThread {
+            return DatabaseImageFiles.localFile(of: database.object(withID: imageID) as? NSManagedObject, in: database, maxFiles: 0)
+        }
+        guard let independent = privateQueueDatabase(database) else { return nil }
+        var path: String?
+        independent.performBlockAndWait {
+            path = DatabaseImageFiles.localFile(of: independent.object(withID: imageID) as? NSManagedObject, in: database, maxFiles: 0)
+        }
+        return path
+    }
+
+    /// The database the image's row is of (`databaseOfRow(_:)`): what the
+    /// image's ROIs made from an RT structure set are refused for, and where
+    /// the images it refers to are looked up.
+    final func databaseOfImage() -> DicomDatabase? {
+        databaseOfRow(horos_imageObjectID)
+    }
+}
+
+/// The database the row `objectID` names is of: the open main database whose
+/// store holds it, the browser's when it is that one; the browser's when no
+/// open database holds it, and for no row.
+func databaseOfRow(_ objectID: NSManagedObjectID?) -> DicomDatabase? {
+    let shown = BrowserDatabaseSource.process.browserDatabase
+    guard let objectID else { return shown }
+    return openDatabase(holding: objectID, shown: shown) ?? shown
+}
+
+/// The main database whose store holds the row `objectID` names: `shown`, the
+/// browser's, when it is that one, else the open database it is; nil for an
+/// identifier of no store or of a database no longer open. An independent
+/// database shares the store of its main database.
+private func openDatabase(holding objectID: NSManagedObjectID, shown: DicomDatabase?) -> DicomDatabase? {
+    guard let coordinator = objectID.persistentStore?.persistentStoreCoordinator else { return nil }
+    if shown?.managedObjectContext?.persistentStoreCoordinator === coordinator { return shown }
+    for case let database as DicomDatabase in DicomDatabase.allDatabases() ?? []
+    where database.isMainDatabase() && database.managedObjectContext?.persistentStoreCoordinator === coordinator {
+        return database
+    }
+    return nil
 }
 
 extension DCMPix {
@@ -176,16 +238,4 @@ extension DCMPix {
 func privateQueueDatabase(_ database: DicomDatabase?) -> DicomDatabase? {
     guard let independent = database?.privateQueueIndependentDatabase() else { return nil }
     return unsafeBitCast(independent as AnyObject, to: DicomDatabase.self)
-}
-
-extension HorosObjCException {
-    /// Runs `body` and answers the Objective-C exception it raised, if any.
-    static func caught(_ body: () -> Void) -> NSException? {
-        do {
-            try perform(body)
-            return nil
-        } catch {
-            return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-        }
-    }
 }

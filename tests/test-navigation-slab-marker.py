@@ -69,12 +69,21 @@ with tempfile.TemporaryDirectory(prefix='horos-slab-marker-') as folder:
 slider = (root / 'Horos/Sources/ImageNavigationSlider.swift').read_text(encoding='utf-8')
 if not re.search(r'Self\.markerSpan\(index: Int\(doubleValue\.rounded\(\)\), slab: slabImageCount,', slider):
     failures.append('the strip does not draw its marker from markerSpan')
-# -adjustSlider is Swift, in ViewerController+SeriesNavigation.swift.
+# -adjustSlider is Swift, a façade in ViewerController+SeriesNavigation.swift of
+# ViewerSlices.adjustSlider() there; the slab's count is IsiXImaging's
+# SliceNavigation.slabImageCount(stack:), at least one image.
 viewer = (root / 'Horos/Sources/ViewerController+SeriesNavigation.swift').read_text(encoding='utf-8')
-adjust = viewer[viewer.index('    @objc(adjustSlider)'):]
+facade = viewer[viewer.index('    @objc(adjustSlider)'):]
+facade = facade[:facade.index('\n    }\n')]
+adjust = viewer[viewer.index('@MainActor struct ViewerSlices {'):]
+adjust = adjust[adjust.index('    func adjustSlider() {'):]
 adjust = adjust[:adjust.index('\n    }\n')]
-if 'slider.slabImageCount = max(Int(horos_imageView?.curDCM?.stack ?? 0), 1)' not in adjust \
-        or 'horos_slider as? ImageNavigationSlider' not in adjust:
+navigation = (root / 'Modules/IsiXImaging/Sources/ViewerNavigation/SliceNavigation.swift').read_text(encoding='utf-8')
+slab = navigation[navigation.index('    public static func slabImageCount(stack: Int) -> Int {'):]
+slab = slab[:slab.index('\n    }\n')]
+if 'ViewerSlices(viewer: self).adjustSlider()' not in facade \
+        or 'slider.slabImageCount = SliceNavigation.slabImageCount(stack: Int(viewer.horos_imageView?.curDCM?.stack ?? 0))' not in adjust \
+        or 'viewer.horos_slider as? ImageNavigationSlider' not in adjust or 'max(stack, 1)' not in slab:
     failures.append('adjustSlider does not give the strip the slab')
 fusion = (root / 'Horos/Sources/DCMView+WindowLevel.swift').read_text(encoding='utf-8')
 fusion = fusion[fusion.index('public dynamic func setFusion('):]

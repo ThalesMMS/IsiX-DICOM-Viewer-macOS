@@ -16,7 +16,8 @@ produce:
 * the name of each exported file when the name is taken, and the renames done
   afterwards;
 * where a movie export records its files (+setPath:relativeTo:...);
-* the arguments given to /usr/bin/zip, and when nothing is archived;
+* the arguments given to /usr/bin/zip, and when nothing is archived (less
+  the former "-P <password>": the password is now typed on zip's terminal);
 * the private SR series an export leaves out.
 
     python3 tests/test-browser-export-equivalence.py [--reference REV]
@@ -37,6 +38,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BC = 'Horos/Sources/BrowserController.m'
 MARK = '+ (NSMutableString*) replaceNotAdmitted:(NSString*)name preserveHyphens:(BOOL)preserveHyphens'
 RULES = ROOT / 'Modules/IsiXDatabase/Sources/ExportRules.swift'
+MARKER_RULES = ROOT / 'Modules/IsiXDatabase/Sources/StudyListRules.swift'
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument('--reference')
@@ -299,14 +301,14 @@ for c in cases[3] as! [NSDictionary] {
 }
 for c in cases[4] as! [NSDictionary] {
     let items = (c["items"] as! [String]).map { root + "/" + $0 }
-    let password = c["password"] as? String
+    let encrypted = ZipCommand.encrypts(c["password"] as? String)
     if let names = ZipCommand.entryNames(items, exists: { FileManager.default.fileExists(atPath: $0) }), !names.isEmpty {
-        let args = ZipCommand.recursiveArguments(password: password, archive: "/archive.zip", names: names)
+        let args = ZipCommand.recursiveArguments(encrypted: encrypted, archive: "/archive.zip", names: names)
         records.append("zip \(c["label"]!): \(args.joined(separator: "|")) in \(((items[0] as NSString).deletingLastPathComponent as NSString).lastPathComponent)")
     } else {
         records.append("zip \(c["label"]!): <none> in -")
     }
-    records.append("flat \(c["label"]!): " + ZipCommand.flatArguments(password: password, archive: "/flat.zip", files: c["items"] as! [String]).joined(separator: "|"))
+    records.append("flat \(c["label"]!): " + ZipCommand.flatArguments(encrypted: encrypted, archive: "/flat.zip", files: c["items"] as! [String]).joined(separator: "|"))
 }
 var kept: NSArray = (cases[5] as! [NSDictionary]).map { ["series": $0, "completePath": $0["label"]!] as NSDictionary } as NSArray
 for predicate in ExportSeriesFilter.predicates() { kept = kept.filtered(using: predicate) as NSArray }
@@ -366,7 +368,7 @@ with tempfile.TemporaryDirectory(prefix='horos-browser-export-') as tmp:
     if built.returncode:
         sys.exit('FAIL: the Objective-C reference does not compile:\n' + built.stderr[-3000:])
     (tmp / 'main.swift').write_text(SWIFT)
-    built = subprocess.run(['xcrun', 'swiftc', '-o', str(tmp / 'current'), str(RULES), str(tmp / 'main.swift')],
+    built = subprocess.run(['xcrun', 'swiftc', '-o', str(tmp / 'current'), str(RULES), str(MARKER_RULES), str(tmp / 'main.swift')],
                            capture_output=True, text=True)
     if built.returncode:
         sys.exit('FAIL: the module does not compile:\n' + built.stderr[-3000:])
@@ -375,6 +377,16 @@ with tempfile.TemporaryDirectory(prefix='horos-browser-export-') as tmp:
     if objc.returncode or swift.returncode:
         sys.exit('FAIL: a driver failed:\n' + objc.stderr[-1500:] + swift.stderr[-1500:])
     a, b = objc.stdout.splitlines(), swift.stdout.splitlines()
+    # The one intended difference: the Objective-C gave zip the password as
+    # "-P <password>", which ps shows to every process; the module asks for
+    # -e only and the password is typed on zip's terminal. The reference's
+    # -P and password go before comparing, and no password may be left.
+    passwords = sorted({c['password'] for c in ZIPS if c['password']}, key=len, reverse=True)
+    a = [line.replace('|-P|' + p, '') if line.startswith(('zip ', 'flat ')) else line
+         for line in a for p in [next((p for p in passwords if '|-P|' + p in line), '')]]
+    leaked = [line for line in b if line.startswith(('zip ', 'flat ')) and ('|-P|' in line or any(p in line for p in passwords))]
+    if leaked:
+        failures.append('a zip command still carries a password:\n' + '\n'.join(leaked))
     if args.dump:
         args.dump.mkdir(parents=True, exist_ok=True)
         (args.dump / 'reference.txt').write_text(objc.stdout)

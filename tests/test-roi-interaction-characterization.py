@@ -23,6 +23,10 @@ only when selected, the brush's edge, the oval's centre). Every value and
 every picture must be the same; pictures are compared by a hash of their
 pixels, and `--dump DIR` writes them as PPM files for a difference to be seen.
 
+One answer changed on purpose since: a click on a patient-space length's label
+is no longer refused. Its label is the base class's text box, so the click hits
+like any other ROI's (see LABEL_RULE_CASE below).
+
 `<git revision>` compares with that revision instead. Needs a Debug build of
 this checkout (HOROS_TEST_CONFIGURATION=Release for a Release one) and a
 window server session, for the overlay's view; without either it is skipped.
@@ -830,6 +834,48 @@ int main( int argc, const char **argv) { @autoreleasepool {
 # The sets of preferences the probe runs under (see its main()).
 PROFILES = ('first', 'second', 'third', 'fourth')
 
+# Changed on purpose after the reference revision: a patient-space length
+# answered no to every label test, and now its label is the base class's text
+# box, laid out by prepareTextualData, so a click on it hits like any other
+# ROI's. With the Length tool a click on a ROI's label then selects that ROI
+# instead of starting a new Length. The base class's label test leaves three
+# fields behind: whether the click was in the box, the click point and the mode
+# the click found. The patient-space length's own outline and handle tests do
+# not touch them, so they stay until the next label test.
+LABEL_RULE_CASE = 'patient-space length'
+LABEL_FIELDS = ('clickInTextBox', 'clickPoint', 'previousMode')
+ROI_SELECTED = 2
+
+
+def with_label_rule(cases):
+    """The reference's records with the patient-space length's label clicks as
+    the current rule answers them; every other record is left as it is."""
+    cases = json.loads(json.dumps(cases))
+    carried = None
+    label_clicks = 0
+    for record in cases.get(LABEL_RULE_CASE, []):
+        what = record.get('step', '')
+        if what.endswith(' (label)') and 'state' in record:
+            # The first is the probe's modes(), aimed at the centre of the
+            # label's box; the other is at an endpoint, off the label.
+            hit = label_clicks == 0
+            label_clicks += 1
+            point = what[len('click label at '):-len(' (label)')]
+            # The reference answered no and left the mode as the click found it.
+            carried = {'clickInTextBox': hit, 'clickPoint': point, 'previousMode': str(record['state']['mode'])}
+            if hit:
+                record['answer'] = str(ROI_SELECTED)
+                for key in ('state', 'stateAfterDrawing'):
+                    if key in record:
+                        record[key]['mode'] = ROI_SELECTED
+        if carried:
+            for key in ('state', 'stateAfterDrawing'):
+                if key in record:
+                    record[key].update(carried)
+    if label_clicks != 2:
+        raise SystemExit(f'FAIL: the {LABEL_RULE_CASE} case made {label_clicks} label clicks, not the 2 its rule describes')
+    return cases
+
 
 def main():
     failures = []
@@ -871,7 +917,7 @@ def main():
                 outputs[(label, profile)] = json.loads(result.stdout)['cases']
         steps = 0
         for profile in PROFILES:
-            a, b = outputs[('reference', profile)], outputs[('current', profile)]
+            a, b = with_label_rule(outputs[('reference', profile)]), outputs[('current', profile)]
             steps += sum(len(v) for v in a.values())
             for problem in roi_harness.diff(a, b):
                 failures.append(f'{profile} preferences: differs from the reference: {problem}')

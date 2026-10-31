@@ -108,22 +108,45 @@ final class NSWorkspace {
     static let shared = NSWorkspace()
     func openDocument(atPath path: String, applicationIdentifiers: [String]) -> Bool { precondition(applicationIdentifiers == ["com.microsoft.Word"]); launches += 1; return true }
 }
+// The failure of a script, with the editor's message.
+enum StudyDocumentError: Error {
+    case failed(String)
+    static func exception(of error: Error) -> NSException {
+        guard case .failed(let reason)? = error as? StudyDocumentError else {
+            return NSException(name: .genericException, reason: (error as NSError).localizedDescription, userInfo: nil)
+        }
+        return NSException(name: .genericException, reason: reason, userInfo: nil)
+    }
+}
 PRELUDE
 final class Reports: NSObject {
     let templateNameStorage = NSMutableString(string: "")
     class func wordTemplatesList() -> NSMutableArray! { NSMutableArray(array: ["Synthetic.docx"]) }
     class func resolvedDatabaseWordTemplatesDirPath() -> String! { templates }
-    class func _runAppleScript(_ source: String!, withArguments args: NSArray!) -> Any! {
+    /// Word's part of the merge: the checks of what it is handed, then its
+    /// output; whether the editor cancelled once it had written.
+    class func merge(_ args: [Any]?) -> (result: Any?, cancelled: Bool) {
         scripts += 1
         let arguments = args as! [String]
         precondition(arguments[2].hasSuffix("-template.docx") && arguments[2].contains("horos-report-template-"), "unique private template")
         precondition((try? FileManager.default.attributesOfItem(atPath: arguments[2]))?[.type] as? String == FileAttributeType.typeRegular.rawValue, "template exists")
         precondition(arguments[1].hasSuffix("-merged.docx") && arguments[1].contains("horos-report-template-"), "unique private output")
         precondition(FileManager.default.contentsEqual(atPath: arguments[1], andPath: arguments[2]), "output exists before Word opens it")
-        if missingConfirmation { return nil }
+        if missingConfirmation { return (nil, false) }
         precondition((try? "controlled merged bytes".write(toFile: arguments[1], atomically: true, encoding: .utf8)) != nil, "output")
-        if cancelMerge { NSException(name: NSExceptionName("Controlled cancellation"), reason: "Cancelled (-128)", userInfo: nil).raise() }
-        return NSNumber(value: true)
+        return (NSNumber(value: true), cancelMerge)
+    }
+    // A revision whose script raised its failure.
+    class func _runAppleScript(_ source: String!, withArguments args: NSArray!) -> Any! {
+        let merged = merge(args as? [Any])
+        if merged.cancelled { NSException(name: NSExceptionName("Controlled cancellation"), reason: "Cancelled (-128)", userInfo: nil).raise() }
+        return merged.result
+    }
+    // A revision whose script throws its failure.
+    class func runAppleScript(_ source: String?, withArguments args: [Any]?) throws -> Any? {
+        let merged = merge(args)
+        if merged.cancelled { throw StudyDocumentError.failed("Cancelled (-128)") }
+        return merged.result
     }
     func generateWordReportMergeData(forStudy study: NSManagedObject!, toPath path: String!) -> String! { dataWrites += 1; return path }
 METHOD

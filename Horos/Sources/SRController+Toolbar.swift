@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 
 private let MIPToolbarIdentifier = "SR Toolbar Identifier"
 private let QTExportToolbarItemIdentifier = "QTExport.pdf"
@@ -94,19 +95,21 @@ extension SRController {
     @IBAction func ApplyGeometrieSettings(_ sender: Any?) {
         SRGeometrieSettingsWindow?.orderOut(sender)
         if ((sender as AnyObject?)?.tag ?? 0) == 0 { return }
-        let defaults = UserDefaults.standard
-        defaults.set(distanceValue?.doubleValue ?? 0, forKey: "DISTANCETOSCREEN")
-        defaults.set(heightValue?.doubleValue ?? 0, forKey: "SCREENHEIGHT")
-        defaults.set(eyeDistance?.doubleValue ?? 0, forKey: "EYESEPARATION")
+        let preferences = processGraph.preferences
+        preferences.set(distanceValue?.doubleValue ?? 0, for: VolumeRenderingPreferences.distanceToScreen)
+        preferences.set(heightValue?.doubleValue ?? 0, for: VolumeRenderingPreferences.screenHeight)
+        preferences.set(eyeDistance?.doubleValue ?? 0, for: VolumeRenderingPreferences.eyeSeparation)
         srView?.horosSetStereoScreen(height: heightValue?.doubleValue ?? 0, distance: distanceValue?.doubleValue ?? 0,
                                      eyeSeparation: eyeDistance?.doubleValue ?? 0)
     }
 
-    @objc func horosFillStereoGeometry() {
-        let defaults = UserDefaults.standard
-        if defaults.object(forKey: "DISTANCETOSCREEN") != nil { distanceValue?.doubleValue = defaults.double(forKey: "DISTANCETOSCREEN") }
-        if defaults.object(forKey: "SCREENHEIGHT") != nil { heightValue?.doubleValue = defaults.double(forKey: "SCREENHEIGHT") }
-        if defaults.object(forKey: "EYESEPARATION") != nil { eyeDistance?.doubleValue = defaults.double(forKey: "EYESEPARATION") }
+    func horosFillStereoGeometry() {
+        let preferences = processGraph.preferences
+        // A field keeps its nib's value until the geometry was applied once.
+        for (field, key) in [(distanceValue, VolumeRenderingPreferences.distanceToScreen), (heightValue, VolumeRenderingPreferences.screenHeight),
+                             (eyeDistance, VolumeRenderingPreferences.eyeSeparation)] where key.isStored(in: preferences) {
+            field?.doubleValue = preferences[key]
+        }
     }
 
     /// An item of the toolbar whose view is one of the nib's.
@@ -123,7 +126,10 @@ extension SRController {
         item.action = action
     }
 
-    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier itemIdent: NSToolbarItem.Identifier,
+    // The NSToolbarDelegate and NSToolbarItemValidation methods are
+    // @usableFromInline, as Swift asks of the witnesses of a @usableFromInline
+    // class (SRController is one so that a Release build exports it).
+    @usableFromInline func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier itemIdent: NSToolbarItem.Identifier,
                  willBeInsertedIntoToolbar willBeInserted: Bool) -> NSToolbarItem? {
         // Required delegate method:  Given an item identifier, this method returns an item
         // The toolbar will use this method to obtain toolbar items that can be displayed in the customization sheet, or in the toolbar itself
@@ -213,7 +219,7 @@ extension SRController {
         return toolbarItem
     }
 
-    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+    @usableFromInline func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         // Required delegate method:  Returns the ordered list of items to be shown in the toolbar by default
         // If during the toolbar's initialization, no overriding values are found in the user defaults, or if the
         // user chooses to revert to the default items this set will be used
@@ -232,7 +238,7 @@ extension SRController {
                 BackgroundColorViewToolbarItemIdentifier].map { NSToolbarItem.Identifier($0) }
     }
 
-    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+    @usableFromInline func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         // Required delegate method:  Returns the list of all allowed items by identifier.  By default, the toolbar
         // does not assume any items are allowed, even the separator.  So, every allowed item must be explicitly listed
         // The set of allowed items is used to construct the customization palette
@@ -264,14 +270,14 @@ extension SRController {
         return array.compactMap { ($0 as? String).map { NSToolbarItem.Identifier($0) } }
     }
 
-    func toolbarWillAddItem(_ notification: Notification) {
+    @usableFromInline func toolbarWillAddItem(_ notification: Notification) {
     }
 
-    func toolbarDidRemoveItem(_ notification: Notification) {
+    @usableFromInline func toolbarDidRemoveItem(_ notification: Notification) {
     }
 
     @objc(validateToolbarItem:)
-    func validateToolbarItem(_ item: NSToolbarItem) -> Bool {
+    @usableFromInline func validateToolbarItem(_ item: NSToolbarItem) -> Bool {
         // Optional method:  This message is sent to us since we are the target of some toolbar item actions
         // (for example:  of the save items action)
         if item.itemIdentifier.rawValue == BSRSettingsToolbarItemIdentifier {

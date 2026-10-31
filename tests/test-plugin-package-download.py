@@ -346,7 +346,9 @@ with tempfile.TemporaryDirectory(prefix='horos-plugin-package-') as directory:
     negative = subprocess.run([str(p/'installation-negative'), str(negative_root)], capture_output=True, text=True, timeout=30)
     assert negative.returncode != 0 and 'replaced the plugins parent' in negative.stdout, negative.stdout + negative.stderr
     print('PASS: historical parent-directory destination fails the filesystem preservation control')
-    subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-strict-concurrency=complete', str(p/'main.swift'), '-o', str(p/'test')], check=True)
+    # The download answers through the main run loop of MainActorCallbacks.swift.
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-strict-concurrency=complete', str(p/'main.swift'),
+                    str(root / 'Horos/Sources/MainActorCallbacks.swift'), '-o', str(p/'test')], check=True)
     subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1', '-subj', '/CN=localhost', '-keyout', str(p/'key.pem'), '-out', str(p/'cert.pem')], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     http = ThreadingLocalHTTPServer(('127.0.0.1', 0), Handler)
     tls = ThreadingLocalHTTPServer(('127.0.0.1', 0), Handler)

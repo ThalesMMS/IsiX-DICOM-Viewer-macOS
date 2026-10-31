@@ -327,12 +327,10 @@ public final class OSIROIManager: NSObject {
         _rebuildOSIROIs()
     }
 
-    @objc(_isROIManaged:)
     private func _isROIManaged(_ roi: ROI?) -> Bool {
         return _watchedROIs?.contains(roi as Any) ?? false
     }
 
-    @objc(_rebuildOSIROIs)
     private func _rebuildOSIROIs() {
         var watchedROIs: NSArray? = nil
 
@@ -374,7 +372,6 @@ public final class OSIROIManager: NSObject {
     }
 
     // returned watchedROI is the OsiriX rois the returned OSIROIs are based on
-    @objc(_ROIListForWatchedOsiriXROIs:)
     private func _ROIList(forWatchedOsiriXROIs watchedROIs: AutoreleasingUnsafeMutablePointer<NSArray?>?) -> NSArray {
         let newROIs = NSMutableArray()
         var mutableWatchedROIs: NSMutableArray? = nil
@@ -427,7 +424,6 @@ public final class OSIROIManager: NSObject {
         return newROIs
     }
 
-    @objc(_coalescedROIListForWatchedOsiriXROIs:)
     private func _coalescedROIList(forWatchedOsiriXROIs watchedROIs: AutoreleasingUnsafeMutablePointer<NSArray?>?) -> NSArray {
         let roiList = _ROIList(forWatchedOsiriXROIs: watchedROIs)
         let roiNames = NSMutableSet()

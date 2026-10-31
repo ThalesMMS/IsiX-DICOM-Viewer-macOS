@@ -16,6 +16,8 @@ final class ViewerImageViews: @unchecked Sendable {
     var seriesView: SeriesView?
     var updateTilingViews: Bool = false
     var openingScaleToFitRequested: Bool = false
+    /// The fit asked at opening, waiting for the layout to settle.
+    let openingScaleToFit = DeferredCalls()
     var openingContentBoundsByPixels: [AnyHashable: Any]?
 }
 

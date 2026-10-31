@@ -39,6 +39,7 @@
 
 import Cocoa
 import IsiXSegmentation
+import IsiXPreferences
 
 // The preview and the computation of the region growing window, through
 // ITKSegmentation3D: from the seed, with the chosen algorithm and parameters,
@@ -68,7 +69,7 @@ extension ITKSegmentation3DController {
 
     /// The ROI type the preference names, as the filter takes it.
     private var growingRegionROIType: ToolMode {
-        let raw = UserDefaults.standard.integer(forKey: "growingRegionROIType")
+        let raw = processGraph.preferences[VolumeRenderingPreferences.growingRegionROIType]
         return ToolMode(rawValue: ToolMode.RawValue(truncatingIfNeeded: raw))!
     }
 
@@ -81,20 +82,21 @@ extension ITKSegmentation3DController {
     /// the ROI directly.
     @IBAction @objc(preview:)
     func preview(_ sender: Any!) {
-        let defaults = UserDefaults.standard
-        defaults.set(RegionGrowingRules.roundedInterval(defaults.float(forKey: "growingRegionInterval")), forKey: "growingRegionInterval")
+        let preferences = processGraph.preferences
+        preferences.set(RegionGrowingRules.roundedInterval(preferences[VolumeRenderingPreferences.growingRegionInterval]),
+                        for: VolumeRenderingPreferences.growingRegionInterval)
 
         guard let viewer = viewerController else { return }
 
         let name = RegionGrowingRules.previewROIName(fromViewerClick: (sender as AnyObject?) === viewer,
                                                      growingModeTag: growingMode?.selectedCell()?.tag ?? 0,
-                                                     directlyGenerate: defaults.bool(forKey: "segmentationDirectlyGenerate"),
+                                                     directlyGenerate: preferences[VolumeRenderingPreferences.segmentationDirectlyGenerate],
                                                      typedName: newNameField?.stringValue ?? "", previewName: Self.previewName)
 
         viewer.roiDelete(withName: Self.previewName)
 
-        if !RegionGrowingRules.previews(previewGrowingRegion: defaults.bool(forKey: "previewGrowingRegion"),
-                                        directlyGenerate: defaults.bool(forKey: "segmentationDirectlyGenerate")) { return }
+        if !RegionGrowingRules.previews(previewGrowingRegion: preferences[VolumeRenderingPreferences.previewGrowingRegion],
+                                        directlyGenerate: preferences[VolumeRenderingPreferences.segmentationDirectlyGenerate]) { return }
 
         if !RegionGrowingRules.parametersProvided(parameterTexts) {
             return
@@ -106,11 +108,11 @@ extension ITKSegmentation3DController {
 
         let previousMovieIndex = viewer.curMovieIndex()
 
-        let slice = RegionGrowingRules.previewSlice(preview3D: defaults.bool(forKey: "preview3DGrowingRegion"),
+        let slice = RegionGrowingRules.previewSlice(preview3D: preferences[VolumeRenderingPreferences.preview3DGrowingRegion],
                                                     currentImage: Int(viewer.imageView()?.curImage ?? 0))
 
         for i in 0 ..< Int32(viewer.maxMovieIndex()) {
-            if defaults.bool(forKey: "growingRegionPropagateIn4D") {
+            if preferences[VolumeRenderingPreferences.growingRegionPropagateIn4D] {
                 viewer.setMovieIndex(Int16(truncatingIfNeeded: i))
             }
 
@@ -133,11 +135,11 @@ extension ITKSegmentation3DController {
                                     name,
                                     // previews never merge existing ROIs
                                     RegionGrowingRules.mergesExistingROIs(name: name, previewName: Self.previewName,
-                                                                          preference: defaults.bool(forKey: "mergeWithExistingROIs")))
+                                                                          preference: preferences[VolumeRenderingPreferences.mergeWithExistingROIs]))
             }
         }
 
-        if defaults.bool(forKey: "growingRegionPropagateIn4D") {
+        if preferences[VolumeRenderingPreferences.growingRegionPropagateIn4D] {
             viewer.setMovieIndex(previousMovieIndex)
         }
     }
@@ -161,7 +163,7 @@ extension ITKSegmentation3DController {
         }
 
         guard let viewer = viewerController else { return }
-        let defaults = UserDefaults.standard
+        let preferences = processGraph.preferences
 
         viewer.roiDelete(withName: Self.previewName)
 
@@ -173,7 +175,7 @@ extension ITKSegmentation3DController {
                                                     currentImage: Int(viewer.imageView()?.curImage ?? 0))
 
         for i in 0 ..< Int32(viewer.maxMovieIndex()) {
-            if defaults.bool(forKey: "growingRegionPropagateIn4D") {
+            if preferences[VolumeRenderingPreferences.growingRegionPropagateIn4D] {
                 viewer.setMovieIndex(Int16(truncatingIfNeeded: i))
             }
 
@@ -213,7 +215,7 @@ extension ITKSegmentation3DController {
                                     growingRegionROIType,
                                     growingResolution,
                                     newNameField?.stringValue ?? "",
-                                    defaults.bool(forKey: "mergeWithExistingROIs"))
+                                    preferences[VolumeRenderingPreferences.mergeWithExistingROIs])
 
                 if let v {
                     var wl: Float = 0, ww: Float = 0
@@ -225,7 +227,7 @@ extension ITKSegmentation3DController {
             }
         }
 
-        if defaults.bool(forKey: "growingRegionPropagateIn4D") {
+        if preferences[VolumeRenderingPreferences.growingRegionPropagateIn4D] {
             viewer.setMovieIndex(previousMovieIndex)
         }
 

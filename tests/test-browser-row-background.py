@@ -5,8 +5,8 @@ A long patient/study list must not gain **black areas
 covering names** while scrolling, selecting or resizing, in light and dark and on
 Retina.
 
-`-[BrowserController outlineView:willDisplayCell:...]`
-(BrowserController+OutlineDataSource.swift) fills the name cell when
+`-[BrowserController outlineView:willDisplayCell:...]` hands the cell to the
+study list's cells (StudyListCellStyler.swift), which fill the name cell when
 `displaySamePatientWithColorBackground` is on and the row above is the same
 patient. It filled it with `disabledControlTextColor` — a **text** colour. That
 is pure black at 25 % alpha in Aqua and pure white at 25 % in Dark Aqua, so the
@@ -30,10 +30,10 @@ import sources
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-browser = (root / 'Horos/Sources/BrowserController+OutlineDataSource.swift').read_text()
+browser = (root / 'Horos/Sources/StudyListCellStyler.swift').read_text()
 block = re.search(r'textCell\?\.drawsBackground = background\n\s*if background \{(.*?)\n\s*\}', browser, re.S)
 if not block:
-    failures.append('the same-patient background is no longer set in BrowserController+OutlineDataSource.swift')
+    failures.append('the same-patient background is no longer set in StudyListCellStyler.swift')
     colour = None
 else:
     named = re.search(r'textCell\?\.backgroundColor = NSColor\.(\w+)', block.group(1))

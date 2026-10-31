@@ -148,8 +148,9 @@ public final class QueryArrayController: NSObject {
     }
 
     private func showQueryAlert(_ message: String, informative: String) {
-        // The query may run on a worker thread: the alert is the main thread's.
-        onMainActorSync {
+        // The query may run on a worker thread: the alert is the main thread's,
+        // shown from its run loop so that the main queue goes on meanwhile.
+        onMainRunLoopSync {
             // +alertWithMessageText:defaultButton:@"OK"…informativeTextWithFormat:@"%@", text
             let alert = NSAlert()
             alert.messageText = message
@@ -169,8 +170,10 @@ public final class QueryArrayController: NSObject {
         do {
             var sameAddress = false
             try HorosObjCException.perform {
-                if UserDefaults.standard.bool(forKey: "STORESCP") {
-                    if Int(self.portIntValue) == UserDefaults.standard.integer(forKey: "AEPORT") {
+                let preferences = PreferencesSource.process.preferences
+                if preferences[NetworkPreferences.storeSCP] {
+                    // The port as integer(forKey:) read its text.
+                    if Int(self.portIntValue) == preferences[NetworkPreferences.aePort.reading(as: Int.self)] {
                         let host = DefaultPreferences.currentHost()
                         for s in host.names {
                             if self.hostname == s {
@@ -245,7 +248,7 @@ public final class QueryArrayController: NSObject {
         if !Thread.current.isCancelled {
             queriesValue = nil
 
-            if !UserDefaults.standard.bool(forKey: "dontFilterQueryStudiesForUniqueInstanceUID") {
+            if !PreferencesSource.process.preferences[NetworkPreferences.keepsDuplicateStudyInstanceUIDs] {
                 let tempResult = NSMutableArray(array: root.children() ?? [])
                 let uidsArray = NSMutableArray(array: (tempResult.value(forKey: "uid") as? NSArray) ?? NSArray())
                 let sortedUidsArray = uidsArray.sortedArray(using: #selector(NSString.compare(_:)))

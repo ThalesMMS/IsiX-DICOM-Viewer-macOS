@@ -25,6 +25,8 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import retrieve_inventory_harness  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -75,7 +77,7 @@ with tempfile.TemporaryDirectory(prefix='horos-inventory-overlap-') as tmp:
     p = Path(tmp)
     (p / 'main.swift').write_text(driver)
     (p / 'db').mkdir()
-    subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', str(root / 'Horos/Sources/RetrieveInventory.swift'),
+    subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', *retrieve_inventory_harness.swiftc_arguments(p / 'harness'),
                     str(p / 'main.swift'), '-o', str(p / 'test')], check=True)
     run = subprocess.run([str(p / 'test'), str(p / 'db')], capture_output=True, text=True, timeout=60)
     print((run.stdout + run.stderr).strip())
@@ -96,13 +98,17 @@ move = block('func move(_ dictionary: [AnyHashable: Any]!, retrieveMode: Int32)'
 check('if localRetrieve && !dicomweb { beginRetrieveInventory(forCGET: get) }' in move,
       'the move does not list a DICOMweb study before its transfer')
 retrieve = block('func retrieveDICOMweb() -> Bool')
-check(retrieve.index('listing.start()') < retrieve.index('if whole && !perSeries { session.enqueue(base) }'),
+# ActivityThread.startUnlisted starts the listing's thread as it makes it.
+check(retrieve.index('let listing = ActivityThread.startUnlisted(name: "DICOMweb listing")') < retrieve.index('if whole && !perSeries { session.enqueue(base) }'),
       'the listing starts before the transfer')
 check('let whole = localUIDs.isEmpty' in retrieve, 'nothing local: the whole study or series at once')
 check('inventory.markDiscovery("in progress")' in retrieve, 'the inventory is in progress during the transfer')
 loop = retrieve[retrieve.index('while true {'):retrieve.index('while !listing.isFinished')]
-check('collector.drainChildren()' in loop and 'session.enqueue("studies/\\(study)/series/\\(seriesUID)/instances/\\(uid)"' in loop,
+check('collector.drainChildren()' in loop and
+      'session.enqueue(DICOMwebRetrieveRequest.path(study: study, series: seriesUID, instance: uid), uid: uid, series: seriesUID)' in loop,
       'each listed series asks for its missing instances while the listing goes on')
+requests = (root / 'Modules/IsiXDICOMNetwork/Sources/DICOMwebRetrieveQueue.swift').read_text()
+check('path += "/instances/\\(instance)"' in requests, 'an instance is asked for under its series')
 after = retrieve[retrieve.index('while !listing.isFinished'):]
 check(after.index('inventory.confirm(instances: instances') < after.index('inventory.unreceivedSeries'),
       'the listing is given to the inventory before the second pass')

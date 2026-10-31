@@ -57,7 +57,7 @@ int main( int argc, const char **argv) { @autoreleasepool {
     check( ![HorosROILabelPresentation compactMeasurement: nil primaryAngle: NO]);
     check( [[HorosROILabelPresentation compactMeasurement: @"Length: 40.0 µm" primaryAngle: NO] isEqual: @"40.0 µm"]);
     // Statistics hidden in the Viewers pane leave the label, not its source lines.
-    ROI *st = newROI( tROI);
+    ROI *st = newROI( tOval);
     st.textualBoxLine1 = nil;
     [st setTextualBoxLine: 2 area: @"Area: 25.000 mm²" width: @"5.000 mm" height: @"5.000 mm"];
     [st setStatisticsLines: 3 mean: 22.5 sdev: 1 sum: 100 median: 22 min: 1 max: 40 skewness: 0 kurtosis: 0 unit: @" HU " fused: NO];
@@ -67,6 +67,10 @@ int main( int argc, const char **argv) { @autoreleasepool {
     check( [st.textualBoxLine4 isEqual: @"Min: 1.000 HU Max: 40.000 HU"]);
     check( [st.textualBoxLine5 isEqual: @"Fused Image Mean: 2.000 SUV SDev: 1.000 SUV Sum: 8 SUV Median: N/A SUV"]);
     NSArray *all = @[@"", st.textualBoxLine2, st.textualBoxLine3, st.textualBoxLine4, st.textualBoxLine5, st.textualBoxLine6 ?: @""];
+    check( [[st displayedTextualLines] isEqual: all]);
+    prefer( @{@"ROIPRIMARYMEASUREMENTONLY": @YES});
+    check( [[st displayedTextualLines] isEqual: @[@"25.000 mm² (W: 5.000 mm H: 5.000 mm)"]]);
+    prefer( @{@"ROIPRIMARYMEASUREMENTONLY": @NO});
     check( [[st displayedTextualLines] isEqual: all]);
     NSMutableDictionary *meanOnly = [NSMutableDictionary dictionaryWithDictionary: @{@"ROIPRIMARYMEASUREMENTONLY": @NO}];
     for( NSString *k in @[@"Area", @"WH", @"SDev", @"Sum", @"Median", @"Min", @"Max"]) meanOnly[[HorosROILabelPresentation defaultsKeyForStatistic: k]] = @NO;

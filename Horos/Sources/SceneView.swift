@@ -20,7 +20,11 @@ import IsiXVolumeRendering
 /// the adapter's interactor as VTK's trackball style did, and the 2D actors,
 /// the orientation cube and a picked prop's outline are drawn on the
 /// annotation overlay.
-@objc(HorosSceneView)
+/// @usableFromInline because plugins built against the former SDK look up its
+/// Objective-C class: without it, the class symbol of an internal Swift class is
+/// private external, which a Release build, having no testability, leaves
+/// unexported. The attribute gives it public linkage and changes nothing else.
+@objc(HorosSceneView) @usableFromInline
 class HorosSceneView: NSView {
     /// The renderer, the render window and the interactor.
     let scene: IsiXVTKScene
@@ -386,23 +390,6 @@ class HorosSceneView: NSView {
         if logo { stampLogo(on: bitmap, width: width, height: height, rowBytes: rep.bytesPerRow) }
         image.addRepresentation(rep)
         return image
-    }
-
-    /// Adds the files a 3D export wrote to the database, and sends them or
-    /// marks them as the export preferences ask.
-    static func importExportedFiles(_ paths: [String]) {
-        guard !paths.isEmpty, let browser = BrowserController.currentBrowser() else { return }
-        var objects = browser.database?.addFiles(atPaths: paths, postNotifications: true, dicomOnly: true,
-                                                 rereadExistingItems: true, generatedByOsiriX: true)
-        objects = browser.database?.objects(withIDs: objects)
-        if UserDefaults.standard.bool(forKey: "afterExportSendToDICOMNode") {
-            browser.selectServer(objects)
-        }
-        if UserDefaults.standard.bool(forKey: "afterExportMarkThemAsKeyImages") {
-            for case let image as NSManagedObject in (objects as NSArray?) ?? NSArray() {
-                image.setValue(NSNumber(value: true), forKey: "isKeyImage")
-            }
-        }
     }
 
     /// Redraws the overlay after each render.

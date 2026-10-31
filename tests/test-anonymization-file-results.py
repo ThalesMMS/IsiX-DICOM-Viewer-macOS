@@ -25,5 +25,5 @@ import Foundation
 '''
 with tempfile.TemporaryDirectory(prefix='horos-file-results-') as tmp:
  p=Path(tmp);(p/'test.swift').write_text(code)
- subprocess.run(['xcrun','swiftc',str(root/'Horos/Sources/AnonymizationErrorPresenter.swift'),str(p/'test.swift'),'-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','swiftc',str(root/'Horos/Sources/AnonymizationErrorPresenter.swift'),str(root/'Horos/Sources/MainActorCallbacks.swift'),str(p/'test.swift'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

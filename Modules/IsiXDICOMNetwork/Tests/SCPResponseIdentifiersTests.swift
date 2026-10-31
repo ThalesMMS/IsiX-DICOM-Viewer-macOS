@@ -19,8 +19,8 @@ struct SCPResponseIdentifiersTests {
     /// A record read through key paths of a dictionary.
     struct Record: SCPResponseRecord {
         let values: [String: Any]
-        func value(forKeyPath keyPath: String) -> Any? { values[keyPath] }
-        func primitiveValue(forKey key: String) -> Any? { values[key] }
+        func value(at keyPath: String) -> Any? { values[keyPath] }
+        func primitiveValue(of key: String) -> Any? { values[key] }
         func dicomDate(_ date: Any) -> String? { "20260102" }
         func dicomTime(_ date: Any) -> String? { "030405" }
         func isImageStorage(_ uid: Any?) -> Bool { (uid as? String) == "1.2.840.10008.5.1.4.1.1.2" }

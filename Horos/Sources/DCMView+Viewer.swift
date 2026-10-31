@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
 
 // What a DCMView asks of the window it is in: its controller, whether that is
 // a 2D viewer, the key image flag, the tiles of the mosaic, the menus, and the
@@ -139,31 +140,12 @@ extension DCMView {
     @objc(reapplyWindowLevel)
     public dynamic func reapplyWindowLevel() {
         let curDCM = self.curDCM
-        let suvConverted = curDCM?.suvConverted ?? false
-        if self.horos_curWL != 0 && self.horos_curWW != 0 && self.horos_curWLWWSUVConverted != suvConverted {
-            if self.horos_curWLWWSUVFactor > 0 {
-                if self.horos_curWLWWSUVConverted {
-                    self.horos_curWL /= self.horos_curWLWWSUVFactor
-                    self.horos_curWW /= self.horos_curWLWWSUVFactor
-                } else {
-                    self.horos_curWLWWSUVFactor = 1.0
-                    if self.horos_curWLWWSUVConverted && self.is2DViewer() {
-                        self.horos_curWLWWSUVFactor = viewerMessages(self.windowController())?.viewerFactorPET2SUV() ?? 0
-                    }
-
-                    self.horos_curWL *= self.horos_curWLWWSUVFactor
-                    self.horos_curWW *= self.horos_curWLWWSUVFactor
-                }
-            }
-
-            self.horos_curWLWWSUVConverted = suvConverted
-            self.horos_curWLWWSUVFactor = 1.0
-            if self.horos_curWLWWSUVConverted && self.is2DViewer() {
-                self.horos_curWLWWSUVFactor = viewerMessages(self.windowController())?.viewerFactorPET2SUV() ?? 0
-            }
+        var state = self.windowLevelState
+        state.reapply(imageSUVConverted: curDCM?.suvConverted ?? false) {
+            self.is2DViewer() ? (viewerMessages(self.windowController())?.viewerFactorPET2SUV() ?? 0) : 1
         }
-
-        curDCM?.changeWLWW(self.horos_curWL, self.horos_curWW)
+        self.windowLevelState = state
+        curDCM?.changeWLWW(self.windowLevelState.level, self.windowLevelState.width)
     }
 
     /// DCMView+ROIEditing.swift answers. MPRDCMView implements this selector as

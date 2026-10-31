@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """An archive dropped on the browser is expanded where only this process can see.
 
-`-[BrowserController addFilesAndFolderToDatabase:]` (now in
-BrowserController+DatabaseImport.swift) unzipped into
+`-[BrowserController addFilesAndFolderToDatabase:]` (whose archives
+ArchiveImport.swift expands now) unzipped into
 `/tmp/unzip_folder`: one fixed, world-visible path, removed and recreated on
 every archive with every result ignored.
 
@@ -25,7 +25,7 @@ from sources import class_text
 root = Path(__file__).resolve().parents[1]
 failures = []
 browser = class_text('BrowserController')
-importing = (root / 'Horos/Sources/BrowserController+DatabaseImport.swift').read_text()
+importing = (root / 'Horos/Sources/ArchiveImport.swift').read_text()
 
 
 def body(signature, source):
@@ -56,11 +56,11 @@ if 'uniqueZipFolder' in code:
     failures.append('the destination name still comes from a counter that restarts every launch, '
                     'so it collides with a folder that has not been imported yet')
 
-expand = body('nonisolated func expandArchiveThread(_ parameters: NSDictionary!) {', importing)
+expand = body('nonisolated private func expand(_ expansion: ArchiveExpansion) {', importing)
 if not expand:
     failures.append('there is no single place that expands an archive dropped on the browser')
 else:
-    if 'database.incomingDirPath()' not in expand or '.horos-extract-' not in expand:
+    if 'admissionFolder(of: database)' not in expand or 'folder.hiddenPath(named: "horos-extract-"' not in expand:
         failures.append('the working directory is not hidden on the destination database volume')
     if 'UUID' not in expand:
         failures.append('the working directory or the destination is not unique, so two archives '

@@ -41,58 +41,46 @@ import Foundation
 
 /// The factory settings: what the application registers beneath the user's own
 /// preferences, and what the Decompress helper starts from before it reads the
-/// application's. Both build the same dictionary, except where the helper has
-/// no use for a value (`viewer` false): it gets no colour tables (they are
+/// application's. Both are built from the catalog, where each key is declared
+/// with its value or the rule that makes it, except where the helper has no
+/// use for a value (`viewer` false): it gets no colour tables (they are
 /// resources of the application), no AE title made from the host name, and
 /// does not copy files into the database.
 @objc(IsiXDefaultPreferences)
 public final class DefaultPreferences: NSObject {
+    /// Every key of the catalog, area by area; each name once.
+    public static let catalog: [any CataloguedPreference] = ImagePresetPreferences.catalog + ApplicationPreferences.catalog
+        + DatabasePreferences.catalog + NetworkPreferences.catalog + ReconstructionPreferences.catalog
+        + ViewerPreferences.catalog + VolumeRenderingPreferences.catalog + WebPortalPreferences.catalog
+
     /// A new dictionary at each call, which the caller may change. `viewer` is
     /// the application, false for the Decompress helper; `appStore` the build for
-    /// the Mac App Store.
+    /// the Mac App Store. A super-sampling the user stored below the default is
+    /// raised to it in the standard preferences.
     @objc(defaultsForViewer:appStore:)
     public static func defaults(forViewer viewer: Bool, appStore: Bool) -> NSMutableDictionary {
+        defaults(in: .current(viewer: viewer, appStore: appStore), store: UserDefaults.standard)
+    }
+
+    /// The registered values of the catalog in `environment`, raising in `store`
+    /// a super-sampling stored below the default.
+    public static func defaults(in environment: PreferenceEnvironment, store: any PreferenceStore) -> NSMutableDictionary {
         let values = NSMutableDictionary()
-        addImagePresets(to: values, viewer: viewer)
-        addNetworkIdentity(to: values, viewer: viewer)
-        addSettings(to: values, viewer: viewer, appStore: appStore)
+        for key in catalog {
+            if let value = key.registration?.value(in: environment) {
+                values[key.name] = value
+            }
+        }
+        let superSampling = VolumeRenderingPreferences.superSampling
+        let minimum = Float.reading(values[superSampling.name])
+        if store[superSampling] < minimum {
+            store.set(minimum, for: superSampling)
+        }
         return values
     }
 
-    /// The example DICOM node, the routing calendar, and this computer's AE
-    /// title (its host name up to the first dot, at most 16 characters, in the
-    /// application; ISIX otherwise) and port.
-    private static func addNetworkIdentity(to values: NSMutableDictionary, viewer: Bool) {
-        // ** PREFERENCES - SERVERS
-        let server = NSMutableDictionary()
-        server["Activated"] = "1"
-        server["Address"] = "127.0.0.1"
-        server["AETitle"] = "ISIX"
-        server["Port"] = "4444"
-        server["TransferSyntax"] = NSNumber(value: Int32(0))
-        server["Description"] = NSLocalizedString("This is an example", comment: "")
-        values["SERVERS"] = NSMutableArray(object: server)
-        values["OSIRIXSERVERS"] = NSMutableArray()
-
-        //routing calendars
-        values["ROUTING CALENDARS"] = NSMutableArray(object: "Osirix")
-
-        // ** AETITLE
-        if viewer, let name = hostName() {
-            var title = name as NSString
-            let dot = title.range(of: ".")
-            if dot.location != NSNotFound { title = title.substring(to: dot.location) as NSString }
-            if title.length > 16 { title = title.substring(to: 16) as NSString }
-            values["AETITLE"] = title
-        }
-        if values["AETITLE"] == nil {
-            values["AETITLE"] = "ISIX"
-        }
-
-        values["AEPORT"] = "11112"
-    }
-
-    private static func hostName() -> String? {
+    /// This computer's host name; nil when it cannot be read as UTF-8.
+    static func hostName() -> String? {
         var name = [CChar](repeating: 0, count: Int(_POSIX_HOST_NAME_MAX) + 1)
         gethostname(&name, Int(_POSIX_HOST_NAME_MAX))
         return String(validating: name.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)

@@ -39,12 +39,15 @@
 
 import Cocoa
 import IsiXImaging
+import IsiXPreferences
 
 // The tools of DCMView and their cursors are implemented in Swift: an
 // extension of DCMView, with the same selectors. The
 // setters of the currentTool and currentToolRight properties and the accessors
-// of currentToolMiddle, in DCMView.swift, call the methods below. Which tool an event uses and which cursor a tool
-// shows are IsiXImaging's ViewInput rules.
+// of currentToolMiddle, in DCMView.swift, call the methods below. The tools of
+// the buttons are IsiXImaging's ViewerToolBindings, kept in the DEFAULT*TOOL
+// preferences through their typed keys; which tool an event uses and which
+// cursor a tool shows are IsiXImaging's ViewInput rules.
 
 extension DCMView {
 
@@ -54,8 +57,7 @@ extension DCMView {
     /// selected are released unless the new or the former tool works on ROIs,
     /// and a double-click with the zoom or rotate tool resets the zoom or
     /// turns the image.
-    @objc(horosSetCurrentTool:)
-    public dynamic func horosSetCurrentTool(_ i: ToolMode) {
+    public func horosSetCurrentTool(_ i: ToolMode) {
         if i != self.horos_currentTool { self.cancelLengthPlacement() }
         var keepROITool = (i == .tROISelector || i == .tRepulsor || self.horos_currentTool == .tROISelector || self.horos_currentTool == .tRepulsor)
 
@@ -63,7 +65,7 @@ extension DCMView {
         self.horos_currentTool = i
 
         if self.is2DViewer() {
-            UserDefaults.standard.set(Int(self.horos_currentTool.rawValue), forKey: "DEFAULTLEFTTOOL")
+            PreferencesSource.process.preferences.set(Int(self.horos_currentTool.rawValue), for: ViewerPreferences.defaultLeftTool)
         }
 
         self.stopROIEditingForce(true)
@@ -127,12 +129,11 @@ extension DCMView {
     }
 
     /// What -setRightTool: does; a 2D viewer keeps it for the next ones.
-    @objc(horosSetRightTool:)
-    public dynamic func horosSetRightTool(_ i: ToolMode) {
+    public func horosSetRightTool(_ i: ToolMode) {
         self.horos_currentToolRight = i
 
         if self.is2DViewer() {
-            UserDefaults.standard.set(Int(self.horos_currentToolRight.rawValue), forKey: "DEFAULTRIGHTTOOL")
+            PreferencesSource.process.preferences.set(Int(self.horos_currentToolRight.rawValue), for: ViewerPreferences.defaultRightTool)
         }
     }
 
@@ -141,12 +142,13 @@ extension DCMView {
     /// viewer's toolbar, those already open included.
     @objc(horosCurrentToolMiddle)
     public dynamic func horosCurrentToolMiddle() -> ToolMode {
-        return ToolMode(rawValue: Int16(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "DEFAULTMIDDLETOOL"))) ?? .tWL
+        let middle = ViewerToolBindings(left: 0, right: 0, middle: PreferencesSource.process.preferences[ViewerPreferences.defaultMiddleTool]).middle
+        return ToolMode(rawValue: middle) ?? .tWL
     }
 
     @objc(horosSetMiddleTool:)
     public dynamic func horosSetMiddleTool(_ i: ToolMode) {
-        UserDefaults.standard.set(Int(i.rawValue), forKey: "DEFAULTMIDDLETOOL")
+        PreferencesSource.process.preferences.set(Int(i.rawValue), for: ViewerPreferences.defaultMiddleTool)
     }
 
     @objc(gClickCountSetReset)
@@ -181,9 +183,9 @@ extension DCMView {
         // The middle tool is read only when the middle button is the one.
         let middle: Int16
         if case .other(let number) = button, number == 2 { middle = self.currentToolMiddle.rawValue } else { middle = ViewInput.Tool.translate }
-        let tool = ViewInput.tool(button: button, left: self.horos_currentTool.rawValue, right: self.horos_currentToolRight.rawValue,
-                                  middle: middle, modifiers: inputModifiers(event),
-                                  leftDrawsROIs: self.roiTool(self.horos_currentTool), hasBlending: self.blending != nil)
+        let bindings = ViewerToolBindings(left: Int(self.horos_currentTool.rawValue), right: Int(self.horos_currentToolRight.rawValue), middle: Int(middle))
+        let tool = bindings.tool(button: button, modifiers: inputModifiers(event),
+                                 leftDrawsROIs: self.roiTool(self.horos_currentTool), hasBlending: self.blending != nil)
         return ToolMode(rawValue: tool) ?? .tWL
     }
 
@@ -280,6 +282,9 @@ func inputModifiers(_ event: NSEvent?) -> ViewInput.Modifiers {
     @objc(adjustSlider) func inputAdjustSlider()
     @objc(adjustKeyImage) func inputAdjustKeyImage()
     @objc(showCurrentThumbnail:) func inputShowCurrentThumbnail(_ sender: AnyObject?)
+    @objc(applyOpacityString:) func inputApplyOpacityString(_ name: NSString?)
+    @objc(setCurWLWWMenu:) func inputSetCurWLWWMenu(_ name: NSString?)
+    @objc(fullScreenMenu:) func inputFullScreenMenu(_ sender: AnyObject?)
     @objc(windowWillClose) func inputWindowWillClose() -> Bool
     @objc(thickSlabController) func inputThickSlabController() -> AnyObject?
     @objc(setLowQuality:) func inputSetLowQuality(_ q: Bool)
@@ -327,30 +332,8 @@ func inputBeyondLast(_ index: Int, _ count: Int) -> Bool {
     return UInt(bitPattern: index) >= UInt(bitPattern: count)
 }
 
-/// The Objective-C exception a HorosObjCException.perform caught, logged as
+/// An exception HorosObjCException.caughtWithoutAllocation(_:) caught, logged as
 /// N2LogExceptionWithStackTrace did.
-func inputLogException(_ error: Error, _ function: String) {
-    if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-        _N2LogExceptionImpl(e, true, function)
-    }
-}
-
-/// Runs `body` as an Objective-C @try did, and answers the exception it
-/// raised, or nil. For the handlers that run at every mouse event: the call
-/// goes through HorosObjCPerformFunction and its context, without the block
-/// and the NSError HorosObjCException.perform allocates each time.
-func inputCatch(_ body: () -> Void) -> NSException? {
-    return withoutActuallyEscaping(body) { escapable in
-        var call = escapable
-        return withUnsafeMutablePointer(to: &call) { pointer in
-            HorosObjCPerformFunction({ context in
-                context!.assumingMemoryBound(to: (() -> Void).self).pointee()
-            }, pointer)
-        }
-    }
-}
-
-/// An exception inputCatch(_:) caught, logged as N2LogExceptionWithStackTrace did.
 func inputLogException(_ exception: NSException?, _ function: String) {
     if let exception {
         _N2LogExceptionImpl(exception, true, function)

@@ -247,7 +247,7 @@ final class IsiXPluginHost: NSObject, IsiXHostBackend, IsiXNetworkBackend {
         if let id, let viewer = displayedViewers().first(where: { identities.knownID(of: $0) == id }) {
             return viewer.window
         }
-        return BrowserController.currentBrowser()?.window
+        return BrowserDatabaseSource.process.processGraph.currentBrowser?.window
     }
 
     // MARK: events

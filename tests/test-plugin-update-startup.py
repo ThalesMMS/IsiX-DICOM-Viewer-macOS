@@ -28,7 +28,11 @@ def block(source, marker):
 
 
 manager = (root / 'Horos/Sources/PluginManager.swift').read_text()
-app = (root / 'Horos/Sources/AppController.swift').read_text()
+# The launch is ApplicationLifecycle's; it reads the catalog's key and keeps
+# the plugin manager in Once.
+app = (root / 'Horos/Sources/ApplicationLifecycle.swift').read_text()
+catalog = (root / 'Modules/IsiXPreferences/Sources/ApplicationPreferences.swift').read_text()
+assert 'checkForUpdatesPlugins = PreferenceKey<Bool>("checkForUpdatesPlugins"' in catalog, 'the catalog key is not checkForUpdatesPlugins'
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import default_preferences  # noqa: E402
 registered = default_preferences.registered().get('checkForUpdatesPlugins')
@@ -36,7 +40,9 @@ assert registered in ('0', '1'), 'plugin update default registration missing'
 action = block(manager, '@IBAction @objc(checkForUpdates:)')
 worker_marker = '@objc(checkForUpdatesInBackground:)'
 worker = block(manager, worker_marker) if worker_marker in manager else ''
-startup = block(app, 'if UserDefaults.standard.bool(forKey: "checkForUpdatesPlugins")')
+startup = block(app, 'if preferences[ApplicationPreferences.checkForUpdatesPlugins]').replace(
+    'preferences[ApplicationPreferences.checkForUpdatesPlugins]', 'settings.bool(forKey: "checkForUpdatesPlugins")').replace(
+    'Once.pluginManager', 'State.pluginManager')
 header = (root / 'Horos/Sources/MainActorCallbacks.swift').read_text().split('import Foundation')[0]
 
 program = r'''

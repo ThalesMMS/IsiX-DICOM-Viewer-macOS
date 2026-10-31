@@ -20,8 +20,8 @@ def require(condition, message):
 
 source = text('Horos/Sources/HorosHVRVOL02.swift')
 project = text('Horos.xcodeproj/project.pbxproj')
-# BrowserController (SourcesCopy) is Swift.
-copy = source_text('BrowserController+Sources+Copy')
+# BrowserController (SourcesCopy) is Swift; the copy itself is SourceCopyJob's.
+copy = source_text('SourceCopyJob')
 config = text('Config.xcconfig')
 browser = class_text('BrowserController')
 
@@ -31,7 +31,7 @@ require('_horosiphone._tcp' in source, 'Bonjour discovery type is missing')
 require('explicitlyAuthorized' in source, 'authorization is not distinct from discovery')
 require('DICOM_LPS_mm' in source and 'float32' in source, 'patient-space float32 contract is missing')
 
-require('copyImagesToRemoteBrowserSourceThread' in copy,
+require('func uploadToSharedDatabase()' in copy and 'case .localToShared: uploadToSharedDatabase()' in copy,
         'remote database copy was removed to make room for the phone exporter')
 require('SendController.sendFiles(' in browser,
         'DICOM SendController is no longer used by the browser')

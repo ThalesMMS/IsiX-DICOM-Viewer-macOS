@@ -91,7 +91,7 @@ public final class DICOMTLS: NSObject {
     /// Writes a seed for DCMTK's random generator to `path`: the pointer's
     /// location and the time. The pointer is read through Core Graphics, which
     /// any thread may ask; the associations write the seed on their own.
-    @objc public static func writePseudoRandomSeed(toPath path: String) {
+    public static func writePseudoRandomSeed(toPath path: String) {
         let location = CGEvent(source: nil)?.location ?? .zero
         let seed = String(format: "%f%f%lf", Double(location.x), Double(location.y), Date().timeIntervalSince1970)
         try? seed.write(toFile: path, atomically: true, encoding: .utf8)
@@ -190,7 +190,6 @@ public final class DICOMTLS: NSObject {
 
     /// The folder the trusted certificates of the Keychain are exported to for
     /// one association (TLS_TRUSTED_CERTIFICATES_DIR followed by `stringID`).
-    @objc(trustedCertificatesFolderWithStringID:)
     public static func trustedCertificatesFolder(withStringID stringID: String) -> String {
         (temporaryFolder() as NSString).appendingPathComponent("TLSTrustedCert") + stringID
     }

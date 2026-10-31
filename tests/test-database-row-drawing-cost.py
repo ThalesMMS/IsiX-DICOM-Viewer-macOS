@@ -18,9 +18,11 @@ against direct computation and against the latest-report rule; the
 rest is checked in source. DicomStudy is Swift: its age code is
 compiled into a library, with the calendar difference it keeps in
 DicomStudy+CAPI.m, and the same Objective-C driver runs against it. The
-cells of the list are Swift too (BrowserController+OutlineDataSource.swift),
-with their rules in IsiXDatabase (StudyListRowRules.swift): the report date
-is the module's cell value with the app's latest report image.
+cells of the list are Swift too (StudyListCellStyler.swift, over the rows of
+BrowserController+OutlineDataSource.swift, and the federated name of
+FederatedStudySearch.swift), with their rules in IsiXDatabase
+(StudyListRowRules.swift): the report date is the module's cell value with
+the app's latest report image.
 """
 from pathlib import Path
 import re
@@ -37,6 +39,8 @@ study = source_text('DicomStudy')
 capi = source_text('DicomStudy+CAPI')
 browser = class_text('BrowserController')
 outline = (root / 'Horos/Sources/BrowserController+OutlineDataSource.swift').read_text()
+cells = (root / 'Horos/Sources/StudyListCellStyler.swift').read_text()
+federated = (root / 'Horos/Sources/FederatedStudySearch.swift').read_text()
 rules = (root / 'Modules/IsiXDatabase/Sources/StudyListRowRules.swift').read_text()
 
 
@@ -233,19 +237,25 @@ print("report ok")
 
 
 # --- what drawing a row may do ------------------------------------------------
-# The value of a cell: -intOutlineView:... with the module's StudyListCell and
-# the hooks it reads (the report plugin, the latest report image, the note,
-# the federated name, through the row the module reads); the display:
-# -outlineView:willDisplayCell:... and the styling it calls, with the
-# module's StudyListRowStyle.
-value_method = between(outline, '    @objc(intOutlineView:objectValueForTableColumn:byItem:)', '    // MARK: - Editing')
+# The value of a cell: the cells' objectValue(identifier:item:), which
+# -intOutlineView:... hands over to, with the module's StudyListCell and the
+# hooks it reads (the report plugin, the latest report image, the note, the
+# federated name, through the row the module reads); the display: the cells'
+# willDisplay(_:column:item:outlineView:), which
+# -outlineView:willDisplayCell:... hands over to, and the styling it calls,
+# with the module's StudyListRowStyle.
+value_method = between(cells, '    func objectValue(identifier: String, item: Any?) -> Any? {', '    /// The tool tip')
 latest = swift_function(outline, 'latestReportImageDate(of item')
 row_source = between(outline, 'extension StudyListRow: @MainActor StudyListRowSource {', '\n}\n')
-if value_method and latest and row_source:
-    value_method += latest + row_source
+list_name = between(federated, '    @MainActor static func listName(', '\n    }\n')
+if value_method and latest and row_source and list_name and 'studyListCells.objectValue(identifier: identifier, item: item)' in \
+        (between(outline, '    @objc(intOutlineView:objectValueForTableColumn:byItem:)', '    @objc(outlineView:objectValueForTableColumn:byItem:)') or ''):
+    value_method += latest + row_source + list_name
 else:
     value_method = None
-display_method = between(outline, '    @objc(outlineView:willDisplayCell:forTableColumn:item:)', '    @objc(tableView:mouseDownInHeaderOfTableColumn:)')
+display_method = between(cells, '    func willDisplay(', '\n}\n')
+if 'studyListCells.willDisplay(cell, column: tableColumn, item: item, outlineView: outlineView)' not in outline:
+    display_method = None
 for name, body in (('the value of a cell', value_method), ('the display of a cell', display_method), ('the module', rules)):
     if body is None:
         failures.append('%s: the method is gone' % name)
@@ -259,7 +269,7 @@ for name, body in (('the value of a cell', value_method), ('the display of a cel
             failures.append('%s %s (%s)' % (name, why, forbidden))
 if value_method and 'numberOfImageSeries()' not in value_method:
     failures.append('the number of series is not counted without sorting')
-if value_method and 'origin !== database' not in value_method:
+if value_method and 'origin !== shown' not in value_method:
     failures.append('the origin of every row is compared by canonical path')
 if display_method and 'horos_originalOutlineViewStudiesContains(item)' not in display_method:
     failures.append('the bold font no longer asks the set of original studies')

@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 
 /// The shared environment; `static OSIEnvironment *sharedEnvironment` of the
 /// former OSIEnvironment.m.
@@ -79,7 +80,7 @@ public final class OSIEnvironment: NSObject {
         objc_sync_enter(self)
         defer { objc_sync_exit(self) }
         if sharedEnvironment == nil {
-            if UserDefaults.standard.bool(forKey: "OSIEnvironmentActivated") {
+            if PreferencesSource.process.preferences[ApplicationPreferences.osiEnvironmentActivated] {
                 sharedEnvironment = OSIEnvironmentCAPIAllocateSharedEnvironment()
             }
         }

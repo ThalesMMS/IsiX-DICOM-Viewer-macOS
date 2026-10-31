@@ -39,7 +39,13 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+import objc_exception_guards
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402
+import process_graph_stand_in  # noqa: E402  - the 2D viewer's sources read the catalog's keys through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -78,7 +84,9 @@ def swift_frame(text):
     reference lines' hook, the CLUT bars, the ROI labels and -drawFrame:."""
     helpers = text[text.index('// The OpenGL enumerants'):text.index('extension DCMView {')]
     frame = text[text.index('    /// -drawCrossLines:perpendicular: on a float[2][3] line'):text.index('    // MARK: - Fonts')]
-    return 'import Cocoa\nimport QuartzCore\n\n' + helpers + 'extension DCMView {\n' + frame + '}\n'
+    # The @try of the frame is HorosObjCException.caught, of the guards file.
+    guards = objc_exception_guards.source(log=False).replace('import Foundation\n', '', 1)
+    return 'import Cocoa\nimport QuartzCore\n\n' + helpers + guards + 'extension DCMView {\n' + frame + '}\n'
 
 
 if drawing_swift.exists():
@@ -224,7 +232,9 @@ OBJC_FRAME@end
 @property(nonatomic, retain) NSMutableArray *horos_rectArray;
 @property NSInteger horos_curImage;
 @property(readonly) DCMView *horos_blending;
-@property float horos_rotation, horos_scaleValue, horos_curWW, horos_curWL;
+@property float horos_rotation, horos_scaleValue;
+// The window the view answers through curWL and curWW, which it keeps in a Swift value.
+@property float curWW, curWL;
 @property NSPoint horos_origin, horos_ROISelectorStartPoint, horos_ROISelectorEndPoint;
 @property NSInteger horos_imageColumns, horos_imageRows;
 @property int horos_repulsorRadius;
@@ -232,6 +242,7 @@ OBJC_FRAME@end
 @property(nonatomic, retain) HorosAnnotationBox *horos_showDescriptionInLargeText;
 @property(readonly) unsigned char *horos_redTable, *horos_greenTable, *horos_blueTable;
 @property(readonly) float *horos_sliceFromTo, *horos_sliceFromToS, *horos_sliceFromToE, *horos_sliceFromTo2, *horos_sliceVector, *horos_slicePoint3D;
+@property float horos_sliceFromToThickness;
 @end
 
 @interface DCMView (SwiftStatics)
@@ -371,8 +382,8 @@ static NSRecursiveLock *staticDrawLock = nil;
 - (DCMView *)horos_blending { return blendingView; }
 - (float)horos_rotation { return rotation; } - (void)setHoros_rotation:(float)v { rotation = v; }
 - (float)horos_scaleValue { return scaleValue; } - (void)setHoros_scaleValue:(float)v { scaleValue = v; }
-- (float)horos_curWW { return curWW; } - (void)setHoros_curWW:(float)v { curWW = v; }
-- (float)horos_curWL { return curWL; } - (void)setHoros_curWL:(float)v { curWL = v; }
+- (float)curWW { return curWW; } - (void)setCurWW:(float)v { curWW = v; }
+- (float)curWL { return curWL; } - (void)setCurWL:(float)v { curWL = v; }
 - (NSPoint)horos_origin { return origin; } - (void)setHoros_origin:(NSPoint)v { origin = v; }
 - (NSPoint)horos_ROISelectorStartPoint { return ROISelectorStartPoint; } - (void)setHoros_ROISelectorStartPoint:(NSPoint)v { ROISelectorStartPoint = v; }
 - (NSPoint)horos_ROISelectorEndPoint { return ROISelectorEndPoint; } - (void)setHoros_ROISelectorEndPoint:(NSPoint)v { ROISelectorEndPoint = v; }
@@ -383,6 +394,7 @@ static NSRecursiveLock *staticDrawLock = nil;
 - (HorosAnnotationBox *)horos_showDescriptionInLargeText { return showDescriptionInLargeText; }
 - (void)setHoros_showDescriptionInLargeText:(HorosAnnotationBox *)v { [v retain]; [showDescriptionInLargeText release]; showDescriptionInLargeText = v; }
 - (unsigned char *)horos_redTable { return redTable; } - (unsigned char *)horos_greenTable { return greenTable; } - (unsigned char *)horos_blueTable { return blueTable; }
+- (float)horos_sliceFromToThickness { return sliceFromToThickness; } - (void)setHoros_sliceFromToThickness:(float)v { sliceFromToThickness = v; }
 - (float *)horos_sliceFromTo { return &sliceFromTo[0][0]; } - (float *)horos_sliceFromToS { return &sliceFromToS[0][0]; }
 - (float *)horos_sliceFromToE { return &sliceFromToE[0][0]; } - (float *)horos_sliceFromTo2 { return &sliceFromTo2[0][0]; }
 - (float *)horos_sliceVector { return sliceVector; } - (float *)horos_slicePoint3D { return slicePoint3D; }
@@ -515,14 +527,37 @@ def build(work, name, methods, swift_sources, frame_swift=None):
     if frame_swift is not None:
         (folder / 'DrawingFrame.swift').write_text(frame_swift)
         sources += [str(folder / 'DrawingFrame.swift'), str(root / 'Modules/IsiXImaging/Sources/ViewDrawing/DrawingGeometry.swift')]
+        if 'self.referenceLines' in frame_swift:
+            # The reference lines are drawn from their value (ReferenceLines,
+            # IsiXImaging), which DCMView+WindowLevel.swift reads from the
+            # view's arrays: the same property, over the stub's arrays.
+            window_level = (root / 'Horos/Sources/DCMView+WindowLevel.swift').read_text()
+            start = window_level.index('    var referenceLines: ReferenceLines {')
+            end = window_level.index('\n    }\n', window_level.index('        set {', start) + 1) + len('\n    }\n')
+            (folder / 'ReferenceLinesHost.swift').write_text('import Cocoa\n\nextension DCMView {\n' + window_level[start:end] + '}\n')
+            sources += [str(folder / 'ReferenceLinesHost.swift'), str(root / 'Modules/IsiXImaging/Sources/ViewerNavigation/ReferenceLines.swift')]
+        if 'PETBlendingTables.' in frame_swift:
+            # The app's guardian of the PET blending tables (PETBlendingTables.swift), over the
+            # stub's tables and the PET CLUT mode the former frame read.
+            (folder / 'PETTables.swift').write_text(
+                'import Foundation\n\n@MainActor enum PETBlendingTables {\n'
+                '    static var drawFusedSeries: Bool { UserDefaults.standard.string(forKey: "PET Clut Mode") == "B/W Inverse" }\n'
+                '    static var isComputed: Bool { DCMView.horos_static_PETredTable != nil }\n'
+                '    static var redTable: UnsafeMutablePointer<UInt8>? { DCMView.horos_static_PETredTable }\n'
+                '    static var greenTable: UnsafeMutablePointer<UInt8>? { DCMView.horos_static_PETgreenTable }\n'
+                '    static var blueTable: UnsafeMutablePointer<UInt8>? { DCMView.horos_static_PETblueTable }\n'
+                '}\n')
+            sources.append(str(folder / 'PETTables.swift'))
     subprocess.run(['xcrun', 'swiftc', '-c', '-parse-as-library', '-suppress-warnings', '-module-name', 'Horos',
                     '-import-objc-header', str(folder / 'Stub.h'), '-emit-objc-header-path', str(folder / 'Horos-Swift.h'),
-                    *sources, '-o', str(folder / 'swift.o'), '-wmo'], check=True, cwd=folder)
+                    *sources, *process_graph_stand_in.swift_flags(folder / 'isix'), '-o', str(folder / 'swift.o'), '-wmo'],
+                   check=True, cwd=folder)
     subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-w', '-I', str(folder), '-I', str(root / 'Horos/Sources'),
                     str(folder / 'Stub.m'), '-o', str(folder / 'stub.o')], check=True)
     subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-w', '-I', str(folder),
                     str(root / 'Horos/Sources/HorosObjCException.m'), '-o', str(folder / 'exception.o')], check=True)
-    subprocess.run(['xcrun', 'swiftc', str(folder / 'swift.o'), str(folder / 'stub.o'), str(folder / 'exception.o'), '-framework', 'Cocoa',
+    subprocess.run(['xcrun', 'swiftc', str(folder / 'swift.o'), str(folder / 'stub.o'), str(folder / 'exception.o'),
+                    *isix_modules.module_flags('IsiXPreferences', folder / 'isix'), '-framework', 'Cocoa',
                     '-framework', 'QuartzCore', '-framework', 'Metal', '-o', str(folder / 'frame')], check=True)
     return folder / 'frame'
 

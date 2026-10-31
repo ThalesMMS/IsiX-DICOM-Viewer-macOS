@@ -83,13 +83,23 @@ if not ended:
 elif 'viewer.window?.makeKeyAndOrderFront(self)' not in ended:
     failures.append('the end of the customization sheet does not make the viewer the key window again')
 
-toolbar = code(read('Horos/Sources/ViewerController+Toolbar.swift'))
-for identifier in ('VRPanelToolbarItemIdentifier', 'StudyNoteToolbarItemIdentifier',
-                   'ThreeDPositionToolbarItemIdentifier', 'FlipVerticalToolbarItemIdentifier'):
-    body = block(toolbar, f'itemIdent == {identifier} ')
+
+def case(text, identifier):
+    """The case of `identifier` in the factory's switch, up to the next case."""
+    at = text.find(f'case Catalog.{identifier}:')
+    if at < 0:
+        return ''
+    end = text.find('\n        case ', at + 1)
+    return text[at:end if end >= 0 else len(text)]
+
+
+# The viewer's items are made by ViewerToolbarItemFactory (ViewerController+Toolbar.swift before).
+factory = code(read('Horos/Sources/ViewerToolbarItemFactory.swift'))
+for identifier in ('vrPanel', 'studyNote', 'threeDPosition', 'flipVertical'):
+    body = case(factory, identifier)
     if not body:
         failures.append(f'{identifier}: item not found')
-    elif 'newItem.target = nil' not in body:
+    elif 'newItem.target = nil' not in body and 'target: nil,' not in body:
         failures.append(f'{identifier}: the item has a target, the panel no longer routes it')
 
 if failures:

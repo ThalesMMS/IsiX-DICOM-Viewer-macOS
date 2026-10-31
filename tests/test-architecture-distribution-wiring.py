@@ -106,8 +106,15 @@ check(inspect_at >= 0 and (bundle_at < 0 or inspect_at < bundle_at),
       'a plugin for another architecture must be named before NSBundle opens it')
 check('.incompatible' in load and 'architectureMismatch(found:' in inspector and 'image.slice(for: hostArchitecture)' in inspector,
       'a plugin without the running slice is Incompatible, not silently skipped')
-check('PluginAdmission.isManaged(name)' in body(manager, 'public class func loadPlugin(atPath path: String!)'),
-      'the loader entry refuses a former plugin before any loader')
+check('PluginAdmission.loader(for: name)' in body(manager, 'public class func loadPlugin(atPath path: String!)'),
+      'the loader entry sends each bundle to its format\'s loader')
+# A plugin made for Horos or OsiriX: inspected the same way before NSBundle opens it.
+former = body(manager, 'class func loadPluginBundle(_ path: String!)')
+inspect_at = former.find('PluginInspector().inspect(bundleAt:')
+register_at = former.find('registerFormerPlugin(')
+check(inspect_at >= 0 and register_at > inspect_at and 'Bundle(' not in former[:register_at],
+      'a former plugin for another architecture must be named before NSBundle opens it')
+check('Incompatible' in former, 'a former plugin without the running slice is Incompatible, not silently skipped')
 
 install = body(manager, 'class func installPlugin(fromPath path: String!)')
 check('HorosArchitectureAudit.pluginDiagnosis(at:' in install, 'install must refuse Intel-only plugins before touching the install')

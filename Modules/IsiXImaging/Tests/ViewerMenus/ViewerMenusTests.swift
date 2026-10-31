@@ -59,9 +59,10 @@ import Testing
         #expect(ViewerPresetMenus.checksWLWWItem(title: "Other", current: "Other"))
         #expect(!ViewerPresetMenus.checksWLWWItem(title: "Other", current: nil))
         #expect(!ViewerPresetMenus.checksWLWWItem(title: "abc", current: "Brain"))
-        // Only the four characters of a number below 10 are dropped.
-        #expect(!ViewerPresetMenus.checksWLWWItem(title: "12 - Lung", current: "Lung"))
-        #expect(ViewerPresetMenus.checksWLWWItem(title: "12 - Lung", current: " Lung"))
+        // A number of any length is dropped with its " - ".
+        #expect(ViewerPresetMenus.checksWLWWItem(title: "12 - Lung", current: "Lung"))
+        #expect(!ViewerPresetMenus.checksWLWWItem(title: "12 - Lung", current: " Lung"))
+        #expect(ViewerPresetMenus.checksWLWWItem(title: "103 - CT - Bone", current: "CT - Bone"))
         // Characters compared one by one: a composed é is not e and an accent.
         #expect(!ViewerPresetMenus.checksWLWWItem(title: "Caf\u{e9}", current: "Cafe\u{301}"))
     }

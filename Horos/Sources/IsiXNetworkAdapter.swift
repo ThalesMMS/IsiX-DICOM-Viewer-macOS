@@ -11,6 +11,7 @@
 import AppKit
 import IsiXDICOMNetwork
 import IsiXHTTPServer
+import IsiXPreferences
 @_spi(IsiXHost) import IsiXPluginKit
 
 /// The network of the plugin API version 1, and its XML-RPC methods and
@@ -30,7 +31,7 @@ extension IsiXPluginHost: IsiXXMLRPCBackend {
     /// The nodes of Locations as the preferences hold them: a node Bonjour
     /// found is not among them.
     nonisolated private static var configuredServers: [Any] {
-        UserDefaults.standard.array(forKey: "SERVERS") ?? []
+        DICOMNodeService.store.dicomNodes().map(\.propertyList)
     }
 
     nonisolated func networkNodes() throws -> [IsiXDICOMNode] {
@@ -57,7 +58,7 @@ extension IsiXPluginHost: IsiXXMLRPCBackend {
     // MARK: send
 
     nonisolated func send(_ request: IsiXSendRequest, toNode id: String) throws -> IsiXSendResult {
-        if UserDefaults.standard.object(forKey: "DICOMSENDALLOWED") != nil && !UserDefaults.standard.bool(forKey: "DICOMSENDALLOWED") {
+        if !NetworkPreferences.isOn(NetworkPreferences.dicomSendAllowed, in: PreferencesSource.process.preferences, whenAbsent: true) {
             throw IsiXPluginError.networkFailure("DICOM sending is not activated. Contact your PACS manager for more information about DICOM Send.")
         }
         let entry = try Self.entry(id, for: .send)
@@ -80,10 +81,11 @@ extension IsiXPluginHost: IsiXXMLRPCBackend {
         NSLog("IsiX plugin send: %lu files to %@", UInt(paths.count), id)
         var reason: String?
         do {
-            try HorosObjCException.perform { store.run(nil) }
+            try store.sendFiles()
+        } catch let failure as StoreSendFailure {
+            reason = failure.reason
         } catch {
-            let exception = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-            reason = exception?.reason ?? error.localizedDescription
+            reason = error.localizedDescription
         }
         let sent = store.report.sentCount
         if sent == 0, let reason { throw IsiXPluginError.networkFailure(reason) }
@@ -276,7 +278,7 @@ enum PluginCFind {
         parameters.abstractSyntax = abstractSyntax
         parameters.acseTimeout = settings.acseTimeout
         parameters.dimseTimeout = settings.dimseTimeout
-        parameters.connectionTimeout = UserDefaults.standard.integer(forKey: "DICOMConnectionTimeout")
+        parameters.connectionTimeout = PreferencesSource.process.preferences[NetworkPreferences.dicomConnectionTimeout]
         parameters.reportsFailures = true
         if settings.secureConnection {
             settings.prepareSecureTransport(parameters, host: host, port: port, aeTitle: called, uniqueStringID: uniqueStringID)

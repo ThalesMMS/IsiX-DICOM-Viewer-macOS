@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// OSIAutoroutingPreferencePanePref is implemented in Swift since #711 (Preference
+// OSIAutoroutingPreferencePanePref is implemented in Swift (Preference
 // Panes/OSIAutoroutingPreferencePane/OSIAutoroutingPreferencePanePref.swift). This header
 // keeps its path: it brings in the generated interface, which declares the same class
 // name and selectors.

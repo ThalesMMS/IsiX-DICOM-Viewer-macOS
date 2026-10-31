@@ -30,7 +30,8 @@ categories moved to Swift, which kept their behaviour:
    could be deleted before an older one. Undated studies now come last.
 9. -addImages:toSendQueueForRoutingRule: took out an already queued image with
    -removeObject:, every copy at once, and the loop's next index was past the
-   end: NSRangeException when an image was listed twice.
+   end: NSRangeException when an image was listed twice. The queue is now
+   IsiXDICOMNetwork's RoutingQueue, whose add(_:for:database:) is run here.
 10. A physical Length whose payload lacks its "a" or "b" endpoint stopped the
     ROI export with a failed cast. It is left out, with a log line.
 
@@ -38,7 +39,9 @@ Every item runs the code it names, compiled from the sources with xcrun
 swiftc or clang in a temporary folder; 1 and 4 against doubles of the classes
 around them. `<git revision>` as an optional argument reads the sources of that
 revision, the negative control: where the fixed helper does not exist there,
-the former code is compiled in its place.
+the former code is compiled in its place. The time window and the queue
+are IsiXDICOMNetwork's once the module has them: its sources are compiled
+with the driver.
 """
 from pathlib import Path
 import atexit
@@ -49,6 +52,7 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 failures = []
 
@@ -117,12 +121,30 @@ try:
 except (subprocess.CalledProcessError, FileNotFoundError):
     browser_class = ''
 sources = read('Horos/Sources/BrowserController+Sources.swift')
+# The Sources list's logic left the helper for SourceList.swift.
+try:
+    source_list = read('Horos/Sources/SourceList.swift')
+except (subprocess.CalledProcessError, FileNotFoundError):
+    source_list = ''
 publisher = read('Horos/Sources/BonjourPublisher.swift')
 discovery = read('Horos/Sources/HorosVolumeDiscovery.h')
-schedule = read('Horos/Sources/RoutingSchedule.swift')
+
+
+def read_if_there(path):
+    try:
+        return read(path)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return ''
+
+
+NETWORK = 'Modules/IsiXDICOMNetwork/Sources/'
+schedule = read_if_there('Horos/Sources/RoutingSchedule.swift')
+module_schedule = read_if_there(NETWORK + 'RoutingSchedule.swift')
 routing = read('Horos/Sources/DicomDatabase+Routing.swift')
-clean = read('Horos/Sources/DicomDatabase+Clean.swift')
-interchange = read('Horos/Sources/ViewerController+ROIInterchange.swift')
+database_routing = read_if_there('Horos/Sources/DatabaseRouting.swift')
+module_queue = read_if_there(NETWORK + 'RoutingQueue.swift')
+# The ROI interchange of the viewer: ViewerROIInterchange, or the former category.
+interchange = read_if_there('Horos/Sources/ViewerROIInterchange.swift') or read('Horos/Sources/ViewerController+ROIInterchange.swift')
 
 # --- 1: -deallocActivity inside -[BrowserController dealloc] -------------------
 category = objc_block(activity, '@implementation BrowserController (Activity)')
@@ -244,7 +266,7 @@ int main(void) {
                             (answer or 'died (%d)' % result.returncode))
 
 # --- 2: which UID a Bonjour TXT record carries -----------------------------------
-helper = block(sources, 'fileprivate func bonjourTXTRecordUID(')
+helper = block(source_list, 'private func bonjourTXTRecordUID(') or block(sources, 'fileprivate func bonjourTXTRecordUID(')
 if helper is None:
     # The former code: BonjourPublisher's parser for every service type.
     parser = block(publisher, '    public class func dictionaryFromXTRecordData(')
@@ -282,7 +304,23 @@ if binary:
 
 # --- 3: a source kept for a minute from a thread without a run loop --------------
 keep = block(sources, 'fileprivate func keepForAMinute(')
-if keep is not None:
+kept_by_list = block(source_list, '    private func keepForAMinute(')
+if kept_by_list is not None:
+    # The list keeps a source on the main actor, from a timer of the main run
+    # loop in its common modes; the scan thread hands its volume there first.
+    KEEP = (read('Horos/Sources/DeferredCalls.swift').replace('import Foundation', '')
+            + '\n@MainActor let deferred = DeferredCalls()\n'
+            + kept_by_list.replace('    private func keepForAMinute(_ source: DataNodeIdentifier)',
+                                   '@MainActor func keepForAMinute(_ source: NSObject)').replace('after: 60', 'after: 0.2')
+            + '''
+func keepBriefly(_ object: NSObject) {
+    if Thread.isMainThread {
+        MainActor.assumeIsolated { keepForAMinute(object) }
+    } else {
+        DispatchQueue.main.async { MainActor.assumeIsolated { keepForAMinute(object) } }
+    }
+}''')
+elif keep is not None:
     KEEP = keep + '\nfunc keepBriefly(_ object: NSObject) { keepForAMinute(object, delay: 0.2) }'
 else:
     retain = block(sources, 'fileprivate func retainForAMinute(')
@@ -341,7 +379,20 @@ if '@implementation HorosVolumeDiscovery' not in capi and '@implementation Horos
     failures.append('4: HorosVolumeDiscovery is implemented nowhere')
 
 # --- 5, 6 and 7: the delay before a time-window rule is applied ------------------
-if 'static func windowDelay(for rule:' in schedule:
+window_sources = []
+if 'static func windowDelay(for rule: RoutingRule' in module_schedule:
+    # IsiXDICOMNetwork's: the schedule, the rule it reads and the values it keeps.
+    # PropertyListValue is the preferences module's.
+    for name in ('RoutingSchedule.swift', 'RoutingRule.swift', 'PropertyListValue.swift'):
+        source = 'Modules/IsiXPreferences/Sources/' if name == 'PropertyListValue.swift' else NETWORK
+        (folder / name).write_text(read(source + name), encoding='utf-8')
+        window_sources.append(str(folder / name))
+    WINDOW = 'import AppKit\n' + r'''
+func windowDelay(_ rule: [String: Any], _ now: Date) -> String {
+    return RoutingSchedule.windowDelay(for: RoutingRule(propertyList: rule)!, at: now).map { String($0) } ?? "nil"
+}
+'''
+elif 'static func windowDelay(for rule:' in schedule:
     WINDOW = schedule.replace('import Foundation', 'import AppKit', 1) + r'''
 func windowDelay(_ rule: [String: Any], _ now: Date) -> String {
     return RoutingSchedule.windowDelay(for: rule, at: now).map { String($0.intValue) } ?? "nil"
@@ -397,7 +448,7 @@ for (name, from, to, at) in cases {
     print(name, windowDelay(["scheduleType": 2, "fromTime": from, "toTime": to], at))
 }
 '''
-binary = swift('window.swift', WINDOW)
+binary = swift('main.swift', WINDOW, *window_sources) if window_sources else swift('window.swift', WINDOW)
 if binary:
     result = run(binary, env={'TZ': 'UTC', 'PATH': '/usr/bin:/bin'})
     got = dict(line.split(' ', 1) for line in result.stdout.strip().splitlines() if ' ' in line)
@@ -419,58 +470,87 @@ if binary:
     for name, (answer, failure) in expected.items():
         if got.get(name) != answer:
             failures.append('5-7: %s: %s, expected %s' % (failure, got.get(name), answer))
-call = block(routing, '    @objc(applyRoutingRules:toImages:)') or ''
+call = (block(routing, '    @objc(applyRoutingRules:toImages:)') or '') + database_routing
 if 'dateByAddingTimeInterval' in call or '%2ld' in call or 'addingTimeInterval(60 * 60 * 24' in call:
     failures.append('5-7: -applyRoutingRules:toImages: still works the window out itself')
 
 # --- 8: the order of the space cleaning -----------------------------------------
-priority = block(clean, 'private func spaceCleanupPriority(')
-if priority is not None:
-    COMPARE = priority + '\nlet compare: (Any, Any) -> ComparisonResult = spaceCleanupPriority\n'
-    options = '.stable' if 'sort(options: .stable, usingComparator: spaceCleanupPriority)' in clean else '[]'
-else:
-    closure = block(clean, 'studiesDates.sort(comparator: {')
-    COMPARE = 'let compare: (Any, Any) -> ComparisonResult = ' + closure[len('studiesDates.sort(comparator: '):] + '\n'
-    options = '[]'
-ORDER = 'import Foundation\n' + COMPARE + r'''
-func entry(_ name: String, _ year: Int?) -> NSArray {
-    guard let year else { return NSArray(object: name) }
-    return NSArray(objects: name, Calendar.current.date(from: DateComponents(year: year, month: 1, day: 1))! as NSDate)
+ORDER = r'''import Foundation
+let reference = Date(timeIntervalSinceReferenceDate: 800_000_000)
+func entry(_ id: Int, _ year: Int?) -> CleanupStudyRow {
+    let date = year.map { Calendar.current.date(from: DateComponents(year: $0, month: 1, day: 1))! }
+    return CleanupStudyRow(id: id, patientUID: "patient", date: date, dateOpened: nil, dateAdded: Date(timeIntervalSinceReferenceDate: 0),
+                           isLocked: false, isInAlbum: false)
 }
-let entries = [entry("2020", 2020), entry("none-1", nil), entry("2010", 2010), entry("2015", 2015), entry("none-2", nil), entry("2005", 2005)]
-func permutations(_ items: [NSArray]) -> [[NSArray]] {
+let entries = [entry(2020, 2020), entry(-1, nil), entry(2010, 2010), entry(2015, 2015), entry(-2, nil), entry(2005, 2005)]
+func permutations(_ items: [CleanupStudyRow]) -> [[CleanupStudyRow]] {
     if items.count <= 1 { return [items] }
-    return items.indices.flatMap { index -> [[NSArray]] in
+    return items.indices.flatMap { index -> [[CleanupStudyRow]] in
         var rest = items
         let first = rest.remove(at: index)
         return permutations(rest).map { [first] + $0 }
     }
 }
-var wrong = 0
+// The dated studies oldest first, whatever order they came in, and the undated
+// ones last, in the order they came.
+var wrong = 0, reordered = 0
 for permutation in permutations(entries) {
-    let sorted = NSMutableArray(array: permutation)
-    sorted.sort(options: ''' + options + r''', usingComparator: compare)
-    let names = sorted.map { ($0 as! NSArray).object(at: 0) as! String }
-    if Array(names.prefix(4)) != ["2005", "2010", "2015", "2020"] || !names.suffix(2).allSatisfy({ $0.hasPrefix("none") }) { wrong += 1 }
+    let sorted = try! AutoCleanupPolicy.spaceCandidates(in: permutation, preferences: AutoCleanupPreferences(), now: reference).rows.map { $0.id }
+    if Array(sorted.prefix(4)) != [2005, 2010, 2015, 2020] || !sorted.suffix(2).allSatisfy({ $0 < 0 }) { wrong += 1 }
+    if Array(sorted.suffix(2)) != permutation.map({ $0.id }).filter({ $0 < 0 }) { reordered += 1 }
 }
-// An order: equal to one and equal to the next means equal to both ends.
-var inconsistent = 0
-for a in entries { for b in entries { for c in entries {
-    if compare(a, b) == .orderedSame && compare(b, c) == .orderedSame && compare(a, c) != .orderedSame { inconsistent += 1 }
-} } }
-print(wrong, inconsistent)
+print(wrong, reordered)
 '''
-binary = swift('order.swift', ORDER)
+import isix_modules
+try:
+    binary = str(isix_modules.module_driver('IsiXDatabase', ORDER, folder / 'order-driver' / 'order'))
+except subprocess.CalledProcessError as error:
+    failures.append('8: the order driver does not compile:\n' + (error.stderr or '')[-2500:])
+    binary = None
 if binary:
     result = run(binary)
     if result.returncode != 0 or result.stdout.strip() != '0 0':
-        wrong, _, inconsistent = result.stdout.strip().partition(' ')
+        wrong, _, reordered = result.stdout.strip().partition(' ')
         failures.append('8: the space cleaning order is not an order: %s of 720 arrangements sorted wrong, '
-                        '%s inconsistent triples' % (wrong or '?', inconsistent or '?'))
+                        '%s moved the undated studies' % (wrong or '?', reordered or '?'))
 
 # --- 9: an image listed twice in -addImages:toSendQueueForRoutingRule: ----------
 loop = block(routing, '                    var i = dicomImages.count - 1')
-if loop is None:
+if loop is None and 'public func add(_ files: [RoutedFile], for rule: RoutingRule' in module_queue:
+    # IsiXDICOMNetwork's queue: the images already queued for the rule are
+    # left out, each copy, and the rest join them.
+    QUEUE = r'''import Foundation
+func image(_ path: String) -> RoutedFile {
+    RoutedFile(id: path, path: path, study: RoutedStudy(id: "study"))
+}
+let a = image("/db/a.dcm"), b = image("/db/b.dcm"), c = image("/db/c.dcm")
+let lists: [String: [RoutedFile]] = ["twice": [a, a], "spread": [a, b, a, c, a], "once": [b, a, c]]
+let rule = RoutingRule(propertyList: ["name": "r", "server": "PACS"])!
+let queue = RoutingQueue()
+let done = DispatchSemaphore(value: 0)
+nonisolated(unsafe) var joined: [String] = []
+Task.detached {
+    await queue.add([a], for: rule, database: "db")
+    await queue.add(lists[CommandLine.arguments[1]]!, for: rule, database: "db")
+    joined = await queue.queued[0].files.dropFirst().compactMap(\.path)
+    done.signal()
+}
+done.wait()
+print(joined.joined(separator: " "))
+'''
+    import isix_modules
+    try:
+        binary = str(isix_modules.module_driver('IsiXDICOMNetwork', QUEUE, folder / 'queue-driver' / 'queue'))
+    except subprocess.CalledProcessError as error:
+        failures.append('9: the queue driver does not compile:\n' + (error.stderr or '')[-2500:])
+        binary = None
+    if binary:
+        for case, answer in (('twice', ''), ('spread', '/db/b.dcm /db/c.dcm'), ('once', '/db/b.dcm /db/c.dcm')):
+            result = run(binary, case)
+            if result.returncode != 0 or result.stdout.strip() != answer:
+                failures.append('9: an already queued image listed %s: %s' %
+                                (case, 'raised (%d)' % result.returncode if result.returncode else result.stdout.strip()))
+elif loop is None:
     failures.append('9: the queued-image loop of -addImages:toSendQueueForRoutingRule: is gone')
 else:
     QUEUE = r'''import Foundation
@@ -498,6 +578,11 @@ print(images.map { ($0 as! DicomImage).path }.joined(separator: " "))
 
 # --- 10: a physical Length without its endpoints ------------------------------------
 endpoints = block(interchange, 'fileprivate func interchangeVolumeLengthEndpoints(')
+record_call = '    public func interchangeROI(for roi: ROI, pix: DCMPix)'
+if endpoints is None and 'static func volumeLengthEndpoints(' in interchange:
+    endpoints = block(interchange, 'static func volumeLengthEndpoints(').replace('static func volumeLengthEndpoints(',
+                                                                                 'func interchangeVolumeLengthEndpoints(')
+    record_call = '    static func record(for roi: ROI, pix: DCMPix)'
 if endpoints is None:
     # The former line of -interchangeROIForROI:pix:, as it ran.
     line = next(l for l in interchange.splitlines() if 'record.patientPoints = [record.volumeLength?["a"] as!' in l)
@@ -507,9 +592,9 @@ if endpoints is None:
     return (volumeLength!, points)
 }'''
 else:
-    call = block(interchange, '    public func interchangeROI(for roi: ROI, pix: DCMPix)') or ''
+    call = block(interchange, record_call) or ''
     if 'as! [Double]' in call or 'HorosVolumeLengthROI.validPayload(payload)' not in call \
-            or 'interchangeVolumeLengthEndpoints(payload)' not in call:
+            or 'olumeLengthEndpoints(payload)' not in call:
         failures.append('10: -interchangeROIForROI:pix: does not check the Length\'s endpoints before reading them')
 LENGTH = 'import Foundation\n' + endpoints.replace('fileprivate func', 'func') + r'''
 var payload: [String: Any] = ["version": 1, "id": "L1", "series": "1.2.3", "frameOfReference": "1.2.4",

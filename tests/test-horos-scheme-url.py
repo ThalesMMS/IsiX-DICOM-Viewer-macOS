@@ -19,12 +19,12 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
+from sources import source_text, class_text  # noqa: E402
 failures = []
 
 source = root / 'Horos/Sources/HorosSchemeURL.swift'
 # AppController is Swift.
-application = source_text('AppController')
+application = class_text('AppController')
 info = (root / 'Horos/Info.plist').read_text()
 # DisplayStudy is Swift (XMLRPCInterface+Display.swift); the identifiers it reads
 # are RISRequestRules.StudyIdentifiers of IsiXDICOMNetwork.
@@ -172,34 +172,42 @@ if results:
            '+ in a query value is not a space; image= uses it as a separator')
 
 # --- getUrl uses the parser and still opens an image= link once --------------
+# The façade hands the link to ExternalRequestHandler (ExternalRequestHandler.swift).
 at = application.find('@objc(getUrl:withReplyEvent:) func getUrl(')
+facade = swift_block(application, at) if at >= 0 else ''
+if 'externalRequests.open(link:' not in facade:
+    failures.append('getUrl: is gone, or no longer hands the link to ExternalRequestHandler')
+at = application.find('    func open(link: String?) {')
 handler = swift_block(application, at) if at >= 0 else ''
-if not handler:
-    failures.append('getUrl: is gone')
+at = application.find('    private func openImage(_ imageSpecifier: String) {')
+image = swift_block(application, at) if at >= 0 else ''
+at = application.find('struct LinkRequest: Sendable {')
+request = swift_block(application, at) if at >= 0 else ''
+if not handler or not image or not request:
+    failures.append('the link handler is gone')
 else:
     if 'HorosSchemeURL' not in handler:
         failures.append('getUrl: still parses the query inline instead of HorosSchemeURL')
     if 'HorosSchemeURL.parse(' not in handler:
         failures.append('getUrl: does not call the parser')
-    if '.methodCall(' not in handler:
+    if '.methodCall(' not in request or 'LinkRequest(' not in handler:
         failures.append('getUrl: no longer dispatches methodName')
     # The method runs off the main thread, in arrival order: DisplayStudy and
     # FindObject with PACS On-Demand wait up to 20 s for the study, which froze
     # the app, the Activity panel and the Dock.
-    dispatch = handler.find('AppController.urlRequestQueue.async {')
-    if dispatch < 0 or not (dispatch < handler.find('.methodCall(')):
+    if 'linkQueue.async { request.run() }' not in handler:
         failures.append('getUrl: runs the XML-RPC method on the main thread')
-    if 'private static let urlRequestQueue = DispatchQueue(label:' not in application:
+    if 'private let linkQueue = DispatchQueue(label:' not in application:
         failures.append('the URL request queue is not a serial DispatchQueue')
     if 'invalid-parameters' not in handler and 'URL parser' not in handler:
         failures.append('getUrl: does not log a parser refusal')
     # One XML-RPC dispatch for a methodName URL: do not also treat it as image=.
-    if handler.count('.methodCall(') > 1:
+    if handler.count('LinkRequest(') > 1 or request.count('.methodCall(') > 1:
         failures.append('getUrl: dispatches the XML-RPC method more than once')
     # The image= path that test-study-not-opened-reason.py watches must remain.
-    if 'var succeeded = false' not in handler:
+    if 'var succeeded = false' not in image:
         failures.append('the horos:// image handler is gone')
-    if handler.count('BrowserController.currentBrowser()?.display(') < 2:
+    if image.count('self.browser?.display(') < 2:
         failures.append('the image= search no longer asks displayStudy: twice')
 
 # DisplayStudy still reads the keys the parser must populate.

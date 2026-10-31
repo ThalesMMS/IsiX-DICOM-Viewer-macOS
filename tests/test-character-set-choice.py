@@ -44,6 +44,7 @@ from sources import class_text  # noqa: E402
 reader = class_text('DicomFile')
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import default_preferences  # noqa: E402
+import isix_modules  # noqa: E402
 defaults = default_preferences.registered()
 
 
@@ -77,7 +78,12 @@ chosen = body('public static func characterSetWhenAbsent()', character_set)
 if not chosen:
     failures.append('there is no way to choose what a file that says nothing is read as')
 else:
-    if 'DefaultCharacterSetWhenAbsent' not in chosen:
+    # Read from the preferences by the key of the catalog, which names it.
+    catalog = (root / 'Modules/IsiXPreferences/Sources/DatabasePreferences.swift').read_text()
+    reads = chosen + body('public static func characterSetWhenAbsent(in preferences:', character_set)
+    if 'DefaultCharacterSetWhenAbsent' not in reads and not (
+            'DatabasePreferences.defaultCharacterSetWhenAbsent' in reads
+            and 'defaultCharacterSetWhenAbsent = PreferenceKey<String?>("DefaultCharacterSetWhenAbsent"' in catalog):
         failures.append('the choice does not come from a preference')
 
 table = body('public static func encoding(forDICOMCharacterSet value: String?)', character_set)
@@ -124,7 +130,9 @@ print("cp1251\\t\\(CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CF
         main = Path(directory) / 'main.swift'
         main.write_text(DRIVER)
         binary = Path(directory) / 'charset'
-        build = subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', str(CHARACTER_SET), str(main), '-o', str(binary)],
+        # With the preferences module it reads the choice through.
+        modules = isix_modules.module_flags('IsiXPreferences', Path(directory) / 'modules')
+        build = subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', *modules, str(CHARACTER_SET), str(main), '-o', str(binary)],
                                capture_output=True, text=True)
         if build.returncode != 0:
             failures.append('the table does not compile on its own:\n%s' % build.stderr[-1200:])

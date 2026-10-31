@@ -10,6 +10,7 @@
 
 import Foundation
 import Testing
+import IsiXPreferences
 @testable import IsiXDICOMFile
 
 // Values worked out by hand. The comparison with the Objective-C the module
@@ -98,14 +99,25 @@ import Testing
         #expect(PatientUIDRule.uid(name: "X", patientID: NSNumber(value: 12), birthDate: "1", settings: settings) == "-12-")
     }
 
-    @Test func settingsReadFromADictionaryKeepWhatABOOLKept() {
-        let settings = ImportSettings(dictionary: ["NOLOCALIZER": 256, "splitMultiEchoMR": "1",
-                                                   "COMMENTSGROUP": 16, "combineProjectionSeriesMode": 2])
+    @Test func settingsAreReadAsTheApplicationReadsThem() {
+        // The user's values over the factory ones, in memory: what the
+        // application and a tool that has not registered the defaults read.
+        let preferences = MemoryPreferences(["NOLOCALIZER": 0, "splitMultiEchoMR": "1", "COMMENTSGROUP": 16,
+                                             "COMMENTSELEMENT": "0x10", "combineProjectionSeriesMode": 2,
+                                             "UsePatientIDForUID": "NO"],
+                                            registered: DefaultPreferences.defaults(in: testEnvironment, store: MemoryPreferences())
+                                                as? [String: Any] ?? [:])
+        #expect(ImportSettings.defaultsAreRegistered(in: preferences))
+        #expect(!ImportSettings.defaultsAreRegistered(in: MemoryPreferences()))
+        let settings = ImportSettings(preferences: preferences)
         #expect(settings.noLocalizer == false)
         #expect(settings.splitMultiEchoMR == true)
-        #expect(settings.commentsGroup == 16)
-        #expect(settings.combineProjectionSeriesMode == 2)
-        #expect(settings.usePatientIDForUID == false)
+        #expect(settings.commentsGroup == 16 && settings.commentsElement == 0)
+        #expect(settings.combineProjectionSeriesMode == 1)
+        #expect(settings.usePatientIDForUID == false && settings.usePatientNameForUID == true)
+        #expect(settings.commentsFromDICOMFiles && !settings.commentsAutoFill && !settings.oneFileOnSeriesForUS)
+        #expect(ImportSettings(preferences: MemoryPreferences()) == ImportSettings(preferences: MemoryPreferences([:])))
+        #expect(ImportSettings(preferences: MemoryPreferences()).usePatientIDForUID == false)
         let store = ImportSettingsStore()
         #expect(store.settings == ImportSettings())
         store.load { settings }
@@ -170,3 +182,6 @@ import Testing
         #expect(FluoViewSeries.description(ofSeries: 2, flat) == "FV Ch 2")
     }
 }
+
+/// An environment that does not depend on this computer.
+private let testEnvironment = PreferenceEnvironment(viewer: true, appStore: false, hostName: "reading-room", graphicsMemory: 1 << 30)

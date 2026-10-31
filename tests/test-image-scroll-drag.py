@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Run production drag navigation with controlled geometry and pointer positions.
 
--mouseDraggedImageScroll: is Swift, in DCMView+MouseDragging.swift.
-The method is compiled as it is, with xcrun swiftc, as an extension of an
-Objective-C double of DCMView that reaches the ivars through the same horos_*
-accessors as DCMView+SwiftIvars.h; the messages to the window controller go
+-mouseDraggedImageScroll: is Swift, in DCMView+MouseDragging.swift, and moves
+the view's StackNavigation (IsiXImaging). The method is compiled as it is, with
+xcrun swiftc, as an extension of an Objective-C double of DCMView that reaches
+the ivars through the same horos_* accessors as DCMView+SwiftIvars.h and answers
+the StackNavigation over them; the messages to the window controller go
 through the production msg/windowControllerOf helpers. A revision given as
 the argument that predates the Swift translation runs its Objective-C method instead.
 """
@@ -14,6 +15,7 @@ import subprocess,sys,tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
 import harness_defaults  # the harness's preferences stay in its own process
+import isix_modules  # noqa: E402
 root=Path(__file__).resolve().parents[1]
 SWIFT_PATH='Horos/Sources/DCMView+MouseDragging.swift'
 
@@ -33,12 +35,18 @@ if swift:
  method=''
  helpers=swift[swift.index('@inline(__always)\nprivate func msg('):swift.index('/// [NSUserDefaults standardUserDefaults].')]
  extension='''import Cocoa
+import IsiXImaging
 // The selectors of DCMViewDraggingMessages the method sends.
 @objc private protocol DCMViewDraggingMessages {
     @objc(windowController) func draggingWindowController() -> AnyObject?
     @objc(adjustSlider) func draggingAdjustSlider()
 }
-'''+helpers+'extension DCMView {\n'+swift[a:b]+'}\n'
+'''+helpers+'extension DCMView {\n'+'''    // The view's StackNavigation, over the double's index and drag start.
+    var stackNavigation: StackNavigation {
+        get { StackNavigation(current: self.horos_curImage, start: self.horos_startImage) }
+        set { self.horos_curImage = newValue.current; self.horos_startImage = newValue.start }
+    }
+'''+swift[a:b]+'}\n'
 else:
  a=s.index('- (void)mouseDraggedImageScroll:');b=s.index('\n- (void)mouseDraggedBlending:',a)
  method=s[a:b];extension=None
@@ -97,17 +105,18 @@ int main(){@autoreleasepool{
 with tempfile.TemporaryDirectory(prefix='horos-drag-') as d:
  p=Path(d);(p/'test.m').write_text(code + harness_defaults.OBJC);(p/'bridge.h').write_text(bridge)
  swift_sources=[str(root/'Horos/Sources/ScrollDirection.swift')]
- bridging=[]
+ bridging=[];module=[]
  if extension:
+  module=isix_modules.module_flags('IsiXImaging',p/'module')
   (p/'drag.swift').write_text(extension);swift_sources.append(str(p/'drag.swift'))
   bridging=['-import-objc-header',str(p/'bridge.h')]
  # Swift traps a float-to-integer conversion that overflows, as the
  # float-cast-overflow sanitizer does for the Objective-C method.
- subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','Horos','-wmo',*bridging,
+ subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','Horos','-wmo',*bridging,*module,
    '-emit-objc-header','-emit-objc-header-path',str(p/'Horos-Swift.h'),
    '-c',*swift_sources,'-o',str(p/'scroll.o')],check=True)
  subprocess.run(['xcrun','clang','-c',str(p/'test.m'),'-o',str(p/'test.o'),'-I',str(p),
    '-fobjc-arc','-fsanitize=undefined,float-cast-overflow'],check=True)
- subprocess.run(['xcrun','swiftc',str(p/'scroll.o'),str(p/'test.o'),'-o',str(p/'test'),
+ subprocess.run(['xcrun','swiftc',str(p/'scroll.o'),str(p/'test.o'),*module,'-o',str(p/'test'),
    '-framework','AppKit','-sanitize=undefined'],check=True)
  subprocess.run([str(p/'test')],check=True)

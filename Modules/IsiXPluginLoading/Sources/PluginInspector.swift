@@ -10,7 +10,9 @@
 
 import Foundation
 
-/// The identity and entry of a version 1 plugin, as its Info.plist declares them.
+/// The identity and entry of a plugin, as its Info.plist declares them. A
+/// former plugin has no API version (0) and no capabilities, and may leave its
+/// principal class to the bundle.
 public struct PluginManifest: Sendable, Equatable {
     public var identifier: String
     public var name: String
@@ -25,9 +27,6 @@ public struct PluginManifest: Sendable, Equatable {
 /// Why a bundle is not loaded. Every one is found by reading files only.
 public enum PluginDiagnostic: Sendable, Equatable {
     case notVersion1Bundle(pathExtension: String)
-    /// A `.horosplugin` or `.osirixplugin`: the former plugin API, which this
-    /// application no longer loads.
-    case formerPluginAPI(pathExtension: String)
     case missingInfoPlist
     case invalidInfoPlist
     case legacyMetadata(keys: [String])
@@ -57,14 +56,12 @@ public enum PluginDiagnostic: Sendable, Equatable {
         switch self {
         case .notVersion1Bundle(let pathExtension):
             return "Only .\(PluginContract.bundleExtension) bundles use the plugin API version 1; this one is .\(pathExtension)."
-        case .formerPluginAPI(let pathExtension):
-            return "This plugin (.\(pathExtension)) was made for Horos or OsiriX. Since version 6.0 this application loads only plugins built with \(PluginContract.kitFrameworkName) (.\(PluginContract.bundleExtension)); it did not open, move or change this one. Obtain a version 1 plugin from its author."
         case .missingInfoPlist:
             return "The bundle has no Contents/Info.plist. Reinstall a complete copy from its author."
         case .invalidInfoPlist:
             return "The bundle's Info.plist cannot be read. Reinstall a complete copy from its author."
         case .legacyMetadata(let keys):
-            return "The bundle declares keys of the former plugin API (\(keys.joined(separator: ", "))). A former plugin is not made compatible by renaming it; obtain a version 1 plugin from its author."
+            return "The bundle declares keys of the former plugin API (\(keys.joined(separator: ", "))). A plugin made for Horos or OsiriX loads under its own extension, .horosplugin or .osirixplugin; give it back its extension."
         case .missingAPIVersion:
             return "The bundle does not declare \(PluginContract.apiVersionKey). Obtain a plugin built with IsiXPluginKit version 1."
         case .invalidAPIVersion(let found):
@@ -96,7 +93,7 @@ public enum PluginDiagnostic: Sendable, Equatable {
         case .notLoadableExecutable:
             return "The bundle's executable is an application, not a loadable bundle or library."
         case .legacyDependency(let frameworks):
-            return "The plugin links frameworks of the former plugin API (\(frameworks.joined(separator: ", "))). Obtain a version 1 plugin from its author."
+            return "The plugin links frameworks of the former plugin API (\(frameworks.joined(separator: ", "))). A plugin made for Horos or OsiriX is not loaded as a .isixplugin: give it back its extension, .horosplugin or .osirixplugin."
         case .kitNotLinked:
             return "The plugin does not link \(PluginContract.kitFrameworkName). Obtain a plugin built with IsiXPluginKit version 1."
         case .unsignedExecutable(let architecture):
@@ -117,6 +114,9 @@ public struct PluginInspection: Sendable, Equatable {
     /// The diagnostics, one sentence each, for a single line of the plugin manager.
     public var summary: String { diagnostics.map(\.message).joined(separator: " ") }
 
+    /// The loader the bundle goes to, by its extension.
+    public var loader: PluginAdmission.Loader? { PluginAdmission.loader(for: bundleURL.path) }
+
     /// Whether the bundle is a plugin of the former API under the new extension.
     public var isRenamedLegacyPlugin: Bool {
         diagnostics.contains {
@@ -128,10 +128,14 @@ public struct PluginInspection: Sendable, Equatable {
     }
 }
 
-/// Reads a `.isixplugin` bundle and decides whether the host may load it,
-/// before any of its code runs: Info.plist metadata, the API version, the
-/// entry class, the capabilities, the executable's architectures, the
-/// libraries it links and the system it needs.
+/// Reads a plugin bundle and decides whether the host may load it, before any
+/// of its code runs. A `.isixplugin` is read by the version 1 contract:
+/// Info.plist metadata, the API version, the entry class, the capabilities,
+/// the executable's architectures, the libraries it links and the system it
+/// needs. A former plugin (`.horosplugin`, `.osirixplugin`) is read as its
+/// loader takes it: an Info.plist, an executable the running process can load
+/// (its architecture, its file type, its signature on Apple silicon) and the
+/// system it needs; its roles and menu items are `LegacyPluginDeclaration`'s.
 public struct PluginInspector: Sendable {
     public var supportedAPIVersions: ClosedRange<Int>
     public var hostArchitecture: String
@@ -151,9 +155,10 @@ public struct PluginInspector: Sendable {
     public func inspect(bundleAt bundleURL: URL) -> PluginInspection {
         var inspection = PluginInspection(bundleURL: bundleURL, manifest: nil, diagnostics: [])
         let pathExtension = bundleURL.pathExtension
-        // A former plugin is told apart by its extension alone: nothing in it is read.
+        // A former plugin is read by its own loader's rules, never by the
+        // version 1 contract; the extension alone decides which.
         if PluginAdmission.kind(of: bundleURL.path) == .formerAPI {
-            inspection.diagnostics.append(.formerPluginAPI(pathExtension: pathExtension))
+            inspectFormerPlugin(into: &inspection)
             return inspection
         }
         if pathExtension != PluginContract.bundleExtension {
@@ -219,7 +224,8 @@ public struct PluginInspector: Sendable {
         if executableName.isEmpty || !FileManager.default.fileExists(atPath: executableURL.path) {
             inspection.diagnostics.append(.missingExecutable(executableName))
         } else {
-            inspectExecutable(at: executableURL, minimumSystemDeclared: minimumSystemVersion != nil, into: &inspection.diagnostics)
+            inspectExecutable(at: executableURL, minimumSystemDeclared: minimumSystemVersion != nil, version1: true,
+                              into: &inspection.diagnostics)
         }
 
         let name = (info["CFBundleName"] as? String) ?? bundleURL.deletingPathExtension().lastPathComponent
@@ -229,6 +235,45 @@ public struct PluginInspector: Sendable {
                                              executableName: executableName, capabilities: capabilities,
                                              minimumSystemVersion: minimumSystemVersion)
         return inspection
+    }
+
+    /// A former plugin: what its loader needs before it opens the bundle. The
+    /// keys of the former API, the frameworks of the former SDK and the absence
+    /// of the kit are what such a plugin is, not reasons to refuse it.
+    private func inspectFormerPlugin(into inspection: inout PluginInspection) {
+        let contents = inspection.bundleURL.appendingPathComponent("Contents", isDirectory: true)
+        guard let infoData = try? Data(contentsOf: contents.appendingPathComponent("Info.plist")) else {
+            inspection.diagnostics.append(.missingInfoPlist)
+            return
+        }
+        guard let info = (try? PropertyListSerialization.propertyList(from: infoData, format: nil)) as? [String: Any] else {
+            inspection.diagnostics.append(.invalidInfoPlist)
+            return
+        }
+        let minimumSystemVersion = info["LSMinimumSystemVersion"] as? String
+        if let required = minimumSystemVersion.flatMap(Self.parseVersion), Self.isNewer(required, than: runningSystem) {
+            inspection.diagnostics.append(.requiresNewerSystem(required: MachOImage.versionString(required),
+                                                               running: MachOImage.versionString(runningSystem)))
+        }
+        // NSBundle names the executable after the bundle when CFBundleExecutable is absent.
+        let declaredExecutable = (info["CFBundleExecutable"] as? String) ?? ""
+        let executableName = declaredExecutable.isEmpty ? inspection.bundleURL.deletingPathExtension().lastPathComponent : declaredExecutable
+        let executableURL = contents.appendingPathComponent("MacOS", isDirectory: true).appendingPathComponent(executableName)
+        if FileManager.default.fileExists(atPath: executableURL.path) {
+            inspectExecutable(at: executableURL, minimumSystemDeclared: minimumSystemVersion != nil, version1: false,
+                              into: &inspection.diagnostics)
+        } else {
+            inspection.diagnostics.append(.missingExecutable(executableName))
+        }
+        func text(_ key: String) -> String { ((info[key] as? String) ?? "").trimmingCharacters(in: .whitespaces) }
+        let name = text("CFBundleName")
+        let version = text("CFBundleVersion")
+        inspection.manifest = PluginManifest(identifier: text("CFBundleIdentifier"),
+                                             name: name.isEmpty ? inspection.bundleURL.deletingPathExtension().lastPathComponent : name,
+                                             version: version.isEmpty ? text("CFBundleShortVersionString") : version,
+                                             apiVersion: 0, principalClass: text(PluginContract.principalClassKey),
+                                             executableName: executableName, capabilities: [],
+                                             minimumSystemVersion: minimumSystemVersion)
     }
 
     private func readAPIVersion(_ value: Any?, into diagnostics: inout [PluginDiagnostic]) -> Int? {
@@ -251,7 +296,10 @@ public struct PluginInspector: Sendable {
         return version
     }
 
-    private func inspectExecutable(at url: URL, minimumSystemDeclared: Bool, into diagnostics: inout [PluginDiagnostic]) {
+    /// The executable's slice for this process. `version1` adds the version 1
+    /// contract: no former SDK, and the kit linked.
+    private func inspectExecutable(at url: URL, minimumSystemDeclared: Bool, version1: Bool,
+                                   into diagnostics: inout [PluginDiagnostic]) {
         guard let image = try? MachOImage(contentsOf: url) else {
             diagnostics.append(.unreadableExecutable)
             return
@@ -264,15 +312,17 @@ public struct PluginInspector: Sendable {
         case .bundle, .dylib: break
         default: diagnostics.append(.notLoadableExecutable)
         }
-        let legacy = PluginContract.legacyFrameworkNames.filter { name in
-            slice.linkedLibraries.contains { $0.contains("/\(name).framework/") }
-        }
-        if !legacy.isEmpty {
-            diagnostics.append(.legacyDependency(frameworks: legacy.map { $0 + ".framework" }))
-        }
-        let kit = "/\(PluginContract.kitFrameworkName).framework/"
-        if !slice.linkedLibraries.contains(where: { $0.contains(kit) }) {
-            diagnostics.append(.kitNotLinked)
+        if version1 {
+            let legacy = PluginContract.legacyFrameworkNames.filter { name in
+                slice.linkedLibraries.contains { $0.contains("/\(name).framework/") }
+            }
+            if !legacy.isEmpty {
+                diagnostics.append(.legacyDependency(frameworks: legacy.map { $0 + ".framework" }))
+            }
+            let kit = "/\(PluginContract.kitFrameworkName).framework/"
+            if !slice.linkedLibraries.contains(where: { $0.contains(kit) }) {
+                diagnostics.append(.kitNotLinked)
+            }
         }
         // dyld refuses unsigned arm64 code with only "could not be loaded":
         // say why before trying. x86_64 code, on Intel or under Rosetta, may

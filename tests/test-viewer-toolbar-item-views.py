@@ -34,6 +34,10 @@ import re
 import subprocess
 import tempfile
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import process_graph_stand_in  # noqa: E402  - the 2D viewer's sources read the catalog's keys through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 swift_sources = [root / 'Horos/Sources/HorosCellSlider.swift',
@@ -77,24 +81,29 @@ def neutralise(text):
     return text
 
 
-# -blendWindows: shows the slider's percentage whether or not a fusion is active.
-blending = (root / 'Horos/Sources/ViewerController+Blending.swift').read_text()
+# -blendWindows: shows the slider's percentage whether or not a fusion is active
+# (the fusion's work is ViewerFusion's).
+blending = (root / 'Horos/Sources/ViewerFusion.swift').read_text()
 assert 'horos_blendingPercentage?.stringValue = "-"' not in blending, \
     'turning fusion off must keep the percentage, not write "-"'
-assert blending.count('self.horos_blendingPercentage?.isEnabled = ') == 2, \
+assert blending.count('viewer.horos_blendingPercentage?.isEnabled = ') == 2, \
     'the percentage must be enabled and dimmed with the fusion slider'
 
 # The Thick Slab item no longer stretches past its frame.
-toolbar = (root / 'Horos/Sources/ViewerController+Toolbar.swift').read_text()
-thick_slab = toolbar[toolbar.index('itemIdent == FusionToolbarItemIdentifier {'):]
-thick_slab = thick_slab[:thick_slab.index('} else if')]
-assert 'setView(self.horos_FusionView)' in thick_slab, 'the Thick Slab item must take its view\'s frame as its size'
+# The items are made by ViewerToolbarItemFactory; control() gives an item
+# one of the viewer's views at its designed size (setView).
+toolbar = (root / 'Horos/Sources/ViewerToolbarItemFactory.swift').read_text()
+control = toolbar[toolbar.index('func control('):]
+assert 'setView(view)' in control[:control.index('\n        }')], 'control() must give the item its view\'s frame as its size'
+thick_slab = toolbar[toolbar.index('case Catalog.thickSlab:'):]
+thick_slab = thick_slab[:thick_slab.index('        case ', 10)]
+assert 'view: viewer.horos_FusionView)' in thick_slab and 'control(' in thick_slab, 'the Thick Slab item must take its view\'s frame as its size'
 assert 'extraMaxWidth' not in toolbar, 'no toolbar item may stretch past its view\'s frame'
 
 # The tiling popup's images come from code, not from the dark PDFs.
-tiling = toolbar[toolbar.index('itemIdent == WindowsTilingToolbarItemIdentifier {'):]
-tiling = tiling[:tiling.index('} else if')]
-assert 'WindowsTilingImage.install(in: self.horos_windowsTiling)' in tiling, \
+tiling = toolbar[toolbar.index('case Catalog.windowsTiling:'):]
+tiling = tiling[:tiling.index('        case ', 10)]
+assert 'WindowsTilingImage.install(in: viewer.horos_windowsTiling)' in tiling, \
     'the Windows Tiling item must draw its arrangement images'
 for xib in xibs:
     assert not re.search(r'image="Tiling\dx\d"', xib.read_text()), f'{xib}: the tiling menu still names the old artwork'
@@ -321,6 +330,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-toolbar-items-') as folder
         'xcrun', 'swiftc', '-swift-version', '5',
         '-import-objc-header', str(folder / 'Owner.h'),
         *[str(s) for s in swift_sources], str(folder / 'Owner.m'), str(folder / 'main.swift'),
+        *process_graph_stand_in.swift_flags(folder / 'isix'),
         '-framework', 'AppKit',
         '-o', str(folder / 'test'),
     ], check=True)

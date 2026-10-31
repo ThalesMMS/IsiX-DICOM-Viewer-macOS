@@ -75,7 +75,7 @@ if not frame:
 # --- drawFrame: the order of the frame ----------------------------------------
 swift_order = [
     'PlanarFrameCycle.begin(in: self',
-    'drawingTry({',
+    'HorosObjCException.caught({',
     'self.horos_drawingFrameRect = aRect',
     'frame.presentPicture(in: self, layer: self.horosPictureLayer()',
     'frame.imageDrawn()',

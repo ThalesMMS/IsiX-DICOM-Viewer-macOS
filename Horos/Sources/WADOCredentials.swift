@@ -11,6 +11,8 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXDICOMNetwork
+import IsiXPreferences
 import Security
 
 /// The username and password of a node's WADO-URI retrieve.
@@ -28,9 +30,9 @@ import Security
 @objc(HorosWADOCredentials)
 public final class WADOCredentials: NSObject {
     /// The key of the Keychain item's UUID in a node's entry.
-    @objc public static let identifierKey = "WADOCredential"
-    static let usernameKey = "WADOUsername"
-    static let passwordKey = "WADOPassword"
+    @objc public static let identifierKey = WADOCredentialRules.identifierKey
+    static let usernameKey = WADOCredentialRules.usernameKey
+    static let passwordKey = WADOCredentialRules.passwordKey
     /// How long a retrieve, or the sheet, waits for the Keychain.
     static let keychainTimeout: TimeInterval = 10
     private static let lock = NSLock()
@@ -40,8 +42,7 @@ public final class WADOCredentials: NSObject {
     /// `Basic base64(username:password)` in UTF-8, or nil when either is empty.
     @objc(basicAuthorizationForUsername:password:)
     public static func basicAuthorization(username: String?, password: String?) -> String? {
-        guard let username, !username.isEmpty, let password, !password.isEmpty else { return nil }
-        return "Basic " + Data((username + ":" + password).utf8).base64EncodedString()
+        WADOCredentialRules.basicAuthorization(username: username, password: password)
     }
 
     /// The `Authorization` value of a retrieve from `server`, or "" when the
@@ -75,11 +76,9 @@ public final class WADOCredentials: NSObject {
         guard let header = try? DICOMwebCredentials.withDeadline(timeout: keychainTimeout, cancelled: { false }, {
                   try DICOMwebCredentials.header(forIdentifier: identifier)
               }),
-              header.value.lowercased().hasPrefix("basic "),
-              let decoded = Data(base64Encoded: String(header.value.dropFirst(6))),
-              let pair = String(data: decoded, encoding: .utf8), let colon = pair.firstIndex(of: ":")
+              let password = WADOCredentialRules.password(ofBasicAuthorization: header.value)
         else { return (nil, true) }
-        return (String(pair[pair.index(after: colon)...]), false)
+        return (password, false)
     }
 
     // MARK: Storing
@@ -117,16 +116,18 @@ public final class WADOCredentials: NSObject {
     @discardableResult
     static func migrateServers(in defaults: UserDefaults) -> Int {
         lock.lock(); defer { lock.unlock() }
-        guard defaults.volatileDomain(forName: UserDefaults.argumentDomain)["SERVERS"] == nil,
-              let servers = defaults.array(forKey: "SERVERS") else { return 0 }
+        guard !defaults.isGivenAsLaunchArgument(NetworkPreferences.dicomNodes),
+              let servers = defaults[NetworkPreferences.dicomNodes]?.map(\.object) else { return 0 }
         var changed = 0
         let migrated: [Any] = servers.map { entry in
             guard let server = entry as? NSDictionary, let plain = server[passwordKey] as? String else { return entry }
-            let node = server.mutableCopy() as! NSMutableDictionary
-            let username = server[usernameKey] as? String ?? ""
-            if !plain.isEmpty && !username.isEmpty {
+            let node = NSMutableDictionary(dictionary: server)
+            switch WADOCredentialRules.migration(username: server[usernameKey] as? String, password: plain) {
+            case .none:
+                return entry
+            case let .store(username, password):
                 do {
-                    try save(username: username, password: plain, in: node, keepStoredPassword: true)
+                    try save(username: username, password: password, in: node, keepStoredPassword: true)
                 } catch let error as NSError where error.code == Int(errSecParam) {
                     NSLog("WADO: a node's password cannot be sent as Basic credentials and was removed; enter it again in Locations")
                     node.removeObject(forKey: passwordKey)
@@ -134,14 +135,14 @@ public final class WADOCredentials: NSObject {
                     NSLog("WADO: a node's password could not be moved to the Keychain yet; it will be tried again")
                     return entry
                 }
-            } else {
+            case .remove:
                 node.removeObject(forKey: passwordKey)
             }
             changed += 1
             return node
         }
         guard changed > 0 else { return 0 }
-        defaults.set(migrated, forKey: "SERVERS")
+        defaults.set(migrated.compactMap(PropertyListValue.init), for: NetworkPreferences.dicomNodes)
         NSLog("WADO: moved %ld node password(s) from SERVERS to the Keychain", changed)
         return changed
     }
@@ -159,19 +160,13 @@ public final class WADOCredentials: NSObject {
     /// port), as URL loading itself drops it, and without it otherwise.
     static func redirect(_ request: URLRequest, from original: URLRequest?) -> URLRequest {
         var next = request
-        if let target = request.url, sameOrigin(target, original?.url),
-           let authorization = original?.value(forHTTPHeaderField: "Authorization") {
-            next.setValue(authorization, forHTTPHeaderField: "Authorization")
-        } else {
-            next.setValue(nil, forHTTPHeaderField: "Authorization")
-        }
+        next.setValue(WADOCredentialRules.redirectAuthorization(to: request.url, from: original?.url,
+                                                                carrying: original?.value(forHTTPHeaderField: "Authorization")),
+                      forHTTPHeaderField: "Authorization")
         return next
     }
 
     static func sameOrigin(_ a: URL, _ b: URL?) -> Bool {
-        guard let b, let schemeA = a.scheme?.lowercased(), let schemeB = b.scheme?.lowercased(),
-              let hostA = a.host?.lowercased(), let hostB = b.host?.lowercased() else { return false }
-        func port(_ url: URL, _ scheme: String) -> Int? { url.port ?? ["http": 80, "https": 443][scheme] }
-        return schemeA == schemeB && hostA == hostB && port(a, schemeA) == port(b, schemeB)
+        WADOCredentialRules.sameOrigin(a, b)
     }
 }

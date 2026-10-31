@@ -20,6 +20,7 @@ root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import class_text, source_text  # noqa: E402
 import isix_modules  # noqa: E402
+import process_graph_stand_in  # noqa: E402
 
 failures = []
 
@@ -31,6 +32,7 @@ def check(condition, message):
 
 STUBS = r'''
 import Foundation
+import IsiXDICOMNetwork
 
 // The Locations lists, as the app gives them: SERVERS entries, then the
 // DICOMweb nodes HorosDICOMwebSources builds (same keys as server(for:)).
@@ -38,7 +40,9 @@ nonisolated(unsafe) var dimseNodes: [Any] = []
 nonisolated(unsafe) var dicomwebNodes: [[String: Any]] = []
 
 final class DICOMNodeService {
-    static func nodes(sendOnly: Bool, queryRetrieveOnly: Bool) -> [Any] { dimseNodes }
+    static func dicomNodes(sendOnly: Bool, queryRetrieveOnly: Bool) -> [DICOMNode] {
+        DICOMNodeStore.dicomNodes(fromPropertyList: dimseNodes)
+    }
 }
 
 enum DICOMwebSources {
@@ -202,7 +206,8 @@ for name in ('private func findStudies(', 'private func findObjects('):
 check(re.search(r'if seconds <= 0 \|\| Thread\.isMainThread \{\s*return nil\s*\}', methods),
       'the wait is off at 0 seconds and never runs on the main thread')
 alert = (root / 'Horos/Sources/RISRequestAlert.swift').read_text()
-check(re.search(r'NSLog\("RIS request failed[^\n]*\n\s*guard UserDefaults\.standard\.bool\(forKey: showAlertsKey\) else \{ return \}', alert),
+check(re.search(r'NSLog\("RIS request failed[^\n]*\n\s*guard PreferencesSource\.process\.preferences'
+                r'\[NetworkPreferences\.xmlrpcServerShowsFailureAlerts\] else \{ return \}', alert),
       'a failure is always logged, and shown only when the alerts are on')
 find = block(methods, 'private func findObjects(', '// MARK:')
 check(re.search(r'if opens \{\s*RISRequestAlert\.report\(', find), 'FindObject tells only a request to open')
@@ -211,22 +216,28 @@ check('RISRequestAlert.noteAccepted(peer: address)' in access, 'an accepted requ
 check('credentialSent ? .wrongCredential : .noCredential' in access, 'challenge reasons')
 check('.loopbackOnly' in access, 'loopback-only refusal')
 
-app = source_text('AppController')
-geturl = block(app, '@objc(getUrl:withReplyEvent:) func getUrl', 'if let imageSpecifier')
+app = class_text('AppController')
+# getUrl hands the link to ExternalRequestHandler.open(link:), whose requests
+# are LinkRequests (ExternalRequestHandler.swift); the launch state is
+# ApplicationLifecycle's.
+geturl = block(app, '    func open(link: String?) {', 'if let methodName')
 check(re.search(r'RISRequestAlert\.notCarriedOut\(request\)', geturl), 'URL support off: the request is named')
-check(re.search(r'NSApplication\.shared\.terminate\(self\)\s*\}\s*return\s*\}', geturl),
+check(re.search(r'NSApplication\.shared\.terminate\(controller\)\s*\}\s*return\s*\}', geturl),
       'URL support off: nothing is called afterwards')
-check('_ = try? xmlrpcServer?.methodCall' not in geturl and 'answered error' in geturl, 'the code is logged')
-check('if !launchFinished { launchedForURL = true }' in geturl, 'a link during launch is noted')
-check(re.search(r'bool\(forKey: "isQueryControllerVisible"\) && !launchedForURL', app),
+request = block(app, 'struct LinkRequest: Sendable {', '@MainActor final class ExternalRequestHandler')
+check('_ = try? server?.methodCall' not in request and 'answered error' in request, 'the code is logged')
+facade = block(app, '@objc(getUrl:withReplyEvent:) func getUrl', 'externalRequests.open(link:')
+check('lifecycle.noteLinkArrived()' in facade and 'if !launchFinished { launchedForURL = true }' in app,
+      'a link during launch is noted')
+check(re.search(r'preferences\[ApplicationPreferences\.isQueryWindowVisible\] && !launchedForURL', app),
       'a link launch does not reopen Query/Retrieve')
 check('launch.eventID == AEEventID(kAEGetURL)' in app, 'the launch event is read')
 
 pane = (root / 'Preference Panes/OSIPACSOnDemandPreferencePane/OSIPACSOnDemandPreferencePane.swift').read_text()
 check('RISRequestServers.candidates()' in pane, 'PACS On-Demand preferences offer DICOMweb nodes')
 check('RISRequestServers.matches(saved:' in pane, 'PACS On-Demand preferences match as requests do')
-browser = (root / 'Horos/Sources/BrowserController+DistantSearch.swift').read_text()
-check('RISRequestServers.candidates()' in block(browser, 'class func comparativeServers()', 'class func string(forSearchType'),
+nodes = (root / 'Horos/Sources/QueryControllerDistantStudies.swift').read_text()
+check('RISRequestServers.candidates()' in block(nodes, 'func comparativeServers()', '// MARK: DistantStudyQuerying'),
       'comparative studies use the same nodes')
 
 with tempfile.TemporaryDirectory(prefix='horos-ris-request-') as tmp:
@@ -238,6 +249,9 @@ with tempfile.TemporaryDirectory(prefix='horos-ris-request-') as tmp:
     build = subprocess.run(['swiftc', '-suppress-warnings', '-swift-version', '6', *modules,
                             str(root / 'Horos/Sources/RISRequestServers.swift'),
                             str(root / 'Horos/Sources/RISRequestAlert.swift'),
+                            str(root / 'Horos/Sources/MainActorCallbacks.swift'),
+                            # The preferences, from PreferencesSource over a stand-in of the graph.
+                            str(process_graph_stand_in.source(p)),
                             str(p / 'stubs.swift'), str(p / 'main.swift'), '-o', str(p / 'test')],
                            capture_output=True, text=True)
     if build.returncode:

@@ -12,6 +12,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import process_graph_stand_in  # the source reads the preferences through the process graph
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -86,7 +87,8 @@ results = None
 with tempfile.TemporaryDirectory(prefix='horos-patient-list-') as folder:
     work = Path(folder)
     (work / 'main.swift').write_text(DRIVER)
-    built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-o', str(work / 'check'), str(core), str(work / 'main.swift')],
+    built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-o', str(work / 'check'),
+                            *process_graph_stand_in.swift_flags(work / 'isix'), str(core), str(work / 'main.swift')],
                            capture_output=True, text=True)
     if built.returncode != 0:
         failures.append('the parser does not compile:\n' + built.stderr[-2500:])

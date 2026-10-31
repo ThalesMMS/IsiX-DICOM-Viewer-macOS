@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """Execute the exporter's real DICOMDIR scheduling against existing index paths.
 
-The DICOM export is Swift (BrowserController+DICOMExport.swift): its DICOMDIR
-stage runs here as it is, through the browser's horos_createDicomDir(atDir:)
+The DICOM export is Swift (DICOMFolderExport.swift): its DICOMDIR stage runs
+here as it is, through the browser's horos_createDicomDir(atDir:)
 (BrowserController+StateAccess.swift) and HorosBrowserCreateDicomDir of
 BrowserController+CAPI.m, against a recording DicomDir.
 """
 from pathlib import Path
 import subprocess,tempfile,sys
 root=Path(__file__).resolve().parents[1]
-s=(root/'Horos/Sources/BrowserController+DICOMExport.swift').read_text()
+s=(root/'Horos/Sources/DICOMFolderExport.swift').read_text()
 a=s.index('        if addDICOMDIR && !exportAborted {');b=s.index('\n        #endif',a)
-c=s.index('    nonisolated static func reportedError(')
-reported=s[c:s.index('\n    }\n',c)+len('\n    }\n')]
+c=s.index('func objcReportedError(')
+reported=s[c:s.index('\n}\n',c)+len('\n}\n')]
 m=(root/'Horos/Sources/BrowserController+CAPI.m').read_bytes().decode('latin1')
 d=m.index('BOOL HorosBrowserCreateDicomDir(');wrapper=m[d:m.index('\n}\n',d)+3]
 access=(root/'Horos/Sources/BrowserController+StateAccess.swift').read_text()
@@ -50,14 +50,17 @@ WRAPPER
 code=r'''
 import Foundation
 var alerts = 0
-extension BrowserController {
 REPORTED
+extension BrowserController {
 WRAPPER
- @objc(showDICOMExportError:) func showDICOMExportError(_ error: NSError!) { alerts += 1 }
- func run(_ path: String, enabled addDICOMDIR: Bool) -> Bool {
+}
+enum DICOMFolderExport {
+ static func presentError(_ error: NSError) { alerts += 1 }
+ static func incompleteExportError(reason: String?) -> NSError { NSError(domain: "incomplete", code: 1) }
+ static func run(_ path: String, enabled addDICOMDIR: Bool) -> Bool {
   var exportAborted = false
   // The folders the export gave its patients, each once however many images it has.
-  let patientFolders = NSMutableArray(array: [(path as NSString).appendingPathComponent("A"), (path as NSString).appendingPathComponent("B")])
+  let patientFolders = [(path as NSString).appendingPathComponent("A"), (path as NSString).appendingPathComponent("B")]
   #if !OSIRIX_LIGHT
 BODY
   #endif
@@ -72,7 +75,7 @@ for name in ["A", "B"] {
 }
 for scenario in 0..<3 {
  attempts = 0; fail = scenario == 1 ? 1 : 0; alerts = 0
- let aborted = BrowserController().run(root, enabled: scenario != 2)
+ let aborted = DICOMFolderExport.run(root, enabled: scenario != 2)
  let expected = scenario == 0 ? 2 : (scenario == 1 ? 1 : 0)
  if attempts != expected || aborted != (scenario == 1) || alerts != (scenario == 1 ? 1 : 0) {
   FileHandle.standardError.write("FAIL scenario \(scenario) attempts \(attempts) expected \(expected) aborted \(aborted)\n".data(using: .utf8)!); exit(1)

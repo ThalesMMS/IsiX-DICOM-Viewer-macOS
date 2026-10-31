@@ -47,7 +47,11 @@ import IsiXVolumeRendering
 /// responsibilities are spread over its extensions: the toolbar
 /// (SRController+Toolbar.swift), and the 3D points, the ROI volumes, the fly
 /// through and the image exports (SRController+Points.swift).
-@objc(SRController)
+/// @usableFromInline because plugins built against the former SDK look up its
+/// Objective-C class: without it, the class symbol of an internal Swift class is
+/// private external, which a Release build, having no testability, leaves
+/// unexported. The attribute gives it public linkage and changes nothing else.
+@objc(SRController) @usableFromInline
 final class SRController: Window3DController, NSToolbarDelegate, NSToolbarItemValidation {
     // MARK: Outlets of SR.xib
 

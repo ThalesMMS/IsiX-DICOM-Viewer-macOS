@@ -2,8 +2,8 @@
 """Execute the database plugin dispatch method with controlled plugin failures.
 
 The browser's -executeFilterFromString: is Swift, in
-BrowserController+Plugins.swift. The method and the file's helpers (objcTry,
-objcSendLong...) are compiled as they are with xcrun swiftc, inside a double
+BrowserController+Plugins.swift. The method and the file's helpers (objcSendLong...)
+and the guards of HorosObjCException+Guards.swift are compiled as they are with xcrun swiftc, inside a double
 of BrowserController, with HorosObjCException, an Objective-C filter that
 fails as asked, and doubles of PluginManager, HorosAlertPanel and the
 exception log. `--viewer` runs the same scenario on the viewer's
@@ -19,6 +19,8 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+import objc_exception_guards
 import tempfile
 root=Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -122,7 +124,7 @@ final class ImageView { func stopROIEditingForce(_ force: Bool) {}; func roiSet(
 
 if args.viewer:
     support=source_path('ViewerController+ImagePipelineSupport').read_text()
-    helpers=VIEWER_DOUBLES+support[support.index('/// Runs `body` as an @try block'):support.index('/// -[DCMPix setArrayPix::]')]
+    helpers=VIEWER_DOUBLES+support[support.index('/// `[target selector: argument]` of a method returning `long`'):support.index('/// -[DCMPix setArrayPix::]')]
     a=s.index('    @objc(executeFilterFromString:)')
     method=s[a:s.index('    @objc(executeFilter:)',a)]
     program=SWIFT_DOUBLES.replace('final class BrowserController: NSObject {\nMETHOD\n}',
@@ -131,7 +133,7 @@ if args.viewer:
     program=program.replace('let browser=BrowserController()','let browser=ViewerController()').replace(
         '        print("PASS:', '        check(roiSets==2, "The viewer refreshes its ROIs after a filter that ran, not after a failure code")\n        print("PASS: viewer:')
 else:
-    helpers=s[s.index('/// `@synchronized (object)'):s.index('public extension BrowserController {')]
+    helpers=s[s.index('/// A `%@` argument: the object, or "(null)"'):s.index('public extension BrowserController {')]
     a=s.index('    @objc(executeFilterFromString:)')
     method=s[a:s.index('    @objc(executeFilterDB:)',a)]
     program=SWIFT_DOUBLES
@@ -141,7 +143,7 @@ with tempfile.TemporaryDirectory(prefix='horos-plugin-execution-') as directory:
         shutil.copy(root/'Horos/Sources'/name,p/name)
     (p/'harness.h').write_text(FILTER_HEADER)
     (p/'filter.m').write_text(FILTER)
-    (p/'main.swift').write_text(program.replace('HELPERS',helpers).replace('METHOD',method))
+    (p/'main.swift').write_text(program.replace('HELPERS',helpers+objc_exception_guards.source(log=False).replace('import Foundation\n','',1)).replace('METHOD',method))
     for name in ('HorosObjCException','filter'):
         subprocess.run(['xcrun','clang','-x','objective-c','-fobjc-arc','-fobjc-exceptions','-iquote',str(p),'-c',str(p/(name+'.m')),'-o',str(p/(name+'.o'))],check=True)
     subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-import-objc-header',str(p/'harness.h'),'-Xcc','-iquote','-Xcc',str(p),

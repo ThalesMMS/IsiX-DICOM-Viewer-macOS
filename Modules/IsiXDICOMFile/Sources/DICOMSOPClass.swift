@@ -9,6 +9,8 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXPreferences
+import Synchronization
 
 /// The SOP classes the app tells apart: which ones are pictures, reports,
 /// presentation states, waveforms, radiotherapy objects or private classes it
@@ -48,10 +50,10 @@ public final class DICOMSOPClass: NSObject {
     static let enhancedUSVolumeStorage = "1.2.840.10008.5.1.4.1.1.6.2"
     static let secondaryCaptureImageStorageUID = "1.2.840.10008.5.1.4.1.1.7"
     // The multi-frame kinds +[DCMObject secondaryCaptureObjectWithBitDepth:...] picks from.
-    @objc public static let multiframeSingleBitSecondaryCaptureImageStorage = "1.2.840.10008.5.1.4.1.1.7.1"
-    @objc public static let multiframeGrayscaleByteSecondaryCaptureImageStorage = "1.2.840.10008.5.1.4.1.1.7.2"
-    @objc public static let multiframeGrayscaleWordSecondaryCaptureImageStorage = "1.2.840.10008.5.1.4.1.1.7.3"
-    @objc public static let multiframeTrueColorSecondaryCaptureImageStorage = "1.2.840.10008.5.1.4.1.1.7.4"
+    public static let multiframeSingleBitSecondaryCaptureImageStorage = "1.2.840.10008.5.1.4.1.1.7.1"
+    public static let multiframeGrayscaleByteSecondaryCaptureImageStorage = "1.2.840.10008.5.1.4.1.1.7.2"
+    public static let multiframeGrayscaleWordSecondaryCaptureImageStorage = "1.2.840.10008.5.1.4.1.1.7.3"
+    public static let multiframeTrueColorSecondaryCaptureImageStorage = "1.2.840.10008.5.1.4.1.1.7.4"
     static let xrayAngiographicImageStorage = "1.2.840.10008.5.1.4.1.1.12.1"
     static let enhancedXAImageStorage = "1.2.840.10008.5.1.4.1.1.12.1.1"
     static let xrayRadioFluoroscopicImageStorage = "1.2.840.10008.5.1.4.1.1.12.2"
@@ -138,7 +140,7 @@ public final class DICOMSOPClass: NSObject {
     @objc public static func keyObjectSelectionDocumentStorage() -> String { keyObjectSelectionDocumentStorageUID }
     @objc public static func enhancedMRImageStorage() -> String { enhancedMRImageStorageUID }
     @objc public static func studyRootQueryRetrieveInformationModelFind() -> String { studyRootFind }
-    @objc public static func studyRootQueryRetrieveInformationModelMove() -> String { studyRootMove }
+    public static func studyRootQueryRetrieveInformationModelMove() -> String { studyRootMove }
 
     // MARK: Lists
 
@@ -165,43 +167,43 @@ public final class DICOMSOPClass: NSObject {
         breastTomosynthesisImageStorage, hardcopyGrayscaleImageStorage, hardcopyColorImageStorage,
     ]
 
-    private struct Configured {
+    /// The lists made from the preferences, the first time each is asked for,
+    /// and kept for the rest of the run.
+    private struct Configured: Sendable {
         var images: [String]?
         var hidden: [String]?
         var all: [String]?
+
+        /// The picture classes, with the preferences' additions and without
+        /// the hidden ones, read from `preferences` the first time.
+        mutating func imageSyntaxes(from preferences: any PreferenceStore) -> [String] {
+            if let images { return images }
+            var images = DICOMSOPClass.defaultImageSyntaxes
+            if let added = preferences[DatabasePreferences.additionalImageSOPClasses] {
+                images += added.compactMap(\.stringValue)
+            }
+            if let stored = preferences[DatabasePreferences.hiddenImageSOPClasses] {
+                let strings = stored.compactMap(\.stringValue)
+                hidden = strings
+                images.removeAll { strings.contains($0) }
+            }
+            self.images = images
+            return images
+        }
     }
 
-    private static let lock = NSLock()
-    nonisolated(unsafe) private static var configured = Configured()
+    private static let configured = Mutex(Configured())
 
     /// The picture classes, with the preferences' additions and without the
     /// hidden ones, read the first time this is asked.
     @objc public static func imageSyntaxes() -> [String] {
-        lock.lock(); defer { lock.unlock() }
-        return imageSyntaxesLocked()
-    }
-
-    private static func imageSyntaxesLocked() -> [String] {
-        if let images = configured.images { return images }
-        var images = defaultImageSyntaxes
-        let defaults = UserDefaults.standard
-        if let added = defaults.array(forKey: "additionalDisplayedStorageSOPClassUIDArray") {
-            images += added.compactMap { $0 as? String }
-        }
-        if let hidden = defaults.array(forKey: "hiddenDisplayedStorageSOPClassUIDArray") {
-            let strings = hidden.compactMap { $0 as? String }
-            configured.hidden = strings
-            images.removeAll { strings.contains($0) }
-        }
-        configured.images = images
-        return images
+        configured.withLock { $0.imageSyntaxes(from: UserDefaults.standard) }
     }
 
     /// The classes the preferences hide from display; nil until
     /// `imageSyntaxes` has been read, or when none is hidden.
     @objc public static func hiddenImageSyntaxes() -> [String]? {
-        lock.lock(); defer { lock.unlock() }
-        return configured.hidden
+        configured.withLock { $0.hidden }
     }
 
     @objc public static func structuredReportSyntaxes() -> [String] {
@@ -231,18 +233,19 @@ public final class DICOMSOPClass: NSObject {
 
     /// Every class the listener accepts and the database keeps, in this order.
     @objc public static func allSupportedSyntaxes() -> [String] {
-        lock.lock(); defer { lock.unlock() }
-        if let all = configured.all { return all }
-        var all = imageSyntaxesLocked()
-        all += radiotherapySyntaxes()
-        all += structuredReportSyntaxes()
-        all.append(keyObjectSelectionDocumentStorageUID)
-        all += presentationStateSyntaxes()
-        all += supportedPrivateClasses()
-        all += waveformSyntaxes()
-        all += configured.hidden ?? []
-        configured.all = all
-        return all
+        configured.withLock { configured in
+            if let all = configured.all { return all }
+            var all = configured.imageSyntaxes(from: UserDefaults.standard)
+            all += radiotherapySyntaxes()
+            all += structuredReportSyntaxes()
+            all.append(keyObjectSelectionDocumentStorageUID)
+            all += presentationStateSyntaxes()
+            all += supportedPrivateClasses()
+            all += waveformSyntaxes()
+            all += configured.hidden ?? []
+            configured.all = all
+            return all
+        }
     }
 
     // MARK: Predicates

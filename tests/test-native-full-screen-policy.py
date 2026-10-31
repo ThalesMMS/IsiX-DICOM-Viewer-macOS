@@ -44,9 +44,9 @@ def read(name):
 
 # AppController is Swift, with its C code in AppController+CAPI.m.
 application = {source_path(name).name: source_text(name) for name in ('AppController', 'AppController+CAPI')}
-# -windowDidLoad of the 2D viewer is Swift since ViewerController+WindowLifecycle.swift.
+# -windowDidLoad of the 2D viewer is Swift: its graph runs it (ViewerSessionGraph+WindowLife.swift).
 viewer = read('ViewerController.m')
-lifecycle = root / 'Horos/Sources/ViewerController+WindowLifecycle.swift'
+lifecycle = root / 'Horos/Sources/ViewerSessionGraph+WindowLife.swift'
 viewer_swift = lifecycle.read_text() if lifecycle.exists() else ''
 window3d = read('Window3DController.m')
 
@@ -66,7 +66,7 @@ for orphan in ('JRSwizzle.h', 'JRSwizzle.m'):
 
 # --- the two families that decline say so through the helper ------------------
 if '[HorosFullScreenWindowSupport declineNativeFullScreen: self.window];' not in viewer \
-        and 'FullScreenWindowSupport.declineNativeFullScreen(window)' not in viewer_swift:
+        and 'FullScreenWindowSupport.declineNativeFullScreen(viewer.window)' not in viewer_swift:
     failures.append('the 2D viewer no longer declares that it declines native full screen')
 if 'NSWindowCollectionBehaviorFullScreen' in viewer or 'collectionBehavior' in viewer_swift:
     failures.append('the 2D viewer still composes the collection behaviour inline')

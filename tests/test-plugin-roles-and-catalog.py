@@ -9,8 +9,10 @@ Swift, which kept them:
    it, so the menus disabled the items and choosing one did nothing. It is a
    class method now.
 2. A plugin whose Info.plist had no pluginType was loaded as a Pre-Process
-   filter and a Report. The loader that read pluginType is gone with the
-   former plugin API; nothing registers a plugin by it any more.
+   filter and a Report. The roles are now read by LegacyPluginDeclaration,
+   whose tests cover a missing pluginType; here the menus are built from the
+   declarations of synthetic plugins made for Horos or OsiriX: each role's
+   menu and message, and the submenu of a plugin with several items.
 3. The availability lookups checked `count >= 1` before reading index 1 and
    `>= 2` before index 2. There are always three, so nothing failed, but the
    guards now say `> 1` and `> 2`.
@@ -24,8 +26,10 @@ Swift, which kept them:
 The plugin download the window keeps for updates is compiled with its
 URLSession transfer and run against loopback addresses that refuse it.
 
-The shipped Swift is compiled over doubles: +setMenus:::: with +sortMenu:, and
-the -noPlugins: declaration, over empty registries. Nothing touches a real
+The shipped Swift is compiled over doubles: +setMenus:::: with +sortMenu:,
+the menus of the former plugins and IsiXPluginLoading's sources, and the
+-noPlugins: declaration, over empty registries and then synthetic bundles that
+hold only an Info.plist. Nothing touches a real
 plugins folder or the network.
 
     python3 tests/test-plugin-roles-and-catalog.py [<git revision>]
@@ -129,6 +133,7 @@ failures = 0
 registry = block(manager, 'fileprivate enum Registry {')
 objc_helpers = block(manager, 'fileprivate enum ObjC {')
 set_menus = block(manager, '@objc(setMenus::::)')
+former_menus = block(manager, '    private class func addFormerPluginMenuItems(')
 sort_menu = block(manager, '@objc(sortMenu:)')
 no_plugins_at = manager.find('@objc(noPlugins:)')
 no_plugins = manager[no_plugins_at:manager.index('{', no_plugins_at)] + '{ noPluginsCalls += 1 }'
@@ -136,7 +141,7 @@ if no_plugins_at < 0:
     print('FAIL: -noPlugins: is not where it was')
     raise SystemExit(1)
 if 'forKey: "pluginType"' in manager:
-    print('FAIL: PluginManager.swift still registers plugins by their pluginType')
+    print('FAIL: PluginManager.swift reads pluginType itself, not through LegacyPluginDeclaration')
     raise SystemExit(1)
 
 filters_objc = r'''
@@ -164,8 +169,7 @@ var noPluginsCalls = 0
 REGISTRY
 OBJC
 
-// The browser that answers Database and Report items: none in this process.
-enum BrowserController { static func currentBrowser() -> AnyObject? { return nil } }
+// The database window that answers Database and Report items: none in this process.
 enum NativeFilterMenus { static func addItems(for plugins: NSMutableDictionary, filtersMenu: NSMenu, roisMenu: NSMenu) {} }
 enum MenuShortcutCatalog { static func applyStoredAssignments(to menus: [NSMenu]) {} }
 
@@ -175,6 +179,9 @@ enum MenuShortcutCatalog { static func applyStoredAssignments(to menus: [NSMenu]
     @objc class func endProtectForCrash() {}
     // The commands of plugins of the API version 1 are tested apart.
     class func addIsiXPluginMenuItems(_ filtersMenu: NSMenu?, _ roisMenu: NSMenu?, _ othersMenu: NSMenu?, _ dbMenu: NSMenu?) {}
+    private class func databaseWindow() -> AnyObject? { nil }
+
+FORMERMENUS
 
     SORTMENU
 
@@ -217,6 +224,48 @@ for menu in [rois, database] {
         check(noPluginsCalls == before + 1, "choosing the \(menu.title) menu's placeholder does not reach -noPlugins:")
     }
 }
+
+// Plugins made for Horos or OsiriX: their items, from their Info.plist.
+let folder = FileManager.default.temporaryDirectory.appendingPathComponent("horos-roles-" + UUID().uuidString)
+defer { try? FileManager.default.removeItem(at: folder) }
+func former(_ name: String, _ info: [String: Any]) -> Bundle {
+    let url = folder.appendingPathComponent(name + ".horosplugin")
+    try! FileManager.default.createDirectory(at: url.appendingPathComponent("Contents"), withIntermediateDirectories: true)
+    var plist = info
+    plist["CFBundleExecutable"] = name
+    try! PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0).write(to: url.appendingPathComponent("Contents/Info.plist"))
+    return Bundle(url: url)!
+}
+let declared: [(String, [String: Any])] = [
+    ("Filter", ["pluginType": "imageFilter", "MenuTitles": ["Filter Item"]]),
+    ("Tool", ["pluginType": "roiTool", "MenuTitles": ["Tool Item"]]),
+    ("Fusion", ["pluginType": "fusionFilter", "MenuTitles": ["Fusion Item"]]),
+    ("Data", ["pluginType": "Database", "MenuTitles": ["Data Item"]]),
+    ("Report", ["pluginType": "Report", "MenuTitles": ["Report Item"]]),
+    ("Several", ["pluginType": "imageFilter", "MenuTitles": ["One", "(-", "Two"]]),
+]
+let dict = NSMutableDictionary()
+for (name, info) in declared {
+    let bundle = former(name, info)
+    for title in (info["MenuTitles"] as! [String]) where title != "(-" { dict[title] = bundle }
+}
+Registry.pluginsDict = dict
+Registry.fusionPlugins = NSMutableArray(capacity: 0)
+PluginManager.setMenus(filters, rois, others, database)
+func item(_ menu: NSMenu?, _ title: String) -> NSMenuItem? { menu?.items.first { $0.title == title } }
+check(item(filters, "Filter Item")?.action == NSSelectorFromString("executeFilter:") && item(filters, "Filter Item")?.target == nil,
+      "an imageFilter item goes to the image filters and sends -executeFilter: to the viewer")
+check(item(rois, "Tool Item")?.action == NSSelectorFromString("executeFilter:"), "a roiTool item goes to the ROI tools")
+check(item(Registry.fusionPluginsMenu, "Fusion Item")?.action == NSSelectorFromString("endBlendingType:")
+      && (Registry.fusionPlugins as? [String]) == ["Fusion Item"], "a fusionFilter item goes to the fusion menu and its list")
+check(item(database, "Data Item")?.action == NSSelectorFromString("executeFilterDB:"), "a Database item goes to the database menu")
+check(item(others, "Report Item")?.action == NSSelectorFromString("executeFilterDB:"), "a Report item goes to the other menu and needs no viewer")
+let several = item(filters, "Several")?.submenu
+check(several?.items.map(\.title) == ["One", "", "Two"] && several?.items[1].isSeparatorItem == true
+      && (item(filters, "Several")?.representedObject as? Bundle)?.bundleURL.lastPathComponent == "Several.horosplugin",
+      "a plugin with several items has a submenu named after its executable: \(several?.items.map(\.title) ?? [])")
+check(item(rois, "No plugins available for this menu") == nil && item(database, "No plugins available for this menu") == nil,
+      "a menu with a plugin's item has no placeholder")
 if failed > 0 { exit(1) }
 '''
 
@@ -314,11 +363,12 @@ with tempfile.TemporaryDirectory(prefix='horos-plugin-roles-') as temporary:
         raise SystemExit(1)
 
     code = (roles_swift.replace('REGISTRY', registry).replace('OBJC', objc_helpers, 1)
-            .replace('SORTMENU', sort_menu).replace('SETMENUS', set_menus).replace('NOPLUGINS', no_plugins))
+            .replace('SORTMENU', sort_menu).replace('FORMERMENUS', former_menus).replace('SETMENUS', set_menus).replace('NOPLUGINS', no_plugins))
             
-    status = run(build(work, 'roles', code, filters_objc, filters_impl, [str(work / 'exception.o')]))
+    module = [str(path) for path in sorted((root / 'Modules/IsiXPluginLoading/Sources').glob('*.swift'))]
+    status = run(build(work, 'roles', code, filters_objc, filters_impl, [str(work / 'exception.o')] + module))
     if status == 0:
-        print('PASS: nothing registers by pluginType, and "No plugins" reaches +noPlugins:')
+        print('PASS: the items of former plugins go where their pluginType says, and "No plugins" reaches +noPlugins:')
     failures += status
 
     status = run(build(work, 'download', download_swift.replace('DOWNLOAD', download_plugin),

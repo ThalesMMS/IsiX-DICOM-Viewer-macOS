@@ -39,6 +39,7 @@
 
 
 import Cocoa
+import IsiXPreferences
 
 /// The VR window's toolbar: one set of items for the standard window, a
 /// smaller one for the panel style, the items of the plugins, and the Stereo
@@ -103,19 +104,21 @@ extension VRController {
     public final func applyGeometrieSettings(_ sender: Any!) {
         VRGeometrieSettingsWindow?.orderOut(sender)
         if ((sender as AnyObject?)?.tag ?? 0) == 0 { return }
-        let defaults = UserDefaults.standard
-        defaults.set(distanceValue?.doubleValue ?? 0, forKey: "DISTANCETOSCREEN")
-        defaults.set(heightValue?.doubleValue ?? 0, forKey: "SCREENHEIGHT")
-        defaults.set(eyeDistance?.doubleValue ?? 0, forKey: "EYESEPARATION")
+        let preferences = processGraph.preferences
+        preferences.set(distanceValue?.doubleValue ?? 0, for: VolumeRenderingPreferences.distanceToScreen)
+        preferences.set(heightValue?.doubleValue ?? 0, for: VolumeRenderingPreferences.screenHeight)
+        preferences.set(eyeDistance?.doubleValue ?? 0, for: VolumeRenderingPreferences.eyeSeparation)
         vrView?.horosSetStereoScreenHeight(heightValue?.doubleValue ?? 0, distance: distanceValue?.doubleValue ?? 0,
                                            eyeSeparation: eyeDistance?.doubleValue ?? 0)
     }
 
     final func horosFillStereoGeometry() {
-        let defaults = UserDefaults.standard
-        if defaults.object(forKey: "DISTANCETOSCREEN") != nil { distanceValue?.doubleValue = defaults.double(forKey: "DISTANCETOSCREEN") }
-        if defaults.object(forKey: "SCREENHEIGHT") != nil { heightValue?.doubleValue = defaults.double(forKey: "SCREENHEIGHT") }
-        if defaults.object(forKey: "EYESEPARATION") != nil { eyeDistance?.doubleValue = defaults.double(forKey: "EYESEPARATION") }
+        let preferences = processGraph.preferences
+        // A field keeps its nib's value until the geometry was applied once.
+        for (field, key) in [(distanceValue, VolumeRenderingPreferences.distanceToScreen), (heightValue, VolumeRenderingPreferences.screenHeight),
+                             (eyeDistance, VolumeRenderingPreferences.eyeSeparation)] where key.isStored(in: preferences) {
+            field?.doubleValue = preferences[key]
+        }
     }
 
     // MARK: - NSToolbarDelegate

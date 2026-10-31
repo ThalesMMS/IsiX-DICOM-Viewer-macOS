@@ -48,6 +48,7 @@
 import AppKit
 import Carbon
 import CoreServices
+import IsiXPreferences
 import Security
 
 /// Sends the web portal's e-mails: through Mail.app with an AppleScript, or
@@ -59,8 +60,14 @@ import Security
 public final class CSMailMailClient: NSObject {
     // Ivars of the former class.
     private var _script: NSAppleScript?
-    private var defaultSMTPAccount: NSDictionary?
+    private var defaultSMTPAccount: [String: Any]?
     private var fromAddress: String?
+
+    /// The preferences: whether Mail sends the emails, the sender's address and Mail's own domain.
+    private static var preferences: UserDefaults { PreferencesSource.process.preferences }
+
+    /// Mail's preferences domain, whose UserHeaders a message with a Reply-To changes for its delivery.
+    private static let mailDomainName = "com.apple.mail"
 
     /// Two C functions Swift does not see: GetMacOSStatusCommentString
     /// (CarbonCore's Debugging.h is not in its module) and random(), marked
@@ -167,9 +174,9 @@ public final class CSMailMailClient: NSObject {
     public override init() {
         super.init()
 
-        if UserDefaults.standard.bool(forKey: "WebServerUseMailAppForEmails") == false {
+        if CSMailMailClient.preferences[NetworkPreferences.webServerUseMailAppForEmails] == false {
             if defaultSMTPAccount == nil {
-                defaultSMTPAccount = defaultSMTPAccountFromMail()
+                defaultSMTPAccount = smtpAccountFromMail()
                 if defaultSMTPAccount == nil {
                     //We can't do anything without an account.
                     NSLog("**** MailMe: No suitable SMTP account found")
@@ -318,119 +325,126 @@ public final class CSMailMailClient: NSObject {
 
     @objc(defaultSMTPAccountFromMail)
     public func defaultSMTPAccountFromMail() -> NSDictionary! {
-        var viableAccount: NSMutableDictionary? = nil
-        var selectedAccount: NSMutableDictionary? = nil
+        return smtpAccountFromMail() as NSDictionary?
+    }
+
+    /// The Mail account the SMTP path sends through, with its password from the
+    /// Keychain: the first account that has a delivery account and an address,
+    /// or the one whose first address is the notifications sender. Sets the
+    /// From address as a side effect.
+    func smtpAccountFromMail() -> [String: Any]? {
+        var viableAccount: [String: Any]? = nil
+        var selectedAccount: [String: Any]? = nil
         var found = false
-        var deliveryAccounts: NSArray? = nil
-        var mailAccounts: NSArray? = nil
+        var deliveryAccounts: [Any]? = nil
+        var mailAccounts: [Any]? = nil
 
         let LionPath = ("~/Library/Mail/V2/MailData/Accounts.plist" as NSString).expandingTildeInPath
 
         if FileManager.default.fileExists(atPath: LionPath) {
-            deliveryAccounts = NSDictionary(contentsOfFile: LionPath)?.object(forKey: "DeliveryAccounts") as? NSArray
-            mailAccounts = NSDictionary(contentsOfFile: LionPath)?.object(forKey: "MailAccounts") as? NSArray
+            // A property list whose top level is a dictionary, as -initWithContentsOfFile: read it.
+            let accounts = FileManager.default.contents(atPath: LionPath).flatMap {
+                (try? PropertyListSerialization.propertyList(from: $0, options: [], format: nil)) as? [String: Any]
+            }
+            deliveryAccounts = accounts?["DeliveryAccounts"] as? [Any]
+            mailAccounts = accounts?["MailAccounts"] as? [Any]
         } else {
             NSLog("***** File NOT found: %@", LionPath)
         }
 
         if deliveryAccounts == nil {
-            deliveryAccounts = CFPreferencesCopyAppValue("DeliveryAccounts" as CFString, "com.apple.Mail" as CFString) as? NSArray
+            deliveryAccounts = CFPreferencesCopyAppValue("DeliveryAccounts" as CFString, "com.apple.Mail" as CFString) as? [Any]
         }
 
-        if deliveryAccounts == nil {
+        guard let deliveryAccounts else {
             NSLog("***** No DeliveryAccounts found")
             return viableAccount
         }
 
         if mailAccounts == nil {
-            mailAccounts = CFPreferencesCopyAppValue("MailAccounts" as CFString, "com.apple.Mail" as CFString) as? NSArray
+            mailAccounts = CFPreferencesCopyAppValue("MailAccounts" as CFString, "com.apple.Mail" as CFString) as? [Any]
         }
 
-        if mailAccounts == nil {
+        guard let mailAccounts else {
             NSLog("***** No MailAccounts found")
             return viableAccount
         }
 
-        let deliveryAccountsBySMTPIdentifier = NSMutableDictionary(capacity: deliveryAccounts!.count)
-        for case let account as NSDictionary in deliveryAccounts! {
+        var deliveryAccountsBySMTPIdentifier: [String: [String: Any]] = [:]
+        for case let account as [String: Any] in deliveryAccounts {
             var identifier: String
 
-            if account.object(forKey: "Username") != nil {
-                identifier = "\(CSMailMailClient.describe(account.object(forKey: "Hostname"))):\(CSMailMailClient.describe(account.object(forKey: "Username")))"
+            if account["Username"] != nil {
+                identifier = "\(CSMailMailClient.describe(account["Hostname"])):\(CSMailMailClient.describe(account["Username"]))"
             } else {
-                identifier = CSMailMailClient.describe(account.object(forKey: "Hostname"))
+                identifier = CSMailMailClient.describe(account["Hostname"])
             }
 
-            deliveryAccountsBySMTPIdentifier.setObject(account, forKey: identifier as NSString)
+            deliveryAccountsBySMTPIdentifier[identifier] = account
         }
 
-        for case let account as NSDictionary in mailAccounts! {
-            guard let identifier = account.object(forKey: "SMTPIdentifier") else {
+        for case let account as [String: Any] in mailAccounts {
+            guard let identifier = account["SMTPIdentifier"] else {
                 continue
             }
 
-            viableAccount = (deliveryAccountsBySMTPIdentifier.object(forKey: identifier) as? NSDictionary)?.mutableCopy() as? NSMutableDictionary
+            // Text keys, as the delivery accounts were filed: another identifier matches none.
+            viableAccount = (identifier as? String).flatMap { deliveryAccountsBySMTPIdentifier[$0] }
             // -isEqualToString: of the first address; NO when either is nil.
-            let firstAddress = (account.object(forKey: "EmailAddresses") as? NSArray)?.firstObject
+            let firstAddress = (account["EmailAddresses"] as? [Any])?.first
             let isNotificationsSender: Bool = {
                 guard let address = firstAddress as? NSString,
-                      let sender = UserDefaults.standard.object(forKey: "notificationsEmailsSender") as? String else { return false }
+                      let sender = CSMailMailClient.preferences[WebPortalPreferences.notificationsEmailsSender] else { return false }
                 return address.isEqual(to: sender)
             }()
             if viableAccount != nil && (found == false || isNotificationsSender) {
                 let bareAddress = firstAddress
-                let name = account.object(forKey: "FullUserName")
+                let name = account["FullUserName"]
                 if let name = name {
                     fromAddress = "\(CSMailMailClient.describe(name)) <\(CSMailMailClient.describe(bareAddress))>"
                 } else {
-                    fromAddress = (bareAddress as? NSString)?.copy() as? String
+                    fromAddress = bareAddress as? String
                 }
                 if fromAddress == nil {
                     viableAccount = nil
                 }
 
-                if (viableAccount?.object(forKey: "UseDefaultPorts") as? NSNumber)?.boolValue == true
-                    || (viableAccount?.object(forKey: "UseDefaultPorts") as? NSString)?.boolValue == true {
-                    viableAccount?.removeObject(forKey: "PortNumber")
+                if (viableAccount?["UseDefaultPorts"] as? NSNumber)?.boolValue == true
+                    || (viableAccount?["UseDefaultPorts"] as? NSString)?.boolValue == true {
+                    viableAccount?["PortNumber"] = nil
                 }
 
                 if let viableAccount = viableAccount {
-                    let hostname = viableAccount.value(forKey: "Hostname") as? NSString
-                    var username = viableAccount.value(forKey: "Username") as? NSString
-                    var port: AnyObject? = viableAccount.value(forKey: "PortNumber") as AnyObject?
-
-                    if port == nil {
-                        port = "0" as NSString
-                    }
+                    let hostname = viableAccount["Hostname"] as? String
+                    var username = viableAccount["Username"] as? String
+                    let port: Any = viableAccount["PortNumber"] ?? "0"
 
                     var err: OSStatus = noErr
                     var passwordData: Data? = nil
 
-                    if (username?.length ?? 0) > 0 { // Do we need to retrieve a password?
+                    if let accountName = username, !accountName.isEmpty { // Do we need to retrieve a password?
                         do {
                             try HorosObjCException.perform {
                                 let portNumber = (port as? NSNumber)?.intValue ?? (port as? NSString)?.integerValue ?? 0
                                 let result = CSMailMailClient.copyPassword(query:
-                                    CSMailMailClient.internetPasswordQuery(hostname: hostname as String?,
-                                                                          username: username! as String,
+                                    CSMailMailClient.internetPasswordQuery(hostname: hostname,
+                                                                          username: accountName,
                                                                           port: portNumber))
                                 err = result.status
                                 passwordData = result.data
                             }
                         } catch {
                             let e = (error as NSError).userInfo[HorosObjCExceptionKey]
-                            NSLog("***** exception in %s: %@", "-[CSMailMailClient defaultSMTPAccountFromMail]", CSMailMailClient.describe(e))
+                            NSLog("***** exception in %@: %@", "-[CSMailMailClient defaultSMTPAccountFromMail]", CSMailMailClient.describe(e))
                         }
                     }
 
                     if err != noErr {
-                        //Try looking it up as a MobileMe account.
-                        let usernameComponents = (username?.components(separatedBy: "@") as NSArray?)?.mutableCopy() as? NSMutableArray
-                        usernameComponents?.removeLastObject()
-                        username = usernameComponents?.componentsJoined(by: "@") as NSString?
+                        //Try looking it up as a MobileMe account: the user name without its last "@" part.
+                        username = username.map { $0.components(separatedBy: "@").dropLast().joined(separator: "@") }
 
                         let result = CSMailMailClient.copyPassword(query:
-                            CSMailMailClient.mobileMePasswordQuery(username: username as String? ?? ""))
+                            CSMailMailClient.mobileMePasswordQuery(username: username ?? ""))
                         err = result.status
                         passwordData = result.data
 
@@ -443,13 +457,18 @@ public final class CSMailMailClient: NSObject {
                     //If we successfully got either a regular SMTP password or a MobileMe password…
                     if err == noErr {
                         //…then let's proceed with sending the message.
-                        let tempDictionary = NSMutableDictionary(dictionary: viableAccount)
+                        var account = viableAccount
 
                         if let passwordData = passwordData {
-                            tempDictionary.setValue(NSString(data: passwordData, encoding: String.Encoding.utf8.rawValue), forKey: "Password")
+                            // Text that is not UTF-8 leaves no password, as before.
+                            if let password = String(data: passwordData, encoding: .utf8) {
+                                account["Password"] = password
+                            } else {
+                                account.removeValue(forKey: "Password")
+                            }
                         }
 
-                        selectedAccount = tempDictionary
+                        selectedAccount = account
                     }
                 }
 
@@ -473,8 +492,8 @@ public final class CSMailMailClient: NSObject {
 
     /// -[NSUserDefaults setPersistentDomain:forName:] as the former code sent
     /// it: with nil when Mail's domain could not be read.
-    private func setMailPersistentDomain(_ domain: NSDictionary?) {
-        _ = UserDefaults.standard.perform(#selector(UserDefaults.setPersistentDomain(_:forName:)), with: domain, with: "com.apple.mail")
+    private func setMailPersistentDomain(_ domain: [String: Any]?) {
+        _ = CSMailMailClient.preferences.perform(#selector(UserDefaults.setPersistentDomain(_:forName:)), with: domain, with: CSMailMailClient.mailDomainName)
     }
 
     @objc(doHandler:forMessage:headers:)
@@ -568,23 +587,20 @@ public final class CSMailMailClient: NSObject {
 
         event.setParam(params, forKeyword: AEKeyword(keyDirectObject))
 
-        let mailDomain = UserDefaults.standard.persistentDomain(forName: "com.apple.mail") as NSDictionary?
-        let UserHeaders = (mailDomain?.object(forKey: "UserHeaders") as? NSDictionary)?.mutableCopy() as? NSDictionary
+        // Mail's own headers, put back once the message with a Reply-To is made.
+        let preferences = CSMailMailClient.preferences
+        let UserHeaders = preferences.persistentDomain(forName: CSMailMailClient.mailDomainName)?["UserHeaders"] as? [String: Any]
 
-        if (replyto as NSString).length > 0 {
-            let defaults = (UserDefaults.standard.persistentDomain(forName: "com.apple.mail") as NSDictionary?)?.mutableCopy() as? NSMutableDictionary
-            var MutableUserHeaders = (defaults?.object(forKey: "UserHeaders") as? NSDictionary)?.mutableCopy() as? NSMutableDictionary
+        if !replyto.isEmpty {
+            var mailDomain = preferences.persistentDomain(forName: CSMailMailClient.mailDomainName)
+            var mutableUserHeaders = mailDomain?["UserHeaders"] as? [String: Any] ?? [:]
 
-            if MutableUserHeaders == nil {
-                MutableUserHeaders = NSMutableDictionary()
-            }
+            mutableUserHeaders["Reply-To"] = replyto
 
-            MutableUserHeaders!.setValue(replyto, forKey: "Reply-To")
+            mailDomain?["UserHeaders"] = mutableUserHeaders
 
-            defaults?.setObject(MutableUserHeaders!, forKey: "UserHeaders" as NSString)
-
-            setMailPersistentDomain(defaults)
-            UserDefaults.standard.synchronize()
+            setMailPersistentDomain(mailDomain)
+            preferences.synchronize()
 
             CSMailMailClient.quitAndSleep("com.apple.mail", 0.5)
         }
@@ -595,17 +611,17 @@ public final class CSMailMailClient: NSObject {
             return false
         }
 
-        if (replyto as NSString).length > 0 {
-            let defaults = (UserDefaults.standard.persistentDomain(forName: "com.apple.mail") as NSDictionary?)?.mutableCopy() as? NSMutableDictionary
+        if !replyto.isEmpty {
+            var mailDomain = preferences.persistentDomain(forName: CSMailMailClient.mailDomainName)
 
             if let UserHeaders = UserHeaders {
-                defaults?.setObject(UserHeaders, forKey: "UserHeaders" as NSString)
+                mailDomain?["UserHeaders"] = UserHeaders
             } else {
-                defaults?.removeObject(forKey: "UserHeaders")
+                mailDomain?.removeValue(forKey: "UserHeaders")
             }
 
-            setMailPersistentDomain(defaults)
-            UserDefaults.standard.synchronize()
+            setMailPersistentDomain(mailDomain)
+            preferences.synchronize()
         }
 
         return true
@@ -613,7 +629,7 @@ public final class CSMailMailClient: NSObject {
 
     @objc(deliverMessage:headers:)
     public func deliverMessage(_ messageBody: String!, headers messageHeaders: NSDictionary!) -> Bool {
-        let useMail = UserDefaults.standard.bool(forKey: "WebServerUseMailAppForEmails")
+        let useMail = CSMailMailClient.preferences[NetworkPreferences.webServerUseMailAppForEmails]
 
         return deliverMessage(messageBody, headers: messageHeaders, withMailApp: useMail)
     }
@@ -633,7 +649,7 @@ public final class CSMailMailClient: NSObject {
                              headers: messageHeaders)
         } else {
             if defaultSMTPAccount == nil {
-                defaultSMTPAccount = defaultSMTPAccountFromMail()
+                defaultSMTPAccount = smtpAccountFromMail()
                 if defaultSMTPAccount == nil {
                     //We can't do anything without an account.
                     NSLog("**** MailMe: No suitable SMTP account found")
@@ -641,7 +657,7 @@ public final class CSMailMailClient: NSObject {
                 }
             }
 
-            return CSMailMailClient.deliverSMTPMessage(messageBody, headers: messageHeaders,
+            return CSMailMailClient.deliverSMTPMessage(messageBody, headers: messageHeaders as? [AnyHashable: Any],
                                                        account: defaultSMTPAccount!, accountAddress: fromAddress)
         }
     }
@@ -664,36 +680,36 @@ public final class CSMailMailClient: NSObject {
     /// code chose the account's address as a fallback sender but passed only
     /// the Sender header on: with it empty or missing, SMTPClient raised
     /// "Empty sender email address" instead of sending from the account.
-    static func deliverSMTPMessage(_ messageBody: String!, headers messageHeaders: NSDictionary!, account: NSDictionary, accountAddress: String?) -> Bool {
+    static func deliverSMTPMessage(_ messageBody: String!, headers messageHeaders: [AnyHashable: Any]?, account: [String: Any], accountAddress: String?) -> Bool {
         var mode = SMTPClientTLSModeNone
 
-        if (account.value(forKey: "SSLEnabled") as? NSNumber)?.boolValue == true
-            || (account.value(forKey: "SSLEnabled") as? NSString)?.boolValue == true {
+        if (account["SSLEnabled"] as? NSNumber)?.boolValue == true
+            || (account["SSLEnabled"] as? NSString)?.boolValue == true {
             mode = SMTPClientTLSModeTLSIfPossible
         }
 
-        guard let fromEmail = smtpSender(header: messageHeaders?.object(forKey: "Sender"), accountAddress: accountAddress) else {
+        guard let fromEmail = smtpSender(header: messageHeaders?["Sender"], accountAddress: accountAddress) else {
             NSLog("**** MailMe: No sender address for the SMTP message")
             return false
         }
 
         var ports: [Any]
 
-        if let portNumber = account.value(forKey: "PortNumber") {
+        if let portNumber = account["PortNumber"] {
             ports = [portNumber]
         } else {
             ports = [NSNumber(value: 25), NSNumber(value: 465), NSNumber(value: 587)]
         }
 
-        SMTPClient.client(withServerAddress: account.value(forKey: "Hostname") as? String,
+        SMTPClient.client(withServerAddress: account["Hostname"] as? String,
                           ports: ports,
                           tlsMode: mode,
-                          username: account.value(forKey: "Username") as? String,
-                          password: account.value(forKey: "Password") as? String)
+                          username: account["Username"] as? String,
+                          password: account["Password"] as? String)
             .sendMessage(messageBody,
-                         withSubject: messageHeaders?.object(forKey: "Subject") as? String,
+                         withSubject: messageHeaders?["Subject"] as? String,
                          from: fromEmail,
-                         to: messageHeaders?.object(forKey: "To") as? String)
+                         to: messageHeaders?["To"] as? String)
 
         return true
     }

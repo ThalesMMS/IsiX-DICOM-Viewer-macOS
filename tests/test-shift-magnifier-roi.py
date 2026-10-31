@@ -64,6 +64,11 @@ assert flags[flags.index('{'):].lstrip('{').lstrip().startswith('self.deleteLens
 lens_part = flags[flags.index('        var roiHit = false'):flags.index('        if roiHit == false {\n')]
 modifiers = tools[tools.index('/// The modifier flags of an event, as ViewInput reads them'):tools.index('/// The messages of the former Objective-C')]
 predicate = ('import AppKit\nimport IsiXImaging\nenum MagnifierPresentation { static let measurementDefaultsKey = "magnifyingLensWhileMeasuring" }\n'
+             # The typed keys the view reads its switches by, over the user defaults.
+             'enum ViewerPreferences { static let magnifyingLens = "magnifyingLens"; static let magnifyingLensWhileMeasuring = "magnifyingLensWhileMeasuring" }\n'
+             'struct HarnessPreferences { subscript(key: String) -> Bool { UserDefaults.standard.bool(forKey: key) } }\n'
+             'struct HarnessPreferencesSource { let preferences = HarnessPreferences() }\n'
+             'enum PreferencesSource { static let process = HarnessPreferencesSource() }\n'
              + modifiers + 'extension View {\n' + swift_method('horosShiftLensWantedWithFlags:')
              + swift_method('horosShiftHidesMeasurementMagnifierWithFlags:')
              + '    @objc(flags:) func flags(_ event: NSEvent?) {\n        self.deleteLens()\n' + lens_part
@@ -179,7 +184,8 @@ with tempfile.TemporaryDirectory(prefix='horos-shift-lens-') as d:
 # tool's included, over a ROI and on the click; Shift+Control syncs 3D first.
 moved = body(tracking, 'private func readPixelsUnderMouse(')
 shift_branch = moved[moved.index('} else if ViewInput.isShiftAlone(modifiers)'):]
-shift_branch = shift_branch[:shift_branch.index('let xPos')]
+# Up to the pixel's reading (PixelProbe's colour or the slice's value since the probe).
+shift_branch = shift_branch[:shift_branch.index('let xPos') if 'let xPos' in shift_branch else shift_branch.index('if curDCM.isRGB')]
 assert 'self.horos_mouseDragging == false' in shift_branch and 'self.computeMagnifyLens(imageLocation)' in shift_branch
 for gate in ('horosPlacingROIPoint', 'roiTool', '.mouseMoved', 'horosROIUnderPoint'):
     assert gate not in shift_branch, f'the move still gates the ROI lens on {gate}'
@@ -201,17 +207,35 @@ assert '    @objc(horosShiftLensWantedWithFlags:)\n' in drawing
 # ROI drawn with Shift goes on this image alone; Shift+click on a ROI toggles it.
 down = body(mouse, 'private func mouseDownWithROITool(')
 assert 'isAliased = true' not in down and 'originalIndexForAlias' not in down, 'Shift still aliases a new ROI to the series'
-toggle = down[down.index('if flags.contains(.shift) && !flags.contains(.command) {'):]
-toggle = toggle[:toggle.index('if doNothing == false {')]
-assert 'r.roImode = Int(ROI_sleep)' in toggle and 'doNothing = true' in toggle, 'Shift+click on a ROI no longer toggles its selection'
+# Which ROI the click takes, and whether Shift turns it off, is IsiXROI's
+# ROIEditingSession.toolClick; the click then does nothing else.
+assert 'toolClick(shift: flags.contains(.shift), command: flags.contains(.command))' in down
+toggle = down[down.index('if click.deselectsTarget, let target = click.target {'):]
+toggle = toggle[:toggle.index('if click.deselectsTarget == false {')]
+assert 'r.roImode = Int(ROI_sleep)' in toggle, 'Shift+click on a ROI no longer toggles its selection'
+session = (root / 'Modules/IsiXROI/Sources/ROIEditingSession.swift').read_text()
+rule = session[session.index('public func toolClick('):]
+rule = rule[:rule.index('\n    }\n')]
+assert 'if shift && !command {' in rule and 'items[$0].mode == ROISelection.selected' in rule, \
+    'Shift+click on a selected ROI no longer turns it off'
 begin = body(length, 'public dynamic func beginLengthClick(')
-assert '.shift' not in begin and '.command' in begin
+# Which modifiers keep a click from the two-click Length is IsiXROI's
+# TwoClickLengthPlacement.takesClick: Command, Option and Control, not Shift.
+assert '.shift' not in begin and 'LengthPlacement.takesClick(' in begin and 'modifierFlags: event.modifierFlags.rawValue' in begin
+placement = (root / 'Modules/IsiXROI/Sources/TwoClickLengthPlacement.swift').read_text()
+takes = placement[placement.index('public static func takesClick('):]
+takes = takes[:takes.index('\n    }\n')]
+assert 'modifierFlags & (command | option | control) == 0' in takes and 'shift' not in takes.split('{', 1)[1], \
+    'Shift keeps a click from the two-click Length'
 assert 'horosShiftLensWanted' not in body(mouse, 'public dynamic func shouldIgnoreHiddenCursorEvent(')
 
 # The other uses of Shift: zoom for the tools that draw no ROI, fast scroll.
 tool = body(rules, 'public static func tool(button: Button')
 assert 'if m & shift != 0 { tool = 2 } // zoom' in tool
-assert 'ViewInput.tool(button: button' in body(tools, 'public dynamic func getTool(')
+# getTool: asks the rule directly, or through ViewerToolBindings, which asks it.
+get_tool = body(tools, 'public dynamic func getTool(')
+assert 'ViewInput.tool(button: button' in get_tool or ('bindings.tool(button: button' in get_tool and 'ViewInput.tool(button: button' in
+                                                       (root / 'Modules/IsiXImaging/Sources/ViewInput/ViewerToolBindings.swift').read_text())
 assert '} else if modifiers.contains(.shift) {' in body(source_text('DCMView+Scrolling'), 'public override dynamic func scrollWheel(')
 
 # The geometry: Shift alone constrains nothing in a ROI's drag, where every

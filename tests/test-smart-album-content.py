@@ -78,8 +78,8 @@ with tempfile.TemporaryDirectory(prefix='horos-album-content-') as folder:
 
 # SmartWindowController is Swift; the assertions read its Swift spelling.
 editor = sources.source_text('SmartWindowController')
-# The albums' count thread is Swift (BrowserController+StudyList.swift).
-browser = (root / 'Horos/Sources/BrowserController+StudyList.swift').read_text()
+# The albums' count runs on a thread of its own (DatabaseAlbumCounter.swift).
+browser = (root / 'Horos/Sources/DatabaseAlbumCounter.swift').read_text()
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 assert 'StudyContentPredicates.contains(StudyContentPredicates.roiOrSegmentationFormat' in editor and \
     'let clause = StudyContentPredicates.roiOrSegmentationFormat' in editor, 'the editor uses the shared clause'
@@ -87,8 +87,8 @@ assert '@objc(toggleContentCriterion:)' in editor and 'installContentCriterionCh
 assert 'setAccessibilityLabel' in editor, 'the checkbox carries its label'
 for forbidden in ('NSEntityDescription', 'insertNewObjectForEntityForName', 'ROIStore', 'roiDatabase'):
     assert forbidden not in editor, 'the editor must not build a second ROI store: ' + forbidden
-albums = (root / 'Horos/Sources/BrowserController+Albums.swift').read_text()
-assert 'album?.predicateString = ' in albums, 'albums still keep one predicate string'
+albums = (root / 'Horos/Sources/CoreDataAlbumStore.swift').read_text()
+assert 'stored?.predicateString = predicateFormat' in albums, 'albums still keep one predicate string'
 assert '(try? idatabase.managedObjectContext.existingObject(with: objectID)) as? DicomAlbum' in browser, 'the count thread must not fault on a deleted album'
 assert '!ialbum.isDeleted else { continue }' in browser, 'a deleted album is skipped'
 assert 'if Thread.current.isCancelled { break }' in browser, 'the count thread stays cancellable'

@@ -11,6 +11,7 @@
 import AppKit
 import IsiXVolumeRendering
 import ObjectiveC
+import IsiXPreferences
 
 /// The MPR's switch for drawing the hidden view's next render with Metal, and
 /// whether that render drew it; on the view.
@@ -38,7 +39,6 @@ extension VRView {
     /// during VTK's render, after the view checked that the mapper is one of its
     /// own and that Metal is asked for (`mprPlane`: by the MPR, plane by plane).
     /// Returns NO for the CPU fallback.
-    @objc(horosRenderMetalImageInScene:fused:mprPlane:)
     func horosRenderMetalImage(in scene: IsiXVTKVolumeScene, fused: Bool, mprPlane: Bool) -> Bool {
         if mprPlane { objc_setAssociatedObject(self, &MPRVolumeMetalSlots.drawn, true, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
         return autoreleasepool { renderMetalImage(in: scene, fused: fused) }
@@ -423,7 +423,7 @@ extension VRView {
             // The host divides its opacity curve by superSampling and VTK applies it
             // per unit of the scaled frame; the renderer wants opacity per
             // millimetre. A projection paints with the curve itself.
-            let samplesPerMillimetre = Self.samplesPerMillimetre(superSampling: superSampling, spacingX: sx)
+            let samplesPerMillimetre = samplesPerMillimetre(superSampling: superSampling, spacingX: sx)
             let points = Self.points(currentOpacityArray as NSArray?)
             let curve = VolumeOpacityCurve.curvePoints(points, composite: renderingMode == 0, superSampling: superSampling,
                                                        samplesPerMillimetre: samplesPerMillimetre)
@@ -544,7 +544,7 @@ extension VRView {
             let view = try horosVolumeCameraSnapshot()
             let projection = renderingMode != 0
             let superSampling = Double(horosSuperSampling)
-            let samplesPerMillimetre = Self.samplesPerMillimetre(superSampling: superSampling, spacingX: sx)
+            let samplesPerMillimetre = samplesPerMillimetre(superSampling: superSampling, spacingX: sx)
 
             // setBlendingCLUT: and setBlendingWLWW:: build the fused colour function
             // from blendingtable over the fused window, as the image's is built.
@@ -620,11 +620,11 @@ extension VRView {
 
     // MARK: Reading VTK's tables
 
-    private static func samplesPerMillimetre(superSampling: Double, spacingX: Double) -> Double {
-        let defaults = UserDefaults.standard
+    private func samplesPerMillimetre(superSampling: Double, spacingX: Double) -> Double {
+        let preferences = processGraph.preferences
         return VolumeOpacityCurve.samplesPerMillimetre(superSampling: superSampling, spacingX: spacingX,
-                                                       rayStep: Double(defaults.float(forKey: "BESTRENDERING")),
-                                                       override: defaults.double(forKey: "HorosVolumeMetalOpacityExponent"))
+                                                       rayStep: Double(preferences[VolumeRenderingPreferences.bestRendering]),
+                                                       override: preferences[VolumeRenderingPreferences.volumeMetalOpacityExponent])
     }
 
     private struct ColourTables {

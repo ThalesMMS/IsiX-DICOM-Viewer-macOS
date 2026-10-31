@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXDICOMNetwork
 
 /// What a DICOMweb retrieve does about one of its requests that failed.
 @objc(HorosDICOMwebRecoveryAction)
@@ -39,28 +40,17 @@ public enum DICOMwebRecoveryAction: Int {
 /// not have or refuses to send (any other HTTP status but those below) is
 /// skipped. Authentication, credentials, the node's settings, TLS, a
 /// redirect and a cancellation stop the retrieve: asking again cannot help.
+/// The rule is `DICOMwebRecovery` of IsiXDICOMNetwork, which the retrieve
+/// uses; this class gives it to Objective-C.
 @objc(HorosDICOMwebRetrieveRecovery)
 public final class DICOMwebRetrieveRecovery: NSObject {
     /// Attempts of one request, the first included.
-    @objc public static let maximumAttempts = 3
+    @objc public static let maximumAttempts = DICOMwebRecovery.maximumAttempts
 
     @objc(actionForError:attempts:)
     public static func action(for error: NSError, attempts: Int) -> DICOMwebRecoveryAction {
-        let kind = DICOMwebClient.errorKind(for: error)
-        let transient: Bool
-        switch kind {
-        case .none, .configuration, .credentials, .tls, .authentication, .redirect, .cancelled:
-            return .stop
-        case .network, .timeout, .invalidResponse:
-            transient = true
-        case .notFound:
-            transient = false
-        case .http:
-            transient = [206, 408, 425, 429, 500, 502, 503, 504].contains(error.code)
-        }
-        guard transient, attempts < maximumAttempts else { return .skip }
-        let handedOver = error.userInfo[DICOMwebClient.objectsHandedOverKey] as? Int ?? 0
-        return handedOver > 0 ? .resume : .retry
+        let action = DICOMwebRecovery.action(for: DICOMwebClient.requestFailure(error), attempts: attempts)
+        return DICOMwebRecoveryAction(rawValue: action.rawValue) ?? .stop
     }
 
     /// How long to wait before attempt `attempt` (2 or more): the node's
@@ -68,9 +58,6 @@ public final class DICOMwebRetrieveRecovery: NSObject {
     /// 4... seconds.
     @objc(delayBeforeAttempt:retryAfter:)
     public static func delay(beforeAttempt attempt: Int, retryAfter: String?) -> TimeInterval {
-        if let retryAfter, let seconds = TimeInterval(retryAfter.trimmingCharacters(in: .whitespaces)), seconds >= 0 {
-            return min(seconds, 60)
-        }
-        return pow(2, Double(max(0, min(attempt - 2, 5))))
+        DICOMwebRecovery.delay(beforeAttempt: attempt, retryAfter: retryAfter)
     }
 }

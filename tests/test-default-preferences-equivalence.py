@@ -16,7 +16,8 @@ the headers it imports: the constants it read from them are taken from the same
 revision. Both probes run beside copies of the application's colour tables and
 default annotations, which they look up in their main bundle, and with a
 super-sampling above the default in their argument domain, so that neither
-writes one into its preferences.
+writes one into its preferences. A key the application dropped on purpose
+since that revision (DROPPED, with its reason) is taken out of the reference.
 
     python3 tests/test-default-preferences-equivalence.py [--reference REV]
 """
@@ -40,6 +41,11 @@ VARIANTS = [('application', ['-DOSIRIX_VIEWER'], 'true', 'false'),
             ('application, App Store', ['-DOSIRIX_VIEWER', '-DMACAPPSTORE'], 'true', 'true'),
             ('Decompress helper', ['-DOSIRIX_LIGHT', '-DDECOMPRESS_APP'], 'false', 'false')]
 ARGUMENTS = ['-superSampling', '9']
+# Keys DefaultsOsiriX.m registered that the application dropped on purpose
+# since, with the reason. They are taken out of the reference before comparing.
+DROPPED = {
+    'dontDeleteStudiesIfInAlbum': 'the automatic cleanup never read it: studies in an album are always kept',
+}
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--reference', help='revision whose DefaultsOsiriX.m is the reference')
@@ -145,7 +151,10 @@ with tempfile.TemporaryDirectory(prefix='horos-default-preferences-') as name:
         probe = bin / ('reference-' + re.sub(r'\W+', '-', label))
         compile_checked(['xcrun', 'clang', '-fno-objc-arc', '-w', '-I', str(old), *flags, str(old / 'DefaultsOsiriX.m'),
                          str(old / 'standins.m'), str(old / 'dump.m'), *frameworks, '-o', str(probe)])
-        references[label] = run([str(probe), *ARGUMENTS], bin)
+        reference_xml = run([str(probe), *ARGUMENTS], bin)
+        for key in DROPPED:
+            reference_xml = re.sub(r'\n\t<key>%s</key>\n\t<(?:true|false)/>' % re.escape(key), '', reference_xml)
+        references[label] = reference_xml
 
     modules = work / 'modules'
     (work / 'dump.swift').write_text(SWIFT_DUMP)

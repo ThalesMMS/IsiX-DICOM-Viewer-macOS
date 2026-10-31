@@ -3,23 +3,25 @@
 The parser/indexer and progress UI are fault-injection doubles; filesystem copies,
 Core Data saves/rollbacks and the production orchestration are real.
 
-The import is Swift (BrowserController+Anonymization.swift): it is compiled
-here as it is, beside the Swift DicomImage, and called from the Objective-C
-driver through its selector. The context is the real N2ManagedObjectContext
+The import is Swift (AnonymizedImport.swift, which the browser's end of the
+anonymization sheet calls): it is compiled here as it is, beside the Swift
+DicomImage, and called from the Objective-C driver through a selector of the
+test's own. The context is the real N2ManagedObjectContext
 (tests/n2_database_harness.py builds N2ManagedDatabase into a library).
 """
 from pathlib import Path
 import subprocess
 import tempfile
 root = Path(__file__).resolve().parents[1]
-anonymization = (root/'Horos/Sources/BrowserController+Anonymization.swift').read_text()
-method = anonymization[anonymization.index('    /// Imports the anonymized files'):anonymization.index("    /// The anonymization sheet's end")]
-export = (root/'Horos/Sources/BrowserController+DICOMExport.swift').read_text()
-a = export.index('    nonisolated static func reportedError(')
-reported = export[a:export.index('\n    }\n', a) + len('\n    }\n')]
-support = (root/'Horos/Sources/BrowserController+DatabaseSupport.swift').read_text()
-a = support.index('    static func attempt(')
-attempt = support[a:support.index('\n    }\n', a) + len('\n    }\n')]
+anonymization = (root/'Horos/Sources/AnonymizedImport.swift').read_text()
+refusal = anonymization[anonymization.index('    /// A refusal of the batch'):anonymization.index('    // MARK: The sheet')]
+method = anonymization[anonymization.index('    // MARK: The import'):anonymization.rindex('\n}\n')]
+browser = (root/'Horos/Sources/BrowserController+Anonymization.swift').read_text()
+assert 'AnonymizedImport(database: database).finish(aspc) {\n            outlineViewRefresh()\n            refreshAlbums()' in browser, \
+    'the browser no longer refreshes after the import'
+export = (root/'Horos/Sources/DICOMFolderExport.swift').read_text()
+a = export.index('func objcReportedError(')
+reported = export[a:export.index('\n}\n', a) + len('\n}\n')]
 # DicomImage is Swift: the harness compiles its -validateForDelete:
 # (and the helpers it calls) into a Swift DicomImage, and the doubles below
 # keep the rest of the class in an Objective-C category.
@@ -27,6 +29,8 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
 import n2_database_harness
+import objc_exception_guards
+attempt = objc_exception_guards.source(log=False)
 image_source = sources.source_text('DicomImage')
 def swift_body(signature):
     start = image_source.index(signature)
@@ -38,8 +42,7 @@ def swift_body(signature):
             if depth == 0: return image_source[start:index + 1]
         index += 1
 delete_method = swift_body('public override func validateForDelete() throws')
-helpers = '\n'.join(swift_body(signature) for signature in (
-    'fileprivate func dicomImageSynchronized<T>', 'fileprivate func dicomImageIsEqual('))
+helpers = '\n'.join(swift_body(signature) for signature in ('fileprivate func dicomImageIsEqual(',))
 harness = r'''
 #import <Cocoa/Cocoa.h>
 #import <CoreData/CoreData.h>
@@ -128,7 +131,7 @@ static BrowserController *currentBrowser;
 - (void)addFileToDeleteQueue:(NSString *)path { [NSFileManager.defaultManager removeItemAtPath:path error:NULL]; }
 - (void)outlineViewRefresh { refreshes++; } - (void)refreshAlbums {}
 @end
-// The import itself is the Swift extension's.
+// The import itself is AnonymizedImport's, which the test's Swift extension calls.
 @interface BrowserController (Anonymization)
 - (BOOL)importAnonymizedFiles:(NSDictionary *)files originalImages:(NSArray *)originalImages replace:(BOOL)replace error:(NSError **)error;
 @end
@@ -264,14 +267,49 @@ public final class DicomImage: NSManagedObject {
     @NSManaged public var series: DicomSeries?
     DELETE_METHOD
 }
-enum BrowserObjC {
-ATTEMPT
+// The registered source the deletion reaches the browser's delete queue through,
+// as the process graph does.
+struct ProcessGraph {
+    func queueForDeletion(_ file: String?) {
+        guard let file else { return }
+        BrowserController.currentBrowser()?.addFile(toDeleteQueue: file)
+    }
 }
-extension BrowserController {
+struct BrowserDatabaseSource {
+    static let process = BrowserDatabaseSource()
+    let processGraph = ProcessGraph()
+}
+ATTEMPT
+// The single entry, indexing on the calling thread as it does: what the preset
+// passes is test-ingest-preset-equivalence's, and what is checked here is that
+// the batch stays synchronous inside the atomic changes.
+enum IngestPreset { case anonymization }
+struct DatabaseIngest {
+    static let process = DatabaseIngest()
+    func index(_ paths: [Any]?, preset: IngestPreset, in database: DicomDatabase) -> [Any]? {
+        database.addFiles(atPaths: paths, postNotifications: true, dicomOnly: true, rereadExistingItems: true,
+                          generatedByOsiriX: true, importedFiles: false, returnArray: true)
+    }
+}
 REPORTED
+@MainActor struct AnonymizedImport {
+    let database: DicomDatabase?
+REFUSAL
 METHOD
 }
-'''.replace('HELPERS', helpers).replace('DELETE_METHOD', delete_method).replace('ATTEMPT', attempt).replace('REPORTED', reported).replace('METHOD', method)
+// What the end of the sheet does after a committed import: the browser refreshes.
+extension BrowserController {
+    @objc(importAnonymizedFiles:originalImages:replace:error:)
+    func importAnonymizedFiles(_ files: [String: String], originalImages: [DicomImage], replace: Bool) throws {
+        let database = self.database
+        try MainActor.assumeIsolated {
+            try AnonymizedImport(database: database).importFiles(files, originals: originalImages, replace: replace)
+        }
+        outlineViewRefresh()
+        refreshAlbums()
+    }
+}
+'''.replace('HELPERS', helpers).replace('DELETE_METHOD', delete_method).replace('ATTEMPT', attempt).replace('REPORTED', reported).replace('REFUSAL', refusal).replace('METHOD', method)
 with tempfile.TemporaryDirectory(prefix='horos-anonymization-') as tmp:
     path=Path(tmp)
     library, archives = n2_database_harness.library(path/'n2')

@@ -8,12 +8,16 @@ private database, or patient data. The SR double writes real NSArchiver bytes
 and only indexes their paths when addFilesAtPaths is called, as the host does.
 Pixel resampling, DICOM SR encoding, and native event delivery remain app checks.
 
--deleteROI:, -loadROI:, -saveROI: and +areROIsArraysIdentical:with: are Swift,
-in ViewerController+ROI.swift. They are taken from there as they
-stand, with the file's own objcTry/objcIsKind/objcROI/objcIntegerValue/objcAdd/
-objcSetKeyed/objcIsEqualToString/objcIsEqualToData/objcPost, and compiled with
-swiftc as an extension of the Objective-C double of ViewerController, beside
-the real HorosObjCException. The volume-length helpers, the archive reader
+-deleteROI:, -loadROI:, -saveROI: and +areROIsArraysIdentical:with: are Swift
+façades in ViewerController+ROI.swift of ViewerROIArchives, which reads and
+writes the ROIs through the ROIStoring port (IsiXContracts), and of
+ViewerROIEdits. The façades, those two types and the slice lists
+(ViewerROISlices, ViewerController+ROIState.swift) are taken from there as they
+stand, and compiled with swiftc as an extension of the Objective-C double of
+ViewerController, together with the port, its app adapter
+ViewerROIArchiveStore.swift, HistoricalArchive.swift and the real
+HorosObjCException; the viewer's graph, the preferences and the ingest are
+doubles that keep the names the code reads. The volume-length helpers, the archive reader
 (+volumeLengthArchiveROIsAtPath:) and the undo and redo are Swift too
 (ViewerController+VolumeLength.swift and +UndoQueue.swift), compiled the same
 way; in a ViewerController.m that still has them (with
@@ -31,6 +35,8 @@ import re
 import shutil
 import subprocess
 import sys
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+import objc_exception_guards
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -70,8 +76,20 @@ def swift_method(selector, following):
     return swift[start:swift.index('    @objc(' + following + ')\n', start)]
 
 
-def swift_helper(name):
-    return re.search(r'(?:@inline\(__always\)\n)?fileprivate func ' + name + r'\b.*?\n}\n', swift, re.S).group(0)
+def swift_between(start, end, text=None):
+    """The Swift of `text` (ViewerController+ROI.swift) from `start` up to `end`."""
+    text = swift if text is None else text
+    assert start in text and end in text, f'missing {start!r} or {end!r}'
+    first = text.index(start)
+    return text[first:text.index(end, first)]
+
+
+def swift_static(name, text=None):
+    """A static function of an enum, up to its closing brace at four spaces."""
+    text = swift if text is None else text
+    match = re.search(r'\n(    (?:@discardableResult\n    )?static func ' + name + r'\b.*?\n    }\n)', text, re.S)
+    assert match, f'missing static func {name}'
+    return match.group(1)
 
 
 # The volume length helpers and the undo: Objective-C of ViewerController.m,
@@ -104,29 +122,91 @@ if not objc_lengths:
     # The double has no superclass that declares the undo.
     swift_undo = undo[undo.index('public extension ViewerController {\n') + len('public extension ViewerController {\n'):undo.rindex('\n}\n') + 1].replace(
         '@IBAction override func', '@IBAction func').replace('override func add(toUndoQueue', 'func add(toUndoQueue')
-    swift_globals = (lengths[lengths.index('nonisolated(unsafe) private var volumeLengthStateKey'):lengths.index('public extension ViewerController {')]
-                     + undo[undo.index('func viewerArrayAdd('):undo.index('public extension ViewerController {')]
-                     + re.search(r'\n/// Runs `body` as an @try block.*?\nfunc viewerObjCTry.*?\n}\n', support, re.S).group(0))
+    # The undo façades go through ViewerUndoQueue (ViewerUndoQueue.swift),
+    # compiled without the modules it imports: the size rule is compiled
+    # beside it and the keys of the preferences are doubles.
+    queue = sources.source_text('ViewerUndoQueue').replace('import IsiXPreferences\n', '').replace('import IsiXROI\n', '')
+    # The volume lengths are ViewerVolumeLengths' (ViewerVolumeLengths.swift), whose
+    # states are associated with the viewer under an IdentityToken and which
+    # announces a Length with postViewerNotification.
+    volume_lengths = sources.source_text('ViewerVolumeLengths')
+    identity = sources.source_text('IdentityToken')
+    retrieve = sources.source_text('ViewerController+RetrieveAndView')
+    swift_globals = (identity[identity.index('struct IdentityToken'):]
+                     + re.search(r'\nfunc postViewerNotification\(.*?\n}\n', retrieve, re.S).group(0)
+                     + volume_lengths[volume_lengths.index('/// The key of the volume length states'):]
+                     # viewerRaiseNilInsertion (which the snapshot raises through) and viewerArrayAdd.
+                     + undo[undo.index('func viewerRaiseNilInsertion(') if 'func viewerRaiseNilInsertion(' in undo else undo.index('func viewerArrayAdd('):
+                            undo.index('public extension ViewerController {')]
+                     + (lambda found: found.group(0) if found else objc_exception_guards.source(log=False))(re.search(r'\n/// Runs `body` as an @try block.*?\nfunc viewerObjCTry.*?\n}\n', support, re.S))
+                     + queue[queue.index('/// A state of the ROIs of a viewer'):])
 # The Swift methods (each up to the @objc( line of the method after it).
 swift_methods = [
     ('deleteROI:', 'deleteSeriesROIwithName:'),
     ('loadROI:', 'areROIsArraysIdentical:with:'),
     ('saveROI:', 'containsROI:'),
-    ('areROIsArraysIdentical:with:', 'flipROIHorizontally:'),
 ]
+# The storage types of the viewer: the snapshot of a save and ViewerROIArchives,
+# the removal of ViewerROIEdits that -deleteROI: uses, and the slice lists.
+state = sources.source_text('ViewerController+ROIState')
+storage = (swift_between('@MainActor final class ViewerROISaveSnapshot', '// MARK: - Creation')
+           + '@MainActor enum ViewerROIEdits {\n' + swift_static('post') + swift_static('remove') + '}\n\n'
+           + state[state.index('/// The ROI lists of one time point of a viewer'):])
+# The ROI archive store of the app, without the module it imports: the port is
+# compiled beside it.
+store = (root / 'Horos/Sources/ViewerROIArchiveStore.swift').read_text().replace('import IsiXContracts\n', '')
 extension = (('import Foundation\n\n' if objc_lengths else 'import AppKit\n\n')
              + '// NSManagedObject is the double of the Objective-C side (see Harness.h).\n'
              'typealias NSManagedObject = ProbeManagedObject\n\n'
-             + ''.join(swift_helper(name) + '\n' for name in (
-                 'objcTry', 'objcIsEqualToString', 'objcAdd', 'objcSetKeyed', 'objcROI', 'objcIsKind',
-                 'objcIntegerValue', 'objcIsEqualToData', 'objcPost'))
              + ('' if objc_lengths else swift_globals)
-             + 'extension ViewerController {\n' + ''.join(swift_method(*pair) for pair in swift_methods) + '__SWIFT_SNAPSHOT__'
-             + ('' if objc_lengths else swift_lengths + swift_undo) + '}\n')
+             + storage + '\n'
+             + '@MainActor extension ViewerController {\n' + ''.join(swift_method(*pair) for pair in swift_methods)
+             + ('' if objc_lengths else swift_undo)
+             # The volume length façades call ViewerVolumeLengths, on the main actor.
+             + ('' if objc_lengths else swift_lengths + '__SWIFT_SNAPSHOT__')
+             + '}\n\nextension ViewerController {\n' + swift_method('areROIsArraysIdentical:with:', 'flipROIHorizontally:')
+             + ('__SWIFT_SNAPSHOT__' if objc_lengths else '') + '}\n')
 # Here, where the ROIs are doubles, the restricted unarchiver is the NSUnarchiver
 # it wraps, answering nil where it refuses, with the Swift signatures of
 # RestrictedUnarchiver.swift.
 DOUBLES = r'''
+// What the storage reads of the viewer's graph: the preferences, through the
+// key of ROINameCatalog, and the process graph that makes the archive store.
+struct TestPreferenceKey { let name: String }
+struct TestIntegerPreferenceKey { let name: String }
+enum ROINameCatalog { static let savesROIs = TestPreferenceKey(name: "SAVEROIS") }
+// The keys of the undo queue's size rule, which ViewerUndoQueue reads.
+enum ReconstructionPreferences {
+    static let undoQueueSize = TestIntegerPreferenceKey(name: "UndoQueueSize")
+    static let doesNotUseUndoQueueForROIs = TestPreferenceKey(name: "DontUseUndoQueueForROIs")
+}
+struct TestPreferences {
+    subscript(key: TestPreferenceKey) -> Bool { UserDefaults.standard.bool(forKey: key.name) }
+    subscript(key: TestIntegerPreferenceKey) -> Int { UserDefaults.standard.integer(forKey: key.name) }
+}
+final class TestProcessGraph {
+    @MainActor func roiArchives(of images: [DicomImage], in database: DicomDatabase) -> ViewerROIArchiveStore {
+        ViewerROIArchiveStore(images: images, database: database, ingest: DatabaseIngest.process)
+    }
+}
+final class TestSessionGraph {
+    let preferences = TestPreferences()
+    let processGraph = TestProcessGraph()
+}
+@MainActor let testSessionGraph = TestSessionGraph()
+extension ViewerController {
+    @MainActor var sessionGraph: TestSessionGraph { testSessionGraph }
+}
+
+enum IngestPreset { case generated, generatedQuiet }
+struct DatabaseIngest {
+    static let process = DatabaseIngest()
+    @discardableResult
+    func index(_ paths: [Any]?, preset: IngestPreset, in database: DicomDatabase) -> [Any]? {
+        database.addFiles(atPaths: paths, postNotifications: preset == .generated, dicomOnly: true, rereadExistingItems: true, generatedByOsiriX: true)
+        return nil
+    }
+}
 import Foundation
 
 @objc(HorosRestrictedUnarchiver)
@@ -253,6 +333,8 @@ void N2ManagedObjectContextPerformAndWait(ProbeContext *context, void (NS_NOESCA
 @interface SRAnnotation : NSObject
 @property(retain) NSArray *rois;
 @property(retain) DicomImage *image;
+// NSData kept as an object, as the Swift of the app keeps it.
+@property(retain) id horos_dataEncapsulated;
 + (NSData *)roiFromDICOM:(NSString *)path;
 + (NSString *)archiveROIsAsDICOM:(NSArray *)rois toPath:(NSString *)path forImage:(id)image;
 - (id)initWithROIs:(NSArray *)rois path:(NSString *)path forImage:(DicomImage *)image NS_SWIFT_NAME(init(rois:path:forImage:));
@@ -433,7 +515,8 @@ static DicomDatabase *database;
 }
 - (void)setSeriesInstanceUID:(NSString *)uid {}
 - (BOOL)writeToFileAtPath:(NSString *)path {
-    BOOL ok = [[NSArchiver archivedDataWithRootObject:self.rois] writeToFile:path atomically:YES];
+    NSData *archive = self.horos_dataEncapsulated ?: [NSArchiver archivedDataWithRootObject:self.rois];
+    BOOL ok = [archive writeToFile:path atomically:YES];
     if (ok) { writtenImages[path] = self.image; database.writes++; } return ok;
 }
 @end
@@ -552,9 +635,10 @@ int main(int argc, char **argv) { @autoreleasepool {
 
     // The real undo serializer must copy each volume once, not once per slice.
     volumeCopyCount = 0;
-    NSDictionary *beforeEdit = [v prepareObjectForUndo:@"roi"];
+    id beforeEdit = [v prepareObjectForUndo:@"roi"];
     CHECK(volumeCopyCount == 2, "undo copies two volume UUIDs exactly twice");
-    NSArray *snapshotPhases = beforeEdit[@"rois"];
+    // A ViewerUndoState once the undo is Swift, read by key; a dictionary before.
+    NSArray *snapshotPhases = [beforeEdit valueForKey:@"rois"];
     CHECK(snapshotPhases[0][0][1] == snapshotPhases[0][1][1], "undo preserves shared alias references");
     CHECK(snapshotPhases[0][0][1] != a, "undo data is independent from current objects");
     [v->undoQueue addObject:beforeEdit]; moveEnd(a, 30);
@@ -682,6 +766,7 @@ with tempfile.TemporaryDirectory(prefix='horos-volume-persistence-') as director
     (folder / 'test.m').write_text(translation_unit + harness_defaults.OBJC)
     (folder / 'ROI.swift').write_text(extension)
     (folder / 'Doubles.swift').write_text(DOUBLES)
+    (folder / 'Store.swift').write_text(store)
     include = ['-I', str(folder), '-I', str(root / 'Horos/Sources')]
     subprocess.run([
         'xcrun', 'clang', '-c', '-fno-objc-arc', '-fsanitize=undefined',
@@ -692,6 +777,9 @@ with tempfile.TemporaryDirectory(prefix='horos-volume-persistence-') as director
                     '-o', str(folder / 'HorosObjCException.o')], check=True)
     subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-sanitize=undefined', *include, *([] if objc_lengths else ['-Xcc', '-DHARNESS_SWIFT']),
                     '-import-objc-header', str(folder / 'Harness.h'), str(folder / 'ROI.swift'), str(folder / 'Doubles.swift'), str(root / 'Horos/Sources/ROISaveJob.swift'),
+                    # The port, its adapter and the typedstream writer of the reports.
+                    str(folder / 'Store.swift'), str(root / 'Modules/IsiXContracts/Sources/ROIStoring.swift'),
+                    str(root / 'Horos/Sources/HistoricalArchive.swift'),
                     # The size rule of the undo queue (IsiXROI), compiled beside it.
                     *([] if objc_lengths else [str(root / 'Modules/IsiXROI/Sources/ROIUndoQueuePolicy.swift')]),
                     str(folder / 'test.o'), str(folder / 'HorosObjCException.o'),

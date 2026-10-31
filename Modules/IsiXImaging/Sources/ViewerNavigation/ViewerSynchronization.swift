@@ -37,14 +37,13 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
-import CoreGraphics
 import Foundation
 
 // The synchronization of 2D viewers: what the "Sync" button of the toolbar
 // does (between viewers of one study it switches the view's own syncro mode;
-// across studies it locks the series at their current offset), and the
-// settings one viewer hands on to another (window level, zoom, pan,
-// rotation). The viewers apply them; these are the rules.
+// across studies it locks the series at their current offset). The settings
+// one viewer hands on to another (window level, zoom, pan, rotation) are
+// SettingsPropagation's. The viewers apply them; these are the rules.
 
 public enum ViewerSynchronization {
 
@@ -66,66 +65,5 @@ public enum ViewerSynchronization {
     public static func same(_ a: String?, _ b: String?) -> Bool {
         guard let a, let b else { return false }
         return (a as NSString).isEqual(to: b)
-    }
-}
-
-/// What a viewer knows of itself and of another to decide whether its window
-/// level goes to the other one (with "propagate settings" on and the same
-/// colour table).
-public struct WindowLevelPropagation: Sendable {
-    public var isRGB: Bool, otherIsRGB: Bool
-    public var modality: String?, otherModality: String?
-    public var subtraction: Bool, otherSubtraction: Bool
-    public var suvConverted: Bool, otherSUVConverted: Bool
-
-    public init(isRGB: Bool, otherIsRGB: Bool, modality: String?, otherModality: String?,
-                subtraction: Bool, otherSubtraction: Bool, suvConverted: Bool, otherSUVConverted: Bool) {
-        self.isRGB = isRGB
-        self.otherIsRGB = otherIsRGB
-        self.modality = modality
-        self.otherModality = otherModality
-        self.subtraction = subtraction
-        self.otherSubtraction = otherSubtraction
-        self.suvConverted = suvConverted
-        self.otherSUVConverted = otherSUVConverted
-    }
-
-    /// Only between images of one kind: both RGB or both not, the same
-    /// modality, the subtraction on both or neither; never to or from CR, never
-    /// to NM; between PET only when both are in SUV or neither.
-    public var propagates: Bool {
-        let same = ViewerSynchronization.same
-        var propagate = true
-        if isRGB != otherIsRGB { propagate = false }
-        if !same(otherModality, modality) { propagate = false }
-        if subtraction != otherSubtraction { propagate = false }
-        if same(otherModality, "CR") { propagate = false }
-        if same(modality, "CR") { propagate = false }
-        if same(otherModality, "NM") { propagate = false }
-        if same(otherModality, "PT") && same(modality, "PT") && suvConverted != otherSUVConverted { propagate = false }
-        return propagate
-    }
-}
-
-public enum ViewerSettingsPropagation {
-
-    /// The zoom the other viewer gets, or nil when it keeps its own: the same
-    /// scale per millimetre when both views know their pixel spacing, the same
-    /// scale otherwise; nothing from a view without a scale. The arithmetic is
-    /// the viewer's: a float scale over a double spacing.
-    public static func scale(_ scale: Float, pixelSpacing: Double, otherPixelSpacing: Double) -> Float? {
-        guard scale != 0 else { return nil }
-        if pixelSpacing != 0 && otherPixelSpacing != 0 {
-            let perMillimetre = Float(Double(scale) / pixelSpacing)
-            return Float(Double(perMillimetre) * otherPixelSpacing)
-        }
-        return scale
-    }
-
-    /// The other view's pan: this view's, moved by the distance between the two
-    /// images' origins (`delta`, in millimetres) at this view's scale.
-    public static func pan(_ origin: CGPoint, delta: CGPoint, scale: Float) -> CGPoint {
-        let x = delta.x * CGFloat(scale), y = delta.y * CGFloat(scale)
-        return CGPoint(x: origin.x + x, y: origin.y - y)
     }
 }

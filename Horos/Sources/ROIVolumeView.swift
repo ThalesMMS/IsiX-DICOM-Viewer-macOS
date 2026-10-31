@@ -40,6 +40,7 @@
 import Cocoa
 import UniformTypeIdentifiers
 import IsiXROI
+import IsiXPreferences
 
 /// The 3D object of an ROI volume, presented by Metal (HorosSceneView): the
 /// surface built from the ROIs of one name, textured, with the orientation
@@ -47,11 +48,18 @@ import IsiXROI
 ///
 /// Implemented in Swift: the Objective-C name and the selectors are those of
 /// the former class. The surface is built by the VTK adapter (IsiXVTKActor).
-@objc(ROIVolumeView)
+/// @usableFromInline because plugins built against the former SDK look up its
+/// Objective-C class: without it, the class symbol of an internal Swift class is
+/// private external, which a Release build, having no testability, leaves
+/// unexported. The attribute gives it public linkage and changes nothing else.
+@objc(ROIVolumeView) @usableFromInline
 final class ROIVolumeView: HorosSceneView {
     private var roiVolumeActor: IsiXVTKActor?
     private var texture: IsiXVTKTexture?
     private var roi: ROI?
+    /// The process's dependencies, made with the view: it reads its
+    /// preferences from their store.
+    private let processGraph = PreferencesSource.process.processGraph
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -154,7 +162,7 @@ final class ROIVolumeView: HorosSceneView {
             let data = NSBitmapImageRep.representationOfImageReps(in: image.representations, using: .jpeg,
                                                                    properties: [.compressionFactor: NSDecimalNumber(value: 0.9)])
             try? data?.write(to: URL(fileURLWithPath: url.path), options: .atomic)
-            if UserDefaults.standard.bool(forKey: "OPENVIEWER") { NSWorkspace.shared.open(url) }
+            if self.processGraph.preferences[ReconstructionPreferences.opensViewer] { NSWorkspace.shared.open(url) }
         }
     }
 
@@ -188,7 +196,7 @@ final class ROIVolumeView: HorosSceneView {
             }
             free(data)
         }
-        HorosSceneView.importExportedFiles(produced)
+        GeneratedSeriesImport.process.add(produced)
     }
 
     // MARK: The surface
@@ -204,14 +212,14 @@ final class ROIVolumeView: HorosSceneView {
     /// the ROIs fill, or Delaunay (1), the hull of their contour points, in
     /// patient millimetres times `factor`. Nil, after an alert, when no
     /// volume can be computed. `statistics` receives the volume's.
-    static func generateActor(for roi: ROI?, viewerController vc: ViewerController?, factor: Float,
+    static func generateActor(for roi: ROI?, viewerController vc: ViewerController?, processGraph: ProcessGraph, factor: Float,
                               statistics: NSMutableDictionary?) -> IsiXVTKActor? {
         guard let vc else { return nil }
         let generatedROIs = NSMutableArray()
         var points: NSMutableArray?
         var error: NSString?
 
-        let choice = ROISurfaceAlgorithm.resolvePreference(UserDefaults.standard.integer(forKey: "UseDelaunayFor3DRoi"))
+        let choice = ROISurfaceAlgorithm.resolvePreference(processGraph.preferences[VolumeRenderingPreferences.useDelaunayFor3DRoi])
         if !choice.available {
             HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs", comment: ""), message: choice.diagnosis,
                                         defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
@@ -328,7 +336,7 @@ final class ROIVolumeView: HorosSceneView {
             }
         } catch {
             NSLog("%@", String(describing: error))
-            if ROISurfaceAlgorithm.shouldRewritePreference(afterFailure: UserDefaults.standard.integer(forKey: "UseDelaunayFor3DRoi")) {
+            if ROISurfaceAlgorithm.shouldRewritePreference(afterFailure: processGraph.preferences[VolumeRenderingPreferences.useDelaunayFor3DRoi]) {
                 NSLog("ROI surface reconstruction failed; keeping UseDelaunayFor3DRoi")
             }
         }
@@ -338,7 +346,7 @@ final class ROIVolumeView: HorosSceneView {
     /// Puts the surface of the view's ROI in the scene. NO when there is none to show.
     private func buildVolume(statistics: NSMutableDictionary) -> Bool {
         let controller = window?.windowController as? ROIVolumeController
-        guard let actor = ROIVolumeView.generateActor(for: roi, viewerController: controller?.viewer(), factor: 1, statistics: statistics) else {
+        guard let actor = ROIVolumeView.generateActor(for: roi, viewerController: controller?.viewer(), processGraph: processGraph, factor: 1, statistics: statistics) else {
             return false
         }
 
@@ -346,13 +354,13 @@ final class ROIVolumeView: HorosSceneView {
         roiVolumeActor = actor
         actor.setCulling(front: true, back: true)
 
-        if UserDefaults.standard.integer(forKey: "UseDelaunayFor3DRoi") == 0, let o = controller?.viewer()?.pixList()?.firstObject as? DCMPix {
+        if processGraph.preferences[VolumeRenderingPreferences.useDelaunayFor3DRoi] == 0, let o = controller?.viewer()?.pixList()?.firstObject as? DCMPix {
             actor.setOrigin(IsiXVTKPoint(x: o.originX, y: o.originY, z: o.originZ))
             actor.position = IsiXVTKPoint(x: o.originX, y: o.originY, z: o.originZ)
         }
 
         // The texture.
-        var location = UserDefaults.standard.string(forKey: "textureLocation") ?? ""
+        var location = processGraph.preferences[VolumeRenderingPreferences.textureLocation] ?? ""
         if location.isEmpty {
             location = ((Bundle.main.resourcePath ?? "") as NSString).appendingPathComponent("texture.tif")
         }

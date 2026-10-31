@@ -175,16 +175,15 @@ runner = (root / 'Modules/IsiXDatabase/Sources/ImportValidation.swift').read_tex
 if ('extension DecompressService: ImportValidationTester' not in runner
         or 'switch testFile(atPath: file)' not in runner):
     failures.append('IsiXImportValidation no longer tests the files in the Decompress service')
-# DicomDatabase (DCMTK) is Swift (DicomDatabase+DCMTK.swift); the service is its tester.
-validation = (root / 'Horos/Sources/DicomDatabase+DCMTK.swift').read_text(encoding='utf-8')
-start = validation.index('class func filesRefused(byValidation files: [Any]!) -> [Any]!')
-body = validation[start:validation.index('\n    class func testFiles', start)]
-if 'ImportValidation.refusedFiles(' not in body or 'tester: service' not in body:
+# The selector forwards to ImportFileValidation.swift; the service is its tester.
+forwarder = (root / 'Horos/Sources/DicomDatabase+DCMTK.swift').read_text(encoding='utf-8')
+body = (root / 'Horos/Sources/ImportFileValidation.swift').read_text(encoding='utf-8')
+if 'ImportFileValidation.refusedFiles(' not in forwarder or 'ImportValidation.refusedFiles(' not in body or 'tester: service' not in body:
     failures.append('+[DicomDatabase filesRefusedByValidation:] no longer asks IsiXImportValidation')
-# The copy is DicomDatabase+MediaCopy.swift.
-importer = (root / 'Horos/Sources/DicomDatabase+MediaCopy.swift').read_text(encoding='utf-8')
-if ('DicomDatabase.filesRefused(byValidation: copiedFiles' not in importer
-        or 'addFiles(atPaths: acceptedFiles' not in importer or 'refusedFiles: refusedSources' not in importer):
+# The copy is MediaImportJob.swift.
+importer = (root / 'Horos/Sources/MediaImportJob.swift').read_text(encoding='utf-8')
+if ('DicomDatabase.filesRefused(byValidation: batch.files' not in importer
+        or 'indexOnOwnContext(acceptedFiles' not in importer or 'refusedFiles: refusedSources' not in importer):
     failures.append('the importer no longer indexes the files the validation did not refuse, or no longer tells the user')
 
 for failure in failures:

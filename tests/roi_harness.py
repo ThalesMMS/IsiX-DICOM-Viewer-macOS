@@ -22,6 +22,7 @@ Project classes the objects name and none of them defines are empty stubs:
 any message to them answers zero.
 """
 from pathlib import Path
+import atexit
 import os
 import re
 import shutil
@@ -35,6 +36,7 @@ import object_probe  # noqa: E402
 sys.path.insert(0, str(ROOT / 'tests'))
 import isix_modules  # noqa: E402
 import horos_reader  # noqa: E402
+import process_graph_stand_in  # noqa: E402
 
 SKIPPED = 2
 WORKTREE = 'WORKTREE'
@@ -453,8 +455,58 @@ DCMPIX_OBJC = ('Horos/Sources/DCMPix+SwiftIvars.m', 'Horos/Sources/DCMPix+CAPI.m
 # probes do not link; they stand in for its +extractContour:width:height:.
 # N2Debug: the probes define the logging functions they record, as they did
 # when N2Debug was Objective-C and never part of the Swift closure.
+# DatabaseIngest: a struct, whose stand-in passes the options of its preset to the
+# probes' database (object_probe.ingest_stand_in).
 BOUNDARY = ('DCMView', 'ViewerController', 'BrowserController', 'DicomDatabase', 'DicomFile', 'SRAnnotation',
-            'DICOMExport', 'ITKSegmentation3D', 'N2Debug')
+            'DICOMExport', 'ITKSegmentation3D', 'N2Debug', 'DatabaseIngest')
+
+
+# The process graph the preferences come from (PreferencesSource): the real one
+# reaches the application controller and with it the whole application, so its
+# objects are left out and a stand-in that hands out the standard preferences,
+# compiled as module Horos so that its symbols are the app's, takes its place.
+GRAPH_STAND_IN = 'ProcessGraph'
+_graph_stand_in = {}
+
+# The databases the graph hands out, which BrowserDatabaseSource reads for the
+# images and the model objects: the graph asks the browser's current instance
+# and DicomDatabase, as the real graph does, so that a probe gets the database
+# of its own BrowserController or DicomDatabase and none from their stubs.
+# Both are the Objective-C classes of their headers (see BOUNDARY), declared in
+# a header of the stand-in so that the getters' symbols are the app's; under
+# -undefined dynamic_lookup a getter the stand-in lacks is left at address 0.
+GRAPH_DATABASES = '''
+extension ProcessGraph {
+    var browserDatabase: DicomDatabase? { BrowserController.currentBrowser()?.database }
+    var activeLocalDatabase: DicomDatabase? { DicomDatabase.activeLocal() }
+}
+'''
+GRAPH_DATABASE_HEADER = '''#import <Foundation/Foundation.h>
+NS_ASSUME_NONNULL_BEGIN
+@interface DicomDatabase : NSObject
++ (nullable DicomDatabase *)activeLocal;
+@end
+@interface BrowserController : NSObject
++ (nullable BrowserController *)currentBrowser;
+@property (readonly, nullable) DicomDatabase *database;
+@end
+NS_ASSUME_NONNULL_END
+'''
+
+
+def graph_stand_in():
+    """The object of the process graph's stand-in, compiled once per process."""
+    if 'object' not in _graph_stand_in:
+        folder = Path(tempfile.mkdtemp(prefix='horos-graph-stand-in-'))
+        atexit.register(shutil.rmtree, folder, True)
+        source, obj = folder / 'ProcessGraphStandIn.swift', folder / 'ProcessGraphStandIn.o'
+        source.write_text(process_graph_stand_in.SOURCE + GRAPH_DATABASES)
+        header = folder / 'ProcessGraphStandIn.h'
+        header.write_text(GRAPH_DATABASE_HEADER)
+        run(['xcrun', 'swiftc', '-module-name', 'Horos', '-parse-as-library', '-suppress-warnings', '-wmo', '-c',
+             '-import-objc-header', str(header), str(source), '-o', str(obj)])
+        _graph_stand_in['object'] = obj
+    return _graph_stand_in['object']
 
 
 def is_boundary(stem):
@@ -466,7 +518,7 @@ def swift_closure(folder, names):
     """`names` and every Swift object of the app they need, by the symbols they
     define, without crossing into the BOUNDARY classes' objects."""
     swift = {p.stem for p in folder.glob('*.swiftdeps')} | set(names)
-    swift = {stem for stem in swift if stem in names or not is_boundary(stem)}
+    swift = {stem for stem in swift if stem in names or not (is_boundary(stem) or stem == GRAPH_STAND_IN)}
     index = {}
     for obj in folder.glob('*.o'):
         if obj.stem not in swift:
@@ -483,7 +535,12 @@ def swift_closure(folder, names):
             if owner and owner not in seen:
                 seen.add(owner)
                 todo.append(owner)
-    return [folder / f'{name}.o' for name in sorted(seen)]
+    closure = [folder / f'{name}.o' for name in sorted(seen)]
+    graph = '_$s5Horos%d%sC' % (len(GRAPH_STAND_IN), GRAPH_STAND_IN)
+    if GRAPH_STAND_IN not in seen and any(graph in subprocess.run(['nm', '-u', '-j', str(obj)], capture_output=True, text=True).stdout
+                                          for obj in closure):
+        closure.append(graph_stand_in())
+    return closure
 
 
 def project_class_names():
@@ -577,7 +634,7 @@ def swift_roi_link(folder, config=None, own=(), defined=()):
     objects = [o for o in swift_closure(objects_folder, swift_roi_files()) if o.stem not in own]
     module = module_object(config)
     folder = Path(folder)
-    flags = [str(module)] if module else isix_modules.module_flags(MODULE, folder / MODULE)
+    flags = [str(module)] if module else isix_modules.module_flags(MODULE, folder / 'linked')
     names = defined_classes(objects + ([module] if module else [])) | isix_modules.objc_class_names(MODULE) | set(defined)
     for name in own:
         source = ROOT / 'Horos/Sources' / f'{name}.swift'
@@ -585,11 +642,20 @@ def swift_roi_link(folder, config=None, own=(), defined=()):
             text = source.read_text(encoding='utf-8', errors='replace')
             names |= set(re.findall(r'@objc\((\w+)\)', text)) | set(re.findall(r'\bclass\s+(\w+)\s*:\s*NS\w+', text))
     referenced = {n for obj in objects for n in object_probe.undefined_project_classes(obj)}
-    for name in isix_modules.module_names():
-        classes = isix_modules.objc_class_names(name)
-        if name != MODULE and classes & referenced:
-            flags += isix_modules.module_flags(name, folder / name)
-            names |= classes
+    # A Swift object names a module's functions and types by their mangled
+    # names, without an Objective-C class: the app's NSLog calls IsiXLogging's
+    # unifiedLogv. The prelinked module object does not carry the modules it
+    # depends on either. Under -undefined dynamic_lookup such a function is
+    # left unbound and a call to it jumps to address 0.
+    listing = ''.join(subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
+                      for obj in objects + ([module] if module else []))
+    needed = {name for name in isix_modules.module_names() if name != MODULE and
+              (isix_modules.objc_class_names(name) & referenced or f'_$s{len(name)}{name}' in listing)}
+    # All in one folder: modules built with their dependencies beside them, in
+    # folders of their own, would map IsiXLogging twice.
+    for name in sorted(needed):
+        flags += isix_modules.module_flags(name, folder / 'linked')
+        names |= isix_modules.objc_class_names(name)
     return objects, flags, stubs(objects, names)
 
 
@@ -783,6 +849,9 @@ def build(revision, folder, probe_source, *, config=None, pix_flags=(), extra_sw
             defined |= classes
     (folder / 'stubs.m').write_text(stubs(objects + swift_objects, defined, former))
     run(['xcrun', 'clang', '-fno-objc-arc', '-w', '-c', str(folder / 'stubs.m'), '-o', str(folder / 'stubs.o')])
+    stand_ins = []
+    if '14DatabaseIngestV' in undefined:
+        stand_ins.append(object_probe.ingest_stand_in(folder, folder / 'other-modules'))
 
     placeholders = set()
     for _ in range(300):
@@ -790,7 +859,7 @@ def build(revision, folder, probe_source, *, config=None, pix_flags=(), extra_sw
         (folder / 'placeholders.s').write_text('.data\n' + assembly)
         run(['xcrun', 'clang', '-c', str(folder / 'placeholders.s'), '-o', str(folder / 'placeholders.o')])
         run(['xcrun', 'swiftc', '-parse-as-library', '-swift-version', '5', '-module-name', 'Probe', '-suppress-warnings',
-             *optimization, *map(str, extra_swift), *map(str, objects + swift_objects), str(folder / 'stubs.o'), str(folder / 'placeholders.o'),
+             *optimization, *map(str, extra_swift), *map(str, objects + swift_objects + stand_ins), str(folder / 'stubs.o'), str(folder / 'placeholders.o'),
              *link, '-Xlinker', '-undefined', '-Xlinker', 'dynamic_lookup', '-lc++',
              '-framework', 'Cocoa', '-framework', 'Accelerate', '-framework', 'AVFoundation', '-framework', 'CoreMedia',
              '-framework', 'QuartzCore', '-o', str(folder / 'harness')])

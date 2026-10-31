@@ -38,6 +38,8 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
+import IsiXPreferences
 import UniformTypeIdentifiers
 
 // The file-level statics of the former OrthogonalMPRPETCTViewer.m.
@@ -218,6 +220,9 @@ private func cAbs(_ a: Int32) -> Int32 {
 /// that class's synchronization of the position between MPR viewers.
 @objc(OrthogonalMPRPETCTViewer)
 public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDelegate, NSToolbarDelegate {
+    /// The preferences the window reads and writes: those of the process graph.
+    let preferenceStore: any PreferenceStore = PreferencesSource.process.preferences
+
     // MARK: - Outlets
 
     @objc public private(set) dynamic var CTController: OrthogonalMPRPETCTController!
@@ -554,7 +559,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         //	[[self window] display];
 
         NSUserDefaultsController.shared.addObserver(self,
-                                                    forKeyPath: "values.exportDCMIncludeAllViews",
+                                                    forKeyPath: ReconstructionPreferences.controllerKeyPath(ReconstructionPreferences.exportIncludesAllViews),
                                                     options: .new,
                                                     context: nil)
         // The Fusion item shows the percentage of the slider's starting
@@ -576,7 +581,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
     isolated deinit {
         NSLog("OrthogonalMPRPETCTViewer dealloc")
 
-        NSUserDefaultsController.shared.removeObserver(self, forKeyPath: "values.exportDCMIncludeAllViews")
+        NSUserDefaultsController.shared.removeObserver(self, forKeyPath: ReconstructionPreferences.controllerKeyPath(ReconstructionPreferences.exportIncludesAllViews))
 
         self.removeObserver(self, forKeyPath: "syncSeriesState")
 
@@ -628,14 +633,9 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
     public override dynamic func updateCLUTMenu(_ note: Notification!) {
         //*** Build the menu
-        var i: Int16
-        let keys: [Any]?
-        let sortedKeys: NSArray?
-
         // Presets VIEWER Menu
 
-        keys = (UserDefaults.standard.dictionary(forKey: "CLUT") as NSDictionary?)?.allKeys
-        sortedKeys = (keys as NSArray?)?.sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as NSArray?
+        let names = ReconstructionPreferences.menuNames(ImagePresetPreferences.colourTables, in: self.preferenceStore)
 
         self.clutPopup()?.menu?.removeAllItems()
 
@@ -643,10 +643,8 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         self.clutPopup()?.menu?.addItem(withTitle: NSLocalizedString("No CLUT", comment: ""), action: #selector(applyCLUT(_:)), keyEquivalent: "")
         self.clutPopup()?.menu?.addItem(NSMenuItem.separator())
 
-        i = 0
-        while Int(i) < (sortedKeys?.count ?? 0) {
-            self.clutPopup()?.menu?.addItem(withTitle: sortedKeys?.object(at: Int(i)) as? String ?? "", action: #selector(applyCLUT(_:)), keyEquivalent: "")
-            i += 1
+        for name in names {
+            self.clutPopup()?.menu?.addItem(withTitle: name, action: #selector(applyCLUT(_:)), keyEquivalent: "")
         }
         self.clutPopup()?.menu?.item(at: 0)?.title = note?.object as? String ?? ""
     }
@@ -695,14 +693,9 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
     @objc(UpdateWLWWMenu:)
     private dynamic func UpdateWLWWMenu(_ note: Notification!) {
         //*** Build the menu
-        var i: Int16
-        let keys: [Any]?
-        let sortedKeys: NSArray?
-
         // Presets VIEWER Menu
 
-        keys = (UserDefaults.standard.dictionary(forKey: "WLWW3") as NSDictionary?)?.allKeys
-        sortedKeys = (keys as NSArray?)?.sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as NSArray?
+        let titles = ReconstructionPreferences.windowLevelMenuTitles(in: self.preferenceStore)
 
         self.wlwwPopup()?.menu?.removeAllItems()
 
@@ -712,10 +705,8 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         self.wlwwPopup()?.menu?.addItem(withTitle: NSLocalizedString("Full dynamic", comment: ""), action: #selector(ApplyWLWW(_:)), keyEquivalent: "")
         self.wlwwPopup()?.menu?.addItem(NSMenuItem.separator())
 
-        i = 0
-        while Int(i) < (sortedKeys?.count ?? 0) {
-            self.wlwwPopup()?.menu?.addItem(withTitle: String(format: "%d - %@", Int32(i) + 1, (sortedKeys?.object(at: Int(i)) as? NSString) ?? "(null)"), action: #selector(ApplyWLWW(_:)), keyEquivalent: "")
-            i += 1
+        for title in titles {
+            self.wlwwPopup()?.menu?.addItem(withTitle: title, action: #selector(ApplyWLWW(_:)), keyEquivalent: "")
         }
 
         if (CTController?.containsView(self.keyView()) ?? false)
@@ -740,8 +731,8 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         } else if menuString == NSLocalizedString("Full dynamic", comment: "") {
             self.setWLWW(0, 0, keyOrthogonalView?.controller())
         } else {
-            let value = (UserDefaults.standard.dictionary(forKey: "WLWW3") as NSDictionary?)?.object(forKey: menuString as Any) as? NSArray
-            self.setWLWW(floatValueOf(value?.object(at: 0)), floatValueOf(value?.object(at: 1)), keyOrthogonalView?.controller())
+            let value = ReconstructionPreferences.preset(menuString, of: ImagePresetPreferences.windowLevelPresets, in: self.preferenceStore)
+            self.setWLWW(Float(value?.level ?? 0), Float(value?.width ?? 0), keyOrthogonalView?.controller())
         }
 
         self.wlwwPopup()?.menu?.item(at: 0)?.title = menuString ?? ""
@@ -757,11 +748,9 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
     private dynamic func ApplyWLWW(_ sender: Any!) {
         var menuString = titleOf(sender)
 
-        if menuString == NSLocalizedString("Other", comment: "") {
-        } else if menuString == NSLocalizedString("Default WL & WW", comment: "") {
-        } else if menuString == NSLocalizedString("Full dynamic", comment: "") {
-        } else {
-            menuString = (menuString as NSString?)?.substring(from: 4)
+        let fixedItems = [NSLocalizedString("Other", comment: ""), NSLocalizedString("Default WL & WW", comment: ""), NSLocalizedString("Full dynamic", comment: "")]
+        if let title = menuString, !fixedItems.contains(title) {
+            menuString = WindowLevel.presetName(fromMenuTitle: title)
         }
 
         self.applyWLWW(for: menuString)
@@ -775,23 +764,16 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
     @objc(UpdateOpacityMenu:)
     private dynamic func UpdateOpacityMenu(_ note: Notification!) {
         //*** Build the menu
-        var i: Int16
-        let keys: [Any]?
-        let sortedKeys: NSArray?
-
         // Presets VIEWER Menu
 
-        keys = (UserDefaults.standard.dictionary(forKey: "OPACITY") as NSDictionary?)?.allKeys
-        sortedKeys = (keys as NSArray?)?.sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as NSArray?
+        let names = ReconstructionPreferences.menuNames(ImagePresetPreferences.opacityTables, in: self.preferenceStore)
 
         self.opacityPopup()?.menu?.removeAllItems()
 
         self.opacityPopup()?.menu?.addItem(withTitle: NSLocalizedString("Linear Table", comment: ""), action: #selector(applyOpacity(_:)), keyEquivalent: "")
         self.opacityPopup()?.menu?.addItem(withTitle: NSLocalizedString("Linear Table", comment: ""), action: #selector(applyOpacity(_:)), keyEquivalent: "")
-        i = 0
-        while Int(i) < (sortedKeys?.count ?? 0) {
-            self.opacityPopup()?.menu?.addItem(withTitle: sortedKeys?.object(at: Int(i)) as? String ?? "", action: #selector(applyOpacity(_:)), keyEquivalent: "")
-            i += 1
+        for name in names {
+            self.opacityPopup()?.menu?.addItem(withTitle: name, action: #selector(applyOpacity(_:)), keyEquivalent: "")
         }
 
         self.opacityPopup()?.menu?.item(at: 0)?.title = note?.object as? String ?? ""
@@ -803,9 +785,6 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
     }
 
     public override dynamic func applyOpacityString(_ str: String!) {
-        let aOpacity: NSDictionary?
-        var array: NSArray?
-
         if str == NSLocalizedString("Linear Table", comment: "") {
             if curOpacityMenuIvar != str {
                 curOpacityMenuIvar = str
@@ -816,11 +795,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
             keyOrthogonalView?.controller()?.setTransferFunction(nil)
         } else {
-            aOpacity = (UserDefaults.standard.dictionary(forKey: "OPACITY") as NSDictionary?)?.object(forKey: str as Any) as? NSDictionary
-            if let aOpacity = aOpacity {
-                array = aOpacity.object(forKey: "Points") as? NSArray
-                _ = array
-
+            if let aOpacity = ReconstructionPreferences.preset(str, of: ImagePresetPreferences.opacityTables, in: self.preferenceStore) {
                 if curOpacityMenuIvar != str {
                     curOpacityMenuIvar = str
                 }
@@ -828,7 +803,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
                 self.opacityPopup()?.menu?.item(at: 0)?.title = str
 
-                keyOrthogonalView?.controller()?.setTransferFunction(OpacityTransferView.tableWith4096Entries(aOpacity.object(forKey: "Points") as? NSArray) as Data)
+                keyOrthogonalView?.controller()?.setTransferFunction(OpacityTransferView.tableWith4096Entries(ReconstructionPreferences.pointTexts(aOpacity) as NSArray) as Data)
             }
         }
 
@@ -2096,7 +2071,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
         bitmapData = NSBitmapImageRep.representationOfImageReps(in: representations ?? [], using: .jpeg, properties: [.compressionFactor: NSDecimalNumber(value: Float(0.9))])
 
-        let path = ((BrowserController.currentBrowser()?.database?.tempDirPath() as NSString?)?.appendingPathComponent("IsiX DICOM Viewer.jpg"))
+        let path = (browserWindowGraph?.database?.tempDirPath() as NSString?)?.appendingPathComponent("IsiX DICOM Viewer.jpg")
         if let path = path {
             (bitmapData as NSData?)?.write(toFile: path, atomically: true)
         }
@@ -2188,7 +2163,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
             view?.setCrossPosition(Float(Double(oldX) + 0.5), Float(Double(oldY) + 0.5))
             view?.needsDisplay = true
 
-            if UserDefaults.standard.bool(forKey: "OPENVIEWER") {
+            if self.preferenceStore[ReconstructionPreferences.opensViewer] {
                 if let url = firstImage {
                     NSWorkspace.shared.open(url)
                 }
@@ -2218,7 +2193,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         // The defaults controller reports a default on the thread that wrote
         // it; the sync state changes on the main thread.
         onMainActor {
-            if keyPath == "values.exportDCMIncludeAllViews" {
+            if keyPath == ReconstructionPreferences.controllerKeyPath(ReconstructionPreferences.exportIncludesAllViews) {
                 self.dcmFormat?.selectCell(withTag: 1) // Screen capture
             } else if keyPath == "syncSeriesState" {
                 OrthogonalMPRViewer.updateSyncSeriesToolbarItemUI(self)
@@ -2229,8 +2204,8 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
     @objc(exportDICOMFileInt:view:)
     public dynamic func exportDICOMFileInt(_ screenCapture: Bool, view curView: DCMView!) -> NSDictionary! {
         let curPix = curView?.curDCM
-        let annotCopy = UserDefaults.standard.integer(forKey: "ANNOTATIONS"),
-            clutBarsCopy = UserDefaults.standard.integer(forKey: "CLUTBARS")
+        let annotCopy = self.preferenceStore[ViewerPreferences.annotations],
+            clutBarsCopy = self.preferenceStore[ViewerPreferences.clutBars]
         var width = 0, height = 0, spp = 0, bpp = 0
         var cwl: Float = 0, cww: Float = 0
         var o = [Float](repeating: 0, count: 9), imOrigin = [Float](repeating: 0, count: 3), imSpacing = [Float](repeating: 0, count: 2)
@@ -2238,13 +2213,13 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         var offset: Int32 = 0
         var f: String? = nil
 
-        UserDefaults.standard.set(annotGraphics, forKey: "ANNOTATIONS")
-        UserDefaults.standard.set(barHide, forKey: "CLUTBARS")
+        self.preferenceStore.set(Int(annotGraphics), for: ViewerPreferences.annotations)
+        self.preferenceStore.set(Int(barHide), for: ViewerPreferences.clutBars)
         DCMView.setDefaults()
 
         var data: UnsafeMutablePointer<UInt8>? = nil
         var fusion: OrthogonalFusionSlice? = nil
-        let includeAllViews = UserDefaults.standard.bool(forKey: "exportDCMIncludeAllViews")
+        let includeAllViews = self.preferenceStore[ReconstructionPreferences.exportIncludesAllViews]
 
         if includeAllViews == false && curView?.blending != nil {
             let primary = HorosFusionLayerFromView(curView)
@@ -2410,8 +2385,8 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
             free(data)
         }
 
-        UserDefaults.standard.set(annotCopy, forKey: "ANNOTATIONS")
-        UserDefaults.standard.set(clutBarsCopy, forKey: "CLUTBARS")
+        self.preferenceStore.set(annotCopy, for: ViewerPreferences.annotations)
+        self.preferenceStore.set(clutBarsCopy, for: ViewerPreferences.clutBars)
         DCMView.setDefaults()
 
         if let f = f {
@@ -2431,7 +2406,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
             let producedFiles = NSMutableArray()
 
             if (dcmSelection?.selectedCell()?.tag ?? 0) == 0 { // current image only
-                if UserDefaults.standard.bool(forKey: "export3modalities") == false {
+                if self.preferenceStore[ReconstructionPreferences.petCTExportsThreeModalities] == false {
                     // The image went into the series of the previous export.
                     self.beginExportSeries(5300 + Window3DController.horos_calendarMinuteOfHourPlusSecondOfMinute())
                     addObject(producedFiles, self.exportDICOMFileInt(true))
@@ -2555,7 +2530,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
                             self.beginExportSeries(5300 + Window3DController.horos_calendarMinuteOfHourPlusSecondOfMinute())
                             self.exportDCM?.setSeriesDescription(self.dcmSeriesName?.stringValue)
 
-                            if UserDefaults.standard.bool(forKey: "export3modalities") == false {
+                            if self.preferenceStore[ReconstructionPreferences.petCTExportsThreeModalities] == false {
                                 splash?.progress()?.maxValue = Double(indices.count)
 
                                 for index in indices {
@@ -2602,24 +2577,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
             }
 
             if producedFiles.count > 0 {
-                let database = BrowserController.currentBrowser()?.database
-                var objects = database?.addFiles(atPaths: producedFiles.value(forKey: "file") as? [Any],
-                                                 postNotifications: true,
-                                                 dicomOnly: true,
-                                                 rereadExistingItems: true,
-                                                 generatedByOsiriX: true)
-
-                objects = database?.objects(withIDs: objects)
-
-                if UserDefaults.standard.bool(forKey: "afterExportSendToDICOMNode") {
-                    BrowserController.currentBrowser()?.selectServer(objects)
-                }
-
-                if UserDefaults.standard.bool(forKey: "afterExportMarkThemAsKeyImages") {
-                    for case let im as NSManagedObject in (objects as NSArray?) ?? NSArray() {
-                        im.setValue(NSNumber(value: true), forKey: "isKeyImage")
-                    }
-                }
+                GeneratedSeriesImport.process.add(producedFiles.value(forKey: "file") as? [Any] ?? [])
             }
         }
     }

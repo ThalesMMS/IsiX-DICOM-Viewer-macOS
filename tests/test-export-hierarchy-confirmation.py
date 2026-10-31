@@ -5,19 +5,24 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-# The export is Swift (BrowserController+DICOMExport.swift).
-source = (root / 'Horos/Sources/BrowserController+DICOMExport.swift').read_text()
-start = source.index('    nonisolated private func exportDICOMFiles(')
-end = source.index('    @objc(exportDICOMFile:)', start)
+# The export is Swift (DICOMFolderExport.swift).
+source = (root / 'Horos/Sources/DICOMFolderExport.swift').read_text()
+start = source.index('    private func export(')
+end = source.index('    // MARK: Names', start)
 export = source[start:end]
 # Only a patient folder that predates the export may ask Replace/Cancel/Merge.
-assert export.count('confirmDICOMExportFolder(') == 1
+assert export.count('confirmExistingFolder(') == 1
 study = export.index('// Find the DICOM-STUDY folder')
 series = export.index('// Find the DICOM-SERIE folder')
-assert export.index('confirmDICOMExportFolder(') < export.index('folder(source: studySource') < study
+assert export.index('confirmExistingFolder(') < export.index('folder(source: studySource') < study
 assert study < export.index('folder(source: seriesSource') < series
 # Database splits of one DICOM series share its UID and therefore its folder.
-assert export.index('"series.seriesDICOMUID"') < export.index('"series.seriesInstanceUID"') < export.index('folder(source: seriesSource')
+assert 'Self.identity(series?.seriesDICOMUID, series?.seriesInstanceUID, of: series)' in export
+assert export.index('series?.seriesDICOMUID') < export.index('folder(source: seriesSource')
+# The first identifier that is not empty wins, before the object's URI.
+names = source[source.index('    private static func identity('):]
+names = names[:names.index('\n    }\n')]
+assert 'first(where: { !$0.isEmpty })' in names and 'objectID.uriRepresentation()' in names
 
 code = r'''
 import Foundation

@@ -56,11 +56,11 @@ import Foundation
  }
 }
 '''
-# The export is Swift (BrowserController+DICOMExport.swift).
-source = (root / 'Horos/Sources/BrowserController+DICOMExport.swift').read_text()
-assert source.count('if let folderOptions { parameters["folderNaming"] = folderOptions }') == 1
-assert '(!addDICOMDIR && folderOptions != nil) ? ExportFolderNaming(options: folderOptions!)' in source
-assert source.count('BrowserController.configuredPatientFolder(for: curImage, naming: customFolderNaming)') == 1
+# The export is Swift (DICOMFolderExport.swift).
+source = (root / 'Horos/Sources/DICOMFolderExport.swift').read_text()
+assert source.count('folderNaming: folderOptions?.compactMapValues { ($0 as? NSNumber)?.intValue }') == 1
+assert 'request.folderNaming.flatMap { addDICOMDIR ? nil : ExportFolderNaming(options: $0 as NSDictionary) }' in source
+assert source.count('Self.configuredPatientFolder(of: study, naming: customFolderNaming)') == 1
 anonymous_source = source_text('Anonymization')
 a = anonymous_source.index('let relativePath = ExportFolderNaming.anonymousPath(batch:')
 b = anonymous_source.index('                            do {', a)

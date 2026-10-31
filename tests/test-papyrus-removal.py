@@ -61,15 +61,16 @@ check("= loadDICOMPapyrus()" not in pix and "if loadDICOMPapyrus()" not in pix, 
 DCMTK_READING = ("DicomFile+DICOMReading.swift", "DicomFile+DICOMCrop.swift", "DicomFile+DCMTKFields.swift")
 dicomfile = ["Horos/Sources/DicomFile.swift"] + [str(p.relative_to(ROOT)) for p in sorted((ROOT / "Horos/Sources").glob("DicomFile+*.swift"))]
 # The former DCMTK categories of the browser and the XML editor are Swift and
-# adapters.
-for path in ("Horos/Sources/BrowserController+Transcoding.swift", "Horos/Sources/Adapters/DCMTK/IsiXDCMTKTagEditor.mm",
+# adapters; the browser's transcoding is ArchiveImport.swift.
+for path in ("Horos/Sources/BrowserController+Transcoding.swift", "Horos/Sources/ArchiveImport.swift", "Horos/Sources/Adapters/DCMTK/IsiXDCMTKTagEditor.mm",
              str(source_path("NSImage+OsiriX").relative_to(ROOT)),
              *[path for path in dicomfile if Path(path).name not in DCMTK_READING]):
     check("PapyrusLock" not in text(path), f"{path} still declares a lock it never takes")
 
 # Kept. AppController is Swift: the exported globals stayed in
-# AppController+CAPI.m, and the Swift launch code allocates them.
-app = text(source_path("AppController").relative_to(ROOT))
+# AppController+CAPI.m, and the Swift launch code, ApplicationLifecycle's,
+# allocates them.
+app = text(source_path("AppController").relative_to(ROOT)) + text("Horos/Sources/ApplicationLifecycle.swift")
 capi = text(source_path("AppController+CAPI").relative_to(ROOT))
 check(re.search(r"NSRecursiveLock\s+\*PapyrusLock = nil", capi) is not None, "the PapyrusLock global is gone")
 check("PapyrusLock = NSRecursiveLock()" in app, "PapyrusLock is no longer allocated at launch")
@@ -105,7 +106,11 @@ import default_preferences  # noqa: E402
 check('TOOLKITPARSER4' in default_preferences.registered(viewer=False), "the TOOLKITPARSER4 default is gone")
 check('objectForKey: @"TOOLKITPARSER4"' in "".join(text(path) for path in dicomfile)
       or ('defaults.object(forKey: ImportSettings.registeredKey) != nil' in "".join(text(path) for path in dicomfile)
-          and 'public static let registeredKey = "TOOLKITPARSER4"' in text("Modules/IsiXDICOMFile/Sources/ImportSettings.swift")),
+          and 'public static let registeredKey = "TOOLKITPARSER4"' in text("Modules/IsiXDICOMFile/Sources/ImportSettings.swift"))
+      or ('ImportSettings.defaultsAreRegistered(in:' in "".join(text(path) for path in dicomfile)
+          and 'preferences.object(forKey: DatabasePreferences.toolkitParser.name) != nil'
+          in text("Modules/IsiXDICOMFile/Sources/ImportSettings.swift")
+          and 'PreferenceKey<Int>("TOOLKITPARSER4"' in text("Modules/IsiXPreferences/Sources/DatabasePreferences.swift")),
       "DicomFile no longer reads TOOLKITPARSER4")
 
 for failure in failures:

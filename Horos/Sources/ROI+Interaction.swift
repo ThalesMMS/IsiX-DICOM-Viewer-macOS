@@ -344,7 +344,7 @@ extension ROI {
         roiLock?.lock()
         defer { roiLock?.unlock() }
         var result = false
-        if let exception = ROI.objcTry({ result = mouseRoiDown(in: pt, slice, scale) }) {
+        if let exception = HorosObjCException.caught({ result = mouseRoiDown(in: pt, slice, scale) }) {
             NSLog("**** mouseRoiDown exception %@", exception)
         }
         return result
@@ -454,7 +454,7 @@ extension ROI {
         roiLock?.lock()
         // The drag runs once a mouse event: called through a C function and
         // its context, its Objective-C exceptions are caught without the
-        // block and the error objcTry(_:) would allocate each time.
+        // block and the error HorosObjCException.caught(_:) would allocate each time.
         struct Drag {
             unowned(unsafe) let roi: ROI
             let pt: NSPoint, modifier: UInt32, scale: Float, backingScaleFactor: Float
@@ -853,13 +853,4 @@ extension ROI {
         offsetTextBox_y = Float(Double(offsetTextBox_y) + Double(o.y))
     }
 
-    /// Runs `body` as an @try block: the NSException it raises is returned.
-    static func objcTry(_ body: () -> Void) -> NSException? {
-        do {
-            try HorosObjCException.perform(body)
-        } catch {
-            return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-        }
-        return nil
-    }
 }

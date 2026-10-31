@@ -12,6 +12,7 @@
 
 import CryptoKit
 import Foundation
+import Synchronization
 
 /// CSV / Basic Text SR surgical-log import.
 ///
@@ -107,10 +108,11 @@ public final class SurgicalProcedureImport: NSObject {
     }
 
     public static func preview(table: SurgicalProcedureTable, patients: [SurgicalProcedurePatient], existing: [SurgicalProcedureRecord]) -> SurgicalProcedurePreview {
-        let matcher = PatientMatcher(patients: patients)
+        let existing = latestRecordOfEachEvent(existing)
+        let matcher = PatientMatcher(patients: patients, reportStudies: Set(existing.map(\.studyInstanceUID)))
         var eventOccurrences: [String: Int] = [:]
         var rows: [SurgicalProcedurePreviewRow] = []
-        let existingByEvent = Dictionary(uniqueKeysWithValues: existing.map { ($0.eventID, $0) })
+        let filed = FiledProcedures(existing)
         for row in table.rows {
             if row.procedureDate == nil {
                 rows.append(SurgicalProcedurePreviewRow(row: row.sourceRow, action: .skipped, patient: row.name, details: NSLocalizedString("Missing or invalid surgery date.", comment: ""), record: nil))
@@ -127,9 +129,12 @@ public final class SurgicalProcedureImport: NSObject {
                 rows.append(SurgicalProcedurePreviewRow(row: row.sourceRow, action: .review, patient: row.name, details: details, record: nil, pendingRow: row))
             case .matched(let patient):
                 let prepared = prepare(row: row, patient: patient, occurrences: &eventOccurrences)
-                if let current = existingByEvent[prepared.eventID] {
+                let identity = eventIdentity(patientKey: prepared.patientKey, date: prepared.procedureDate, operation: prepared.operation)
+                if let current = filed.record(of: prepared, occurrence: eventOccurrences[identity, default: 1] - 1) {
                     let action: SurgicalProcedurePreviewAction = materialFields(prepared) == materialFields(current) ? .unchanged : .update
                     var record = prepared
+                    record.eventID = current.eventID
+                    record.patientKey = current.patientKey
                     record.sopInstanceUID = current.sopInstanceUID
                     record.seriesInstanceUID = current.seriesInstanceUID
                     record.studyInstanceUID = current.studyInstanceUID
@@ -235,10 +240,10 @@ public final class SurgicalProcedureImport: NSObject {
         if patient.birthDate == nil { identity += "|\(normalizeID(patient.patientID))" }
         let patientKey = String(sha256(identity).prefix(32))
         let operationKey = normalizedOperation(row.operation)
-        let eventIdentity = "\(patientKey)|\(calendarDateString(date))|\(operationKey)"
-        let occurrence = occurrences[eventIdentity, default: 0]
-        occurrences[eventIdentity] = occurrence + 1
-        let eventID = sha256(occurrence == 0 ? eventIdentity : "\(eventIdentity)|occurrence:\(occurrence + 1)")
+        let eventKey = eventIdentity(patientKey: patientKey, date: date, operation: row.operation)
+        let occurrence = occurrences[eventKey, default: 0]
+        occurrences[eventKey] = occurrence + 1
+        let eventID = madeEventID(identity: eventKey, occurrence: occurrence)
         let fingerprint = sha256([
             row.name, row.patientID, patient.name, patient.patientID, patient.patientUID,
             patient.birthDate.map(calendarDateString) ?? "", patient.studyInstanceUID,
@@ -300,7 +305,8 @@ public final class SurgicalProcedureImport: NSObject {
                     patientName: record.matchedPatientName,
                     patientID: record.matchedPatientID,
                     displayModality: "SURG",
-                    dicomModality: record.modality.isEmpty ? "SR" : record.modality
+                    dicomModality: record.modality.isEmpty ? "SR" : record.modality,
+                    reportStudyInstanceUID: record.studyInstanceUID
                 )
             }
             .sorted {
@@ -311,12 +317,7 @@ public final class SurgicalProcedureImport: NSObject {
 
     @objc(timelineEventsFromSRPaths:)
     public static func timelineEvents(fromSRPaths paths: [String]) -> [[String: Any]] {
-        let records: [SurgicalProcedureRecord] = paths.compactMap { path in
-            guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
-                  isSurgicalProcedureSR(data) else { return nil }
-            return try? decodeBasicTextSR(data)
-        }
-        return timeline(surgical: records).map { event in
+        timeline(surgical: latestRecordOfEachEvent(records(atPaths: paths))).map { event in
             [
                 "eventID": event.eventID,
                 "operation": event.operation,
@@ -325,9 +326,35 @@ public final class SurgicalProcedureImport: NSObject {
                 "patientID": event.patientID,
                 "displayModality": event.displayModality,
                 "dicomModality": event.dicomModality,
+                "reportStudyInstanceUID": event.reportStudyInstanceUID,
                 "date": event.date,
             ]
         }
+    }
+
+    /// The records in the reports at `paths`; what is not one is left out. The
+    /// list of studies asks at every refresh, so a file is read again only when
+    /// it changed.
+    static func records(atPaths paths: [String]) -> [SurgicalProcedureRecord] {
+        reports(atPaths: paths).map(\.record)
+    }
+
+    /// The same records, each with the file it was read from.
+    static func reports(atPaths paths: [String]) -> [(path: String, record: SurgicalProcedureRecord)] {
+        let known = readReports.withLock { $0 }
+        var current: [String: ReadReport] = [:]
+        for path in paths {
+            guard let modified = (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date else { continue }
+            if let report = known[path], report.modified == modified {
+                current[path] = report
+                continue
+            }
+            let data = try? Data(contentsOf: URL(fileURLWithPath: path))
+            let record = data.flatMap { isSurgicalProcedureSR($0) ? try? decodeBasicTextSR($0) : nil }
+            current[path] = ReadReport(modified: modified, record: record)
+        }
+        readReports.withLock { $0 = current }
+        return paths.compactMap { path in current[path]?.record.map { (path, $0) } }
     }
 
     public static func table(fromNumbersJSON json: String, sourcePath: String) throws -> SurgicalProcedureTable {
@@ -439,7 +466,7 @@ public struct SurgicalProcedureLogRow: Equatable {
 
 public struct SurgicalProcedureTable: Equatable { public var sourcePath: String; public var rows: [SurgicalProcedureLogRow] }
 
-public struct SurgicalProcedureRecord: Equatable, Codable {
+public struct SurgicalProcedureRecord: Equatable, Codable, Sendable {
     public var eventID: String
     public var patientKey: String
     public var procedureDate: Date
@@ -510,6 +537,8 @@ public struct SurgicalProcedureTimelineEvent: Equatable {
     public var patientID: String
     public var displayModality: String
     public var dicomModality: String
+    /// The study the report was filed in, which holds nothing else.
+    public var reportStudyInstanceUID: String
     public var displayTitle: String { operation.isEmpty ? "Surgery" : "Surgery: \(operation)" }
 
     public func displayValue(forColumn identifier: String) -> String {
@@ -542,20 +571,20 @@ public struct SurgicalProcedureTimelineEvent: Equatable {
 @objc(HorosSurgicalProcedureImportSession)
 public final class SurgicalProcedureImportSession: NSObject {
     private var preview: SurgicalProcedurePreview?
+    private var filed: [(path: String, record: SurgicalProcedureRecord)] = []
     @objc public private(set) var summary = ""
     @objc public var changeCount: Int { preview?.changes.count ?? 0 }
+    /// The files of the reports the last commit updated, which the new files
+    /// replace once they are in the database.
+    @objc public private(set) var formerReportPaths: [String] = []
 
     @objc(prepareCSVAtPath:patients:existingPaths:error:)
     public func prepareCSV(atPath path: String, patients: [[AnyHashable: Any]], existingPaths: [String]) throws {
         let text = try String(contentsOf: URL(fileURLWithPath: path), encoding: .utf8)
         let table = try SurgicalProcedureImport.parseCSV(text, sourcePath: path)
         let people = SurgicalProcedureImport.patients(from: patients)
-        let existing: [SurgicalProcedureRecord] = existingPaths.compactMap { path in
-            guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
-                  SurgicalProcedureImport.isSurgicalProcedureSR(data) else { return nil }
-            return try? SurgicalProcedureImport.decodeBasicTextSR(data)
-        }
-        let preview = SurgicalProcedureImport.preview(table: table, patients: people, existing: existing)
+        filed = SurgicalProcedureImport.reports(atPaths: existingPaths)
+        let preview = SurgicalProcedureImport.preview(table: table, patients: people, existing: filed.map(\.record))
         self.preview = preview
         let added = preview.rows.filter { $0.action == .add }.count
         let updated = preview.rows.filter { $0.action == .update }.count
@@ -582,8 +611,66 @@ public final class SurgicalProcedureImportSession: NSObject {
             try data.write(to: URL(fileURLWithPath: path), options: .atomic)
             paths.append(path)
         }
+        let updated = Set(preview.rows.filter { $0.action == .update }.compactMap(\.record?.eventID))
+        formerReportPaths = filed.filter { updated.contains($0.record.eventID) }.map(\.path)
         return paths
     }
+}
+
+private struct ReadReport: Sendable {
+    var modified: Date
+    var record: SurgicalProcedureRecord?
+}
+
+/// The reports read last, by path.
+private let readReports = Mutex<[String: ReadReport]>([:])
+
+/// The records a preview compares with. The identity of an event is made from
+/// the patient chosen when it was imported, so a study that arrives later can
+/// give the same line of a log another one. The patient ID says it is the same
+/// person; a name does not, and birth dates that disagree say it is not.
+private struct FiledProcedures {
+    private let byEvent: [String: SurgicalProcedureRecord]
+    private var byProcedure: [String: [SurgicalProcedureRecord]] = [:]
+
+    init(_ records: [SurgicalProcedureRecord]) {
+        byEvent = Dictionary(uniqueKeysWithValues: records.map { ($0.eventID, $0) })
+        for record in records {
+            for key in Self.procedureKeys(of: record) { byProcedure[key, default: []].append(record) }
+        }
+    }
+
+    /// The record of this event, under its identity or under the one a former
+    /// choice of patient gave it.
+    func record(of prepared: SurgicalProcedureRecord, occurrence: Int) -> SurgicalProcedureRecord? {
+        if let same = byEvent[prepared.eventID] { return same }
+        let former = Self.procedureKeys(of: prepared).flatMap { byProcedure[$0] ?? [] }.compactMap { other -> SurgicalProcedureRecord? in
+            let identity = eventIdentity(patientKey: other.patientKey, date: other.procedureDate, operation: other.operation)
+            guard let record = byEvent[madeEventID(identity: identity, occurrence: occurrence)] else { return nil }
+            return Self.birthDatesDisagree(prepared, record) ? nil : record
+        }
+        return former.max { $0.updatedAt < $1.updatedAt }
+    }
+
+    private static func procedureKeys(of record: SurgicalProcedureRecord) -> [String] {
+        let day = calendarDateString(record.procedureDate)
+        let operation = normalizedOperation(record.operation)
+        return Set([record.sourcePatientID, record.matchedPatientID].map(normalizeID)).filter { $0.isEmpty == false }
+            .map { "\($0)|\(day)|\(operation)" }
+    }
+
+    private static func birthDatesDisagree(_ lhs: SurgicalProcedureRecord, _ rhs: SurgicalProcedureRecord) -> Bool {
+        guard let left = lhs.matchedBirthDate, let right = rhs.matchedBirthDate else { return false }
+        return calendarDateString(left) != calendarDateString(right)
+    }
+}
+
+private func eventIdentity(patientKey: String, date: Date, operation: String) -> String {
+    "\(patientKey)|\(calendarDateString(date))|\(normalizedOperation(operation))"
+}
+
+private func madeEventID(identity: String, occurrence: Int) -> String {
+    sha256(occurrence == 0 ? identity : "\(identity)|occurrence:\(occurrence + 1)")
 }
 
 private struct MaterialFields: Equatable {
@@ -602,6 +689,10 @@ private func materialFields(_ record: SurgicalProcedureRecord) -> MaterialFields
 
 private struct PatientMatcher {
     let patients: [SurgicalProcedurePatient]
+    /// The studies that exist only to hold a report: they say who the patient
+    /// was when it was written, in the spelling of that file, so they neither
+    /// compete with a study of the patient nor make a match ambiguous.
+    let reportStudies: Set<String>
     func match(name: String, patientID: String) -> Match {
         let id = normalizeID(patientID)
         if id.isEmpty == false {
@@ -616,16 +707,24 @@ private struct PatientMatcher {
         if exact.isEmpty == false { return choose(exact) }
         return .none(NSLocalizedString("No patient identifier matched this row.", comment: ""))
     }
-    private func choose(_ candidates: [SurgicalProcedurePatient]) -> Match {
-        guard candidates.isEmpty == false else {
+    private func choose(_ found: [SurgicalProcedurePatient]) -> Match {
+        guard found.isEmpty == false else {
             return .none(NSLocalizedString("No patient identifier matched this row.", comment: ""))
         }
+        let ofImages = found.filter { reportStudies.contains($0.studyInstanceUID) == false }
+        let candidates = ofImages.isEmpty ? found : ofImages
         let births = Set(candidates.compactMap(\.birthDate).map(calendarDateString))
         let names = Set(candidates.map { primaryNameKey($0.name) }.filter { $0.isEmpty == false })
         if births.count > 1 || names.count > 1 {
             return .review(NSLocalizedString("The patient match is ambiguous and needs confirmation.", comment: ""))
         }
-        return .matched(candidates[0])
+        // The studies come in no order, and the identity of the event and its
+        // UIDs are made from the patient chosen here: an import that chose another
+        // of the same person's studies would add the same procedures again.
+        return .matched(candidates.min { identityOrder($0) < identityOrder($1) } ?? candidates[0])
+    }
+    private func identityOrder(_ patient: SurgicalProcedurePatient) -> (Int, String, String) {
+        (patient.birthDate == nil ? 1 : 0, patient.patientUID, patient.studyInstanceUID)
     }
 }
 
@@ -642,15 +741,28 @@ private func historicalIDs(_ patient: SurgicalProcedurePatient) -> [String] {
     return id.isEmpty ? [] : [id]
 }
 
+/// One record for each event, the one updated last: the same report can be
+/// indexed twice when two studies of the database keep its Study Instance UID
+/// under different patients.
+private func latestRecordOfEachEvent(_ records: [SurgicalProcedureRecord]) -> [SurgicalProcedureRecord] {
+    let latest = Dictionary(records.map { ($0.eventID, $0) }, uniquingKeysWith: { $0.updatedAt >= $1.updatedAt ? $0 : $1 })
+    var seen = Set<String>()
+    return records.compactMap { seen.insert($0.eventID).inserted ? latest[$0.eventID] : nil }
+}
+
 private func assignUIDs(_ record: inout SurgicalProcedureRecord) {
     if record.sopInstanceUID.isEmpty { record.sopInstanceUID = dicomUID(for: record.eventID, component: "sop") }
     if record.seriesInstanceUID.isEmpty { record.seriesInstanceUID = dicomUID(for: record.eventID, component: "series") }
     if record.studyInstanceUID.isEmpty { record.studyInstanceUID = dicomUID(for: record.eventID, component: "study") }
 }
 
+/// DICOM forbids a leading zero in a UID component. A report keeps the UIDs it
+/// was filed with, even one written with that zero, as they are its identity in
+/// the database; this makes the UIDs of new ones, the same for an event whose
+/// digits start with no zero.
 private func dicomUID(for eventID: String, component: String) -> String {
     let digest = SHA256.hash(data: Data("horos-surgical|\(eventID)|\(component)".utf8))
-    return "2.25." + digest.prefix(12).map { String(format: "%03d", $0) }.joined()
+    return "2.25." + digest.prefix(12).map { String(format: "%03d", $0) }.joined().drop { $0 == "0" }
 }
 
 private func encodeJSON(_ record: SurgicalProcedureRecord) throws -> String {
@@ -676,6 +788,9 @@ private func writeStructuredReport(sopClassUID: String, seriesDescription: Strin
     assignUIDs(&working)
     let da = calendarDateCompact(working.procedureDate)
     var dataset = DicomBuffer()
+    // The text below is UTF-8. Without this a reader takes it for Latin-1, and
+    // an accented name becomes another patient.
+    dataset.cs(0x0008, 0x0005, "ISO_IR 192")
     dataset.ui(0x0008, 0x0016, sopClassUID)
     dataset.ui(0x0008, 0x0018, working.sopInstanceUID)
     dataset.da(0x0008, 0x0020, da)

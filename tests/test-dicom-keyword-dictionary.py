@@ -2,7 +2,7 @@
 """PatientName resolves against the dictionary the application actually loads.
 
 getDicomField: looks a keyword up in dcmDataDict. The table that object holds is
-not the vendored DCMTK/dcmdata/data/dicom.dic and not the copy in the application
+not the external dcmdata/data/dicom.dic of the DCMTK source and not the copy in the application
 bundle: Horos and Decompress compile Binaries/dcmtk-source/dcmdata/dcdictbi.cc
 (generated 2005-11-15). That table calls (0010,0010) PatientsName, so a lookup
 of PatientName does not find the public tag.
@@ -12,14 +12,12 @@ This builds the same dictionary sources the application compiles, then runs the
 same resolve path getDicomField: uses. It fails if PatientName is not (0010,0010).
 """
 from pathlib import Path
-from dcmtk_build import dcmtk_flags
+from dcmtk_build import dcmtk_dictionary, dcmtk_flags
 import subprocess
 import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-dcmtk = root / 'DCMTK'
-vendored = root / 'DCMTK/dcmdata/data/dicom.dic'
 driver = root / 'tools/exercise-dicom-keyword-dictionary.mm'
 adapters = root / 'Horos/Sources/Adapters/DCMTK'
 implementation = adapters / 'IsiXDCMTKDictionary.mm'
@@ -28,12 +26,11 @@ resolver = root / 'Horos/Sources/DICOMKeyword+Dictionary.swift'
 getter = root / 'Horos/Sources/DicomFile+DCMTKFields.swift'
 failures = []
 
-if not dcmtk.exists():
-    print('skipped: needs the compiled-in DCMTK: %s' % dcmtk)
-    sys.exit(2)
-if not vendored.exists():
-    print('skipped: needs the vendored dicom.dic: %s' % vendored)
-    sys.exit(2)
+# The helper links the DCMTK archives of a current build (a missing build skips
+# here, before anything is compiled) and overlays the external dicom.dic of the
+# pinned DCMTK source archive, the file the build ships beside the executables.
+flags = dcmtk_flags('dcmnet')
+external = dcmtk_dictionary()
 for path in (driver, implementation, header, resolver):
     if not path.exists():
         failures.append('%s is gone' % path.name)
@@ -59,14 +56,14 @@ if driver.exists() and implementation.exists() and header.exists() and resolver.
         toolchain = Path(subprocess.check_output(['xcrun', '--find', 'swiftc'], text=True).strip()).parents[1]
         build = swift if swift.returncode else subprocess.run(
             ['xcrun', 'clang++', '-std=c++17', '-fobjc-arc', '-I' + str(adapters), str(driver), str(implementation),
-             str(adapters / 'IsiXDCMTKError.mm'), str(Path(directory) / 'resolver.o'), *dcmtk_flags('dcmnet'),
+             str(adapters / 'IsiXDCMTKError.mm'), str(Path(directory) / 'resolver.o'), *flags,
              '-L/usr/lib/swift', '-L' + str(toolchain / 'lib/swift/macosx'),
              '-framework', 'Foundation', '-o', str(binary)],
             capture_output=True, text=True)
         if build.returncode != 0:
             failures.append('the dictionary helper does not compile:\n%s' % build.stderr[-2000:])
         else:
-            run = subprocess.run([str(binary), str(vendored)],
+            run = subprocess.run([str(binary), str(external)],
                                  capture_output=True, text=True, timeout=120)
             out = run.stdout
             print(out.strip())
@@ -82,8 +79,8 @@ if driver.exists() and implementation.exists() and header.exists() and resolver.
                     answers[key.strip()] = value.strip()
 
             # What the process compiles, before any overlay. This is the
-            # measurement the issue asked for: not an assumption from the
-            # vendored tree.
+            # measurement itself, not an assumption read from the source
+            # tree.
             if answers.get('builtin DCMTK') != '3.7.0+':
                 failures.append('the driver did not link the pinned current dictionary')
             if answers.get('builtin DCMDICTPATH') != '(unset)':
@@ -103,7 +100,7 @@ if driver.exists() and implementation.exists() and header.exists() and resolver.
 
             # After the same overlay and spelling fallback the application uses.
             if answers.get('loaded (0010,0010)', '').split()[0] != 'PatientName':
-                failures.append('after loading the vendored dicom.dic, (0010,0010) is %s, not PatientName'
+                failures.append('after loading the external dicom.dic, (0010,0010) is %s, not PatientName'
                                 % answers.get('loaded (0010,0010)'))
             for keyword, tag in (
                     ('PatientName', '0010,0010'),

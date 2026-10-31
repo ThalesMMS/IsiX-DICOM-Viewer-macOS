@@ -3,6 +3,7 @@
 Actual network exchanges are in test-dimse-ip-family.py.
 """
 from pathlib import Path
+from dcmtk_build import dcmtk_source
 root = Path(__file__).resolve().parents[1]
 # DCMTKVerifySCU.mm was in this list and in no target: C-ECHO is DCMTKQueryNode's.
 # The query nodes and the send reach DCMTK through their adapter, whose
@@ -22,6 +23,7 @@ assert 'condition.code() != DULC_TCPINITERROR' in policy
 # The listener is the DCMTK adapter's.
 listener = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCP.mm').read_text()
 assert 'dcmIncomingProtocolFamily.set(ASC_AF_UNSPEC)' in listener
-upstream = (root / 'DCMTK/dcmnet/libsrc/dul.cc').read_text()
+# The listener socket of the pinned original source the recipe compiles.
+upstream = (dcmtk_source() / 'dcmnet/libsrc/dul.cc').read_text()
 assert 'IPV6_V6ONLY' in upstream and 'ASC_AF_UNSPEC' in upstream
 print('PASS: all clients use checked dual-stack addresses and TCP-only retries; the native listener selects both IP families')

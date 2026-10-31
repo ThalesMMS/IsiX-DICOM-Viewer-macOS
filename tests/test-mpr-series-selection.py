@@ -35,7 +35,9 @@ def body(text, signature):
 
 
 mpr = sources.source_text('MPRController')
-viewer = (root / 'Horos/Sources/ViewerController+ThreeDViewers.swift').read_text(encoding='utf-8')
+# The 2D viewer's -mprViewer: is a façade over ThreeDViewerLauncher.
+viewer = (root / 'Horos/Sources/ThreeDViewerLauncher.swift').read_text(encoding='utf-8')
+eligibility = (root / 'Modules/IsiXImaging/Sources/ViewerReconstruction/VolumeEligibility.swift').read_text(encoding='utf-8')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 
 allowed = body(mpr, 'func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar)')
@@ -63,7 +65,7 @@ require('#selector(seriesPopupSelect(_:))' in menu, 'series items do not select 
 
 select = body(mpr, 'fileprivate dynamic func seriesPopupSelect(_ sender: Any?)')
 opened = select.find('source.mprViewer(self)')
-found = select.find('FindViewer("MPR", source.pixList(0))')
+found = select.find('windowArranger.findViewer(nibName: "MPR", pixList: source.pixList(0))')
 closed = select.find('self.window?.close()')
 require(opened >= 0 and found > opened and closed > found,
         'the MPR must ask the 2D viewer to open the new MPR, find it, and only then close')
@@ -71,15 +73,16 @@ require('replacement !== self' in select, 'a refused series must leave the MPR o
 require('loadSeries(series, nil, true, keyImagesOnly: false)' in select,
         'a series without a 2D viewer is not opened in one')
 
-action = body(viewer, 'func mprViewer(_ sender: Any!)')
+action = body(viewer, 'func openObliqueMPR(_ sender: Any?)')
 require('(sender as? MPRController)?.window' in action,
         '-mprViewer: does not recognise the MPR it replaces')
-frame = action.find('viewer?.window?.setFrame(replacedMPRWindow.frame, display: false)')
-place = action.find('place3DViewerWindow(viewer)')
-show = action.find('viewer?.showWindow(self)')
+frame = action.find('made?.window?.setFrame(replacedMPRWindow.frame, display: false)')
+place = action.find('place(made)')
+show = action.find('made?.showWindow(viewer)')
 require(0 <= frame < show and 0 <= place < show,
         'the replacing MPR must take the frame before it shows, and a normal MPR keeps its placement')
-require('reconstructionOpeningDecision()' in action and 'geometry?.diagnosis' in action,
+require('passesChecks(.obliqueMPR, sender: sender)' in action
+        and 'case .obliqueMPR:\n            return [.calibratedGeometry, .volumic, .fourDFrames]' in eligibility,
         '-mprViewer: must still run the geometry checks')
 require('MPRSeriesSelection.swift in Sources' in pbx, 'MPRSeriesSelection.swift is not in the Horos target')
 

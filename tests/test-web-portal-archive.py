@@ -114,17 +114,22 @@ with tempfile.TemporaryDirectory() as directory:
 
 # ------------------------------------------------- the archive the app makes
 #
-# The command comes out of the browser's ZIP export
-# (BrowserController+ZIPExport.swift, with the arguments of IsiXDatabase's
-# ZipCommand), so this checks what the application runs, not a command
-# written here.
-zip_export = (root / 'Horos/Sources/BrowserController+ZIPExport.swift').read_text()
+# The command comes out of the browser's ZIP export: +encryptFiles:inZIPFile:password:
+# (BrowserController+ZIPExport.swift) hands the files to the export's flat archive
+# (DICOMFolderExport.swift), which IsiXDatabase's ProtectedZipArchiver makes with the
+# arguments of ZipCommand, so this checks what the application runs, not a
+# command written here.
+facade = (root / 'Horos/Sources/BrowserController+ZIPExport.swift').read_text()
+export = (root / 'Horos/Sources/DICOMFolderExport.swift').read_text()
+zip_export = (root / 'Modules/IsiXDatabase/Sources/ProtectedZipArchiver.swift').read_text()
 rules = (root / 'Modules/IsiXDatabase/Sources/ExportRules.swift').read_text()
-# The unencrypted branch: the encrypted one differs only by -e and a password.
-command = re.search(r'func flatArguments\(password: String\?, archive: String, files: \[String\]\) -> \[String\] \{\s*'
-                    r'let options = \(password \?\? ""\)\.isEmpty \? \[("-q"[^\]]*?), archive\]', rules)
-if not command or 'task.arguments = ZipCommand.flatArguments(' not in zip_export:
-    failures.append('BrowserController+ZIPExport.swift: the zip command changed shape; this test is stale')
+# The unencrypted branch: the encrypted one differs only by -e (the password
+# is typed on zip's terminal, never an argument).
+command = re.search(r'func flatArguments\(encrypted: Bool, archive: String, files: \[String\]\) -> \[String\] \{\s*'
+                    r'\(encrypted \? \["-q"[^\]]*?, archive\] : \[("-q"[^\]]*?), archive\]\) \+ files', rules)
+if (not command or 'run(ZipCommand.flatArguments(' not in zip_export
+        or 'DICOMFolderExport.archiveFlat(' not in facade or 'ProtectedZipArchiver().archiveFlat(' not in export):
+    failures.append('the web portal\'s zip command changed shape; this test is stale')
 else:
     arguments = [part.strip().strip('"') for part in command.group(1).split(',')]
     arguments = [a for a in arguments if a.startswith('-')]

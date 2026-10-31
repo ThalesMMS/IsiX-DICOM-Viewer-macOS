@@ -53,11 +53,28 @@ import Testing
         #expect(IncomingScanRules.queuesForConversion(mayTranscode: true, isCompressed: false, listenerCompressionSettings: 2, needsCompression: worth))
         #expect(asked == 1)
         #expect(!IncomingScanRules.queuesForConversion(mayTranscode: true, isCompressed: false, listenerCompressionSettings: 2, needsCompression: { false }))
-        #expect(IncomingScanRules.queue(forListenerCompressionSettings: 0) == .decompress)
-        #expect(IncomingScanRules.queue(forListenerCompressionSettings: 2) == .compress)
-        #expect(IncomingScanRules.queue(forListenerCompressionSettings: 3) == .none)
+        #expect(IncomingScanRules.conversion(forListenerCompressionSettings: 0) == .decompress)
+        #expect(IncomingScanRules.conversion(forListenerCompressionSettings: 1) == .decompress)
+        #expect(IncomingScanRules.conversion(forListenerCompressionSettings: 2) == .compress)
+        #expect(IncomingScanRules.conversion(forListenerCompressionSettings: 3) == nil)
         #expect(IncomingScanRules.takesFile(isDICOM: false, readableOtherwise: { true }, destinationTaken: { true }) == false)
         #expect(IncomingScanRules.takesFile(isDICOM: true, readableOtherwise: { false }, destinationTaken: { true }))
+    }
+
+    @Test func triageAndTheLastingRulesOfTheScan() {
+        #expect(IncomingScanRules.scanDuration(checkInterval: 10) == 30)
+        #expect(IncomingScanRules.scanDuration(checkInterval: 0) == 0)
+        #expect(IncomingScanRules.isUnexpandedArchive(named: "a.zip.horos-unexpanded"))
+        #expect(!IncomingScanRules.isUnexpandedArchive(named: "a.zip"))
+
+        #expect(IncomingScanRules.triageRefusal(stackMayMerge: true, stackError: "ignored", ivusApplies: false, ivusMayMerge: false, ivusError: "ignored") == nil)
+        #expect(IncomingScanRules.triageRefusal(stackMayMerge: false, stackError: "stack", ivusApplies: false, ivusMayMerge: true, ivusError: nil) == "stack")
+        #expect(IncomingScanRules.triageRefusal(stackMayMerge: false, stackError: "", ivusApplies: false, ivusMayMerge: true, ivusError: nil) == "the pixel/thumbnail stack cannot load this object")
+        #expect(IncomingScanRules.triageRefusal(stackMayMerge: false, stackError: nil, ivusApplies: false, ivusMayMerge: true, ivusError: nil) == "the pixel/thumbnail stack cannot load this object")
+        // An object the IVUS gate applies to answers for itself.
+        #expect(IncomingScanRules.triageRefusal(stackMayMerge: false, stackError: "stack", ivusApplies: true, ivusMayMerge: true, ivusError: nil) == nil)
+        #expect(IncomingScanRules.triageRefusal(stackMayMerge: true, stackError: nil, ivusApplies: true, ivusMayMerge: false, ivusError: "ivus") == "ivus")
+        #expect(IncomingScanRules.triageRefusal(stackMayMerge: true, stackError: nil, ivusApplies: true, ivusMayMerge: false, ivusError: "") == "the thumbnail stack cannot load this IVUS/US object")
     }
 
     private func multipart(_ parts: [Data], closed: Bool = true) -> Data {
@@ -90,6 +107,70 @@ import Testing
         #expect(WADORSMultipart.dicomParts(in: Data(repeating: 0x41, count: 4000)) == ([], false))
     }
 
+    @Test func aBodyCutShortIsKeptAsideBeforeItsPartsAreWritten() {
+        let one = dicom(1, 2000), two = dicom(2, 3000)
+        let body = multipart([one, two], closed: false)
+        var steps: [String] = []
+        var written: [Data] = []
+        let kept = WADORSMultipart.unpack(body, keepAside: {
+            steps.append("kept")
+            return true
+        }, write: {
+            steps.append("written")
+            written.append($0)
+            return true
+        })
+        #expect(kept == .keptAside)
+        #expect(steps == ["kept", "written"])
+        #expect(written == [one])
+
+        // Left in the folder it would give the same parts again on every scan.
+        written = []
+        let stays = WADORSMultipart.unpack(body, keepAside: { false }, write: { written.append($0); return true })
+        #expect(stays == .stays)
+        #expect(written.isEmpty)
+    }
+
+    @Test func aPartThatCouldNotBeWrittenKeepsTheBody() {
+        let one = dicom(1, 2000), two = dicom(2, 3000), three = dicom(3, 1000)
+        let body = multipart([one, two, three])
+        var attempts = 0
+        var keptAside = 0
+        let kept = WADORSMultipart.unpack(body, keepAside: {
+            keptAside += 1
+            return true
+        }, write: { _ in
+            attempts += 1
+            return attempts != 2
+        })
+        #expect(kept == .keptAside)
+        #expect(attempts == 3)
+        #expect(keptAside == 1)
+
+        attempts = 0
+        let stays = WADORSMultipart.unpack(body, keepAside: { false }, write: { _ in
+            attempts += 1
+            return attempts != 2
+        })
+        #expect(stays == .stays)
+    }
+
+    @Test func aWholeBodyIsNotKeptAside() {
+        let body = multipart([dicom(1, 2000), dicom(2, 3000)])
+        var written = 0
+        let split = WADORSMultipart.unpack(body, keepAside: {
+            Issue.record("a whole body has no reason to be kept aside")
+            return false
+        }, write: { _ in
+            written += 1
+            return true
+        })
+        #expect(split == .split)
+        #expect(written == 2)
+        #expect(WADORSMultipart.unpack(body, keepAside: { false }, write: { _ in false }) == .notSplit)
+        #expect(WADORSMultipart.unpack(Data(repeating: 0x41, count: 4000), keepAside: { false }, write: { _ in true }) == .notSplit)
+    }
+
     @Test func aReportFromTheCloudNeedsSomethingToSaySo() {
         #expect(CloudReportCandidate.looksLikeReport(isPDFOrStructuredReport: true, modality: nil, seriesDescription: nil, manufacturer: nil))
         #expect(CloudReportCandidate.looksLikeReport(isPDFOrStructuredReport: false, modality: "doc", seriesDescription: nil, manufacturer: nil))
@@ -118,5 +199,99 @@ import Testing
                                              oneRefused: "one", manyRefused: "%lu many") == "2 many\n\n/a\n/b")
         #expect(ImportShortfall.progressDone(index: 4, total: 5) == 5)
         #expect(ImportShortfall.progressDone(index: 3, total: 5) == 3)
+    }
+
+    @Test func aFileBelongsToTheStudysPatientIgnoringCaseDiacriticsAndWidth() {
+        #expect(ImportMatching.isSamePatient(file: "DOE^JOSE-19700101", study: "doe^josé-19700101"))
+        #expect(ImportMatching.isSamePatient(file: "ＤＯＥ", study: "DOE"))
+        #expect(!ImportMatching.isSamePatient(file: "DOE", study: "ROE"))
+        // As the message to nil answered: a file without a patient UID joins
+        // any study, a study without one takes no file that has one.
+        #expect(ImportMatching.isSamePatient(file: nil, study: "DOE"))
+        #expect(ImportMatching.isSamePatient(file: nil, study: nil))
+        #expect(!ImportMatching.isSamePatient(file: "DOE", study: nil))
+    }
+
+    @Test func aFileOfTheAppsOwnSRIsLookedForInEverySeriesOfItsId() {
+        final class Series { let id: String?; init(_ id: String?) { self.id = id } }
+        let picked = Series("OsiriX Annotations SR"), other = Series("OsiriX Annotations SR")
+        let roi = Series("OsiriX ROI SR"), images = Series("1.2.3")
+        let study = [roi, other, picked, images]
+        let searched = ImportMatching.seriesHoldingRows(of: picked, ownSR: true, studySeries: study, id: { $0.id })
+        // The series the lookup picked comes first, then the other one of the same id; no other kind.
+        #expect(searched.count == 2)
+        #expect(searched.first === picked)
+        #expect(searched.last === other)
+        // Any other file keeps to the series it was read into, whatever its siblings.
+        let twin = Series("1.2.3")
+        #expect(ImportMatching.seriesHoldingRows(of: images, ownSR: false, studySeries: study + [twin], id: { $0.id }).count == 1)
+        #expect(ImportMatching.seriesHoldingRows(of: Series(nil), ownSR: true, studySeries: [Series(nil)], id: { $0.id }).count == 1)
+    }
+
+    @Test func aStudyWithOnlyTheAlbumMarkerIsNewAgain() {
+        #expect(ImportMatching.isAlbumMarkerOnly(seriesCount: 1, onlySeriesName: "OsiriX No Autodeletion", onlySeriesID: 5005))
+        #expect(!ImportMatching.isAlbumMarkerOnly(seriesCount: 2, onlySeriesName: "OsiriX No Autodeletion", onlySeriesID: 5005))
+        #expect(!ImportMatching.isAlbumMarkerOnly(seriesCount: 1, onlySeriesName: "OsiriX No Autodeletion", onlySeriesID: 1))
+        #expect(!ImportMatching.isAlbumMarkerOnly(seriesCount: 1, onlySeriesName: "AXIAL", onlySeriesID: 5005))
+        #expect(!ImportMatching.isAlbumMarkerOnly(seriesCount: 0, onlySeriesName: nil, onlySeriesID: 0))
+    }
+
+    @Test func aReportOrOtherObjectGivesWayToTheModalityOfTheImages() {
+        #expect(ImportMatching.studyTakesFileModality(study: "SR"))
+        #expect(ImportMatching.studyTakesFileModality(study: "OT"))
+        #expect(!ImportMatching.studyTakesFileModality(study: "CT"))
+        #expect(!ImportMatching.studyTakesFileModality(study: nil))
+        #expect(ImportMatching.seriesGivesStudyModality(study: "SC", file: "MR"))
+        #expect(ImportMatching.seriesGivesStudyModality(study: "OT", file: nil))
+        #expect(!ImportMatching.seriesGivesStudyModality(study: "SC", file: "OT"))
+        #expect(!ImportMatching.seriesGivesStudyModality(study: "CT", file: "MR"))
+    }
+
+    @Test func theEarliestRealDateWins() {
+        let undefined = Date(timeIntervalSinceReferenceDate: 0)
+        let early = Date(timeIntervalSinceReferenceDate: 1000), late = Date(timeIntervalSinceReferenceDate: 2000)
+        #expect(ImportMatching.takesStudyDate(early, over: late, undefined: undefined))
+        #expect(ImportMatching.takesStudyDate(early, over: early, undefined: undefined))
+        #expect(!ImportMatching.takesStudyDate(late, over: early, undefined: undefined))
+        #expect(ImportMatching.takesStudyDate(late, over: nil, undefined: undefined))
+        #expect(ImportMatching.takesStudyDate(late, over: undefined, undefined: undefined))
+        #expect(!ImportMatching.takesStudyDate(undefined, over: nil, undefined: undefined))
+        #expect(!ImportMatching.takesStudyDate(nil, over: nil, undefined: undefined))
+    }
+
+    @Test func anEmptyOrUnnamedStudyNameSaysNothing() {
+        #expect(ImportMatching.isMissingStudyName(nil))
+        #expect(ImportMatching.isMissingStudyName(""))
+        #expect(ImportMatching.isMissingStudyName("unnamed"))
+        #expect(!ImportMatching.isMissingStudyName("Unnamed"))
+        #expect(!ImportMatching.isMissingStudyName("HEAD"))
+        #expect(ImportMatching.rereadReportWrites("Dr X"))
+        #expect(!ImportMatching.rereadReportWrites(""))
+        #expect(!ImportMatching.rereadReportWrites(nil))
+        #expect(ImportMatching.rereadReportWrites("unnamed"))
+        #expect(!ImportMatching.rereadReportWrites("unnamed", isDescription: true))
+        #expect(ImportMatching.rereadReportWrites("CHEST", isDescription: true))
+    }
+
+    @Test func refusalsAddUpAndTheFullVolumeIsSaidOncePerEpisode() {
+        let log = ImportFeedbackLog()
+        log.addRefusals("a.dcm")
+        log.addRefusals("")
+        log.addRefusals(nil)
+        log.addRefusals("b.dcm")
+        #expect(log.refusalSummary == "a.dcm; b.dcm")
+        log.setRefusalSummary(nil)
+        #expect(log.refusalSummary == nil)
+        #expect(log.recordStorage(unavailable: true))
+        #expect(!log.recordStorage(unavailable: true))
+        #expect(log.storageWarningShown)
+        #expect(log.recordStorage(unavailable: false))
+        #expect(!log.storageWarningShown)
+    }
+
+    @Test func concurrentRefusalsAreAllKept() {
+        let log = ImportFeedbackLog()
+        DispatchQueue.concurrentPerform(iterations: 200) { log.addRefusals("f\($0)") }
+        #expect(log.refusalSummary?.components(separatedBy: "; ").count == 200)
     }
 }

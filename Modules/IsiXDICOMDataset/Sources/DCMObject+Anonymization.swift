@@ -48,7 +48,6 @@ extension DCMObject {
     /// Anonymizes the file at `file` into `destination`. Each entry of `tags`
     /// is an array: an IsiXDICOMAttributeTag and, optionally, the replacement.
     /// Private tags and the addresses and telephone numbers go as well.
-    @objc(anonymizeContentsOfFile:tags:writingToFile:)
     public class func anonymizeContents(ofFile file: String, tags: [Any], writingToFile destination: String) -> Bool {
         let object = DCMObject.object(withContentsOfFile: file, decodingPixelData: false)
         object?.removePrivateTags()
@@ -94,7 +93,6 @@ extension DCMObject {
 
     /// Replaces the values of the attribute at `tag`, adding it with
     /// `aValue` when absent. The meta header and UIDs are left alone.
-    @objc(anonymizeAttributeForTag:replacingWith:)
     public func anonymizeAttribute(for tag: DICOMAttributeTag?, replacingWith aValue: Any?) {
         guard let tag, let key = tag.stringValue else { return }
         var attribute = attributes?.object(forKey: key) as? DCMAttribute
@@ -153,7 +151,6 @@ extension DCMObject {
 
     /// A string of the same length scrambled from its characters: the same
     /// string gives the same result.
-    @objc(anonymizeString:)
     public func anonymizeString(_ string: String) -> String! {
         // The arithmetic is the Objective-C original's: 32-bit, wrapping, on the
         // signed bytes of the UTF-8 form, one per UTF-16 unit of the string.

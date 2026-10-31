@@ -265,11 +265,7 @@ extension DCMPix {
     @objc(image)
     public dynamic func image() -> NSImage! {
         compute8bitRepresentation()
-        var made: NSImage?
-        if let exception = HorosObjCException.caught({ made = self.bitmapImage() }) {
-            _N2LogExceptionImpl(exception, false, "-[DCMPix image]")
-        }
-        return made
+        return bitmapImage()
     }
 
     private func bitmapImage() -> NSImage? {
@@ -346,20 +342,14 @@ extension DCMPix {
     public static dynamic func resizeIfNecessary(_ currentImage: NSImage!, dcmPix: DCMPix!) -> NSImage! {
         guard let currentImage else { return nil }
         let size = currentImage.size
-        guard size.width > 512 && size.height > 512 else { return currentImage }
-        var resized: NSImage?
-        if let exception = HorosObjCException.caught({
-            guard let target = DisplayWindowRange.resizedSize(size, pixelWidth: dcmPix?.pwidth ?? 0,
-                                                              pixelHeight: dcmPix?.pheight ?? 0) else { return }
-            let sourceRect = NSRect(origin: .zero, size: size)
-            resized = NSImage(size: target, flipped: false) { bounds in
-                currentImage.draw(in: bounds, from: sourceRect, operation: .copy, fraction: 1.0)
-                return true
-            }
-        }) {
-            _N2LogExceptionImpl(exception, true, "+[DCMPix resizeIfNecessary:dcmPix:]")
+        guard size.width > 512 && size.height > 512,
+              let target = DisplayWindowRange.resizedSize(size, pixelWidth: dcmPix?.pwidth ?? 0,
+                                                          pixelHeight: dcmPix?.pheight ?? 0) else { return currentImage }
+        let sourceRect = NSRect(origin: .zero, size: size)
+        return NSImage(size: target, flipped: false) { bounds in
+            currentImage.draw(in: bounds, from: sourceRect, operation: .copy, fraction: 1.0)
+            return true
         }
-        return resized ?? currentImage
     }
 
     // MARK: - Grey and colour

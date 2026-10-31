@@ -15,14 +15,16 @@ import re
 import subprocess
 import tempfile
 import sys
+from dcmtk_build import dcmtk_dictionary
 from sources import class_text
 
 root = Path(__file__).resolve().parents[1]
 
 # The tag's name, which is how every lookup in the framework reaches it. The
 # names come from DCMTK's dictionary, plus the legacy spellings that differ
-# from its keywords (the framework's own plists are gone).
-dictionary = (root / 'DCMTK/dcmdata/data/dicom.dic').read_text(errors='replace')
+# from its keywords (the framework's own plists are gone). The dictionary is
+# the one of the pinned DCMTK source archive, the file the build ships.
+dictionary = dcmtk_dictionary().read_text(errors='replace')
 assert re.search(r'^\(0028,3006\)\s+\S+\s+LUTData\s', dictionary, re.M), \
     'LUT Data cannot be looked up by name, so a VOI LUT is never read'
 legacy = (root / 'Horos/Sources/Adapters/DCMTK/HorosDICOMLegacyNames.hpp').read_text(errors='replace')

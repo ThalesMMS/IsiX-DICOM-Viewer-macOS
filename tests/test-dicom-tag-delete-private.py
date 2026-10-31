@@ -50,7 +50,7 @@ if args.revision:
 else:
     source = (root / source_path).read_bytes().decode('latin1')
 sys.path.insert(0, str(root / 'tests'))
-from dcmtk_build import BUILD
+from dcmtk_build import BUILD, dcmtk_dictionary
 from isix_modules import dicom_file_flags
 
 dcmtk_backend = 'gdcm::' not in source
@@ -923,7 +923,9 @@ with tempfile.TemporaryDirectory() as directory:
         shutil.copytree(args.charset_fixtures, charset_dir)
         originals = {p.name: p.read_bytes() for p in args.charset_fixtures.glob('*.dcm')}
     env = dict(os.environ)
-    env.setdefault('DCMDICTPATH', str(root / 'DCMTK/dcmdata/data/dicom.dic'))
+    if 'DCMDICTPATH' not in env:
+        # The external dictionary of the pinned DCMTK source, as the build ships it.
+        env['DCMDICTPATH'] = str(dcmtk_dictionary())
     subprocess.run([str(path / 'test'), str(path / 'fixture.dcm'), str(args.benchmark),
                     str(charset_dir) if args.charset_fixtures else ''], check=True, env=env)
     if args.preservation:

@@ -19,7 +19,6 @@ arrays = {
     'Horos/Sources/CloudFileAccess.swift': 'buffer',
     'Horos/Sources/RemoteDataNodeIdentifier.swift': 'buffer',
     'Horos/Sources/DICOMNodeService.swift': 'buffer',
-    'Horos/Sources/BonjourBrowser.swift': 'buffer',
 }
 functions = []
 for i, (path, name) in enumerate(arrays.items()):
@@ -33,13 +32,28 @@ for name in ('host', 'key'):
     expression = re.search(r'String\(decoding: ' + name + r'\.prefix \{[^}]+\}\.map \{[^}]+\}, as: UTF8\.self\)', bonjour)
     assert expression, f'Bonjour {name}: bounded array decoder missing'
     functions.append(f'func decode{len(functions)}(_ {name}: [CChar]) -> String {{ {expression[0]} }}')
+# The address of a service: a [CChar] that getnameinfo filled, never read as a C
+# string. The `host` of the resolve callback is another one, a pointer DNS-SD
+# terminates, which is why this looks only inside the function.
+numeric_host = bonjour[bonjour.index('public static func numericHost('):bonjour.index('public static func txtDictionary(')]
+assert 'String(decoding: host.prefix' in numeric_host and 'String(cString:' not in numeric_host, 'Bonjour address: bounded array decoder missing'
+assert 'String(cString: key)' not in bonjour, 'Bonjour TXT key: legacy array decoder remains'
+# The record a Bonjour service announces, decoded in IsiXDICOMNetwork: its text
+# comes as Data, whose length bounds it, and no buffer may come back. The address
+# of a service is the host decoded above, in BonjourDiscovery.
+txt_record = root / 'Modules/IsiXDICOMNetwork/Sources/SharedDatabaseBonjour.swift'
+record_text = txt_record.read_text()
+assert 'NSString(data: data, encoding: String.Encoding.utf8.rawValue)' in record_text, 'Bonjour TXT record: decoder bounded by its Data is missing'
+assert 'String(cString:' not in record_text and 'CChar' not in record_text, 'Bonjour TXT record: an unbounded C string decoder came back'
 remote = (root / 'Horos/Sources/RemoteDicomDatabase.swift').read_text()
 encoder = re.search(r'let data = message\.flatMap \{ (.*?) \}', remote)[1]
-application = (root / 'Horos/Sources/AppController.swift').read_text()
+# The workspace state of a DICOM SR menu item, encoded for the study: ApplicationMenus.
+application = (root / 'Horos/Sources/ApplicationMenus.swift').read_text()
 xml_encoder = re.search(r'let windowsState: Data\? = state\.flatMap \{ (.*?) \}', application)[1]
-viewer = (root / 'Horos/Sources/ViewerController+RetrieveAndView.swift').read_text()
-mapped = re.search(r'let content = try objc \{ (.*?) \}', (root / 'Horos/Sources/BonjourPublisher.swift').read_text())[1]
-decoder = re.search(r'viewers = (try\? PropertyListSerialization\.propertyList\(from: state, options: \[\], format: nil\))', viewer)[1]
+# The saved windows state a study gives a series it shows: ViewerSeriesLoad (the viewer's change of series).
+viewer = (root / 'Horos/Sources/ViewerSeriesLoad.swift').read_text()
+mapped = re.search(r'let content = (try\? Data\(contentsOf: .*?\))\n', (root / 'Horos/Sources/BonjourPublisher.swift').read_text())[1]
+decoder = re.search(r'let viewers = \((try\? PropertyListSerialization\.propertyList\(from: state, options: \[\], format: nil\))\) as\? \[Any\] \?\? \[\]', viewer)[1]
 
 program = r'''
 import Cocoa
@@ -58,6 +72,16 @@ for (input, expected) in [("", nil), ("xyz", nil), ("0x", UInt32(0)), ("0x0008",
     check((value as? NSNumber)?.uint32Value == (expected ?? 42), "hex value/failure output: \(input)")
 }
 check(formatter.string(for: NSNumber(value: 8)) == "0x0008", "hex representation")
+func recordText(_ bytes: [UInt8]) -> String? {
+    guard let decoded = try? SharedDatabaseServiceRecord.decode(["AETitle": .data(Data(bytes))]),
+          case .text(let text)? = decoded["AETitle"] else { return nil }
+    return text
+}
+check(recordText([]) == "", "empty record text")
+check(recordText([65, 66]) == "AB", "unterminated record text")
+check(recordText([65, 0, 66]) == "A\0B", "the record text is as long as its data, not up to a NUL")
+check(recordText([0xC3, 0xA9]) == "\u{E9}", "non-ASCII record text")
+check(recordText([0xFF, 0xFE]) == nil, "invalid UTF-8 in a record text is refused")
 '''
 program += '\n'.join(functions) + '\n'
 program += 'let decoders: [([CChar]) -> String] = [' + ','.join(f'decode{i}' for i in range(len(functions))) + ']\n'
@@ -228,7 +252,7 @@ for input in ["", " \n", "1.25 trailing", "nan", "inf", "-inf", "1e100", "-1e100
 print("PASS: calibration parser preserves locale/POSIX, complete input, finite/range checks and failure output")
 '''
     (work / 'main.swift').write_text(program)
-    subprocess.run(['xcrun', 'swiftc', '-warnings-as-errors', str(formatter), str(work / 'main.swift'), *calibration_inputs,
+    subprocess.run(['xcrun', 'swiftc', '-warnings-as-errors', str(formatter), str(txt_record), str(work / 'main.swift'), *calibration_inputs,
                     '-o', str(work / 'check')], check=True)
     subprocess.run([str(work / 'check'), str(work)], check=True)
 

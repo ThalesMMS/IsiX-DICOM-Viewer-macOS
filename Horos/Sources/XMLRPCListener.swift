@@ -11,6 +11,7 @@
 import Foundation
 import IsiXKeychain
 import NIOCore
+import Synchronization
 
 /// What the XML-RPC interface's connection (XMLRPCInterfaceConnection.swift)
 /// does with its transport: it reads the request from the bytes received so far, answers through `XMLRPCTransport`, and closes itself
@@ -74,17 +75,16 @@ final class XMLRPCTransport: NSObject, @unchecked Sendable {
 /// must not hold the others.
 @objc(IsiXXMLRPCListener)
 final class XMLRPCListener: NSObject, @unchecked Sendable {
-    private static let errnoLock = NSLock()
-    nonisolated(unsafe) private static var lastErrno: Int32 = 0
+    private static let lastErrno = Atomic<Int32>(0)
 
     /// The errno of the last listener that could not open its port.
     @objc static func lastBindErrno() -> Int32 {
-        errnoLock.withLock { lastErrno }
+        lastErrno.load(ordering: .sequentiallyConsistent)
     }
 
     /// The identity HTTPS presents, made the first time it is needed; nil
     /// when none could be read or made.
-    @objc static func httpsIdentityAvailable() -> Bool {
+    static func httpsIdentityAvailable() -> Bool {
         WebServerIdentity.identityAndChain() != nil
     }
 
@@ -111,7 +111,7 @@ final class XMLRPCListener: NSObject, @unchecked Sendable {
             self.port = try listener.start()
         } catch {
             let code = (error as? HTTPServerListener.BindFailure)?.errnoCode ?? 0
-            Self.errnoLock.withLock { Self.lastErrno = code }
+            Self.lastErrno.store(code, ordering: .sequentiallyConsistent)
             return nil
         }
         self.listener = listener

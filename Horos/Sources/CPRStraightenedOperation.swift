@@ -103,7 +103,7 @@ public final class CPRStraightenedOperation: CPRGeneratorOperation, @unchecked S
         super.init(request: request, volumeData: volumeData)
     }
 
-    @objc public override var request: CPRStraightenedGeneratorRequest? {
+    public override var request: CPRStraightenedGeneratorRequest? {
         return super.request as? CPRStraightenedGeneratorRequest
     }
 
@@ -119,7 +119,7 @@ public final class CPRStraightenedOperation: CPRGeneratorOperation, @unchecked S
         return operationFinished.load(ordering: .acquiring)
     }
 
-    @objc public override var didFail: Bool {
+    public override var didFail: Bool {
         return operationFailed.load(ordering: .acquiring)
     }
 
@@ -152,12 +152,7 @@ public final class CPRStraightenedOperation: CPRGeneratorOperation, @unchecked S
 
     public override func main() {
         autoreleasepool {
-            do {
-                try HorosObjCException.perform { self.fill() }
-            } catch {
-                // The former @catch (...): the operation ends without a volume.
-                self.finish()
-            }
+            self.fill()
         }
     }
 

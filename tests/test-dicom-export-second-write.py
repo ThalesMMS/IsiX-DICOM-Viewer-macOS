@@ -29,6 +29,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import isix_modules  # noqa: E402
+import process_graph_stand_in  # noqa: E402
+import harness_defaults  # noqa: E402  the harness's preferences stay in its own process
+import objc_exception_guards  # noqa: E402
 from dcmtk_build import BUILD, ROOT, dcmtk_flags  # noqa: E402
 
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -72,6 +75,7 @@ PLUGIN = r'''
 # DICOM, there is no browser, nothing is decompressed.
 STUBS = r'''
 import Foundation
+import IsiXContracts
 import IsiXDICOMFile
 
 final class DicomFile {
@@ -82,12 +86,19 @@ final class DicomFile {
 
 final class DicomDatabase {
     func uniquePathForNewDataFile(withExtension ext: String) -> String? { nil }
-    static func decompressDicomFiles(atPaths paths: [String]) {}
 }
 
-final class BrowserController {
-    static func currentBrowser() -> BrowserController? { nil }
-    var database: DicomDatabase? { nil }
+struct NoConversion: DatabaseFileConverting {
+    func convertNow(_ paths: [String], mode: FileConversionMode, into destination: String?) -> Bool { true }
+    func convertInChunks(_ paths: [String], mode: FileConversionMode, into destination: String?) throws {}
+    func convertLater(_ paths: [String], mode: FileConversionMode, into destination: String?) {}
+    var isConverting: Bool { false }
+}
+
+struct DatabaseIngest {
+    static let process = DatabaseIngest()
+    var browserDatabase: DicomDatabase? { nil }
+    func fileConverting(of database: DicomDatabase?) -> any DatabaseFileConverting { NoConversion() }
 }
 
 extension FileManager {
@@ -100,16 +111,6 @@ extension NSString {
     }
 }
 
-extension HorosObjCException {
-    static func caught(_ body: () -> Void) -> NSException? {
-        do {
-            try perform(body)
-            return nil
-        } catch {
-            return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-        }
-    }
-}
 '''
 
 DRIVER = r'''
@@ -189,11 +190,14 @@ with tempfile.TemporaryDirectory(prefix='isix-export-second-write-') as director
         (work / Path(path).name).write_text(source(path), encoding='utf-8')
     (work / 'bridge.h').write_text(BRIDGE)
     (work / 'plugin.m').write_text(PLUGIN)
-    (work / 'stubs.swift').write_text(STUBS)
-    (work / 'main.swift').write_text(DRIVER)
+    # The exporter's guard is the module's own member of HorosObjCException.
+    (work / 'stubs.swift').write_text(STUBS + objc_exception_guards.source(log=False).replace('import Foundation\n', '', 1))
+    (work / 'main.swift').write_text(harness_defaults.SWIFT + DRIVER)
     (work / 'files').mkdir()
     modules = work / 'modules'
-    module_flags = isix_modules.module_flags('IsiXDICOMFile', modules)
+    module_flags = isix_modules.module_flags('IsiXDICOMFile', modules) + isix_modules.module_flags('IsiXContracts', modules)
+    # The exporter reads its choice of writer through the process graph.
+    module_flags += process_graph_stand_in.swift_flags(modules)
     includes = ['-I' + str(ROOT / 'Horos/Sources'), '-I' + str(ADAPTERS)]
     objects = []
 

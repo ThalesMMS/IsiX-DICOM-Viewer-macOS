@@ -9,6 +9,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 
 /// The DICOM nodes Bonjour finds (`_dicom._tcp`) while searchDICOMBonjour is on.
 ///
@@ -27,13 +28,13 @@ final class DICOMBonjourDiscovery: NSObject, @MainActor HorosBonjourBrowserDeleg
         self.owner = owner
         super.init()
         browser.delegate = self
-        NSUserDefaultsController.shared.addObserver(self, forKeyPath: "values.searchDICOMBonjour", options: .new, context: nil)
+        NSUserDefaultsController.shared.addObserver(self, forKeyPath: NetworkPreferences.controllerKeyPath(NetworkPreferences.searchDICOMBonjour), options: .new, context: nil)
     }
 
     /// Searches while the preference is on; turning it off leaves the search
     /// running and only stops services from being added, as it always did.
     func update() {
-        guard UserDefaults.standard.bool(forKey: "searchDICOMBonjour") else { return }
+        guard PreferencesSource.process.preferences[NetworkPreferences.searchDICOMBonjour] else { return }
         NSLog("searchDICOMBonjour - searchForServicesOfType : _dicom._tcp")
         browser.searchForServices(ofType: "_dicom._tcp.", inDomain: "")
     }
@@ -41,7 +42,7 @@ final class DICOMBonjourDiscovery: NSObject, @MainActor HorosBonjourBrowserDeleg
     override func observeValue(forKeyPath keyPath: String?, of object: Any?,
                                change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
         // The defaults controller tells its observers on the main thread.
-        if keyPath == "values.searchDICOMBonjour" { MainActor.assumeIsolated { update() } }
+        if keyPath == NetworkPreferences.controllerKeyPath(NetworkPreferences.searchDICOMBonjour) { MainActor.assumeIsolated { update() } }
     }
 
     func horosBonjourBrowserWillSearch(_ browser: HorosBonjourBrowser) {
@@ -60,7 +61,7 @@ final class DICOMBonjourDiscovery: NSObject, @MainActor HorosBonjourBrowserDeleg
 
     func horosBonjourBrowser(_ browser: HorosBonjourBrowser, didFind service: BonjourService) {
         if let published = owner.publisher?.name, service.name == published { return }
-        guard UserDefaults.standard.bool(forKey: "searchDICOMBonjour") else { return }
+        guard PreferencesSource.process.preferences[NetworkPreferences.searchDICOMBonjour] else { return }
         owner.addService(service)
         service.delegate = self
         service.resolve(withTimeout: 5)

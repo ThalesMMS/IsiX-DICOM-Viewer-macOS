@@ -13,6 +13,7 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
+import isix_modules  # noqa: E402
 from sources import source_text  # noqa: E402
 source = source_text('OSILocationsPreferencePanePref')
 
@@ -162,7 +163,9 @@ with tempfile.TemporaryDirectory() as directory:
     # WADOCredentials.
     sources = [root / 'Horos/Sources' / name for name in ('NodeRequestLimiter.swift', 'RetrievePlan.swift', 'WADOCredentials.swift',
                                                           'DICOMwebCredentials.swift', 'NonInteractiveKeychainRead.swift')]
+    # WADOCredentials takes its rules from IsiXDICOMNetwork.
     build = subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', str(path / 'main.swift'), *map(str, sources),
+                            *isix_modules.module_flags('IsiXDICOMNetwork', path / 'modules'),
                             '-o', str(path / 'test')], capture_output=True, text=True)
     if build.returncode != 0:
         print(build.stderr)

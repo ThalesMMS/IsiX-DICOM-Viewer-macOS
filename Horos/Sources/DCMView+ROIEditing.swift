@@ -38,6 +38,8 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
+import IsiXPreferences
 import IsiXROI
 import UniformTypeIdentifiers
 
@@ -49,17 +51,8 @@ import UniformTypeIdentifiers
 // all, the ROI thickness and the menu validation. -validateMenuItem:
 // (DCMView+Viewer.swift), which MPRDCMView overrides, calls
 // -horosValidateMenuItem: here. The rules without the view are in IsiXROI
-// (ROIEditing).
-
-/// Runs `body` as an @try block: the NSException it raises is returned.
-private func roiEditingTry(_ body: () -> Void) -> NSException? {
-    do {
-        try HorosObjCException.perform(body)
-    } catch {
-        return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    return nil
-}
+// (ROIEditing, ROIEditingSession), and the notifications go through
+// ROIEventEmitter.
 
 /// N2LogExceptionWithStackTrace(e) (or N2LogException(e) when `stack` is
 /// false) in `function`.
@@ -84,7 +77,7 @@ extension DCMView {
     /// With "markROIImageAsKeyImage", the image of a ROI added in a 2D viewer
     /// becomes a key image.
     private func markROIImageAsKeyImageIfAsked() {
-        if UserDefaults.standard.bool(forKey: "markROIImageAsKeyImage") {
+        if ViewROIEditing.marksROIImageAsKeyImage {
             if self.is2DViewer() && !self.isKeyImage(), let viewer = roiEditingViewer, !viewer.isPostprocessed() {
                 viewer.setKeyImage(self)
             }
@@ -98,32 +91,26 @@ extension DCMView {
         self.horos_drawingROI = false
         let current = self.horos_curROI
         for case let r as ROI in self.horos_curRoiList ?? [] where current !== r {
-            if r.roImode == Int(ROI_selectedModify) || r.roImode == Int(ROI_drawing) {
-                r.roImode = Int(ROI_selected)
+            let mode = ROIEditingSession.modeWhenStopped(r.roImode)
+            if mode != r.roImode {
+                r.roImode = mode
             }
         }
 
         if let current {
-            if current.roImode == Int(ROI_selectedModify) || current.roImode == Int(ROI_drawing) {
-                // Does this ROI have alias in other views?
-                var no = 0
-                for case let r as NSArray in self.horos_dcmRoiList ?? [] where r.contains(current) {
-                    no += 1
-                }
-
-                if no <= 1 || force {
-                    current.roImode = Int(ROI_selected)
-
-                    if !current.valid() {
-                        NotificationCenter.default.post(name: NSNotification.Name.OsirixRemoveROI, object: current, userInfo: nil)
-                        _ = roiEditingTry { self.horos_curRoiList?.remove(current) }
-                        NotificationCenter.default.post(name: NSNotification.Name.OsirixROIRemovedFromArray, object: nil, userInfo: nil)
-                    }
-
-                    self.horos_curROI = nil
-                }
-            } else {
+            // Does this ROI have alias in other views?
+            let stop = ROIEditingSession.stopping(mode: current.roImode, force: force) {
+                (self.horos_dcmRoiList as? [Any] ?? []).filter { ViewROIEditing.rois($0).contains { $0 === current } }.count
+            }
+            if case .ends(let checksValidity) = stop {
                 current.roImode = Int(ROI_selected)
+
+                if checksValidity && !current.valid() {
+                    ROIEventEmitter.willRemove(current)
+                    _ = HorosObjCException.caught { self.horos_curRoiList?.remove(current) }
+                    ROIEventEmitter.removedFromList()
+                }
+
                 self.horos_curROI = nil
             }
         }
@@ -155,7 +142,7 @@ extension DCMView {
     @IBAction public override dynamic func selectAll(_ sender: Any?) {
         for case let r as ROI in self.horos_curRoiList ?? [] {
             r.roImode = Int(ROI_selected)
-            NotificationCenter.default.post(name: NSNotification.Name.OsirixROISelected, object: r, userInfo: nil)
+            ROIEventEmitter.selected(r)
         }
         self.needsDisplay = true
     }
@@ -204,17 +191,17 @@ extension DCMView {
             item.state = NSControl.StateValue(rawValue: self.horos_yFlipped ? 1 : 0)
         } else if action == NSSelectorFromString("syncronize:") {
             valid = true
-            item.state = item.tag == Int(DCMView.horos_static_syncro) ? .on : .off
+            item.state = item.tag == Int(SliceSyncSettings.mode) ? .on : .off
         } else if action == NSSelectorFromString("mergeFusedImages:") {
             if self.horos_blending != nil {
                 valid = true
             }
         } else if action == NSSelectorFromString("annotMenu:") {
             valid = true
-            item.state = item.tag == UserDefaults.standard.integer(forKey: "ANNOTATIONS") ? .on : .off
+            item.state = item.tag == PreferencesSource.process.preferences[ViewerPreferences.annotations] ? .on : .off
         } else if action == NSSelectorFromString("barMenu:") {
             valid = true
-            item.state = item.tag == UserDefaults.standard.integer(forKey: "CLUTBARS") ? .on : .off
+            item.state = item.tag == PreferencesSource.process.preferences[ViewerPreferences.clutBars] ? .on : .off
         } else if action == NSSelectorFromString("increaseFontSize:") || action == NSSelectorFromString("decreaseFontSize:") {
             valid = DCMView.labelFontSizeMenuItemIsEnabled(item)
         } else {
@@ -247,7 +234,7 @@ extension DCMView {
                 item.roImode = Int(ROI_selected)
                 item.curView = self
 
-                NotificationCenter.default.post(name: NSNotification.Name.OsirixROISelected, object: item, userInfo: nil)
+                ROIEventEmitter.selected(item)
             }
 
             markROIImageAsKeyImageIfAsked()
@@ -292,10 +279,10 @@ extension DCMView {
 
     @objc(roiLoadFromXML:)
     public dynamic func roiLoad(fromXML xml: [AnyHashable: Any]!) {
-        let xml = (xml ?? [:]) as NSDictionary
+        let xml = xml ?? [:]
 
         // Single ROI
-        if let slice = xml.value(forKey: "Slice") {
+        if let slice = xml["Slice"] {
             let number = (slice as? NSNumber)?.int32Value ?? (slice as? NSString)?.intValue ?? 0
             self.setIndex(Int(truncatingIfNeeded: number - 1))
 
@@ -309,7 +296,7 @@ extension DCMView {
             self.needsDisplay = true
         }
 
-        let pointsStringArray = xml.object(forKey: "ROIPoints") as? NSArray ?? []
+        let pointsStringArray = xml["ROIPoints"] as? [Any] ?? []
 
         let type: ToolMode
         switch ROIEditing.xmlShape(pointCount: pointsStringArray.count) {
@@ -321,32 +308,26 @@ extension DCMView {
         let pix = self.curDCM
         guard let roi = ROI(type: type, Float(pix?.pixelSpacingX ?? 0), Float(pix?.pixelSpacingY ?? 0),
                             DCMPix.originCorrected(accordingToOrientation: pix)) else { return }
-        roi.name = xml.object(forKey: "Name") as? String
-        roi.comments = xml.object(forKey: "Comments") as? String
-
-        let pointsArray = NSMutableArray()
+        roi.name = xml["Name"] as? String
+        roi.comments = xml["Comments"] as? String
 
         if type == .t2DPoint {
             var irect = NSRect.zero
-            let point = NSPointFromString(pointsStringArray.object(at: 0) as? String ?? "")
+            let point = NSPointFromString(pointsStringArray[0] as? String ?? "")
             irect.origin.x = point.x
             irect.origin.y = point.y
             roi.rect = irect
         }
 
         if pointsStringArray.count > 0 {
-            for j in 0..<pointsStringArray.count {
-                let pt = MyPoint.point(NSPointFromString(pointsStringArray.object(at: j) as? String ?? ""))
-                pointsArray.add(pt)
-            }
-
-            roi.points = pointsArray
+            let points = pointsStringArray.map { MyPoint.point(NSPointFromString($0 as? String ?? "")) }
+            roi.points = NSMutableArray(array: points)
             roi.roImode = Int(ROI_selected)
             roi.curView = self
             markROIImageAsKeyImageIfAsked()
 
             self.horos_curRoiList?.add(roi)
-            NotificationCenter.default.post(name: NSNotification.Name.OsirixROISelected, object: roi, userInfo: nil)
+            ROIEventEmitter.selected(roi)
         }
     }
 
@@ -362,13 +343,13 @@ extension DCMView {
         }
 
         for case let file as String in filenames ?? [] {
-            let xml = NSDictionary(contentsOfFile: file)
-            if let roiArray = xml?.object(forKey: "ROI array") as? NSArray {
+            let xml = ViewROIEditing.propertyList(atPath: file)
+            if let roiArray = xml?["ROI array"] as? [Any] {
                 for case let x as [AnyHashable: Any] in roiArray {
                     self.roiLoad(fromXML: x)
                 }
             } else {
-                self.roiLoad(fromXML: xml as? [AnyHashable: Any])
+                self.roiLoad(fromXML: xml)
             }
         }
 
@@ -403,27 +384,27 @@ extension DCMView {
                 r.roImode = Int(ROI_sleep)
             }
 
-            let planarROIs = NSMutableArray()
+            var planarROIs: [ROI] = []
             for case let r as ROI in roiArray {
                 if let physical = r as? HorosVolumeLengthROI {
-                    let endpoint = self.lengthEndpoint(at: NSZeroPoint) as NSDictionary?
-                    let volumeLength = physical.volumeLength as NSDictionary?
-                    let sameSeries = (volumeLength?.object(forKey: "series") as? NSObject)?.isEqual(endpoint?.object(forKey: "series")) ?? false
-                    let sameFrame = (volumeLength?.object(forKey: "frameOfReference") as? NSObject)?
-                        .isEqual(endpoint?.object(forKey: "frameOfReference")) ?? false
-                    if !sameSeries || !sameFrame {
+                    // A length through the volume goes to the series and frame of reference it was measured in.
+                    let endpoint = self.lengthEndpoint(at: NSZeroPoint)
+                    var payload = physical.volumeLength ?? [:]
+                    if !ROIEditingSession.pastedLengthFits(series: payload["series"] as? String,
+                                                           frameOfReference: payload["frameOfReference"] as? String,
+                                                           imageSeries: endpoint?.object(forKey: "series") as? String,
+                                                           imageFrameOfReference: endpoint?.object(forKey: "frameOfReference") as? String) {
                         NSSound.beep()
                         continue
                     }
-                    let payload = (volumeLength?.mutableCopy() as? NSMutableDictionary) ?? NSMutableDictionary()
                     payload["id"] = UUID().uuidString
                     payload["temporalIndex"] = endpoint?.object(forKey: "temporalIndex")
-                    physical.volumeLength = payload as? [AnyHashable: Any]
+                    physical.volumeLength = payload
                     roiEditingViewer?.add(physical)
                     physical.roImode = Int(ROI_selected)
                     continue
                 }
-                planarROIs.add(r)
+                planarROIs.append(r)
                 r.isAliased = false
 
                 // Correct the origin only if the orientation is the same
@@ -437,15 +418,14 @@ extension DCMView {
 
             markROIImageAsKeyImageIfAsked()
 
-            self.horos_curRoiList?.addObjects(from: planarROIs as [AnyObject])
+            self.horos_curRoiList?.addObjects(from: planarROIs)
 
-            for roi in roiArray {
-                let userInfo: [AnyHashable: Any] = ["ROI": roi, "sliceNumber": NSNumber(value: Int32(self.horos_curImage))]
-                NotificationCenter.default.post(name: NSNotification.Name.OsirixAddROI, object: self, userInfo: userInfo)
+            for case let roi as ROI in roiArray {
+                ROIEventEmitter.added(roi, to: self, slice: Int32(self.horos_curImage))
             }
 
-            for roi in roiArray {
-                NotificationCenter.default.post(name: NSNotification.Name.OsirixROISelected, object: roi, userInfo: nil)
+            for case let roi as ROI in roiArray {
+                ROIEventEmitter.selected(roi)
             }
 
             self.needsDisplay = true
@@ -509,14 +489,14 @@ extension DCMView {
 
         let rArray = self.horos_curRoiList
 
-        if let exception = roiEditingTry({
+        if let exception = HorosObjCException.caught({
             guard let rArray else { return }
             var i = 0
             while i < rArray.count {
                 if let r = rArray.object(at: i) as? ROI, r.roImode == Int(ROI_selected) && !r.locked {
                     let groupID = r.groupID
                     // the notification can release it: a mirrored 2D point's owner removes it
-                    NotificationCenter.default.post(name: NSNotification.Name.OsirixRemoveROI, object: r, userInfo: nil)
+                    ROIEventEmitter.willRemove(r)
                     self.removeROI(fromSliceOrVolume: r)
                     i -= 1
                     removed = true
@@ -527,7 +507,7 @@ extension DCMView {
                 i += 1
             }
 
-            NotificationCenter.default.post(name: NSNotification.Name.OsirixROIRemovedFromArray, object: nil, userInfo: nil)
+            ROIEventEmitter.removedFromList()
 
             if removed {
                 self.selectSuccessorOfDeletedROIs()
@@ -548,19 +528,12 @@ extension DCMView {
     /// edited: the next Delete then removes it, without a click between them.
     @objc(selectSuccessorOfDeletedROIs)
     public dynamic func selectSuccessorOfDeletedROIs() {
-        if !ROIDeletionSuccessor.isEnabled {
-            return
-        }
+        let rois = ViewROIEditing.rois(self.horos_curRoiList)
+        guard let index = ViewROIEditing.session(rois).successorAfterDeletion(enabled: ROIDeletionSuccessor.isEnabled) else { return }
 
-        let rois = (self.horos_curRoiList as? [NSObject]) ?? []
-        for case let r as ROI in rois where r.roImode != Int(ROI_sleep) {
-            return
-        }
-
-        guard let next = ROIDeletionSuccessor.successor(among: rois) as? ROI else { return }
-
+        let next = rois[index]
         next.roImode = Int(ROI_selected)
-        NotificationCenter.default.post(name: NSNotification.Name.OsirixROISelected, object: next, userInfo: nil)
+        ROIEventEmitter.selected(next)
     }
 
     /// A physical Length is one object shared by slice lists. Removing only the
@@ -584,7 +557,7 @@ extension DCMView {
 
         let rArray = self.horos_curRoiList
 
-        if let exception = roiEditingTry({
+        if let exception = HorosObjCException.caught({
             guard let rArray else { return }
             var i = 0
             while i < rArray.count {
@@ -592,11 +565,11 @@ extension DCMView {
                     // The notification can change the array and release the ROI (a
                     // mirrored 2D point's owner removes it): the ROI removed is the
                     // one notified, kept until then.
-                    NotificationCenter.default.post(name: NSNotification.Name.OsirixRemoveROI, object: r, userInfo: nil)
+                    ROIEventEmitter.willRemove(r)
                     self.removeROI(fromSliceOrVolume: r)
                     i -= 1
 
-                    NotificationCenter.default.post(name: NSNotification.Name.OsirixROIRemovedFromArray, object: nil, userInfo: nil)
+                    ROIEventEmitter.removedFromList()
                 }
                 i += 1
             }
@@ -632,7 +605,7 @@ extension DCMView {
         let drawLock = DCMView.horos_static_drawLock
         drawLock?.lock()
 
-        if let exception = roiEditingTry({
+        if let exception = HorosObjCException.caught({
             for r in removable {
                 // An earlier ROI's group can have taken it already.
                 if (self.horos_curRoiList?.indexOfObjectIdentical(to: r) ?? 0) == NSNotFound {
@@ -641,14 +614,14 @@ extension DCMView {
 
                 let groupID = r.groupID
                 // the notification can release it: a mirrored 2D point's owner removes it
-                NotificationCenter.default.post(name: NSNotification.Name.OsirixRemoveROI, object: r, userInfo: nil)
+                ROIEventEmitter.willRemove(r)
                 self.removeROI(fromSliceOrVolume: r)
                 if groupID != 0.0 {
                     self.deleteROIGroupID(groupID)
                 }
             }
 
-            NotificationCenter.default.post(name: NSNotification.Name.OsirixROIRemovedFromArray, object: nil, userInfo: nil)
+            ROIEventEmitter.removedFromList()
             self.selectSuccessorOfDeletedROIs()
         }) {
             logROIEditingException(exception, "-[DCMView deleteROIs:]")
@@ -663,20 +636,21 @@ extension DCMView {
     public dynamic func deleteInvalidROIs(forArray r: NSMutableArray!) {
         // OsirixRemoveROINotification or OsirixROIRemovedFromArrayNotification can change/delete the NSArray !
         guard let r else { return }
-        if let exception = roiEditingTry({
+        if let exception = HorosObjCException.caught({
             var i = 0
             while i < r.count {
-                if let roi = r.object(at: i) as? ROI, !roi.valid() {
-                    if self.horos_curROI === roi {
+                if let roi = r.object(at: i) as? ROI,
+                   let removal = ROIEditingSession.invalidRemoval(isValid: roi.valid(), isCurrentROI: self.horos_curROI === roi) {
+                    if removal.releasesCurrentROI {
                         self.horos_curROI = nil
                         self.horos_drawingROI = false
                     }
 
-                    NotificationCenter.default.post(name: NSNotification.Name.OsirixRemoveROI, object: r.object(at: i), userInfo: nil)
+                    ROIEventEmitter.willRemove(roi)
                     r.removeObject(at: i)
                     i -= 1
 
-                    NotificationCenter.default.post(name: NSNotification.Name.OsirixROIRemovedFromArray, object: nil, userInfo: nil)
+                    ROIEventEmitter.removedFromList()
                 }
                 i += 1
             }
@@ -738,36 +712,30 @@ extension DCMView {
         let roiList = self.horos_dcmRoiList
         let curImage = Int(self.horos_curImage)
         var candidates: [[NSValue]] = [], names: [String] = [], distances: [Int] = []
-        for distance in 1...max(1, ROIObjectJoin.reach) where distance <= ROIObjectJoin.reach {
-            for image in stride(from: curImage - distance, through: curImage + distance, by: 2 * distance) {
-                if image < 0 || image >= (pixList?.count ?? 0) || image >= (roiList?.count ?? 0) {
+        for neighbour in ROIEditingSession.joinedImages(around: curImage, reach: ROIObjectJoin.reach,
+                                                        imageCount: pixList?.count ?? 0, roiListCount: roiList?.count ?? 0) {
+            var there = [Double](repeating: 0, count: 9)
+            (pixList?.object(at: neighbour.image) as? DCMPix)?.orientationDouble(&there)
+            if !ROIEditingSession.planesAreParallel(here, there) {
+                continue
+            }
+
+            for other in ViewROIEditing.rois(roiList?.object(at: neighbour.image)) {
+                if !other.isValidForVolume() || ROIObjectJoin.isUnnamed(other.name) {
                     continue
                 }
 
-                var there = [Double](repeating: 0, count: 9)
-                (pixList?.object(at: image) as? DCMPix)?.orientationDouble(&there)
-                // Fused as the Objective-C compiler fused it.
-                if fabs((here[7] * there[7]).addingProduct(here[6], there[6]).addingProduct(here[8], there[8])) < 0.99 {
-                    continue
-                }
-
-                for case let other as ROI in (roiList?.object(at: image) as? NSArray) ?? [] {
-                    if !other.isValidForVolume() || ROIObjectJoin.isUnnamed(other.name) {
-                        continue
-                    }
-
-                    candidates.append((self.planePoints(of: other, onImage: image) as? [NSValue]) ?? [])
-                    names.append(other.name ?? "")
-                    distances.append(distance)
-                }
+                candidates.append((self.planePoints(of: other, onImage: neighbour.image) as? [NSValue]) ?? [])
+                names.append(other.name ?? "")
+                distances.append(neighbour.distance)
             }
         }
 
         let index = ROIObjectJoin.candidate(for: (self.planePoints(of: roi, onImage: curImage) as? [NSValue]) ?? [],
                                             candidates: candidates, imageDistances: distances)
-        if index >= 0 && names[index] != roi.name {
-            roi.name = names[index]
-            NotificationCenter.default.post(name: NSNotification.Name.OsirixROIChange, object: roi, userInfo: nil)
+        if let name = ROIEditingSession.joinedName(candidate: index, names: names, current: roi.name) {
+            roi.name = name
+            ROIEventEmitter.changed(roi)
         }
     }
 }

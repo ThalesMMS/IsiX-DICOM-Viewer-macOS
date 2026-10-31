@@ -32,6 +32,7 @@ revision, the negative control.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 import isix_modules
+import objc_exception_guards
 from pathlib import Path
 import shutil
 import subprocess
@@ -309,6 +310,18 @@ static NSAttributeDescription *attribute(NSString *name, NSAttributeType type) {
 @end
 '''
 
+# The process graph LogManager reads the browser's switch and database through,
+# from any thread, as the application's graph answers them from the browser.
+LOG_GRAPH = r'''
+import Foundation
+
+final class ProcessGraph: @unchecked Sendable {
+    static let process = ProcessGraph()
+    var networkLogsActive: Bool { BrowserController.currentBrowser()?.isNetworkLogsActive() ?? false }
+    var browserDatabase: DicomDatabase? { BrowserController.currentBrowser()?.database }
+}
+'''
+
 LOG_DRIVER = r'''
 import Foundation
 
@@ -414,10 +427,13 @@ with tempfile.TemporaryDirectory(prefix='horos-activity-progress-') as tmp:
         production_objc = [path for path in ('Nitrogen/Sources/NSThread+N2+CAPI.m', 'Nitrogen/Sources/N2Debug.mm',
                                              'Nitrogen/Sources/N2Debug+CAPI.m', 'Nitrogen/Sources/NSException+N2.mm')
                            if present(path)]
-        # Revisions before the key moved into ThreadModalForWindowController.swift
-        # define it in C.
+        # Where the Swift class does not define the key, it is an Objective-C
+        # constant: in ThreadModalForWindowController+CAPI.m in older revisions,
+        # in Notifications.m (exported for plugins) in current ones.
         if 'NSThreadModalForWindowControllerKey = ' not in panel_implementation:
-            production_objc.append('Horos/Sources/ThreadModalForWindowController+CAPI.m')
+            production_objc.append(next(path for path in ('Horos/Sources/ThreadModalForWindowController+CAPI.m',
+                                                          'Horos/Sources/Notifications.m')
+                                        if present(path) and 'NSThreadModalForWindowControllerKey = ' in source(path)))
         for path in production_objc:
             local = tmp / Path(path).name
             local.write_text(source(path))
@@ -431,11 +447,16 @@ with tempfile.TemporaryDirectory(prefix='horos-activity-progress-') as tmp:
     # The app's NSLog writes through IsiXLogging, in revisions that have it.
     logging_flags = (isix_modules.module_flags('IsiXLogging', tmp / 'modules')
                      if any('import IsiXLogging' in text for _, text in thread_companions) else [])
+    # The guards of HorosObjCException, where the revision has them.
+    def guards(log):
+        text = objc_exception_guards.source_at(revision, root, log)
+        return [('HorosObjCException+Guards.swift', text)] if text else []
     builds = {
-        'threads': ('Horos/Sources/ThreadsManager.swift', [('driver.swift', THREADS_DRIVER)] + thread_companions, 'harness.h', None),
+        'threads': ('Horos/Sources/ThreadsManager.swift', [('driver.swift', THREADS_DRIVER)] + thread_companions + guards(False), 'harness.h', None),
         'progress': ('Horos/Sources/ThreadModalForWindowController.swift',
-                     [('doubles.swift', progress_doubles), ('driver.swift', PROGRESS_DRIVER)] + token + thread_companions, 'harness.h', None),
-        'log': ('Horos/Sources/LogManager.swift', [('driver.swift', LOG_DRIVER)], 'log.h', LOG_DOUBLES),
+                     [('doubles.swift', progress_doubles), ('driver.swift', PROGRESS_DRIVER)] + token + thread_companions + guards(False),
+                     'harness.h', None),
+        'log': ('Horos/Sources/LogManager.swift', [('graph.swift', LOG_GRAPH), ('driver.swift', LOG_DRIVER)] + guards(True), 'log.h', LOG_DOUBLES),
     }
     executables = {}
     try:

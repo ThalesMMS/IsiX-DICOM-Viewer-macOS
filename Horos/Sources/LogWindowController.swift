@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 import UniformTypeIdentifiers
 
 /// The window of the network logs (LogWindow.xib): receive, send, move and web
@@ -53,6 +54,10 @@ public final class LogWindowController: NSWindowController {
     @IBOutlet @objc var move: NSArrayController!
     @IBOutlet @objc var send: NSArrayController!
     @IBOutlet @objc var web: NSArrayController!
+
+    /// The graph of the database window the logs belong to: the database whose
+    /// log entries are exported, and the browser's network-log switch.
+    private var browserWindow: BrowserWindowGraph?
 
     @IBAction @objc(export:)
     public func export(_ sender: Any!) {
@@ -71,7 +76,7 @@ public final class LogWindowController: NSWindowController {
 
         // The attribute names in the order of the model's own dictionary, as
         // before: read through KVC so no bridged copy reorders them.
-        let entity = BrowserController.currentBrowser()?.database?.managedObjectModel?.entitiesByName["LogEntry"]
+        let entity = browserWindow?.database?.managedObjectModel?.entitiesByName["LogEntry"]
         let logEntries = ((entity?.value(forKey: "attributesByName") as? NSDictionary)?.allKeys as? [String]) ?? []
 
         // HEADER
@@ -128,9 +133,11 @@ public final class LogWindowController: NSWindowController {
     }
 
     /// [super initWithWindowNibName:@"LogWindow"], which goes through
-    /// -initWithWindow: as before.
+    /// -initWithWindow: as before. The selector the browser and the plugins
+    /// send: the logs of the database window of the process.
     @objc public convenience init() {
         self.init(windowNibName: "LogWindow")
+        browserWindow = PreferencesSource.process.processGraph.browserWindow
     }
 
     /// Overridden so that -initWithWindowNibName: is inherited, unchanged.
@@ -156,14 +163,14 @@ public final class LogWindowController: NSWindowController {
     @IBAction public override func showWindow(_ sender: Any?) {
         super.showWindow(sender)
 
-        if (BrowserController.currentBrowser()?.isNetworkLogsActive() ?? false) == false {
+        if (browserWindow?.browser.isNetworkLogsActive() ?? false) == false {
             if HorosAlertPanel.runInformational(title: NSLocalizedString("Network Logs", comment: ""),
                                                 message: NSLocalizedString("Network Logs are currently off. Do you want to activate them?\r\rYou can activate or de-activate them in the Preferences - Listener window.", comment: ""),
                                                 defaultButton: NSLocalizedString("Activate", comment: ""),
                                                 alternateButton: NSLocalizedString("Cancel", comment: ""),
                                                 otherButton: nil) == 1 {
-                UserDefaults.standard.set(true, forKey: "NETWORKLOGS")
-                BrowserController.currentBrowser()?.setNetworkLogs()
+                PreferencesSource.process.preferences.set(true, for: NetworkPreferences.networkLogs)
+                browserWindow?.browser.setNetworkLogs()
             }
         }
     }

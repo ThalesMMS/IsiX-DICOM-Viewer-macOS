@@ -38,26 +38,74 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXContracts
 import IsiXDatabase
 import UniformTypeIdentifiers
 import IsiXDICOMFile
 
-// The maintenance of the browser's database: the comments filled from the
-// images, rebuilding the database and its SQL index, the automatic cleanup
-// and its preview, and the surgical procedure log imported as structured
-// reports. The rebuild estimate and the study comment rule are
-// IsiXDatabase's RebuildEstimate and AutoCommentRule. The selectors are those
-// of the former Objective-C methods.
+// The maintenance of the browser's database: rebuilding the database and its
+// SQL index through its DatabaseRebuilding port, the preview of the automatic
+// cleanup through its DatabaseCleaning port, and the surgical procedure log
+// imported as structured reports, filed by IsiXDatabase's SurgicalRecordFiling.
+// The rebuild estimate is IsiXDatabase's RebuildEstimate. DatabaseMaintenance
+// does the work; the browser keeps the selectors of the former Objective-C
+// methods, which its nib, its menus and the application send, and forwards
+// them. The comments filled from the images are AutoCommentRegenerator's.
 
-/// The menu of the main menu that has an item sending `action`.
+/// The item of the main menu that sends `action`.
 @MainActor
-private func menuContaining(_ action: Selector, in menu: NSMenu?) -> NSMenu? {
+private func menuItem(sending action: Selector, in menu: NSMenu?) -> NSMenuItem? {
     guard let menu else { return nil }
     for item in menu.items {
-        if item.action == action { return menu }
-        if let found = menuContaining(action, in: item.submenu) { return found }
+        if item.action == action { return item }
+        if let found = menuItem(sending: action, in: item.submenu) { return found }
     }
     return nil
+}
+
+/// Adds `text` under the choices of the rebuild sheet, once: the sheet stays for
+/// the life of the window, and its nib has no room for a line of any language. The
+/// height comes from the text, and what is under the choices stays where the
+/// sheet's bottom is, as the sheet grows by that height.
+@MainActor
+private func addRebuildNotice(_ text: String, to sheet: NSWindow, under choices: NSView) {
+    let identifier = NSUserInterfaceItemIdentifier("rebuildNotice")
+    guard let content = sheet.contentView, !content.subviews.contains(where: { $0.identifier == identifier }) else { return }
+
+    let notice = NSTextField(wrappingLabelWithString: text)
+    notice.identifier = identifier
+    notice.isSelectable = false
+    notice.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+    let margin: CGFloat = 20
+    let gap: CGFloat = 4
+    let width = content.bounds.width - choices.frame.minX - margin
+    let height = ceil(notice.cell?.cellSize(forBounds: NSRect(x: 0, y: 0, width: width, height: .greatestFiniteMagnitude)).height ?? 0)
+
+    let under = content.subviews.filter { $0.frame.maxY <= choices.frame.minY }
+    let top = choices.frame.minY
+    sheet.setContentSize(NSSize(width: content.bounds.width, height: content.bounds.height + height + gap))
+    // The views of the nib keep their distance to the top.
+    for view in under { view.frame.origin.y -= height + gap }
+    notice.frame = NSRect(x: choices.frame.minX, y: top, width: width, height: height)
+    content.addSubview(notice)
+}
+
+/// Shows the rebuild sheet, which says what a complete rebuild undoes: a split of a
+/// series exists only in the index, and the rebuild reads the series from the files.
+@MainActor
+private func beginRebuildSheet(_ sheet: NSWindow, choices: NSView?, on window: NSWindow?) {
+    if let choices {
+        addRebuildNotice(NSLocalizedString("A complete rebuild undoes series splits made by hand: their images return to the series recorded in their files. No images are lost.", comment: ""),
+                         to: sheet, under: choices)
+    }
+    window?.beginSheet(sheet, completionHandler: nil)
+}
+
+/// The database the browser shows again once its rebuild ends, which the
+/// thread of the rebuild only hands back to the main thread. @unchecked
+/// Sendable: `DicomDatabase` is not Sendable, and nothing uses it on the way.
+private struct DatabaseToShowAgain: @unchecked Sendable {
+    let database: DicomDatabase?
 }
 
 /// Whether the app may automate Numbers, for the first Numbers bundle
@@ -71,258 +119,93 @@ private func numbersAutomationStatus() -> OSStatus {
     return -10814
 }
 
-extension BrowserController {
+/// The maintenance of the database the browser shows: its rebuilds, the
+/// preview of its automatic cleanup and its surgical procedure records.
+///
+/// The sheets, the alerts and the panels are the browser's, on the main thread,
+/// so this lives there too; a rebuild runs on a thread of its own, with the
+/// browser showing no database meanwhile.
+@MainActor final class DatabaseMaintenance {
+    private unowned let browser: BrowserController
+    /// A preview of the cleanup is being read.
+    private var cleanupPreviewLoading = false
 
-    // MARK: Comments filled from the images
-
-    @objc(regenerateAutoCommentsThread:)
-    nonisolated func regenerateAutoCommentsThread(_ arrays: NSDictionary!) {
-        // On a private-queue context, on its queue.
-        guard let context = self.database?.privateQueueIndependentContext() else { return }
-        N2ManagedObjectContextPerformAndWait(context) {
-            regenerateAutoComments(arrays, inContext: context)
-        }
+    init(browser: BrowserController) {
+        self.browser = browser
     }
 
-    /// Clears the comment field of the studies and series, then fills it again
-    /// from the first image of their series, as the comment preferences say.
-    @objc(regenerateAutoComments:inContext:)
-    nonisolated func regenerateAutoComments(_ arrays: NSDictionary!, inContext context: NSManagedObjectContext!) {
-        autoreleasepool {
-            let defaults = UserDefaults.standard
-            guard let commentField = defaults.string(forKey: "commentFieldForAutoFill") else { return }
-            let studyLevel = defaults.bool(forKey: "COMMENTSAUTOFILLStudyLevel")
-            let seriesLevel = defaults.bool(forKey: "COMMENTSAUTOFILLSeriesLevel")
-            let commentsAutoFill = defaults.bool(forKey: "COMMENTSAUTOFILL")
-            let thread = Thread.current
-
-            let studies = (arrays?["studyArrayIDs"] as? [NSManagedObjectID]) ?? []
-            for studyID in studies {
-                let study = context.object(with: studyID)
-                study.willChangeValue(forKey: commentField)
-                study.setPrimitiveValue(nil, forKey: commentField)
-                study.didChangeValue(forKey: commentField)
-            }
-
-            var done = 0
-            for studyID in studies {
-                let study = context.object(with: studyID)
-                if let exception = BrowserObjC.attempt({
-                    study.willChangeValue(forKey: commentField)
-                    guard studyLevel && !seriesLevel && commentsAutoFill else {
-                        study.setPrimitiveValue(nil, forKey: commentField)
-                        return
-                    }
-                    for case let series as DicomSeries in ((study as? DicomStudy)?.imageSeries() as NSArray?) ?? [] {
-                        guard DICOMSOPClass.isImageStorage(series.seriesSOPClassUID), !DICOMSOPClass.isPDF(series.seriesSOPClassUID) else { continue }
-                        let image = (series.value(forKey: "images") as? NSSet)?.anyObject() as AnyObject?
-                        autoreleasepool {
-                            if let file = DicomFile(image?.value(forKey: "completePath") as? String) {
-                                let comment = AutoCommentRule.studyComment(read: file.element(forKey: "commentsAutoFill") as? String,
-                                                                            current: study.value(forKey: commentField) as? String)
-                                study.setPrimitiveValue(comment, forKey: commentField)
-                            }
-                            done += 1
-                            thread.progress = CGFloat(Float(done - 1) / Float(studies.count))
-                            if done % 100 == 0 { try? context.save() }
-                        }
-                        break
-                    }
-                }) {
-                    BrowserObjC.log(exception, "-[BrowserController regenerateAutoComments:inContext:]")
-                }
-                study.didChangeValue(forKey: commentField)
-                if thread.isCancelled { break }
-            }
-
-            let allSeries = (arrays?["seriesArrayIDs"] as? [NSManagedObjectID]) ?? []
-            var index = 0
-            for seriesID in allSeries {
-                autoreleasepool {
-                    if let exception = BrowserObjC.attempt({
-                        regenerateAutoComment(of: context.object(with: seriesID), field: commentField, fromImages: commentsAutoFill && seriesLevel,
-                                              alsoStudy: studyLevel)
-                    }) {
-                        BrowserObjC.log(exception, stack: true, "-[BrowserController regenerateAutoComments:inContext:]")
-                    }
-                }
-                index += 1
-                thread.progress = CGFloat(Float(index - 1) / Float(allSeries.count))
-                if index % 100 == 0 { try? context.save() }
-                if thread.isCancelled { break }
-            }
-
-            try? context.save()
-            performSelector(onMainThread: #selector(outlineViewRefresh), with: nil, waitUntilDone: false)
-        }
-    }
-
-    /// A series' comment from its first image, and its study's when the study
-    /// has none and studies are filled too; cleared otherwise.
-    private nonisolated func regenerateAutoComment(of object: NSManagedObject, field: String, fromImages: Bool, alsoStudy: Bool) {
-        guard let series = object as? DicomSeries, DICOMSOPClass.isImageStorage(series.seriesSOPClassUID),
-              !DICOMSOPClass.isPDF(series.seriesSOPClassUID) else { return }
-
-        func set(_ target: NSManagedObject, _ value: Any?) {
-            target.willChangeValue(forKey: field)
-            target.setPrimitiveValue(value, forKey: field)
-            target.didChangeValue(forKey: field)
-        }
-
-        guard fromImages else {
-            set(series, nil)
-            return
-        }
-        let image = (series.value(forKey: "images") as? NSSet)?.anyObject() as AnyObject?
-        guard let file = DicomFile(image?.value(forKey: "completePath") as? String) else { return }
-        guard let comment = file.element(forKey: "commentsAutoFill") else {
-            set(series, nil)
-            return
-        }
-        set(series, comment)
-        if alsoStudy, let study = series.value(forKey: "study") as? NSManagedObject {
-            let current = study.value(forKey: field) as? String
-            if current == nil || (current as NSString?)?.length == 0 {
-                set(study, comment)
-            }
-        }
-    }
-
-    /// The rows of the outline as the comment regeneration walked them: the
-    /// first selected row, then the row after the first row each time.
-    private func autoCommentRows() -> [Int] {
-        guard let outline = horos_databaseOutline, outline.selectedRow >= 0 else { return [] }
-        let selected = outline.selectedRowIndexes
-        return (0..<selected.count).compactMap { x in
-            x == 0 ? selected.first : selected.integerGreaterThan(0)
-        }
-    }
-
-    /// "Regenerate Auto Comments": of the whole database (no sender) or of the
-    /// selection, after asking.
-    @objc(regenerateAutoComments:)
-    func regenerateAutoComments(_ sender: Any!) {
-        guard HorosAlertPanel.runInformational(title: NSLocalizedString("Regenerate Auto Comments", comment: ""),
-                                               message: NSLocalizedString("Are you sure you want to regenerate the comments field? It will delete the existing comments of studies and series.", comment: ""),
-                                               defaultButton: NSLocalizedString("OK", comment: ""),
-                                               alternateButton: NSLocalizedString("Cancel", comment: ""),
-                                               otherButton: nil) == HorosAlertPanel.defaultResponse,
-              let database = self.database else { return }
-
-        func allIDs(of entity: String) -> [Any] {
-            let request = NSFetchRequest<NSFetchRequestResult>()
-            request.resultType = .managedObjectIDResultType
-            request.entity = database.managedObjectModel?.entitiesByName[entity]
-            request.predicate = NSPredicate(value: true)
-            guard let context = database.managedObjectContext, let identifiers = try? context.fetch(request) else { return [] }
-            return identifiers
-        }
-
-        let studies: [Any]
-        let allSeries: [Any]
-        if sender == nil {
-            studies = allIDs(of: "Study")
-            allSeries = allIDs(of: "Series")
-        } else {
-            let selectedStudies = NSMutableArray(), selectedSeries = NSMutableArray()
-            for row in autoCommentRows() {
-                let object = horos_databaseOutline?.item(atRow: row) as AnyObject?
-                if let study = object as? DicomStudy {
-                    selectedStudies.add(study)
-                    selectedSeries.addObjects(from: (study.value(forKey: "series") as? NSSet)?.allObjects ?? [])
-                }
-                if let series = object as? DicomSeries {
-                    if let study = series.value(forKey: "study") { selectedStudies.add(study) }
-                    selectedSeries.add(series)
-                }
-            }
-            studies = (selectedStudies.value(forKey: "objectID") as? [Any]) ?? []
-            allSeries = (selectedSeries.value(forKey: "objectID") as? [Any]) ?? []
-        }
-
-        let parameters = BrowserObjC.dictionary(studies, "studyArrayIDs", allSeries, "seriesArrayIDs")
-        let thread = Thread(target: self, selector: #selector(regenerateAutoCommentsThread(_:)), object: parameters)
-        thread.name = NSLocalizedString("Regenerate Auto Comments...", comment: "")
-        thread.status = BrowserObjC.singularPlural(studies.count, NSLocalizedString("study", comment: ""), NSLocalizedString("studies", comment: ""))
-        thread.supportsCancel = true
-        ThreadsManager.default()?.addThreadAndStart(thread)
-    }
+    private var database: DicomDatabase? { browser.database }
+    private var window: NSWindow? { browser.window }
 
     // MARK: Rebuilding
 
-    @objc(rebuildDatabaseThread:)
-    nonisolated func rebuildDatabaseThread(_ io: [Any]!) {
+    /// What a rebuild thread does around `work`: the browser shows the database
+    /// again, from the main run loop, once it has ended.
+    private nonisolated static func rebuild(_ work: () -> Void, thenShow shown: DatabaseToShowAgain, in browser: BrowserController, _ function: String) {
         autoreleasepool {
-            if let exception = BrowserObjC.attempt({
-                if self.database != nil {
-                    NSLog("****** WARNING we should not be here if self.database != nil")
-                }
-                let parameters = io as NSArray
-                guard let database = parameters.object(at: 0) as? DicomDatabase else { return }
-                let complete = (parameters.object(at: 1) as? NSNumber)?.boolValue ?? false
-                // On a private-queue database; -rebuild: works on its context's queue.
-                (database.privateQueueIndependentDatabase() as? DicomDatabase)?.rebuild(complete)
-                performSelector(onMainThread: #selector(setter: BrowserController.database), with: database, waitUntilDone: false,
-                                modes: [RunLoop.Mode.common.rawValue])
+            if let exception = HorosObjCException.caught({
+                work()
+                browser.performSelector(onMainThread: #selector(setter: BrowserController.database), with: shown.database, waitUntilDone: false,
+                                        modes: [RunLoop.Mode.common.rawValue])
             }) {
-                BrowserObjC.log(exception, stack: true, "-[BrowserController rebuildDatabaseThread:]")
+                BrowserObjC.log(exception, stack: true, function)
             }
         }
     }
 
     /// Rebuilds the database (all of it, or only the new files) on a thread,
     /// with the browser showing no database meanwhile.
-    @discardableResult
-    @objc(initiateRebuildDatabase:)
-    func initiateRebuildDatabase(_ complete: Bool) -> Thread! {
-        let database = self.database
-        self.database = nil
-        let io = NSMutableArray()
-        if let database {
-            io.add(database)
-            io.add(NSNumber(value: complete))
+    func startRebuild(complete: Bool) -> Thread {
+        let shown = DatabaseToShowAgain(database: self.database)
+        let rebuilding = self.database?.rebuilding
+        browser.database = nil
+        let window = self.window
+        let browser = self.browser
+        return ActivityThread.startUnlisted(name: NSLocalizedString("Rebuilding database...", comment: ""), configure: { _ = $0.startModal(for: window) }) { _ in
+            if browser.database != nil {
+                NSLog("****** WARNING we should not be here if self.database != nil")
+            }
+            guard let rebuilding else { return }
+            Self.rebuild({ rebuilding.rebuildIndex(complete: complete) }, thenShow: shown, in: browser, "-[BrowserController rebuildDatabaseThread:]")
         }
-        let thread = Thread(target: self, selector: #selector(rebuildDatabaseThread(_:)), object: io)
-        thread.name = NSLocalizedString("Rebuilding database...", comment: "")
-        _ = thread.startModal(for: self.window)
-        thread.start()
-        return thread
     }
 
     /// The rebuild sheet's buttons: tag 1 cancels every thread (giving them 10
     /// seconds) and rebuilds, completely or not.
-    @objc(endReBuildDatabase:)
-    func endReBuildDatabase(_ sender: Any!) {
-        if let sheet = horos_rebuildWindow {
+    func endRebuildSheet(_ sender: Any?) {
+        if let sheet = browser.horos_rebuildWindow {
             sheet.sheetParent?.endSheet(sheet)
-            sheet.orderOut(self)
+            sheet.orderOut(browser)
         }
         guard ((sender as? NSView)?.tag ?? (sender as? NSMenuItem)?.tag ?? 0) != 0 else { return }
 
-        for case let thread as Thread in ThreadsManager.default()?.threads() ?? NSArray() {
+        func threads() -> [Thread] { (ThreadsManager.default()?.threads() as? [Any] ?? []).compactMap { $0 as? Thread } }
+
+        for thread in threads() {
             thread.cancel()
         }
-        waitForRunningProcesses()
+        browser.waitForRunningProcesses()
 
         let start = Date.timeIntervalSinceReferenceDate
         while (ThreadsManager.default()?.threads()?.count ?? 0) > 0 && Date.timeIntervalSinceReferenceDate - start < 10 {
-            for case let thread as Thread in ThreadsManager.default()?.threads() ?? NSArray() where !thread.isCancelled {
+            for thread in threads() where !thread.isCancelled {
                 thread.cancel()
             }
             Thread.sleep(forTimeInterval: 0.05)
         }
 
-        switch horos_rebuildType?.selectedTag() {
-        case 0: _ = initiateRebuildDatabase(true)
-        case 1: _ = initiateRebuildDatabase(false)
+        switch browser.horos_rebuildType?.selectedTag() {
+        case 0: _ = startRebuild(complete: true)
+        case 1: _ = startRebuild(complete: false)
         default: break
         }
     }
 
-    @objc(ReBuildDatabaseSheet:)
-    func ReBuildDatabaseSheet(_ sender: Any!) {
+    /// Shows the rebuild sheet, with the files to read and the time it may take,
+    /// once every viewer is closed.
+    func showRebuildSheet() {
         guard let database = self.database else { return }
-        if !database.rebuildAllowed() {
+        if !database.rebuilding.rebuildAllowed {
             NSException(name: .genericException, reason: "Current database rebuild not allowed, this shouldn't be executed.", userInfo: nil).raise()
         }
 
@@ -333,54 +216,35 @@ extension BrowserController {
             totalFiles += Int((attributes?[.referenceCount] as? NSNumber)?.int32Value ?? 0)
         }
 
-        horos_noOfFilesToRebuild?.intValue = Int32(truncatingIfNeeded: totalFiles)
-        horos_estimatedTime?.stringValue = NSString.timeString(TimeInterval(RebuildEstimate.seconds(forFileCount: totalFiles)), maxUnits: 2) as String
+        browser.horos_noOfFilesToRebuild?.intValue = Int32(truncatingIfNeeded: totalFiles)
+        browser.horos_estimatedTime?.stringValue = NSString.timeString(TimeInterval(RebuildEstimate.seconds(forFileCount: totalFiles)), maxUnits: 2) as String
 
-        AppController.shared()?.closeAllViewers(self)
-        if let sheet = horos_rebuildWindow {
-            self.window?.beginSheet(sheet, completionHandler: nil)
+        AppController.shared()?.closeAllViewers(browser)
+        if let sheet = browser.horos_rebuildWindow {
+            beginRebuildSheet(sheet, choices: browser.horos_rebuildType, on: self.window)
         }
     }
 
-    @objc(rebuildSqlThread:)
-    nonisolated func rebuildSqlThread(_ database: DicomDatabase!) {
-        autoreleasepool {
-            if let exception = BrowserObjC.attempt({
-                database?.rebuildSqlFile()
-                performSelector(onMainThread: #selector(setter: BrowserController.database), with: database, waitUntilDone: false,
-                                modes: [RunLoop.Mode.common.rawValue])
-            }) {
-                BrowserObjC.log(exception, stack: true, "-[BrowserController rebuildSqlThread:]")
-            }
+    /// Rebuilds the database's SQL index on a thread, with the browser showing
+    /// no database meanwhile.
+    func startSQLRebuild() -> Thread {
+        let shown = DatabaseToShowAgain(database: self.database)
+        let rebuilding = self.database?.rebuilding
+        browser.database = nil
+        browser.outlineViewRefresh()
+
+        let browser = self.browser
+        let thread = ActivityThread.startUnlisted(name: NSLocalizedString("Rebuilding database index...", comment: "")) { _ in
+            Self.rebuild({ rebuilding?.rebuildSQLFile() }, thenShow: shown, in: browser, "-[BrowserController rebuildSqlThread:]")
         }
-    }
-
-    @discardableResult
-    @objc(initiateRebuildSql)
-    func initiateRebuildSql() -> Thread! {
-        let database = self.database
-        self.database = nil
-        outlineViewRefresh()
-
-        let thread = Thread(target: self, selector: #selector(rebuildSqlThread(_:)), object: database)
-        thread.name = NSLocalizedString("Rebuilding database index...", comment: "")
-        thread.start()
         _ = thread.startModal(for: self.window)
         return thread
     }
 
-    @objc(_rebuildSqlSheetDidEnd:returnCode:contextInfo:)
-    func _rebuildSqlSheetDidEnd(_ sheet: NSWindow!, returnCode: Int, contextInfo: UnsafeMutableRawPointer?) {
-        sheet.sheetParent?.endSheet(sheet)
-        sheet.orderOut(self)
-        if returnCode == HorosAlertPanel.defaultResponse {
-            _ = initiateRebuildSql()
-        }
-    }
-
-    @objc(rebuildSQLFile:)
-    func rebuildSQLFile(_ sender: Any!) {
-        if !(self.database?.rebuildAllowed() ?? false) {
+    /// Asks whether to rebuild the SQL index, in a sheet on the browser window,
+    /// and rebuilds it on OK.
+    func askSQLRebuild() {
+        if !(self.database?.rebuilding.rebuildAllowed ?? false) {
             NSException(name: .genericException, reason: "Current database rebuild not allowed, this shouldn't be executed.", userInfo: nil).raise()
         }
         let alert = NSAlert()
@@ -390,7 +254,7 @@ extension BrowserController {
         alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
         let answer: (NSApplication.ModalResponse) -> Void = { response in
             if response == .alertFirstButtonReturn {
-                _ = self.initiateRebuildSql()
+                _ = self.startSQLRebuild()
             }
         }
         // Without its window the browser still asks, app-modally, as AppKit
@@ -404,109 +268,62 @@ extension BrowserController {
 
     // MARK: Cleaning
 
-    /// "Preview Automatic Cleanup...", added after the rebuild items.
-    @objc(installAutomaticCleanupPreviewMenu)
-    class func installAutomaticCleanupPreviewMenu() {
-        if menuContaining(#selector(previewAutomaticCleanup(_:)), in: NSApp.mainMenu) != nil { return }
-        guard let menu = menuContaining(#selector(ReBuildDatabaseSheet(_:)), in: NSApp.mainMenu) else {
+    /// "Preview Automatic Cleanup...", added after the rebuild items, sent
+    /// where they are sent: the browser of the main menu.
+    static func installCleanupPreviewMenu() {
+        let main = NSApp.mainMenu
+        if menuItem(sending: #selector(BrowserController.previewAutomaticCleanup(_:)), in: main) != nil { return }
+        guard let rebuild = menuItem(sending: #selector(BrowserController.ReBuildDatabaseSheet(_:)), in: main), let menu = rebuild.menu else {
             NSLog("Cleanup preview: database maintenance menu unavailable")
             return
         }
         let item = NSMenuItem(title: NSLocalizedString("Preview Automatic Cleanup...", comment: ""),
-                              action: #selector(previewAutomaticCleanup(_:)), keyEquivalent: "")
-        item.target = BrowserController.currentBrowser()
+                              action: #selector(BrowserController.previewAutomaticCleanup(_:)), keyEquivalent: "")
+        item.target = rebuild.target
         menu.addItem(NSMenuItem.separator())
         menu.addItem(item)
     }
 
-    /// Reads what the automatic cleanup would delete, on a private-queue
-    /// context away from the main thread, and shows it. Changes nothing.
-    @objc(previewAutomaticCleanup:)
-    func previewAutomaticCleanup(_ sender: Any!) {
-        if BrowserController.cleanupPreviewLoading { return }
-        guard let database = self.database else { return }
-        BrowserController.cleanupPreviewLoading = true
-        AutoCleanupPreview.beginLoading(target: self, action: #selector(previewAutomaticCleanup(_:)))
+    /// Reads what the automatic cleanup would delete, away from the main
+    /// thread, and shows it. Changes nothing.
+    func previewCleanup() {
+        if cleanupPreviewLoading { return }
+        guard let cleaning: any DatabaseCleaning = self.database?.cleaning else { return }
+        cleanupPreviewLoading = true
+        AutoCleanupPreview.beginLoading(target: browser, action: #selector(BrowserController.previewAutomaticCleanup(_:)))
 
-        nonisolated(unsafe) let source = database
-        DispatchQueue.global(qos: .default).async {
-            autoreleasepool {
-                var snapshot: NSDictionary?
-                if BrowserObjC.attempt({
-                    // Read on a private-queue context, on its queue.
-                    let reader = source.privateQueueIndependentDatabase() as? DicomDatabase
-                    reader?.performBlockAndWait {
-                        snapshot = reader?.automaticCleanupPreview()
-                    }
-                }) != nil {
-                    snapshot = ["summary": NSLocalizedString("The database could not be read. No files were changed.", comment: ""),
-                                "rows": NSArray(), "error": NSNumber(value: true)]
-                }
-                nonisolated(unsafe) let shown = snapshot
-                DispatchQueue.main.async {
-                    MainActor.assumeIsolated {
-                        AutoCleanupPreview.display(snapshot: (shown as? [String: Any]) ?? [:])
-                        BrowserController.cleanupPreviewLoading = false
-                    }
-                }
-            }
+        Task { @MainActor in
+            AutoCleanupPreview.display(snapshot: await cleaning.previewCleanup())
+            self.cleanupPreviewLoading = false
         }
-    }
-
-    /// A preview is being read.
-    @MainActor private static var cleanupPreviewLoading = false
-
-    @available(*, deprecated)
-    @objc(autoCleanDatabaseDate:)
-    func autoCleanDatabaseDate(_ sender: Any!) {
-        self.database?.cleanOldStuff()
-    }
-
-    @available(*, deprecated)
-    @discardableResult
-    @objc(isHardDiskFull)
-    class func isHardDiskFull() -> Bool {
-        return DicomDatabase.activeLocal()?.isFileSystemFreeSizeLimitReached() ?? false
-    }
-
-    @objc(autoCleanDatabaseFreeSpaceWarning:)
-    func autoCleanDatabaseFreeSpaceWarning(_ message: String!) {
-        _ = HorosAlertPanel.runCritical(title: NSLocalizedString("Warning", comment: ""), message: message ?? "(null)",
-                                        defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-    }
-
-    @available(*, deprecated)
-    @objc(autoCleanDatabaseFreeSpace:)
-    func autoCleanDatabaseFreeSpace(_ sender: Any!) {
-        self.database?.initiateCleanUnlessAlreadyCleaning()
     }
 
     // MARK: Surgical procedures
 
     /// "Import Surgical Procedure Log..." and "Surgical Procedure Timeline...",
-    /// added to the File menu (or the database maintenance one).
-    @objc(installSurgicalProcedureImportMenu)
-    class func installSurgicalProcedureImportMenu() {
+    /// added to the File menu (or the database maintenance one), sent where
+    /// that menu's import or rebuild item is sent: the browser of the main menu.
+    static func installSurgicalMenus() {
         let main = NSApp.mainMenu
-        guard let menu = menuContaining(NSSelectorFromString("importRawData:"), in: main)
-                ?? menuContaining(#selector(ReBuildDatabaseSheet(_:)), in: main) else {
+        guard let anchor = menuItem(sending: NSSelectorFromString("importRawData:"), in: main)
+                ?? menuItem(sending: #selector(BrowserController.ReBuildDatabaseSheet(_:)), in: main), let menu = anchor.menu else {
             NSLog("Surgical procedure import: File menu unavailable")
             return
         }
-        let importInstalled = menuContaining(#selector(importSurgicalProcedureLog(_:)), in: main) != nil
-        let timelineInstalled = menuContaining(#selector(showSurgicalProcedureTimeline(_:)), in: main) != nil
+        let importInstalled = menuItem(sending: #selector(BrowserController.importSurgicalProcedureLog(_:)), in: main) != nil
+        let timelineInstalled = menuItem(sending: #selector(BrowserController.showSurgicalProcedureTimeline(_:)), in: main) != nil
         if importInstalled && timelineInstalled { return }
         if !importInstalled {
             let item = NSMenuItem(title: NSLocalizedString("Import Surgical Procedure Log...", comment: ""),
-                                  action: #selector(importSurgicalProcedureLog(_:)), keyEquivalent: "")
-            item.target = BrowserController.currentBrowser()
+                                  action: #selector(BrowserController.importSurgicalProcedureLog(_:)), keyEquivalent: "")
+            item.target = anchor.target
             menu.addItem(NSMenuItem.separator())
             menu.addItem(item)
         }
         if !timelineInstalled {
             let item = NSMenuItem(title: NSLocalizedString("Surgical Procedure Timeline...", comment: ""),
-                                  action: #selector(showSurgicalProcedureTimeline(_:)), keyEquivalent: "")
-            item.target = BrowserController.currentBrowser()
+                                  action: #selector(BrowserController.showSurgicalProcedureTimeline(_:)), keyEquivalent: "")
+            item.target = anchor.target
             menu.addItem(item)
         }
     }
@@ -521,23 +338,49 @@ extension BrowserController {
         }
     }
 
-    /// The paths of the surgical procedure reports of the studies.
-    private func surgicalReportPaths(of studies: [Any]) -> [String] {
-        var paths: [String] = []
-        for case let study as DicomStudy in studies {
-            for case let series as DicomSeries in (study.value(forKey: "series") as? NSSet) ?? [] {
-                guard BrowserObjC.literallyEqual(series.seriesDescription, SurgicalProcedureImport.surgicalSeriesDescription) else { continue }
-                paths.append(contentsOf: ((series.value(forKey: "paths") as? NSSet)?.allObjects ?? []).compactMap { $0 as? String })
+    /// The series of the surgical procedure reports in the database.
+    private func surgicalReportSeries(in database: DicomDatabase) -> [DicomSeries] {
+        let predicate = SurgicalTimelineQuery.seriesPredicate(description: SurgicalProcedureImport.surgicalSeriesDescription)
+        return (database.objects(forEntity: database.seriesEntity(), predicate: predicate) ?? []).compactMap { $0 as? DicomSeries }
+    }
+
+    /// The paths of the surgical procedure reports in the database.
+    private func surgicalReportPaths(in database: DicomDatabase) -> [String] {
+        surgicalReportSeries(in: database).flatMap { one in
+            ((one.paths() as NSSet?)?.allObjects ?? []).compactMap { $0 as? String }
+        }
+    }
+
+    /// Takes these reports out of the database, with the series and the study
+    /// they leave empty. A path the index no longer has is passed over: under
+    /// the same patient it replaced the report by itself.
+    private func removeSurgicalReports(atPaths paths: [String], in database: DicomDatabase) {
+        let former = Set(paths)
+        let context = database.managedObjectContext
+        var removed = false
+        for series in surgicalReportSeries(in: database) {
+            let images = (series.images ?? []).compactMap { $0 as? DicomImage }
+            let stale = images.filter { former.contains($0.completePath() ?? "") }
+            if stale.isEmpty { continue }
+            removed = true
+            if stale.count < images.count {
+                stale.forEach { context?.delete($0) }
+            } else if let study = series.study, study.series?.count == 1 {
+                context?.delete(study)
+            } else {
+                context?.delete(series)
             }
         }
-        return paths
+        if removed {
+            _ = database.save()
+            browser.outlineViewRefresh()
+        }
     }
 
     /// Imports a CSV surgical log as structured reports, after a preview of
     /// what it adds and updates; Numbers documents are diagnosed only.
-    @objc(importSurgicalProcedureLog:)
-    func importSurgicalProcedureLog(_ sender: Any!) {
-        guard let database = self.database else { return }
+    func importSurgicalProcedureLog() {
+        guard let database = self.database, database.isLocal(), !database.isReadOnly else { return }
 
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
@@ -560,19 +403,17 @@ extension BrowserController {
             return
         }
 
-        let studies = (database.objects(forEntity: database.studyEntity(), predicate: nil) as NSArray?) as? [Any] ?? []
         var patients: [[AnyHashable: Any]] = []
-        for case let study as DicomStudy in studies {
+        for case let study as DicomStudy in database.objects(forEntity: database.studyEntity(), predicate: nil) ?? [] {
             var patient: [AnyHashable: Any] = ["name": study.name ?? "", "patientID": study.patientID ?? "",
                                                "patientUID": study.patientUID ?? "", "studyInstanceUID": study.studyInstanceUID ?? ""]
             if let birth = study.dateOfBirth { patient["dateOfBirth"] = birth }
             patients.append(patient)
         }
-        let existing = surgicalReportPaths(of: studies)
 
         let session = SurgicalProcedureImportSession()
         do {
-            try session.prepareCSV(atPath: path, patients: patients, existingPaths: existing)
+            try session.prepareCSV(atPath: path, patients: patients, existingPaths: surgicalReportPaths(in: database))
         } catch {
             surgicalLogAlert((error as NSError).localizedDescription, critical: true)
             return
@@ -591,51 +432,149 @@ extension BrowserController {
             return
         }
 
-        let directory = (NSTemporaryDirectory() as NSString).appendingPathComponent(UUID().uuidString)
-        var written: [String] = []
-        var failure: Error?
+        // Beside the data folder: moving a report there is then a rename, which
+        // a full disk cannot leave half done.
+        let directory = ((database.tempDirPath() ?? NSTemporaryDirectory()) as NSString).appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(atPath: directory) }
+        let written: [String]
         do {
             written = try session.commit(toDirectory: directory)
         } catch {
-            failure = error
-        }
-        if written.isEmpty {
-            let reason = failure.map { ($0 as NSError).localizedDescription } ?? ""
-            surgicalLogAlert(String(format: NSLocalizedString("The surgical procedure records could not be written: %@", comment: ""), reason), critical: true)
+            surgicalLogAlert(String(format: NSLocalizedString("The surgical procedure records could not be written: %@", comment: ""), (error as NSError).localizedDescription), critical: true)
             return
         }
-        _ = database.addFiles(atPaths: written, postNotifications: true, dicomOnly: true, rereadExistingItems: true)
+        let outcome = SurgicalRecordFiling.file(written, replacing: session.formerReportPaths, newDataFilePath: { database.uniquePathForNewDataFile(withExtension: "dcm") }, index: { paths in
+            let added = DatabaseIngest.process.index(paths, preset: .surgicalRecords, in: database)
+            let images = database.objects(withIDs: added) ?? []
+            return SurgicalRecordFiling.Indexed(names: Set(images.compactMap { ($0 as? DicomImage)?.path() }), saved: database.save())
+        }, retire: { removeSurgicalReports(atPaths: $0, in: database) })
+        if let message = outcome.alertMessage(notMoved: NSLocalizedString("The surgical procedure records could not be moved into the database folder, and nothing was imported: %@", comment: ""),
+                                               indexedInPart: NSLocalizedString("%1$ld of %2$ld surgical procedure records could not be added to the database and were left out. Import the log again to retry them.", comment: ""),
+                                               notSaved: NSLocalizedString("The surgical procedure records are in the database folder, but the database could not be saved. Rebuilding the database will bring them in.", comment: "")) {
+            surgicalLogAlert(message, critical: true)
+        }
+    }
+
+    /// The events of the surgical procedure reports in the database.
+    func surgicalProcedureTimelineEvents() -> [[String: Any]] {
+        guard let database = self.database else { return [] }
+        return SurgicalProcedureImport.timelineEvents(fromSRPaths: surgicalReportPaths(in: database))
+    }
+
+    /// The surgical procedure records of the database, one line each, in an alert.
+    func showSurgicalProcedureTimeline() {
+        let events = surgicalProcedureTimelineEvents()
+        let title = NSLocalizedString("Surgical Procedure Timeline", comment: "")
+        guard !events.isEmpty else {
+            _ = HorosAlertPanel.runInformational(title: title, message: NSLocalizedString("No surgical procedure records are in this database.", comment: ""),
+                                                 defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            return
+        }
+        var body = ""
+        for event in events {
+            body += String(format: "%@\t%@\t%@\n", (event["displayModality"] as? String) ?? "SURG",
+                           (event["operation"] as? String) ?? "", (event["diagnosis"] as? String) ?? "")
+        }
+        _ = HorosAlertPanel.runInformational(title: title, message: body, defaultButton: NSLocalizedString("OK", comment: ""),
+                                             alternateButton: nil, otherButton: nil)
+    }
+}
+
+extension BrowserController {
+
+    // MARK: Comments filled from the images
+
+    /// "Regenerate Auto Comments": of the whole database (no sender) or of the
+    /// selection, after asking.
+    @objc(regenerateAutoComments:)
+    func regenerateAutoComments(_ sender: Any!) {
+        autoComments.regenerate(selectionOnly: sender != nil)
+    }
+
+    // MARK: Rebuilding
+
+    @discardableResult
+    func initiateRebuildDatabase(_ complete: Bool) -> Thread! {
+        maintenance.startRebuild(complete: complete)
+    }
+
+    @objc(endReBuildDatabase:)
+    func endReBuildDatabase(_ sender: Any!) {
+        maintenance.endRebuildSheet(sender)
+    }
+
+    @objc(ReBuildDatabaseSheet:)
+    func ReBuildDatabaseSheet(_ sender: Any!) {
+        maintenance.showRebuildSheet()
+    }
+
+    @discardableResult
+    func initiateRebuildSql() -> Thread! {
+        maintenance.startSQLRebuild()
+    }
+
+    @objc(rebuildSQLFile:)
+    func rebuildSQLFile(_ sender: Any!) {
+        maintenance.askSQLRebuild()
+    }
+
+    // MARK: Cleaning
+
+    @objc(installAutomaticCleanupPreviewMenu)
+    class func installAutomaticCleanupPreviewMenu() {
+        DatabaseMaintenance.installCleanupPreviewMenu()
+    }
+
+    @objc(previewAutomaticCleanup:)
+    func previewAutomaticCleanup(_ sender: Any!) {
+        maintenance.previewCleanup()
+    }
+
+    @available(*, deprecated)
+    @objc(autoCleanDatabaseDate:)
+    func autoCleanDatabaseDate(_ sender: Any!) {
+        self.database?.cleanOldStuff()
+    }
+
+    @available(*, deprecated)
+    @discardableResult
+    @objc(isHardDiskFull)
+    class func isHardDiskFull() -> Bool {
+        return DicomDatabase.activeLocal()?.isFileSystemFreeSizeLimitReached() ?? false
+    }
+
+    func autoCleanDatabaseFreeSpaceWarning(_ message: String!) {
+        _ = HorosAlertPanel.runCritical(title: NSLocalizedString("Warning", comment: ""), message: message ?? "(null)",
+                                        defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+    }
+
+    @available(*, deprecated)
+    @objc(autoCleanDatabaseFreeSpace:)
+    func autoCleanDatabaseFreeSpace(_ sender: Any!) {
+        self.database?.initiateCleanUnlessAlreadyCleaning()
+    }
+
+    // MARK: Surgical procedures
+
+    @objc(installSurgicalProcedureImportMenu)
+    class func installSurgicalProcedureImportMenu() {
+        DatabaseMaintenance.installSurgicalMenus()
+    }
+
+    @objc(importSurgicalProcedureLog:)
+    func importSurgicalProcedureLog(_ sender: Any!) {
+        maintenance.importSurgicalProcedureLog()
     }
 
     /// The events of the surgical procedure reports in the database.
     @discardableResult
     @objc(surgicalProcedureTimelineEvents)
     func surgicalProcedureTimelineEvents() -> [Any]! {
-        guard let database = self.database else { return [] }
-        let predicate = SurgicalTimelineQuery.seriesPredicate(description: SurgicalProcedureImport.surgicalSeriesDescription)
-        let series = (database.objects(forEntity: database.seriesEntity(), predicate: predicate) as NSArray?) ?? []
-        var paths: [String] = []
-        for case let one as DicomSeries in series {
-            paths.append(contentsOf: ((one.value(forKey: "paths") as? NSSet)?.allObjects ?? []).compactMap { $0 as? String })
-        }
-        return SurgicalProcedureImport.timelineEvents(fromSRPaths: paths)
+        maintenance.surgicalProcedureTimelineEvents()
     }
 
     @objc(showSurgicalProcedureTimeline:)
     func showSurgicalProcedureTimeline(_ sender: Any!) {
-        let events = (surgicalProcedureTimelineEvents() as NSArray?) ?? []
-        let title = NSLocalizedString("Surgical Procedure Timeline", comment: "")
-        guard events.count > 0 else {
-            _ = HorosAlertPanel.runInformational(title: title, message: NSLocalizedString("No surgical procedure records are in this database.", comment: ""),
-                                                 defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-            return
-        }
-        var body = ""
-        for case let event as NSDictionary in events {
-            body += String(format: "%@\t%@\t%@\n", (event["displayModality"] as? String) ?? "SURG",
-                           (event["operation"] as? String) ?? "", (event["diagnosis"] as? String) ?? "")
-        }
-        _ = HorosAlertPanel.runInformational(title: title, message: body, defaultButton: NSLocalizedString("OK", comment: ""),
-                                             alternateButton: nil, otherButton: nil)
+        maintenance.showSurgicalProcedureTimeline()
     }
 }

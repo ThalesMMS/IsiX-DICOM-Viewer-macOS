@@ -88,12 +88,6 @@
 - (BOOL)performPluginDragOperation:(id <NSDraggingInfo>)sender destination:(ViewerController*)vc;
 @end
 
-#ifndef NS_SWIFT_UI_ACTOR
-#define NS_SWIFT_UI_ACTOR
-#endif
-// Set and read by the viewers, on the main thread.
-extern NS_SWIFT_UI_ACTOR BOOL SyncButtonBehaviorIsBetweenStudies;
-
 enum
 {
 	eSagittalPos = 0,		// 0

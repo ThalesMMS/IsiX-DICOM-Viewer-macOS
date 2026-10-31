@@ -26,7 +26,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import series_list_dock_harness
+import series_list_dock_harness  # its build() ends every harness in harness_defaults.OBJC
 
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 

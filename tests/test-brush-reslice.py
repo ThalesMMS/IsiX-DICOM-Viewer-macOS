@@ -440,14 +440,16 @@ else:
     process_reslice = reslice[reslice.index('    func processReslice(_ directionm: Int, _ newViewer: Bool) -> Bool {'):]
     capture = set_orientation.find('let brushes = BrushReslice.capture(from: self)')
     checks = [
-        (0 <= capture < set_orientation.find('switch (current, newOrientationTool)'), 'the brushes are taken before the reslice'),
+        (0 <= capture < set_orientation.find('succeed = processReslice(change.resliceDirection, newViewer)'),
+         'the brushes are taken before the reslice'),
         (re.search(r'horos_currentOrientationTool = Int16\(truncatingIfNeeded: newOrientationTool\)\s*brushes\?\.applyLater\(to: self\)',
                    set_orientation) is not None,
          'given back after the flips and rotations, off the main thread, only when the reslice succeeded'),
         ('let brushes = newViewer ? BrushReslice.capture(from: self) : nil' in process_reslice
          and 'brushes?.apply(to: reslicedViewer)' in process_reslice, 'a new viewer gets them from -processReslice::'),
     ]
-checks.append(('BrushReslice.forget(self)' in source_text('ViewerController+RetrieveAndView'), 'the series goes, the source goes'))
+# The viewer's series is released by its ViewerSeriesLoad (-finalizeSeriesViewing is its façade).
+checks.append(('BrushReslice.forget(viewer)' in source_text('ViewerSeriesLoad'), 'the series goes, the source goes'))
 for ok, what in checks:
     if not ok:
         print('FAIL:', what); failed = True

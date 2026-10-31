@@ -104,7 +104,7 @@ extension NSWorkspace {
             completion(opened)
         } else if !opened {
             let failure = error ?? CocoaError(.fileReadUnknown)
-            DispatchQueue.main.async {
+            onMainRunLoop {
                 NSAlert(error: failure).runModal()
             }
         }

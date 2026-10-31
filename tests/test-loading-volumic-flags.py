@@ -8,8 +8,9 @@ isDataVolumicIn4D: YES therefore never inspected other 4D timepoints.
 The series-replace peer probe already goes through the three-argument form
 and HorosSeriesReplaceLoadPolicy. This fix does not change that probe.
 
--changeImageData:::: is Swift (ViewerController+RetrieveAndView.swift):
-the probe is read there, in its Swift spelling (SeriesReplaceLoadPolicy, the
+-changeImageData:::: is Swift (ViewerController+RetrieveAndView.swift), a
+façade of the viewer's ViewerSeriesLoad (ViewerSeriesLoad.swift), where the
+position of a new series is kept: the probe is read there, in its Swift spelling (SeriesReplaceLoadPolicy, the
 three-argument isDataVolumicIn4D(_:checkEverythingLoaded:tryToCorrect:)), and the
 caller scans cover the Swift sources too.
 """
@@ -81,13 +82,14 @@ if volume_swift:
     two_arg = body(volume_check, 'func isDataVolumicIn4D(_ check4D: Bool, checkEverythingLoaded c: Bool) -> Bool')
     one_arg = body(volume_check, 'func isDataVolumicIn4D(_ check4D: Bool) -> Bool')
     zero_arg = body(volume_check, 'func isDataVolumic() -> Bool')
-    three_arg = body(volume_check, 'func isDataVolumicIn4D(_ check4D: Bool, checkEverythingLoaded c: Bool, tryToCorrect: Bool) -> Bool')
+    # The three-argument selector is a façade of the viewer's SeriesVolumeCheck, in the same file.
+    three_arg = body(volume_check, 'func isVolumic(allTimePoints check4D: Bool, waitForLoading c: Bool, tryToCorrect: Bool) -> Bool')
 SPELLING = {
     'isDataVolumicIn4D: check4D checkEverythingLoaded: c tryToCorrect:': 'isDataVolumicIn4D(check4D, checkEverythingLoaded: c, tryToCorrect:',
     'isDataVolumicIn4D: NO checkEverythingLoaded: YES tryToCorrect: YES': 'isDataVolumicIn4D(false, checkEverythingLoaded: true, tryToCorrect: true)',
     'tryToCorrect: YES': 'tryToCorrect: true',
     'isDataVolumicIn4D: check4D checkEverythingLoaded: YES': 'isDataVolumicIn4D(check4D, checkEverythingLoaded: true)',
-    'check4D == YES || x == curMovieIndex': 'check4D || x == Int(horos_curMovieIndex)',
+    'check4D == YES || x == curMovieIndex': 'check4D || x == Int(viewer.horos_curMovieIndex)',
     'if( c == NO)': 'if !c {',
 }
 
@@ -95,7 +97,13 @@ SPELLING = {
 def spelled(text):
     """The Objective-C fragment, or its Swift spelling once the checks are Swift."""
     return SPELLING[text] if volume_swift else text
-change = body(retrieve_and_view, 'func changeImageData(_ f: NSMutableArray!, _ d: NSMutableArray!, _ v: NSData!, _ newViewerWindow: Bool)')
+# -changeImageData:::: is a façade of the viewer's ViewerSeriesLoad, which keeps the
+# position of a series of the same study (keepPosition, ViewerSeriesLoad.swift).
+facade = body(retrieve_and_view, 'func changeImageData(_ f: NSMutableArray!, _ d: NSMutableArray!, _ v: NSData!, _ newViewerWindow: Bool)')
+check('horosSeriesLoad.show(GivenSeries(pixels: f, files: d, volume: v), newViewerWindow: newViewerWindow)' in facade,
+      '-changeImageData:::: does not hand the series to the viewer\'s series load')
+series_load = root / 'Horos/Sources/ViewerSeriesLoad.swift'
+change = body(series_load, 'private func keepPosition(previous: Previous, sameSeries: Bool, orientation: (equal: Bool, newIsSet: Bool), previousLocation: Float)')
 peer_at = change.find('Try to find another viewer')
 peer = change[peer_at:peer_at + 900] if peer_at >= 0 else ''
 

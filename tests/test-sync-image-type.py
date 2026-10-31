@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Test production nearest-plane selection with equal-position image types.
 
-The plane selection is Swift (DCMView+WindowLevel+Coordinates.swift):
-its methods are compiled as written into a Swift stand-in for DCMView. A git
-revision as argument (the baseline without the type preference) reads the
-sources of that revision: the Objective-C of DCMView.m when the Swift file does
-not exist there, the Swift otherwise.
+The plane selection's façades are Swift (DCMView+WindowLevel+Coordinates.swift)
+and its rules SliceSynchronizer (IsiXImaging, ViewerNavigation): the methods are
+compiled as written into a Swift stand-in for DCMView, with the module's
+sources. A git revision as argument (the baseline without the type preference)
+reads the sources of that revision: the Objective-C of DCMView.m when the Swift
+file does not exist there, the Swift otherwise.
 """
 from pathlib import Path
 import subprocess,tempfile,sys,re
@@ -80,6 +81,11 @@ class DCMPix: NSObject {
  func origin(_ v: UnsafeMutablePointer<Float>!) { v[0] = 0; v[1] = 0; v[2] = self.z }
 }
 IMAGE_TYPE_GETTER
+// What DCMView+WindowLevel.swift gives the plane search: the images' planes
+// and the tolerance of the preferences.
+func horosPlaneNormal(_ pix: DCMPix?) -> SIMD3<Float> { var o = [Float](repeating: 0, count: 9); o.withUnsafeMutableBufferPointer { pix?.orientation($0.baseAddress) }; return SIMD3(o[6], o[7], o[8]) }
+func horosPlaneOrigin(_ pix: DCMPix) -> SIMD3<Float> { var o = [Float](repeating: 0, count: 3); o.withUnsafeMutableBufferPointer { pix.origin($0.baseAddress) }; return SIMD3(o[0], o[1], o[2]) }
+extension DCMView { var sliceSynchronizer: SliceSynchronizer { SliceSynchronizer(parallelPlaneTolerance: UserDefaults.standard.float(forKey: "PARALLELPLANETOLERANCE"), syncPlaneTolerance: 0.1) } }
 class DCMView: NSObject {
  var horos_dcmPixList: NSMutableArray! = nil
  var horos_cleanedOutDcmPixArray: NSArray! = nil
@@ -135,12 +141,12 @@ autoreleasepool {
  // The manual and partly loaded path applies the same rule.
  let locations: [Float] = [0, 1, 2, 0, 1, 2, 0, 1, 2]
  for current in 0..<9 {
-  let expected = DCMView.syncExpectedIndex(current: current, count: 9, target: 2) { locations[$0] }
+  let expected = EXPECTED(current: current, count: 9, target: 2) { locations[$0] }
   check(Int(expected.rounded()) == current / 3 * 3 + 2, "fallback expected index from \(current): \(expected)")
  }
- check(DCMView.syncCandidateWins(distance: 0, selectedDistance: 0.005, matchingType: false, selectedMatchingType: false, index: 5, selectedIndex: 2, expectedIndex: 5), "fallback tie goes to the current phase")
- check(!DCMView.syncCandidateWins(distance: 0.5, selectedDistance: 0, matchingType: true, selectedMatchingType: false, index: 5, selectedIndex: 2, expectedIndex: 5), "fallback keeps the nearer plane")
- check(!DCMView.syncCandidateWins(distance: 0, selectedDistance: 0, matchingType: false, selectedMatchingType: false, index: 5, selectedIndex: 2, expectedIndex: .nan), "unknown place keeps the first")
+ check(WINS(distance: 0, selectedDistance: 0.005, matchingType: false, selectedMatchingType: false, index: 5, selectedIndex: 2, expectedIndex: 5), "fallback tie goes to the current phase")
+ check(!WINS(distance: 0.5, selectedDistance: 0, matchingType: true, selectedMatchingType: false, index: 5, selectedIndex: 2, expectedIndex: 5), "fallback keeps the nearer plane")
+ check(!WINS(distance: 0, selectedDistance: 0, matchingType: false, selectedMatchingType: false, index: 5, selectedIndex: 2, expectedIndex: .nan), "unknown place keeps the first")
  NSLog("PASS: stacked phases keep each viewer in its own phase; geometry and type still come first")
 }
 '''
@@ -149,9 +155,17 @@ if swift:
     s=show(SWIFT) if revision else (root/SWIFT).read_text(encoding='utf-8')
     a=s.index('    @objc(cleanedOutDcmPixArray:)\n');b=s.index('    @objc(drawOrientation:)\n',a)
     h=s.index('@inline(__always)\nprivate func objcObject<T: AnyObject>')
-    helpers=s[h:s.index('/// `[[dictionary objectForKey:',h)]
+    # The helpers end before the dictionary reader of the former annotations,
+    # or, since the annotations left the file, before the exception logger,
+    # or, since the plane search left it, before the image type getter.
+    end=next(m for m in ('/// `[[dictionary objectForKey:', '/// N2LogExceptionWithStackTrace', 'private let kImageTypeGetter') if m in s[h:])
+    helpers=s[h:s.index(end,h)]
     getter=re.search(r'private let kImageTypeGetter = .*',s).group(0)
     code=swift_code.replace('METHODS',s[a:b]).replace('HELPERS',helpers).replace('IMAGE_TYPE_GETTER',getter)
+    # The sub-stack rules are SliceSynchronizer's; a revision from before has them on DCMView.
+    rules='SliceSynchronizer.' if 'SliceSynchronizer.' in s[a:b] else 'DCMView.sync'
+    code=code.replace('EXPECTED(', 'SliceSynchronizer.expectedIndex(' if rules=='SliceSynchronizer.' else 'DCMView.syncExpectedIndex(')
+    code=code.replace('WINS(', 'SliceSynchronizer.candidateWins(' if rules=='SliceSynchronizer.' else 'DCMView.syncCandidateWins(')
     if revision:
         # Baseline has only the original spatial selector, which has no type input.
         code=re.sub(r', preferImageType: (?:t as NSString|"[^"]*")', '', code)
@@ -167,13 +181,20 @@ if revision is None:
     # The manual and partly loaded sync applies the same rule, from the
     # receiver's current image.
     window_level=(root/'Horos/Sources/DCMView+WindowLevel.swift').read_text(encoding='utf-8')
-    assert 'index: Int(i), selectedIndex: Int(index), expectedIndex: expectedIndex)' in window_level, 'the fallback sync ignores the current sub-stack'
-    assert 'DCMView.syncExpectedIndex(current: Int(self.horos_curImage), count: self.horos_dcmFilesList?.count ?? 0, target: loc)' in window_level
+    assert 'SliceSynchronizer.nearestLocation(count: fileCount, current: Int(self.horos_curImage), target: message.location,' in window_level, 'the fallback sync ignores the current sub-stack'
+    synchronizer=(root/'Modules/IsiXImaging/Sources/ViewerNavigation/SliceSynchronizer.swift').read_text(encoding='utf-8')
+    location=synchronizer[synchronizer.index('public static func nearestLocation('):]
+    assert 'let expected = expectedIndex(current: current, count: count, target: target, position: corrected)' in location
+    assert 'index: i, selectedIndex: found.index,' in location and 'expectedIndex: expected)' in location
 with tempfile.TemporaryDirectory(prefix='horos-sync-type-') as d:
  p=Path(d)
  if swift:
-  (p/'test.swift').write_text(harness_defaults.SWIFT + code)
-  subprocess.run(['xcrun','swiftc','-Onone','-sanitize=undefined',str(p/'test.swift'),'-o',str(p/'test')],check=True)
+  # The image types kept and the plane arithmetic are IsiXImaging's ViewTransform
+  # (ViewGeometry), compiled with the methods.
+  (p/'main.swift').write_text(harness_defaults.SWIFT + code)
+  geometry=sorted(str(f) for f in (root/'Modules/IsiXImaging/Sources/ViewGeometry').glob('*.swift'))
+  geometry.append(str(root/'Modules/IsiXImaging/Sources/ViewerNavigation/SliceSynchronizer.swift'))
+  subprocess.run(['xcrun','swiftc','-Onone','-sanitize=undefined',str(p/'main.swift'),*geometry,'-o',str(p/'test')],check=True)
  else:
   (p/'test.m').write_text(code + harness_defaults.OBJC)
   subprocess.run(['xcrun','clang','-fno-objc-arc','-fsanitize=undefined','-framework','Foundation',str(p/'test.m'),'-o',str(p/'test')],check=True)

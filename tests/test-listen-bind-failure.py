@@ -10,7 +10,7 @@ silence. The DICOM listener said nothing.
 The line in the log has to name the service, the port and the translated errno
 for each of the three. The person who asked for the service is told once, without
 a modal panel that holds startup, and without the same alert on every
-restartSTORESCP. The historical web-portal sentence stays; it gains the port.
+restart of the listeners. The historical web-portal sentence stays; it gains the port.
 """
 from pathlib import Path
 import errno
@@ -58,8 +58,9 @@ portal = source_text('WebPortal')
 # which hands the bind's errno back in the error.
 dicom = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.swift').read_text()
 dicom_adapter = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCP.mm').read_text()
-# AppController is Swift.
-app = source_text('AppController')
+# AppController is Swift; the report itself is ApplicationNetworkNotices',
+# which AppController's method, kept for Objective-C and plugins, calls.
+app = source_text('AppController') + (root / 'Horos/Sources/ApplicationNetworkNotices.swift').read_text()
 # The web portal and XML-RPC listen through the SwiftNIO listener, which keeps
 # the POSIX error of a bind that fails.
 http_listener = (root / 'Horos/Sources/HTTPServerListener.swift').read_text()
@@ -127,7 +128,8 @@ if 'errnoCode' not in http_listener or 'case .posix(let code)' not in http_liste
     failures.append('the HTTP listener does not keep the errno of a bind that fails')
 if 'BindFailure)?.errnoCode' not in portal:
     failures.append('the web portal does not read the errno of its listener\'s bind')
-if '@objc static func lastBindErrno() -> Int32' not in xmlrpc_listener or 'errnoCode: XMLRPCListener.lastBindErrno()' not in xmlrpc:
+# The interface reports to the application's network notices with the errno.
+if '@objc static func lastBindErrno() -> Int32' not in xmlrpc_listener or 'errno: XMLRPCListener.lastBindErrno()' not in xmlrpc:
     failures.append('XML-RPC does not report the errno of its listener\'s bind')
 
 # --- each listener reports through one place, once --------------------------
@@ -136,8 +138,8 @@ if '@objc static func lastBindErrno() -> Int32' not in xmlrpc_listener or 'errno
 # method rather than three copies that can drift.
 for name, source in (('XML-RPC', xmlrpc), ('web portal', portal),
                      ('DICOM listen', dicom)):
-    if 'reportListenBindFailure' not in source:
-        failures.append('%s does not report a bind failure through AppController' % name)
+    if 'reportListenBindFailure' not in source and 'listenBindFailed(' not in source:
+        failures.append('%s does not report a bind failure through the application notices' % name)
 
 if 'ListenBindFailure.logLine(service:' not in app:
     failures.append('AppController does not log bind failures through ListenBindFailure')
@@ -157,19 +159,22 @@ if 'NSUnderlyingErrorKey' not in around or 'NSPOSIXErrorDomain' not in around:
     failures.append('the adapter does not hand back the errno of a DICOM listen that cannot bind')
 opened = dicom[dicom.find('listener.openNetwork()'):]
 if not re.search(r'userInfo\[NSUnderlyingErrorKey\] as\? NSError\)\?\.code', opened[:1500]) \
-        or 'reportListenBindFailure' not in opened[:1500]:
+        or 'listenBindFailed(' not in opened[:1500]:
     failures.append('the DICOM listener does not report the errno of a failed bind')
 if 'displayUpdateMessage' in dicom + around and 'LISTENER' in dicom + around:
     failures.append('DICOM bind failure still goes through displayUpdateMessage:LISTENER, '
                     'which names neither the port nor the errno and can block the main thread')
 
-restart_at = app.find('func restartSTORESCP()')
-restart_end = app.find('func displayError(', restart_at)
-restart = app[restart_at:restart_end] if restart_at >= 0 and restart_end > restart_at else ''
+# The restart is DICOMListenerController's: from restart() to the listener
+# thread it starts (serve), nothing puts up a listener alert.
+lifecycle = source_text('DICOMListenerController')
+restart_at = lifecycle.find('    func restart() {')
+restart_end = lifecycle.find('    private nonisolated func serve(', restart_at)
+restart = lifecycle[restart_at:restart_end] if restart_at >= 0 and restart_end > restart_at else ''
 if not restart:
-    failures.append('AppController has no restartSTORESCP to check')
-elif 'displayListenerError' in restart or 'displayUpdateMessage' in restart:
-    failures.append('restartSTORESCP itself puts up a listener alert, so a retry would spam')
+    failures.append('DICOMListenerController has no restart to check')
+elif 'displayListenerError' in restart or 'reportListenerError' in restart or 'displayUpdateMessage' in restart:
+    failures.append('the restart itself puts up a listener alert, so a retry would spam')
 
 # A successful start must stay silent.
 if 'logLineForService' in xmlrpc:

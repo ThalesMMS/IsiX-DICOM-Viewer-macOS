@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 
 /// The messages the controller sends to its viewer, an id in the former class:
 /// an OrthogonalMPRViewer, an OrthogonalMPRPETCTViewer or an EndoscopyViewer.
@@ -82,14 +83,10 @@ private func objIsEqualTo(_ a: Any?, _ b: Any?) -> Bool {
     return a.isEqual(to: b)
 }
 
-/// [object floatValue] and [object longValue], messages to an id: an object
+/// [object floatValue], a message to an id: an object
 /// that does not answer raises, as before; nil answers 0.
 private func floatValueOf(_ object: Any?) -> Float {
     return ((object as? NSObject)?.value(forKey: "floatValue") as? NSNumber)?.floatValue ?? 0
-}
-
-private func longValueOf(_ object: Any?) -> Int {
-    return ((object as? NSObject)?.value(forKey: "longValue") as? NSNumber)?.intValue ?? 0
 }
 
 /// A float converted to long as the arm64 code of the former C did (fcvtzs):
@@ -154,6 +151,9 @@ private let ToolsMenuIconSize = NSMakeSize(28.0, 28.0)
 @MainActor
 @objc(OrthogonalMPRController)
 public class OrthogonalMPRController: NSObject {
+    /// The preferences the controller reads: those of the process graph.
+    let preferenceStore: any PreferenceStore = PreferencesSource.process.preferences
+
     // MARK: - The former instance variables
 
     /// Retained, as the former ivars.
@@ -647,16 +647,11 @@ public class OrthogonalMPRController: NSObject {
 
     @objc(ApplyOpacityString:)
     public dynamic func applyOpacityString(_ str: String!) {
-        var aOpacity: NSDictionary?
-
         if str == NSLocalizedString("Linear Table", comment: "") {
             self.setTransferFunction(nil)
         } else {
-            aOpacity = (UserDefaults.standard.dictionary(forKey: "OPACITY") as NSDictionary?).flatMap { object($0, forKey: str) } as? NSDictionary
-            if let aOpacity {
-//                array = [aOpacity objectForKey:@"Points"];
-
-                self.setTransferFunction(OpacityTransferView.tableWith4096Entries(aOpacity.object(forKey: "Points") as? NSArray) as Data?)
+            if let aOpacity = ReconstructionPreferences.preset(str, of: ImagePresetPreferences.opacityTables, in: self.preferenceStore) {
+                self.setTransferFunction(OpacityTransferView.tableWith4096Entries(ReconstructionPreferences.pointTexts(aOpacity) as NSArray) as Data?)
             }
         }
     }
@@ -668,33 +663,9 @@ public class OrthogonalMPRController: NSObject {
             _xReslicedView?.setCLUT(nil, nil, nil)
             _yReslicedView?.setCLUT(nil, nil, nil)
         } else {
-            var aCLUT: NSDictionary?
-            var array: NSArray?
-            var i = 0
-            var red = [UInt8](repeating: 0, count: 256), green = [UInt8](repeating: 0, count: 256), blue = [UInt8](repeating: 0, count: 256)
-
-            aCLUT = (UserDefaults.standard.dictionary(forKey: "CLUT") as NSDictionary?).flatMap { object($0, forKey: str) } as? NSDictionary
-            if let aCLUT {
-                array = aCLUT.object(forKey: "Red") as? NSArray
-                i = 0
-                while i < 256 {
-                    red[i] = UInt8(truncatingIfNeeded: longValueOf(array?.object(at: i)))
-                    i += 1
-                }
-
-                array = aCLUT.object(forKey: "Green") as? NSArray
-                i = 0
-                while i < 256 {
-                    green[i] = UInt8(truncatingIfNeeded: longValueOf(array?.object(at: i)))
-                    i += 1
-                }
-
-                array = aCLUT.object(forKey: "Blue") as? NSArray
-                i = 0
-                while i < 256 {
-                    blue[i] = UInt8(truncatingIfNeeded: longValueOf(array?.object(at: i)))
-                    i += 1
-                }
+            if let aCLUT = ReconstructionPreferences.preset(str, of: ImagePresetPreferences.colourTables, in: self.preferenceStore) {
+                var red = ReconstructionPreferences.levels(aCLUT.red), green = ReconstructionPreferences.levels(aCLUT.green),
+                    blue = ReconstructionPreferences.levels(aCLUT.blue)
 
                 _originalView?.setCLUT(&red, &green, &blue)
                 _xReslicedView?.setCLUT(&red, &green, &blue)
@@ -1041,7 +1012,7 @@ public class OrthogonalMPRController: NSObject {
         self.saveCrossPositions()
         self.reslice(cLong(originalCrossPositionX), cLong(originalCrossPositionY), _originalView)
 
-        UserDefaults.standard.set(Int(_thickSlab), forKey: "stackThicknessOrthoMPR")
+        self.preferenceStore.set(Int(_thickSlab), for: ReconstructionPreferences.stackThicknessOrthogonalMPR)
     }
 
     // MARK: - NSWindow related methods
@@ -1423,7 +1394,7 @@ public class OrthogonalMPRController: NSObject {
         contextual.addItem(NSMenuItem.separator())
 
         /******************* WW/WL menu items **********************/
-        let menu = AppController.shared()?.wlwwMenu()?.copy() as? NSMenu
+        let menu = PreferencesSource.process.processGraph.applicationMenus.wlwwMenu()?.copy() as? NSMenu
         item = NSMenuItem(title: NSLocalizedString("Window Width & Level", comment: ""), action: nil, keyEquivalent: "")
         item.submenu = menu
         contextual.addItem(item)

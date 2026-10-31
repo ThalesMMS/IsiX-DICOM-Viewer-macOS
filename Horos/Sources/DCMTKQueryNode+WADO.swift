@@ -176,10 +176,9 @@ extension DCMTKQueryNode {
         if isStudy {
             // At the STUDY level, straight to the IMAGE level: the walk gives
             // the plan its series before their instances.
-            let cFindThread = Thread { [self] in wadoCFind() }
             retrievePlan = plan
             plan?.begin(endpoint: planEndpoint, study: uid() ?? "")
-            cFindThread.start()
+            let cFindThread = ActivityThread.startUnlisted(name: "WADO C-FIND") { [self] _ in wadoCFind() }
             Thread.sleep(forTimeInterval: 0.1)
 
             let downloader = wadoDownloader(authorization: authorization)
@@ -193,7 +192,7 @@ extension DCMTKQueryNode {
                 if childrenCount() > 50 || cFindThread.isFinished {
                     var childrenArray = drainChildren()
                     var urlToDownload: [URL] = []
-                    catchingExceptions {
+                    endedNormally(HorosObjCException.caught {
                         childrenArray = (childrenArray as NSArray).sortedArray(using: [NSSortDescriptor(key: "seriesInstanceUID", ascending: true)])
                         for case let image as DCMTKImageQueryNode in childrenArray {
                             guard let objectUID = image.uid() else {
@@ -208,7 +207,7 @@ extension DCMTKQueryNode {
                                 NSLog("****** no url : %@", baseURL + "&studyUID=\(uid() ?? "(null)")&seriesUID=\(image.seriesInstanceUID() ?? "(null)")&objectUID=\(objectUID)&contentType=application/dicom\(syntax)")
                             }
                         }
-                    }
+                    })
                     if let plan { urlToDownload = plan.eligible(urls: plan.order(urls: urlToDownload)) }
                     downloader.WADODownload(urlToDownload)
                     if let manifest = downloader.manifest { recordWADOManifest(manifest) }
@@ -240,7 +239,7 @@ extension DCMTKQueryNode {
                 childrenArray = children() ?? []
             }
             var urlToDownload: [URL] = []
-            catchingExceptions {
+            endedNormally(HorosObjCException.caught {
                 for case let image as DCMTKQueryNode in childrenArray {
                     guard let objectUID = image.uid() else {
                         NSLog("****** no image uid !")
@@ -253,7 +252,7 @@ extension DCMTKQueryNode {
                         NSLog("****** no url : %@", baseURL + "&studyUID=\(study?.uid() ?? "(null)")&seriesUID=\(uid() ?? "(null)")&objectUID=\(objectUID)&contentType=application/dicom\(syntax)")
                     }
                 }
-            }
+            })
             purgeChildren()
             let downloader = wadoDownloader(authorization: authorization)
             downloader.WADODownload(urlToDownload)

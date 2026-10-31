@@ -193,8 +193,16 @@ methods = [member(signature) for signature in (
     'func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any?',
     'func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any?) -> Bool')]
 
+# The completeness of each row for one sort, frozen under a Mutex.
+frozen_store = (controller[controller.index('final class FrozenCompleteness: Sendable {'):]
+                if 'final class FrozenCompleteness: Sendable {' in controller else '')
+frozen_store = frozen_store[:frozen_store.index('\n}\n') + 3] if frozen_store else ''
+
 HARNESS = r"""
 import AppKit
+import Synchronization
+
+FROZEN_STORE
 
 // What the production methods use of the rest of the app: the query nodes, with
 // the node's copying children accessors, the exception bridge, and the window
@@ -219,21 +227,45 @@ enum HorosObjCException {
     static func perform(_ body: () -> Void) throws { body() }
 }
 
+/// The copy of the window that work off the main thread reads (IsiXDICOMNetwork).
+struct QueryWindowState: Sendable {
+    struct SortKey: Sendable {
+        var key: String?
+        var ascending: Bool
+        var selector: String?
+    }
+    var sortKeys: [SortKey] = []
+}
+
+/// What the window shares with its worker threads, under a lock in the app.
+final class QueryWindowWorkerState: @unchecked Sendable {
+    var isPerformingCFind = false
+    var windowState = QueryWindowState()
+}
+
+/// QueryOutlineView in the app; what the data source calls while it waits for a
+/// study's series. Reloads held meanwhile are not what this test covers.
+final class QueryOutlineView: NSOutlineView {
+    func beginWaitingForChildren() {}
+    func endWaitingForChildren() {}
+}
+
 @MainActor public final class QueryController: NSObject {
-    struct WindowState { var sortDescriptors: [NSSortDescriptor] = [] }
-    var outlineView: NSOutlineView!
-    nonisolated(unsafe) var resultArray = NSMutableArray()
-    nonisolated(unsafe) var performingCFind = false
-    nonisolated(unsafe) var progressIndicator: NSProgressIndicator! = NSProgressIndicator()
-    nonisolated(unsafe) var windowState = WindowState()
-    nonisolated(unsafe) var DatabaseIsEdited = false
-    nonisolated(unsafe) static var currentController: QueryController?
-    nonisolated class func current() -> QueryController? { currentController }
-    nonisolated class func currentAuto() -> QueryController? { nil }
-    func captureWindowState() { windowState.sortDescriptors = outlineView.sortDescriptors }
+    var outlineView: QueryOutlineView!
+    var resultArray = NSMutableArray()
+    var progressIndicator: NSProgressIndicator! = NSProgressIndicator()
+    var DatabaseIsEdited = false
+    nonisolated let workers = QueryWindowWorkerState()
+    nonisolated var windowState: QueryWindowState { workers.windowState }
+    static var currentController: QueryController?
+    class func current() -> QueryController? { currentController }
+    class func currentAuto() -> QueryController? { nil }
+    func captureWindowState() { workers.windowState.sortKeys = outlineView.sortDescriptors.map(QueryController.sortKey) }
+SORT_KEYS
     func readLocalSnapshot() {}
     @objc(computeStudyArrayInstanceUID:)
     nonisolated func computeStudyArrayInstanceUID(_ sender: NSNumber?) {}
+    nonisolated static let studyIndexQueue = DispatchQueue(label: "test.studyIndex", attributes: .concurrent)
     nonisolated static func synchronized<T>(_ object: AnyObject?, _ body: () throws -> T) rethrows -> T { try body() }
     nonisolated static func log(_ error: Error, _ function: String) { print(function, error) }
     /// The database boundary: the completeness the row's value stands for.
@@ -263,7 +295,7 @@ MainActor.assumeIsolated {
     func check(_ condition: Bool, _ what: String) { if !condition { print("FAIL: " + what); exit(1) } }
 
     let c = QueryController(); QueryController.currentController = c
-    let outline = NSOutlineView(frame: NSRect(x: 0, y: 0, width: 500, height: 300))
+    let outline = QueryOutlineView(frame: NSRect(x: 0, y: 0, width: 500, height: 300))
     c.outlineView = outline
     outline.allowsMultipleSelection = true
     let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("name"))
@@ -323,7 +355,17 @@ for signature, statement in accessors.items():
     if at < 0 or statement not in node_source[at:node_source.index('\n    }\n', at)]:
         failures.append('the node\'s %s no longer %s' % (signature.split('(')[0].split()[-1], statement))
     node_children += '    %s objc_sync_enter(self); defer { objc_sync_exit(self) }; %s }\n' % (signature, statement)
-harness = HARNESS.replace('NODE_CHILDREN', node_children).replace('METHODS', '\n'.join(methods))
+# How the sort descriptors travel to a thread that sorts: by their parts.
+core = (root / 'Horos/Sources/QueryController.swift').read_text(encoding='utf-8')
+sort_keys = ''
+for signature in ('nonisolated static func sortKey(_ descriptor: NSSortDescriptor)', 'nonisolated static func sortDescriptor(_ key: QueryWindowState.SortKey)'):
+    at = core.find(signature)
+    if at < 0:
+        failures.append('%s is gone' % signature)
+        continue
+    end = core.index('\n    }\n', at) + len('\n    }\n')
+    sort_keys += '    ' + core[at:end]
+harness = HARNESS.replace('FROZEN_STORE', frozen_store).replace('NODE_CHILDREN', node_children).replace('METHODS', '\n'.join(methods)).replace('SORT_KEYS', sort_keys)
 with tempfile.TemporaryDirectory(prefix='horos-local-sort-') as directory:
     path = Path(directory)
     (path / 'Harness.swift').write_text(harness)

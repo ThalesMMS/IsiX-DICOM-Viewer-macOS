@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Code, comments, scripts, tests, tools, resources, README and NOTICE do not
-cite issues of this project, by number (#770) or by link.
+cite issues of this project, by number (#770) or by link: the application,
+the preference panes, the print module, the internal modules, the plugin kits,
+the services, the extensions and the plugins alike.
 
 A comment says what the code does and why; an issue number sends the reader
 to a tracker the public checkout does not have. Not references, and allowed:
@@ -19,7 +21,12 @@ import sys
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
-SCOPE = ['Horos', 'Nitrogen', 'script', 'tools', 'tests', 'README.md', 'NOTICE', 'Binaries']
+# Every folder of the project's own code, its project file and its build
+# settings. The vendored libraries, DCMTK and OpenSSL, keep their own
+# trackers' numbers and are not read.
+SCOPE = ['Horos', 'Nitrogen', 'Preference Panes', 'DICOMPrint', 'Modules', 'IsiXLegacyBridge', 'IsiXPluginKit',
+         'Decompress', 'FinderPreview', 'Plugins', 'Examples', 'Horos.xcodeproj', 'Makefile', 'Config.xcconfig',
+         'Config.local.xcconfig.example', 'updates', 'script', 'tools', 'tests', 'README.md', 'NOTICE', 'Binaries']
 # Upstream Horos's own release history, with the numbers of its own tracker.
 ALLOWED_FILES = {'Binaries/Splash/releasenotes.html'}
 PATTERNS = [
@@ -51,4 +58,4 @@ for hit in hits[:20]:
 if hits:
     print(f'FAIL: {len(hits)} issue reference(s)')
     sys.exit(1)
-print('PASS: no issue references in code, comments, scripts, tests, tools, resources, README or NOTICE')
+print(f'PASS: no issue references in {", ".join(SCOPE)}')

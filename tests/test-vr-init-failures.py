@@ -75,7 +75,7 @@ check(nib >= 0, 'the initializer no longer loads VR.xib')
 # The checks run in volumeIsRenderable, called before the nib; the volume is
 # taken and the engine asked in adoptVolume, called after it. Both run under
 # HorosObjCException (tests/test-vr-state-exception-guard.py).
-checks = block(vr, '    private static func volumeIsRenderable(_ pix: NSMutableArray, _ firstObject: DCMPix) -> Bool {')
+checks = block(vr, '    private static func volumeIsRenderable(_ pix: NSMutableArray, _ firstObject: DCMPix, preferences: UserDefaults) -> Bool {')
 adopt = block(vr, '    private final func adoptVolume(')
 check(checks and adopt, 'VRController.swift lost volumeIsRenderable or adoptVolume')
 called = init.find('VRController.volumeIsRenderable(')

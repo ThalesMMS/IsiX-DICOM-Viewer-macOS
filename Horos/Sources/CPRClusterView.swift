@@ -42,7 +42,11 @@ import AppKit
 /// The container of the CPR window's views: the CPR view on the left, and the
 /// three transverse views stacked on its right, each a third of the height and
 /// square at most. Setting a view or the frame lays them out again.
-@objc(CPRClusterView)
+/// @usableFromInline because plugins built against the former SDK look up its
+/// Objective-C class: without it, the class symbol of an internal Swift class is
+/// private external, which a Release build, having no testability, leaves
+/// unexported. The attribute gives it public linkage and changes nothing else.
+@objc(CPRClusterView) @usableFromInline
 final class CPRClusterView: NSView {
     @IBOutlet @objc var mainView: NSView? {
         didSet { if mainView !== oldValue { updateClusterViewFrames() } }

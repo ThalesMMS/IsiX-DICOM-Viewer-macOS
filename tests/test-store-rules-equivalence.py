@@ -31,6 +31,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dcmtk_build import ROOT, dcmtk_flags  # noqa: E402
+import isix_modules  # noqa: E402
 import history_reference  # noqa: E402
 
 STORE, MOVE, SEND = 'Horos/Sources/DCMTKStoreSCU.mm', 'Horos/Sources/HorosDICOMMoveContext.mm', 'Horos/Sources/SendController.h'
@@ -297,7 +298,10 @@ with tempfile.TemporaryDirectory(prefix='isix-store-rules-') as temporary:
     (folder / 'main.swift').write_text(DRIVER.replace(
         'unknownTraits', 'TransferSyntaxTraits(native: %s, encapsulated: %s, pixelDataCompressed: %s)'
         % tuple('true' if value == '1' else 'false' for value in traits)))
-    built = subprocess.run(['xcrun', 'swiftc', *map(str, sorted(MODULE.glob('*.swift'))), str(folder / 'main.swift'),
+    built = subprocess.run(['xcrun', 'swiftc',
+                            # Every module the network module depends on, as Package.swift declares them.
+                            *[flag for name in isix_modules.dependencies('IsiXDICOMNetwork') for flag in isix_modules.module_flags(name, folder / 'modules')],
+                            *map(str, sorted(MODULE.glob('*.swift'))), str(folder / 'main.swift'),
                             '-o', str(folder / 'module')], capture_output=True, text=True)
     if built.returncode:
         print(built.stderr[-3000:])

@@ -70,7 +70,7 @@ open class CPRGeneratorRequest: NSObject, NSCopying {
     @objc public dynamic var context: UnsafeMutableRawPointer?
 
     /// -copyWithZone: makes the copy with -init of the receiver's class.
-    @objc public required override init() {
+    public required override init() {
         super.init()
     }
 
@@ -120,7 +120,7 @@ public final class CPRStraightenedGeneratorRequest: CPRGeneratorRequest {
     @objc public dynamic var projectionMode = CPRProjectionMode(CPRProjectionModeNone.rawValue)
     // @property (nonatomic, readwrite, assign) BOOL vertical; // the straightened bezier is horizantal across the screen, or vertical it would be cool to implement this one day
 
-    @objc public required init() {
+    public required init() {
         super.init()
     }
 
@@ -151,7 +151,7 @@ public final class CPRStraightenedGeneratorRequest: CPRGeneratorRequest {
         return Int(bitPattern: hash)
     }
 
-    @objc public override func operationClass() -> AnyClass? {
+    public override func operationClass() -> AnyClass? {
         return CPRStraightenedOperation.self
     }
 }
@@ -165,7 +165,7 @@ public final class CPRStretchedGeneratorRequest: CPRGeneratorRequest {
 
     @objc public dynamic var projectionMode = CPRProjectionMode(CPRProjectionModeNone.rawValue)
 
-    @objc public required init() {
+    public required init() {
         super.init()
     }
 
@@ -198,7 +198,7 @@ public final class CPRStretchedGeneratorRequest: CPRGeneratorRequest {
         return Int(bitPattern: hash)
     }
 
-    @objc public override func operationClass() -> AnyClass? {
+    public override func operationClass() -> AnyClass? {
         return CPRStretchedOperation.self
     }
 }
@@ -244,7 +244,7 @@ public final class CPRObliqueSliceGeneratorRequest: CPRGeneratorRequest {
         return copy
     }
 
-    @objc public required init() {
+    public required init() {
         super.init()
     }
 
@@ -281,7 +281,7 @@ public final class CPRObliqueSliceGeneratorRequest: CPRGeneratorRequest {
 
     // No -hash of its own, as before: CPRGeneratorRequest's.
 
-    @objc public override func operationClass() -> AnyClass? {
+    public override func operationClass() -> AnyClass? {
         return CPRObliqueSliceOperation.self
     }
 

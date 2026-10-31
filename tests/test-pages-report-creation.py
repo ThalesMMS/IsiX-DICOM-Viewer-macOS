@@ -30,10 +30,7 @@ enum HorosAlertPanel {
         return 0
     }
 }
-enum DispatchQueue {
-    static let main = Queue()
-    struct Queue { func async(execute: () -> Void) { execute() } }
-}
+func onMainRunLoop(_ body: () -> Void) { body() }
 final class NSWorkspace {
     static let shared = NSWorkspace()
     func openDocument(atPath path: String, applicationURLs: [URL], completion: (Bool) -> Void) -> Bool {

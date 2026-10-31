@@ -61,14 +61,13 @@ extension BrowserController {
 
     // MARK: - The nib
 
-    @objc(awakeFromNib)
     public override func awakeFromNib() {
         // The nib is loaded on the main thread.
         MainActor.assumeIsolated { self.awakeWindow() }
     }
 
     private func awakeWindow() {
-        if let raised = BrowserObjC.attempt({ self.wireWindow() }) {
+        if let raised = HorosObjCException.caught({ self.wireWindow() }) {
             BrowserObjC.log(raised, "-[BrowserController awakeFromNib]")
         }
 
@@ -170,7 +169,7 @@ extension BrowserController {
         center.addObserver(self, selector: #selector(observeScrollerStyleDidChange(_:)), name: NSNotification.Name("NSPreferredScrollerStyleDidChangeNotification"), object: nil)
         observeScrollerStyleDidChange(nil)
 
-        if let raised = BrowserObjC.attempt({ self.wireViews(savedFrame: savedFrame) }) {
+        if let raised = HorosObjCException.caught({ self.wireViews(savedFrame: savedFrame) }) {
             BrowserObjC.log(raised, stack: true, "-[BrowserController awakeFromNib]")
             _ = try? ("" as NSString).write(toFile: horos_databaseIvar?.loadingFilePath() ?? "", atomically: false, encoding: String.Encoding.utf8.rawValue)
 
@@ -196,22 +195,7 @@ extension BrowserController {
 
         refreshMatrix(self)
 
-        let defaults = UserDefaults.standard
-        if defaults.bool(forKey: "restartAutoQueryAndRetrieve") && defaults.object(forKey: "savedAutoDICOMQuerySettingsArray") != nil {
-            AppController.shared()?.notificationTitle(NSLocalizedString("Auto-Query", comment: ""),
-                                                      description: NSLocalizedString("DICOM Auto-Query is restarting...", comment: ""), name: "autoquery")
-            NSLog("-------- automatically restart DICOM AUTO-QUERY --------")
-
-            let restarting = WaitRendering(NSLocalizedString("Restarting Auto Query/Retrieve...", comment: ""))
-            restarting?.showWindow(self)
-            // The controller keeps itself: +currentAutoQueryController answers it.
-            if let controller = QueryController(autoQuery: true) { _ = Unmanaged.passRetained(controller) }
-            QueryController.currentAuto()?.switchAutoRetrieving(self)
-            Thread.sleep(forTimeInterval: 0.5)
-            restarting?.close()
-        } else {
-            defaults.set(false, forKey: "autoRetrieving")
-        }
+        restoreAutoQueryAndRetrieve()
 
         window?.animationBehavior = .none
 
@@ -387,6 +371,11 @@ extension BrowserController {
         return view.isHidden || split.isSubviewCollapsed(view)
     }
 
+    private func restoreAutoQueryAndRetrieve() {
+        AutoQueryRestoration.resume(database: database, defaults: UserDefaults.standard,
+                                    notifier: AppController.shared(), sender: self)
+    }
+
     @objc(completeFirstUseDatabaseSetup)
     func completeFirstUseDatabaseSetup() {
         // Sources can have queued a nil default database while setup was pending.
@@ -394,6 +383,7 @@ extension BrowserController {
         NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(setter: BrowserController.database), object: nil)
         awakeSources()
         resetToLocalDatabase()
+        restoreAutoQueryAndRetrieve()
         ICloudDriveDetector.performStartupICloudDriveTasks(self)
         O2HMigrationAssistant.performStartupO2HTasks(self)
     }
@@ -404,7 +394,6 @@ extension BrowserController {
     @IBAction func clickBanner(_ sender: Any!) {
     }
 
-    @objc(observeValueForKeyPath:ofObject:change:context:)
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?,
                                context: UnsafeMutableRawPointer?) {
         var keyPath = keyPath
@@ -443,7 +432,7 @@ extension BrowserController {
                 wait = WaitRendering(NSLocalizedString("Wait for running processes...", comment: ""))
             }
 
-            if let raised = BrowserObjC.attempt({
+            if let raised = HorosObjCException.caught({
                 let defaults = UserDefaults.standard
                 if !defaults.hasArgumentOverride(forKey: "hideListenerError") {
                     let hideListenerError = defaults.bool(forKey: "hideListenerError")
@@ -457,7 +446,8 @@ extension BrowserController {
                     defaults.synchronize()
                 }
 
-                _ = BrowserController.tryLock(self.horos_searchForComparativeStudiesLock, during: 120)
+                // No PACS On-Demand query is left running.
+                self.pacsOnDemand.cancelAll()
 
                 // Something in the delete queue? Write it to the disk
                 self.saveDeleteQueue()
@@ -540,7 +530,7 @@ extension BrowserController {
             NSSound.beep()
             return false
         }
-
+        if !DatabaseRebuildService.waitForRebuildsBeforeQuitting() { return false }
         ViewerController.closeAllWindows()
 
         _ = horos_databaseIvar?.save(nil)
@@ -639,7 +629,7 @@ extension BrowserController {
     /// across threads: under the formatter's own lock, as @synchronized was.
     nonisolated private static func string(from date: Date!, with formatter: () -> DateFormatter?) -> String! {
         guard let formatter = formatter() else { return nil }
-        return BrowserObjC.synchronized(formatter) { date.map { formatter.string(from: $0) } }
+        return HorosObjCException.synchronized(formatter) { date.map { formatter.string(from: $0) } }
     }
 
     // These three are dispatched by message, as the Objective-C class methods

@@ -48,7 +48,7 @@ extension VRController {
 
     /// The folder of the 3D states, made if missing.
     final func statesDirectory() -> String {
-        let path = BrowserController.currentBrowser()?.database?.statesDirPath() ?? ""
+        let path = browserWindowGraph?.database?.statesDirPath() ?? ""
         var isDir: ObjCBool = true
         if !FileManager.default.fileExists(atPath: path, isDirectory: &isDir) {
             try? FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true, attributes: nil)
@@ -57,9 +57,11 @@ extension VRController {
     }
 
     /// The file of the series' scissors state, for a series or one of its images.
+    /// Nonisolated: deleting a series asks for it on the thread of the context
+    /// that saves, which is the cleaning thread or the import's.
     @objc(getUniqueFilenameScissorStateFor:)
-    public static func getUniqueFilenameScissorState(for obj: NSManagedObject!) -> String! {
-        let path = BrowserController.currentBrowser()?.database?.statesDirPath() ?? ""
+    public nonisolated static func getUniqueFilenameScissorState(for obj: NSManagedObject!) -> String! {
+        let path = BrowserDatabaseSource.process.browserDatabase?.statesDirPath() ?? ""
         var isDir: ObjCBool = true
         if !FileManager.default.fileExists(atPath: path, isDirectory: &isDir) {
             try? FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true, attributes: nil)

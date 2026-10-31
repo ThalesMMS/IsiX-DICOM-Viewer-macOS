@@ -40,6 +40,7 @@
 import AppKit
 import IsiXImaging
 import IsiXVolumeRendering
+import IsiXPreferences
 
 // The 3D points of VRView: spheres the VTK adapter draws for the 2D viewer's
 // point ROIs, their selection, colour and radius, and the voxel under a
@@ -480,30 +481,30 @@ extension VRView {
 
     @objc(save3DPointsDefaultProperties:)
     func save3DPointsDefaultProperties(_ sender: Any?) {
-        let defaults = UserDefaults.standard
+        let preferences = processGraph.preferences
         // A message to nil answered 0.
         let color = point3DColorWell?.color.usingColorSpace(.genericRGB)
         horos_point3DDefaultColorRed = Float(color?.redComponent ?? 0)
         horos_point3DDefaultColorGreen = Float(color?.greenComponent ?? 0)
         horos_point3DDefaultColorBlue = Float(color?.blueComponent ?? 0)
         horos_point3DDefaultColorAlpha = Float(color?.alphaComponent ?? 0)
-        defaults.set(horos_point3DDefaultColorRed, forKey: "points3DcolorRed")
-        defaults.set(horos_point3DDefaultColorGreen, forKey: "points3DcolorGreen")
-        defaults.set(horos_point3DDefaultColorBlue, forKey: "points3DcolorBlue")
-        defaults.set(horos_point3DDefaultColorAlpha, forKey: "points3DcolorAlpha")
+        preferences.set(horos_point3DDefaultColorRed, for: VolumeRenderingPreferences.points3DColorRed)
+        preferences.set(horos_point3DDefaultColorGreen, for: VolumeRenderingPreferences.points3DColorGreen)
+        preferences.set(horos_point3DDefaultColorBlue, for: VolumeRenderingPreferences.points3DColorBlue)
+        preferences.set(horos_point3DDefaultColorAlpha, for: VolumeRenderingPreferences.points3DColorAlpha)
 
         // radius
         horos_point3DDefaultRadius = point3DRadiusSlider?.floatValue ?? 0
-        defaults.set(point3DRadiusSlider?.floatValue ?? 0, forKey: "points3Dradius")
+        preferences.set(point3DRadiusSlider?.floatValue ?? 0, for: VolumeRenderingPreferences.points3DRadius)
     }
 
     @objc(load3DPointsDefaultProperties)
     func load3DPointsDefaultProperties() {
-        let defaults = UserDefaults.standard
-        horos_point3DDefaultColorRed = defaults.float(forKey: "points3DcolorRed")
-        horos_point3DDefaultColorGreen = defaults.float(forKey: "points3DcolorGreen")
-        horos_point3DDefaultColorBlue = defaults.float(forKey: "points3DcolorBlue")
-        horos_point3DDefaultColorAlpha = defaults.float(forKey: "points3DcolorAlpha")
+        let preferences = processGraph.preferences
+        horos_point3DDefaultColorRed = preferences[VolumeRenderingPreferences.points3DColorRed]
+        horos_point3DDefaultColorGreen = preferences[VolumeRenderingPreferences.points3DColorGreen]
+        horos_point3DDefaultColorBlue = preferences[VolumeRenderingPreferences.points3DColorBlue]
+        horos_point3DDefaultColorAlpha = preferences[VolumeRenderingPreferences.points3DColorAlpha]
 
         if horos_point3DDefaultColorAlpha == 0.0 {
             horos_point3DDefaultColorRed = 0.0
@@ -513,7 +514,7 @@ extension VRView {
         }
 
         // radius
-        horos_point3DDefaultRadius = defaults.float(forKey: "points3Dradius")
+        horos_point3DDefaultRadius = preferences[VolumeRenderingPreferences.points3DRadius]
         if horos_point3DDefaultRadius == 0 { horos_point3DDefaultRadius = 5.0 }
     }
 

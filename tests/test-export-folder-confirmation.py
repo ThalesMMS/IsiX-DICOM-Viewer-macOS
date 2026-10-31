@@ -7,17 +7,20 @@ same name gets a numbered sibling and no question about a folder the export
 itself just made. A compressed export packs the folders into one archive, named
 after the folder they were asked for, or «DICOM Export» when the names differ.
 
-The export is Swift (BrowserController+DICOMExport.swift): the block and the
-folder question run here as they are, with the real HorosAlertPanel answers.
+The export is Swift (DICOMFolderExport.swift): the block and the folder
+question run here as they are, with the real HorosAlertPanel answers; the
+question's modal is the only stand-in.
 """
 from pathlib import Path
 import subprocess,tempfile,sys
 root=Path(__file__).resolve().parents[1]
-s=(root/'Horos/Sources/BrowserController+DICOMExport.swift').read_text()
+s=(root/'Horos/Sources/DICOMFolderExport.swift').read_text()
 a=s.index('                // Two patients of this export')
-b=s.index('                let folderTreeSelectedTag = ',a)
-c=s.index('    @objc(confirmDICOMExportFolder:)')
-helper=s[c:s.index('    @objc(showDICOMExportCompletion:)',c)]
+b=s.index('                if request.folderTreeTag == 0 {',a)
+c=s.index('    static func confirmExistingFolder(')
+helper=s[c:s.index('\n    }\n',c)+len('\n    }\n')]
+c=s.index('    private static func identity(')
+helper+=s[c:s.index('\n    }\n',c)+len('\n    }\n')]
 bridge=r'''
 #import <Cocoa/Cocoa.h>
 #import "HorosAlertPanel.h"
@@ -25,24 +28,28 @@ bridge=r'''
 code=r'''
 import Cocoa
 import CoreData
-enum BrowserObjC {
- static func synchronized(_ token: Any, _ body: () -> Void) { objc_sync_enter(token); body(); objc_sync_exit(token) }
-}
-final class Peer: NSObject {
- var prompts = 0, answer = 0, completed = 0
+var prompts = 0, answer = 0
+// The question is asked from the main run loop: here its answer is given.
+func onMainRunLoopSync<Value>(_ body: @escaping @MainActor @Sendable () -> Value) -> Value { prompts += 1; return answer as! Value }
+struct Study { var patientUID: String?; var studyInstanceUID: String? }
+struct Result { var patientFolderNames: [String] = [] }
+final class Outcome { var result = Result() }
+final class DICOMFolderExport {
+ var completed = 0
  var exportAborted = false
  var exportError: NSError?
  var used: [String] = [], archive = ""
 HELPER
- @objc(runInformationAlertPanel:) func runInformationAlertPanel(_ options: NSMutableDictionary!) { prompts += 1; options["result"] = NSNumber(value: answer) }
+ private static func identity(_ identifiers: String?..., of object: Study?) -> String {
+  identifiers.lazy.compactMap { $0 }.first { !$0.isEmpty } ?? ""
+ }
  func run(_ requests: [[String: String]]) {
-  let reviewedPatientFolders = NSMutableSet()
-  let patientFolders = NSMutableArray()
-  let result = NSMutableArray()
-  let parameters = NSMutableDictionary()
+  var reviewedPatientFolders = Set<String>()
+  var patientFolders: [String] = []
+  let outcome = Outcome()
   let folderClaims = ExportFolderClaims()
   let files = FileManager.default
-  let addDICOMDIR = false
+  let componentLimit = 0
   var exportAborted = false
   var exportError: NSError?
   var i = 0
@@ -50,16 +57,16 @@ HELPER
    defer { i += 1 }
    let request = requests[i]
    var tempPath = request["path"]!
-   let curImage: NSDictionary = ["series": ["study": ["patientUID": request["patient"]!]]]
+   let study: Study? = Study(patientUID: request["patient"]!, studyInstanceUID: nil)
 BODY
    try! "image".write(toFile: (tempPath as NSString).appendingPathComponent("\(i).dcm"), atomically: true, encoding: .utf8)
    completed += 1
   }
   self.exportAborted = exportAborted; self.exportError = exportError
-  used = patientFolders as! [String]
+  used = patientFolders
   archive = folderClaims.archivePath(forFolders: used)
-  if !exportAborted && (result as! [String]) != requests.map({ ($0["expected"]! as NSString).lastPathComponent }) {
-   FileHandle.standardError.write("FAIL folders \(result)\n".data(using: .utf8)!); exit(1)
+  if !exportAborted && outcome.result.patientFolderNames != requests.map({ ($0["expected"]! as NSString).lastPathComponent }) {
+   FileHandle.standardError.write("FAIL folders \(outcome.result.patientFolderNames)\n".data(using: .utf8)!); exit(1)
   }
  }
 }
@@ -73,8 +80,9 @@ func fail(_ message: String) -> Never { FileHandle.standardError.write((message 
   for scenario in 0..<4 {
    let path = (root as NSString).appendingPathComponent("\(scenario)")
    let sibling = path + "_2"
-   let peer = Peer()
-   peer.answer = scenario == 2 ? HorosAlertPanel.alternateResponse : (scenario == 3 ? HorosAlertPanel.defaultResponse : HorosAlertPanel.otherResponse)
+   let peer = DICOMFolderExport()
+   prompts = 0
+   answer = scenario == 2 ? HorosAlertPanel.alternateResponse : (scenario == 3 ? HorosAlertPanel.defaultResponse : HorosAlertPanel.otherResponse)
    let a = ["path": path, "patient": "A", "expected": path], b = ["path": path, "patient": "B", "expected": sibling]
    let sentinel = (path as NSString).appendingPathComponent("existing.txt")
    if scenario != 0 {
@@ -84,13 +92,13 @@ func fail(_ message: String) -> Never { FileHandle.standardError.write((message 
    if scenario == 2 {
     // Cancel stops at the first image and leaves what was there.
     peer.run([a, a, b])
-    if peer.prompts != 1 || !peer.exportAborted || peer.completed != 0 || !fm.fileExists(atPath: sentinel) { fail("FAIL cancel") }
+    if prompts != 1 || !peer.exportAborted || peer.completed != 0 || !fm.fileExists(atPath: sentinel) { fail("FAIL cancel") }
     continue
    }
    peer.run([a, a, b, a, b])
    let expectedPrompts = scenario != 0 ? 1 : 0
-   if peer.prompts != expectedPrompts || peer.completed != 5 || peer.exportAborted {
-    fail("FAIL scenario \(scenario): prompts \(peer.prompts) expected \(expectedPrompts), completed \(peer.completed) aborted \(peer.exportAborted)")
+   if prompts != expectedPrompts || peer.completed != 5 || peer.exportAborted {
+    fail("FAIL scenario \(scenario): prompts \(prompts) expected \(expectedPrompts), completed \(peer.completed) aborted \(peer.exportAborted)")
    }
    if peer.used != [path, sibling] { fail("FAIL scenario \(scenario) folders handed on") }
    // One person's two folders, asked for under one name: one archive of that name.

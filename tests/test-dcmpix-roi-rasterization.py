@@ -55,6 +55,7 @@ import tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import history_reference  # noqa: E402
 import roi_harness  # noqa: E402
+import harness_defaults  # noqa: E402  the harness's preferences stay in its own process
 
 SKIPPED = roi_harness.SKIPPED
 PIX_SOURCE = roi_harness.PIX_SOURCE
@@ -731,7 +732,7 @@ static NSDictionary *bench( int repetitions)
 
 def build(revision, folder):
     """The probe linked with the ROI and DCMPix of `revision` (WORKTREE for this checkout)."""
-    return roi_harness.build(revision, folder, roi_harness.PRELUDE + PROBE, config=configuration,
+    return roi_harness.build(revision, folder, roi_harness.PRELUDE + PROBE + harness_defaults.OBJC, config=configuration,
                              app_swift=('VRScissorBounds',))
 
 

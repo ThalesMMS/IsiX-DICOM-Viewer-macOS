@@ -99,6 +99,8 @@ final class ROIWindow: NSWindowController, NSWindowDelegate {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    // An optional result, discardable: earlier revisions answered what storing raised.
+    @discardableResult
     private func storeNameAndComments() -> NSException? {
         willClose.append(currentNotification)
         return nil

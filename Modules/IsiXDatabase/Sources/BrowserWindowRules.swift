@@ -197,6 +197,26 @@ public enum PreviewReuse {
     }
 }
 
+// MARK: - A thumbnail's row
+
+/// The browser's thumbnails: the cell of a series or an image carries, as its
+/// tag, the index of its row in the thumbnails' array. The cells after those
+/// rows (empty ones, and the placeholders of series a node's rule left out,
+/// which count down from a negative tag) name no row: a use that takes a row
+/// by the cell's tag passes them by instead of reading outside the array.
+public enum ThumbnailCellTag {
+    /// The row a cell's tag names among `count` rows, nil for a tag outside them.
+    public static func rowIndex(tag: Int, count: Int) -> Int? {
+        (0..<max(count, 0)).contains(tag) ? tag : nil
+    }
+
+    /// The rows the tags name among `rows`, in the tags' order, without the
+    /// tags outside them.
+    public static func rows<Row>(tags: [Int], of rows: [Row]) -> [Row] {
+        tags.compactMap { rowIndex(tag: $0, count: rows.count).map { rows[$0] } }
+    }
+}
+
 // MARK: - The list's saved sort
 
 public enum ListSort {
@@ -336,7 +356,8 @@ public enum BrowserMenuValidation {
         switch action {
         case "compressSelectedFiles:", "decompressSelectedFiles:", "generateReport:", "deleteReport:",
              "convertReportToPDF:", "convertReportToDICOMSR:", "delItem:", "regenerateAutoComments:",
-             "copyToDBFolder:", "querySelectedStudy:", "unifyStudies:", "retrieveSelectedPODStudies:":
+             "copyToDBFolder:", "querySelectedStudy:", "unifyStudies:", "retrieveSelectedPODStudies:",
+             "importSurgicalProcedureLog:":
             return true
         default:
             return false
@@ -347,8 +368,8 @@ public enum BrowserMenuValidation {
     static func needsLocalDatabase(_ action: String) -> Bool {
         switch action {
         case "deleteAlbum:", "addAlbum:", "addSmartAlbum:", "addAlbums:", "defaultAlbums:",
-             "selectFilesAndFoldersToAdd:", "addURLToDatabase:", "importRawData:", "anonymizeDICOM:",
-             "compressSelectedFiles:", "decompressSelectedFiles:":
+             "selectFilesAndFoldersToAdd:", "addURLToDatabase:", "importRawData:", "importSurgicalProcedureLog:",
+             "anonymizeDICOM:", "compressSelectedFiles:", "decompressSelectedFiles:":
             return true
         default:
             return false

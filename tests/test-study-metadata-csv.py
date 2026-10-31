@@ -12,8 +12,9 @@ UTF-8 so a name in another script survives, absent fields told apart from empty
 ones, and one row per study - selecting a study and one of its series must not
 write that study twice.
 
--metadataCSVForColumns:onlySelected: is Swift, in
-BrowserController+DatabaseDragExport+Selection.swift.
+-metadataCSVForColumns:onlySelected: is the browser's selector; the work is
+StudyListExport.metadataCSV(columns:onlySelected:) (StudyListExport.swift), over
+the rules of StudyMetadataCSV (IsiXDatabase), which are compiled and run here.
 """
 from pathlib import Path
 import re
@@ -25,17 +26,20 @@ root = Path(__file__).resolve().parents[1]
 failures = []
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
-browser = source_text('BrowserController+DatabaseDragExport+Selection')
+browser = source_text('StudyListExport')
+facade = source_text('BrowserController+DatabaseDragExport+Selection')
+if 'StudyListExport(browser: self).metadataCSV(columns:' not in facade:
+    failures.append('-metadataCSVForColumns:onlySelected: no longer hands its work to StudyListExport')
 
-at = browser.find('func metadataCSV(forColumns ')
+at = browser.find('func metadataCSV(columns: ')
 body = browser[at:browser.index('\n    }\n', at)] if at >= 0 else ''
 if not body:
     failures.append('metadataCSVForColumns:onlySelected: is gone')
 else:
     # A study and one of its series can both be selected; the study is one row.
-    if 'done.contains(study.objectID)' not in body:
+    if 'StudyMetadataCSV.firstOccurrences(studies)' not in body:
         failures.append('a study selected together with its series would be written twice')
-    if 'StudyMetadataExport.headerRow(columns:' not in body:
+    if 'StudyMetadataCSV.table(columns: columns' not in body:
         failures.append('the file has no header row')
     if 'values(forDicomFields: columns, forFile:' not in body:
         failures.append('the values no longer come from the study\'s own file')
@@ -64,46 +68,49 @@ reported = len(failures)
 
 main = r'''import Foundation
 
+// A study selected with one of its series is one row.
+precondition(StudyMetadataCSV.firstOccurrences(["a", "b", "a"]) == ["a", "b"])
+
 // RFC 4180: a field with a comma, a quote, a CR or an LF is quoted, and a quote
 // inside it is doubled. Everything else is left alone.
-precondition(StudyMetadataExport.escaped("Thorax") == "Thorax")
-precondition(StudyMetadataExport.escaped("Thorax, with contrast") == "\"Thorax, with contrast\"")
-precondition(StudyMetadataExport.escaped("he said \"twice\"") == "\"he said \"\"twice\"\"\"")
-precondition(StudyMetadataExport.escaped("one\rtwo") == "\"one\rtwo\"")
-precondition(StudyMetadataExport.escaped("one\ntwo") == "\"one\ntwo\"")
-precondition(StudyMetadataExport.escaped(nil) == "")
+precondition(StudyMetadataCSV.escaped("Thorax") == "Thorax")
+precondition(StudyMetadataCSV.escaped("Thorax, with contrast") == "\"Thorax, with contrast\"")
+precondition(StudyMetadataCSV.escaped("he said \"twice\"") == "\"he said \"\"twice\"\"\"")
+precondition(StudyMetadataCSV.escaped("one\rtwo") == "\"one\rtwo\"")
+precondition(StudyMetadataCSV.escaped("one\ntwo") == "\"one\ntwo\"")
+precondition(StudyMetadataCSV.escaped(nil) == "")
 // A tab does not have to be quoted in a CSV, and must not be turned into one.
-precondition(StudyMetadataExport.escaped("Hospital\tof Tabs") == "Hospital\tof Tabs")
+precondition(StudyMetadataCSV.escaped("Hospital\tof Tabs") == "Hospital\tof Tabs")
 
 // Rows are CRLF separated and the file ends with one; an empty export is empty.
-let csv = StudyMetadataExport.csv(fromRows: [["a", "b"], ["c,d", "e"]])
+let csv = StudyMetadataCSV.csv(fromRows: [["a", "b"], ["c,d", "e"]])
 precondition(csv == "a,b\r\nc\u{2c}d".replacingOccurrences(of: "c\u{2c}d", with: "\"c,d\"") + ",e\r\n", csv)
-precondition(StudyMetadataExport.csv(fromRows: []) == "")
+precondition(StudyMetadataCSV.csv(fromRows: []) == "")
 
 // UTF-8 with the byte order mark, or a spreadsheet reads the accents as its own
 // locale and the CJK as nothing at all.
-let data = StudyMetadataExport.data(forCSV: "Grüße,グリュース\r\n")
+let data = StudyMetadataCSV.data(forCSV: "Grüße,グリュース\r\n")
 precondition(Array(data.prefix(3)) == [0xEF, 0xBB, 0xBF])
 precondition(String(data: data.dropFirst(3), encoding: .utf8) == "Grüße,グリュース\r\n")
 
 // An absent field is an empty cell AND a mention in the last column: DICOM lets
 // a field be present and empty, and the two are not the same thing.
 let columns = ["PatientName", "AccessionNumber", "InstitutionName"]
-let row = StudyMetadataExport.row(columns: columns,
+let row = StudyMetadataCSV.row(columns: columns,
                                   values: ["PatientName": "Grüße^Jörg", "AccessionNumber": ""])
 precondition(row == ["Grüße^Jörg", "", "", "InstitutionName"], "\(row)")
-precondition(StudyMetadataExport.headerRow(columns: columns)
-             == columns + [StudyMetadataExport.missingHeader])
+precondition(StudyMetadataCSV.headerRow(columns: columns)
+             == columns + [StudyMetadataCSV.missingHeader])
 // Nothing missing leaves the last cell empty rather than saying so.
-precondition(StudyMetadataExport.row(columns: ["PatientID"], values: ["PatientID": "A"]).last == "")
+precondition(StudyMetadataCSV.row(columns: ["PatientID"], values: ["PatientID": "A"]).last == "")
 
 // DICOM pads with spaces and separates values with a backslash. Neither belongs
 // in a cell as it stands.
-precondition(StudyMetadataExport.cleaned("SMITH^JOHN ") == "SMITH^JOHN")
-precondition(StudyMetadataExport.cleaned("CT\\PT") == "CT; PT")
+precondition(StudyMetadataCSV.cleaned("SMITH^JOHN ") == "SMITH^JOHN")
+precondition(StudyMetadataCSV.cleaned("CT\\PT") == "CT; PT")
 
 // The column list: one per line, comments and blanks dropped, a repeat kept once.
-let specified = StudyMetadataExport.columns(fromText: """
+let specified = StudyMetadataCSV.columns(fromText: """
 PatientName
   (0010,0020)   # the identifier
 
@@ -112,8 +119,8 @@ PatientName
 StudyDescription
 """)
 precondition(specified == ["PatientName", "(0010,0020)", "StudyDescription"], "\(specified)")
-precondition(StudyMetadataExport.columns(fromText: "").isEmpty)
-precondition(StudyMetadataExport.suggestedColumns.contains("PatientID"))
+precondition(StudyMetadataCSV.columns(fromText: "").isEmpty)
+precondition(StudyMetadataCSV.suggestedColumns.contains("PatientID"))
 
 print("PASS: quoted, UTF-8, absent told from empty, and one column per line")
 '''
@@ -142,7 +149,7 @@ print("PASS: both spellings of a renamed keyword")
 with tempfile.TemporaryDirectory(prefix='horos-metadata-csv-') as tmp:
     p = Path(tmp)
     (p / 'main.swift').write_text(main)
-    build = subprocess.run(['swiftc', str(root / 'Horos/Sources/StudyMetadataExport.swift'),
+    build = subprocess.run(['swiftc', str(root / 'Modules/IsiXDatabase/Sources/StudyMetadataCSV.swift'),
                             str(root / 'Horos/Sources/DICOMKeyword.swift'),
                             str(p / 'main.swift'), '-o', str(p / 'test')],
                            capture_output=True, text=True)

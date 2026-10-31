@@ -57,17 +57,29 @@ public final class SmartWindowController: NSWindowController, NSTextFieldDelegat
     @objc public dynamic var name: String!
     @objc public dynamic var mode: Int = 0
 
+    /// The graph of the database window that opened the sheet, whose list
+    /// shows a tested predicate; nil when nothing opened it from there.
+    private var browserWindow: BrowserWindowGraph?
+
     /// assign in the former header: the xib's window owns the field.
     @IBOutlet @objc public weak var nameField: NSTextField!
     /// assign in the former header: the xib's window owns the editor.
     @IBOutlet @objc public weak var editor: O2DicomPredicateEditor!
 
     /// Failable as Swift saw the former -(id)initWithDatabase:; it never fails.
+    /// The selector Objective-C and the plugins send: the sheet tests its
+    /// predicate in the database window of the process.
     @objc(initWithDatabase:)
     public convenience init!(database: DicomDatabase!) {
+        self.init(database: database, browserWindow: PreferencesSource.process.processGraph.browserWindow)
+    }
+
+    /// The sheet of `database`, opened from the database window of `browserWindow`.
+    convenience init(database: DicomDatabase!, browserWindow: BrowserWindowGraph?) {
         self.init(windowNibName: "SmartAlbum")
         // Outside the designated initializer: through the setter, as before.
         self.database = database
+        self.browserWindow = browserWindow
     }
 
     /// Overridden so that -initWithWindowNibName: is inherited, unchanged.
@@ -137,8 +149,8 @@ public final class SmartWindowController: NSWindowController, NSTextFieldDelegat
             window.sheetParent?.endSheet(window, returnCode: .abort)
         }
 
-        BrowserController.currentBrowser()?.testPredicate = nil
-        _ = BrowserController.currentBrowser()?.outlineViewRefresh()
+        browserWindow?.browser.testPredicate = nil
+        _ = browserWindow?.browser.outlineViewRefresh()
     }
 
     // Esc cancels the sheet. From a control it comes up the responder
@@ -162,8 +174,8 @@ public final class SmartWindowController: NSWindowController, NSTextFieldDelegat
             window.sheetParent?.endSheet(window)
         }
 
-        BrowserController.currentBrowser()?.testPredicate = nil
-        _ = BrowserController.currentBrowser()?.outlineViewRefresh()
+        browserWindow?.browser.testPredicate = nil
+        _ = browserWindow?.browser.outlineViewRefresh()
     }
 
     @IBAction @objc(helpAction:)
@@ -202,7 +214,7 @@ public final class SmartWindowController: NSWindowController, NSTextFieldDelegat
             try HorosObjCException.perform {
                 var p: NSPredicate? = self.predicateFormat.flatMap { NSPredicate(format: $0, argumentArray: nil) }
 
-                let bc = BrowserController.currentBrowser()
+                let bc = self.browserWindow?.browser
                 p = bc?.smartAlbumPredicateString(self.predicateFormat)
                 guard let p else {
                     failure = NSLocalizedString("Invalid NSPredicate SQL syntax", comment: "")

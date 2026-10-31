@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Run SEG import/identity/commands/persistence against the existing volume session."""
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402  - ROIInterchange.swift writes IsiXROI's ROIInterchangeDocument
 import subprocess
 import tempfile
 root = Path(__file__).resolve().parents[1]
@@ -95,7 +98,7 @@ print("PASS: ROI interchange JSON converts through the legacy converter and type
 '''
 with tempfile.TemporaryDirectory(prefix='horos-seg-session-') as folder:
     tmp = Path(folder); (tmp/'main.swift').write_text(driver)
-    subprocess.run(['xcrun','swiftc',*[str(root/'Horos/Sources'/name) for name in
+    subprocess.run(['xcrun','swiftc',*isix_modules.module_flags('IsiXROI',tmp/'modules'),*[str(root/'Horos/Sources'/name) for name in
         ('VolumeSession.swift','DicomSEG.swift','ROISurfaceAlgorithm.swift','HorosSEGSurface.swift','SEGViewerSession.swift',
          'ROIInterchange.swift','ROIArchiveFormat.swift','HorosLegacyROISeg.swift')],
         str(tmp/'main.swift'),'-o',str(tmp/'test')],check=True)

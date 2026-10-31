@@ -80,7 +80,7 @@ for value in [value for value in assignments if value != 'seriesUID']:
                         'carries none, so a real SeriesInstanceUID can be replaced' % value)
 
 # --- why this is safe: the importer groups on something else -----------------
-# DicomDatabase is Swift; the import is DicomDatabase+Import.swift.
+# DicomDatabase is Swift; the import is DicomFileIndexer.swift.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources  # noqa: E402
 database = sources.class_text('DicomDatabase')

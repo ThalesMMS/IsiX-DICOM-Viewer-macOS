@@ -23,7 +23,9 @@ not a second read of the array.
 and so are -keyDown: (DCMView+Keyboard.swift) and the click-by-click ROI a
 double-click's hot key cancels (DCMView+Mouse.swift): there the ROI notified
 and removed is one local constant, a strong reference bound before the post
-(`let r`, `case let r`, `for r in`), which holds it.
+(`let r`, `case let r`, `for r in`), which holds it. The post is the
+notification itself or ROIEventEmitter.willRemove, which posts it with the ROI
+(ROIEventEmitter.swift, checked here to post OsirixRemoveROI with its argument).
 
 `<git revision>` as an optional argument reads the sources from that revision,
 the negative control.
@@ -86,7 +88,8 @@ for name, swift in swift_files.items():
     swift_lines = [line.split('//')[0] for line in swift.split('\n')]
     for i, line in enumerate(swift_lines):
         posted = re.search(r'post\(name: NSNotification\.Name\.OsirixRemoveROI, object: ([^,]+),', line) or \
-            re.search(r'inputPost\(\.OsirixRemoveROI, object: ([^,)]+)\)', line)
+            re.search(r'inputPost\(\.OsirixRemoveROI, object: ([^,)]+)\)', line) or \
+            re.search(r'ROIEventEmitter\.willRemove\(([^,)]+)\)', line)
         if not posted:
             continue
         after = '\n'.join(swift_lines[i + 1:i + 3])
@@ -105,6 +108,11 @@ for name, swift in swift_files.items():
         if not re.search(rf'(\blet {posted}\b|\bcase let {posted} as\b|\bfor {posted} in\b)', method) or \
                 re.search(rf'(weak|unowned)\s+(var|let)\s+{posted}\b', method):
             failures.append(f'{name} line {i + 1}: {posted} is not a strong local bound before the post')
+
+emitter = read('Horos/Sources/ROIEventEmitter.swift')
+will_remove = emitter[emitter.index('static func willRemove(_ roi: ROI) {'):] if 'static func willRemove(_ roi: ROI) {' in emitter else ''
+if revision is None and 'post(.OsirixRemoveROI, object: roi)' not in will_remove[:will_remove.find('\n    }\n')]:
+    failures.append('ROIEventEmitter.willRemove no longer posts OsirixRemoveROINotification with the ROI')
 
 if sites < 5:
     failures.append(f'expected the deletions of -keyDown:, -cut:, -deleteROIGroupID:, -deleteROIs: and the cancelled click-by-click ROI, found {sites}')

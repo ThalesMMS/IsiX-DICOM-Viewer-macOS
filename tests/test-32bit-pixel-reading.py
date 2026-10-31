@@ -36,7 +36,6 @@ from sources import class_text
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-dcmtk = root / 'DCMTK'
 pix = class_text('DCMPix')
 frames = root / 'Modules/IsiXImaging/Sources'
 loader = (frames / 'FrameLoader.swift').read_text()

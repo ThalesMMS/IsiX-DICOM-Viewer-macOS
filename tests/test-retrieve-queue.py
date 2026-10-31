@@ -184,7 +184,7 @@ controller = class_text('QueryController')
 for needle, what in [
     ('if showGUI && !forViewing && !onlyIfNotAvailable {', 'only the retrieves asked for in the window are queued'),
     ('RetrieveQueue.shared.ticket(explicitlyQueued: explicitlyQueued)', 'a ticket per retrieve'),
-    ('#selector(performQueuedRetrieve(_:))', 'the thread waits for its turn'),
+    ('self.performQueuedRetrieve(items.items, ticket: ticket, status: status)', 'the thread waits for its turn'),
     ('RetrieveQueue.shared.waitForTurn(ticket, whileWaiting:', 'performQueuedRetrieve: waits'),
     ('RetrieveQueue.shared.finish(ticket)', 'performQueuedRetrieve: makes room'),
     ('RetrieveQueueArrows.install(on: outlineView, column: "Button")', 'the arrows follow Command'),
@@ -213,7 +213,7 @@ for title in ['"Move to Top"', '"Move Up"', '"Move Down"', '"Rename…"']:
         failures.append(f'the Activity menu lacks {title}')
 
 outline = source_text('QueryOutlineView')
-if 'Selector(("queueRetrieveOfItem:"))' not in outline or 'tableColumns[clickedColumn].identifier.rawValue == "Button"' not in outline:
+if not ('#selector(QueryController.queueRetrieveOfItem(_:))' in outline or 'Selector(("queueRetrieveOfItem:"))' in outline) or 'tableColumns[clickedColumn].identifier.rawValue == "Button"' not in outline:
     failures.append('QueryOutlineView does not send a Command-click on a download arrow to the queue')
 
 pane = source_text('OSILocationsPreferencePanePref')

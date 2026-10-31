@@ -23,6 +23,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import private_tmpdir  # noqa: F401,E402  - its own TMPDIR for the tools it runs
 from dcmtk_build import BUILD, ROOT, dcmtk_flags  # noqa: E402
+import process_graph_stand_in  # noqa: E402
 import horos_reader  # noqa: E402
 
 SKIPPED = 2
@@ -356,6 +357,27 @@ DicomImage *HarnessMakeImage(NSString *path)
 TOOLBAR_SWIFT = r'''
 import AppKit
 
+// The graph of the database window, as the application controller makes it
+// from the browser; the stand-in graph hands it out over the stub's browser.
+final class BrowserWindowGraph {
+    let browser: BrowserController
+    init(browser: BrowserController) { self.browser = browser }
+}
+extension ProcessGraph {
+    var browserWindow: BrowserWindowGraph? { BrowserController.currentBrowser().map { BrowserWindowGraph(browser: $0) } }
+}
+
+// As the real one: the file goes to the database with the options of Modify DICOM.
+enum IngestPreset { case modify }
+struct DatabaseIngest {
+    static let process = DatabaseIngest()
+    var browserDatabase: DicomDatabase? { BrowserController.currentBrowser()?.database }
+    func index(_ paths: [Any]?, preset: IngestPreset, in database: DicomDatabase) -> [Any]? {
+        database.addFiles(atPaths: paths, postNotifications: true, dicomOnly: true, rereadExistingItems: true,
+                          generatedByOsiriX: false, importedFiles: false, returnArray: true)
+    }
+}
+
 @objc(HorosToolbarPolicy)
 public final class ToolbarPolicy: NSObject {
     @objc public static let spaceItemIdentifier = "HorosToolbarSpaceItem"
@@ -364,6 +386,26 @@ public final class ToolbarPolicy: NSObject {
     public static func constrainView(of item: NSToolbarItem?, minimum: NSSize, maximum: NSSize) {}
     @objc(spaceItemForIdentifier:) public static func spaceItem(for identifier: String) -> NSToolbarItem? { return nil }
     @objc(adoptToolbar:inWindow:) public static func adopt(toolbar: NSToolbar?, in window: NSWindow?) {}
+}
+'''
+
+# The database the edited files go back to and the removal of the rows an edit
+# replaced (XMLController+EditedFiles.swift, which reads the database rules):
+# the harness's rows are all rows of the browser's database.
+EDITED_FILES_SWIFT = r'''
+import AppKit
+
+struct BrowserDatabaseSource {
+    let processGraph: ProcessGraph
+    static let process = BrowserDatabaseSource(processGraph: ProcessGraph.process)
+}
+extension XMLController {
+    static func database(ofEdited rows: [Any]?, image: NSManagedObject?, source: BrowserDatabaseSource) -> DicomDatabase? {
+        BrowserController.currentBrowser()?.database
+    }
+    @MainActor static func removeReplacedRows(_ rows: [Any], from database: DicomDatabase, browser: BrowserController?) {
+        browser?.proceedDelete(rows)
+    }
 }
 '''
 
@@ -637,6 +679,7 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
         (work / 'stubs.m').write_text(STUBS_M)
         (work / 'FVTiff.h').write_text(FVTIFF_H)
         (work / 'ToolbarPolicy.swift').write_text(TOOLBAR_SWIFT)
+        (work / 'EditedFiles.swift').write_text(EDITED_FILES_SWIFT)
         (work / 'main.mm').write_text(DRIVER)
         for name in STUB_NAMES:
             (work / name).write_text('#import "stubs.h"\n')
@@ -667,8 +710,12 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
             # the former category header reads the generated interface.
             shutil.copy(SOURCES / 'XMLController.h', work / 'XMLController.h')
             (work / 'XMLControllerDCMTKCategory.h').write_text('#import "XMLController.h"\n')
+            # The editor reads its preferences through the process graph.
+            # The guards the editor puts around what may raise: HorosObjCException.caught.
             swift = [SOURCES / 'XMLController.swift', SOURCES / 'XMLController+DICOMEditing.swift', *helpers,
-                     work / 'ToolbarPolicy.swift']
+                     SOURCES / 'HorosObjCException+Guards.swift', work / 'ToolbarPolicy.swift', process_graph_stand_in.source(work)]
+            if 'removeReplacedRows(' in (SOURCES / 'XMLController.swift').read_text(encoding='utf-8'):
+                swift.append(work / 'EditedFiles.swift')
             (work / 'bridge.h').write_text('#define HOROS_BRIDGING_HEADER 1\n#import "stubs.h"\n'
                                            '#import "HorosObjCException.h"\n#import "HorosBoundedTask.h"\n'
                                            '#import "HorosAlertPanel.h"\n#import "DCMObject.h"\n'
@@ -705,7 +752,10 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
             objects.append(str(obj))
         binary = tmp / 'bin' / ('horos-xml-editor-harness-' + side)
         binary.parent.mkdir(exist_ok=True)
-        run(['xcrun', 'swiftc', '-o', str(binary), *objects,
+        # The editor reads its preferences through IsiXPreferences, which the host objects do not link.
+        preferences = [str(host / 'modules' / f'lib{name}.a') for name in ('IsiXPreferences', 'IsiXLogging')
+                       if (host / 'modules' / f'lib{name}.a').exists()]
+        run(['xcrun', 'swiftc', '-o', str(binary), *objects, *preferences,
              '-framework', 'Cocoa', '-framework', 'CoreData', '-framework', 'IOKit', '-framework', 'Accelerate',
              str(openjpeg / 'lib/libopenjp2.a'), *archives, *(gdcm_archives if side == 'former' else []), '-lc++'])
         if nib.is_dir():

@@ -27,11 +27,12 @@ if 'noFiles' in query_controller:
     failures.append('the viewer opening still counts noFiles, which counts frames')
 if query_controller.count('localCount: RetrieveViewing.uniqueInstanceCount(ofStudyOrSeries:') != 2:
     failures.append('both viewer openings must count the unique instances of the study or series')
-# In ViewerController.m, or in ViewerController+DatabaseRefresh.swift since the class is Swift.
-database_refresh = sources / 'ViewerController+DatabaseRefresh.swift'
+# In ViewerController.m, then in ViewerController+DatabaseRefresh.swift once the class was Swift, and in
+# the viewer's ProgressiveRetrieveState since the refresh left ViewerController.
+database_refresh = sources / 'ProgressiveRetrieveState.swift'
 swift_refresh = database_refresh.read_text() if database_refresh.exists() else ''
 if 'localCount: [HorosRetrieveViewing uniqueInstanceCountOfImages: fileList[curMovieIndex]]' not in viewer_controller \
-        and 'localCount: RetrieveViewing.uniqueInstanceCount(ofImages: (horos_fileList(at: movieIndex)' not in swift_refresh:
+        and 'localCount: RetrieveViewing.uniqueInstanceCount(ofImages: (viewer.horos_fileList(at: movieIndex)' not in swift_refresh:
     failures.append('the viewer reload must count the unique instances it shows, not its frames')
 if 'RetrieveViewing.swift in Sources' not in (root / 'Horos.xcodeproj/project.pbxproj').read_text():
     failures.append('RetrieveViewing.swift is not in the Horos target')

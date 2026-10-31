@@ -117,9 +117,13 @@ if f'@selector({ACTION}))' in viewer:
     validation = viewer[viewer.index(f'@selector({ACTION}))'):]
     validation = validation[:validation.index('else if(')]
 else:
-    # -validateMenuItem: is Swift (ViewerController+MenuValidation.swift).
-    menus = source_text('ViewerController+MenuValidation')
-    validation = menus[menus.index(f'case Selector(("{ACTION}")):'):]
+    # -validateMenuItem: is Swift: the viewer's ViewerMenuValidation
+    # (ViewerController+MenuValidation.swift before).
+    menus = source_text('ViewerMenuValidation')
+    # The case names the action by #selector, or by its string in older revisions.
+    swift_action = f'case #selector(ViewerController.{ACTION[:-1]}(_:)):'
+    literal_action = f'case Selector(("{ACTION}")):'
+    validation = menus[menus.index(swift_action if swift_action in menus else literal_action):]
     validation = validation[:validation.index('\n        case ', 1)]
 if 'canShowSelectedROIsOnAllImagesOfSeries' not in validation:
     failures.append('validateMenuItem: does not ask the rule about the command')
@@ -189,13 +193,43 @@ if undo_objc:
     undo_body = viewer[viewer.index('- (id) prepareObjectForUndo:(NSString*) string'):]
     undo_body = undo_body[:undo_body.index('\n}\n') + 3]
 else:
+    # A façade over ViewerUndoQueue.state (ViewerUndoQueue.swift), which reads
+    # the lists through ViewerROISlices; the state is a ViewerUndoState. They
+    # are compiled over the double, named as the viewer, without their actor.
     undo_source = (root / 'Horos/Sources/ViewerController+UndoQueue.swift').read_text()
     undo_body = undo_source[undo_source.index('    @objc(prepareObjectForUndo:)'):]
     undo_body = undo_body[:undo_body.index('\n    }\n') + 7]
-    undo_add = undo_source[undo_source.index('func viewerArrayAdd('):]
-    undo_add = undo_add[:undo_add.index('\n}\n') + 3]
+    queue_source = (root / 'Horos/Sources/ViewerUndoQueue.swift').read_text()
+    state_type = queue_source[queue_source.index('@MainActor final class ViewerUndoState'):]
+    state_type = state_type[:state_type.index('\n}\n') + 3]
+    state_rule = queue_source[queue_source.index('    static func state(of viewer: ViewerController'):]
+    state_rule = state_rule[:state_rule.index('\n    }\n') + 7]
+    copy_rule = queue_source[queue_source.index('    private static func copy(of roi: ROI'):]
+    copy_rule = copy_rule[:copy_rule.index('\n    }\n') + 7]
+    raise_nil = undo_source[undo_source.index('func viewerRaiseNilInsertion('):]
+    raise_nil = raise_nil[:raise_nil.index('\n}\n') + 3]
+    slices_source = (root / 'Horos/Sources/ViewerController+ROIState.swift').read_text()
+    slices_type = slices_source[slices_source.index('@MainActor struct ViewerROISlices'):]
+    slices_type = slices_type[:slices_type.index('\n}\n') + 3]
+    undo_add = ('typealias ViewerController = Viewer\n' + state_type + slices_type
+                + raise_nil + 'enum ViewerUndoQueue {\n' + state_rule + copy_rule + '}\n').replace('@MainActor ', '')
 undo_swift = r'''import Foundation
 func _N2LogExceptionImpl(_ e: NSException, _ stack: Bool, _ where: String) { NSLog("%@", e) }
+// The guards of HorosObjCException+Guards.swift, running each body.
+enum HorosObjCException {
+    @discardableResult
+    static func caught(_ body: () -> Void) -> NSException? { body(); return nil }
+    static func caught(_ body: () -> Void, catch handler: (NSException) -> Void) { body() }
+    static func caughtWithoutAllocation(_ body: () -> Void) -> NSException? { body(); return nil }
+    @discardableResult
+    static func logged(_ function: String, stack: Bool = false, _ body: () -> Void) -> Bool { body(); return false }
+    @discardableResult
+    static func synchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T { body() }
+    @discardableResult
+    static func raisingToCaller<T>(_ body: () -> T) -> T { body() }
+    static func throwing<T, Failure: Error>(_ failure: (NSException) -> Failure, _ body: () throws -> T) throws -> T { try body() }
+}
+
 func viewerObjCTry(_ body: () -> Void) -> NSException? { body(); return nil }
 func check(_ condition: Bool, _ line: Int = #line) { if !condition { NSLog("FAIL line %d", line); exit(1) } }
 class ROI: NSObject, NSCopying {
@@ -230,7 +264,7 @@ let alias = ROI(); alias.isAliased = true; alias.originalIndexForAlias = 1
 let a = ROI(), b = ROI()
 let other = ROI(); other.isAliased = true; other.originalIndexForAlias = 0
 v.lists = [NSMutableArray(array: [NSMutableArray(array: [a, alias, other]), NSMutableArray(array: [alias, other]), NSMutableArray(array: [b, other, alias])])]
-let slices = ((v.prepareObject(forUndo: "roi") as! NSDictionary).object(forKey: "rois") as! NSArray).object(at: 0) as! [[ROI]]
+let slices = (v.prepareObject(forUndo: "roi") as! ViewerUndoState).rois[0]
 let alias0 = slices[0][1], alias1 = slices[1][0], alias2 = slices[2][2]
 check(alias0 !== alias && alias0.isAliased && alias0.originalIndexForAlias == 1)
 check(alias0 === alias1 && alias1 === alias2)

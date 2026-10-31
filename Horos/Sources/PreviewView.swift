@@ -110,7 +110,7 @@ public final class PreviewView: DCMView {
     /// when an Objective-C exception leaves it, which then goes on.
     private func whileApplyingPreviewWindow(_ body: () -> Void) {
         self.applyingPreviewWindow += 1
-        let exception = inputCatch(body)
+        let exception = HorosObjCException.caughtWithoutAllocation(body)
         self.applyingPreviewWindow -= 1
         exception?.raise()
     }

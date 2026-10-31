@@ -101,9 +101,9 @@ void DicomDatabaseRegistryUnlockForDealloc(void)
 @implementation DicomDatabase (CAPI)
 
 // The registry holds the databases by path without retaining them. A lookup
-// retains one under the registry's lock; the last release, and the -dealloc
-// that removes the database from the registry, happen under the same lock.
-// Swift cannot override -release.
+// retains one under the registry's lock; the last release, and the start of
+// the -dealloc, which removes the database from the registry and then leaves
+// the lock, happen under the same lock. Swift cannot override -release.
 -(oneway void) release
 {
     NSRecursiveLock* lock = DicomDatabaseRegistryLock();

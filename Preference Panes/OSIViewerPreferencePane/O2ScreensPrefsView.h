@@ -36,7 +36,7 @@
  ============================================================================*/
 
 
-// O2ScreensPrefsView is implemented in Swift since #711 (Preference
+// O2ScreensPrefsView is implemented in Swift (Preference
 // Panes/OSIViewerPreferencePane/O2ScreensPrefsView.swift). This header keeps
 // <Horos/O2ScreensPrefsView.h>: it brings in the generated interface, which declares the
 // same class name and selectors.

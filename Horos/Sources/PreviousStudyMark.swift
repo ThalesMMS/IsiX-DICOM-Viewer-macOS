@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 
 /// "Previous" at the bottom of a 2D viewer whose study is older than
 /// another study of the same patient open in a 2D viewer, so that the older
@@ -24,9 +25,9 @@ import AppKit
 public final class PreviousStudyMark: NSObject {
 
     /// The Viewers pane's check: on by default.
-    @objc public static let defaultsKey = "ShowPreviousExamLabel"
+    @objc public static let defaultsKey = ViewerPreferences.showPreviousExamLabel.name
 
-    @objc public static var isEnabled: Bool { UserDefaults.standard.bool(forKey: defaultsKey) }
+    @objc public static var isEnabled: Bool { PreferencesSource.process.preferences[ViewerPreferences.showPreviousExamLabel] }
 
     private static let previousViewers = NSHashTable<AnyObject>.weakObjects()
     private static var box: AnnotationBox?

@@ -39,6 +39,7 @@
 
 import AppKit
 import IsiXImaging
+import IsiXPreferences
 
 // Opening lists of database images in viewers, apart from the browser
 // window: the key images of the lists, the memory check (with thinning when
@@ -102,7 +103,7 @@ final class ViewerSeriesLoader {
         var result: (enough: Bool, requiredMegabytes: UInt) = (false, 0)
         // An image that cannot be read raises: the probes are freed and the
         // operation left before the exception goes on, as @finally did.
-        let exception = BrowserObjC.attempt {
+        let exception = HorosObjCException.caught {
             result = ViewerMemory.enoughMemory(
                 imageCounts: lists.map(\.count), image: { memoryImage(lists[$0][$1]) },
                 allocate: { bytes in
@@ -140,8 +141,8 @@ final class ViewerSeriesLoader {
               tryToFlipData: Bool) -> ViewerController? {
         if toOpenArray.isEmpty { return nil }
         var toOpenArray = toOpenArray
-        let defaults = UserDefaults.standard
-        let savedAUTOHIDEMATRIX = defaults.bool(forKey: "AUTOHIDEMATRIX")
+        let preferences = PreferencesSource.process.preferences
+        let savedAUTOHIDEMATRIX = preferences[ViewerPreferences.autoHidesMatrix]
 
         var multiFrame = false, preFlippedData = false
         var movieController: ViewerController?
@@ -158,11 +159,11 @@ final class ViewerSeriesLoader {
             wait = ThreadModalForWindowController(thread: Thread.current, window: nil)
         }
 
-        let exception = BrowserObjC.attempt {
+        let exception = HorosObjCException.caught {
             //  (1) keyImages
             if keyImages {
                 var keyImagesToOpenArray: [[Any]] = []
-                if let exception = BrowserObjC.attempt({
+                if let exception = HorosObjCException.caught({
                     for loadList in toOpenArray {
                         let keyImagesArray = loadList.filter { (($0 as? DicomImage)?.value(forKey: "isKeyImage") as? NSNumber)?.boolValue == true }
                         if !keyImagesArray.isEmpty { keyImagesToOpenArray.append(keyImagesArray) }
@@ -182,7 +183,7 @@ final class ViewerSeriesLoader {
                 }
             }
 
-            defaults.set(false, forKey: "AUTOHIDEMATRIX")
+            preferences.set(false, for: ViewerPreferences.autoHidesMatrix)
 
             if !BrowserController.horos_dontShowOpenSubSeries {
                 if (NSApplication.shared.currentEvent?.modifierFlags.contains(.option) ?? false)
@@ -210,7 +211,7 @@ final class ViewerSeriesLoader {
             // The blocks of a pass are held together, as the volumes will be.
             var probes: [UnsafeMutableRawPointer] = []
             var planned: Result<ViewerMemoryPlan, ViewerMemoryFailure> = .failure(.notEnoughMemory)
-            let planException = BrowserObjC.attempt { planned = ViewerMemory.plan(
+            let planException = HorosObjCException.caught { planned = ViewerMemory.plan(
                 imageCounts: lists.map(\.count), image: { memoryImage(lists[$0][$1]) },
                 visit: { list in
                     let first = lists[list].first as AnyObject?
@@ -303,7 +304,7 @@ final class ViewerSeriesLoader {
                     var list = list
                     var flipped = false
                     if !multiFrame && tryToFlipData && list.count > 2 {
-                        if let exception = BrowserObjC.attempt({
+                        if let exception = HorosObjCException.caught({
                             let p1 = self.singleImagePix(list[1])
                             let p2 = self.singleImagePix(list[2])
                             if let p1, let p2, ViewerController.computeInterval(for: p1, and: p2) < 0 {
@@ -343,7 +344,7 @@ final class ViewerSeriesLoader {
                                     message: String(format: NSLocalizedString("Opening Error : %@\r\r%@", comment: ""), exception, exception.printStackTrace() ?? ""),
                                     defaultButton: nil, alternateButton: nil, otherButton: nil)
         }
-        defaults.set(savedAUTOHIDEMATRIX, forKey: "AUTOHIDEMATRIX")
+        preferences.set(savedAUTOHIDEMATRIX, for: ViewerPreferences.autoHidesMatrix)
         wait?.invalidate()
         Thread.current.exitOperation()
         if stop { return nil }
@@ -352,12 +353,12 @@ final class ViewerSeriesLoader {
 
         browser.database?.save() // To save 'dateOpened' field, and allow independentContext to see it
 
-        if defaults.bool(forKey: "AUTOTILING"), let viewer, defaults.bool(forKey: "tileWindowsOrderByStudyDate"),
+        if preferences[ViewerPreferences.autoTiling], let viewer, preferences[ViewerPreferences.tileWindowsOrderByStudyDate],
            !BrowserObjC.literallyEqual(previousStudy?.studyInstanceUID, viewer.currentStudy()?.studyInstanceUID) {
             // Keep current row/column
-            let tiling = ViewerTiling.rowsAndColumns(defaults.string(forKey: "LastWindowsTilingRowsColumns"))
+            let tiling = ViewerTiling.rowsAndColumns(preferences[ViewerPreferences.lastWindowsTilingRowsColumns])
             let d = tiling.map { ["rows": NSNumber(value: $0.rows), "columns": NSNumber(value: $0.columns)] as NSDictionary }
-            AppController.shared()?.tileWindows(d)
+            PreferencesSource.process.processGraph.windowArranger.tileWindows(sender: d)
         }
 
         return createdViewer
@@ -367,15 +368,16 @@ final class ViewerSeriesLoader {
     private func singleImagePix(_ image: Any) -> DCMPix? {
         let o = image as AnyObject
         return DCMPix(path: o.value(forKey: "completePath") as? String, 0, 1, nil, Int(BrowserObjC.intValue(o.value(forKey: "frameID"))),
-                      Int(BrowserObjC.intValue(o.value(forKeyPath: "series.id"))), isBonjour: !(browser.database?.isLocal() ?? false), imageObj: o as? NSManagedObject)
+                      Int(BrowserObjC.intValue(o.value(forKeyPath: "series.id"))), isBonjour: RemoteDicomDatabase.database(of: o as? NSManagedObject) != nil,
+                      imageObj: o as? NSManagedObject)
     }
 
     /// Makes room before trying an allocation again: the string textures and
     /// the 8-bit images of the preview.
     private func freeMemoryForOpening() {
         DCMView.purgeStringTextureCache()
-        _ = BrowserObjC.attempt {
-            BrowserObjC.synchronized(self.browser.horos_previewPixThumbnails) {
+        _ = HorosObjCException.caught {
+            HorosObjCException.synchronized(self.browser.horos_previewPixThumbnails) {
                 for case let pix as DCMPix in self.browser.horos_previewPix ?? [] {
                     pix.kill8bitsImage()
                     pix.revert(false)
@@ -391,7 +393,6 @@ final class ViewerSeriesLoader {
                       viewer: ViewerController?, flipped: Bool, created createdViewer: inout ViewerController?,
                       movieController: inout ViewerController?) -> Bool {
         var multiFrame = multiFrame
-        let isBonjour = !(browser.database?.isLocal() ?? false)
         var mem = 0
 
         if let first = loadList.first as AnyObject? {
@@ -404,8 +405,14 @@ final class ViewerSeriesLoader {
         let correspondingObjects = NSMutableArray()
         var missingFileReason: String?
 
+        // Each image's own database says whether its file is a shared
+        // database's: the list need not be rows of the database the browser
+        // shows (a plugin's, the series menu of a viewer of another database).
+        func isShared(_ image: AnyObject) -> Bool { RemoteDicomDatabase.database(of: image as? NSManagedObject) != nil }
+
         if loadList.count == 1, let curFile = loadList[0] as AnyObject?, BrowserObjC.intValue(curFile.value(forKey: "numberOfFrames")) > 1 {
             multiFrame = true
+            let isBonjour = isShared(curFile)
             let frames = Int(BrowserObjC.intValue(curFile.value(forKey: "numberOfFrames")))
             for i in 0..<frames {
                 if let dcmPix = DCMPix(path: curFile.value(forKey: "completePath") as? String, i, frames, volume + mem, i,
@@ -421,7 +428,7 @@ final class ViewerSeriesLoader {
                 let curFile = image as AnyObject
                 if let dcmPix = DCMPix(path: curFile.value(forKey: "completePath") as? String, i, loadList.count, volume + mem,
                                        Int(BrowserObjC.intValue(curFile.value(forKey: "frameID"))),
-                                       Int(BrowserObjC.intValue(curFile.value(forKeyPath: "series.id"))), isBonjour: isBonjour,
+                                       Int(BrowserObjC.intValue(curFile.value(forKeyPath: "series.id"))), isBonjour: isShared(curFile),
                                        imageObj: curFile as? NSManagedObject) {
                     mem += Int(BrowserObjC.intValue(curFile.value(forKey: "width"))) * Int(BrowserObjC.intValue(curFile.value(forKey: "height")))
                     viewerPix.add(dcmPix)
@@ -458,9 +465,9 @@ final class ViewerSeriesLoader {
 
         // Opening the images of viewerPix in the adequate viewer.
         DCMView.setDontListenToSyncMessage(true)
-        let defaults = UserDefaults.standard
-        let copyCOPYSETTINGS = defaults.bool(forKey: "COPYSETTINGS")
-        defaults.set(false, forKey: "COPYSETTINGS")
+        let preferences = PreferencesSource.process.preferences
+        let copyCOPYSETTINGS = preferences[ViewerPreferences.copySettings]
+        preferences.set(false, for: ViewerPreferences.copySettings)
 
         if viewerPix.count > 0 {
             if !movieViewer {
@@ -504,8 +511,8 @@ final class ViewerSeriesLoader {
         }
 
         // "COPYSETTINGS" switched on while opening (fusion, for instance) stays on.
-        if !defaults.bool(forKey: "COPYSETTINGS") {
-            defaults.set(copyCOPYSETTINGS, forKey: "COPYSETTINGS")
+        if !preferences[ViewerPreferences.copySettings] {
+            preferences.set(copyCOPYSETTINGS, for: ViewerPreferences.copySettings)
         }
         DCMView.setDontListenToSyncMessage(false)
         return multiFrame

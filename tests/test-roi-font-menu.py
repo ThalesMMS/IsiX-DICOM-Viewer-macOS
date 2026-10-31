@@ -58,7 +58,11 @@ def isolate(text, start, *stops):
     return text[a:end]
 
 
-if drawing:
+# The Swift helper reads the catalog's key, with the menu's sizes declared just above it.
+typed = drawing and '    /// The label font sizes the menu steps through.' in drawing
+if typed:
+    helper = isolate(drawing, '    /// The label font sizes the menu steps through.', '\n    @objc(increaseFontSize:)')
+elif drawing:
     helper = isolate(drawing, '    @objc(labelFontSizeMenuItemIsEnabled:)', '\n    @objc(increaseFontSize:)')
 else:
     helper = isolate(view, '+ (BOOL) labelFontSizeMenuItemIsEnabled:',
@@ -88,7 +92,8 @@ else:
     view_validate = isolate(view, '- (BOOL)validateMenuItem:',
                              '\n- (IBAction) roiSaveSelected:')
 if swift:
-    controller_validate = isolate(source('ViewerController+MenuValidation.swift'), 'func validateMenuItem(', '\n}\n')
+    # The viewer's ViewerMenuValidation validates its items.
+    controller_validate = isolate(source('ViewerMenuValidation.swift'), 'func state(of item: NSMenuItem', '\n}\n')
 else:
     controller_validate = isolate(controller, '- (BOOL)validateMenuItem:',
                                    '\n- (IBAction) resetWindowsState:')
@@ -99,7 +104,8 @@ forward_down = 'horos_imageView?.decreaseFontSize(sender)' if swift else '[image
 if 'increaseThickness:' in helper or 'ROI_selected' in helper:
     print('FAIL: font-size enablement must not require a selected ROI', file=sys.stderr)
     sys.exit(1)
-if 'LabelFONTSIZE' not in helper:
+label_key = 'PreferenceKey<Float>("LabelFONTSIZE"' in (root / 'Modules/IsiXPreferences/Sources/ViewerPreferences.swift').read_text()
+if 'LabelFONTSIZE' not in helper and not ('preferences[ViewerPreferences.labelFONTSIZE]' in helper and label_key):
     print('FAIL: font-size menu enablement must read LabelFONTSIZE', file=sys.stderr)
     sys.exit(1)
 if '[DCMView labelFontSizeMenuItemIsEnabled:' not in view_validate:
@@ -138,11 +144,12 @@ for forbidden in ('HorosROILineGeometry', 'HorosROILabelPresentation',
 # a C function; the Objective-C one, as a method of the DCMView double.
 SWIFT = r'''
 import Cocoa
+IMPORTS
 class DCMView: NSObject {
 HELPER}
 @_cdecl("swiftLabelFontSizeMenuItemIsEnabled")
 func swiftLabelFontSizeMenuItemIsEnabled(_ item: NSMenuItem) -> Bool { DCMView.labelFontSizeMenuItemIsEnabled(item) }
-'''.replace('HELPER', helper)
+'''.replace('HELPER', helper).replace('IMPORTS', 'import IsiXPreferences' if typed else '')
 if drawing:
     helper = '''BOOL swiftLabelFontSizeMenuItemIsEnabled(NSMenuItem *item);
 + (BOOL) labelFontSizeMenuItemIsEnabled:(NSMenuItem *)item { return swiftLabelFontSizeMenuItemIsEnabled(item); }'''
@@ -204,7 +211,16 @@ code = code.replace('HELPER', helper).replace('INCREASE', increase).replace('DEC
 with tempfile.TemporaryDirectory(prefix='horos-roi-font-menu-') as d:
     p = Path(d)
     (p / 'test.m').write_text(code)
-    if drawing:
+    if typed:
+        # The helper reads the preferences through PreferencesSource, over the stand-in graph.
+        sys.path.insert(0, str(root / 'tests'))
+        import process_graph_stand_in
+        (p / 'helper.swift').write_text(SWIFT)
+        subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', str(p / 'test.m'), '-o', str(p / 'test.o')], check=True)
+        subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-module-name', 'FontMenu', str(p / 'helper.swift'),
+                        *process_graph_stand_in.swift_flags(p / 'isix'), str(p / 'test.o'), '-framework', 'Cocoa',
+                        '-o', str(p / 'test')], check=True)
+    elif drawing:
         (p / 'helper.swift').write_text(SWIFT)
         subprocess.run(['xcrun', 'swiftc', '-c', '-parse-as-library', '-module-name', 'FontMenu', str(p / 'helper.swift'),
                         '-o', str(p / 'helper.o')], check=True)

@@ -8,7 +8,7 @@ import signal
 import subprocess
 import sys
 import tempfile
-from dcmtk_build import ROOT, dcmtk_flags
+from dcmtk_build import ROOT, dcmtk_flags, dcmtk_source
 
 # Reuse installed upstream archives without sharing mutable build outputs.
 # A worker may snapshot a verified installation into its own build directory.
@@ -17,7 +17,6 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--shipped-only', action='store_true', help='leave the heavy sanitizer build to integration')
 arguments = parser.parse_args()
 flags = dcmtk_flags()
-source = ROOT / 'DCMTK'
 driver = ROOT / 'tools/exercise-dicom-parser.cc'
 assert '-DDCMTK_MAX_SEQUENCE_NESTING=16' in (ROOT / 'Horos/Scripts/DCMTK/CMake.sh').read_text()
 
@@ -41,6 +40,10 @@ with tempfile.TemporaryDirectory(prefix='horos-parser-') as directory:
     binaries = [shipped]
     sanitizer = directory / 'sanitizer'
     if not arguments.shipped_only:
+        # The sanitized build compiles the same pinned original source as the
+        # recipe. That tree is extracted read-only, so CMake configures and
+        # builds out of tree, in this temporary directory only.
+        source = dcmtk_source()
         cmake = ['cmake', '-S', str(source), '-B', str(sanitizer), '-DCMAKE_BUILD_TYPE=Debug',
                  '-DCMAKE_POLICY_VERSION_MINIMUM=3.5', '-DCMAKE_CXX_STANDARD=11',
                  '-DDCMTK_ENABLE_STL=ON', '-DBUILD_SHARED_LIBS=OFF',

@@ -25,6 +25,49 @@ import Testing
         }
     }
 
+    @Test func readsTheMediumAsThePreferencesSay() {
+        func reads(uses: Bool, named: Int, empty: Bool, beyond: Bool) -> Bool {
+            MediaScanRules.readsMedium(usesDicomdir: uses, namedByIndex: named, readIfIndexIsEmpty: empty, readBeyondIndex: beyond)
+        }
+        #expect(reads(uses: false, named: 0, empty: false, beyond: false))
+        #expect(reads(uses: false, named: 5, empty: false, beyond: false))
+        #expect(!reads(uses: true, named: 0, empty: false, beyond: true))
+        #expect(reads(uses: true, named: 0, empty: true, beyond: false))
+        #expect(!reads(uses: true, named: 5, empty: true, beyond: false))
+        #expect(reads(uses: true, named: 5, empty: false, beyond: true))
+    }
+
+    @Test func asksWhatToDoWhenTheModeSaysSoOrCommandIsDown() {
+        #expect(MediaScanRules.asksWhatToDo(mountMode: MediaScanRules.askMode, commandDown: false))
+        #expect(MediaScanRules.asksWhatToDo(mountMode: MediaScanRules.copyMode, commandDown: true))
+        #expect(!MediaScanRules.asksWhatToDo(mountMode: MediaScanRules.copyMode, commandDown: false))
+        #expect(!MediaScanRules.asksWhatToDo(mountMode: 0, commandDown: false))
+    }
+
+    @Test func ejectsOnlyAVolumeWhoseCopyFinished() {
+        #expect(MediaScanRules.ejectsAfterCopy(isVolume: true, ejectPreference: true, copyStopped: false))
+        #expect(!MediaScanRules.ejectsAfterCopy(isVolume: true, ejectPreference: true, copyStopped: true))
+        #expect(!MediaScanRules.ejectsAfterCopy(isVolume: false, ejectPreference: true, copyStopped: false))
+        #expect(!MediaScanRules.ejectsAfterCopy(isVolume: true, ejectPreference: false, copyStopped: false))
+        #expect(MediaScanRules.ejectsAfterImport(asked: true, copied: true, failedCopies: 0, ejectPreference: true))
+        #expect(!MediaScanRules.ejectsAfterImport(asked: true, copied: true, failedCopies: 1, ejectPreference: true))
+        #expect(!MediaScanRules.ejectsAfterImport(asked: false, copied: true, failedCopies: 0, ejectPreference: true))
+        #expect(!MediaScanRules.ejectsAfterImport(asked: true, copied: false, failedCopies: 0, ejectPreference: true))
+        #expect(!MediaScanRules.ejectsAfterImport(asked: true, copied: true, failedCopies: 0, ejectPreference: false))
+    }
+
+    @Test func aMediumIsNotValidatedBeforeIndexing() {
+        #expect(MediaScanRules.validatesBeforeIndexing(preference: true, mountedVolume: false))
+        #expect(!MediaScanRules.validatesBeforeIndexing(preference: true, mountedVolume: true))
+        #expect(!MediaScanRules.validatesBeforeIndexing(preference: false, mountedVolume: false))
+    }
+
+    @Test func trustsTheParseOnlyWhenItFoundMoreThanTwiceTheEntries() {
+        #expect(MediaScanRules.trustsParseOverEntries(parsedFiles: 5, entries: 2))
+        #expect(!MediaScanRules.trustsParseOverEntries(parsedFiles: 4, entries: 2))
+        #expect(MediaScanRules.trustsParseOverEntries(parsedFiles: 1, entries: 0))
+    }
+
     @Test func choosesTheShortestDicomdir() {
         #expect(MediaScanRules.dicomdir(in: ["/V/sub/DICOMDIR", "/V/dicomdir.", "/V/x"]) == "/V/dicomdir.")
         #expect(MediaScanRules.dicomdir(in: ["/V/a/DICOMDIR", "/V/b/DICOMDIR"]) == "/V/a/DICOMDIR")

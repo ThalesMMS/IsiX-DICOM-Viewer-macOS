@@ -2,15 +2,20 @@
 """Execute production fit geometry and deferred-opening lifecycle with real run-loop delivery.
 
 The workspace loader that cancels the opening fit is in databaseOpenStudy:,
-Swift (BrowserController+DatabaseDragExport.swift).
+Swift (the browser's ViewerOpener, ViewerOpener.swift).
 
 +openingContentBoundsForPixLists:loadThread:, -cancelOpeningScaleToFit,
--requestOpeningScaleToFit and -finishOpeningScaleToFit are Swift, in
-ViewerController+RetrieveAndView.swift. They are taken from there as they
-stand, with -updateTilingViewsValue/-setUpdateTilingViewsValue: and the file's
-own objcSynchronized/objcTry/objcAssert/objcIsEqualToString, and compiled with
-swiftc as an extension of an Objective-C double of ViewerController, beside the
-real HorosObjCException. The double reaches its instance variables through
+-requestOpeningScaleToFit, -finishOpeningScaleToFit and -horosRecordSeriesShown:
+are Swift façades in ViewerController+RetrieveAndView.swift, of the viewer's
+ViewerSeriesLoad (ViewerSeriesLoad.swift: cancelOpeningScaleToFit,
+requestOpeningScaleToFit, finishOpeningScaleToFit, recordSeriesShown) and of
+SeriesImageLoader's openingContentBounds (SeriesImageLoader.swift). The façades,
+with -updateTilingViewsValue/-setUpdateTilingViewsValue: and the file's
+objcAssert, are taken as they stand and compiled with swiftc as an extension of
+an Objective-C double of ViewerController; the series load's methods as they
+stand in a double of ViewerSeriesLoad that reads the harness's preferences
+through IsiXPreferences; with the @try of ViewerController+ImagePipelineSupport.swift
+and the real HorosObjCException. The double reaches its instance variables through
 accessors spelled as in ViewerController+SwiftIvars.h, and the DCMPix, DCMView
 and SeriesView doubles keep the declarations Swift reads in the app's headers.
 The DCMView double and the driver stay Objective-C, compiled with clang as
@@ -26,18 +31,24 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+import objc_exception_guards
 import tempfile
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 import sources
+import isix_modules
 import harness_defaults  # the harness's preferences stay in its own process
 
 root = Path(__file__).resolve().parents[1]
 # DCMView.m is gone once the class is Swift.
 view = (root/'Horos/Sources/DCMView.m').read_text() if (root/'Horos/Sources/DCMView.m').exists() else ''
 controller = sources.source_text('ViewerController+RetrieveAndView')
+series_load = (root/'Horos/Sources/ViewerSeriesLoad.swift').read_text()
+loader = (root/'Horos/Sources/SeriesImageLoader.swift').read_text()
+support = sources.source_text('ViewerController+ImagePipelineSupport')
 
 def method(source, signature):
     start = source.index(signature)
@@ -48,6 +59,11 @@ def swift_methods(first, following):
     """The Swift methods from @objc(first) up to the next method's @objc(following)."""
     start = controller.index('    @objc(' + first + ')\n')
     return controller[start:controller.index('    @objc(' + following + ')\n', start)]
+
+def member(source, signature):
+    """The member of a Swift type from its signature line up to its closing brace."""
+    start = source.index(signature)
+    return source[start:source.index('\n    }\n', start) + 7]
 
 def swift_helper(name):
     return re.search(r'(?:@inline\(__always\)\n)?fileprivate func ' + name + r'\b.*?\n}\n', controller, re.S).group(0)
@@ -70,6 +86,14 @@ else:
 analysis_method = swift_methods('openingContentBoundsForPixLists:loadThread:', 'startLoadImageThread')
 policy = swift_methods('updateTilingViewsValue', 'finalizeSeriesViewing') + swift_methods('horosRecordSeriesShown:', 'showWindowTransition')
 assert 'func cancelOpeningScaleToFit()' in policy and 'func finishOpeningScaleToFit()' in policy
+for facade in ('horosSeriesLoad.cancelOpeningScaleToFit()', 'horosSeriesLoad.requestOpeningScaleToFit()',
+               'horosSeriesLoad.finishOpeningScaleToFit()', 'horosSeriesLoad.recordSeriesShown(series)'):
+    assert facade in policy, facade
+load_methods = ''.join(member(series_load, '    ' + signature) for signature in (
+    'func recordSeriesShown(_ series: NSManagedObjectID?) -> Bool {', 'func cancelOpeningScaleToFit() {',
+    'func requestOpeningScaleToFit() {', 'func finishOpeningScaleToFit() {'))
+loader_statics = ''.join(member(loader, '    nonisolated static func ' + name) for name in ('openingContentBounds(of ', 'keyed('))
+try_helper = (lambda found: found.group(0) if found else objc_exception_guards.source(log=False))(re.search(r'\n/// Runs `body` as an @try block.*?\nfunc viewerObjCTry.*?\n}\n', support, re.S))
 # Wiring guards accompany behavioral execution below. The input events are
 # Swift: the keyboard, the mouse buttons and the scroll wheel and gestures.
 events = ''.join((root/f'Horos/Sources/DCMView+{name}.swift').read_text() for name in ('Keyboard', 'Mouse', 'Scrolling'))
@@ -78,12 +102,14 @@ for signature in ['keyDown:', 'mouseDown:', 'rightMouseDown:', 'otherMouseDown:'
     assert 'self.cancelOpeningScaleToFitForInteraction()' in events[start:events.index('\n    }\n', start)], signature
 # -changeImageData:::: (Swift) asks for the fit of a series this window has
 # not shown yet: one shown before comes back with its saved zoom and pan.
-switch = controller[controller.index('                        if !sameSeries {\n'):]
-switch = switch[:switch.index('\n                        }\n')]
-assert 'if !self.horosRecordSeriesShown(series) {\n                                self.requestOpeningScaleToFit()' in switch
-assert '(objcValue(self.horos_fileList(at: 0)?.object(at: 0), "series") as? NSManagedObject)?.objectID' in switch
-# The workspace loader of databaseOpenStudy: is Swift.
-browser = (root/'Horos/Sources/BrowserController+DatabaseDragExport.swift').read_text()
+# It is the viewer's ViewerSeriesLoad that gives the viewer its new series.
+switch = series_load[series_load.index('                if !sameSeries {\n'):]
+switch = switch[:switch.index('\n                }\n')]
+assert 'if !recordSeriesShown(series) {\n                        requestOpeningScaleToFit()' in switch
+assert 'let series = firstImage()?.series?.objectID' in switch
+assert '    private func firstImage(_ index: Int = 0) -> DicomImage? {\n        viewer.horos_fileList(at: index)?.firstObject as? DicomImage' in series_load
+# The workspace loader of databaseOpenStudy: is the browser's ViewerOpener's.
+browser = (root/'Horos/Sources/ViewerOpener.swift').read_text()
 a=browser.index('v?.setImageRows(rows, columns: columns)')
 assert 'v?.cancelOpeningScaleToFit()' in browser[a:browser.index('v?.setScaleValue(scale)',a)]
 for language in ('Base','ja-JP'):
@@ -161,11 +187,54 @@ extern int delayedTileWindows;
 @end
 '''
 
+# The viewer's state the extracted methods reach: the fit asked at opening
+# waits in delayed calls of its own (ViewerImageViews in the app).
+HARNESS_STATE = '''
+@MainActor final class HarnessImageViews { let openingScaleToFit = DeferredCalls() }
+@MainActor private var harnessImageViews: [ObjectIdentifier: HarnessImageViews] = [:]
+@MainActor extension ViewerController {
+    var imageViewsState: HarnessImageViews {
+        if let state = harnessImageViews[ObjectIdentifier(self)] { return state }
+        let state = HarnessImageViews()
+        harnessImageViews[ObjectIdentifier(self)] = state
+        return state
+    }
+}
+// The window arranger's tiling put off, which the fit waits for: the
+// harness's delayedTileWindows says whether one is waiting.
+@MainActor final class HarnessArranger { var isTilingScheduled: Bool { delayedTileWindows != 0 } }
+@MainActor final class HarnessAppController { let windowArranger = HarnessArranger() }
+final class HarnessProcessGraph: Sendable { @MainActor var appController: HarnessAppController? { HarnessAppController() } }
+struct HarnessSessionGraph { let processGraph = HarnessProcessGraph() }
+
+// The viewer's series load, with the methods under test; its preferences are
+// the harness's own.
+@MainActor final class ViewerSeriesLoad {
+    unowned(unsafe) let viewer: ViewerController
+    let preferences: any PreferenceStore = UserDefaults.standard
+    private var shownSeries: Set<NSManagedObjectID> = []
+    var graph: HarnessSessionGraph { HarnessSessionGraph() }
+    init(viewer: ViewerController) { self.viewer = viewer }
+LOADMETHODS}
+@MainActor private var harnessLoads: [ObjectIdentifier: ViewerSeriesLoad] = [:]
+@MainActor extension ViewerController {
+    var horosSeriesLoad: ViewerSeriesLoad {
+        if let load = harnessLoads[ObjectIdentifier(self)] { return load }
+        let load = ViewerSeriesLoad(viewer: self)
+        harnessLoads[ObjectIdentifier(self)] = load
+        return load
+    }
+}
+enum SeriesImageLoader {
+LOADERSTATICS}
+'''.replace('LOADMETHODS', load_methods).replace('LOADERSTATICS', loader_statics)
+
 # The Swift under test: the extracted methods, with the helpers they call.
 identity = (root/'Horos/Sources/IdentityToken.swift').read_text()
-extension = ('import AppKit\nimport CoreData\nimport Synchronization\n\n' + identity[identity.index('struct IdentityToken'):] + '\nfileprivate let HorosSeriesShownKey = IdentityToken()\n'
-             + ''.join(swift_helper(n) + '\n' for n in ('objcSynchronized', 'objcTry', 'objcAssert', 'objcIsEqualToString'))
-             + 'extension ViewerController {\n' + policy + analysis_method + '}\n')
+extension = ('import AppKit\nimport CoreData\nimport Synchronization\nimport IsiXPreferences\n\n'
+             + swift_helper('objcAssert') + '\n' + try_helper
+             + HARNESS_STATE
+             + '@MainActor extension ViewerController {\n' + policy + analysis_method + '}\n')
 
 code = r'''
 #import "Harness.h"
@@ -477,13 +546,15 @@ with tempfile.TemporaryDirectory(prefix='horos-opening-fit-') as temp:
     (folder/'Harness.h').write_text(header)
     (folder/'check.m').write_text(code + harness_defaults.OBJC)
     (folder/'Fit.swift').write_text(extension)
-    swift_sources = [str(folder/'Fit.swift')]
+    swift_sources = [str(folder/'Fit.swift')] + [str(root/'Horos/Sources'/name) for name in (
+        'DeferredCalls.swift', 'ObservedThread.swift', 'OpeningContentBounds.swift') if (root/'Horos/Sources'/name).exists()]
     if geometry_swift is not None:
         (folder/'Geometry.swift').write_text(geometry_swift)
         swift_sources += [str(folder/'Geometry.swift')] + sorted(str(f) for f in (root/'Modules/IsiXImaging/Sources/ViewGeometry').glob('*.swift'))
     include=['-I',str(folder),'-I',str(root/'Horos/Sources')]
     subprocess.run(['xcrun','clang','-c',*include,'-Wno-deprecated-declarations',str(folder/'check.m'),'-o',str(folder/'check.o')],check=True)
     subprocess.run(['xcrun','clang','-c','-fobjc-arc',*include,str(root/'Horos/Sources/HorosObjCException.m'),'-o',str(folder/'HorosObjCException.o')],check=True)
-    subprocess.run(['xcrun','swiftc','-parse-as-library',*include,'-import-objc-header',str(folder/'Harness.h'),*swift_sources,
+    modules = isix_modules.module_flags('IsiXPreferences', folder/'modules')
+    subprocess.run(['xcrun','swiftc','-parse-as-library',*include,*modules,'-import-objc-header',str(folder/'Harness.h'),*swift_sources,
                     str(folder/'check.o'),str(folder/'HorosObjCException.o'),'-framework','Cocoa','-o',str(folder/'check')],check=True)
     subprocess.run([str(folder/'check')],check=True)

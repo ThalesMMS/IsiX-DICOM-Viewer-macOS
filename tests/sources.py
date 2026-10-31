@@ -16,6 +16,12 @@ FOLDERS = ('Horos/Sources', 'Horos/Sources/Adapters/DCMTK', 'Nitrogen/Sources', 
     sorted(str(pane.relative_to(ROOT)) for pane in (ROOT / 'Preference Panes').iterdir() if pane.is_dir())) + tuple(
     sorted(str(module.relative_to(ROOT)) for module in (ROOT / 'Modules').glob('*/Sources') if module.is_dir()))
 EXTENSIONS = ('.swift', '.mm', '.m')
+# What left a class for a type of its own: a test that reads what the class does
+# reads these with it.
+EXTRACTED = {'DicomDatabase': ('IncomingAdmission', 'DatabaseFileConversion', 'DicomFileIndexer', 'ImportFeedback', 'ImportDisposal',
+                              'DataFileAllocator'),
+             # The launch and quitting, and the links, files and plugins from outside.
+             'AppController': ('ApplicationLifecycle', 'ExternalRequestHandler')}
 
 
 def source_path(name):
@@ -39,7 +45,8 @@ def class_text(name):
     main = source_path(name)
     if main.suffix != '.swift':
         return source_text(name)
-    return '\n'.join(path.read_text(encoding='utf-8') for path in [main, *sorted(main.parent.glob(f'{name}+*.swift'))])
+    extracted = [source_path(part) for part in EXTRACTED.get(name, ())]
+    return '\n'.join(path.read_text(encoding='utf-8') for path in [main, *sorted(main.parent.glob(f'{name}+*.swift')), *extracted])
 
 
 def class_sources(name):

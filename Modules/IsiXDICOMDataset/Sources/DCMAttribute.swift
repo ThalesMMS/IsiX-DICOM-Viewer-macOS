@@ -150,8 +150,8 @@ public class DCMAttribute: NSObject, NSCopying {
     @objc public var group: Int32 { attrTag?.group ?? 0 }
     @objc public var element: Int32 { attrTag?.element ?? 0 }
     @objc public var valueMultiplicity: Int32 { Int32(values?.count ?? 0) }
-    @objc public var vrStringValue: String! { attrTag?.stringValue }
-    @objc public var paddedValueLength: Int { 0 }
+    public var vrStringValue: String! { attrTag?.stringValue }
+    public var paddedValueLength: Int { 0 }
 
     @objc public func value() -> Any! {
         guard let values, values.count > 0 else { return nil }
@@ -164,7 +164,7 @@ public class DCMAttribute: NSObject, NSCopying {
     }
 
     /// The length of the value as it would be written, in bytes.
-    @objc public var valueLength: Int {
+    public var valueLength: Int {
         let values = self.values ?? NSMutableArray()
         let multiplicity = values.count
         let isQueryDate = (values.firstObject as? DICOMCalendarDate)?.isQuery() == true
@@ -205,7 +205,7 @@ public class DCMAttribute: NSObject, NSCopying {
         return 0
     }
 
-    @objc public var paddedLength: Int {
+    public var paddedLength: Int {
         let length = valueLength
         return length % 2 != 0 ? length + 1 : length
     }
@@ -215,7 +215,6 @@ public class DCMAttribute: NSObject, NSCopying {
         return values.description
     }
 
-    @objc(swapBytes:)
     public func swapBytes(_ data: NSMutableData) {
     }
 
@@ -231,13 +230,13 @@ public class DCMAttribute: NSObject, NSCopying {
                       valueMultiplicity)
     }
 
-    @objc public func readableDescription() -> String {
+    public func readableDescription() -> String {
         guard valueLength < 100 else { return "" }
         return String(format: "%@ : %@", attrTag?.readableDescription() ?? "(null)",
                       values?.componentsJoined(by: ",") ?? "")
     }
 
-    @objc public func xmlNode() -> XMLNode {
+    public func xmlNode() -> XMLNode {
         let tag = attrTag!
         let attributes = [XMLNode.attribute(withName: "group", stringValue: String(format: "%04x", tag.group)),
                           XMLNode.attribute(withName: "element", stringValue: String(format: "%04x", tag.element)),

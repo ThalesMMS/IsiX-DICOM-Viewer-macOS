@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 
 // The life of VRView around its frames and its saved state: the 3D state the
 // controller saves with the series and restores (-get3DStateDictionary,
@@ -110,7 +111,7 @@ extension VRView {
     /// (autorotate3D): the countdown starts again.
     @objc(resetAutorotate:)
     func resetAutorotate(_ sender: Any?) {
-        if UserDefaults.standard.bool(forKey: "autorotate3D") && window?.windowController is VRController {
+        if processGraph.preferences[VolumeRenderingPreferences.autorotate3D] && window?.windowController is VRController {
             horos_startAutoRotate?.invalidate()
 
             horos_startAutoRotate = Timer.scheduledTimer(timeInterval: 60 * 3, target: self, selector: #selector(startAutoRotate(_:)),
@@ -120,7 +121,7 @@ extension VRView {
 
     @objc(startAutoRotate:)
     func startAutoRotate(_ sender: Any?) {
-        if UserDefaults.standard.bool(forKey: "autorotate3D") {
+        if processGraph.preferences[VolumeRenderingPreferences.autorotate3D] {
             horos_isRotating = true
         }
     }
@@ -138,15 +139,6 @@ extension VRView {
         if horos_flyto {
             processFlyTo()
         }
-    }
-
-    @objc(timerUpdate:)
-    func timerUpdate(_ sender: Any?) {
-        if horos_ROIUPDATE {
-            display()
-        }
-
-        horos_ROIUPDATE = false
     }
 
     // MARK: - Closing
@@ -192,7 +184,6 @@ extension VRView {
     // how each projection mode has always ended up after its reset. An angle chosen
     // since then is kept; when the camera is fitted to the volume again, it is
     // moved to frame the volume as it would at 30 degrees.
-    @objc(horosResetCameraFitting:)
     func horosResetCameraFitting(_ fit: Bool) {
         let chosenViewAngle = horos_chosenViewAngle
         horos_vtk.resetCameraKeepingViewAngle(chosenViewAngle, keep: chosenViewAngle > 0 && horos_projectionMode != 1, fit: fit)
@@ -225,6 +216,13 @@ extension VRView {
     @objc(set3DStateDictionary:)
     func set3DStateDictionary(_ dict: [AnyHashable: Any]?) {
         let vtk = horos_vtk
+
+        // The engine first: its first installation frames the volume from the
+        // front (-resetImage:), keeping only the camera's distance, and would
+        // turn a saved camera set before it back to the front.
+        if vtk.hasVolume && !vtk.volumeHasMapper {
+            engine = 2
+        }
 
         if let dict {
             if let tempArray = savedArray(dict["ShadingValues"]) {
@@ -290,12 +288,8 @@ extension VRView {
             dontResetImage = false
         } else {
             if renderingMode == 0 && vtk.hasProperty { // volume rendering
-                vtk.shade = UserDefaults.standard.bool(forKey: "defaultShading") ? 1 : 0
+                vtk.shade = processGraph.preferences[VolumeRenderingPreferences.defaultShading] ? 1 : 0
             }
-        }
-
-        if vtk.hasVolume && !vtk.volumeHasMapper {
-            engine = 2
         }
     }
 
@@ -401,21 +395,6 @@ extension VRView {
     }
 
     // MARK: - 3DConnexion SpaceNavigator
-
-    @objc(closeEvent:)
-    func closeEvent(_ sender: Any?) {
-        let vtk = horos_vtk
-        let vV = VRView.horos_snVRView
-        vtk.setVolumeMinimumImageSampleDistance(horos_LOD)
-
-        vtk.setBlendingMinimumImageSampleDistance(horos_LOD)
-
-        vV?.horos_vtk.invokeInteractorEvent(.leftButtonRelease)
-
-        horos_snStopped = true
-
-        horos_snCloseEventTimer = nil
-    }
 
     // The 3Dconnexion SpaceNavigator drove the camera in 32-bit builds only.
     @objc(connect2SpaceNavigator)

@@ -115,10 +115,13 @@ if 'reportListenBindFailure' in started or 'reportListenBindFailure' in toggle:
 if any(blocking in source for source in (toggle, failed) for blocking in ('waitUntilDone:YES', 'NSRunAlertPanel', 'runModal')):
     failures.append('the bind failure still blocks on a modal alert')
 report = method(app, '@objc(reportListenBindFailureForService:port:errnoCode:)')
-if 'ListenBindFailure.consumeUserNotice(' not in report:
-    failures.append('AppController no longer gates the user notice to once per service/port')
-if 'ListenBindFailure.presentUserNotice(' not in report:
-    failures.append('AppController no longer presents the notice off the listen thread')
+if 'ApplicationNetworkNotices.process.listenBindFailed(' not in report:
+    failures.append('AppController no longer reports through the application notices')
+notices = (root / 'Horos/Sources/ApplicationNetworkNotices.swift').read_text()
+if 'ListenBindFailure.consumeUserNotice(' not in notices:
+    failures.append('the application notices no longer gate the user notice to once per service/port')
+if 'ListenBindFailure.presentUserNotice(' not in notices:
+    failures.append('the application notices no longer present the notice off the listen thread')
 
 # The share does not read AsyncSocket's bind errno; that path is a separate one.
 if 'AsyncSocket lastBindErrno' in publisher:

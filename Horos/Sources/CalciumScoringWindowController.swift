@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 import IsiXROI
 
 /// Manages the Window for creating Calcium Scoring ROIs (CalciumScoring.xib):
@@ -104,8 +105,7 @@ public final class CalciumScoringWindowController: NSWindowController, NSWindowD
 
         self.viewer = viewer
         upperThreshold = CalciumScoringScanner.defaultUpperThreshold
-        let defaults = UserDefaults.standard
-        ctType = SegmentationSeedPoint.intValue(defaults.object(forKey: CalciumScoringScanner.defaultsKey))
+        ctType = Int32(truncatingIfNeeded: PreferencesSource.process.preferences[ViewerPreferences.calciumScoreCTType])
 
         storedROIs = NSMutableSet()
         let vesselNames = Self.defaultVesselNames
@@ -176,7 +176,7 @@ public final class CalciumScoringWindowController: NSWindowController, NSWindowD
             if let lowerThreshold = CalciumScoringScanner.lowerThreshold(ctType: storedCTType) {
                 self.lowerThreshold = lowerThreshold
             }
-            UserDefaults.standard.set(NSNumber(value: storedCTType), forKey: CalciumScoringScanner.defaultsKey)
+            PreferencesSource.process.preferences.set(Int(storedCTType), for: ViewerPreferences.calciumScoreCTType)
             updateTotals()
         }
     }

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Exercise MPR bindings and the 2D slab slider's real AppKit input geometry."""
 import private_tmpdir  # noqa: F401
+import harness_defaults  # the harness's preferences stay in its own process
+import isix_modules
 import os
 import subprocess
 import tempfile
@@ -17,6 +19,13 @@ proxy = controller[proxy_start:proxy_end]
 
 driver = r'''
 import AppKit
+import IsiXPreferences
+
+/// The process graph of the application, which hands the preferences to the slider and the MPR.
+final class ProcessGraph: Sendable {
+    static let process = ProcessGraph()
+    var preferences: UserDefaults { UserDefaults.standard }
+}
 func check(_ ok: Bool, _ message: String) {
     if !ok { fflush(stdout); fatalError(message) }
 }
@@ -53,6 +62,7 @@ final class ControllerDouble: NSObject {
     var dcmIntervalMax: Float = 100
     var millimeters: Float = 10
     var writes = 0
+    let preferenceStore: UserDefaults = PreferencesSource.process.preferences
     final class Bounds: NSObject {
         var minimumThickness: Double = 0
         var maximumThickness: Double = 0
@@ -184,7 +194,11 @@ click(0.5)
 check(target.counts == [16] && slider.integerValue == 16, "2D action receives slice count, not normalized position")
 slider.removeFromSuperview()
 let redraws = slider.redraws
+// The harness keeps this write in the process, where the defaults tell no
+// observer; they are told here as a write to the persistent domain tells them.
+defaults.willChangeValue(forKey: key)
 defaults.set(false, forKey: key)
+defaults.didChangeValue(forKey: key)
 let until = Date(timeIntervalSinceNow: 0.1)
 while Date() < until { RunLoop.current.run(mode: .default, before: until) }
 check(slider.redraws > redraws, "2D preference change refreshes knob drawing")
@@ -227,13 +241,15 @@ print("PASS: thickness ruler follows units, exponential mapping, bounds and dens
 
 with tempfile.TemporaryDirectory(prefix='horos-thick-slab-slider-') as folder:
     folder = Path(folder)
-    (folder / 'main.swift').write_text(driver)
+    (folder / 'main.swift').write_text(harness_defaults.SWIFT + driver)
     binary = folder / 'check'
     subprocess.run(['xcrun', 'swiftc', '-O' if configuration == 'Release' else '-Onone',
                     str(root / 'Horos/Sources/ThickSlabSliderScale.swift'),
                     str(root / 'Horos/Sources/HorosCellSlider.swift'),
                     str(root / 'Horos/Sources/HorosThickSlabSlider.swift'),
-                    str(folder / 'main.swift'), '-o', str(binary)], check=True)
+                    str(root / 'Horos/Sources/PreferencesSource.swift'),
+                    str(folder / 'main.swift'), *isix_modules.module_flags('IsiXPreferences', folder / 'modules'),
+                    '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
 nibs = list((root / 'Horos/Resources').glob('*.lproj/MPR.xib'))
@@ -252,9 +268,10 @@ for path in nibs:
     assert document.find('.//textField/connections/binding[@keyPath="selection.clippingRangeThicknessInMm"]') is not None, path
     assert any(s.text == 'thickSlabSliderPosition' for s in document.findall('.//objectController/declaredKeys/string')), path
 
-assert 'addObserver(self, forKeyPath: "values." + ThickSlabSliderScale.defaultsKey' in controller
-assert 'removeObserver(self, forKeyPath: "values." + ThickSlabSliderScale.defaultsKey' in controller
-assert 'if keyPath == "values." + ThickSlabSliderScale.defaultsKey {\n                self.refreshThickSlabSliderPosition()\n            }' in controller
+SCALE_PATH = 'ReconstructionPreferences.controllerKeyPath(ReconstructionPreferences.logarithmicThickSlabSlider)'
+assert f'addObserver(self, forKeyPath: {SCALE_PATH}' in controller
+assert f'removeObserver(self, forKeyPath: {SCALE_PATH}' in controller
+assert f'if keyPath == {SCALE_PATH} {{\n                self.refreshThickSlabSliderPosition()\n            }}' in controller
 for begin, end in [('var dcmIntervalMin:', 'var dcmIntervalMax:'),
                    ('var dcmIntervalMax:', 'var dcmmN:'),
                    ('private func setClippingRangeThicknessValue(', 'private func setClippingRangeModeValue(')]:

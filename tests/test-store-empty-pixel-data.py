@@ -31,8 +31,8 @@ if not re.search(r'HorosDataSetLacksDeclaredPixels\(\*dataset\)\)\s*\{\s*context
     failures.append('the store callback does not refuse an image with empty Pixel Data')
 if callback.find('HorosDataSetLacksDeclaredPixels') > callback.find('context->callbackHandler('):
     failures.append('the refusal comes after the file is written')
-inventory = (ROOT / 'Horos/Sources/RetrieveInventory.swift').read_text()
-if 'else if status != 0 { data.rejected[uid' not in inventory:
+inventory = (ROOT / 'Modules/IsiXDICOMNetwork/Sources/RetrieveInventoryState.swift').read_text()
+if 'record.rejected[uid, default: []].append(status)' not in inventory:
     failures.append('the retrieve inventory no longer records a refused store as rejected')
 
 DRIVER = r'''

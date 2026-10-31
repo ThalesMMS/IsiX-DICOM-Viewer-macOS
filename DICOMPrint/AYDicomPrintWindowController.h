@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// AYDicomPrintWindowController is implemented in Swift since #717
+// AYDicomPrintWindowController is implemented in Swift
 // (AYDicomPrintWindowController.swift). This header brings in the generated
 // interface, which declares the same class name and selectors.
 

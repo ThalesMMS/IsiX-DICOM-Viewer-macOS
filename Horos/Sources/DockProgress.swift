@@ -87,9 +87,11 @@ public final class DockProgress: NSObject {
     /// the system's icon style and tint (global defaults; absent for the
     /// default style).
     static func iconStyle() -> String {
-        let defaults = UserDefaults.standard
+        // Keys of the system's global domain, which the application's
+        // preferences search too; they are not keys of the application.
+        let preferences = PreferencesSource.process.preferences
         let style = ["AppleIconAppearanceTheme", "AppleIconAppearanceTintColor", "AppleIconAppearanceCustomTintColor"].map { key in
-            defaults.object(forKey: key).map { String(describing: $0) } ?? "-"
+            preferences.object(forKey: key).map { String(describing: $0) } ?? "-"
         }
         return ([NSApp.effectiveAppearance.name.rawValue] + style).joined(separator: "|")
     }

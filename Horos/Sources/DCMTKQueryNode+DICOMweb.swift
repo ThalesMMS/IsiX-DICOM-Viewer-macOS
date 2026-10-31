@@ -38,52 +38,24 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXContracts
 import IsiXDICOMNetwork
-
-/// One request of a DICOMweb retrieve: a study, a series or an instance.
-struct DICOMwebRetrieveRequest: Sendable {
-    var path: String
-    /// The instance asked for, when it is one.
-    var uid: String?
-    /// The series it is for, if one.
-    var series: String?
-    /// Asked for in the fallback syntax alone.
-    var fallback = false
-    var attempts = 0
-    /// The error a request cut after some objects ended on.
-    var error: NSError?
-}
 
 /// The requests of one DICOMweb retrieve, on a pool of at most the node's
 /// limit of threads, each holding one of the node's slots, shared with its
-/// other retrieves, while its request runs. A request that fails recovers as
-/// DICOMwebRetrieveRecovery says: asked again, resumed with what is still
-/// missing, or left missing while the others go on; only a failure no request
-/// can get past (authentication, TLS, the node's settings) stops the requests
-/// not yet sent.
+/// other retrieves, while its request runs. What the requests are, the order
+/// they start in and how one that failed recovers is the module's
+/// `DICOMwebRetrieveQueue`; the client is reached through its
+/// `DICOMwebRetrieving` port. Only the threads, the node's slots, the objects'
+/// files and the progress shown are here.
 final class DICOMwebRetrieveSession: @unchecked Sendable {
-    struct Pool {
-        /// The first failure nothing made up for (it stops the requests not yet sent).
-        var firstError: NSError?
-        /// A failure left missing while the others went on.
-        var unresolved: NSError?
-        /// Study and series requests cut after some objects, with their error,
-        /// resumed once the listing has ended.
-        var interrupted: [DICOMwebRetrieveRequest] = []
-        /// The requests that ended without error.
-        var completedPaths = Set<String>()
-        var pending: [DICOMwebRetrieveRequest] = []
-        var workers: [Thread] = []
-        var running = 0
-    }
-
     let node: DCMTKQueryNode
-    let client: DICOMwebClient
+    let client: any DICOMwebRetrieving
     let inventory: RetrieveInventory
-    let plan: RetrievePlan?
     let study: String
     let series: String
-    let incoming: String
+    let incoming: IngestFolder
+    let ingest = DatabaseIngest.process
     let wantedSyntax: String
     let localUIDs: Set<String>
     /// The retrieve's thread: cancelling it cancels the requests.
@@ -92,21 +64,15 @@ final class DICOMwebRetrieveSession: @unchecked Sendable {
     let adaptive: Bool
     let limiterNode: String
 
-    let pool = QueryNodeShared(Pool())
-    /// Every object this retrieve has queued for import, whichever request
-    /// brought it: one asked for again, as a cut study or a series its listing
-    /// left short is, comes again, and is dropped.
-    let taken = QueryNodeShared(Set<String>())
-    /// Set once a response in the node's own syntax was cut: what is asked
-    /// for from then on is asked for in the fallback syntax alone.
-    let fallbackOnly = QueryNodeShared(false)
+    let queue: DICOMwebRetrieveQueue
+    /// The worker threads, cancelled with the retrieve.
+    private let workers = QueryNodeShared<[Thread]>([])
 
-    init(node: DCMTKQueryNode, client: DICOMwebClient, inventory: RetrieveInventory, plan: RetrievePlan?, study: String, series: String,
-         incoming: String, wantedSyntax: String, localUIDs: Set<String>, thread: Thread, limit: Int, adaptive: Bool, limiterNode: String) {
+    init(node: DCMTKQueryNode, client: any DICOMwebRetrieving, inventory: RetrieveInventory, plan: RetrievePlan?, study: String, series: String,
+         incoming: IngestFolder, wantedSyntax: String, localUIDs: Set<String>, thread: Thread, limit: Int, adaptive: Bool, limiterNode: String) {
         self.node = node
         self.client = client
         self.inventory = inventory
-        self.plan = plan
         self.study = study
         self.series = series
         self.incoming = incoming
@@ -116,9 +82,10 @@ final class DICOMwebRetrieveSession: @unchecked Sendable {
         self.limit = limit
         self.adaptive = adaptive
         self.limiterNode = limiterNode
+        queue = DICOMwebRetrieveQueue(limit: limit, orderedSeries: { [plan] in plan?.orderedSeries })
     }
 
-    var failed: Bool { pool.read { $0.firstError != nil } }
+    var failed: Bool { queue.failed }
 
     /// Runs one WADO-RS request: each object is validated and queued for
     /// import as soon as its part has ended, while the rest of the response is
@@ -126,11 +93,11 @@ final class DICOMwebRetrieveSession: @unchecked Sendable {
     /// not belong to this request, repeats another or is in another transfer
     /// syntax ends the request; those queued before it stay, and the retrieve
     /// reports itself incomplete.
-    func take(_ request: DICOMwebRetrieveRequest) -> NSError? {
+    func take(_ request: DICOMwebRetrieveRequest) -> DICOMwebRequestFailure? {
         if failed || thread.isCancelled { return nil }
-        let staging = (incoming as NSString).appendingPathComponent(".DICOMweb-" + UUID().uuidString)
+        let staging = incoming.hiddenPath(named: "DICOMweb-" + UUID().uuidString)
         var unique = Set<String>()
-        let queue: (String) -> String? = { [self] file in
+        let handler: (String) -> String? = { [self] file in
             if thread.isCancelled { return "DICOMweb operation cancelled." }
             // The identifiers and the syntax come before the Pixel Data: the
             // file is read up to there, so that a large object is not read
@@ -139,36 +106,32 @@ final class DICOMwebRetrieveSession: @unchecked Sendable {
             let dataset = try? IsiXDCMTKDataset.dataset(ofFileAtPath: file, transferSyntax: &syntax)
             let actualStudy = dataset?.utf8Value(.studyInstanceUID), actualSeries = dataset?.utf8Value(.seriesInstanceUID)
             let objectUID = dataset?.utf8Value(.sopInstanceUID)
-            var valid = dataset != nil && actualStudy != nil && actualSeries != nil && objectUID != nil
             // A server that converts an object to a lossy syntax may give the
             // copy a new SOP Instance UID and name the original in its Source
             // Image Sequence, as Orthanc does: the copy stands for that
             // instance, which is then not asked for again.
-            let sources = valid ? (dataset?.stringValues(forTag: DICOMTag.referencedSOPInstanceUID.rawValue,
-                                                          inItemsOfSequence: DICOMTag.sourceImageSequence.rawValue) ?? [])
+            let identified = dataset != nil && actualStudy != nil && actualSeries != nil && objectUID != nil
+            let sources = identified ? (dataset?.stringValues(forTag: DICOMTag.referencedSOPInstanceUID.rawValue,
+                                                               inItemsOfSequence: DICOMTag.sourceImageSequence.rawValue) ?? [])
                 .map { String(decoding: $0, as: UTF8.self) }.filter { !$0.isEmpty } : []
-            valid = valid && actualStudy == study && (series.isEmpty || actualSeries == series)
-                && (request.series == nil || actualSeries == request.series) && !(objectUID ?? "").isEmpty
-                && (request.uid == nil || request.uid == objectUID || sources.contains(request.uid ?? ""))
-                && !unique.contains(objectUID ?? "")
-            guard valid, let dataset, let objectUID, let actualSeries else {
+            guard let dataset, let objectUID, let actualSeries,
+                  DICOMwebRetrieveQueue.belongs(study: study, series: series, request: request, actualStudy: actualStudy,
+                                                actualSeries: actualSeries, objectUID: objectUID, sources: sources, seen: unique) else {
                 return "WADO-RS returned invalid, duplicate or mismatched DICOM identifiers. That object was not imported."
             }
             if !wantedSyntax.isEmpty && !(syntax.map { client.accepts(retrievedTransferSyntax: $0 as String) } ?? false) {
                 return "WADO-RS returned an object in a transfer syntax that was not asked for. That object was not imported."
             }
-            let known = taken.read { $0.contains(objectUID) } || localUIDs.contains(objectUID)
-            if known {
+            if queue.isTaken(objectUID) || localUIDs.contains(objectUID) {
                 unique.insert(objectUID)
                 try? FileManager.default.removeItem(atPath: file)
                 return nil
             }
-            let destination = (incoming as NSString).appendingPathComponent(UUID().uuidString + ".dcm")
-            do { try FileManager.default.moveItem(atPath: file, toPath: destination) } catch {
+            guard ingest.publish(fileAt: file, named: UUID().uuidString + ".dcm", into: incoming, preset: .dicomweb).succeeded else {
                 return "A DICOMweb object could not be queued for import. Check available disk space and database folder permissions."
             }
             unique.insert(objectUID)
-            taken.modify { $0.insert(objectUID) }
+            queue.take(objectUID)
             // Orthanc 1.13.0 gives some objects it converts to a lossy syntax
             // (through GDCM) a new SOP Instance UID and no Source Image
             // Sequence; the series, SOP class and Instance Number stay the
@@ -203,159 +166,106 @@ final class DICOMwebRetrieveSession: @unchecked Sendable {
             // The importer scans the incoming folder on a timer: while a viewer
             // waits for this study, nudge it, at most twice a second, as a C-STORE does.
             if RetrieveViewing.shared.importNudgeWanted(studyUID: study, at: Date.timeIntervalSinceReferenceDate) {
-                DicomDatabase.activeLocal()?.initiateImportFilesFromIncomingDirUnlessAlreadyImporting()
+                ingest.requestImport()
             }
             return nil
         }
-        var requestError: NSError?
-        do {
-            _ = try client.retrieve(path: request.path, stagingDirectory: staging, fallbackOnly: request.fallback, objectHandler: queue)
-        } catch let error as NSError {
-            requestError = error
-        }
+        let requestFailure = queue.perform(request, with: client, stagingDirectory: staging, handler: handler)
         try? FileManager.default.removeItem(atPath: staging)
         // The nudges above are throttled: the last objects of a burst would
         // otherwise wait for the importer's next scan.
-        DicomDatabase.activeLocal()?.initiateImportFilesFromIncomingDirUnlessAlreadyImporting()
-        return requestError
+        ingest.requestImport()
+        return requestFailure
     }
 
-    /// What a request that failed leads to. An instance that arrived before
-    /// its answer failed needs nothing more; a study or series request that is
-    /// left missing ends the retrieve, as asking for each of its instances
-    /// would fail as it did.
-    func recover(_ request: DICOMwebRetrieveRequest, error: NSError) {
+    /// What a request that failed leads to, as the queue decides it; a retry
+    /// waits here first, for the node's Retry-After or the backoff.
+    func recover(_ request: DICOMwebRetrieveRequest, failure: DICOMwebRequestFailure) {
+        guard let action = queue.recovery(of: request, failure: failure) else { return }
         let made = request.attempts + 1
-        var action = DICOMwebRetrieveRecovery.action(for: error, attempts: made)
-        if action == .resume, let uid = request.uid {
-            if taken.read({ $0.contains(uid) }) { return }
-            action = .retry
-        }
-        if action == .skip && request.uid == nil { action = .stop }
         NSLog("---- retrieve: attempt %lu of %@ failed (%@): %@", UInt(made),
               request.uid != nil ? "an instance" : request.series != nil ? "a series" : "the study",
-              DICOMwebClient.logReason(for: error) ?? "(null)",
-              ["asked again", "resumed with what is missing", "left missing", "retrieve stopped"][action.rawValue])
-        var again = request
-        again.attempts = made
-        switch action {
-        case .retry:
-            let wait = DICOMwebRetrieveRecovery.delay(beforeAttempt: made + 1, retryAfter: error.userInfo[DICOMwebClient.retryAfterKey] as? String)
+              DICOMwebClient.logReason(for: failure.error) ?? "(null)", action.logText)
+        if action == .retry {
+            let wait = DICOMwebRecovery.delay(beforeAttempt: made + 1, retryAfter: failure.retryAfter)
             var waited: TimeInterval = 0
             while waited < wait && !thread.isCancelled && !Thread.current.isCancelled && !failed {
                 Thread.sleep(forTimeInterval: 0.05)
                 waited += 0.05
             }
-            pool.modify { $0.pending.append(again) }
-        case .resume:
-            again.error = error
-            pool.modify { $0.interrupted.append(again) }
-        case .skip:
-            pool.modify { if $0.unresolved == nil { $0.unresolved = error } }
-        case .stop:
-            pool.modify { if $0.firstError == nil { $0.firstError = error } }
         }
+        queue.apply(action, to: request, failure: failure)
     }
 
     /// Queues `request`, and starts a worker if the node's limit allows one.
     /// The next request to start is the first of the plan's order, a request
     /// for the whole study before any.
     func queue(_ request: DICOMwebRetrieveRequest) {
-        let start: Bool = pool.modify { pool in
-            pool.pending.append(request)
-            if pool.running >= limit { return false }
-            pool.running += 1
-            return true
-        }
-        guard start else { return }
-        let worker = Thread { [self] in
+        if queue.enqueue(request) { startWorker() }
+    }
+
+    /// Queues a request for `path`.
+    func enqueue(_ path: String, uid: String? = nil, series seriesUID: String? = nil) {
+        if queue.enqueue(path: path, uid: uid, series: seriesUID) { startWorker() }
+    }
+
+    private func startWorker() {
+        // Each request blocks its worker until the node answers: a thread of
+        // its own, listed among the session's workers before it starts.
+        ActivityThread.startUnlisted(name: "DICOMweb request", configure: { worker in workers.modify { $0.append(worker) } }) { [self] _ in
             while true {
                 let stop: Bool = autoreleasepool {
-                    let next: DICOMwebRetrieveRequest? = pool.modify { pool in
-                        guard !pool.pending.isEmpty, pool.firstError == nil, !thread.isCancelled, !Thread.current.isCancelled else {
-                            pool.pending.removeAll()
-                            pool.running -= 1
-                            return nil
-                        }
-                        var index = 0, best = Int.max
-                        if pool.pending.count > 1, let ordered = plan?.orderedSeries {
-                            for (position, pending) in pool.pending.enumerated() {
-                                let rank: Int
-                                if let seriesUID = pending.series {
-                                    rank = ordered.firstIndex(of: seriesUID).map { $0 + 1 } ?? ordered.count + 1
-                                } else {
-                                    rank = 0
-                                }
-                                if rank < best { best = rank; index = position }
-                            }
-                        }
-                        return pool.pending.remove(at: index)
-                    }
-                    guard let request = next else { return true }
+                    guard let request = queue.next(cancelled: thread.isCancelled || Thread.current.isCancelled) else { return true }
                     if !NodeRequestLimiter.shared.acquire(node: limiterNode, limit: limit, adaptive: adaptive,
                                                          cancelled: { self.thread.isCancelled || Thread.current.isCancelled || self.failed }) {
                         return false
                     }
                     let started = ProcessInfo.processInfo.systemUptime
-                    let requestError = take(request)
+                    let failure = take(request)
                     NodeRequestLimiter.shared.release(node: limiterNode)
-                    if requestError == nil { pool.modify { $0.completedPaths.insert(request.path) } }
-                    if requestError == nil && !adaptive { return false }
+                    if failure == nil { queue.complete(request) }
+                    if failure == nil && !adaptive { return false }
                     var outcome = RequestOutcome.success
-                    if let requestError {
-                        let kind = DICOMwebClient.errorKind(for: requestError)
-                        outcome = kind == .http ? NodeRequestLimiter.outcome(forStatus: requestError.code)
-                            : (kind == .timeout || kind == .network) ? .transient : .neutral
+                    if let failure {
+                        outcome = failure.kind == .http ? NodeRequestLimiter.outcome(forStatus: failure.code)
+                            : (failure.kind == .timeout || failure.kind == .network) ? .transient : .neutral
                     }
                     if adaptive {
                         // The latency of one instance tells the node's load; that
                         // of a series or study tells its size, and is not counted.
                         NodeRequestLimiter.shared.report(node: limiterNode, outcome: outcome,
                                                          latency: request.uid != nil ? ProcessInfo.processInfo.systemUptime - started : 0,
-                                                         retryAfter: requestError?.userInfo[DICOMwebClient.retryAfterKey] as? String)
+                                                         retryAfter: failure?.retryAfter)
                     }
                     // In the automatic mode, a busy or transient answer that brought
                     // nothing is asked again once the node's wait is over, at most
                     // three more times; anything else recovers as the policy says.
-                    let handedOver = (requestError?.userInfo["HorosDICOMwebObjectsHandedOver"] as? NSNumber)?.uintValue ?? 0
-                    if adaptive && (outcome == .throttled || outcome == .transient) && request.attempts < 3 && handedOver == 0 {
+                    if adaptive && DICOMwebRetrieveQueue.repeatsAdaptively(request, failure: failure,
+                                                                            busyOrTransient: outcome == .throttled || outcome == .transient) {
                         var again = request
                         again.attempts += 1
-                        pool.modify { $0.pending.append(again) }
-                    } else if let requestError {
-                        recover(request, error: requestError)
+                        queue.requeue(again)
+                    } else if let failure {
+                        recover(request, failure: failure)
                     }
                     return false
                 }
                 if stop { break }
             }
         }
-        worker.name = "DICOMweb request"
-        pool.modify { $0.workers.append(worker) }
-        worker.start()
-    }
-
-    /// Queues a request for `path`.
-    func enqueue(_ path: String, uid: String? = nil, series seriesUID: String? = nil) {
-        queue(DICOMwebRetrieveRequest(path: path, uid: uid, series: seriesUID, fallback: fallbackOnly.current))
     }
 
     /// Waits until no request is left or running; cancelling the retrieve's
     /// thread cancels them.
     func drain() {
-        while true {
-            let running: Bool = pool.read { pool in
-                if pool.running == 0 { return false }
-                if thread.isCancelled { pool.workers.forEach { $0.cancel() } }
-                return true
-            }
-            if !running { break }
+        while queue.running > 0 {
+            if thread.isCancelled { cancelWorkers() }
             Thread.sleep(forTimeInterval: 0.02)
         }
     }
 
     func cancelWorkers() {
-        pool.read { $0.workers.forEach { $0.cancel() } }
+        workers.read { $0.forEach { $0.cancel() } }
     }
 }
 
@@ -380,17 +290,16 @@ extension DCMTKQueryNode {
         do { client = try DICOMwebSources.client(forServer: extraParameters(), timeout: 60) } catch let failure as NSError { error = failure }
         guard let study = inventoryStudyUID, !study.isEmpty else { return false }
         let series = inventorySeriesUID
-        var base = "studies/\(study)"
-        if !series.isEmpty { base += "/series/\(series)" }
-        let incoming = DicomDatabase.activeLocal()?.incomingDirPath() ?? ""
+        let base = DICOMwebRetrieveRequest.path(study: study, series: series)
+        let incoming = DatabaseIngest.process.admissionFolder()
         // Empty for "As stored": any syntax is taken.
         let wantedSyntax = client?.node.retrieveTransferSyntax ?? ""
         let thread = Thread.current
         let localList = noSmartMode ? [] : localSOPInstanceUIDs(ofStudy: study, series: nil)
         let reported = numberImagesValue?.intValue ?? 0
-        let inventory = RetrieveInventory.begin(study: study, series: series, endpoint: inventoryEndpoint(),
-                                                database: DicomDatabase.activeLocal()?.dataBaseDirPath ?? "", instances: [],
-                                                confirmed: false, reported: reported, seriesReported: [:])
+        let inventory = Self.retrieveInventories.begin(study: study, series: series, endpoint: inventoryEndpoint(),
+                                                       database: DicomDatabase.activeLocal()?.dataBaseDirPath ?? "", instances: [],
+                                                       confirmed: false, reported: reported, seriesReported: [:])
         replaceRetrieveInventory(inventory)
         // A local object an earlier retrieve took under a new SOP Instance UID
         // stands for the instance its Source Image Sequence names: that one is
@@ -432,10 +341,10 @@ extension DCMTKQueryNode {
         collector.retrievePlan = plan
         struct Listing { var succeeded = false, ended = false, notImplemented = false }
         let listingState = QueryNodeShared(Listing())
-        let listing = Thread {
+        let listing = ActivityThread.startUnlisted(name: "DICOMweb listing") { _ in
             autoreleasepool {
                 var succeeded = false, notImplemented = false
-                let completed = collector.catchingExceptions {
+                let completed = collector.endedNormally(HorosObjCException.caught {
                     if !series.isEmpty {
                         collector.query(withValues: nil, identifier: QueryIdentifiers.instanceListing(series: series, study: study))
                         succeeded = collector.lastQuerySucceeded
@@ -445,7 +354,7 @@ extension DCMTKQueryNode {
                         succeeded = collector.imageInventoryConfirmed
                         notImplemented = !succeeded && collector.imageListingNotImplemented
                     }
-                }
+                })
                 if !completed { notImplemented = false }
                 let cancelled = Thread.current.isCancelled
                 listingState.modify { state in
@@ -455,8 +364,6 @@ extension DCMTKQueryNode {
                 }
             }
         }
-        listing.name = "DICOMweb listing"
-        listing.start()
 
         let limit = node?.maximumRequests ?? DICOMwebNode.defaultMaximumRequests
         // The automatic mode: the node's window moves with its answers, and a
@@ -499,7 +406,7 @@ extension DCMTKQueryNode {
                 if plan.wholeStudySuffices || (ordered.isEmpty && !plan.excludesEverything) {
                     session.enqueue(base)
                 } else {
-                    for seriesUID in ordered { session.enqueue("studies/\(study)/series/\(seriesUID)", series: seriesUID) }
+                    for seriesUID in ordered { session.enqueue(DICOMwebRetrieveRequest.path(study: study, series: seriesUID), series: seriesUID) }
                 }
             }
             if thread.isCancelled { listing.cancel() }
@@ -511,7 +418,7 @@ extension DCMTKQueryNode {
                 listed.append(image)
                 if !whole && !localUIDs.contains(uid) && !asked.contains(uid) && !(plan?.isExcluded(series: seriesUID) ?? false) {
                     asked.insert(uid)
-                    session.enqueue("studies/\(study)/series/\(seriesUID)/instances/\(uid)", uid: uid, series: seriesUID)
+                    session.enqueue(DICOMwebRetrieveRequest.path(study: study, series: seriesUID, instance: uid), uid: uid, series: seriesUID)
                 }
             }
             if ended && batch.isEmpty { break }
@@ -538,11 +445,11 @@ extension DCMTKQueryNode {
         session.drain()
 
         let succeeded = listingState.read { $0.succeeded }
-        var instances: [[String: String]] = []
+        var instances: [RetrieveListedInstance] = []
         for image in listed {
-            var instance = ["uid": image.uid() ?? "", "series": image.seriesInstanceUID() ?? ""]
-            if let sopClass = image.sopClassUID(), !sopClass.isEmpty { instance["sopClass"] = sopClass }
-            if let number = image.name(), !number.isEmpty { instance["number"] = number }
+            var instance = RetrieveListedInstance(sopInstanceUID: image.uid() ?? "", seriesInstanceUID: image.seriesInstanceUID() ?? "")
+            if let sopClass = image.sopClassUID(), !sopClass.isEmpty { instance.sopClassUID = sopClass }
+            if let number = image.name(), !number.isEmpty { instance.instanceNumber = number }
             instances.append(instance)
         }
         let seriesCounts: [String: NSNumber] = !series.isEmpty
@@ -551,7 +458,7 @@ extension DCMTKQueryNode {
         let listedNumbers = collector.seriesNumbers, listedDetails = collector.seriesDetails
         let state = thread.isCancelled ? "cancelled" : succeeded ? "confirmed" : "failed"
         inventory.confirm(instances: instances, confirmed: succeeded && !thread.isCancelled, reported: reported,
-                          seriesReported: seriesCounts, discovery: state)
+                          seriesReported: seriesCounts.mapValues { $0.intValue }, discovery: state)
         // What the rules left out is an intentional absence, recorded before
         // the second pass so that it does not ask for it.
         let excluded = plan?.excludedSeries ?? [:]
@@ -572,31 +479,27 @@ extension DCMTKQueryNode {
         // listed instance its Source Image Sequence names, or, naming none, for
         // the one listed instance with its series, SOP class and Instance
         // Number; that instance is not asked for.
-        let cut = session.pool.read { $0.interrupted.first?.error }
-        if let cut, !session.failed, !thread.isCancelled, succeeded, let fallback = client.retrieveFallbackTransferSyntax {
-            let kind = DICOMwebClient.errorKind(for: cut)
-            if (kind == .network || kind == .invalidResponse)
-                && ((cut.userInfo["HorosDICOMwebObjectsHandedOver"] as? NSNumber)?.uintValue ?? 0) > 0 {
-                NSLog("---- retrieve: the response in %@ stopped after some objects (%@); asking for the missing ones in %@",
-                      wantedSyntax, cut.localizedDescription, fallback)
-                session.fallbackOnly.modify { $0 = true }
-            }
+        if let cut = session.queue.firstCut, !session.failed, !thread.isCancelled, succeeded,
+           let fallback = client.retrieveFallbackTransferSyntax, cut.isCutAfterObjects {
+            NSLog("---- retrieve: the response in %@ stopped after some objects (%@); asking for the missing ones in %@",
+                  wantedSyntax, cut.error.localizedDescription, fallback)
+            session.queue.useFallbackOnly()
         }
         if !session.failed && !thread.isCancelled {
             // The listing failed: never leave anything out but what the rules do.
             if !succeeded && !whole && excluded.isEmpty {
                 session.enqueue(base)
             } else if !succeeded && !whole {
-                for seriesUID in plan?.orderedSeries ?? [] { session.enqueue("studies/\(study)/series/\(seriesUID)", series: seriesUID) }
+                for seriesUID in plan?.orderedSeries ?? [] { session.enqueue(DICOMwebRetrieveRequest.path(study: study, series: seriesUID), series: seriesUID) }
             } else if succeeded {
                 // What the listing names that neither arrived nor is here, which
                 // the whole request did not bring, or a series asked for before
                 // it was listed; after a cut, what it did not bring.
-                let fallbackOnly = session.fallbackOnly.current
+                let fallbackOnly = session.queue.fallbackOnly
                 for (seriesUID, uids) in inventory.unreceivedSeries {
                     for uid in uids where !localUIDs.contains(uid) && (whole || fallbackOnly || !asked.contains(uid)) {
                         asked.insert(uid)
-                        session.enqueue("studies/\(study)/series/\(seriesUID)/instances/\(uid)", uid: uid, series: seriesUID)
+                        session.enqueue(DICOMwebRetrieveRequest.path(study: study, series: seriesUID, instance: uid), uid: uid, series: seriesUID)
                     }
                 }
                 // A series the node counts more instances in than it lists, as
@@ -606,11 +509,11 @@ extension DCMTKQueryNode {
                 // error, the series is asked for whole; what is here or arrived
                 // is dropped.
                 var listedInSeries: [String: Int] = [:]
-                for instance in instances { listedInSeries[instance["series"] ?? "", default: 0] += 1 }
-                let done = session.pool.read { $0.completedPaths }
+                for instance in instances { listedInSeries[instance.seriesInstanceUID, default: 0] += 1 }
+                let done = session.queue.completedPaths
                 for (seriesUID, count) in seriesCounts {
                     let listedCount = listedInSeries[seriesUID] ?? 0
-                    let path = !series.isEmpty ? base : "studies/\(study)/series/\(seriesUID)"
+                    let path = !series.isEmpty ? base : DICOMwebRetrieveRequest.path(study: study, series: seriesUID)
                     if count.intValue > listedCount && !(plan?.isExcluded(series: seriesUID) ?? false)
                         && !done.contains(base) && !done.contains(path) {
                         NSLog("---- retrieve: the node counts %ld instances in a series and lists %ld; asking for the series whole",
@@ -626,16 +529,9 @@ extension DCMTKQueryNode {
         // they come, until it is not cut or has been asked for as many times as
         // the policy allows. With one, the pass above asked for what the cut left.
         while true {
-            let resumed: [DICOMwebRetrieveRequest] = session.pool.modify { pool in
-                defer { pool.interrupted.removeAll() }
-                return pool.interrupted
-            }
+            let resumed = session.queue.takeInterrupted()
             if resumed.isEmpty || succeeded || session.failed || thread.isCancelled { break }
-            for request in resumed {
-                var again = request
-                again.error = nil
-                session.queue(again)
-            }
+            for request in resumed { session.queue(request) }
             session.drain()
         }
         // A node that does not implement the listing of a study's series or
@@ -647,13 +543,13 @@ extension DCMTKQueryNode {
         // retrieve is not reported incomplete for it. An error of any request,
         // a listing that failed in any other way, or nothing received leaves it failed.
         let notImplemented = listingState.read { $0.notImplemented }
-        let unresolvedFailure = session.pool.read { $0.unresolved != nil }
+        let unresolvedFailure = session.queue.hasUnresolvedFailure
         if !succeeded && notImplemented && !session.failed && !unresolvedFailure && !thread.isCancelled && countOfSuccessfulSuboperations > 0 {
             NSLog("---- retrieve: the node does not implement the listing of the study's series or instances; what was asked for was retrieved whole, without error")
             inventory.markDiscovery("not supported")
         }
         plan?.end(endpoint: endpoint, study: study)
-        error = session.pool.read { $0.firstError ?? $0.unresolved }
+        error = session.queue.failure?.error
         // What this attempt asked for: the whole listing, or the instances that
         // were not here. The local ones are no failure of the transfer.
         var requested = whole ? max(0, inventory.scopeExpectedCount) : asked.count
@@ -703,26 +599,25 @@ extension DCMTKQueryNode {
         changed()
         let missing = ExcludedSeries.seriesWithoutThumbnail(study: study, node: identifier, database: database)
         if missing.isEmpty { return }
-        nonisolated(unsafe) let server = extraParameters()
-        nonisolated(unsafe) let placeholders = missing
+        // The node's settings as Locations gave them; nothing changes them.
+        let server = UncheckedSendableBox(extraParameters())
+        let placeholders = missing.map { (series: $0.seriesInstanceUID, instance: $0.middleInstance) }
         let limiterNode = "DICOMweb " + identifier
         let limit = node?.maximumRequests ?? DICOMwebNode.defaultMaximumRequests
-        let pictures = Thread {
+        ActivityThread.startUnlisted(name: "DICOMweb placeholder pictures") { _ in
             autoreleasepool {
-                let client = try? DICOMwebSources.client(forServer: server, timeout: 30)
+                let client = try? DICOMwebSources.client(forServer: server.value, timeout: 30)
                 for one in placeholders {
                     guard let client, !Thread.current.isCancelled else { break }
                     if !NodeRequestLimiter.shared.acquire(node: limiterNode, limit: limit, cancelled: { Thread.current.isCancelled }) { break }
-                    let data = try? client.previewImage(study: study, series: one.seriesInstanceUID, instance: one.middleInstance)
+                    let data = try? client.previewPicture(study: study, series: one.series, instance: one.instance)
                     NodeRequestLimiter.shared.release(node: limiterNode)
                     if let data {
-                        ExcludedSeries.setThumbnail(data, series: one.seriesInstanceUID, study: study, database: database)
+                        ExcludedSeries.setThumbnail(data, series: one.series, study: study, database: database)
                         changed()
                     }
                 }
             }
         }
-        pictures.name = "DICOMweb placeholder pictures"
-        pictures.start()
     }
 }

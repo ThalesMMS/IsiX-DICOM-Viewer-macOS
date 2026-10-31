@@ -38,89 +38,49 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Foundation
-import IsiXDICOMFile
-import Synchronization
+import IsiXContracts
 
-// BrowserController (transcoding): the name of a transfer syntax, a file in
-// the transfer syntax the web portal asks for, recompressed through
-// Adapters/DCMTK/IsiXDCMTKTranscoding when it is in another, and the
-// deprecated compression entry points, which the database answers.
-
-/// Numbers the web portal's temporary recompressed files, from 1.
-private let wadoTemporaryFileNumber = Mutex<Int>(1)
+// BrowserController (transcoding): the name of a transfer syntax and a file
+// in the transfer syntax the web portal asks for are ArchiveImport's
+// (ArchiveImport.swift); the deprecated compression entry points are
+// answered by the database.
 
 extension BrowserController {
 
-    /// The name of a transfer syntax: a pure lookup, called from the loading
-    /// threads too. Any thread.
+    /// The name of a transfer syntax. Any thread.
     @objc(compressionString:)
     nonisolated dynamic class func compressionString(_ string: String!) -> String! {
-        let uid = string as NSString?
-        if uid?.isEqual(to: "1.2.840.10008.1.2") == true { return NSLocalizedString("Uncompressed", comment: "") }
-        if uid?.isEqual(to: "1.2.840.10008.1.2.1") == true { return NSLocalizedString("Uncompressed", comment: "") }
-        if uid?.isEqual(to: "1.2.840.10008.1.2.2") == true { return NSLocalizedString("Uncompressed BigEndian", comment: "") }
-        if let string, let name = IsiXDCMTKTranscoding.name(ofUID: string) { return name }
-        return NSLocalizedString("Unknown UID", comment: "")
+        return ArchiveImport.name(ofTransferSyntax: string)
     }
 
-    /// The file in a transfer syntax, recompressed by DCMTK when it is in
-    /// another the syntax cannot be served from; the original file when the
-    /// copy cannot be made. nil when DCMTK cannot load the file. On the
-    /// calling thread (the web portal's).
+    /// The file in a transfer syntax (ArchiveImport), on the calling thread.
     @objc(getDICOMFile:inSyntax:quality:)
     nonisolated func getDICOMFile(_ file: String!, inSyntax syntax: String!, quality: Int32) -> Data! {
-        guard let file else { return nil }
-        let number = wadoTemporaryFileNumber.withLock { next in
-            defer { next += 1 }
-            return next
-        }
-        let temporary = FileManager.default.tmpDirPath().appendingFormat("/wado-recompress-%ld.dcm", number) as String
-        try? FileManager.default.removeItem(atPath: temporary)
-
-        let outcome = IsiXDCMTKTranscoding.transcodeFile(atPath: file, toTransferSyntax: syntax ?? "", quality: quality,
-                                                         destination: temporary,
-                                                         servesOriginal: { original, requested in
-            TransferSyntaxServing.servesOriginal(original: original, requested: requested)
-        }, error: nil)
-        switch outcome {
-        case .unreadable:
-            return nil
-        case .servesOriginal:
-            return NSData(contentsOfFile: file) as Data?
-        case .saveFailed:
-            NSLog("getDICOMFile:(NSString*) file inSyntax:(NSString*) syntax quality: (int) quality failed")
-        case .written, .cannotWrite:
-            break
-        @unknown default:
-            break
-        }
-        let data = NSData(contentsOfFile: temporary) as Data?
-        try? FileManager.default.removeItem(atPath: temporary)
-        return data ?? NSData(contentsOfFile: file) as Data? // Original file
+        return ArchiveImport.file(file, inSyntax: syntax, quality: quality)
     }
 
     @available(*, deprecated)
     @objc(needToCompressFile:)
     nonisolated func needToCompressFile(_ path: String!) -> Bool {
-        return DicomDatabase.fileNeedsDecompression(path)
+        return DatabaseFileConversion.isWorthCompressing(path)
     }
 
     @available(*, deprecated)
     @objc(compressDICOMWithJPEG:)
     nonisolated func compressDICOMWithJPEG(_ paths: [Any]!) -> Bool {
-        return database.compressFiles(atPaths: paths)
+        return DatabaseIngest.process.fileConverting(of: database).convertNow((paths ?? []).map { "\($0)" }, mode: .compress, into: nil)
     }
 
     @available(*, deprecated)
     @objc(compressDICOMWithJPEG:to:)
     nonisolated func compressDICOMWithJPEG(_ paths: [Any]!, to dest: String!) -> Bool {
-        return database.compressFiles(atPaths: paths, intoDirAtPath: dest)
+        return DatabaseIngest.process.fileConverting(of: database).convertNow((paths ?? []).map { "\($0)" }, mode: .compress, into: dest)
     }
 
     @available(*, deprecated)
     @objc(decompressDICOMList:to:)
     nonisolated func decompressDICOMList(_ files: [Any]!, to dest: String!) -> Bool {
-        return database.decompressFiles(atPaths: files, intoDirAtPath: dest)
+        return DatabaseIngest.process.fileConverting(of: database).convertNow((files ?? []).map { "\($0)" }, mode: .decompress, into: dest)
     }
 
     @available(*, deprecated)

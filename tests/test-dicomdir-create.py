@@ -154,6 +154,7 @@ with tempfile.TemporaryDirectory(prefix='horos-dicomdir-') as temporary:
         ['xcrun', 'swiftc', '-parse-as-library', '-wmo', '-swift-version', '6', '-module-name', 'Horos',
          '-import-objc-header', str(stubs / 'bridge.h'), '-I', str(modules), *[a for i in includes for a in ('-Xcc', i)],
          '-c', str(ROOT / 'Horos/Sources/DicomDir.swift'), str(ROOT / 'Horos/Sources/ExportArchive.swift'),
+         str(ROOT / 'Horos/Sources/HorosObjCException+Guards.swift'),
          '-o', str(work / 'swift.o')],
         ['xcrun', 'clang', '-fobjc-arc', '-x', 'objective-c', *includes, '-c',
          str(ROOT / 'Horos/Sources/HorosObjCException.m'), '-o', str(work / 'exception.o')],

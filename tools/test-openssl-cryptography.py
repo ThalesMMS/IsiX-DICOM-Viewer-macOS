@@ -61,11 +61,17 @@ def main():
 
     install = ROOT/'build/Build/Intermediates.noindex/Horos.build'/args.configuration/'OpenSSL.build/Install'
     artifacts = [install/'lib/libssl.a', install/'lib/libcrypto.a', install/'include/openssl/opensslv.h']
-    for path in [*artifacts, install/'bin/openssl']:
+    for path in [*artifacts, install/'bin/openssl', install/'share/source.json']:
         if not path.is_file():
             raise SystemExit(f'Build {args.configuration} first; missing {path}')
-    fields = dict(line.split('=', 1) for line in (ROOT/'OpenSSL/upstream/VERSION.dat').read_text().splitlines() if '=' in line)
-    expected = '.'.join(fields[k] for k in ('MAJOR', 'MINOR', 'PATCH'))
+    # The installation must come from the source the repository pins now; the
+    # record it installed says which archive it was compiled from.
+    pinned = json.loads((ROOT/'Horos/Scripts/external-sources.json').read_text())['OpenSSL']
+    installed = json.loads((install/'share/source.json').read_text())
+    if (installed.get('version'), installed.get('sha256')) != (pinned['version'], pinned['sha256']):
+        raise SystemExit(f'Stale {args.configuration} installation: compiled from OpenSSL '
+                         f'{installed.get("version")}, the repository pins {pinned["version"]}')
+    expected = pinned['version']
     library_version = output(install/'bin/openssl', 'version').split(' (Library:', 1)[0]
     if not library_version.startswith(f'OpenSSL {expected} '):
         raise SystemExit(f'Stale {args.configuration} installation: {library_version}, expected {expected}')

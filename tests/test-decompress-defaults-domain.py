@@ -47,8 +47,9 @@ failures = []
 
 # ---- Source -------------------------------------------------------------------------
 
-caller = (root / 'Horos/Sources/DicomDatabase+DCMTK.swift').read_text(encoding='utf-8')
-if 'DecompressConversion.settings(from: defaults)' not in caller or 'let defaults = UserDefaults.standard' not in caller:
+caller = (root / 'Horos/Sources/DatabaseFileConversion.swift').read_text(encoding='utf-8')
+ingest = (root / 'Horos/Sources/ProcessGraph.swift').read_text(encoding='utf-8')
+if 'DecompressConversion.settings(from: preferences)' not in caller or 'preferences: UserDefaults' not in caller or 'UserDefaults.standard' not in ingest:
     failures.append('the application no longer sends the settings of its own defaults')
 for name in ('CodecService.swift', 'main.swift', 'FirstFrameTest.swift'):
     text = (root / 'Decompress' / name).read_text(encoding='utf-8')

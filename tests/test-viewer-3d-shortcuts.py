@@ -17,7 +17,10 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-toolbar = (root / 'Horos/Sources/ViewerController+Toolbar.swift').read_text()
+# The items are made by ViewerToolbarItemFactory; their identifiers, lists
+# and enablement are IsiXImaging's ViewerToolbarCatalog.
+toolbar = (root / 'Horos/Sources/ViewerToolbarItemFactory.swift').read_text()
+toolbar_catalog = (root / 'Modules/IsiXImaging/Sources/ViewerMenus/ViewerToolbarCatalog.swift').read_text()
 # -sheetDidEnd:returnCode:contextInfo: of the slice interval sheet is Swift.
 interval = (root / 'Horos/Sources/ViewerController+SliceInterval.swift').read_text()
 catalog = (root / 'Horos/Sources/MenuShortcutCatalog.swift').read_text()
@@ -28,7 +31,7 @@ popup = popup[:popup.index('</popUpButton>')]
 menu = re.findall(r'<menuItem title="([^"]+)" tag="(\d+)" id="\d+">\s*<connections>\s*<action selector="([^"]+)"', popup)
 if len(menu) != 7:
     failures.append('the 2D/3D pull-down has %d entries, not 7' % len(menu))
-shortcuts = re.findall(r'ThreeDShortcut\(identifier: "([^"]+)", label: "([^"]+)", title: "([^"]+)", action: NSSelectorFromString\("([^"]+)"\), tag: (\d+), image: "([^"]+)"\)', toolbar)
+shortcuts = re.findall(r'ThreeDShortcut\(identifier: "([^"]+)", label: "([^"]+)", title: "([^"]+)", action: "([^"]+)", tag: (\d+), image: "([^"]+)"\)', toolbar_catalog)
 if len(shortcuts) != 7:
     failures.append('%d shortcuts, not 7' % len(shortcuts))
 if sorted((t, int(g), a) for t, g, a in menu) != sorted((t, int(g), a) for _, _, t, a, g, _ in shortcuts):
@@ -40,18 +43,18 @@ for identifier, label, title, action, tag, image in shortcuts:
 def block(text, start, end):
     a = text.index(start)
     return text[a:text.index(end, a)]
-allowed = block(toolbar, 'func toolbarAllowedItemIdentifiers', 'if AppController.canDisplay12Bit()')
-default = block(toolbar, 'func toolbarDefaultItemIdentifiers', '].map')
+allowed = block(toolbar_catalog, 'public static func allowedIdentifiers', 'if canDisplay12Bit')
+default = block(toolbar_catalog, 'public static let defaultIdentifiers', ']')
 if 'threeDShortcuts.map(\\.identifier)' not in allowed:
     failures.append('the shortcuts are not offered in Customize Toolbar')
 if 'threeDShortcuts' in default or any(s[0] in default for s in shortcuts):
     failures.append('the shortcuts are in the default toolbar')
-item = block(toolbar, 'else if let shortcut = threeDShortcuts.first', 'else if itemIdent == NavigatorToolbarItemIdentifier')
-for needed in ('newItem.tag = shortcut.tag', 'newItem.action = shortcut.action', 'newItem.target = nil'):
+item = block(toolbar, 'if let shortcut = Catalog.threeDShortcut(itemIdent)', '} else if let bundle')
+for needed in ('newItem.tag = shortcut.tag', 'newItem.action = NSSelectorFromString(shortcut.action)', 'newItem.target = nil'):
     if needed not in item:
         failures.append('the shortcut item misses %s' % needed)
-validate = block(toolbar, 'func validateToolbarItem', 'return enable')
-if 'threeDShortcuts.contains' not in validate:
+validate = block(toolbar_catalog, 'public static func enablement(of', 'public struct ViewerFacts')
+if 'threeDShortcut(identifier) != nil ? .severalImages' not in validate or 'case .severalImages: return !facts.singleImageOfOneFrame' not in toolbar_catalog:
     failures.append('the shortcuts are not disabled for a single image')
 sheet = block(interval, '@objc(sheetDidEnd:returnCode:contextInfo:)', '@objc(endThicknessInterval:)')
 # The Swift names of the selectors: VRViewer: and SRViewer: are vrViewer(_:) and srViewer(_:).

@@ -67,8 +67,9 @@ with tempfile.TemporaryDirectory(prefix='horos-petct-time-') as tmp:
     ], check=True)
     subprocess.run([str(p / 'test')], check=True)
 
-viewer = (root / 'Horos/Sources/ViewerController+ThreeDViewers.swift').read_text(encoding='utf-8')
-open_petct = body(viewer, 'func openOrthogonalMPRPETCTViewer() -> OrthogonalMPRPETCTViewer!')
+# The 3D viewers are opened by ThreeDViewerLauncher; the viewer's selectors are its façade.
+viewer = (root / 'Horos/Sources/ThreeDViewerLauncher.swift').read_text(encoding='utf-8')
+open_petct = body(viewer, 'func orthogonalPETCTWindow() -> OrthogonalMPRPETCTViewer?')
 check(open_petct,
       'openOrthogonalMPRPETCTViewer is missing')
 check('FourDSeriesGuard.alignedTimeIndex(requested:' in open_petct or 'FourDSeriesGuard.wrappedIndex(' in open_petct,
@@ -82,12 +83,12 @@ check('horos_fileList(at: 0)' not in open_petct,
 check('horos_pixList(at: time)' in open_petct and 'horos_fileList(at: time)' in open_petct
       and 'horos_volumeData(at: time)' in open_petct and 'OrthogonalMPRPETCTViewer(pixList: pix, files, volume,' in open_petct,
       'pixList, fileList and volumeData must share the wrapped time')
-check('FindViewer("PETCT", horos_pixList(at: 0))' in open_petct,
+check('findViewer(nibName: "PETCT", pixList: viewer.horos_pixList(at: 0))' in open_petct,
       'FindViewer may still identify the series by pixList[0]')
 
-# ActivateBlending: is Swift (ViewerController+Blending.swift); its
-# body, under the reentry guard, is activateBlendingInside.
-blending_source = sources.source_text('ViewerController+Blending')
+# ActivateBlending: is ViewerFusion's (ViewerController+Blending.swift keeps
+# the selector); its body, under the reentry guard, is activateBlendingInside.
+blending_source = sources.source_text('ViewerFusion')
 blend = body(blending_source, 'func activateBlending(_ bC: ViewerController!)') + \
     body(blending_source, 'func activateBlendingInside(_ bC: ViewerController!)')
 check('fourDFusionRefusalReason' in blend or 'refuseFourDFusionWithTitle' in blend

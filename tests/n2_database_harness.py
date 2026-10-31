@@ -26,7 +26,7 @@ import isix_modules  # noqa: E402
 
 SWIFT = ('Nitrogen/Sources/N2ManagedDatabase.swift', 'Nitrogen/Sources/N2ManagedDatabase+Store.swift',
          'Nitrogen/Sources/N2ManagedDatabase+Objects.swift', 'Nitrogen/Sources/N2ManagedObjectContext.swift',
-         'Horos/Sources/IndexRecovery.swift')
+         'Horos/Sources/IndexRecovery.swift', 'Horos/Sources/HorosObjCException+Guards.swift')
 OBJC = ('Nitrogen/Sources/N2ManagedDatabase+CAPI.m',)
 SHARED = ('Horos/Sources/HorosObjCException.m', 'Horos/Sources/HorosObjCException.h',
           'Horos/Sources/HorosAlertPanel.m', 'Horos/Sources/HorosAlertPanel.h')
@@ -43,6 +43,9 @@ ENTITIES = {
 @end
 @interface DicomStudy : NSManagedObject
 @property (nonatomic, retain) NSSet *series;
+@property (nonatomic, retain) NSString *studyInstanceUID;
+@property (nonatomic, retain) NSNumber *stateText;
+@property (nonatomic, retain) NSString *comment;
 - (NSNumber*)rawNoFiles;
 @end
 ''',
@@ -56,7 +59,7 @@ ENTITIES = {
 - (NSNumber*)rawNoFiles { return @(self.images.count); }
 @end
 @implementation DicomStudy
-@dynamic series;
+@dynamic series, studyInstanceUID, stateText, comment;
 - (NSNumber*)rawNoFiles { NSInteger n = 0; for (DicomSeries *s in self.series) n += s.rawNoFiles.integerValue; return @(n); }
 @end
 ''',

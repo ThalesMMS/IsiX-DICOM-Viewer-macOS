@@ -14,8 +14,8 @@ delItem: could act on a study that was never selected.
 
 This checks the declarations are hoisted, and compiles the walk to confirm it
 enumerates a selection exactly and in order. unifyStudies:, mergeStudies: and
-delItem: are Swift now (BrowserController+Merge.swift and
-BrowserController+Deletion.swift): they iterate the IndexSet itself, which
+delItem: are Swift now (StudyMergeJob.swift and StudyDeletionJob.swift, which
+the browser's selectors forward to): they iterate the IndexSet itself, which
 carries no index between passes, and must not go back to a hand-rolled walk.
 """
 from pathlib import Path
@@ -42,11 +42,11 @@ walks = re.findall(r'(\w+)\s*=\s*\([^)]*\)\s*\?\s*\[(\w+) firstIndex\]', source)
 # Seven of these walks exist; four were self-referencing and three were already
 # correct. Do not pin the count - it only rots - but keep the check from going
 # vacuous if they are all rewritten away.
-merge = (root / 'Horos/Sources/BrowserController+Merge.swift').read_text()
-deletion = (root / 'Horos/Sources/BrowserController+Deletion.swift').read_text()
-swift_walks = merge.count('selectedRowStudies(') - 1 + deletion.count('for row in selectedRows') \
-    + deletion.count('for index in outline?.selectedRowIndexes')
-for name, text in (('BrowserController+Merge.swift', merge), ('BrowserController+Deletion.swift', deletion)):
+merge = (root / 'Horos/Sources/StudyMergeJob.swift').read_text()
+deletion = (root / 'Horos/Sources/StudyDeletionJob.swift').read_text()
+swift_walks = merge.count('selectedRowStudies(') - 1 + merge.count('selectedRowIndexes ?? IndexSet()).map') \
+    + deletion.count('for row in selectedRows') + deletion.count('rows.lazy.map { isDistantRow(')
+for name, text in (('StudyMergeJob.swift', merge), ('StudyDeletionJob.swift', deletion)):
     if 'firstIndex' in text or 'indexGreaterThan' in text or 'integerGreaterThan' in text:
         failures.append('%s walks the selected rows by hand again' % name)
 if len(walks) + swift_walks < 4:

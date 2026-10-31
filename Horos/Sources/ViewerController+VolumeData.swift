@@ -42,36 +42,28 @@ import Foundation
 // The viewer's volume data: the float buffer of each 4D frame that the 3D
 // viewers read, the release of the 8-bit images before one of them opens, and
 // the refresh of the window level and the ROIs after a volume changed in
-// place. The selectors are those of the former Objective-C methods.
+// place. The selectors are those of the former Objective-C methods; the work
+// is ViewerVolumeData's, below.
 
 public extension ViewerController {
 
-    /// Frees the 8-bit image of every slice but the one shown (about a quarter
-    /// of the memory of a series), then computes the one shown again.
+    /// Frees the 8-bit image of every slice but the one shown, then computes
+    /// the one shown again.
     @objc(clear8bitRepresentations)
     func clear8bitRepresentations() {
-        for i in 0..<Int(horos_maxMovieIndex) {
-            guard let slices = horos_pixList(at: i) else { continue }
-            for x in 0..<slices.count {
-                let pix = slices.object(at: x) as AnyObject
-                if pix !== horos_imageView?.curDCM {
-                    (pix as? DCMPix)?.kill8bitsImage()
-                }
-            }
-        }
-        updateImage(self)
+        ViewerVolumeData.clear8bitRepresentations(of: self)
     }
 
     /// The float buffer of the frame shown.
     @objc(volumePtr)
     func volumePtr() -> UnsafeMutablePointer<Float>? {
-        floatBuffer(of: horos_volumeData(at: Int(horos_curMovieIndex)))
+        ViewerVolumeData.floatBuffer(of: horos_volumeData(at: Int(horos_curMovieIndex)))
     }
 
     /// The float buffer of frame `i`, wrapped into the frames there are.
     @objc(volumePtr:)
     func volumePtr(_ i: Int) -> UnsafeMutablePointer<Float>? {
-        floatBuffer(of: horos_volumeData(at: FourDSeriesGuard.wrappedIndex(i, count: Int(horos_maxMovieIndex))))
+        ViewerVolumeData.floatBuffer(of: horos_volumeData(at: FourDSeriesGuard.wrappedIndex(i, count: Int(horos_maxMovieIndex))))
     }
 
     /// The volume data of the frame shown.
@@ -86,38 +78,94 @@ public extension ViewerController {
         horos_volumeData(at: FourDSeriesGuard.wrappedIndex(i, count: Int(horos_maxMovieIndex))) as? NSData
     }
 
-    /// OsirixUpdateVolumeDataNotification for the slices shown: every slice
-    /// of every frame takes the window level again and every ROI is measured
-    /// again.
+    /// OsirixUpdateVolumeDataNotification for the slices shown.
     @objc(updateVolumeData:)
     func updateVolumeData(_ note: Notification!) {
+        ViewerVolumeData.volumeChanged(note, viewer: self)
+    }
+}
+/// The volume data of a 2D viewer: the float buffer of each 4D frame that
+/// the 3D viewers read, a copy of a frame's volume, the release of the 8-bit
+/// images before a 3D viewer opens, and the refresh of the window level and
+/// the ROIs after a volume changed in place. The viewer's selectors stay as
+/// façades in ViewerController+VolumeData.swift and +RetrieveAndView.swift.
+@MainActor
+enum ViewerVolumeData {
+
+    /// The bytes of `data` as floats; nil without data.
+    nonisolated static func floatBuffer(of data: NSObject?) -> UnsafeMutablePointer<Float>? {
+        guard let data = data as? NSData, data.length > 0 else { return nil }
+        return UnsafeMutableRawPointer(mutating: data.bytes).assumingMemoryBound(to: Float.self)
+    }
+
+    /// Frees the 8-bit image of every slice but the one shown (about a quarter
+    /// of the memory of a series), then computes the one shown again.
+    static func clear8bitRepresentations(of viewer: ViewerController) {
+        for movieIndex in 0..<Int(viewer.horos_maxMovieIndex) {
+            for case let pix as DCMPix in viewer.horos_pixList(at: movieIndex) ?? [] where pix !== viewer.horos_imageView?.curDCM {
+                pix.kill8bitsImage()
+            }
+        }
+        viewer.updateImage(viewer)
+    }
+
+    /// OsirixUpdateVolumeDataNotification for the slices `viewer` shows: every
+    /// slice of every frame takes the window level again and every ROI is
+    /// measured again.
+    static func volumeChanged(_ note: Notification?, viewer: ViewerController) {
         let changed = note?.object as AnyObject?
-        guard changed === horos_pixList(at: Int(horos_curMovieIndex)) else { return }
+        guard changed === viewer.horos_pixList(at: Int(viewer.horos_curMovieIndex)) else { return }
 
         var wl: Float = 0, ww: Float = 0
-        horos_imageView?.getWLWW(&wl, &ww)
+        viewer.horos_imageView?.getWLWW(&wl, &ww)
 
-        for y in 0..<Int(horos_maxMovieIndex) {
-            for case let pix as DCMPix in horos_pixList(at: y) ?? NSMutableArray() {
+        for movieIndex in 0..<Int(viewer.horos_maxMovieIndex) {
+            for case let pix as DCMPix in viewer.horos_pixList(at: movieIndex) ?? [] {
                 pix.changeWLWW(wl, ww)
             }
-            for case let rois as NSArray in horos_roiList(at: y) ?? NSMutableArray() {
+            for case let rois as [Any] in viewer.horos_roiList(at: movieIndex) ?? [] {
                 for case let roi as ROI in rois {
                     roi.recompute()
                 }
             }
         }
 
-        horos_imageView?.setWLWW(wl, ww)
+        viewer.horos_imageView?.setWLWW(wl, ww)
     }
-}
 
-extension ViewerController {
+    /// A copy of movie frame `movieIndex` of `viewer`: its volume, in a
+    /// buffer of its own the data frees, and a copy of each slice pointing
+    /// into it. Nil when the buffer cannot be allocated.
+    static func copy(movieIndex: Int, of viewer: ViewerController) -> (volume: NSData, pixels: NSMutableArray)? {
+        let slices = viewer.pixList(movieIndex)?.compactMap { $0 as? DCMPix } ?? []
 
-    /// The bytes of `data` as floats; nil without data.
-    fileprivate func floatBuffer(of data: NSObject?) -> UnsafeMutablePointer<Float>? {
-        guard let data = data as? NSData, data.length > 0 else { return nil }
-        let bytes = data.bytes
-        return UnsafeMutableRawPointer(mutating: bytes).assumingMemoryBound(to: Float.self)
+        // First calculate the amount of memory needed for the new serie
+        // (each pixel contains either a 32-bit float or a 32-bit ARGB value).
+        let length = slices.reduce(0) { $0 &+ $1.pheight &* $1.pwidth &* 4 }
+
+        guard let buffer = malloc(length)?.assumingMemoryBound(to: UInt8.self) else { return nil }	// ALWAYS use malloc for allocating memory !
+        // Copy the source series in the new one !
+        if let source = viewer.volumePtr(movieIndex) {
+            memcpy(buffer, source, length)
+        } else {
+            // memcpy from NULL: the former code crashed here unless the length was 0.
+            precondition(length == 0, "copyVolumeData: the volume has no pixels to copy")
+        }
+
+        // An NSData object controls the new buffer.
+        let volume = NSData(bytesNoCopy: buffer, length: length, freeWhenDone: true)
+
+        // Now copy the DCMPix with the new buffer.
+        let pixels = NSMutableArray()
+        for (index, pix) in slices.enumerated() {
+            guard let copy = pix.copy() as? DCMPix else {
+                NSException(name: .invalidArgumentException, reason: "*** -[__NSArrayM insertObject:atIndex:]: object cannot be nil",
+                            userInfo: nil).raise()
+                continue
+            }
+            copy.fImage = UnsafeMutableRawPointer(buffer + copy.pheight &* copy.pwidth &* 4 &* index).assumingMemoryBound(to: Float.self)
+            pixels.add(copy)
+        }
+        return (volume, pixels)
     }
 }

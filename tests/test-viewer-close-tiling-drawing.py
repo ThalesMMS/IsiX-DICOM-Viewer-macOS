@@ -76,15 +76,16 @@ else:
     # The same guard, in the Objective-C of the double below.
     guard = 'if( drawing == NO) return;'
 if '- (void)windowWillClose:(NSNotification *)notification' not in viewer:
-    # -windowWillClose: is Swift since ViewerController+WindowLifecycle.swift.
+    # -windowWillClose: is Swift: the viewer's graph closes the window
+    # (closeWindow in ViewerSessionGraph+WindowLife.swift).
     # test-viewer-windows-equivalence runs it against this Objective-C (every
     # view of the tiling stops drawing before -finalizeSeriesViewing, in its
     # records); here, its order is read.
-    swift = read('Horos/Sources/ViewerController+WindowLifecycle.swift')
-    start = swift.index('    func windowWillClose(_ notification: Notification) {')
+    swift = read('Horos/Sources/ViewerSessionGraph+WindowLife.swift')
+    start = swift.index('    func closeWindow() {')
     close = swift[start:swift.index('\n    }\n', start)]
-    loop = close.find('for case let view as DCMView in (horos_seriesView?.imageViews() ?? []) {\n            view.drawing = false')
-    first = close.find('horos_imageView?.drawing = false')
+    loop = close.find('for case let view as DCMView in (viewer.horos_seriesView?.imageViews() ?? []) {\n            view.drawing = false')
+    first = close.find('viewer.horos_imageView?.drawing = false')
     finalize = close.find('finalizeSeriesViewing()')
     notice = close.find('NotificationCenter.default.post(name: NSNotification.Name.OsirixCloseViewer')
     if not (0 <= loop < first < notice < finalize):

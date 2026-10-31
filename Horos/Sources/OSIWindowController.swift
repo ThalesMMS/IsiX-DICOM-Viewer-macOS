@@ -226,11 +226,16 @@ enum OSIWindowControllerFlags {
         if let pixList = self.pixList(), pixList.count > 0 {
             let pix = pixList.lastObject as? DCMPix
 
+            let browser = browserWindowGraph?.browser
+            // The pasted image goes with the selection; the database shown
+            // stays, its change would close this viewer and every other.
             if let series = pix?.seriesObj() {
-                _ = BrowserController.currentBrowser()?.selectThisStudy(series.value(forKey: "study"))
+                _ = browser?.selectThisStudy(series.value(forKey: "study"), switchingDatabase: false)
             }
 
-            BrowserController.currentBrowser()?.pasteImage(forSourceFile: pix?.srcFile)
+            // Into this viewer's database, which the window may not show: the
+            // patient is the one of the viewer's image.
+            if let browser { ClipboardImagePaste(browser: browser).paste(sourceFile: pix?.srcFile, into: database ?? browser.database) }
         }
     }
 
@@ -250,6 +255,38 @@ enum OSIWindowControllerFlags {
     @objc(observeDatabaseObjectsMayFaultNotification:)
     private nonisolated func observeDatabaseObjectsMayFaultNotification(_ notification: Notification) {
         _ = perform(#selector(NSWindowController.close))
+    }
+}
+
+// The graphs a viewer window reaches the browser through, instead of the
+// browser singleton.
+extension OSIWindowController {
+    /// The graph of the 2D viewer this window belongs to: a 2D viewer's own;
+    /// for a 3D window, the graph of the 2D viewer that opened it, which the
+    /// windows that do not keep that viewer alive (MPR, CPR) keep from their
+    /// initializer and the others reach through the viewer they keep. Nil for
+    /// any other window, and for a 3D window a plugin opened without a viewer.
+    var viewerGraph: ViewerSessionGraph? {
+        if let viewer = self as? ViewerController {
+            return viewer.sessionGraph
+        }
+        guard let window3D = self as? Window3DController else { return nil }
+        return window3D.keptViewerGraph ?? window3D.viewer()?.sessionGraph
+    }
+
+    /// The graph of the database window, which hands out the browser and the
+    /// database it shows: through the viewer's graph, or through the graph of
+    /// the process for a window without a viewer, which a plugin opened.
+    var browserWindowGraph: BrowserWindowGraph? {
+        (viewerGraph?.processGraph ?? PreferencesSource.process.processGraph).browserWindow
+    }
+
+    /// The graph of the database window for `object`: a viewer's window
+    /// controller, or a view in the window of one; the graph of the process
+    /// for anything else, such as a plugin's object.
+    static func browserWindowGraph(serving object: Any?) -> BrowserWindowGraph? {
+        let controller = (object as? OSIWindowController) ?? ((object as? NSView)?.window?.windowController as? OSIWindowController)
+        return controller?.browserWindowGraph ?? PreferencesSource.process.processGraph.browserWindow
     }
 }
 
@@ -330,7 +367,7 @@ private final class OSIWindowControllerDefaults: NSObject {
     @objc(querySelectedStudy:) func querySelectedStudy(_ sender: Any!) {
         let controller = self.controller
         MainActor.assumeIsolated {
-            BrowserController.currentBrowser()?.querySelectedStudy(controller)
+            controller.browserWindowGraph?.browser.querySelectedStudy(controller)
         }
     }
 

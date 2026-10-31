@@ -39,6 +39,7 @@
 
 import Carbon
 import Cocoa
+import IsiXPreferences
 
 /// How long the drop check waits between looks at the mouse buttons.
 private let magneticDropCheckInterval: TimeInterval = 0.05
@@ -54,6 +55,12 @@ private let magneticDropCheckInterval: TimeInterval = 0.05
 // drop check, re-armed while a mouse button is pressed, then snaps the window
 // (and swaps it with the window it was dropped on) after the release.
 extension OSIWindowController {
+
+    /// Where the magnets, the tiling and the thumbnails list are read: the
+    /// preferences of the process.
+    private var magneticPreferences: any PreferenceStore {
+        PreferencesSource.process.preferences
+    }
 
     /// The frames of the other visible magnetic viewers on `window`'s
     /// screen, then the usable area of this controller's screen.
@@ -85,7 +92,7 @@ extension OSIWindowController {
         OSIWindowControllerFlags.protectedReentryWindowDidResize = true
         if magneticWindowActivated {
             if OSIWindowControllerFlags.dontEnterMagneticFunctions == false && GetCurrentButtonState() != 0 {
-                if UserDefaults.standard.bool(forKey: "MagneticWindows") {
+                if magneticPreferences[ApplicationPreferences.magneticWindows] {
                     let theWindow = aNotification.object as? NSWindow
                     let myFrame = theWindow?.frame ?? .zero
 
@@ -144,7 +151,7 @@ extension OSIWindowController {
                 }
             }
 
-            if UserDefaults.standard.bool(forKey: "UseFloatingThumbnailsList") == false {
+            if magneticPreferences[ViewerPreferences.useFloatingThumbnailsList] == false {
                 (self as? ViewerController)?.showCurrentThumbnail(self)
             }
         }
@@ -214,7 +221,7 @@ extension OSIWindowController {
 
     @objc(applyMagnetsAfterUserMove)
     private func applyMagnetsAfterUserMove() {
-        guard magneticWindowActivated && UserDefaults.standard.bool(forKey: "MagneticWindows") && NSIsEmptyRect(savedWindowsFrame) == false else {
+        guard magneticWindowActivated && magneticPreferences[ApplicationPreferences.magneticWindows] && NSIsEmptyRect(savedWindowsFrame) == false else {
             return
         }
         let theWindow = self.window
@@ -271,12 +278,8 @@ extension OSIWindowController {
             cancelMagneticDropCheck()
         }
 
-        if (notification.object as AnyObject?) === self.window && UserDefaults.standard.bool(forKey: "AUTOTILING") && magneticWindowActivated {
-            if delayedTileWindows != 0, let app = AppController.shared() {
-                NSObject.cancelPreviousPerformRequests(withTarget: app, selector: #selector(AppController.tileWindows(_:)), object: nil)
-            }
-            delayedTileWindows = 1
-            AppController.shared()?.perform(#selector(AppController.tileWindows(_:)), with: nil, afterDelay: 0.3)
+        if (notification.object as AnyObject?) === self.window && magneticPreferences[ViewerPreferences.autoTiling] && magneticWindowActivated {
+            PreferencesSource.process.processGraph.windowArranger.scheduleTiling(after: 0.3)
         }
     }
 }

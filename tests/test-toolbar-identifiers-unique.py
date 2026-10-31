@@ -24,7 +24,7 @@ root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 FILES = [
-    'Horos/Sources/BrowserController+Toolbar.swift',
+    'Horos/Sources/BrowserToolbar.swift',
     'Horos/Sources/CPRController.swift',
     'Horos/Sources/EndoscopyViewer.swift',
     'Horos/Sources/MPRController.swift',
@@ -33,8 +33,13 @@ FILES = [
     'Horos/Sources/XMLController.swift',
     'Horos/Sources/VRController+Toolbar.swift',
     'Horos/Sources/SRController+Toolbar.swift',
-    'Horos/Sources/ViewerController+Toolbar.swift',
+    'Horos/Sources/ViewerToolbarItemFactory.swift',
 ]
+# Constants a file names through another file: the viewer's toolbar identifier
+# is IsiXImaging's ViewerToolbarCatalog (typealias Catalog).
+CONSTANTS = {
+    'Horos/Sources/ViewerToolbarItemFactory.swift': 'Modules/IsiXImaging/Sources/ViewerMenus/ViewerToolbarCatalog.swift',
+}
 
 
 def read(relative):
@@ -52,6 +57,7 @@ failures = []
 owners = {}
 for relative in FILES:
     text = code(read(relative))
+    constants = code(read(CONSTANTS[relative])) if relative in CONSTANTS else text
     names = re.findall(r'Toolbar\(identifier:\s*([^)]+)\)', text) + \
         re.findall(r'initWithIdentifier:\s*([^\]]+)\]', text)
     if not names:
@@ -61,7 +67,7 @@ for relative in FILES:
         if name.startswith('"') or name.startswith('@"'):
             value = name.lstrip('@').strip('"')
         else:
-            constant = re.search(rf'\b{re.escape(name)}\b[^=\n]*=\s*@?"([^"]+)"', text)
+            constant = re.search(rf'\b{re.escape(name.split(".")[-1])}\b[^=\n]*=\s*@?"([^"]+)"', constants)
             if not constant:
                 failures.append(f'{relative}: the value of {name} is not in the file')
                 continue

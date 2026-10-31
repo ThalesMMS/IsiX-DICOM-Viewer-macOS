@@ -38,47 +38,14 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXDICOMNetwork
+import IsiXPreferences
 import Synchronization
 
 /// `static volatile int sendControllerObjects`: the SendController instances
-/// alive, which BrowserController asks before quitting. Atomic: controllers
-/// are made and released on the sending threads as well as the main thread.
+/// alive, which BrowserController asks before quitting, with the sends they
+/// queued. Atomic: a controller may be released after the main thread's pool.
 private let liveSendControllers = Atomic<Int32>(0)
-
-/// `static int globalDCMTKSCUCounter`: the sends running, across controllers.
-///
-/// Behind a lock. The former counter was read and written by the
-/// sending threads without one, and a send counted itself before waiting for
-/// its turn: once MaximumSendGlobalControllerConcurrentThreads sends were
-/// waiting, none running, each saw the others and they all waited forever.
-/// Only running sends count now, and a send checks and takes its slot at once.
-private enum GlobalSendSlots {
-    /// The sends running, taken and given back by the sending threads.
-    private static let running = Mutex(0)
-
-    /// Waits for a slot. As before, a send starts when none runs, or when it
-    /// makes fewer than MaximumSendGlobalControllerConcurrentThreads.
-    static func acquire() {
-        while true {
-            let maximum = UserDefaults.standard.integer(forKey: "MaximumSendGlobalControllerConcurrentThreads")
-
-            let acquired = running.withLock { running -> Bool in
-                if running == 0 || running + 1 < maximum {
-                    running += 1
-                    return true
-                }
-                return false
-            }
-            if acquired { return }
-
-            Thread.sleep(forTimeInterval: 0.1)
-        }
-    }
-
-    static func release() {
-        running.withLock { $0 -= 1 }
-    }
-}
 
 /// What %@ printed for an object: its description, or (null).
 private func describe(_ object: Any?) -> String {
@@ -93,126 +60,29 @@ private func intValue(_ object: Any?) -> Int32 {
     return 0
 }
 
-/// -integerValue of an NSNumber or NSString; 0 for nil, as a message to nil.
-private func integerValue(_ object: Any?) -> Int {
-    if let number = object as? NSNumber { return number.intValue }
-    if let string = object as? NSString { return string.integerValue }
-    return 0
-}
-
-/// N2LocalizedSingularPluralCount of N2Stuff.h.
-private func N2LocalizedSingularPluralCount(_ c: Int, _ s: String, _ p: String) -> String {
-    return String(format: "%@ %@",
-                  NumberFormatter.localizedString(from: NSNumber(value: c), number: .decimal),
-                  c == 1 ? s : p)
-}
-
-/// One DCMTKStoreSCU run over part of the files, in the operation queue of
-/// -[SendController executeSend:patientName:].
-///
-/// Private to SendController.m before the Swift conversion, and public here so the executable
-/// keeps exporting the class under the same name.
-///
-/// @unchecked Sendable, restated from Operation: `files`, `server` and `thread`
-/// are read and written only under `propertyLock`.
-@objc(DCMTKStoreSCUOperation)
-public final class DCMTKStoreSCUOperation: Operation, @unchecked Sendable {
-    /// The former properties were atomic: -executeSend:patientName: reads
-    /// `thread` from the sending thread while -main sets it on the queue's.
-    private let propertyLock = NSLock()
-    private var _files: NSArray?
-    private var _server: NSDictionary?
-    private var _thread: Thread?
-
-    @objc public var files: NSArray! {
-        get { propertyLock.lock(); defer { propertyLock.unlock() }; return _files }
-        set { propertyLock.lock(); _files = newValue; propertyLock.unlock() }
-    }
-
-    @objc public var server: NSDictionary! {
-        get { propertyLock.lock(); defer { propertyLock.unlock() }; return _server }
-        set { propertyLock.lock(); _server = newValue; propertyLock.unlock() }
-    }
-
-    @objc public var thread: Thread! {
-        get { propertyLock.lock(); defer { propertyLock.unlock() }; return _thread }
-        set { propertyLock.lock(); _thread = newValue; propertyLock.unlock() }
-    }
-
-    @objc(initWithFiles:server:)
-    public init(files a: NSArray!, server s: NSDictionary!) {
-        super.init()
-
-        self.files = a
-        self.server = s
-    }
-
-    @objc(showErrorMessage:)
-    public func showErrorMessage(_ ne: NSException!) {
-        let message = String(format: "%@\r\r%@\r%@", NSLocalizedString("DICOM StoreSCU operation failed.", comment: ""), describe(ne?.name.rawValue), describe(ne?.reason))
-
-        HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM Send Error", comment: ""), message: message, defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-    }
-
-    public override func main() {
-        autoreleasepool {
-            if self.isCancelled {
-                return
-            }
-
-            self.thread = Thread.current
-            self.thread.progress = 0
-
-            let server = self.server
-            let storeSCU = DCMTKStoreSCU(callingAET: UserDefaults.defaultAETitle(),
-                                         calledAET: server?.object(forKey: "AETitle") as? String,
-                                         hostname: server?.object(forKey: "Address") as? String,
-                                         port: intValue(server?.object(forKey: "Port")),
-                                         filesToSend: files as? [Any],
-                                         transferSyntax: Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "syntaxListOffis")),
-                                         compression: 1.0,
-                                         extraParameters: server as? [AnyHashable: Any])
-
-            do {
-                try HorosObjCException.perform {
-                    storeSCU.run(self)
-                }
-            } catch {
-                let ne = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-                self.performSelector(onMainThread: #selector(showErrorMessage(_:)), with: ne, waitUntilDone: false)
-            }
-        }
-    }
-}
-
-/// Window Controller for DICOM Send (Send.xib), and the send itself: the files
-/// go to the node through HorosDirectTransferService or DCMTKStoreSCU.
+/// Window Controller for DICOM Send (Send.xib): the sheet that chooses the
+/// destination and what to send, and the request it makes of that choice.
+/// The send itself is `DICOMSendQueue`'s, on threads the Activity window
+/// lists (`ActivitySendTransport`).
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/SendController.h> are those of the former class, the File's Owner of
 /// Send.xib.
 ///
-/// A controller keeps itself alive until its send ends, as the former one did
-/// under manual retain/release: whoever makes one does not release it.
-/// -sendToNode:objects: locks `_lock` and starts -releaseSelfWhenDone:, which
-/// waits for the send to unlock it and then autoreleases the controller on the
-/// main thread; the sheet's Cancel, and an empty selection, autorelease it too.
-/// When nothing is left to send after the filters, -sendToNode:objects:
-/// unlocks `_lock` itself.
+/// Whoever makes a controller does not release it, as under the former
+/// manual retain/release: the controller gives that reference back once its
+/// send is queued, or when the sheet is cancelled or nothing is left to send.
 @objc(SendController)
 public final class SendController: NSWindowController {
+    /// The process's preferences and send queue, from whoever made the controller.
+    let processGraph: ProcessGraph
+
     // Ivars of the former class.
-    private var _files: NSArray?
+    private var _files: [Any] = []
     private var _numberFiles: String?
     private var _keyImageIndex: Int = 0
     private var _serverIndex: Int = 0
-    private var _offisTS: Int = 0
-    private var _readyForRelease = false
-    private var _abort = false
-    private let _lock = NSRecursiveLock()
-    // nonisolated(unsafe): set on the main thread before the send thread
-    // starts (-sendToNode:objects:), then only read, by that thread.
-    nonisolated(unsafe) private var _destinationServer: NSDictionary?
+    private var _destinationServer: [AnyHashable: Any]?
 
     // Outlets the xib sets: ivars of the former class. Send.xib also connects a
     // `sendSCU` outlet that the former class never had; AppKit logs it and goes
@@ -227,41 +97,44 @@ public final class SendController: NSWindowController {
         return "Send"
     }
 
+    /// The controllers alive and the sends queued or running.
     @objc(sendControllerObjects)
     public class func sendControllerObjects() -> Int32 {
-        return liveSendControllers.load(ordering: .relaxed)
+        let sends = Int32(truncatingIfNeeded: ProcessGraph.process.dicomSendQueue.pendingSends)
+        return liveSendControllers.load(ordering: .relaxed) &+ sends
     }
 
     /// The destinations the sheet lists: the DIMSE nodes that send, then the
     /// DICOMweb nodes with Send on, which STOW-RS sends to. The DIMSE
     /// nodes come first so that `lastSendServer` keeps naming the same one.
-    static func destinations() -> [Any] {
-        let dimse = DICOMNodeService.nodes(sendOnly: true, queryRetrieveOnly: false)
-        return dimse + DICOMwebSources.sendDestinations().map { $0 as NSDictionary }
+    static func destinations() -> [[String: Any]] {
+        let dimse = DICOMNodeService.dicomNodes(sendOnly: true, queryRetrieveOnly: false)
+        return dimse.map(\.propertyList) + DICOMwebSources.sendDestinations()
     }
 
     @objc(sendFiles:toNode:)
-    public class func sendFiles(_ files: [Any]!, toNode node: NSDictionary!) {
+    public class func sendFiles(_ files: [Any]!, toNode node: [AnyHashable: Any]!) {
         return SendController.sendFiles(files, toNode: node, usingSyntax: Int32(SendExplicitLittleEndian.rawValue))
     }
 
     @objc(sendFiles:toNode:usingSyntax:)
-    public class func sendFiles(_ files: [Any]!, toNode node: NSDictionary!, usingSyntax syntax: Int32) {
-        let s = UserDefaults.standard.bool(forKey: "sendROIs")
-
-        UserDefaults.standard.set(true, forKey: "sendROIs")
-        UserDefaults.standard.set(Int(syntax), forKey: "syntaxListOffis")
-
+    public class func sendFiles(_ files: [Any]!, toNode node: [AnyHashable: Any]!, usingSyntax syntax: Int32) {
         let sendController = SendController(files: files)
-        _ = Unmanaged.passRetained(sendController) // released when the send ends
+        let preferences = sendController.processGraph.preferences
+        let s = preferences[NetworkPreferences.sendsROIs]
+
+        preferences.set(true, for: NetworkPreferences.sendsROIs)
+        preferences.set(Int(syntax), for: NetworkPreferences.sendTransferSyntax)
+
+        _ = Unmanaged.passRetained(sendController) // given back once the send is queued
         sendController.sendToNode(node)
 
-        UserDefaults.standard.set(s, forKey: "sendROIs")
+        preferences.set(s, for: NetworkPreferences.sendsROIs)
     }
 
     @objc(sendFiles:)
     public class func sendFiles(_ files: [Any]!) {
-        if UserDefaults.standard.bool(forKey: "DICOMSENDALLOWED") == false {
+        if PreferencesSource.process.preferences[NetworkPreferences.dicomSendAllowed] == false {
             HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM Send", comment: ""), message: NSLocalizedString("DICOM Sending is not activated. Contact your PACS manager for more information about DICOM Send.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
             return
         }
@@ -269,7 +142,7 @@ public final class SendController: NSWindowController {
         if (files?.count ?? 0) > 0 {
             if SendController.destinations().count > 0 {
                 let sendController = SendController(files: files)
-                _ = Unmanaged.passRetained(sendController) // released when the send ends
+                _ = Unmanaged.passRetained(sendController) // given back once the send is queued
 
                 if let sheet = sendController.window {
                     if let parent = NSApp.mainWindow {
@@ -292,9 +165,7 @@ public final class SendController: NSWindowController {
     @objc(hasKeyImages)
     public func hasKeyImages() -> Bool {
         let predicate = NSPredicate(format: "isKeyImage == YES")
-        let objectsToSend = _files?.filtered(using: predicate) ?? []
-
-        return objectsToSend.count > 0
+        return _files.contains { predicate.evaluate(with: $0) }
     }
 
     /// Send.xib enables the "Only Secondary Captures" radio with
@@ -302,26 +173,30 @@ public final class SendController: NSWindowController {
     @objc(hasSecondaryCapturesImages)
     public func hasSecondaryCapturesImages() -> Bool {
         let predicate = NSPredicate(format: "modality CONTAINS[c] %@", "SC")
-        let objectsToSend = _files?.filtered(using: predicate) ?? []
-
-        return objectsToSend.count > 0
+        return _files.contains { predicate.evaluate(with: $0) }
     }
 
     @objc(initWithFiles:)
-    public init(files: [Any]!) {
+    public convenience init(files: [Any]!) {
+        self.init(files: files, processGraph: ProcessGraph.process)
+    }
+
+    init(files: [Any]!, processGraph: ProcessGraph) {
+        self.processGraph = processGraph
         super.init(window: nil)
 
         NSLog("SendController initWithFiles: %d files", Int32(truncatingIfNeeded: files?.count ?? 0))
 
         liveSendControllers.wrappingAdd(1, ordering: .relaxed)
 
-        _abort = false
-        _files = (files as NSArray?)?.copy() as? NSArray
+        _files = files ?? []
 
-        let completePaths = _files?.value(forKey: "completePath") as? [Any] ?? []
-        setNumberFiles(String(format: "%d", Int32(truncatingIfNeeded: NSSet(array: completePaths).allObjects.count)))
+        // The files, each once; the images without one count as one more.
+        let completePaths = Set(_files.compactMap { $0 as? DicomImage }.map { $0.completePath() })
+        setNumberFiles(String(format: "%d", Int32(truncatingIfNeeded: completePaths.count)))
 
-        _serverIndex = UserDefaults.standard.integer(forKey: "lastSendServer")
+        let preferences = processGraph.preferences
+        _serverIndex = preferences[NetworkPreferences.lastSendServer]
 
         // NSInteger against the NSUInteger count: a negative index was a huge
         // unsigned one, and went back to 0 too.
@@ -330,15 +205,13 @@ public final class SendController: NSWindowController {
             _serverIndex = 0
         }
 
-        _keyImageIndex = SendWhatFilter.resolvedIndex(UserDefaults.standard.integer(forKey: "lastSendWhat"),
+        _keyImageIndex = SendWhatFilter.resolvedIndex(preferences[NetworkPreferences.lastSendWhat],
                                                       hasKeyImages: self.hasKeyImages(),
                                                       hasSecondaryCaptures: self.hasSecondaryCapturesImages())
 
-        _readyForRelease = false
-
-        NSUserDefaultsController.shared.addObserver(self, forValuesKey: "SERVERS", options: .initial, context: nil)
-        NSUserDefaultsController.shared.addObserver(self, forValuesKey: "DICOMWEB_SERVERS", options: [], context: nil)
-        NSUserDefaultsController.shared.addObserver(self, forValuesKey: "SendControllerConcurrentThreads", options: .initial, context: nil)
+        NSUserDefaultsController.shared.addObserver(self, forValuesKey: NetworkPreferences.dicomNodes.name, options: .initial, context: nil)
+        NSUserDefaultsController.shared.addObserver(self, forValuesKey: NetworkPreferences.dicomwebNodes.name, options: [], context: nil)
+        NSUserDefaultsController.shared.addObserver(self, forValuesKey: NetworkPreferences.sendControllerConcurrentThreads.name, options: .initial, context: nil)
 
         NotificationCenter.default.addObserver(self,
                                                selector: #selector(updateDestinationPopup(_:)),
@@ -347,6 +220,7 @@ public final class SendController: NSWindowController {
     }
 
     public required init?(coder: NSCoder) {
+        processGraph = ProcessGraph.process
         super.init(coder: coder)
     }
 
@@ -359,40 +233,24 @@ public final class SendController: NSWindowController {
     }
 
     private func defaultsDidChange(_ keyPath: String?) {
-        if keyPath == "values.SERVERS" || keyPath == "values.DICOMWEB_SERVERS" {
+        if keyPath == NetworkPreferences.controllerKeyPath(NetworkPreferences.dicomNodes) || keyPath == NetworkPreferences.controllerKeyPath(NetworkPreferences.dicomwebNodes) {
             updateDestinationPopup(nil)
         }
 
-        // A list given as an argument of the launch is not written back
-        // to the preferences.
-        if keyPath == "values.SendControllerConcurrentThreads"
-            && UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)["SERVERS"] == nil {
-            // Find current server (if it exists)
-
-            let servers = (UserDefaults.standard.object(forKey: "SERVERS") as? NSArray)?.mutableCopy() as? NSMutableArray
-            let currentServer = self.server() as? NSDictionary
-
-            for index in 0..<(servers?.count ?? 0) {
-                guard let server = servers?.object(at: index) as? NSDictionary else { continue }
-
-                // -isEqualToString: of a nil string, or with one, answered NO.
-                func same(_ key: String) -> Bool {
-                    guard let a = server.object(forKey: key) as? String,
-                          let b = currentServer?.object(forKey: key) as? String else { return false }
-                    return a == b
-                }
-
-                if same("Address") && same("Description") {
-                    let d = NSMutableDictionary(dictionary: server)
-
-                    d.setObject(UserDefaults.standard.object(forKey: "SendControllerConcurrentThreads") as Any, forKey: "SendControllerConcurrentThreads" as NSString)
-
-                    servers!.replaceObject(at: servers!.index(of: server), with: d)
-
-                    UserDefaults.standard.set(servers, forKey: "SERVERS")
-
-                    break
-                }
+        // The current node keeps the thread count chosen for it. A list given
+        // as an argument of the launch is not written back to the preferences.
+        let store = DICOMNodeService.store
+        if keyPath == NetworkPreferences.controllerKeyPath(NetworkPreferences.sendControllerConcurrentThreads) && !store.dicomNodesGivenAsArgument {
+            let currentServer = self.server() as? [String: Any]
+            // -isEqualToString: of a nil string, or with one, answered NO.
+            func same(_ value: String?, _ key: String) -> Bool {
+                guard let value, let current = currentServer?[key] as? String else { return false }
+                return value == current
+            }
+            // The node keeps the value in the form it is stored in; the send reads it as an integer.
+            let threads = processGraph.preferences[NetworkPreferences.sendControllerConcurrentThreads.reading(as: PropertyListValue?.self)]
+            store.updateFirstDICOMNode(where: { same($0.address, DICOMNode.Key.address) && same($0.nodeDescription, DICOMNode.Key.description) }) {
+                $0["SendControllerConcurrentThreads"] = threads
             }
         }
     }
@@ -400,7 +258,7 @@ public final class SendController: NSWindowController {
     public override func windowDidLoad() {
         super.windowDidLoad()
 
-        if (_files?.count ?? 0) > 0 {
+        if !_files.isEmpty {
             updateDestinationPopup(nil)
 
             let count = SendController.destinations().count
@@ -415,31 +273,15 @@ public final class SendController: NSWindowController {
     }
 
     deinit {
-        NSUserDefaultsController.shared.removeObserver(self, forValuesKey: "SERVERS")
-        NSUserDefaultsController.shared.removeObserver(self, forValuesKey: "DICOMWEB_SERVERS")
-        NSUserDefaultsController.shared.removeObserver(self, forValuesKey: "SendControllerConcurrentThreads")
+        NSUserDefaultsController.shared.removeObserver(self, forValuesKey: NetworkPreferences.dicomNodes.name)
+        NSUserDefaultsController.shared.removeObserver(self, forValuesKey: NetworkPreferences.dicomwebNodes.name)
+        NSUserDefaultsController.shared.removeObserver(self, forValuesKey: NetworkPreferences.sendControllerConcurrentThreads.name)
 
         NotificationCenter.default.removeObserver(self)
 
         liveSendControllers.wrappingSubtract(1, ordering: .relaxed)
 
         NSLog("SendController Released")
-        _lock.lock()
-        _lock.unlock()
-    }
-
-    @objc(releaseSelfWhenDone:)
-    // NSThread invokes this off-main; only the immutable lock and NSObject
-    // scheduling are used here. The final autorelease stays on the main thread.
-    nonisolated public func releaseSelfWhenDone(_ sender: Any!) {
-        autoreleasepool {
-            _lock.lock()
-            _lock.unlock()
-
-            // -autorelease on the main thread balances the reference the
-            // creator of the controller never released.
-            self.performSelector(onMainThread: NSSelectorFromString("autorelease"), with: nil, waitUntilDone: false)
-        }
     }
 
     @objc(numberFiles)
@@ -478,25 +320,26 @@ public final class SendController: NSWindowController {
     public func selectServer(_ sender: Any!) {
         _serverIndex = (sender as? NSPopUpButton)?.indexOfSelectedItem ?? 0
 
-        UserDefaults.standard.set(_serverIndex, forKey: "lastSendServer")
+        let preferences = processGraph.preferences
+        preferences.set(_serverIndex, for: NetworkPreferences.lastSendServer)
 
-        if let server = self.server() as? NSDictionary {
-            let preferredTS = intValue(server.object(forKey: "TransferSyntax"))
+        let server = self.server() as? [AnyHashable: Any]
+        if let server {
+            let preferredTS = intValue(server["TransferSyntax"])
 
-            UserDefaults.standard.set(Int(preferredTS), forKey: "syntaxListOffis")
+            preferences.set(Int(preferredTS), for: NetworkPreferences.sendTransferSyntax)
 
-            if server.object(forKey: "SendControllerConcurrentThreads") != nil {
-                UserDefaults.standard.set(Int(intValue(server.object(forKey: "SendControllerConcurrentThreads"))), forKey: "SendControllerConcurrentThreads")
+            if server["SendControllerConcurrentThreads"] != nil {
+                preferences.set(Int(intValue(server["SendControllerConcurrentThreads"])), for: NetworkPreferences.sendControllerConcurrentThreads)
             }
         }
 
-        let server = self.server() as? NSDictionary
         // A DICOMweb node sends in its own Send Syntax, to {address}/studies.
-        if DICOMwebSources.isDICOMwebServer(server as? [AnyHashable: Any]) {
-            addressAndPort?.stringValue = DICOMwebSources.storeURL(forServer: server as? [AnyHashable: Any])
+        if DICOMwebSources.isDICOMwebServer(server) {
+            addressAndPort?.stringValue = DICOMwebSources.storeURL(forServer: server)
             syntaxListOffis?.isEnabled = false
         } else {
-            addressAndPort?.stringValue = String(format: "%@ : %@", describe(server?.object(forKey: "Address")), describe(server?.object(forKey: "Port")))
+            addressAndPort?.stringValue = String(format: "%@ : %@", describe(server?["Address"]), describe(server?["Port"]))
             syntaxListOffis?.isEnabled = true
         }
     }
@@ -510,7 +353,7 @@ public final class SendController: NSWindowController {
     @objc(setKeyImageIndex:)
     public dynamic func setKeyImageIndex(_ index: Int32) {
         _keyImageIndex = Int(index)
-        UserDefaults.standard.set(Int(index), forKey: "lastSendWhat")
+        processGraph.preferences.set(Int(index), for: NetworkPreferences.lastSendWhat)
     }
 
     // MARK: sheet functions
@@ -524,26 +367,25 @@ public final class SendController: NSWindowController {
         let tag = (sender as? NSControl)?.tag ?? (sender as? NSMenuItem)?.tag ?? 0
 
         self.window?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: NSApplication.ModalResponse.RawValue(tag)))
-        var objectsToSend: NSArray? = _files
+        var objectsToSend = _files
 
         if tag != 0 { //User clicks OK Button
             if _keyImageIndex == 1 {
                 let predicate = NSPredicate(format: "isKeyImage == YES")
-                objectsToSend = _files?.filtered(using: predicate) as NSArray?
+                objectsToSend = objectsToSend.filter { predicate.evaluate(with: $0) }
             }
 
             if _keyImageIndex == 2 {
                 let predicate = NSPredicate(format: "modality CONTAINS[c] %@", "SC")
-                objectsToSend = objectsToSend?.filtered(using: predicate) as NSArray?
+                objectsToSend = objectsToSend.filter { predicate.evaluate(with: $0) }
             }
 
-            // Remove duplicates
-            objectsToSend = NSSet(array: (objectsToSend as? [Any]) ?? []).allObjects as NSArray
+            // Remove duplicates: an object chosen twice is sent once.
+            var seen = Set<ObjectIdentifier>()
+            objectsToSend = objectsToSend.filter { seen.insert(ObjectIdentifier($0 as AnyObject)).inserted }
 
-            let files2Send = objectsToSend?.value(forKey: "completePath") as? NSArray
-
-            if let files2Send = files2Send, files2Send.count > 0 {
-                sendToNode(self.server() as? NSDictionary, objects: objectsToSend as? [Any])
+            if !objectsToSend.isEmpty {
+                sendToNode(self.server() as? [AnyHashable: Any], objects: objectsToSend)
             } else {
                 HorosAlertPanel.run(title: NSLocalizedString("DICOM Send", comment: ""), message: NSLocalizedString("There are no files of selected type to send.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
 
@@ -554,287 +396,73 @@ public final class SendController: NSWindowController {
         }
     }
 
-    @objc(addArray:toArraysOfFiles:andArrayOfPatientNames:)
-    public func addArray(_ a: NSMutableArray!, toArraysOfFiles arraysOfFiles: NSMutableArray!, andArrayOfPatientNames arrayOfPatientNames: NSMutableArray!) {
-        if (a?.count ?? 0) == 0 {
-            return
-        }
-
-        if UserDefaults.standard.bool(forKey: "sendROIs") == false {
-            do {
-                try HorosObjCException.perform {
-                    var predicate: NSPredicate
-
-                    predicate = NSPredicate(format: "!(series.name CONTAINS[c] %@) AND !(series.id == %@)", "OsiriX ROI SR", "5002")
-                    a.filter(using: predicate)
-
-                    predicate = NSPredicate(format: "!(series.name CONTAINS[c] %@) AND !(series.id == %@)", "OsiriX Report SR", "5003")
-                    a.filter(using: predicate)
-
-                    predicate = NSPredicate(format: "!(series.name CONTAINS[c] %@) AND !(series.id == %@)", "OsiriX Annotations SR", "5004")
-                    a.filter(using: predicate)
-
-                    predicate = NSPredicate(format: "!(series.name CONTAINS[c] %@) AND !(series.id == %@)", "OsiriX No Autodeletion", "5005")
-                    a.filter(using: predicate)
-
-                    predicate = NSPredicate(format: "!(series.name CONTAINS[c] %@) AND !(series.id == %@)", "OsiriX WindowsState SR", "5006")
-                    a.filter(using: predicate)
-                }
-            } catch {
-                NSLog("***** executeSend exception: %@", describe((error as NSError).userInfo[HorosObjCExceptionKey]))
-            }
-        }
-
-        // A patient whose images were all filtered out above has no batch. The
-        // former -addObject: raised on the nil patient name instead, and the
-        // exception dropped the patients after this one too; a study
-        // without a name raised the same way, and its images were not sent.
-        if a.count == 0 {
-            return
-        }
-
-        arrayOfPatientNames.add((a.lastObject as AnyObject?)?.value(forKeyPath: "series.study.name") ?? NSNull())
-        arraysOfFiles.add(a.value(forKey: "completePathResolved"))
-    }
-
     @objc(sendToNode:)
-    public func sendToNode(_ node: NSDictionary!) {
+    public func sendToNode(_ node: [AnyHashable: Any]!) {
         sendToNode(node, objects: nil)
     }
 
+    /// Queues the send of `objects` (the controller's files when nil) to
+    /// `node` (the destination the sheet shows when nil). The reference its
+    /// creator never released is given back afterwards on the main thread, in
+    /// an autorelease pool of its own, as the former send did when it ended.
     @objc(sendToNode:objects:)
-    public func sendToNode(_ node: NSDictionary!, objects: [Any]!) {
-        let objects: [Any] = objects ?? (_files as? [Any]) ?? []
-
-        let objectsToSend = NSMutableArray(array: objects)
-
-        _lock.lock()
-        Thread.detachNewThreadSelector(#selector(releaseSelfWhenDone(_:)), toTarget: self, with: nil)
+    public func sendToNode(_ node: [AnyHashable: Any]!, objects: [Any]!) {
+        defer {
+            DispatchQueue.main.async { _ = Unmanaged.passUnretained(self).autorelease() }
+        }
 
         _destinationServer = node
+        if let request = sendRequest(to: node, objects: objects ?? _files) {
+            processGraph.dicomSendQueue.enqueue(request, through: ActivitySendTransport())
+        }
+    }
 
-        let arraysOfFiles = NSMutableArray()
-        let arrayOfPatientNames = NSMutableArray()
+    // MARK: The request
 
+    /// The send of the images among `objects` to `node`, with the settings of
+    /// the preferences; nil when nothing is left to send.
+    private func sendRequest(to node: [AnyHashable: Any]?, objects: [Any]) -> DICOMSendRequest? {
+        let preferences = processGraph.preferences
+        let sendsAppSeries = preferences[NetworkPreferences.sendsROIs]
+        let images = objects.compactMap { $0 as? DicomImage }
+        var items: [DICOMSendSelection.Item] = []
         do {
+            // Core Data raises for an image deleted since it was chosen.
             try HorosObjCException.perform {
-                objectsToSend.sort(using: [NSSortDescriptor(key: "series.study.patientUID", ascending: true)])
-
-                // Remove duplicated files
-                let paths = NSMutableArray(array: (objectsToSend.value(forKey: "completePathResolved") as? [Any]) ?? [])
-                // MutableArrayCategory, by its Objective-C selector.
-                _ = paths.perform(NSSelectorFromString("removeDuplicatedStringsInSyncWithThisArray:"), with: objectsToSend)
-
-                if objectsToSend.count > 0 {
-                    var previousPatientUID: String? = nil
-                    var samePatientArray = NSMutableArray()
-
-                    for image in objectsToSend {
-                        let patientUID = (image as AnyObject).value(forKeyPath: "series.study.patientUID") as? String
-
-                        // One batch per patient. The former code
-                        // compared with a previousPatientUID that started nil
-                        // and was only set on a change: -compare:options: sent
-                        // to nil answered NSOrderedSame, so there never was
-                        // one, and every patient went in one batch, under the
-                        // last one's name.
-                        if samePatientArray.count > 0 {
-                            let same = ((previousPatientUID ?? "") as NSString).compare(patientUID ?? "", options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive]) == .orderedSame
-
-                            if !same {
-                                addArray(samePatientArray, toArraysOfFiles: arraysOfFiles, andArrayOfPatientNames: arrayOfPatientNames)
-
-                                // Reset
-                                samePatientArray = NSMutableArray()
-                            }
-                        }
-
-                        if samePatientArray.count == 0 {
-                            previousPatientUID = patientUID
-                        }
-                        samePatientArray.add(image)
-                    }
-
-                    addArray(samePatientArray, toArraysOfFiles: arraysOfFiles, andArrayOfPatientNames: arrayOfPatientNames)
-                }
+                items = DICOMSendSelection.items(of: images, markingAppSeries: !sendsAppSeries)
             }
         } catch {
-            NSLog("***** sendDICOMFilesOffis exception: %@", describe((error as NSError).userInfo[HorosObjCExceptionKey]))
+            NSLog("***** sendToNode exception: %@", describe((error as NSError).userInfo[HorosObjCExceptionKey]))
         }
+        let batches = DICOMSendSelection.batches(of: items, sendsAppSeries: sendsAppSeries)
+        guard !batches.isEmpty else { return nil }
 
-        if arraysOfFiles.count > 0 {
-            let dict: NSDictionary = ["arraysOfFiles": arraysOfFiles, "arrayOfPatientNames": arrayOfPatientNames]
+        // The destination named, or else the one the sheet shows.
+        let entry = (node ?? self.server() as? [AnyHashable: Any]) as? [String: Any] ?? [:]
+        let destination = DICOMNode(propertyList: entry) ?? DICOMNode(entry: entry.compactMapValues { PropertyListValue($0) })
 
-            let t = Thread(target: self, selector: #selector(sendDICOMFilesOffis(_:)), object: dict)
-            t.name = NSLocalizedString("Sending...", comment: "")
-            t.supportsCancel = true
-            t.progress = 0
-            t.status = N2LocalizedSingularPluralCount(_files?.count ?? 0, NSLocalizedString("file", comment: ""), NSLocalizedString("files", comment: ""))
-            ThreadsManager.default().addThreadAndStart(t)
+        let route: DICOMSendRoute
+        if DICOMwebSources.isDICOMwebServer(node) {
+            route = .dicomweb
+        } else if DirectTransferPolicy.route(server: node as? [String: Any] ?? [:], destinationChosen: node != nil,
+                                             authorized: ((node?["HorosDirectTransferToken"] as? NSString)?.length ?? 0) > 0)
+                    == DirectTransferPolicy.routeDirect {
+            route = .directTransferFirst
         } else {
-            // Nothing left to send: no -sendDICOMFilesOffis: will unlock, so
-            // unlock here, on the thread that locked, or -releaseSelfWhenDone:
-            // waits forever and the controller leaks.
-            _lock.unlock()
-        }
-    }
-
-    // MARK: Sending functions
-
-    @objc(executeSend:patientName:)
-    nonisolated public func executeSend(_ files: [Any]!, patientName: String!) {
-        let files: NSArray = (files as NSArray?) ?? []
-
-        if Thread.current.isCancelled {
-            return
+            route = .cStore
         }
 
-        Thread.current.name = String(format: "%@ %@", NSLocalizedString("Sending...", comment: ""), describe(patientName))
-
-        // Send the collected files from the same patient
-
-        let operations = NSMutableArray()
-        let queue = OperationQueue()
-        queue.name = String(format: "%@ %@", NSLocalizedString("Sending...", comment: ""), describe(patientName))
-
-        // `unsigned int`, compared with the NSInteger defaults as before.
-        var maxThreads = UInt32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "SendControllerConcurrentThreads"))
-
-        if Int(maxThreads) > UserDefaults.standard.integer(forKey: "MaximumSendControllerConcurrentThreads") {
-            maxThreads = UInt32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "MaximumSendControllerConcurrentThreads"))
+        let associations = DICOMSendOptions.associationsPerBatch(
+            requested: preferences[NetworkPreferences.sendControllerConcurrentThreads],
+            maximum: preferences[NetworkPreferences.maximumSendControllerConcurrentThreads])
+        if associations > 1 {
+            NSLog("DCMTKStoreSCU threads: %d", Int32(bitPattern: associations))
         }
-
-        if maxThreads <= 0 {
-            maxThreads = 1
-        }
-
-        if maxThreads > 1 {
-            NSLog("DCMTKStoreSCU threads: %d", Int32(bitPattern: maxThreads))
-        }
-
-        var loc = 0
-        repeat {
-            var range = NSMakeRange(loc, Int(ceil(Double(Float(files.count) / Float(maxThreads)))))
-            if operations.count == Int(maxThreads) - 1 {
-                range.length = files.count - range.location
-            }
-
-            if range.location + range.length > files.count {
-                range.length = files.count - range.location
-            }
-
-            if range.length > 0 {
-                loc += range.length
-
-                // The send thread's destination, set before it started; the
-                // popup's choice only when there is none, read on the main thread.
-                let server = self._destinationServer ?? onMainActorSync { self.server() as? NSDictionary }
-                let op = DCMTKStoreSCUOperation(files: files.subarray(with: range) as NSArray, server: server)
-
-                operations.add(op)
-                queue.addOperation(op)
-            }
-        } while loc < files.count
-
-        while queue.operationCount > 0 {
-            if Thread.current.isCancelled {
-                Thread.current.progress = -1
-                Thread.current.status = NSLocalizedString("Cancelling...", comment: "")
-                queue.cancelAllOperations()
-                break
-            }
-
-            var progress: Float = 0
-            for case let o as DCMTKStoreSCUOperation in operations {
-                if queue.operations.contains(o) == false {
-                    progress += 1.0
-                } else if (o.thread?.progress ?? 0) >= 0 {
-                    progress += Float(o.thread?.progress ?? 0)
-                }
-            }
-
-            progress /= Float(operations.count)
-            Thread.current.progress = CGFloat(progress)
-
-            let remainingFiles = Int32(Float(files.count) - Float(files.count) * progress)
-            Thread.current.status = N2LocalizedSingularPluralCount(Int(remainingFiles), NSLocalizedString("file", comment: ""), NSLocalizedString("files", comment: ""))
-
-            Thread.sleep(forTimeInterval: 0.1)
-        }
-
-        queue.waitUntilAllOperationsAreFinished()
-    }
-
-    @objc(sendDICOMFilesOffis:)
-    nonisolated public func sendDICOMFilesOffis(_ dict: NSDictionary!) {
-        autoreleasepool {
-            let arraysOfFiles = (dict?.object(forKey: "arraysOfFiles") as? NSArray) ?? []
-            let arrayOfPatientNames = (dict?.object(forKey: "arrayOfPatientNames") as? NSArray) ?? []
-
-            GlobalSendSlots.acquire()
-
-            do {
-                try HorosObjCException.perform {
-                    // A DICOMweb node is sent to by STOW-RS, never by C-STORE.
-                    if DICOMwebSources.isDICOMwebServer(self._destinationServer as? [AnyHashable: Any]) {
-                        self.sendDICOMweb(arraysOfFiles: arraysOfFiles, patientNames: arrayOfPatientNames)
-                        return
-                    }
-                    var sentDirectly = false
-                    let authorized = ((self._destinationServer?.object(forKey: "HorosDirectTransferToken") as? NSString)?.length ?? 0) > 0
-                    let route = DirectTransferPolicy.route(server: (self._destinationServer as? [String: Any]) ?? [:],
-                                                                destinationChosen: self._destinationServer != nil,
-                                                                authorized: authorized)
-                    if route == DirectTransferPolicy.routeDirect {
-                        let allFiles = NSMutableOrderedSet()
-                        for case let patientFiles as [Any] in arraysOfFiles {
-                            allFiles.addObjects(from: patientFiles)
-                        }
-                        let directPort = integerValue(self._destinationServer?.object(forKey: "HorosDirectTransferPort"))
-                        NSLog("Horos direct transfer selected: %lu files on one connection (no patient identifiers in the log)",
-                              UInt(allFiles.count))
-                        sentDirectly = DirectTransferService.shared
-                            .send(files: (allFiles.array as? [String]) ?? [],
-                                  toHost: (self._destinationServer?.object(forKey: "Address") as? String) ?? "",
-                                  port: directPort,
-                                  token: (self._destinationServer?.object(forKey: "HorosDirectTransferToken") as? String) ?? "",
-                                  activityThread: Thread.current)
-                        if !sentDirectly && !Thread.current.isCancelled {
-                            NSLog("Horos direct transfer unavailable; falling back to DICOM C-STORE")
-                            Thread.current.progress = 0
-                            Thread.current.status = NSLocalizedString("Using DICOM transfer...", comment: "")
-                        }
-                    }
-
-                    if !sentDirectly && !Thread.current.isCancelled {
-                        for i in 0..<arraysOfFiles.count {
-                            self.executeSend(arraysOfFiles.object(at: i) as? [Any], patientName: arrayOfPatientNames.object(at: i) as? String)
-                        }
-                    }
-                }
-            } catch {
-                NSLog("***** sendDICOMFilesOffis exception: %@", describe((error as NSError).userInfo[HorosObjCExceptionKey]))
-            }
-
-            GlobalSendSlots.release()
-
-            //need to unlock to allow release of self after send complete
-            _lock.performSelector(onMainThread: #selector(NSRecursiveLock.unlock), with: nil, waitUntilDone: false)
-        }
-    }
-
-    // MARK: DICOMweb
-
-    /// STOW-RS of every file to the chosen DICOMweb node, on this thread, the
-    /// activity panel's.
-    nonisolated private func sendDICOMweb(arraysOfFiles: NSArray, patientNames: NSArray) {
-        let files = NSMutableOrderedSet()
-        for case let patientFiles as [Any] in arraysOfFiles {
-            files.addObjects(from: patientFiles)
-        }
-        DICOMwebSendActivity.send(files: files.array.compactMap { $0 as? String },
-                                  patientName: patientNames.firstObject as? String,
-                                  to: _destinationServer as? [AnyHashable: Any], thread: Thread.current)
+        let options = DICOMSendOptions(callingAETitle: UserDefaults.defaultAETitle(), associationsPerBatch: associations,
+                                       mostConcurrentSends: preferences[NetworkPreferences.maximumSendGlobalControllerConcurrentThreads])
+        return DICOMSendRequest(destination: destination, batches: batches,
+                                transferSyntax: preferences[NetworkPreferences.sendTransferSyntax], compression: 1,
+                                route: route, options: options)
     }
 
     // MARK: serversArray functions
@@ -845,8 +473,8 @@ public final class SendController: NSWindowController {
             let currentTitle = newServerList.selectedItem?.title
 
             newServerList.removeAllItems()
-            for case let d as NSDictionary in SendController.destinations() {
-                var title = String(format: "%@ - %@", describe(d.object(forKey: "AETitle")), describe(d.object(forKey: "Description")))
+            for destination in SendController.destinations() {
+                var title = String(format: "%@ - %@", describe(destination["AETitle"]), describe(destination["Description"]))
 
                 while newServerList.indexOfItem(withTitle: title) != -1 {
                     title = title + " "

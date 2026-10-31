@@ -42,7 +42,7 @@ import Cocoa
 /// The routes table of the Routing pane: Delete asks, then removes the
 /// selected route through the pane.
 ///
-/// Implemented in Swift since #711: the Objective-C name is the one
+/// Implemented in Swift: the Objective-C name is the one
 /// OSIAutoroutingPreferencePanePref.xib uses as customClass.
 @objc(RoutesTableView)
 public final class RoutesTableView: NSTableView {

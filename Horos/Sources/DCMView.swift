@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
 
 // DCMView, the image view of the 2D viewer and the base of the MPR, CPR and
 // endoscopy views, is a Swift class under its Objective-C name. This file
@@ -81,8 +82,18 @@ public class DCMView: NSView {
         get { return self.horos_curDCMStorage }
         set { self.horos_curDCMStorage = newValue }
     }
-    @objc final var horos_curImage: Int = 0
-    @objc final var horos_startImage: Int = 0
+    /// The image shown, the image a drag through the stack started from and
+    /// the slab scroll's state (IsiXImaging). The accessors below keep the
+    /// names the view's files and subclasses read.
+    final var stackNavigation = StackNavigation()
+    final var horos_curImage: Int {
+        get { return self.stackNavigation.current }
+        set { self.stackNavigation.current = newValue }
+    }
+    final var horos_startImage: Int {
+        get { return self.stackNavigation.start }
+        set { self.stackNavigation.start = newValue }
+    }
     @objc final var horos_listType: CChar = 0
     @objc final var horos_volumicData: Int32 = 0
     @objc final var horos_volumicSeries = true
@@ -96,51 +107,78 @@ public class DCMView: NSView {
 
     // MARK: - Window level
 
-    @objc final var horos_curWL: Float = 0
-    @objc final var horos_curWW: Float = 0
-    @objc final var horos_startWL: Float = 0
-    @objc final var horos_startWW: Float = 0
-    @objc final var horos_startMin: Float = 0
-    @objc final var horos_startMax: Float = 0
-    @objc final var horos_bdstartWL: Float = 0
-    @objc final var horos_bdstartWW: Float = 0
-    @objc final var horos_bdstartMin: Float = 0
-    @objc final var horos_bdstartMax: Float = 0
-    @objc final var horos_curWLWWSUVConverted = false
-    @objc final var horos_curWLWWSUVFactor: Float = 0
-    @objc final var horos_avoidChangeWLWWRecursive = false
+    /// The view's copy of the window of the image shown (IsiXImaging); the
+    /// image keeps its own and is drawn with it. Each write is published.
+    final var windowLevelState = WindowLevelState() { didSet { publishedPresentation.publish(windowLevel: windowLevelState) } }
+    /// Where a window level drag started, for the image and for the fused one.
+    final var windowLevelDrag = WindowLevelDrag(variant: .image, level: 0, width: 0, minimum: 0, maximum: 0)
+    final var fusedWindowLevelDrag = WindowLevelDrag(variant: .fused, level: 0, width: 0, minimum: 0, maximum: 0)
+    /// Set while the view takes the window another view posted, so that the
+    /// views showing the same pixels do not answer one another.
+    final var takingPostedWindowLevel = false
     @objc final var horos_COPYSETTINGSINSERIES = true
 
     // MARK: - Colour tables
 
-    @objc final var horos_colorTransfer = false
-    @objc final var horos_colorBuf: UnsafeMutablePointer<UInt8>?
-    @objc final let horos_alphaTable: UnsafeMutablePointer<UInt8>! = dcmViewTable { _ in 0xFF }
-    @objc final let horos_redTable: UnsafeMutablePointer<UInt8>! = dcmViewTable { UInt8($0) }
-    @objc final let horos_greenTable: UnsafeMutablePointer<UInt8>! = dcmViewTable { UInt8($0) }
-    @objc final let horos_blueTable: UnsafeMutablePointer<UInt8>! = dcmViewTable { UInt8($0) }
+    /// Whether the image is drawn through the colour tables (IsiXImaging).
+    /// The tables are the view's, at addresses that never change: -getCLUT:::
+    /// hands them to plugins.
+    final var colourTableState = ColourTableState()
+    final var horos_colorTransfer: Bool {
+        get { return self.colourTableState.colorTransfer }
+        set { self.colourTableState.colorTransfer = newValue }
+    }
+    /// The colour image's bytes of the former OpenGL texture load, freed when
+    /// the tables go back to grey levels.
+    final var horos_colorBuf: UnsafeMutablePointer<UInt8>?
+    final let horos_alphaTable: UnsafeMutablePointer<UInt8>! = dcmViewTable { _ in 0xFF }
+    final let horos_redTable: UnsafeMutablePointer<UInt8>! = dcmViewTable { UInt8($0) }
+    final let horos_greenTable: UnsafeMutablePointer<UInt8>! = dcmViewTable { UInt8($0) }
+    final let horos_blueTable: UnsafeMutablePointer<UInt8>! = dcmViewTable { UInt8($0) }
+    final var colourTables: ColourTableState.Tables {
+        return ColourTableState.Tables(red: self.horos_redTable, green: self.horos_greenTable, blue: self.horos_blueTable)
+    }
     @objc final var horos_redFactor: Float = 1
     @objc final var horos_greenFactor: Float = 1
     @objc final var horos_blueFactor: Float = 1
 
     // MARK: - Fusion
 
-    /// The fused view; Swift spelled the Objective-C name without its type.
-    @objc(horos_blendingView) final var horos_blending: DCMView!
-    @objc final var horos_blendingFactor: Float = 0.5
-    @objc final var horos_blendingFactorStart: Float = 0
-    @objc final var horos_blendingMode: Int = 0
+    /// The fused view.
+    final var horos_blending: DCMView!
+    /// The mode, the factor and the drag's start of the blend (IsiXImaging).
+    final var fusionBlend = FusionBlend()
+    final var horos_blendingFactor: Float {
+        get { return self.fusionBlend.factor }
+        set { self.fusionBlend.factor = newValue }
+    }
+    final var horos_blendingFactorStart: Float {
+        get { return self.fusionBlend.factorAtDragStart }
+        set { self.fusionBlend.factorAtDragStart = newValue }
+    }
+    final var horos_blendingMode: Int {
+        get { return self.fusionBlend.mode }
+        set { self.fusionBlend.mode = newValue }
+    }
 
     // MARK: - Zoom, pan, rotation and flips
 
-    @objc final var horos_scaleValue: Float = 0
-    @objc final var horos_startScaleValue: Float = 0
-    @objc final var horos_rotation: Float = 0
-    @objc final var horos_rotationStart: Float = 0
-    @objc final var horos_origin = NSPoint.zero
-    @objc final var horos_originStart = NSPoint.zero
-    @objc final var horos_xFlipped = false
-    @objc final var horos_yFlipped = false
+    /// The scale, pan, rotation and flips, and their values when a drag
+    /// began (IsiXImaging); each write is published. The accessors below keep
+    /// the names the view's files and subclasses read; the properties' setters
+    /// (scaleValue, origin, rotation, the flips) apply the rules and save the presentation.
+    final var viewport = ViewportState() { didSet { publishedPresentation.publish(viewport: viewport) } }
+    /// The viewport and the window as the main actor last wrote them, behind a
+    /// lock: what the viewer's accessors answer plugins and other threads.
+    nonisolated final let publishedPresentation = ViewPresentationSnapshot()
+    final var horos_scaleValue: Float { get { viewport.scale } set { viewport.scale = newValue } }
+    final var horos_startScaleValue: Float { get { viewport.scaleAtDragStart } set { viewport.scaleAtDragStart = newValue } }
+    final var horos_rotation: Float { get { viewport.rotation } set { viewport.rotation = newValue } }
+    final var horos_rotationStart: Float { get { viewport.rotationAtDragStart } set { viewport.rotationAtDragStart = newValue } }
+    final var horos_origin: NSPoint { get { viewport.origin } set { viewport.origin = newValue } }
+    final var horos_originStart: NSPoint { get { viewport.originAtDragStart } set { viewport.originAtDragStart = newValue } }
+    final var horos_xFlipped: Bool { get { viewport.xFlipped } set { viewport.xFlipped = newValue } }
+    final var horos_yFlipped: Bool { get { viewport.yFlipped } set { viewport.yFlipped = newValue } }
     @objc final var horos_resizeTotal: Double = 0
     @objc final var horos_scaleToFitNoReentry = false
     @objc final var horos_previousViewSize = NSSize.zero
@@ -206,9 +244,6 @@ public class DCMView: NSView {
     @objc final var horos__dragInProgress = false
     @objc final var horos_isKeyView = false
     @objc final var horos__hasChanged = false
-    @objc final var horos_slabScrollRemainder: Double = 0
-    @objc final var horos_slabScrollTimestamp: TimeInterval = 0
-    @objc final var horos_consumeSlabScrollTail = false
 
     // MARK: - ROIs
 
@@ -424,9 +459,9 @@ public class DCMView: NSView {
         set { self.tagValue = newValue }
     }
 
-    @objc public dynamic var curWW: Float { return self.horos_curWW }
+    @objc public dynamic var curWW: Float { return self.windowLevelState.width }
 
-    @objc public dynamic var curWL: Float { return self.horos_curWL }
+    @objc public dynamic var curWL: Float { return self.windowLevelState.level }
 
     @objc public dynamic var rows: Int {
         get { return self.horos_imageRows }
@@ -490,7 +525,7 @@ public class DCMView: NSView {
 
     /// The former -initWithFrameInt: and the rest of -initWithFrame:imageRows:imageColumns:.
     private func setUp(frame frameRect: NSRect, imageRows rows: Int, imageColumns columns: Int) {
-        if DCMView.horos_static_PETredTable == nil {
+        if !PETBlendingTables.isComputed {
             DCMView.computePETBlendingCLUT()
         }
 
@@ -570,7 +605,7 @@ public class DCMView: NSView {
         NSLog("DCMView released")
 
         // A view decoded from an archive registered no observer.
-        inputLogException(inputCatch {
+        inputLogException(HorosObjCException.caughtWithoutAllocation {
             let defaults = UserDefaults.standard
             defaults.removeObserver(self, forKeyPath: "ANNOTATIONS")
             defaults.removeObserver(self, forKeyPath: "LabelFONTNAME")
@@ -614,6 +649,14 @@ public class DCMView: NSView {
     /// by name, `key` or `_key`; the state they held is stored under horos_ and
     /// the same name. A key with neither is undefined, as before.
     public override func value(forUndefinedKey key: String) -> Any? {
+        switch key {
+        case "colorTransfer": return MainActor.assumeIsolated { NSNumber(value: self.colourTableState.colorTransfer) }
+        case "blendingFactorStart": return MainActor.assumeIsolated { NSNumber(value: self.fusionBlend.factorAtDragStart) }
+        // Tables and buffers held as pointers, which key-value coding cannot
+        // carry: undefined, as they were.
+        case "colorBuf", "alphaTable", "redTable", "greenTable", "blueTable": return super.value(forUndefinedKey: key)
+        default: break
+        }
         if let stored = self.formerInstanceVariableKey(key) {
             return self.value(forKey: stored)
         }
@@ -621,6 +664,32 @@ public class DCMView: NSView {
     }
 
     public override func setValue(_ value: Any?, forUndefinedKey key: String) {
+        // The window's instance variables, which plugins used, set as they were: a number or a text read as a
+        // float, nil refused, on the main actor as the property's setter was.
+        if key == "curWL" || key == "curWW" {
+            guard let value else { return self.setNilValueForKey(key) }
+            let number = DCMViewSettings.floatValue(value)
+            return MainActor.assumeIsolated { if key == "curWL" { self.windowLevelState.level = number } else { self.windowLevelState.width = number } }
+        }
+        // The colour and fusion state, set as the former instance variables were: a number, nil refused.
+        switch key {
+        case "colorTransfer", "blendingFactorStart":
+            guard let value else { return self.setNilValueForKey(key) }
+            let flag = DCMViewSettings.boolValue(value), number = DCMViewSettings.floatValue(value)
+            return MainActor.assumeIsolated {
+                if key == "colorTransfer" { self.colourTableState.colorTransfer = flag } else { self.fusionBlend.factorAtDragStart = number }
+            }
+        case "blendingView":
+            let view = value as? DCMView
+            return MainActor.assumeIsolated { self.horos_blending = view }
+        // The image index, which plugins set: a number or a text, nil refused.
+        case "curImage":
+            guard let value else { return self.setNilValueForKey(key) }
+            let index = (value as? NSNumber)?.intValue ?? (value as? NSString)?.integerValue ?? 0
+            return MainActor.assumeIsolated { self.stackNavigation.current = index }
+        default: break
+        }
+        // colorBuf, alphaTable and the colour tables are pointers: undefined, as they were.
         if let stored = self.formerInstanceVariableKey(key) {
             self.setValue(value, forKey: stored)
             return
@@ -634,6 +703,9 @@ public class DCMView: NSView {
         case "imageColumns", "_imageColumns": return "horos_imageColumns"
         case "_tag": return "tag"
         case "_curDCM": return "curDCM"
+        case "redFactor": return "horos_redFactor"
+        case "greenFactor": return "horos_greenFactor"
+        case "blueFactor": return "horos_blueFactor"
         default: break
         }
         for candidate in ["horos_" + key, "horos__" + key] where self.responds(to: NSSelectorFromString(candidate)) {

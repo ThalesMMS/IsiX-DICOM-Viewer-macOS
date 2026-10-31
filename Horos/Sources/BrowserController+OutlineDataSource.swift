@@ -38,53 +38,15 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
-import UniformTypeIdentifiers
 import IsiXDatabase
 import IsiXDICOMFile
 
-// The study list's outline: its rows and their children, what each column
-// shows and how a row is drawn, editing a value, the header's menu of columns
-// and the columns it shows. What decides without the app's classes is
-// IsiXDatabase's StudyListCell, StudyListRowStyle, StudyListEdit, StudyListTree
-// and StudyListColumns. The selectors are those of the former Objective-C
-// methods, as the outline, the nib and the menus send them.
-
-/// The font of the studies of DICOM nodes.
-private let DISTANTSTUDYFONT = "Helvetica-BoldOblique"
-
-/// The icons of the report column, made once: the report's, and the
-/// downloads' for a link to a web page.
-@MainActor private let reportColumnIcons: (local: NSImage?, web: NSImage?) = {
-    let local = NSImage(named: "Report.icns")?.copy() as? NSImage
-    local?.size = NSSize(width: 16, height: 16)
-    var web = NSWorkspace.shared.icon(for: UTType(filenameExtension: "download") ?? .data).copy() as? NSImage
-    if web == nil { web = local }
-    web?.size = NSSize(width: 16, height: 16)
-    return (local, web)
-}()
-
-/// The system fonts of the rows, made once per size. +[NSFont
-/// boldSystemFontOfSize:] looks the font up again on every call, and was the
-/// dearest part of drawing a cell; the font it gives for a size does not
-/// change, and a new size (the preference) makes a new font.
-@MainActor private enum StudyListFonts {
-    static var bold: [CGFloat: NSFont] = [:]
-    static var regular: [CGFloat: NSFont] = [:]
-
-    static func bold(ofSize size: CGFloat) -> NSFont {
-        if let font = bold[size] { return font }
-        let font = NSFont.boldSystemFont(ofSize: size)
-        bold[size] = font
-        return font
-    }
-
-    static func regular(ofSize size: CGFloat) -> NSFont {
-        if let font = regular[size] { return font }
-        let font = NSFont.systemFont(ofSize: size)
-        regular[size] = font
-        return font
-    }
-}
+// The study list's outline: its rows and their children and editing a value,
+// and the selectors the outline, the nib and the menus send for the cells and
+// the columns, which StudyListCellStyler and StudyListColumnController answer.
+// What decides without the app's classes is IsiXDatabase's StudyListCell,
+// StudyListRowStyle, StudyListEdit, StudyListTree and StudyListColumns. The
+// selectors are those of the former Objective-C methods.
 
 /// [item isDistant]: NO for nil.
 @MainActor func isDistantRow(_ item: Any?) -> Bool {
@@ -123,81 +85,23 @@ extension BrowserController {
 
     @objc(buildColumnsMenu)
     func buildColumnsMenu() {
-        let menu = NSMenu(title: "")
-        horos_columnsMenu = menu
-        menu.delegate = self
-
-        let columns = horos_databaseOutline?.tableColumns ?? []
-        for index in StudyListColumns.menuOrder(titles: columns.map { $0.headerCell.stringValue }) {
-            let column = columns[index]
-            let item = menu.addItem(withTitle: column.headerCell.stringValue, action: #selector(columnsMenuAction(_:)), keyEquivalent: "")
-            item.representedObject = column.identifier.rawValue
-        }
-
-        horos_databaseOutline?.headerView?.menu = menu
+        studyListColumns.buildMenu()
     }
 
     @objc(columnsMenuWillOpen)
     func columnsMenuWillOpen() {
-        let columns = horos_databaseOutline?.tableColumns ?? []
-        let identifiers: [Any?] = columns.map { $0.identifier.rawValue }
-        for item in horos_columnsMenu?.items ?? [] {
-            let checked = StudyListColumns.isChecked(identifier: item.representedObject,
-                                                     hidePatientName: UserDefaults.standard.bool(forKey: "HIDEPATIENTNAME"),
-                                                     identifiers: identifiers, hidden: { columns[$0].isHidden })
-            item.state = checked ? .on : .off
-        }
+        studyListColumns.menuWillOpen()
     }
 
     @objc(columnsMenuAction:)
     func columnsMenuAction(_ sender: Any!) {
         guard let sender = sender as? NSMenuItem else { return }
-        sender.state = sender.state.rawValue == 0 ? .on : .off
-
-        if BrowserObjC.literallyEqual(sender.representedObject as? String, "name") {
-            UserDefaults.standard.set(sender.state.rawValue == 0, forKey: "HIDEPATIENTNAME")
-        } else {
-            let items = horos_columnsMenu?.items ?? []
-            let saved = StudyListColumns.saved(titles: items.map(\.title), states: items.map { $0.state.rawValue })
-            UserDefaults.standard.set(saved, forKey: "COLUMNSDATABASE")
-            refreshColumns()
-        }
+        studyListColumns.toggle(sender)
     }
 
     @objc(refreshColumns)
     func refreshColumns() {
-        if let raised = BrowserObjC.attempt({
-            let saved = UserDefaults.standard.object(forKey: "COLUMNSDATABASE")
-            if let saved, !(saved is NSDictionary) {
-                NSException(name: .invalidArgumentException, reason: "COLUMNSDATABASE is not a dictionary").raise()
-            }
-            let columnsDatabase = saved as? NSDictionary
-            let enumerator = columnsDatabase?.keyEnumerator()
-            while let key = enumerator?.nextObject() as? String {
-                guard let outline = horos_databaseOutline else { continue }
-                let titles = ((outline.tableColumns as NSArray).value(forKey: "headerCell") as? NSArray)?.value(forKey: "title") as? NSArray
-                let index = titles?.index(of: key) ?? NSNotFound
-                if index == NSNotFound { continue }
-
-                let identifier = outline.tableColumns[index].identifier
-                let change = StudyListColumns.change(visible: outline.isColumnWithIdentifierVisible(identifier.rawValue),
-                                                     saved: columnsDatabase?.value(forKey: key),
-                                                     isSelectedColumn: { outline.column(withIdentifier: identifier) == outline.selectedColumn })
-                if let change {
-                    if change.selectFirstColumn {
-                        outline.selectColumnIndexes(IndexSet(integer: 0), byExtendingSelection: false)
-                    }
-                    outline.setColumnWithIdentifier(identifier.rawValue, visible: change.visible)
-                    if change.scrollToColumn {
-                        outline.scrollColumnToVisible(outline.column(withIdentifier: identifier))
-                    }
-                }
-            }
-
-            buildColumnsMenu()
-        }) {
-            BrowserObjC.log(raised, stack: true, "-[BrowserController refreshColumns]")
-        }
+        studyListColumns.refresh()
     }
 
     // MARK: - Data source
@@ -210,7 +114,7 @@ extension BrowserController {
         if item == nil, let row = horos_outlineViewRow(at: index) { return row }
 
         var returnVal: Any?
-        if let raised = BrowserObjC.attempt({
+        if let raised = HorosObjCException.caught({
             if item == nil {
                 returnVal = (horos_outlineViewList as? NSArray)?.object(at: index)
             } else if let node = item as? DCMTKStudyQueryNode {
@@ -240,28 +144,28 @@ extension BrowserController {
         if horos_databaseIvar == nil { return 0 }
 
         guard let item else {
-            return Int(Int32(truncatingIfNeeded: (horos_outlineViewList as? NSArray)?.count ?? 0))
+            return Int(Int32(truncatingIfNeeded: horos_outlineViewRowCount))
         }
         if item is SurgicalProcedureOutlineRow { return 0 }
 
         if isDistantRow(item) {
             var count = 0
-            if let raised = BrowserObjC.attempt({
+            if let raised = HorosObjCException.caught({
                 if let node = item as? DCMTKStudyQueryNode {
-                    let children = node.children() as NSArray?
+                    let children = node.children()
                     if StudyListTree.nodeChildrenAreStale(count: children?.count ?? 0, lastIsQueryNode: {
-                        let last = children?.lastObject
+                        let last = children?.last
                         return last is DCMTKStudyQueryNode || last is DCMTKSeriesQueryNode
                     }) {
                         node.purgeChildren()
                     }
                     if node.children() == nil {
                         node.query(withValues: nil)
-                        if node.children() == nil { node.setChildren(NSMutableArray() as? [Any]) }
+                        if node.children() == nil { node.setChildren([]) }
                     }
                 }
                 let children = (item as AnyObject).perform(NSSelectorFromString("children"))?.takeUnretainedValue()
-                count = (children as? NSArray)?.count ?? 0
+                count = (children as? [Any])?.count ?? 0
             }) {
                 BrowserObjC.log(raised, stack: true, "-[BrowserController outlineView:numberOfChildrenOfItem:]")
                 return 0
@@ -280,38 +184,7 @@ extension BrowserController {
             return nil
         }
 
-        return StudyListCell.objectValue(identifier: identifier, reportsMode: BrowserController.horos_reportsMode(),
-                                         hidePatientName: { UserDefaults.standard.bool(forKey: "HIDEPATIENTNAME") },
-                                         ageDisplay: { UserDefaults.standard.integer(forKey: "yearOldDatabaseDisplay") },
-                                         row: StudyListRow(item: item, browser: self))
-    }
-
-    /// The date the report plugin gives a study.
-    fileprivate func reportPluginDate(of item: Any?) -> Any? {
-        let name = UserDefaults.standard.string(forKey: "REPORTSPLUGIN")
-        guard let plugin = name.flatMap({ PluginManager.reportPlugins()?.object(forKey: $0) }) as? Bundle else { return nil }
-        let principal: AnyClass? = plugin.principalClass
-        let filter = (principal as AnyObject?)?.perform(NSSelectorFromString("filter"))?.takeUnretainedValue() as? PluginFilter
-
-        PluginManager.startProtectForCrash(withFilter: filter)
-        let date = filter?.reportDate(forStudy: item as? DicomStudy)
-        PluginManager.endProtectForCrash()
-        return date
-    }
-
-    /// A local study's name, with the database it comes from when that is
-    /// not the one shown, as a federated search lists it.
-    fileprivate func studyListName(_ name: Any?, of item: Any?) -> Any? {
-        if let object = item as? NSManagedObject, let database = horos_databaseIvar,
-           let origin = object.managedObjectContext.flatMap({ DicomDatabase(for: $0) }),
-           origin !== database,
-           !BrowserObjC.literallyEqual(origin.baseDirPath, database.baseDirPath),
-           !FederatedSearch.pathsEqual(origin.baseDirPath, database.baseDirPath) {
-            return FederatedSearch.displayName(name as? String,
-                                               origin: FederatedSearch.displayOrigin(name: origin.name, path: origin.baseDirPath),
-                                               currentOrigin: database.name)
-        }
-        return name
+        return studyListCells.objectValue(identifier: identifier, item: item)
     }
 
     @objc(outlineView:objectValueForTableColumn:byItem:)
@@ -319,7 +192,7 @@ extension BrowserController {
         if horos_databaseIvar == nil { return nil }
 
         var value: Any?
-        if let raised = BrowserObjC.attempt({ value = self.intOutlineView(outlineView, objectValueFor: tableColumn, byItem: item) }) {
+        if let raised = HorosObjCException.caught({ value = self.intOutlineView(outlineView, objectValueFor: tableColumn, byItem: item) }) {
             BrowserObjC.log(raised, stack: true, "-[BrowserController outlineView:objectValueForTableColumn:byItem:]")
             return nil
         }
@@ -339,7 +212,7 @@ extension BrowserController {
         perform(#selector(_refreshDatabaseDisplayIfDeferred), with: nil, afterDelay: 0)
 
         let database = horos_databaseIvar
-        if let raised = BrowserObjC.attempt({
+        if let raised = HorosObjCException.caught({
             if !(database?.isLocal() ?? false) {
                 (database as? RemoteDicomDatabase)?.object(item as? NSManagedObject, setValue: object, forKey: key)
             }
@@ -395,139 +268,12 @@ extension BrowserController {
     @objc(outlineView:toolTipForCell:rect:tableColumn:item:mouseLocation:)
     func outlineView(_ outlineView: NSOutlineView!, toolTipFor cell: NSCell!, rect: NSRectPointer!, tableColumn: NSTableColumn!,
                      item: Any!, mouseLocation: NSPoint) -> String! {
-        if isDistantRow(item) {
-            return NSLocalizedString("Double-Click to retrieve", comment: "")
-        }
-
-        var tip: String?
-        _ = BrowserObjC.attempt({
-            guard BrowserObjC.literallyEqual(tableColumn?.identifier.rawValue, "name"), let rect else { return }
-            let frame = rect.pointee
-            let imageFrame = NSRect(x: frame.origin.x, y: frame.origin.y, width: frame.size.height, height: frame.size.height)
-            guard NSPointInRect(mouseLocation, imageFrame) else { return }
-
-            let now = Date().timeIntervalSinceReferenceDate
-            let acquired = (rowValue(item, "date") as? Date)?.timeIntervalSinceReferenceDate
-            let added = (rowValue(item, "dateAdded") as? Date)?.timeIntervalSinceReferenceDate
-            switch StudyListRowStyle.toolTip(now: now, acquired: acquired, added: added) {
-            case .tenMinutes: tip = NSLocalizedString("Acquired within the last 10 minutes", comment: "")
-            case .hour: tip = NSLocalizedString("Acquired within the last hour", comment: "")
-            case .fourHours: tip = NSLocalizedString("Acquired within the last 4 hours", comment: "")
-            case .today: tip = NSLocalizedString("Acquired today", comment: "")
-            case .addedMinute: tip = NSLocalizedString("Added within the last 60 seconds", comment: "")
-            case nil: break
-            }
-        })
-        return tip
+        studyListCells.toolTip(column: tableColumn, rect: rect, item: item, mouseLocation: mouseLocation)
     }
 
     @objc(outlineView:willDisplayCell:forTableColumn:item:)
     func outlineView(_ outlineView: NSOutlineView!, willDisplayCell cell: Any!, for tableColumn: NSTableColumn!, item: Any!) {
-        // The cell is cast from Any once: a cast per use cost more than
-        // the rest of the styling.
-        let theCell = cell as? NSCell
-        theCell?.isHighlighted = false
-
-        if let imageCell = theCell as? ImageAndTextCell {
-            imageCell.image = nil
-            imageCell.setLastImage(nil)
-        }
-
-        N2ManagedObjectContextPerformAndWait(self.database?.managedObjectContext) {
-            if let raised = BrowserObjC.attempt({ self.styleStudyListCell(cell, theCell, column: tableColumn, item: item, outlineView: outlineView) }) {
-                BrowserObjC.log(raised, stack: true, "-[BrowserController outlineView:willDisplayCell:forTableColumn:item:]")
-            }
-        }
-    }
-
-    /// The font, background, icons and text colour of a cell of the list.
-    private func styleStudyListCell(_ cell: Any?, _ theCell: NSCell?, column tableColumn: NSTableColumn?, item: Any?,
-                                    outlineView: NSOutlineView?) {
-        let identifier = tableColumn?.identifier.rawValue
-        // [[tableColumn identifier] isEqualToString: name]: Swift's == gives the
-        // same answer for these ASCII names (no other string is canonically
-        // equivalent to them), without walking the code units one by one.
-        func isColumn(_ name: String) -> Bool { identifier == name }
-
-        if isRowType(item, "Study") {
-            if isColumn("lockedStudy") { (theCell as? NSButtonCell)?.isTransparent = false }
-
-            let size = CGFloat(self.horos_studyRowFontSize())
-            switch StudyListRowStyle.font(isStudy: true, isDistant: { isDistantRow(item) }, listed: {
-                self.horos_hasOriginalOutlineViewArray ? self.horos_originalOutlineViewStudiesContains(item) : nil
-            }) {
-            case .distant: theCell?.font = NSFont(name: DISTANTSTUDYFONT, size: size)
-            case .bold: theCell?.font = StudyListFonts.bold(ofSize: size)
-            case .regular: theCell?.font = StudyListFonts.regular(ofSize: size)
-            case .series: break
-            }
-
-            if isColumn("name") {
-                let previous = horos_previousItem
-                let background = StudyListRowStyle.samePatientBackground(
-                    enabled: UserDefaults.standard.bool(forKey: "displaySamePatientWithColorBackground") && window?.firstResponder === outlineView,
-                    selectionIsStudy: { isRowType(previous, "Study") },
-                    isSelection: (previous as AnyObject?) === (item as AnyObject?),
-                    patientUID: { rowValue(item, "patientUID") },
-                    selectedPatientUID: { rowValue(previous, "patientUID") })
-                let textCell = theCell as? NSTextFieldCell
-                textCell?.drawsBackground = background
-                if background {
-                    // This was disabledControlTextColor, which is a
-                    // *text* colour: pure black at 25% alpha in Aqua and
-                    // pure white at 25% in Dark Aqua. Filled behind a
-                    // patient name it is the black band over consecutive
-                    // studies of one patient, and its mirror image in
-                    // dark mode. The commented-out original was
-                    // secondarySelectedControlColor, a row background;
-                    // this is its modern replacement.
-                    textCell?.backgroundColor = NSColor.unemphasizedSelectedContentBackgroundColor
-                }
-
-                let date = rowValue(item, "date") as? Date
-                let recency = StudyListRowStyle.recency(
-                    dateSinceNow: date?.timeIntervalSinceNow, date: date?.timeIntervalSinceReferenceDate,
-                    todayStart: { BrowserController.horos_startOfTodayReferenceInterval() },
-                    added: {
-                        let added = rowValue(item, "dateAdded")
-                        return (added != nil, (added as? Date)?.timeIntervalSinceNow)
-                    })
-                switch recency {
-                case .tenMinutes: theCell?.image = NSImage(named: "Realised1.tif")
-                case .hour: theCell?.image = NSImage(named: "Realised2.tif")
-                case .fourHours: theCell?.image = NSImage(named: "Realised3.tif")
-                case .today: theCell?.image = NSImage(named: "Realised4.tif")
-                case .received: theCell?.image = NSImage(named: "Receiving.tif")
-                case nil: break
-                }
-            }
-
-            if isColumn("reportURL") {
-                // The recorded link, as it is: a file that has gone is found
-                // when the report is opened, not by a disk access per row per
-                // redraw - nor by editing the study while drawing it.
-                switch StudyListRowStyle.reportIcon(url: rowValue(item, "reportURL"), databaseIsLocal: horos_databaseIvar?.isLocal() ?? false) {
-                case .web: theCell?.image = reportColumnIcons.web
-                case .file: theCell?.image = reportColumnIcons.local
-                case nil: break
-                }
-            }
-        } else {
-            if isColumn("lockedStudy") { (theCell as? NSButtonCell)?.isTransparent = true }
-
-            theCell?.font = StudyListFonts.bold(ofSize: CGFloat(self.horos_seriesRowFontSize()))
-        }
-        theCell?.lineBreakMode = .byTruncatingMiddle
-
-        // gray "unknown" values
-        let setTextColor = #selector(setter: NSTextFieldCell.textColor)
-        if let object = theCell ?? (cell as? NSObject), object.responds(to: setTextColor) {
-            let type = rowValue(item, "type")
-            let gray = StudyListCell.showsUnknown(type: type, identifier: identifier ?? "", value: {
-                rowValue(item, StudyListCell.valueKey(type: type, identifier: identifier ?? ""))
-            })
-            object.perform(setTextColor, with: gray ? NSColor.disabledControlTextColor : NSColor.controlTextColor)
-        }
+        studyListCells.willDisplay(cell, column: tableColumn, item: item, outlineView: outlineView)
     }
 
     @objc(tableView:mouseDownInHeaderOfTableColumn:)
@@ -536,16 +282,17 @@ extension BrowserController {
 }
 
 /// A row of the list as the module's cell rules read it: the row's object
-/// asked directly, with nothing built per cell.
-@MainActor private struct StudyListRow {
+/// asked directly, with nothing built per cell; the report plugin and the
+/// federated name are the cells'.
+@MainActor struct StudyListRow {
     let item: Any?
-    let browser: BrowserController
+    let cells: StudyListCellStyler
     /// The item as an object, cast once for the keys a cell reads.
     let object: NSObject?
 
-    init(item: Any?, browser: BrowserController) {
+    init(item: Any?, cells: StudyListCellStyler) {
         self.item = item
-        self.browser = browser
+        self.cells = cells
         self.object = item as? NSObject
     }
 }
@@ -554,10 +301,10 @@ extension StudyListRow: @MainActor StudyListRowSource {
     func rowValue(_ key: String) -> Any? { object?.value(forKey: key) }
     func rowIsDistant() -> Bool { isDistantRow(item) }
     func rowIsStudyObject() -> Bool { item is DicomStudy }
-    func rowReportPluginDate() -> Any? { browser.reportPluginDate(of: item) }
+    func rowReportPluginDate() -> Any? { cells.reportPluginDate(of: item) }
     func rowLatestReportDate() -> Any? { latestReportImageDate(of: item) }
     func rowNote() -> Any? { StudyNote.singleLineText(of: (item as? DicomStudy)?.note) }
-    func rowDisplayName(_ name: Any?) -> Any? { browser.studyListName(name, of: item) }
+    func rowDisplayName(_ name: Any?) -> Any? { cells.listName(name, of: item) }
     func rowNumberOfImageSeries() -> Int { Int(truncatingIfNeeded: (item as? DicomStudy)?.numberOfImageSeries() ?? 0) }
     func rowLocalized(_ key: String) -> String { studyListText(key) }
 }
@@ -585,7 +332,7 @@ extension StudyListRow: @MainActor StudyListRowSource {
 func objcElements(_ collection: Any?) -> [Any] {
     switch collection {
     case let set as NSSet: return Array(set)
-    case let array as NSArray: return Array(array)
+    case let array as [Any]: return array
     case let ordered as NSOrderedSet: return Array(ordered)
     default: return []
     }

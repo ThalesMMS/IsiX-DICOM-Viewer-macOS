@@ -42,33 +42,17 @@ import AppKit
 // ThreadsManager is implemented in Swift: the Objective-C name, the
 // selectors and <Horos/ThreadsManager.h> are those of the former class.
 //
-// Synchronization: every @synchronized of the Objective-C is objcSynchronized
-// below, objc_sync_enter/objc_sync_exit on the same object (the array
-// controller, then the thread), around the same statements. As @synchronized
-// did, the lock is left when an Objective-C exception crosses it, and the
-// exception goes on to the caller.
-
-/// `@synchronized (object) { … }`: the same recursive lock, taken on nothing
-/// when the object is nil, and left before an exception raised inside goes on.
-@inline(__always)
-fileprivate func objcSynchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T {
-    guard let object else { return body() }
-    objc_sync_enter(object)
-    var result: T?
-    var raised: NSException?
-    do {
-        try HorosObjCException.perform { result = body() }
-    } catch {
-        raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    objc_sync_exit(object)
-    if let raised { raised.raise() }
-    return result!
-}
+// Synchronization: every @synchronized of the Objective-C is
+// objc_sync_enter/objc_sync_exit on the same object (the array controller,
+// then the thread), around the same statements. Where the statements change
+// the controller, whose observers or a thread's start may raise, it is
+// HorosObjCException.synchronized: as @synchronized did, the lock is left when
+// an Objective-C exception crosses it, and the exception goes on to the
+// caller. Reads that cannot raise leave the lock with defer.
 
 // @unchecked Sendable: every thread asks `+defaultManager`. The controller's
 // content is read and changed only inside @synchronized on the controller
-// (`objcSynchronized(_threadsController)`), as in the Objective-C, and `_timer`
+// (`HorosObjCException.synchronized(_threadsController)`), as in the Objective-C, and `_timer`
 // is installed on main (even when first requested by a worker).
 @objc(ThreadsManager)
 public final class ThreadsManager: NSObject, @unchecked Sendable {
@@ -123,7 +107,7 @@ public final class ThreadsManager: NSObject, @unchecked Sendable {
 
     @objc(cleanupFinishedThreads:)
     func cleanupFinishedThreads(_ timer: Timer?) {
-        objcSynchronized(_threadsController) {
+        HorosObjCException.synchronized(_threadsController) {
             let content = (_threadsController.content as AnyObject?)?.copy() as? NSArray
             for case let thread as Thread in content ?? [] {
                 if thread.isFinished || (thread as? N2BlockThread)?.operationFinished == true {
@@ -139,21 +123,21 @@ public final class ThreadsManager: NSObject, @unchecked Sendable {
     /// live array, not a copy.
     @objc(threads)
     public func threads() -> NSArray! {
-        return objcSynchronized(_threadsController) {
-            _threadsController.arrangedObjects as? NSArray
-        }
+        objc_sync_enter(_threadsController)
+        defer { objc_sync_exit(_threadsController) }
+        return _threadsController.arrangedObjects as? NSArray
     }
 
     @objc(threadsCount)
     public func threadsCount() -> UInt {
-        return objcSynchronized(_threadsController) {
-            UInt((_threadsController.arrangedObjects as! NSArray).count)
-        }
+        objc_sync_enter(_threadsController)
+        defer { objc_sync_exit(_threadsController) }
+        return UInt((_threadsController.arrangedObjects as! NSArray).count)
     }
 
     @objc(threadAtIndex:)
     public func thread(at index: UInt) -> Thread! {
-        return objcSynchronized(_threadsController) {
+        return HorosObjCException.synchronized(_threadsController) {
             (_threadsController.arrangedObjects as! NSArray).object(at: Int(index)) as? Thread
         }
     }
@@ -173,8 +157,8 @@ public final class ThreadsManager: NSObject, @unchecked Sendable {
     }
 
     private func subAddThread(_ thread: Thread?, starting: Bool) {
-        objcSynchronized(_threadsController) {
-            objcSynchronized(thread) {
+        HorosObjCException.synchronized(_threadsController) {
+            HorosObjCException.synchronized(thread) {
                 if !Thread.isMainThread {
                     NSLog("***** NSThread we should NOT be here")
                 }
@@ -228,8 +212,8 @@ public final class ThreadsManager: NSObject, @unchecked Sendable {
 
     @objc(subRemoveThread:)
     func subRemoveThread(_ thread: Thread?) {
-        objcSynchronized(_threadsController) {
-            objcSynchronized(thread) {
+        HorosObjCException.synchronized(_threadsController) {
+            HorosObjCException.synchronized(thread) {
                 if !Thread.isMainThread {
                     NSLog("***** NSThread we should NOT be here")
                 }

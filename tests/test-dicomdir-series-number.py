@@ -4,7 +4,7 @@
 The scan reads each element of a record by taking it out of the record, so an
 element read twice reads nothing the second time: the series number has to be
 read once, kept, and used for the series ID and for the series number. The
-DICOMDIR entries are Swift (DicomDatabase+DicomDir.swift), the series identity
+DICOMDIR entries are Swift (DicomdirReader.swift), the series identity
 rule is IsiXDatabase's MediaScanRules: this checks that the number is taken
 out once and handed to both, and runs the rule for zero, positive and negative
 numbers. Its equivalence with the former Objective-C++ is
@@ -17,7 +17,7 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parent.parent
-entries = (root / 'Horos/Sources/DicomDatabase+DicomDir.swift').read_text(encoding='utf-8')
+entries = (root / 'Horos/Sources/DicomdirReader.swift').read_text(encoding='utf-8')
 rules = root / 'Modules/IsiXDatabase/Sources/MediaScanRules.swift'
 failures = []
 

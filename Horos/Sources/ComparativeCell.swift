@@ -71,11 +71,6 @@ fileprivate func textSize(of text: NSString?, withAttributes attributes: NSMutab
     return text?.size(withAttributes: attributes as? [NSAttributedString.Key: Any]) ?? .zero
 }
 
-/// [[BrowserController currentBrowser] fontSize:type]: 0 without a browser.
-@MainActor fileprivate func browserFontSize(_ type: String) -> CGFloat {
-    return CGFloat(BrowserController.currentBrowser()?.fontSize(type) ?? 0)
-}
-
 /// The cell of the comparative studies table of the database window.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
@@ -89,6 +84,18 @@ public final class ComparativeCell: NSButtonCell {
     @objc public var leftTextSecondLine: NSString?
     @objc public var leftTextFirstLine: NSString?
     @objc public var textColor: NSColor?
+
+    /// The graph of the database window the cell is drawn in, found through
+    /// the window of the table the first time a size is asked, and kept.
+    private var browserWindow: BrowserWindowGraph?
+
+    /// The size of a kind of the browser's text: 0 outside the database window.
+    private func browserFontSize(_ type: String, in controlView: NSView) -> CGFloat {
+        if browserWindow == nil {
+            browserWindow = PreferencesSource.process.processGraph.browserWindow(of: controlView.window)
+        }
+        return CGFloat(browserWindow?.browser.fontSize(type) ?? 0)
+    }
 
     @objc public convenience init() {
         // [super init]: -[NSButtonCell init] is -initTextCell:@"" followed by
@@ -124,6 +131,7 @@ public final class ComparativeCell: NSButtonCell {
         retainShared(copy.leftTextSecondLine, leftTextSecondLine)
         retainShared(copy.leftTextFirstLine, leftTextFirstLine)
         retainShared(copy.textColor, textColor)
+        retainShared(copy.browserWindow, browserWindow)
         // As before, the copy gets copies of the strings and of the colour.
         copy.rightTextFirstLine = rightTextFirstLine?.copy(with: zone) as? NSString
         copy.rightTextSecondLine = rightTextSecondLine?.copy(with: zone) as? NSString
@@ -268,9 +276,9 @@ public final class ComparativeCell: NSButtonCell {
                 rightAlignmentParagraphStyle.alignment = .right
                 attributes.setObject(rightAlignmentParagraphStyle, forKey: NSAttributedString.Key.paragraphStyle.rawValue as NSString)
 
-                initialFrame.origin.y += browserFontSize("comparativeLineSpace")
+                initialFrame.origin.y += browserFontSize("comparativeLineSpace", in: controlView)
                 drawText(self.rightTextSecondLine, in: initialFrame, withAttributes: attributes)
-                initialFrame.origin.y -= browserFontSize("comparativeLineSpace")
+                initialFrame.origin.y -= browserFontSize("comparativeLineSpace", in: controlView)
 
                 let w = textSize(of: self.rightTextSecondLine, withAttributes: attributes).width
                 frame.size.width -= w + spacer
@@ -283,9 +291,9 @@ public final class ComparativeCell: NSButtonCell {
                 leftAlignmentParagraphStyle.lineBreakMode = .byTruncatingTail
                 attributes.setObject(leftAlignmentParagraphStyle, forKey: NSAttributedString.Key.paragraphStyle.rawValue as NSString)
 
-                frame.origin.y += browserFontSize("comparativeLineSpace")
+                frame.origin.y += browserFontSize("comparativeLineSpace", in: controlView)
                 drawText(self.leftTextSecondLine, in: frame, withAttributes: attributes)
-                frame.origin.y -= browserFontSize("comparativeLineSpace")
+                frame.origin.y -= browserFontSize("comparativeLineSpace", in: controlView)
             }
         }
 

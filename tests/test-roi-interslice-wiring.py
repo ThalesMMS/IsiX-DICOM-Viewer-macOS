@@ -57,9 +57,9 @@ if '-(NSMenu*)contextualMenuForROI:(ROI*)roi\n{' in controller:
                          controller.index('- (IBAction) generateGeometryFromSelectedLine:')]
     point_check = 'type == t2DPoint'
 else:
-    # The contextual menus are Swift (ViewerController+ContextualMenus.swift).
-    menus = (root / 'Horos/Sources/ViewerController+ContextualMenus.swift').read_text()
-    menu_roi = menus[menus.index('    @objc(contextualMenuForROI:)'):menus.index('    @objc(roiContextualMenuActionRemove:)')]
+    # The contextual menus are Swift: the viewer's ViewerContextualMenuBuilder.
+    menus = (root / 'Horos/Sources/ViewerContextualMenuBuilder.swift').read_text()
+    menu_roi = menus[menus.index('    func contextualMenu(for roi: ROI?'):menus.index('    func removeROI(of source:')]
     menu_action = 'ViewerController.measureBetweenSelectedSlices(_:)'
     point_check = 'type == .t2DPoint'
 if menu_action not in menu_roi:
