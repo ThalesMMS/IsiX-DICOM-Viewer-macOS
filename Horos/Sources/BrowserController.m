@@ -261,6 +261,7 @@ static void HorosRegisterLegacyDistributedBrowser(id browser)
     NSTimeInterval _lastImportListRefresh, _lastImportAlbumsRefresh;
     BOOL _importListRefreshPending, _importAlbumsRefreshPending;
 }
+- (void)restoreAutoQueryAndRetrieve;
 - (void)resetToDefaultDatabaseIfNecessary;
 + (NSString*)findFirstDicomdirInFolder:(NSString*)startDirectory;
 - (void)importURLsThread:(NSDictionary*)parameters;
@@ -10691,21 +10692,7 @@ static NSArray*	openSubSeriesArray = nil;
         [self refreshMatrix: self];
         
 #ifndef OSIRIX_LIGHT
-        if( [[NSUserDefaults standardUserDefaults] boolForKey: @"restartAutoQueryAndRetrieve"] == YES && [[NSUserDefaults standardUserDefaults] objectForKey: @"savedAutoDICOMQuerySettingsArray"] != nil)
-        {
-            [[AppController sharedAppController] notificationTitle: NSLocalizedString( @"Auto-Query", nil) description: NSLocalizedString( @"DICOM Auto-Query is restarting...", nil)  name:@"autoquery"];
-            NSLog( @"-------- automatically restart DICOM AUTO-QUERY --------");
-            
-            WaitRendering *wait = [[WaitRendering alloc] init: NSLocalizedString(@"Restarting Auto Query/Retrieve...", nil)];
-            [wait showWindow:self];
-            [[QueryController alloc] initAutoQuery: YES];
-            [[QueryController currentAutoQueryController] switchAutoRetrieving: self];
-            [NSThread sleepForTimeInterval: 0.5];
-            [wait close];
-            [wait autorelease];
-        }
-        else
-            [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"autoRetrieving"];
+        [self restoreAutoQueryAndRetrieve];
 #endif
         
         [[self window] setAnimationBehavior: NSWindowAnimationBehaviorNone];
@@ -10796,6 +10783,33 @@ static NSArray*	openSubSeriesArray = nil;
     }
 }
 
+- (void)restoreAutoQueryAndRetrieve
+{
+#ifndef OSIRIX_LIGHT
+    // Query.xib schedules its LogEntry fetch on the next run-loop turn.
+    // Starting it before choosing a database makes that fetch run inside
+    // the first-use dialog without a context and aborts database setup.
+    if ([HorosDatabaseFirstUse hasPendingChoice] || !self.database.managedObjectContext) return;
+
+    if( [[NSUserDefaults standardUserDefaults] boolForKey: @"restartAutoQueryAndRetrieve"] == YES && [[NSUserDefaults standardUserDefaults] objectForKey: @"savedAutoDICOMQuerySettingsArray"] != nil)
+    {
+        if ([QueryController currentAutoQueryController]) return;
+        [[AppController sharedAppController] notificationTitle: NSLocalizedString( @"Auto-Query", nil) description: NSLocalizedString( @"DICOM Auto-Query is restarting...", nil)  name:@"autoquery"];
+        NSLog( @"-------- automatically restart DICOM AUTO-QUERY --------");
+
+        WaitRendering *wait = [[WaitRendering alloc] init: NSLocalizedString(@"Restarting Auto Query/Retrieve...", nil)];
+        [wait showWindow:self];
+        [[QueryController alloc] initAutoQuery: YES];
+        [[QueryController currentAutoQueryController] switchAutoRetrieving: self];
+        [NSThread sleepForTimeInterval: 0.5];
+        [wait close];
+        [wait autorelease];
+    }
+    else
+        [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"autoRetrieving"];
+#endif
+}
+
 - (void)completeFirstUseDatabaseSetup
 {
     // Sources can have queued a nil default database while setup was pending.
@@ -10803,6 +10817,7 @@ static NSArray*	openSubSeriesArray = nil;
     [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(setDatabase:) object:nil];
     [self awakeSources];
     [self resetToLocalDatabase];
+    [self restoreAutoQueryAndRetrieve];
     [ICloudDriveDetector performStartupICloudDriveTasks:self];
     [O2HMigrationAssistant performStartupO2HTasks:self];
 }
