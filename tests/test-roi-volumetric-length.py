@@ -146,6 +146,7 @@ struct{float red,green,blue;} color; float opacity;
 @property(retain) NSString *textualBoxLine1,*textualBoxLine2,*textualBoxLine3,*textualBoxLine4,*textualBoxLine5,*textualBoxLine6;
 @property(assign) DCMView *curView;
 @property(copy) NSString *name;
+@property NSRect labelRect;
 -(id)initWithType:(int)t :(float)sx :(float)sy :(NSPoint)origin;
 -(void)setROIMode:(NSInteger)m;
 -(NSInteger)clickInROI:(NSPoint)point :(float)width :(float)height :(float)scale :(BOOL)test;
@@ -157,7 +158,8 @@ struct{float red,green,blue;} color; float opacity;
 -(void)encodeWithCoder:(NSCoder*)c{[c encodeObject:points];}
 -(id)initWithCoder:(NSCoder*)c{if((self=[self init])){[points release];points=[[c decodeObject] mutableCopy];}return self;}
 -(id)copyWithZone:(NSZone*)z{ROI*r=[[[self class] alloc] init];[r->points addObjectsFromArray:points];return r;}
--(NSInteger)clickInROI:(NSPoint)point :(float)width :(float)height :(float)scale :(BOOL)test{return ROI_sleep;}
+// Only the label is hit here: the text box test of the real ROI, on labelRect.
+-(NSInteger)clickInROI:(NSPoint)point :(float)width :(float)height :(float)scale :(BOOL)test{return test&&NSPointInRect(point,self.labelRect)?ROI_selected:ROI_sleep;}
 -(void)recompute{}
 -(void)prepareTextualData:(NSPoint)p{}
 -(NSPoint)lowerRightPoint{return NSZeroPoint;}
@@ -246,6 +248,11 @@ int main(){@autoreleasepool{
  p.originZ=12;check([g beginLengthClick:shifted(NSEventTypeLeftMouseDown,2,3,NSEventModifierFlagShift)]);[g finishLengthClick:shifted(NSEventTypeLeftMouseUp,2,3,NSEventModifierFlagShift)];
  check(!g->lengthFirstEndpoint&&g.controller.added.count==addedBefore+1);
  for(NSNumber*f in @[@(NSEventModifierFlagShift|NSEventModifierFlagCommand),@(NSEventModifierFlagOption),@(NSEventModifierFlagControl)])check(![g beginLengthClick:shifted(NSEventTypeLeftMouseDown,2,3,f.unsignedIntegerValue)]);
+ // A click on a ROI's label is the ROI's: the established path selects it.
+ ROI *labelled=[[ROI new] autorelease];labelled.labelRect=NSMakeRect(20,20,6,3);[g->curRoiList addObject:labelled];
+ check(![g beginLengthClick:event(NSEventTypeLeftMouseDown,22,21)]&&!g->lengthClickEvent&&!g->lengthFirstEndpoint);
+ check([g beginLengthClick:event(NSEventTypeLeftMouseDown,28,21)]);[g cancelLengthPlacement];
+ [g->curRoiList removeObject:labelled];
  g.viewer2D=NO;check(![g beginLengthClick:event(NSEventTypeLeftMouseDown,2,3)]);p.originZ=0;
  DCMView*v=[DCMView new];v.curDCM=p;v.viewer2D=YES;v.window=[TestWindow new];v.window.backingScaleFactor=2;
  HorosVolumeLengthROI*r=[HorosVolumeLengthROI new];r.curView=v;
@@ -253,6 +260,9 @@ int main(){@autoreleasepool{
  check([r valid]&&fabs(r.distanceMM-13)<1e-12);
  HorosLengthProjection pr=[r volumeProjection];check(pr.visible&&pr.handleA&&!pr.handleB&&pr.crossesPlane);
  check([r clickInROI:NSMakePoint(100,100) :0 :0 :10 :NO]==ROI_sleep);
+ // Its label is the base class's text box.
+ r.labelRect=NSMakeRect(40,40,5,5);check([r clickInROI:NSMakePoint(42,42) :0 :0 :10 :YES]==ROI_selected);
+ check([r clickInROI:NSMakePoint(100,100) :0 :0 :10 :YES]==ROI_sleep);r.labelRect=NSZeroRect;
  check([r clickInROI:pr.a :0 :0 :10 :NO]==ROI_selectedModify);
  check([r clickInROI:NSMakePoint(100,100) :0 :0 :10 :NO]==ROI_sleep);
  p.originZ=6;pr=[r volumeProjection];check(pr.visible&&!pr.handleA&&!pr.handleB);check(fabs(pr.intersection.x-3)<1e-12&&fabs(pr.intersection.y-1)<1e-12);

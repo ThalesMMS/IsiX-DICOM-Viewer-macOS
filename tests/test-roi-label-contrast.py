@@ -3,8 +3,11 @@
 
 A label's text sits on a dark box, and its colour, the ROI's, is lightened
 just enough for WCAG's 4.5:1 against that box over a white pixel, the
-lightest background it can get. Every colour of the rotation, the dark blue
-and grape included, is checked here with HorosROILabelContrast itself, read
+lightest background it can get, but never by more than a third of the way to
+white: the colour is how the label names its ROI, so a faint box keeps the
+labels in their colours instead of turning them all white. Every colour of
+the rotation, the dark blue and grape included, is checked here with
+HorosROILabelContrast itself, read
 from ROI.m's table. Switched off, labels are drawn as before.
 
 The Viewer pane's "ROI labels" group binds the text size, the line thickness
@@ -57,33 +60,52 @@ check(selected.alphaComponent > sleeping.alphaComponent && rgb(selected).0 > rgb
 check(abs(ROILabelContrast.luminance(red: 1, green: 1, blue: 1) - 1) < 0.0001 && ROILabelContrast.luminance(red: 0, green: 0, blue: 0) == 0, "luminance range")
 check(abs(ROILabelContrast.contrast(1, 0) - 21) < 0.0001, "white on black is 21:1")
 
-for opacity: CGFloat in [0.45, 0.6, 0.8, 1] {
+// The share of white mixed into each channel the text can still lighten.
+func lightening(_ original: NSColor, _ text: NSColor) -> CGFloat {
+    let o = rgb(original), t = rgb(text)
+    return zip([o.0, o.1, o.2], [t.0, t.1, t.2]).filter { $0.0 < 0.999 }.map { ($0.1 - $0.0) / (1 - $0.0) }.max() ?? 0
+}
+let cap = ROILabelContrast.maximumLightening
+check(cap > 0 && cap < 0.5, "the lightening cap \(cap) leaves too little of the colour")
+
+for opacity: CGFloat in [0.2, 0.45, 0.6, 0.8, 1] {
     for box in [ROILabelContrast.boxColor(selected: false, opacity: opacity), ROILabelContrast.boxColor(selected: true, opacity: opacity)] {
+        var labels: [(CGFloat, CGFloat, CGFloat)] = []
         for (r, g, b) in ROTATION {
             let original = NSColor(deviceRed: r, green: g, blue: b, alpha: 1)
             let text = ROILabelContrast.textColor(for: original, overBox: box)
-            // Below about 0.55 not even white reaches it over a white pixel.
-            if contrast(NSColor(deviceRed: 1, green: 1, blue: 1, alpha: 1), box) < 4.5 {
-                check(rgb(text) == (1, 1, 1) || contrast(original, box) >= 4.5, "unreachable contrast, not white: \(text)")
-                continue
-            }
-            check(contrast(text, box) >= 4.5, "\(original) over \(box): \(contrast(text, box))")
+            labels.append(rgb(text))
+            check(rgb(text) != (1, 1, 1), "\(original) over \(box) turned white")
             if contrast(original, box) >= 4.5 {
                 check(rgb(text) == rgb(original), "a colour that already reads was changed: \(original)")
-            } else {
-                // Lightened, not replaced: the strongest channel stays the strongest.
-                let o = rgb(original), t = rgb(text)
-                let strongest = [o.0, o.1, o.2].firstIndex(of: max(o.0, o.1, o.2))!
-                check([t.0, t.1, t.2][strongest] == max(t.0, t.1, t.2), "hue lost: \(original) -> \(text)")
+                continue
+            }
+            // Lightened, not replaced: the strongest channel stays the strongest.
+            let o = rgb(original), t = rgb(text)
+            let strongest = [o.0, o.1, o.2].firstIndex(of: max(o.0, o.1, o.2))!
+            check([t.0, t.1, t.2][strongest] == max(t.0, t.1, t.2), "hue lost: \(original) -> \(text)")
+            let mix = lightening(original, text)
+            check(mix <= cap + 0.0001, "lightened past the cap: \(original) -> \(text), \(mix)")
+            if contrast(text, box) >= 4.5 {
                 check(contrast(text, box) < 4.7, "lightened more than needed: \(contrast(text, box))")
+            } else {
+                check(abs(mix - cap) < 0.0001, "short of the contrast but not lightened to the cap: \(original) -> \(text)")
             }
         }
+        // Ten ROIs keep ten label colours.
+        for i in labels.indices { for j in labels.indices where j > i {
+            let a = labels[i], b = labels[j]
+            check(abs(a.0 - b.0) + abs(a.1 - b.1) + abs(a.2 - b.2) > 0.05, "labels \(i) and \(j) share a colour over \(box)")
+        } }
     }
 }
-// No mix can reach the contrast over a box too faint: the text is white.
+// Over a box too faint for any mix to reach the contrast, the colour is
+// lightened by the cap and stays blue.
 let faint = NSColor(deviceRed: 0, green: 0, blue: 0, alpha: 0.2)
-check(rgb(ROILabelContrast.textColor(for: NSColor(deviceRed: 0, green: 0.38, blue: 0.56, alpha: 1), overBox: faint)) == (1, 1, 1), "faint box")
-print("PASS: box opacity and switch, selected box, every rotation colour at 4.5:1 or more, lightened minimally, hue kept")
+let madonna = ROILabelContrast.textColor(for: NSColor(deviceRed: 0, green: 0.38, blue: 0.56, alpha: 1), overBox: faint)
+let m = rgb(madonna)
+check(abs(m.0 - cap) < 0.0001 && abs(m.1 - (0.38 + 0.62 * cap)) < 0.0001 && abs(m.2 - (0.56 + 0.44 * cap)) < 0.0001, "faint box: \(m)")
+print("PASS: box opacity and switch, selected box, every rotation colour lightened minimally toward 4.5:1 and at most by the cap, never white, hue kept, labels apart")
 '''.replace('ROTATION', '[' + ', '.join(f'({r!r}, {g!r}, {b!r})' for r, g, b in rotation) + ']')
 
 with tempfile.TemporaryDirectory(prefix='horos-label-contrast-') as folder:

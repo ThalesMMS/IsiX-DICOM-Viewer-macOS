@@ -7669,7 +7669,9 @@ typedef struct {
 }
 - (long)clickInROI:(NSPoint)pt :(float)ox :(float)oy :(float)scale :(BOOL)textOnly
 {
-    if (!self.selectable || self.hidden || textOnly) return ROI_sleep;
+    // The label is the base class's text box, laid out by -prepareTextualData:.
+    if (textOnly) return [super clickInROI:pt :ox :oy :scale :YES];
+    if (!self.selectable || self.hidden) return ROI_sleep;
     HorosLengthProjection p = [self volumeProjection];
     if (!p.visible) return ROI_sleep;
     double ratio = curView.curDCM.pixelRatio, tolerance = 7.0 * curView.window.backingScaleFactor / fmax(scale, 0.001);

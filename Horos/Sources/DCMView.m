@@ -4372,11 +4372,14 @@ static char HorosContourAwaitingJoinKey;
         // Shift is the lens: aiming with it places the point as without it.
         (event.modifierFlags & (NSEventModifierFlagCommand | NSEventModifierFlagOption | NSEventModifierFlagControl))) return NO;
     NSPoint point = [self ConvertFromNSView2GL:[self convertPoint:event.locationInWindow fromView:nil]];
-    // Existing ROI/handle selection keeps the established mouse-down path.
+    // Existing ROI/handle selection keeps the established mouse-down path. So
+    // does a click on a ROI's label: that path tests the labels first and
+    // selects the ROI, where a click here would start a new Length.
     for (ROI *roi in curRoiList)
     {
         roi.curView = self;
-        if ([roi clickInROI:point :self.curDCM.pwidth/2. :self.curDCM.pheight/2. :scaleValue :NO]) return NO;
+        if ([roi clickInROI:point :self.curDCM.pwidth/2. :self.curDCM.pheight/2. :scaleValue :YES] ||
+            [roi clickInROI:point :self.curDCM.pwidth/2. :self.curDCM.pheight/2. :scaleValue :NO]) return NO;
     }
     // A double-click that Hot Keys gives an action is that action, not a second
     // endpoint: the endpoint its first click left pending goes, and -mouseDown:

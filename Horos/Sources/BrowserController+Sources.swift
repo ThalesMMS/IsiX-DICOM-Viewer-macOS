@@ -1505,8 +1505,6 @@ public final class MountedDatabaseNodeIdentifier: LocalDatabaseNodeIdentifier {
                     return
                 }
 
-                self.detected = true
-
                 var selectSource = false
 
                 var mode = UserDefaults.standard.integer(forKey: "MOUNT")
@@ -1516,8 +1514,17 @@ public final class MountedDatabaseNodeIdentifier: LocalDatabaseNodeIdentifier {
                 mode = 0 //display the source
 #endif
 
+                // The sources table shows `description`, which follows `detected`,
+                // through its bindings, and KVO runs on the thread that writes. On
+                // this thread the table's observer opens a Core Animation
+                // transaction, and when the thread exits its commit draws the table
+                // here, off the main thread.
+                nonisolated(unsafe) let node = self
                 let commandDown = DispatchQueue.main.sync {
-                    MainActor.assumeIsolated { NSApp.currentEvent?.modifierFlags.contains(.command) ?? false }
+                    MainActor.assumeIsolated {
+                        node.detected = true
+                        return NSApp.currentEvent?.modifierFlags.contains(.command) ?? false
+                    }
                 }
                 if mode == -1 || commandDown { //The user clicked on the dialog box
                     if autoselect {

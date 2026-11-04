@@ -1,11 +1,11 @@
 # IsiX DICOM Viewer
 
-[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.3.9/IsiX-DICOM-Viewer-5.3.9-Apple-Silicon-Macs.zip)
-[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.3.9/IsiX-DICOM-Viewer-5.3.9-Intel-Macs.zip)
+[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.4.0/IsiX-DICOM-Viewer-5.4.0-Apple-Silicon-Macs.zip)
+[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.4.0/IsiX-DICOM-Viewer-5.4.0-Intel-Macs.zip)
 
-The `horos` branch contains the stable 5.3.x release line. The [`beta` branch](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/tree/beta) contains the 6.0 migration and its new IsiXPluginKit interface. Corrections that apply to both lines are carried across separately.
+The `horos` branch contains the stable 5.x release line. The [`beta` branch](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/tree/beta) contains the 6.0 migration and its new IsiXPluginKit interface. Corrections that apply to both lines are carried across separately.
 
-**6.0.0-beta1 prerelease:** [release notes and downloads](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/tag/v6.0.0-beta1). It requires plugins built for IsiXPluginKit; the stable 5.3.x line retains its existing plugin interfaces.
+**6.0.0-beta1 prerelease:** [release notes and downloads](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/tag/v6.0.0-beta1). It requires plugins built for IsiXPluginKit; the stable 5.x line retains its existing plugin interfaces.
 
 Browse the [latest release](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest)
 or the [complete release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases).
