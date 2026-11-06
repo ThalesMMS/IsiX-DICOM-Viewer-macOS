@@ -107,7 +107,7 @@ PYTHON
 #
 # The helpers in Resources are separate processes, and the hardened runtime
 # implies library validation: signed without these entitlements they refuse to
-# load the ad-hoc frameworks beside them and exit before running. Decompress is
+# load the ad-hoc frameworks beside them and exit before running. Decompress was
 # one of them, so every archive and every transcoding silently did nothing and
 # the file was left in the decompression folder. Sign them with the same
 # exception as the application.
@@ -121,6 +121,14 @@ PYTHON
     done
 ' _ "$DEV_ENTITLEMENTS" {} + > "$ROOT_DIR/build/logs/development-signing.log" 2>&1
 /usr/bin/codesign --force --deep --sign - "$DEV_APP" >> "$ROOT_DIR/build/logs/development-signing.log" 2>&1
+# --deep signed the XPC services (Decompress) without the hardened runtime or
+# entitlements; they get the application's, get-task-allow included in a
+# debuggable build, so that LLDB attaches to them as to the application.
+for service in "$DEV_APP"/Contents/XPCServices/*.xpc; do
+    [ -d "$service" ] || continue
+    /usr/bin/codesign --force --sign - --options runtime --entitlements "$DEV_ENTITLEMENTS" "$service" \
+        >> "$ROOT_DIR/build/logs/development-signing.log" 2>&1
+done
 /usr/bin/codesign --force --sign - --options runtime --entitlements "$DEV_ENTITLEMENTS" "$DEV_APP" >> "$ROOT_DIR/build/logs/development-signing.log" 2>&1
 # The Web Portal keeps its accounts outside the DICOM database, so an isolated
 # run still read and wrote the installed application's accounts until this path

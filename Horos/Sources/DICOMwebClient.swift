@@ -16,11 +16,13 @@ import ImageIO
 import DicomData
 import DicomWebClient
 import Synchronization
+import IsiXPreferences
+import IsiXDICOMNetwork
 
 // MARK: - Node
 
 /// Where a DICOMweb node answers: an address, and QIDO-RS and WADO-RS
-/// paths relative to it. STOW-RS goes to `{address}/studies`.
+/// paths relative to it. STOW-RS goes to `studies` below the address, or below the path the two share.
 @objc(HorosDICOMwebNodeConfiguration)
 public final class DICOMwebNodeConfiguration: NSObject, Sendable {
     /// The base URL, such as `https://pacs.example/dicom-web`, without a trailing slash.
@@ -139,7 +141,7 @@ public final class DICOMwebNodeConfiguration: NSObject, Sendable {
     /// The full URLs, for display next to the node. They carry no credential.
     @objc public var qidoURLString: String { qidoURL.absoluteString }
     @objc public var wadoURLString: String { wadoURL.absoluteString }
-    @objc public var storeURLString: String { addressURL.appendingPathComponent("studies").absoluteString }
+    @objc public var storeURLString: String { DICOMwebNode.storeBaseURL(address: addressURL, qidoPath: qidoPath, wadoPath: wadoPath).appendingPathComponent("studies").absoluteString }
 }
 
 // MARK: - Errors
@@ -189,16 +191,28 @@ public final class DICOMwebStoreResult: NSObject {
     /// From the file's meta information; empty for a file that is not DICOM.
     @objc public let sopInstanceUID: String
     @objc public let status: DICOMwebStoreStatus
-    /// Empty on success. Never carries a URL or a response body.
+    /// Empty on success. What the user is shown: it never carries a URL, and
+    /// it may end with the start of what the node said about a refused
+    /// request, which is the node's own text.
     @objc public let reason: String
+    /// `reason` as the log may write it: a text of this client, a DICOM
+    /// reason code, an HTTP status or the kind of failure. Never what the
+    /// node said in its own words, which can quote the data it was sent, nor
+    /// the description of an error of the system, which can carry the path
+    /// of the file.
+    @objc public let logReason: String
     /// The DICOM Warning Reason (0008,1196) or Failure Reason (0008,1197), or 0.
     @objc public let reasonCode: Int
     /// The HTTP status of the request that carried the file, or 0 if none was sent.
     @objc public let httpStatus: Int
 
-    init(path: String, sopInstanceUID: String, status: DICOMwebStoreStatus, reason: String, reasonCode: Int = 0, httpStatus: Int = 0) {
+    /// A result given no `logReason` is logged by its codes alone, never by
+    /// its `reason`.
+    init(path: String, sopInstanceUID: String, status: DICOMwebStoreStatus, reason: String, logReason: String? = nil,
+         reasonCode: Int = 0, httpStatus: Int = 0) {
         self.path = path; self.sopInstanceUID = sopInstanceUID; self.status = status
         self.reason = reason; self.reasonCode = reasonCode; self.httpStatus = httpStatus
+        self.logReason = logReason ?? Self.logReason(status: status, reasonCode: reasonCode, httpStatus: httpStatus)
         super.init()
     }
 
@@ -465,7 +479,7 @@ private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @uncheck
         self.deliveries = deliveries
         lastActivity = ProcessInfo.processInfo.systemUptime
         lock.unlock()
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + ceiling) { [weak self] in self?.expire() }
+        Task { [weak self] in try? await Task.sleep(for: .seconds(ceiling)); self?.expire() }
         if let inactivity { watch(every: max(0.05, inactivity / 4)) }
     }
 
@@ -474,16 +488,16 @@ private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @uncheck
     /// Neither the time it held a chunk for its reader nor the time another
     /// response of its session did counts: the delivery was held, not slow.
     private func watch(every interval: TimeInterval) {
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + interval) { [weak self] in
-            guard let self else { return }
-            self.lock.lock()
-            guard !self.finished, !self.abandoned, let inactivity = self.inactivity else { self.lock.unlock(); return }
-            let session = self.deliveries?.state ?? (held: false, released: 0)
-            let idle = !self.holding && !session.held &&
-                ProcessInfo.processInfo.systemUptime - max(self.lastActivity, session.released) >= inactivity
-            self.lock.unlock()
-            if idle { self.expire() } else { self.watch(every: interval) }
-        }
+        Task { [weak self] in try? await Task.sleep(for: .seconds(interval)); self?.lookForInactivity(every: interval) }
+    }
+
+    private func lookForInactivity(every interval: TimeInterval) {
+        lock.lock()
+        guard !finished, !abandoned, let inactivity else { lock.unlock(); return }
+        let session = deliveries?.state ?? (held: false, released: 0)
+        let idle = !holding && !session.held && ProcessInfo.processInfo.systemUptime - max(lastActivity, session.released) >= inactivity
+        lock.unlock()
+        if idle { expire() } else { watch(every: interval) }
     }
 
     /// The whole transfer took too long, or stopped progressing: the
@@ -977,7 +991,7 @@ public final class DICOMwebSessionPool: NSObject, @unchecked Sendable {
         let lifetime = _idleLifetime
         lock.unlock()
         ended.forEach { $0.finishTasksAndInvalidate() }
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + lifetime + 0.05) { [weak self] in self?.expireIdle() }
+        Task { [weak self] in try? await Task.sleep(for: .seconds(lifetime + 0.05)); self?.expireIdle() }
     }
 
     /// Ends the sessions idle for their lifetime.
@@ -1237,12 +1251,11 @@ public final class DICOMwebClient: NSObject {
     /// a deadline for large studies on slow links. A request that stops
     /// progressing ends sooner, after `timeout` seconds without data; one
     /// held while its objects are imported does not count as stopped.
-    /// Defaults to `DICOMwebTransferCeiling` (seconds) in the user defaults,
-    /// or a day, and is at most a week.
+    /// Defaults to `DICOMwebTransferCeiling` (seconds) in the preferences, or a day, and is at most a week.
     @objc public var transferCeiling: TimeInterval = DICOMwebClient.defaultTransferCeiling
     static let maximumTransferCeiling: TimeInterval = 7 * 24 * 3600
     @objc public static var defaultTransferCeiling: TimeInterval {
-        let configured = UserDefaults.standard.double(forKey: "DICOMwebTransferCeiling")
+        let configured = PreferencesSource.process.preferences[NetworkPreferences.dicomwebTransferCeiling]
         return configured > 0 ? min(configured, maximumTransferCeiling) : 24 * 3600
     }
     /// STOW-RS sends at most this many files in one request.
@@ -1284,31 +1297,6 @@ public final class DICOMwebClient: NSObject {
         if error.domain == "HorosDICOMwebCredentials" { return .credentials }
         if let raw = error.userInfo[kindKey] as? Int, let kind = DICOMwebErrorKind(rawValue: raw) { return kind }
         return .invalidResponse
-    }
-
-    /// What went wrong, for the network log: the kind, the HTTP status and how
-    /// many objects a cut response had handed over. Never the message, which
-    /// can quote the node's answer.
-    @objc(logReasonForError:)
-    public static func logReason(for error: NSError?) -> String? {
-        guard let error else { return nil }
-        let kind = errorKind(for: error)
-        var reason: String
-        switch kind {
-        case .none: return nil
-        case .configuration: reason = "Configuration"
-        case .credentials: reason = "Credentials"
-        case .network: reason = "Network"
-        case .tls: reason = "TLS"
-        case .timeout: reason = "Timeout"
-        case .authentication, .notFound, .redirect, .http: reason = "HTTP \(error.code)"
-        case .invalidResponse: reason = "Invalid response"
-        case .cancelled: reason = "Cancelled"
-        }
-        if let handedOver = error.userInfo["HorosDICOMwebObjectsHandedOver"] as? Int, handedOver > 0 {
-            reason += " after \(handedOver) objects"
-        }
-        return reason
     }
 
     /// Whether a QIDO-RS error says the node does not implement that search,
@@ -1495,28 +1483,11 @@ public final class DICOMwebClient: NSObject {
     }
 
     /// The key of what the node said about a refused request, whole: see
-    /// `serverReason(code:warning:body:)`.
+    /// `DICOMwebNodeAnswer.reason(code:warning:body:)`.
     @objc public static let serverReasonKey = "HorosDICOMwebServerReason"
     /// The longest part of what the node said that goes into an error's
     /// message, which the activity panel and the alerts show on few lines.
     static let messageReasonLength = 300
-
-    /// What the node said about a refused request, on one line: its
-    /// X-DICOMweb-Error-Code, its Warning and the start of its body, nil when
-    /// it said nothing. DICOM-Swift has already removed from the body every
-    /// credential the client sent and the value of every credential-like
-    /// header line, and cut it to 4 KiB; control characters and runs of
-    /// white space become one space here.
-    static func serverReason(code: String?, warning: String?, body: String?) -> String? {
-        func line(_ text: String?) -> String? {
-            guard let text else { return nil }
-            let words = text.unicodeScalars.map { CharacterSet.controlCharacters.contains($0) ? " " : String($0) }.joined()
-                .split(whereSeparator: { $0.isWhitespace })
-            return words.isEmpty ? nil : words.joined(separator: " ")
-        }
-        let parts = [line(code).map { "error code " + $0 }, line(warning).map { "Warning: " + $0 }, line(body)].compactMap { $0 }
-        return parts.isEmpty ? nil : parts.joined(separator: "; ")
-    }
 
     /// `reason` cut for a message, at a word if one ends near the limit.
     static func shortReason(_ reason: String) -> String {
@@ -1529,7 +1500,8 @@ public final class DICOMwebClient: NSObject {
     /// One sanitized error for anything a request threw: no URL, host or
     /// credential of the request reaches the message. An HTTP error other
     /// than a redirect ends with what the node said about it, if anything,
-    /// cut short; the whole of it goes to the log and to `serverReasonKey`.
+    /// cut short; the whole of it goes to `serverReasonKey`, and the log is
+    /// told its shape, by `DICOMwebNodeAnswer.logReason`.
     private func classify(_ error: Error, transport: DICOMwebTransport, cancelled: () -> Bool,
                           failed what: String) -> NSError {
         if cancelled() || error is CancellationError { return Self.cancelledError }
@@ -1541,9 +1513,11 @@ public final class DICOMwebClient: NSObject {
         if nsError.domain == "HorosDICOMweb" || nsError.domain == "HorosDICOMwebCredentials" { return nsError }
         let reportedStatus: Int?
         var reason: String?
+        var shape: String?
         if let web = error as? DicomWebError {
             reportedStatus = web.statusCode
-            reason = Self.serverReason(code: web.code, warning: web.warning, body: web.bodyPreview)
+            reason = DICOMwebNodeAnswer.reason(code: web.code, warning: web.warning, body: web.bodyPreview)
+            shape = DICOMwebNodeAnswer.logReason(code: web.code, warning: web.warning, body: web.bodyPreview)
         } else if let clientError = error as? DicomWebClientError,
                   case .httpStatus(let status, _, _, _) = clientError {
             reportedStatus = status
@@ -1553,7 +1527,7 @@ public final class DICOMwebClient: NSObject {
         if let status = reportedStatus, transport.received(status: status), !(200..<300).contains(status) {
             let classified = classify(status: status, transport: transport, failed: what)
             guard let reason, !(300..<400).contains(status) else { return classified }
-            NSLog("DICOMweb HTTP %ld: the node said: %@", status, reason)
+            NSLog("DICOMweb HTTP %ld: the node said: %@", status, shape ?? "(null)")
             var info = classified.userInfo
             info[NSLocalizedDescriptionKey] = classified.localizedDescription + " The node said: " + Self.shortReason(reason)
             info[Self.serverReasonKey] = reason
@@ -1821,9 +1795,10 @@ public final class DICOMwebClient: NSObject {
         var warnings = Set<String>()
         for (page, document) in zip(pages, documents) {
             // A Warning sent with the results, such as 299 for a filter the
-            // node did not apply, goes to the log once per query.
-            if let warning = Self.serverReason(code: nil, warning: page.warning, body: nil), warnings.insert(warning).inserted {
-                NSLog("DICOMweb query: the node answered with %@", String(warning.prefix(1024)))
+            // node did not apply, goes to the log once per query: its
+            // warn-code and which of the standard's two it is, not its text.
+            if let shape = DICOMwebNodeAnswer.logReason(code: nil, warning: page.warning, body: nil), warnings.insert(shape).inserted {
+                NSLog("DICOMweb query: the node answered with %@", shape)
             }
             let records = page.statusCode == 204 ? [] : try Self.qidoRecords(json: document)
             let identities = records.map { uid((($0[identity.key] as? [String: Any])?["Value"] as? [String])?.first) }
@@ -1839,7 +1814,8 @@ public final class DICOMwebClient: NSObject {
                 next = index + 1
             }
         }
-        let warning: String? = switch pages.last?.stopReason {
+        // What this client says of a search it stopped: its own words and counts.
+        let stopped: String? = switch pages.last?.stopReason {
         case .repeatedPage?:
             "The node repeated results instead of advancing to the next page, so the query stopped after \(collected.count) results. "
                 + "There may be more: narrow the query or check the node's pagination support."
@@ -1849,8 +1825,8 @@ public final class DICOMwebClient: NSObject {
             "The query stopped after \(Self.qidoMaximumResults) pages with \(collected.count) results. There may be more: narrow the query."
         case nil: nil
         }
-        if let warning { NSLog("DICOMweb query: %@", warning) }
-        return (collected, warning)
+        if let stopped { NSLog("DICOMweb query: %@", stopped) }
+        return (collected, stopped)
     }
 
     // MARK: Retrieve
@@ -1993,7 +1969,7 @@ public final class DICOMwebClient: NSObject {
 
     // MARK: Store
 
-    /// STOW-RS of `files` to `{address}/studies`, in requests of at most
+    /// STOW-RS of `files` to the node's store URL, in requests of at most
     /// `storeBatchMaximumCount` files and `storeBatchMaximumBytes` bytes, each
     /// streamed from disk, by DICOM-Swift's `storeFiles`. Returns one result
     /// per file, in order. A request that fails marks its files failed;
@@ -2047,20 +2023,26 @@ public final class DICOMwebClient: NSObject {
         guard !files.isEmpty else { throw Self.failure(1, "No files to send.", kind: .configuration) }
         var results = [DICOMwebStoreResult?](repeating: nil, count: files.count)
         var valid: [Prepared] = []
+        // Each result is given its reason for the log beside the one shown. A
+        // text of this client's own (`fixed`) and one made of a DICOM reason
+        // code (`coded`) are logged as they are shown.
         for (index, path) in files.enumerated() {
             let url = URL(fileURLWithPath: path)
             if let found = Self.inspect(url) { valid.append(Prepared(index: index, url: url, uid: found.uid, size: found.size)) }
             else {
-                results[index] = DICOMwebStoreResult(path: path, sopInstanceUID: "", status: .failure,
-                    reason: "Not a DICOM Part 10 file with File Meta Information. It was not sent.")
+                let fixed = "Not a DICOM Part 10 file with File Meta Information. It was not sent."
+                results[index] = DICOMwebStoreResult(path: path, sopInstanceUID: "", status: .failure, reason: fixed, logReason: fixed)
             }
         }
         guard !valid.isEmpty else { return results.map { $0! } }
         let what = "The instances were not stored."
+        // The message of an error may end with what the node said, in its own
+        // words: the log is told the kind of the error and its HTTP status.
         func notSent(_ error: NSError) {
             for file in valid where results[file.index] == nil {
                 results[file.index] = DICOMwebStoreResult(path: files[file.index], sopInstanceUID: file.uid, status: .failure,
-                                                          reason: "Not sent. " + error.localizedDescription)
+                                                          reason: "Not sent. " + error.localizedDescription,
+                                                          logReason: "Not sent. " + Self.logSentence(for: error))
             }
         }
         let options = DicomWebStoreBatchOptions(maximumFilesPerBatch: storeBatchMaximumCount,
@@ -2072,7 +2054,7 @@ public final class DICOMwebClient: NSObject {
         let bodyLimit = largest.addingReportingOverflow(64 * 1024 + options.maximumFilesPerBatch * 1024)
         let (web, transport): (DicomWebClient, DICOMwebTransport)
         do {
-            (web, transport) = try connect(base: node.addressURL, cancelled: cancelled,
+            (web, transport) = try connect(base: DICOMwebNode.storeBaseURL(address: node.addressURL, qidoPath: node.qidoPath, wadoPath: node.wadoPath), cancelled: cancelled,
                                            storeBodyLimit: bodyLimit.overflow ? Int.max : bodyLimit.partialValue,
                                            transferCeiling: transferCeiling, responseOperation: .store)
         } catch {
@@ -2109,34 +2091,40 @@ public final class DICOMwebClient: NSObject {
                 results[file.index] = DICOMwebStoreResult(path: path, sopInstanceUID: file.uid, status: .success, reason: "", httpStatus: status)
             case .warning:
                 let code = Int(result.dicomStatus ?? 0)
+                let coded = DICOMwebStoreResult.describe(reason: code, warning: true)
                 results[file.index] = DICOMwebStoreResult(path: path, sopInstanceUID: file.uid, status: .warning,
-                    reason: DICOMwebStoreResult.describe(reason: code, warning: true), reasonCode: code, httpStatus: status)
+                    reason: coded, logReason: coded, reasonCode: code, httpStatus: status)
             case .unknown:
                 // PS3.18 10.5.3: 200 means every instance was stored.
+                let fixed = "The node did not report this instance."
                 results[file.index] = status == 200
                     ? DICOMwebStoreResult(path: path, sopInstanceUID: file.uid, status: .success, reason: "", httpStatus: status)
                     : DICOMwebStoreResult(path: path, sopInstanceUID: file.uid, status: .failure,
-                                          reason: "The node did not report this instance.", httpStatus: status)
+                                          reason: fixed, logReason: fixed, httpStatus: status)
             case .failed where result.sopInstanceUID == nil:
                 // DICOM-Swift refused the file itself before sending anything.
+                // Its reason for a file it could not open is the system's
+                // error written out, with the path of the file.
                 results[file.index] = DICOMwebStoreResult(path: path, sopInstanceUID: file.uid, status: .failure,
-                    reason: (result.reason ?? "The file could not be read.") + " It was not sent.")
+                    reason: (result.reason ?? "The file could not be read.") + " It was not sent.",
+                    logReason: "The file could not be read or prepared for a request. It was not sent.")
             case .failed where result.error == nil && result.httpStatus != nil:
                 // The node's answer lists this instance as refused.
                 let code = Int(result.dicomStatus ?? 0)
+                let coded = code == 0 ? "The node refused this instance." : DICOMwebStoreResult.describe(reason: code, warning: false)
                 results[file.index] = DICOMwebStoreResult(path: path, sopInstanceUID: file.uid, status: .failure,
-                    reason: code == 0 ? "The node refused this instance." : DICOMwebStoreResult.describe(reason: code, warning: false),
-                    reasonCode: code, httpStatus: status)
+                    reason: coded, logReason: coded, reasonCode: code, httpStatus: status)
             case .failed:
                 let error = failure(of: result)
                 stop = error
                 results[file.index] = DICOMwebStoreResult(path: path, sopInstanceUID: file.uid, status: .failure,
-                    reason: error.localizedDescription, httpStatus: (100..<600).contains(error.code) ? error.code : 0)
+                    reason: error.localizedDescription, logReason: Self.logSentence(for: error),
+                    httpStatus: (100..<600).contains(error.code) ? error.code : 0)
             case .notSent:
                 let error = result.error.map { classify($0, transport: transport, cancelled: cancelled, failed: what) }
                     ?? stop ?? (cancelled() ? Self.cancelledError : failure(of: result))
                 results[file.index] = DICOMwebStoreResult(path: path, sopInstanceUID: file.uid, status: .failure,
-                    reason: "Not sent. " + error.localizedDescription)
+                    reason: "Not sent. " + error.localizedDescription, logReason: "Not sent. " + Self.logSentence(for: error))
             }
         }
         return results.map { $0! }

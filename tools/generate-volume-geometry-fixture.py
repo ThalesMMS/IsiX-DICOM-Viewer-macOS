@@ -9,6 +9,9 @@ that says where it belongs:
 
     regular        evenly spaced, one orientation: the control
     isotropic      optional 1 mm pixel and slice interval (--also-isotropic)
+    oblique        optional regular stack whose every slice is tilted 30 degrees
+                   about the patient's x axis, positions along that tilted
+                   normal (--also-oblique)
     gap            one slice missing from the middle of the stack
     jitter         one slice displaced sideways, off the stack's own axis
     tilted         one slice rotated, so the stack has two orientations
@@ -21,8 +24,10 @@ from a stack that was misread is not.
 
     python3 tools/generate-volume-geometry-fixture.py <empty dir> [--slices 16]
     python3 tools/generate-volume-geometry-fixture.py <empty dir> --also-isotropic
+    python3 tools/generate-volume-geometry-fixture.py <empty dir> --also-oblique
 """
 import argparse
+import math
 from pathlib import Path
 
 import numpy
@@ -37,6 +42,8 @@ parser.add_argument('--size', type=int, default=64)
 parser.add_argument('--spacing', type=float, default=2.0, help='mm between slices')
 parser.add_argument('--also-isotropic', action='store_true',
                     help='also write a 1 mm isotropic stack for Curved MPR')
+parser.add_argument('--also-oblique', action='store_true',
+                    help='also write a regular stack with every slice tilted 30 degrees, for geometry checks')
 arguments = parser.parse_args()
 
 arguments.destination.mkdir(parents=True, exist_ok=True)
@@ -57,7 +64,7 @@ def picture(index, count):
     return image
 
 
-def build(series, number, description, slices, pixel=0.5, slice_spacing=None):
+def build(series, number, description, slices, pixel=0.5, slice_spacing=None, oblique=False):
     interval = arguments.spacing if slice_spacing is None else slice_spacing
     series_uid = generate_uid()
     for position, (index, origin, orientation, instance) in enumerate(slices):
@@ -89,10 +96,11 @@ def build(series, number, description, slices, pixel=0.5, slice_spacing=None):
         dataset.Modality = 'CT'
         dataset.StudyDescription = 'stacks that are a volume, and stacks that are not'
         dataset.SeriesDescription = description
-        dataset.ImageType = ['ORIGINAL', 'PRIMARY', 'AXIAL']
+        dataset.ImageType = ['ORIGINAL', 'PRIMARY', 'OBLIQUE' if oblique else 'AXIAL']
         dataset.ImagePositionPatient = [float(v) for v in origin]
         dataset.ImageOrientationPatient = [float(v) for v in orientation]
-        dataset.SliceLocation = float(origin[2])
+        # The oblique stack's location is along its normal, row x column.
+        dataset.SliceLocation = float(numpy.dot(origin, numpy.cross(orientation[:3], orientation[3:]))) if oblique else float(origin[2])
         dataset.PixelSpacing = [pixel, pixel]
         dataset.SliceThickness = interval
         dataset.SpacingBetweenSlices = interval
@@ -119,6 +127,16 @@ def build(series, number, description, slices, pixel=0.5, slice_spacing=None):
 
 count = arguments.slices
 step = arguments.spacing
+
+
+def oblique_stack(degrees=30.0):
+    """A regular stack tilted about x: rows along x, columns along (0, cos, sin),
+    each slice one interval further along the normal row x column."""
+    angle = math.radians(degrees)
+    column = [0.0, math.cos(angle), math.sin(angle)]
+    normal = [0.0, -math.sin(angle), math.cos(angle)]
+    orientation = [1.0, 0.0, 0.0] + column
+    return [(index, [n * index * arguments.spacing for n in normal], orientation, index + 1) for index in range(count)]
 
 
 def stack(step=None, **changes):
@@ -152,4 +170,6 @@ build('positions-lie', 6, 'instance numbers count the other way', stack(lie=True
 if arguments.also_isotropic:
     build('isotropic', 7, '1 mm pixel and 1 mm slice interval',
           stack(step=1.0), pixel=1.0, slice_spacing=1.0)
+if arguments.also_oblique:
+    build('oblique', 8, 'every slice tilted 30 degrees, evenly spaced', oblique_stack(), oblique=True)
 print('patient VOLUME^GEOMETRY / VOL-102')

@@ -114,7 +114,7 @@ open class CPRVolumeData: NSObject {
     }
 
     /// -init of NSObject left every instance variable zero: no data, not valid.
-    @objc public override init() {
+    public override init() {
         _floatBytes = nil
         _outOfBoundsValue = 0
         valid = Atomic(false)

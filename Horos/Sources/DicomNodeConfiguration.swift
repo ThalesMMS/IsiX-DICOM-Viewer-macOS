@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXDICOMNetwork
 
 /// What a DICOM node is configured as, written so two of them can be compared.
 ///
@@ -35,14 +36,14 @@ public final class DicomNodeConfiguration: NSObject {
         return "\(server["Address"] ?? ""):\(server["Port"] ?? "")"
     }
 
-    /// The retrieve modes, as `DCMNetServiceDelegate` numbers them.
+    /// The retrieve modes, as `DICOMRetrieveMode` numbers them.
     static func retrieveMode(_ value: Int) -> String {
-        switch value {
-        case 0: return "C-MOVE"
-        case 1: return "C-GET"
-        case 2: return "WADO"
-        case 3: return "DICOMweb"
-        default: return "unknown (\(value))"
+        switch DICOMRetrieveMode(rawValue: value) {
+        case .cMove: return "C-MOVE"
+        case .cGet: return "C-GET"
+        case .wado: return "WADO"
+        case .dicomWeb: return "DICOMweb"
+        case nil: return "unknown (\(value))"
         }
     }
 

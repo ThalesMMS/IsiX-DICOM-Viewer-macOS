@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """The ROI Manager lists, groups, filters, coalesces and exports as intended.
 
-ROIManagerModel.swift and StudyMetadataExport.swift are compiled with a driver
-on stand-in ROIs:
+ROIManagerModel.swift and the CSV rules StudyMetadataExport forwards to
+(StudyMetadataCSV.swift, IsiXDatabase) are compiled with a driver on stand-in
+ROIs:
 
 - scope: the slice on screen, or every slice;
 - grouping: ROIs of one name across slices are one group, in the place their
@@ -24,7 +25,7 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-sources = [root / 'Horos/Sources/ROIManagerModel.swift', root / 'Horos/Sources/StudyMetadataExport.swift']
+sources = [root / 'Horos/Sources/ROIManagerModel.swift', root / 'Modules/IsiXDatabase/Sources/StudyMetadataCSV.swift']
 
 DRIVER = r'''
 import Foundation
@@ -96,9 +97,9 @@ s.mean = 52.25; s.deviation = 3.5; s.minimum = -10; s.maximum = 120; s.total = 4
 let record = ROIManagerModel.csvRecord(name: "liver, \"left\"", slice: 0, areaCm2: 12.345678, statistics: s,
                                        hidden: false, locked: true, comments: "")
 check(record == ["liver, \"left\"", "1", "12.3457", "52.250", "3.500", "-10.000", "120.000", "4180.000", "yes", "yes", ""], record.description)
-let text = StudyMetadataExport.csv(fromRows: [ROIManagerModel.csvHeader, record])
+let text = StudyMetadataCSV.csv(fromRows: [ROIManagerModel.csvHeader, record])
 check(text == "Name,Slice,Area (cm²),Mean,SDev,Min,Max,Sum,Visible,Locked,Comments\r\n\"liver, \"\"left\"\"\",1,12.3457,52.250,3.500,-10.000,120.000,4180.000,yes,yes,\r\n", text)
-check(StudyMetadataExport.data(forCSV: text).prefix(3) == Data([0xEF, 0xBB, 0xBF]), "byte order mark")
+check(StudyMetadataCSV.data(forCSV: text).prefix(3) == Data([0xEF, 0xBB, 0xBF]), "byte order mark")
 
 if failures > 0 { exit(1) }
 print("PASS: model")

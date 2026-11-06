@@ -20,7 +20,7 @@ Objective-C DataNodeIdentifier and checks, without DNS:
 5. the comparison is symmetric and never equal across node classes;
 6. the comparator asks no Host (DNS) for either node.
 
-And, in BrowserController+Sources.swift, that the entered servers are matched
+And, in SourceList.swift, that the entered servers are matched
 to the listed nodes with that comparison, not by location against the
 "Address+Port+AETitle" key, and that Bonjour does not replace the dictionary
 of an entered DICOM node it merges.
@@ -64,7 +64,8 @@ def code(text):
 
 
 nodes = read('Horos/Sources/RemoteDataNodeIdentifier.swift')
-browser = read('Horos/Sources/BrowserController+Sources.swift')
+# The Sources list is SourceList's.
+browser = read('Horos/Sources/SourceList.swift')
 
 # A stand-in for DataNodeIdentifier.m, PrettyCell and NSHost+N2: the same
 # selectors, the base comparisons of the Objective-C class.
@@ -216,13 +217,13 @@ equal = block(dicom_class, '    public override func isEqual(to dni: DataNodeIde
 if equal is None or 'Host' in code(equal) or 'self.port, to' in code(equal):
     failures.append('DicomNodeIdentifier compares through Host (DNS) or with this node\'s port for the other')
 
-servers = block(browser, '            if context == DicomBrowserSourcesContext.pointer {')
+servers = block(browser, '    private func reloadDICOMNodes() {')
 if servers is None or 'objcContains(aa.allKeys as NSArray, dni.location)' in servers \
         or 'objcIndex(arrayValues(content, forKey: "location"), aak)' in servers \
         or servers.count('isEqual(to:') < 2:
     failures.append('the entered servers are matched by location against the Address+Port+AETitle key')
 
-resolved = block(browser, '    public func netServiceDidResolveAddress(_ service: NetService) {')
+resolved = block(browser, '    private func resolved(_ service: NetService) {')
 if resolved is None or '} else if !source.entered {' not in resolved:
     failures.append('Bonjour replaces the dictionary of an entered DICOM node it merges')
 

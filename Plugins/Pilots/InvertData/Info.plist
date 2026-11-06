@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>InvertData</string>
+	<key>CFBundleIdentifier</key>
+	<string>org.isix.pilot.invert-data</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Invert Data</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>15.0</string>
+	<key>IsiXPluginAPIVersion</key>
+	<integer>1</integer>
+	<key>NSPrincipalClass</key>
+	<string>InvertData.InvertDataPlugin</string>
+	<key>IsiXPluginCapabilities</key>
+	<array>
+		<string>viewer.read</string>
+		<string>viewer.write</string>
+	</array>
+</dict>
+</plist>

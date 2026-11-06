@@ -34,7 +34,7 @@ require(getter.find('response?.setSessionId(sessionValue?.sid)') > token > -1, '
 
 # A session that exists before the page is prepared still reaches the tokens there.
 reply = connection[connection.index('private func replyToHTTPRequestUnguarded()'):]
-reply = reply[:reply.index('super.replyToHTTPRequest()')]
+reply = reply[:reply.index('engine?.replyWithResponse()')]
 require('fillSessionAndUserVariables()' in reply and 'response?.tokens.setObject(session, forKey: "Session" as NSString)' in reply,
         'the session found from the cookie no longer reaches the tokens')
 require(reply.index('self.response = WebPortalResponse(webPortalConnection: self)') < reply.index('fillSessionAndUserVariables()'),

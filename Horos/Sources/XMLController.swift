@@ -38,6 +38,9 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXDICOMDataset
+import IsiXDICOMFile
+import IsiXPreferences
 import UniformTypeIdentifiers
 
 private let XMLToolbarIdentifier = "XML Toolbar Identifier"
@@ -51,11 +54,6 @@ private let SortSeriesToolbarItemIdentifier = "SortSeries"
 private let VerifyToolbarItemIdentifier = "Validator"
 
 @MainActor private var showWarning = true
-
-/// The exception an HorosObjCException.perform error carries.
-private func exception(_ error: Error) -> NSException? {
-    return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-}
 
 /// +[NSArray arrayWithObject:], which raises for nil as the former code did.
 private func arrayWithObject(_ object: Any?) -> NSArray {
@@ -140,9 +138,9 @@ private func fileSizeInKB(_ path: String?) -> Int32 {
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/XMLController.h> are those of the former class, the File's Owner of
-/// XMLViewer.xib. Its superclass, OSIWindowController, stays in Objective-C,
-/// and so does XMLControllerDCMTKCategory, whose messages the class sends
-/// through XMLController+CAPI.m.
+/// XMLViewer.xib. Its superclass, OSIWindowController, stays in Objective-C.
+/// Writing tag edits into files and the DICOM dictionary are in
+/// XMLController+DICOMEditing.swift.
 @objc(XMLController)
 public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWindowDelegate {
     @IBOutlet private var table: NSOutlineView?
@@ -159,9 +157,9 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
     private var xmlDocument: XMLDocument? = nil
     private var dcmDocument: DCMObject? = nil
     private var _imObj: DicomImage? = nil
-    /// The DICOM dictionary's tags and names, which -prepareDictionaryArray of
-    /// XMLControllerDCMTKCategory fills through this selector.
-    @objc(horos_dictionaryArray) private(set) var dictionaryArray: NSMutableArray? = nil
+    /// The DICOM dictionary's tags and names, which -prepareDictionaryArray
+    /// (XMLController+DICOMEditing.swift) fills.
+    private(set) var dictionaryArray: NSMutableArray? = nil
 
     private var _viewer: ViewerController? = nil
 
@@ -183,6 +181,16 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 
     private var dontListenToIndexChange = false
     private var modificationsToApplyArray: NSMutableArray? = nil, modifiedFields: NSMutableArray? = nil, modifiedValues: NSMutableArray? = nil
+    /// Where the editing level, the editing switch and the warning's
+    /// suppression are read and kept: the preferences of the process.
+    private let preferences: any PreferenceStore = PreferencesSource.process.preferences
+    /// The graph of the process, set right after the controller is made.
+    var processGraph: ProcessGraph!
+
+    /// The browser, which removes the rows of the database it shows.
+    private var browser: BrowserController? {
+        processGraph?.browserWindow?.browser
+    }
 
     @objc public var imObj: NSManagedObject! {
         return _imObj
@@ -261,7 +269,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
     func arrayOfFiles() -> NSArray? {
         let result = editingLevel
 
-        UserDefaults.standard.set(Int(editingLevel), forKey: "editingLevel")
+        preferences.set(Int(editingLevel), for: ApplicationPreferences.editingLevel)
 
         switch result {
         case 0:
@@ -271,60 +279,46 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         case 1:
             NSLog("series level")
 
-            let series = _imObj?.value(forKey: "series")
-
-            let images = BrowserController.currentBrowser()?.childrenArray(series) as NSArray?
-
-            return images
+            return browser?.childrenArray(_imObj?.series) as NSArray?
 
         case 2:
             NSLog("study level")
 
-            let allSeries = BrowserController.currentBrowser()?.childrenArray(_imObj?.value(forKeyPath: "series.study")) as NSArray?
-            let result = NSMutableArray()
-
-            for loopItem in allSeries ?? [] {
-                result.addObjects(from: BrowserController.currentBrowser()?.childrenArray(loopItem) ?? [])
-            }
-
-            return result
+            let browser = browser
+            let allSeries = browser?.childrenArray(_imObj?.series?.study) ?? []
+            return allSeries.flatMap { browser?.childrenArray($0) ?? [] } as NSArray
 
         case 3:
             NSLog("patient level")
 
-            let result = NSMutableArray()
-            let context = BrowserController.currentBrowser()?.database?.managedObjectContext
+            let browser = browser
+            var files: [Any] = []
+            // The patient's studies in the image's own database, which the
+            // browser may not show.
+            let context = _imObj?.managedObjectContext
             N2ManagedObjectContextPerformAndWait(context) {
-            let patientID = _imObj?.value(forKeyPath: "series.study.patientID")
+            let patientID = _imObj?.series?.study?.patientID
             let predicate = patientID.map { NSPredicate(format: "(patientID == %@)", argumentArray: [$0]) } ?? NSPredicate(format: "(patientID == nil)")
-            let dbRequest = NSFetchRequest<NSFetchRequestResult>()
-            dbRequest.entity = BrowserController.currentBrowser()?.database?.managedObjectModel?.entitiesByName["Study"]
+            let dbRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "Study")
             dbRequest.predicate = predicate
 
-            var studiesArray: NSArray? = nil
+            var studies: [NSFetchRequestResult] = []
 
-            do {
-                try HorosObjCException.perform {
-                    studiesArray = (try? BrowserController.currentBrowser()?.database?.managedObjectContext?.fetch(dbRequest)) as NSArray?
-                }
-            } catch {
-                if let e = exception(error) { _N2LogExceptionImpl(e, true, "-[XMLController arrayOfFiles]") }
+            if let e = HorosObjCException.caught({
+                studies = (try? context?.fetch(dbRequest)) ?? []
+            }) {
+                _N2LogExceptionImpl(e, true, "-[XMLController arrayOfFiles]")
             }
 
-
-            if (studiesArray?.count ?? 0) > 0 {
-                for s in studiesArray! {
-                    let allSeries = BrowserController.currentBrowser()?.childrenArray(s) as NSArray?
-
-                    for w in allSeries ?? [] {
-                        result.addObjects(from: BrowserController.currentBrowser()?.childrenArray(w) ?? [])
-                    }
+            for study in studies {
+                for series in browser?.childrenArray(study) ?? [] {
+                    files += browser?.childrenArray(series) ?? []
                 }
             }
 
             }
 
-            return result
+            return files as NSArray
 
         default:
             break
@@ -336,13 +330,18 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
     @objc(updateDB:objects:)
     @discardableResult
     func updateDB(_ files: NSArray?, objects: NSArray?) -> NSArray? {
-        DCMPix.purgeCachedDictionaries()
+        // The files go back into the database of the rows edited (`objects`,
+        // else the image shown), which the browser may not show.
+        let database = XMLController.database(ofEdited: objects as? [Any], image: _imObj,
+                                              source: processGraph.map { BrowserDatabaseSource(processGraph: $0) } ?? .process)
+        func indexed() -> [Any]? {
+            DCMPix.purgeCachedDictionaries()
+            return database.flatMap { $0.objects(withIDs: DatabaseIngest.process.index(files as? [Any], preset: .modify, in: $0)) }
+        }
 
         dontClose = true
 
-        var addedObjects = BrowserController.currentBrowser()?.database?.addFiles(atPaths: files as? [Any], postNotifications: true, dicomOnly: true, rereadExistingItems: true, generatedByOsiriX: false, importedFiles: false, returnArray: true) as NSArray?
-
-        addedObjects = BrowserController.currentBrowser()?.database?.objects(withIDs: addedObjects as? [Any]) as NSArray?
+        let addedObjects = indexed() as NSArray?
 
         if let objects = objects {
             let previousSeries = NSMutableArray()
@@ -374,9 +373,12 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                     (image as AnyObject).setValue(NSNumber(value: false), forKey: "inDatabaseFolder")
                 }
 
-                BrowserController.currentBrowser()?.proceedDelete(objects as? [Any])
+                if let database {
+                    XMLController.removeReplacedRows(objects as? [Any] ?? [], from: database, browser: browser)
+                }
 
-                self.updateDB(files, objects: nil)
+                _ = indexed()
+                dontClose = false
 
                 self.window?.close()
             }
@@ -408,10 +410,10 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                 let encoding = NSString.encoding(forDICOMCharacterSet: (DicomFile.getEncodingArray(forFile: srcFile) as NSArray?)?.object(at: 0) as? String)
 
                 let value = (addValue?.stringValue as NSString?)?.data(using: encoding, allowLossyConversion: true).flatMap { NSString(data: $0, encoding: encoding) }
-                groupsAndElements.addObjects(from: arrayWithObjects("-i", String(format: "%@=%@", path, value ?? "(null)")) as! [Any])
+                groupsAndElements.addObjects(from: Array(arrayWithObjects("-i", String(format: "%@=%@", path, value ?? "(null)"))))
 
-                let params = NSMutableArray(array: arrayWithObjects("dcmodify", "--verbose", "--ignore-errors") as! [Any])
-                params.addObjects(from: groupsAndElements as! [Any])
+                let params = NSMutableArray(array: Array(arrayWithObjects("dcmodify", "--verbose", "--ignore-errors")))
+                params.addObjects(from: Array(groupsAndElements))
 
                 if modificationsToApplyArray == nil {
                     modificationsToApplyArray = NSMutableArray()
@@ -426,18 +428,18 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                 }
 
                 self.willChangeValue(forKey: "modificationsToApply")
-                modificationsToApplyArray?.addObjects(from: groupsAndElements as! [Any])
+                modificationsToApplyArray?.addObjects(from: Array(groupsAndElements))
 
-                let tag = DCMAttributeTag.tag(withGroup: Int32(bitPattern: group), element: Int32(bitPattern: element)) as? DCMAttributeTag
-                let dcmAttribute = DCMAttribute.attribute(with: tag) as? DCMAttribute
-                dcmAttribute?.values = NSMutableArray(array: arrayWithObject(addValue?.stringValue) as! [Any])
+                let tag = DICOMAttributeTag.tag(withGroup: Int32(bitPattern: group), element: Int32(bitPattern: element))
+                let dcmAttribute = DCMAttribute.attribute(with: tag) as DCMAttribute?
+                dcmAttribute?.values = NSMutableArray(array: Array(arrayWithObject(addValue?.stringValue)))
 
                 dcmDocument?.setAttribute(dcmAttribute)
                 self.didChangeValue(forKey: "modificationsToApply")
 
                 self.reloadFromDCMDocument()
 
-                // The outline row carries the tag as DCMAttributeTag writes it, in
+                // The outline row carries the tag as DICOMAttributeTag writes it, in
                 // upper case. This was formatted in lower case and compared with
                 // isEqualToString:, so a tag containing a hex letter - 0008,103E,
                 // Series Description among them - never matched any row, the edit
@@ -547,7 +549,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
     public func reload(_ sender: Any?) { // reloadFromFile
         let previousOutline = self.previousOutline()
 
-        dcmDocument = DCMObject.object(withContentsOfFile: srcFile, decodingPixelData: false) as? DCMObject
+        dcmDocument = DCMObject.object(withContentsOfFile: srcFile, decodingPixelData: false) as DCMObject?
         xmlDocument = dcmDocument?.xmlDocument
 
         let selectedRow = Int(Int32(truncatingIfNeeded: table?.selectedRow ?? 0))
@@ -639,20 +641,20 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         dcmDocument = nil
 
         if DicomFile.isDICOMFile(srcFile) {
-            dcmDocument = DCMObject.object(withContentsOfFile: srcFile, decodingPixelData: false) as? DCMObject
+            dcmDocument = DCMObject.object(withContentsOfFile: srcFile, decodingPixelData: false) as DCMObject?
             xmlDocument = dcmDocument?.xmlDocument
 
             isDICOM = true
         }
         // #ifndef OSIRIX_LIGHT (compiled)
         else if DicomFile.isFVTiffFile(srcFile) {
-            xmlDocument = XMLControllerCAPIXMLFromFVTiff(srcFile)
+            xmlDocument = HorosXMLFromFVTiff(srcFile)
         } else if DicomFile.isNIfTIFile(srcFile) {
             xmlDocument = DicomFile.getNIfTIXML(srcFile)
         }
         // #endif
         else {
-            dcmDocument = DCMObject.object(withContentsOfFile: srcFile, decodingPixelData: false) as? DCMObject
+            dcmDocument = DCMObject.object(withContentsOfFile: srcFile, decodingPixelData: false) as DCMObject?
 
             if let dcmDocument = dcmDocument {
                 xmlDocument = dcmDocument.xmlDocument
@@ -698,11 +700,12 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         }
 
         self.init(windowNibName: "XMLViewer")
+        processGraph = ProcessGraph.process
 
         self.setMagnetic(true)
 
         allowSelectionChange = true
-        editingLevel = Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "editingLevel"))
+        editingLevel = Int32(truncatingIfNeeded: preferences[ApplicationPreferences.editingLevel])
 
         _viewer = v
 
@@ -1065,7 +1068,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
             if isImageWritable() == false {
                 HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM Editing", comment: ""), message: NSLocalizedString("This file is not editable. It is a read-only file.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
                 _editingActivated = false
-            } else if UserDefaults.standard.bool(forKey: "ALLOWDICOMEDITING") == false {
+            } else if preferences[DatabasePreferences.allowsDICOMEditing] == false {
                 HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM Editing", comment: ""), message: NSLocalizedString("DICOM editing is deactivated.\r\rSee General - Preferences to activate it.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
                 _editingActivated = false
             } else if isDICOM == false {
@@ -1074,9 +1077,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                 _editingActivated = false
             } else {
                 if showWarning {
-                    let exampleAlertSuppress = "DICOM Editing Warning"
-                    let defaults = UserDefaults.standard
-                    if defaults.bool(forKey: exampleAlertSuppress) {
+                    if preferences[ApplicationPreferences.dicomEditingWarningSuppressed] {
                     } else {
                         let alert = NSAlert()
                         alert.messageText = NSLocalizedString("DICOM Editing", comment: "")
@@ -1084,7 +1085,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                         alert.showsSuppressionButton = true
                         alert.runModal()
                         if alert.suppressionButton?.state == .on {
-                            defaults.set(true, forKey: exampleAlertSuppress)
+                            preferences.set(true, for: ApplicationPreferences.dicomEditingWarningSuppressed)
                         }
                     }
 
@@ -1232,7 +1233,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
             var path = self.getPath(item)
 
             if attribute(item, "group") != nil && attribute(item, "element") != nil {
-                groupsAndElements.addObjects(from: arrayWithObjects("-i", String(format: "%@=%@", path, (object as? NSObject) ?? ("(null)" as NSString))) as! [Any])
+                groupsAndElements.addObjects(from: Array(arrayWithObjects("-i", String(format: "%@=%@", path, (object as? NSObject) ?? ("(null)" as NSString)))))
             } else { // A multiple value or a sequence, not an element
                 if ((item as? XMLNode)?.children?.first?.children?.count ?? 0) == 0 {
                     let (valuePath, index) = valuePathAndIndex(path)
@@ -1246,7 +1247,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 
                     replaceObject(values, Int(index), object)
 
-                    groupsAndElements.addObjects(from: arrayWithObjects("-i", String(format: "%@=%@", path, values.componentsJoined(by: "\\"))) as! [Any])
+                    groupsAndElements.addObjects(from: Array(arrayWithObjects("-i", String(format: "%@=%@", path, values.componentsJoined(by: "\\")))))
                 } else {
                     NSLog("A sequence: not editable")
                 }
@@ -1267,7 +1268,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
             }
 
             self.willChangeValue(forKey: "modificationsToApply")
-            modificationsToApplyArray?.addObjects(from: groupsAndElements as! [Any])
+            modificationsToApplyArray?.addObjects(from: Array(groupsAndElements))
 
             if modifiedFields?.contains(self.getPath(item)) ?? false {
                 let index = modifiedFields!.index(of: self.getPath(item))
@@ -1315,88 +1316,86 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                 // Kept alive through the edit, as [self retain] / [self autorelease] did.
                 _ = Unmanaged.passUnretained(self).retain()
 
-                do {
-                    try HorosObjCException.perform {
+                if let e = HorosObjCException.caught({
 
 
 
-                        let tagAndValues = NSMutableArray()
-                        let multiValued = self.multiValuedElementEdits()
-                        var writtenElements = Set<String>()
+                    let tagAndValues = NSMutableArray()
+                    let multiValued = self.multiValuedElementEdits()
+                    var writtenElements = Set<String>()
 
-                        var i = 0
-                        while i < (self.modifiedFields?.count ?? 0) {
-                            var field = self.modifiedFields!.object(at: i) as! String
-                            var value = self.modifiedValues!.object(at: i)
+                    var i = 0
+                    while i < (self.modifiedFields?.count ?? 0) {
+                        var field = self.modifiedFields!.object(at: i) as! String
+                        var value = self.modifiedValues!.object(at: i)
 
-                            // A value of a multi-valued element is written as the
-                            // whole element, once, with its other values.
-                            if let edit = multiValued[field] {
-                                guard let edit = edit, writtenElements.insert(edit.path).inserted else {
-                                    i += 1
-                                    continue
-                                }
-                                field = edit.path
-                                value = edit.value
-                            }
-
-                            // The row's address, not its first tag. -[DCMAttributeTag
-                            // initWithTagString:] scans the first (gggg,eeee) and drops
-                            // the rest, so an edit inside a sequence -
-                            // (0054,0016)[0].(0018,1074) - was addressed to the
-                            // sequence element and never reached the value.
-                            var tag: Any? = DICOMTagPath.path(with: field)
-
-                            if tag == nil {
-                                tag = DCMAttributeTag.tag(withTagString: field)
-                            }
-
-                            if tag == nil {
+                        // A value of a multi-valued element is written as the
+                        // whole element, once, with its other values.
+                        if let edit = multiValued[field] {
+                            guard let edit = edit, writtenElements.insert(edit.path).inserted else {
                                 i += 1
                                 continue
                             }
+                            field = edit.path
+                            value = edit.value
+                        }
 
-                            // Delete marks the row with NSNull and shows it as "to be
-                            // deleted". That marker used to be handed to the writer as
-                            // if it were a value: it is not a string, so the edit was
-                            // dropped and reported as a file that could not be written,
-                            // and the tag stayed in the file. An entry of one element
-                            // is a removal; two is a replacement, and an empty string
-                            // there empties the element without removing it.
-                            if (value as AnyObject) === NSNull() {
-                                tagAndValues.add(arrayWithObject(tag))
-                            } else {
-                                tagAndValues.add(arrayWithObjects(tag, value))
-                            }
+                        // The row's address, not its first tag. -[DICOMAttributeTag
+                        // initWithTagString:] scans the first (gggg,eeee) and drops
+                        // the rest, so an edit inside a sequence -
+                        // (0054,0016)[0].(0018,1074) - was addressed to the
+                        // sequence element and never reached the value.
+                        var tag: Any? = DICOMTagPath.path(with: field)
+
+                        if tag == nil {
+                            tag = DICOMAttributeTag.tag(withTagString: field)
+                        }
+
+                        if tag == nil {
                             i += 1
+                            continue
                         }
 
-                        // The result was discarded, so a file that could not be written
-                        // looked exactly like a successful edit.
-                        var reasons: NSArray? = nil
-                        if XMLControllerCAPIModifyDicom(tagAndValues as? [Any], files as? [Any], &reasons) == false {
-                            var detail = String(format: NSLocalizedString("Some requested edits could not be applied to the %d selected files. Review the results below before retrying.", comment: ""), Int32(truncatingIfNeeded: files.count))
-
-                            // Naming the fields that were refused, and why, is the
-                            // difference between a dead end and a fixable mistake.
-                            if (reasons?.count ?? 0) > 0 {
-                                detail = detail.appendingFormat("\n\n%@", reasons!.componentsJoined(by: "\n"))
-                            }
-
-                            HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM Editing", comment: ""),
-                                                        message: detail, defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                        // Delete marks the row with NSNull and shows it as "to be
+                        // deleted". That marker used to be handed to the writer as
+                        // if it were a value: it is not a string, so the edit was
+                        // dropped and reported as a file that could not be written,
+                        // and the tag stayed in the file. An entry of one element
+                        // is a removal; two is a replacement, and an empty string
+                        // there empties the element without removing it.
+                        if (value as AnyObject) === NSNull() {
+                            tagAndValues.add(arrayWithObject(tag))
+                        } else {
+                            tagAndValues.add(arrayWithObjects(tag, value))
                         }
-
-
-
-                        for loopItem in files {
-                            try? FileManager.default.removeItem(atPath: (loopItem as! NSString).appending(".bak"))
-                        }
-
-                        self.updateDB(files, objects: objects)
+                        i += 1
                     }
-                } catch {
-                    NSLog("xml setObject: %@", (exception(error) as NSObject?) ?? (error as NSError))
+
+                    // The result was discarded, so a file that could not be written
+                    // looked exactly like a successful edit.
+                    var reasons: NSArray? = nil
+                    if XMLController.modifyDicom(tagAndValues as? [Any], dicomFiles: files as? [Any], reasons: &reasons) == false {
+                        var detail = String(format: NSLocalizedString("Some requested edits could not be applied to the %d selected files. Review the results below before retrying.", comment: ""), Int32(truncatingIfNeeded: files.count))
+
+                        // Naming the fields that were refused, and why, is the
+                        // difference between a dead end and a fixable mistake.
+                        if (reasons?.count ?? 0) > 0 {
+                            detail = detail.appendingFormat("\n\n%@", reasons!.componentsJoined(by: "\n"))
+                        }
+
+                        HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM Editing", comment: ""),
+                                                    message: detail, defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                    }
+
+
+
+                    for loopItem in files {
+                        try? FileManager.default.removeItem(atPath: (loopItem as! NSString).appending(".bak"))
+                    }
+
+                    self.updateDB(files, objects: objects)
+                }) {
+                    NSLog("xml setObject: %@", e)
                 }
                 wait?.close()
                 wait = nil
@@ -1432,11 +1431,11 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         }
 
         if (previousValue as AnyObject?)?.isEqual(object) != true {
-            if UserDefaults.standard.bool(forKey: "ALLOWDICOMEDITING") && isDICOM && self.editingActivated && isImageWritable() {
+            if preferences[DatabasePreferences.allowsDICOMEditing] && isDICOM && self.editingActivated && isImageWritable() {
                 allowSelectionChange = false
                 self.perform(#selector(setObject(_:)), with: arrayWithObjects(item, object), afterDelay: 0)
             } else {
-                if UserDefaults.standard.bool(forKey: "ALLOWDICOMEDITING") == false || self.editingActivated == false {
+                if preferences[DatabasePreferences.allowsDICOMEditing] == false || self.editingActivated == false {
                     HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM Editing", comment: ""), message: NSLocalizedString("Activate DICOM editing to change the values.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
                 } else {
                     HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM Editing", comment: ""), message: NSLocalizedString("DICOM editing not possible for this file.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
@@ -1522,18 +1521,17 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 
                 dontListenToIndexChange = true
 
-                do {
-                    try HorosObjCException.perform {
-                        gr = UInt32(clamping: Scanner(string: attributeObjectValue(item, "group") as! String).scanUInt64(representation: .hexadecimal) ?? 0)
-                        el = UInt32(clamping: Scanner(string: attributeObjectValue(item, "element") as! String).scanUInt64(representation: .hexadecimal) ?? 0)
+                // The DICOM files of the series are read to sort it, which may raise.
+                if let e = HorosObjCException.caught({
+                    gr = UInt32(clamping: Scanner(string: attributeObjectValue(item, "group") as! String).scanUInt64(representation: .hexadecimal) ?? 0)
+                    el = UInt32(clamping: Scanner(string: attributeObjectValue(item, "element") as! String).scanUInt64(representation: .hexadecimal) ?? 0)
 
-                        if gr > 0 {
-                            NSLog("Sort by 0x%04X / 0x%04X", gr, el)
-                            _ = self._viewer?.sortSeries(byDICOMGroup: Int32(bitPattern: gr), element: Int32(bitPattern: el))
-                        }
+                    if gr > 0 {
+                        NSLog("Sort by 0x%04X / 0x%04X", gr, el)
+                        _ = self._viewer?.sortSeries(byDICOMGroup: Int32(bitPattern: gr), element: Int32(bitPattern: el))
                     }
-                } catch {
-                    NSLog("%@", (exception(error) as NSObject?) ?? (error as NSError))
+                }) {
+                    NSLog("%@", e)
                     HorosAlertPanel.run(title: NSLocalizedString("Sort Series Images", comment: ""), message: NSLocalizedString("Select an element to use to sort the images of the series.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
                 }
 
@@ -1549,7 +1547,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 
         let c = Int((event.characters! as NSString).character(at: 0))
 
-        if self.editingActivated && isImageWritable() && UserDefaults.standard.bool(forKey: "ALLOWDICOMEDITING") && isDICOM && (c == NSDeleteFunctionKey || c == NSDeleteCharacter || c == NSBackspaceCharacter || c == NSDeleteCharFunctionKey) {
+        if self.editingActivated && isImageWritable() && preferences[DatabasePreferences.allowsDICOMEditing] && isDICOM && (c == NSDeleteFunctionKey || c == NSDeleteCharacter || c == NSBackspaceCharacter || c == NSDeleteCharFunctionKey) {
             if HorosAlertPanel.runInformational(title: NSLocalizedString("DICOM Editing", comment: ""), message: NSLocalizedString("Are you sure you want to delete selected field(s)?", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil) == HorosAlertPanel.defaultResponse {
                 let selectedRowIndexes = (table?.selectedRowIndexes ?? IndexSet()) as NSIndexSet
 
@@ -1563,7 +1561,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                             var path = self.getPath(item)
 
                             if attribute(item, "group") != nil && attribute(item, "element") != nil {
-                                groupsAndElements.addObjects(from: arrayWithObjects("-e", path) as! [Any])
+                                groupsAndElements.addObjects(from: Array(arrayWithObjects("-e", path)))
                             } else { // A multiple value or a sequence, not an element
                                 if ((item as? XMLNode)?.children?.first?.children?.count ?? 0) == 0 {
                                     let (valuePath, index) = valuePathAndIndex(path)
@@ -1577,7 +1575,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 
                                     values.removeObject(at: Int(index))
 
-                                    groupsAndElements.addObjects(from: arrayWithObjects("-i", String(format: "%@=%@", path, values.componentsJoined(by: "\\"))) as! [Any])
+                                    groupsAndElements.addObjects(from: Array(arrayWithObjects("-i", String(format: "%@=%@", path, values.componentsJoined(by: "\\")))))
                                 } else {
                                     NSLog("A sequence : not editable")
                                 }
@@ -1597,7 +1595,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                                 }
 
                                 self.willChangeValue(forKey: "modificationsToApply")
-                                modificationsToApplyArray?.addObjects(from: groupsAndElements as! [Any])
+                                modificationsToApplyArray?.addObjects(from: Array(groupsAndElements))
 
                                 if modifiedFields?.contains(self.getPath(item)) ?? false {
                                     let index = modifiedFields!.index(of: self.getPath(item))
@@ -1759,7 +1757,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         }
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
-            if (plugin as AnyObject).responds(to: #selector(PluginFilter.toolbarItem(forItemIdentifier:forViewer:))) {
+            if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarItem(forItemIdentifier:forViewer:))) {
                 let item = (plugin as AnyObject).toolbarItem?(forItemIdentifier: itemIdent, forViewer: self) ?? nil
 
                 if let item = item {
@@ -1807,7 +1805,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                                            SearchToolbarItemIdentifier])
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
-            if (plugin as AnyObject).responds(to: #selector(PluginFilter.toolbarAllowedIdentifiers(forViewer:))) {
+            if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarAllowedIdentifiers(forViewer:))) {
                 array.addObjects(from: ((plugin as AnyObject).toolbarAllowedIdentifiers?(forViewer: self) ?? nil) ?? [])
             }
         }
@@ -1869,7 +1867,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 
     @IBAction @objc(setGroupElement:)
     public func setGroupElement(_ sender: Any?) {
-        if (dictionaryArray?.count ?? 0) == 0 { XMLControllerCAPIPrepareDictionaryArray(self) }
+        if (dictionaryArray?.count ?? 0) == 0 { prepareDictionaryArray() }
 
         var hexscanner: Scanner
 
@@ -1902,7 +1900,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 
     @IBAction @objc(setTagName:)
     public func setTagName(_ sender: Any?) {
-        if (dictionaryArray?.count ?? 0) == 0 { XMLControllerCAPIPrepareDictionaryArray(self) }
+        if (dictionaryArray?.count ?? 0) == 0 { prepareDictionaryArray() }
 
         var string = ((sender as? NSControl)?.stringValue as NSString?) ?? ""
 
@@ -1915,7 +1913,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 
             var gp: Int32 = 0, el: Int32 = 0
 
-            if XMLControllerCAPIGetGroupAndElementForName(self, string as String, &gp, &el) == 0 {
+            if getGroupAndElement(forName: string as String, group: &gp, element: &el) == 0 {
                 addGroup?.stringValue = String(format: "0x%04x", gp)
                 addElement?.stringValue = String(format: "0x%04x", el)
             } else {
@@ -1927,7 +1925,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 
     @objc(comboBox:completedString:)
     func comboBox(_ aComboBox: NSComboBox, completedString uncompletedString: String) -> String? {
-        if (dictionaryArray?.count ?? 0) == 0 { XMLControllerCAPIPrepareDictionaryArray(self) }
+        if (dictionaryArray?.count ?? 0) == 0 { prepareDictionaryArray() }
 
         if (uncompletedString as NSString).length == 0 { return nil }
 
@@ -1944,25 +1942,15 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 
     @objc(numberOfItemsInComboBox:)
     func numberOfItems(in aComboBox: NSComboBox) -> Int {
-        if (dictionaryArray?.count ?? 0) == 0 { XMLControllerCAPIPrepareDictionaryArray(self) }
+        if (dictionaryArray?.count ?? 0) == 0 { prepareDictionaryArray() }
 
         return dictionaryArray?.count ?? 0
     }
 
     @objc(comboBox:objectValueForItemAtIndex:)
     func comboBox(_ aComboBox: NSComboBox, objectValueForItemAt index: Int) -> Any? {
-        if (dictionaryArray?.count ?? 0) == 0 { XMLControllerCAPIPrepareDictionaryArray(self) }
+        if (dictionaryArray?.count ?? 0) == 0 { prepareDictionaryArray() }
 
         return dictionaryArray?.object(at: index)
-    }
-}
-
-// The class methods of XMLControllerDCMTKCategory, for Swift callers, which
-// cannot see the category: they send the same messages.
-extension XMLController {
-    // Runs dcmodify on the calling thread: the entities call it from any thread.
-    @nonobjc @discardableResult
-    public nonisolated class func modifyDicom(_ tagAndValues: [Any]!, dicomFiles: [Any]!) -> Bool {
-        return XMLControllerCAPIModifyDicom(tagAndValues, dicomFiles, nil)
     }
 }

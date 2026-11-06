@@ -36,7 +36,12 @@ require('kUTTypeImage' not in block and not re.search(r'UTType\.image\b|"public\
         'an abstract image UTI does not tell Finder or a browser to expect JPEG')
 require('NSPasteboardTypeString' not in block and not re.search(r'\.string\b', block),
         'do not advertise a string type the provider never fulfils')
-require('horos__dragInProgress = false' not in block.split('} catch')[0],
+# The drag runs inside the view's @try (HorosObjCException.caughtWithoutAllocation); the branch after it is
+# the exception's, which ends the drag that never began.
+protected = re.split(r'\}\) \{|\} catch', block)[0]
+require('HorosObjCException.caughtWithoutAllocation(' in block and protected != block,
+        'startDrag must run the drag inside an Objective-C @try')
+require('horos__dragInProgress = false' not in protected,
         'clearing _dragInProgress before the session ends lets WW/WL run during export')
 
 timer = swift_method('    @objc(deleteMouseDownTimer)')

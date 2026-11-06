@@ -95,6 +95,8 @@ public final class WaitRendering: NSWindowController {
     private unowned(unsafe) var cancelDelegate: AnyObject?
 
     private var displayedTime: TimeInterval = 0
+    /// The window the panel took the keyboard from, which gets it back.
+    private var keyWindowReturn = KeyWindowReturn()
 
     /// The xib's `abort` outlet, set through KVC. The button has the name of
     /// the -abort: action.
@@ -118,6 +120,7 @@ public final class WaitRendering: NSWindowController {
                 window.setFrame(NSMakeRect(window.frame.origin.x, window.frame.origin.y - CGFloat(winList.count) * (5 + window.frame.size.height), window.frame.size.width, window.frame.size.height), display: false)
             }
         }
+        keyWindowReturn.remember(NSApp.keyWindow, before: self.window)
         super.showWindow(sender)
         self.window?.makeKeyAndOrderFront(sender)
 
@@ -153,11 +156,13 @@ public final class WaitRendering: NSWindowController {
             Thread.sleep(forTimeInterval: 0.05)
         }
 
-        self.window?.orderOut(self)
-
-        if let session {
-            NSApp.endModalSession(session)
-            self.session = nil
+        // The window that was key before the panel is key again when it goes:
+        // without a modal session nothing else hands the keyboard back.
+        keyWindowReturn.orderOut(self.window) {
+            if let session {
+                NSApp.endModalSession(session)
+                self.session = nil
+            }
         }
     }
 

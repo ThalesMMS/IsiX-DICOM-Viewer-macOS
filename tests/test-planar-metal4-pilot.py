@@ -23,6 +23,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import process_graph_stand_in  # the Metal sources read their development switches through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 sources = ['VolumeAllocation.swift', 'VolumeSession.swift',
@@ -281,7 +282,7 @@ if not failures:
         work = Path(temporary)
         (work / 'Check.swift').write_text(DRIVER)
         build = subprocess.run(['xcrun', 'swiftc', '-O', '-parse-as-library',
-                                *[str(root / 'Horos/Sources' / name) for name in sources],
+                                *[str(root / 'Horos/Sources' / name) for name in sources], *process_graph_stand_in.swift_flags(work / 'isix'),
                                 str(work / 'Check.swift'), '-o', str(work / 'check')],
                                capture_output=True, text=True)
         if build.returncode != 0:

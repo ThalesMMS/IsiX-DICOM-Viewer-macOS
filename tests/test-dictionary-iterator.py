@@ -31,17 +31,15 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 driver = root / 'tools/exercise-dictionary-iterator.cc'
-source = root / 'DCMTK'
 
 if not driver.exists():
     failures.append('the driver that walks the dictionary is gone')
-elif not source.exists():
-    failures.append('the vendored DCMTK is not here')
 else:
     with tempfile.TemporaryDirectory(prefix='horos-dict-') as directory:
         binary = Path(directory) / 'dicts'
         build = subprocess.run(
-            ['xcrun', 'clang++', '-std=c++11', str(driver), *dcmtk_flags(), '-o', str(binary)],
+            ['xcrun', 'clang++', '-std=c++11', str(driver), *dcmtk_flags(), '-I' + str(root / 'Horos/Sources/Adapters/DCMTK'),
+             '-o', str(binary)],
             capture_output=True, text=True)
         if build.returncode != 0:
             failures.append('the dictionary does not compile on its own:\n%s' % build.stderr[-1500:])
@@ -76,6 +74,6 @@ if failures:
 print('ok: the dictionary can be walked to its end, a name that is not in it matches nothing, and '
       'an entry without a name answers no')
 
-application = (root / 'Horos/Sources/DICOMDataDictionary.mm').read_text()
-assert 'HorosFindStandardDicomEntry(dictionary, name)' in application
+application = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKDictionary.mm').read_text()
+assert 'HorosFindStandardDicomEntry(lock.dictionary, keyword.UTF8String)' in application
 assert 'dictionary.findEntry(name)' not in application

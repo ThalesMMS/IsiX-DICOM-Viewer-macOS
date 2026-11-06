@@ -21,6 +21,7 @@
 //
 
 import Foundation
+import IsiXROI
 
 // MARK: - Errors
 
@@ -164,125 +165,36 @@ public struct ROIInterchangeError: LocalizedError, CustomNSError {
     public var skippedROIs: [String] = []
 }
 
-// MARK: - Codable document
+// MARK: - The written document
 
-private struct Document: Codable {
-    var format: String
-    var version: Int
-    var generator: String?
-    var created: String?
-    var coordinateSystems: CoordinateSystems
-    var series: SeriesRecord
-    var images: [ImageRecord]
-}
+// The document as it is written is IsiXROI's ROIInterchangeDocument; this
+// file maps the records above to it and back, and validates what it reads.
+private typealias Document = ROIInterchangeDocument
+private typealias SeriesRecord = ROIInterchangeDocument.Series
+private typealias ImageRecord = ROIInterchangeDocument.Image
+private typealias BrushRecord = ROIInterchangeDocument.Brush
+private typealias ROIRecord = ROIInterchangeDocument.Region
+private typealias VolumeLengthRecord = ROIInterchangeDocument.VolumeLength
 
-private struct CoordinateSystems: Codable {
-    var pixel: String
-    var patient: String
-}
-
-private struct SeriesRecord: Codable {
-    var studyInstanceUID: String?
-    var seriesInstanceUID: String?
-    var frameOfReferenceUID: String?
-    var modality: String?
-    var seriesDescription: String?
-}
-
-private struct ImageRecord: Codable {
-    var index: Int
-    var temporalIndex: Int?
-    var sopInstanceUID: String?
-    var frame: Int?
-    var instanceNumber: Int?
-    var rows: Int
-    var columns: Int
-    var pixelSpacing: [Double]
-    var sliceThickness: Double?
-    var sliceLocation: Double?
-    var imagePositionPatient: [Double]?
-    var imageOrientationPatient: [Double]?
-    var rois: [ROIRecord]
-}
-
-private struct BrushRecord: Codable {
-    var width: Int
-    var height: Int
-    var originX: Int
-    var originY: Int
-    var maskBase64: String
-}
-
-private struct ROIRecord: Codable {
-    var name: String
-    var type: String?
-    var typeCode: Int?
-    var comments: String?
-    var points: [[Double]]
-    var pointsPatient: [[Double]]?
-    var volumeLength: VolumeLengthRecord?
-    var rect: [Double]?
-    var thickness: Double?
-    var opacity: Double?
-    var color: [Double]?
-    var isSpline: Bool?
-    var groupID: Double?
-    var brush: BrushRecord?
-}
-
-// Version 2 explicitly identifies physical Lengths so older readers reject the
-// document instead of flattening endpoints into a single image plane.
-private struct VolumeEndpointReference: Codable {
-    var sopInstanceUID: String
-    var frame: Int
-    var generated: Bool
-    var imagePositionPatient: [Double]
-    var imageOrientationPatient: [Double]
-    var pixelSpacing: [Double]
-}
-private struct VolumeLengthRecord: Codable {
-    var version: Int
-    var id: String
-    var a: [Double]
-    var b: [Double]
-    var series: String
-    var frameOfReference: String
-    var temporalIndex: Int
-    var referenceA: VolumeEndpointReference
-    var referenceB: VolumeEndpointReference
-    var storageSOPInstanceUID: String?
-    var storageFrame: Int?
-
+private extension ROIInterchangeDocument.VolumeLength {
+    /// The Length as a ROI's payload, or the import error that refuses it.
     func validatedDictionary() throws -> [String: Any] {
-        guard version == 1, !id.isEmpty, !series.isEmpty, !frameOfReference.isEmpty,
-              temporalIndex >= 0, a.count == 3, b.count == 3,
-              a.allSatisfy(\.isFinite), b.allSatisfy(\.isFinite),
-              zip(a,b).reduce(0, { $0 + pow($1.0-$1.1, 2) }) > 1e-12 else {
-            throw ROIInterchangeError(code: .invalidROI, reason: "Invalid patient-space Length endpoints or identity.")
+        do {
+            return try validatedPayload()
+        } catch let defect as Defect {
+            throw ROIInterchangeError(code: .invalidROI, reason: defect.reason)
         }
-        for reference in [referenceA, referenceB] {
-            guard !reference.sopInstanceUID.isEmpty, reference.frame >= 0,
-                  reference.imagePositionPatient.count == 3,
-                  reference.imageOrientationPatient.count == 6,
-                  reference.pixelSpacing.count == 2,
-                  reference.imagePositionPatient.allSatisfy(\.isFinite),
-                  reference.imageOrientationPatient.allSatisfy(\.isFinite),
-                  reference.pixelSpacing.allSatisfy({ $0.isFinite && $0 > 0 }) else {
-                throw ROIInterchangeError(code: .invalidROI, reason: "Invalid Length endpoint reference geometry.")
-            }
-        }
-        return try JSONSerialization.jsonObject(with: JSONEncoder().encode(self)) as! [String: Any]
     }
 }
 
 // MARK: - Public API
 
 @objc public final class ROIInterchange: NSObject {
-    @objc public static let formatIdentifier = "org.horosproject.roi-interchange"
-    @objc public static let formatVersion = 2
-    @objc public static let fileExtension = "json"
-    @objc public static let pixelCoordinateSystem = "image pixels: x right, y down, origin at the top-left corner of pixel (0,0), one unit per pixel"
-    @objc public static let patientCoordinateSystem = "DICOM patient coordinates (LPS), millimetres"
+    @objc public static let formatIdentifier = ROIInterchangeDocument.formatIdentifier
+    @objc public static let formatVersion = ROIInterchangeDocument.formatVersion
+    @objc public static let fileExtension = ROIInterchangeDocument.fileExtension
+    @objc public static let pixelCoordinateSystem = ROIInterchangeDocument.pixelCoordinateSystem
+    @objc public static let patientCoordinateSystem = ROIInterchangeDocument.patientCoordinateSystem
 
     /// Serialises a series and its ROIs. Images without ROIs are omitted.
     @objc public static func encode(_ series: ROIInterchangeSeries, generator: String?) throws -> Data {
@@ -317,19 +229,11 @@ private struct VolumeLengthRecord: Codable {
                     guard type == .length else {
                         throw ROIInterchangeError(code: .invalidROI, reason: "Only Length can carry patient-space endpoints.")
                     }
-                    // NSArchiver restores historical BOOL NSNumbers as 0/1.
-                    // Normalize them before the strongly typed JSON conversion.
-                    var normalized = volume
-                    for key in ["referenceA", "referenceB"] {
-                        if var reference = normalized[key] as? [String: Any],
-                           let generated = reference["generated"] as? NSNumber {
-                            reference["generated"] = generated.boolValue
-                            normalized[key] = reference
-                        }
-                    }
+                    // NSArchiver restores historical BOOL NSNumbers as 0/1:
+                    // the payload is read with them as booleans.
                     let physical: VolumeLengthRecord
                     do {
-                        physical = try JSONDecoder().decode(VolumeLengthRecord.self, from: JSONSerialization.data(withJSONObject: normalized))
+                        physical = try VolumeLengthRecord.from(payload: volume)
                     } catch let error as DecodingError {
                         throw ROIInterchangeError(code: .invalidROI, reason: "Invalid physical Length: \(describe(error))")
                     }
@@ -363,21 +267,17 @@ private struct VolumeLengthRecord: Codable {
                                        rois: rois))
         }
 
-        let formatter = ISO8601DateFormatter()
         let document = Document(format: formatIdentifier,
-                                version: images.contains(where: { $0.rois.contains(where: { $0.volumeLength != nil }) }) ? 2 : 1,
+                                version: Document.version(for: records),
                                 generator: generator,
-                                created: formatter.string(from: Date()),
-                                coordinateSystems: CoordinateSystems(pixel: pixelCoordinateSystem, patient: patientCoordinateSystem),
+                                created: Document.timestamp(),
                                 series: SeriesRecord(studyInstanceUID: series.studyInstanceUID,
                                                      seriesInstanceUID: series.seriesInstanceUID,
                                                      frameOfReferenceUID: series.frameOfReferenceUID,
                                                      modality: series.modality,
                                                      seriesDescription: series.seriesDescription),
                                 images: records)
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return try encoder.encode(document)
+        return try document.encoded()
     }
 
     /// Parses and validates a document. Structural problems are reported with a reason; matching
@@ -385,7 +285,7 @@ private struct VolumeLengthRecord: Codable {
     @objc public static func decode(_ data: Data) throws -> ROIInterchangeSeries {
         let document: Document
         do {
-            document = try JSONDecoder().decode(Document.self, from: data)
+            document = try Document.decoded(from: data)
         } catch let error as DecodingError {
             throw ROIInterchangeError(code: .invalidJSON, reason: "The file is not a valid ROI interchange document: \(describe(error))")
         } catch {
@@ -613,21 +513,6 @@ private struct VolumeLengthRecord: Codable {
     }
 
     private static func describe(_ error: DecodingError) -> String {
-        func path(_ context: DecodingError.Context) -> String {
-            let p = context.codingPath.map { $0.intValue.map { "[\($0)]" } ?? $0.stringValue }.joined(separator: ".")
-            return p.isEmpty ? "document" : p
-        }
-        switch error {
-        case .keyNotFound(let key, let context):
-            return "missing key \"\(key.stringValue)\" in \(path(context))."
-        case .typeMismatch(_, let context):
-            return "wrong value type at \(path(context)): \(context.debugDescription)"
-        case .valueNotFound(_, let context):
-            return "missing value at \(path(context))."
-        case .dataCorrupted(let context):
-            return context.debugDescription
-        @unknown default:
-            return error.localizedDescription
-        }
+        Document.describe(error)
     }
 }

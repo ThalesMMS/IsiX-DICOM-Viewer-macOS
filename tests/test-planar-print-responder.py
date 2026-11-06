@@ -31,6 +31,14 @@ def read(path):
     return (root / path).read_bytes().decode('latin1')
 
 
+def read_optional(path):
+    """The file, or None where the revision does not have it."""
+    if len(sys.argv) > 1:
+        shown = subprocess.run(['git', '-C', str(root), 'show', sys.argv[1] + ':' + path], capture_output=True)
+        return shown.stdout.decode('utf-8') if shown.returncode == 0 else None
+    return (root / path).read_text(encoding='utf-8') if (root / path).is_file() else None
+
+
 def method(source, signature, terminator='\n}\n'):
     start = source.find(signature)
     if start < 0:
@@ -39,16 +47,27 @@ def method(source, signature, terminator='\n}\n'):
 
 
 failures = []
-view = read('Horos/Sources/DCMView.m')
-header = read('Horos/Sources/DCMView.h')
+# DCMView.m until the class is Swift.
+view = read_optional('Horos/Sources/DCMView.m') or ''
 host = read('Horos/Sources/PlanarHostRenderer.swift')
-bridge = read('Horos/Sources/PlanarHostBridge.m')
+bridge = read('Horos/Sources/DCMView+PlanarHost.swift') + read('Horos/Sources/DCMView+PlanarSnapshot.swift')  # the planar bridge, Swift
+
+# The print and capture methods are Swift (DCMView+Capture.swift) once they
+# left DCMView.m.
+capture = read_optional('Horos/Sources/DCMView+Capture.swift')
 
 # 1. The image view owns print: instead of inheriting NSView's.
-printing = method(view, '- (IBAction) print:(id)sender\n')
+if capture is None:
+    printing = method(view, '- (IBAction) print:(id)sender\n')
+    forward = '[[self windowController] print: self]'
+else:
+    printing = method(capture, '    @objc(print:)\n', '\n    }\n')
+    if 'override func printView(_ sender: Any?)' not in printing:
+        printing = ''
+    forward = '(self.windowController() as? ViewerController)?.print(self)'
 if not printing:
     failures.append('DCMView does not implement print:; File > Print would reach NSView and print the view itself')
-if '[[self windowController] print: self]' not in printing:
+if forward not in printing:
     failures.append('a 2D viewer does not forward Print to its window controller')
 if 'is2DViewer' not in printing:
     failures.append('the forwarding does not distinguish a 2D viewer from the other users of this view')
@@ -57,10 +76,13 @@ if 'nsimage' not in printing:
 
 # 2. The capture the print path uses reads back the picture of the frame it has
 #    just drawn, so a stale frame cannot be printed.
-readback = view.find('horosPlanarPixelsWidth:')
+if capture is None:
+    source, readback, draw = view, view.find('horosPlanarPixelsWidth:'), '[self display]'
+else:
+    source, readback, draw = capture, capture.find('horosPlanarPixelsWidth('), 'self.display()'
 if readback < 0:
     failures.append('the capture no longer reads back the picture the frame drew')
-elif '[self display]' not in view[max(0, readback - 1200):readback]:
+elif draw not in source[max(0, readback - 1200):readback]:
     failures.append('the capture reads the picture before drawing the frame')
 
 # 3. Neither planar backend intercepts printing, and neither publishes a target
@@ -69,7 +91,7 @@ if 'print' in host.lower().replace('printWindow', '').replace('sprint', '') and 
     failures.append('the planar host renderer intercepts printing')
 if 'waitUntilCompleted' not in host or 'renderer.render(into: target)' not in host:
     failures.append('a planar backend can hand over a target the GPU is still writing')
-if 'horosDrawPlanarInLayer' not in bridge:
+if '@objc(horosDrawPlanarInLayer:inverted:)' not in bridge:
     failures.append('the planar picture is no longer drawn inside the host draw')
 
 if failures:

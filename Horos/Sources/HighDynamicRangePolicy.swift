@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 
 /// What to do with a CT whose voxel values span more than 8192 before a VR
 /// opens: clip them to -1024…7168, or keep them and let the volume view map the
@@ -21,7 +22,7 @@ import AppKit
 /// preferences show and set back to Ask.
 @objc(HorosHighDynamicRangePolicy)
 public final class HighDynamicRangePolicy: NSObject {
-    @objc public static let defaultsKey = "HighDynamicRangePolicy"
+    @objc public static let defaultsKey = ViewerPreferences.highDynamicRangePolicy.name
 
     // Its own Objective-C name: the gantry tilt policy already exports "Policy".
     @objc(HorosHighDynamicRangeChoice) public enum Policy: Int {
@@ -31,7 +32,7 @@ public final class HighDynamicRangePolicy: NSObject {
     }
 
     @objc public static var policy: Policy {
-        Policy(rawValue: UserDefaults.standard.integer(forKey: defaultsKey)) ?? .ask
+        Policy(rawValue: PreferencesSource.process.preferences[ViewerPreferences.highDynamicRangePolicy]) ?? .ask
     }
 
     /// The policy an answer leaves: the answer itself when it is to be kept.
@@ -59,7 +60,7 @@ public final class HighDynamicRangePolicy: NSObject {
         alert.suppressionButton?.title = NSLocalizedString("Do not ask again", comment: "")
         let clip = alert.runModal() == .alertFirstButtonReturn
         let next = policy(afterClipping: clip, remember: alert.suppressionButton?.state == .on, current: .ask)
-        if next != .ask { UserDefaults.standard.set(next.rawValue, forKey: defaultsKey) }
+        if next != .ask { PreferencesSource.process.preferences.set(next.rawValue, for: ViewerPreferences.highDynamicRangePolicy) }
         return clip
     }
 }

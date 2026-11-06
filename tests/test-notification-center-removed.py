@@ -13,7 +13,8 @@ removed.
 
 The same issue said `+[PluginManager startProtectForCrashWithFilter:]`,
 `startProtectForCrashWithPath:` and `endProtectForCrash` did not exist. They
-do: PluginManager.h publishes them to plugins and PluginManager.swift writes
+do: PluginManager.swift declares them @objc, PluginManager.h publishes them
+through the generated interface it imports, and PluginManager.swift writes
 and removes the crash marker the plugin quarantine reads at the next launch.
 DCMPix, DicomFile, ViewerController, DicomDatabase and BrowserController wrap
 plugin calls in them, so those calls are kept.
@@ -23,9 +24,9 @@ Checked:
 1. no source of the application, its frameworks, preference panes, plugins or
    API names the category or its selectors, no file is named
    OsiriXNotificationCenter, and Horos.xcodeproj does not list one;
-2. PluginManager.h declares the three crash guard selectors, PluginManager.swift
-   implements each under that @objc name, and every selector of that family
-   sent anywhere in the sources is one of them;
+2. PluginManager.h imports the generated interface, PluginManager.swift
+   implements the three crash guard selectors under those @objc names, and
+   every selector of that family sent anywhere in the sources is one of them;
 3. Changelog.md, under Unreleased, records the removal of the category, which
    the generated Horos-Swift.h had published.
 
@@ -40,7 +41,7 @@ root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 failures = []
 
-FOLDERS = ('Horos/Sources', 'Nitrogen/Sources', 'DCM Framework', 'DICOMPrint', 'Preference Panes',
+FOLDERS = ('Horos/Sources', 'Nitrogen/Sources', 'DICOMPrint', 'Preference Panes',
            'Plugins', 'API', 'Horos/Scripts')
 EXTENSIONS = ('.swift', '.m', '.mm', '.h', '.c', '.cpp', '.pl', '.py', '.sh')
 
@@ -88,16 +89,10 @@ if 'OsiriXNotificationCenter' in read('Horos.xcodeproj/project.pbxproj'):
 # -------------------------------------------------------- 2. crash guards live
 GUARDS = ('startProtectForCrashWithFilter:', 'startProtectForCrashWithPath:', 'endProtectForCrash')
 header = uncommented(read('Horos/Sources/PluginManager.h'))
-interface = re.search(r'@interface\s+PluginManager\b(.*?)@end', header, re.S)
-declared = set()
-if interface:
-    for signature in re.findall(r'^\s*\+\s*\([^)]*\)\s*([^;]+);', interface.group(1), re.M):
-        parts = re.findall(r'(\w+)\s*:', signature)
-        declared.add(''.join(p + ':' for p in parts) if parts else signature.split()[0])
+if not re.search(r'#\s*import\s+"Horos-Swift\.h"', header):
+    failures.append('PluginManager.h does not import the generated interface that declares the crash guards')
 swift = uncommented(next(text for f, text in sources.items() if f.endswith('Horos/Sources/PluginManager.swift')))
 for selector in GUARDS:
-    if selector not in declared:
-        failures.append('PluginManager.h does not declare +%s' % selector)
     if selector.endswith(':'):
         implemented = re.search(r'@objc\(%s\)\s*(?:public\s+)?class\s+func\b' % re.escape(selector), swift)
     else:

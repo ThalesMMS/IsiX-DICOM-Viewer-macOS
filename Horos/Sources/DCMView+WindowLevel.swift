@@ -38,25 +38,28 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
+import IsiXPreferences
 
 // The first part of the "ww/wl" block of DCMView is implemented in Swift:
-// an extension of DCMView, which stays Objective-C, with the same
-// selectors. Every method is `@objc dynamic`, so a message sent by DCMView.m, by
+// an extension of DCMView, with the same
+// selectors. Every method is `@objc dynamic`, so a message sent by Objective-C, by
 // a subclass or by a plugin still goes through objc_msgSend and reaches the
 // overrides (OrthogonalMPRView, MPRDCMView, the CPR views...).
 //
-// The instance variables are reached through the accessors of
-// DCMView+SwiftIvars.h (a write stores the value, as the ivar write did), the
-// file statics of DCMView.m through DCMView.horos_static_<name>. A message to
+// The former instance variables are the stored properties of DCMView.swift (a
+// write stores the value, as the ivar write did), the former file statics are
+// reached through DCMView.horos_static_<name> (DCMViewSettings.swift). A message to
 // nil answered nil, NO or 0: it is an optional chain with that default. An
 // @try is HorosObjCException.perform.
 //
 // -setWLWW:: and -getWLWW:: run for every mouse event of a window/level drag,
 // -changeWLWW: for every view that observes the change it posts, and -sync:
-// for every synchronised move. They keep the Objective-C objects: the
-// notification stays an NSNotification, its user info an NSDictionary read
-// through its getter, and the keys are NSStrings made once, so nothing is
-// converted to or from Swift collections on those paths.
+// for every synchronised move. The sync message's values are a
+// ViewerSyncMessage and its rules SliceSynchronizer (IsiXImaging); the
+// notification stays an NSNotification and its user info an NSDictionary,
+// made where it is posted and read through its getter where it is received,
+// so the dictionary is never converted to or from a Swift collection.
 
 /// float[3] and float[9], on the stack.
 private typealias Float3 = (Float, Float, Float)
@@ -68,37 +71,6 @@ private let zero9: Float9 = (0, 0, 0, 0, 0, 0, 0, 0, 0)
 @inline(__always)
 private func withFloats<T, R>(_ tuple: inout T, _ body: (UnsafeMutablePointer<Float>) throws -> R) rethrows -> R {
     try withUnsafeMutableBytes(of: &tuple) { try body($0.baseAddress!.assumingMemoryBound(to: Float.self)) }
-}
-
-// The keys of the sync message, of the presentation state and of the
-// preferences read on the sync path, made once. A String that wraps an NSString
-// goes back to it without a copy. NSString is not Sendable, and only DCMView,
-// which AppKit isolates to the main actor, reads them: they are isolated there.
-@MainActor private let kSyncView: NSString = "view"
-@MainActor private let kSyncPos: NSString = "Pos"
-@MainActor private let kSyncDirection: NSString = "Direction"
-@MainActor private let kSyncLocation: NSString = "Location"
-@MainActor private let kSyncOffset: NSString = "offsetsync"
-@MainActor private let kSyncFrameOfReferenceUID: NSString = "frameofReferenceUID"
-@MainActor private let kSyncStudyID: NSString = "studyID"
-@MainActor private let kSyncDCMPix: NSString = "DCMPix"
-@MainActor private let kSyncDCMPix2: NSString = "DCMPix2"
-@MainActor private let kSyncPoint3DX: NSString = "point3DX"
-@MainActor private let kSyncPoint3DY: NSString = "point3DY"
-@MainActor private let kSyncPoint3DZ: NSString = "point3DZ"
-@MainActor private let kSyncPatientCrosshair: NSString = "HorosPatientCrosshair"
-@MainActor private let kStudyInstanceUIDPath: NSString = "series.study.studyInstanceUID"
-@MainActor private let kSliceLocation: NSString = "sliceLocation"
-@MainActor private let kParallelPlaneToleranceSync: NSString = "PARALLELPLANETOLERANCE-Sync"
-@MainActor private let kSameStudy: NSString = "SAMESTUDY"
-@MainActor private let kDefaultModeForNonVolumicSeries: NSString = "DefaultModeForNonVolumicSeries"
-@MainActor private let kWindowWidth: NSString = "windowWidth"
-@MainActor private let kWindowLevel: NSString = "windowLevel"
-
-/// [dictionary valueForKey: key]: nil when the dictionary is nil.
-@inline(__always)
-private func kvcValue(_ object: NSObject?, _ key: NSString) -> Any? {
-    object?.value(forKey: key as String)
 }
 
 /// The object an Objective-C getter returns, without converting it to a Swift
@@ -157,37 +129,63 @@ private func objcStringEqual(_ a: String?, _ b: String?) -> Bool {
     return (a as NSString).isEqual(to: b)
 }
 
+/// The normal of an image's plane, the last three values of its
+/// orientation; zero without an image.
+func horosPlaneNormal(_ pix: DCMPix?) -> SIMD3<Float> {
+    var orientation: Float9 = zero9
+    withFloats(&orientation) { pix?.orientation($0) }
+    return SIMD3(orientation.6, orientation.7, orientation.8)
+}
+
+/// The origin of an image's plane.
+func horosPlaneOrigin(_ pix: DCMPix) -> SIMD3<Float> {
+    var origin: Float3 = zero3
+    withFloats(&origin) { pix.origin($0) }
+    return SIMD3(origin.0, origin.1, origin.2)
+}
+
+/// A received OsirixSyncNotification: its values, and the objects the
+/// application put in its user info, read without converting the dictionary.
+@MainActor private struct ReceivedSync {
+    let message: ViewerSyncMessage
+    /// Whether the user info names a view, of whatever class.
+    let namesView: Bool
+    let view: DCMView?
+    let image: DCMPix?
+    let farEndImage: DCMPix?
+
+    init(_ note: NSNotification?) {
+        let info = objcGetter(note, #selector(getter: NSNotification.userInfo)) as? NSDictionary
+        func entry(_ key: String) -> Any? { info?.object(forKey: key) }
+        self.message = ViewerSyncMessage(entry: entry)
+        let view = entry(ViewerSyncMessage.Key.view)
+        self.namesView = view != nil
+        self.view = view as? DCMView
+        self.image = entry(ViewerSyncMessage.Key.image) as? DCMPix
+        self.farEndImage = entry(ViewerSyncMessage.Key.farEndImage) as? DCMPix
+    }
+}
+
 /// The presentation state of the series and of the image, which -setWLWW:: and
-/// -discretelySetWLWW:: store the same way inside their @try.
+/// -discretelySetWLWW:: record the same way: the window in the image's values
+/// (an SUV window of the 2D viewer converted back), on the series, and on the
+/// image when its window is its own.
 @MainActor
-private func storeWindowLevelInPresentationState(_ view: DCMView) {
-    //set value for Series Object Presentation State
-    if (view.curDCM?.suvConverted ?? false) == false {
-        view.seriesObj()?.setValue(NSNumber(value: view.horos_curWW), forKey: kWindowWidth as String)
-        view.seriesObj()?.setValue(NSNumber(value: view.curDCM?.storedWindowLevel(forCalibratedLevel: view.horos_curWL) ?? 0), forKey: kWindowLevel as String)
-
-        // Image Level
-        if view.horos_curImage >= 0 && view.horos_COPYSETTINGSINSERIES == false {
-            view.imageObj()?.setValue(NSNumber(value: view.horos_curWW), forKey: kWindowWidth as String)
-            view.imageObj()?.setValue(NSNumber(value: view.curDCM?.storedWindowLevel(forCalibratedLevel: view.horos_curWL) ?? 0), forKey: kWindowLevel as String)
+private func storeWindowLevelInPresentationState(_ view: DCMView, _ context: String) {
+    HorosObjCException.logged(context) {
+        let factor: Float
+        if (view.curDCM?.suvConverted ?? false) == false {
+            factor = 1
+        } else if view.is2DViewer() == true {
+            factor = (view.windowController() as? ViewerController)?.factorPET2SUV() ?? 0
         } else {
-            view.imageObj()?.setValue(nil, forKey: kWindowWidth as String)
-            view.imageObj()?.setValue(nil, forKey: kWindowLevel as String)
+            return
         }
-    } else {
-        if view.is2DViewer() == true {
-            view.seriesObj()?.setValue(NSNumber(value: view.horos_curWW / ((view.windowController() as? ViewerController)?.factorPET2SUV() ?? 0)), forKey: kWindowWidth as String)
-            view.seriesObj()?.setValue(NSNumber(value: view.curDCM?.storedWindowLevel(forCalibratedLevel: view.horos_curWL / ((view.windowController() as? ViewerController)?.factorPET2SUV() ?? 0)) ?? 0), forKey: kWindowLevel as String)
-
-            // Image Level
-            if view.horos_curImage >= 0 && view.horos_COPYSETTINGSINSERIES == false {
-                view.imageObj()?.setValue(NSNumber(value: view.horos_curWW / ((view.windowController() as? ViewerController)?.factorPET2SUV() ?? 0)), forKey: kWindowWidth as String)
-                view.imageObj()?.setValue(NSNumber(value: view.curDCM?.storedWindowLevel(forCalibratedLevel: view.horos_curWL / ((view.windowController() as? ViewerController)?.factorPET2SUV() ?? 0)) ?? 0), forKey: kWindowLevel as String)
-            } else {
-                view.imageObj()?.setValue(nil, forKey: kWindowWidth as String)
-                view.imageObj()?.setValue(nil, forKey: kWindowLevel as String)
-            }
-        }
+        let window = view.windowLevelState
+        let store = ImagePresentationStore(series: view.seriesObj(), image: view.imageObj())
+        store.storeWindow(width: window.width / factor,
+                          storedLevel: view.curDCM?.storedWindowLevel(forCalibratedLevel: window.level / factor) ?? 0,
+                          image: view.horos_curImage >= 0 && view.horos_COPYSETTINGSINSERIES == false ? .same : .cleared)
     }
 }
 
@@ -229,8 +227,8 @@ extension DCMView {
             }
         }
 
-        if self.horos_avoidChangeWLWWRecursive == false {
-            self.horos_avoidChangeWLWWRecursive = true
+        if self.takingPostedWindowLevel == false {
+            self.takingPostedWindowLevel = true
 
             var updateMenu = false
 
@@ -264,10 +262,10 @@ extension DCMView {
             }
 
             if updateMenu || (otherPixObject === self.curDCM && self.is2DViewer() == true) {
-                (self.windowController() as? ViewerController)?.setCurWLWWMenu(DCMView.findWLWWPreset(self.horos_curWL, self.horos_curWW, self.curDCM))
+                (self.windowController() as? ViewerController)?.setCurWLWWMenu(DCMView.findWLWWPreset(self.windowLevelState.level, self.windowLevelState.width, self.curDCM))
             }
 
-            self.horos_avoidChangeWLWWRecursive = false
+            self.takingPostedWindowLevel = false
         }
     }
 
@@ -275,38 +273,28 @@ extension DCMView {
     public dynamic func setWLWW(_ wl: Float, _ ww: Float) {
         self.curDCM?.changeWLWW(wl, ww)
 
-        if self.curDCM != nil {
-            self.horos_curWW = self.curDCM?.ww ?? 0
-            self.horos_curWL = self.curDCM?.wl ?? 0
-            self.horos_curWLWWSUVConverted = self.curDCM?.suvConverted ?? false
-            self.horos_curWLWWSUVFactor = 1.0
-            if self.horos_curWLWWSUVConverted && self.is2DViewer() {
-                self.horos_curWLWWSUVFactor = (self.windowController() as? ViewerController)?.factorPET2SUV() ?? 0
-            }
+        // Changed on a copy: the factor is asked while the copy changes, and a
+        // window controller that answers it may read the view's window.
+        var state = self.windowLevelState
+        if let curDCM = self.curDCM {
+            state.mirror(level: curDCM.wl, width: curDCM.ww, suvConverted: curDCM.suvConverted, suvFactor: { self.windowSUVFactor() })
         } else {
-            self.horos_curWW = ww
-            self.horos_curWL = wl
-            self.horos_curWLWWSUVConverted = false
+            state.mirrorWithoutImage(level: wl, width: ww)
         }
+        self.windowLevelState = state
 
         self.loadTextures()
         self.needsDisplay = true
 
-        if DCMView.horos_static_avoidSetWLWWRentry == false {
-            DCMView.horos_static_avoidSetWLWWRentry = true
+        // A view that takes the posted window sets its own, which posts again.
+        if DCMViewSettings.avoidSetWLWWReentry == false {
+            DCMViewSettings.avoidSetWLWWReentry = true
             NotificationCenter.default.post(name: NSNotification.Name.OsirixChangeWLWW, object: self.curDCM, userInfo: nil)
-            DCMView.horos_static_avoidSetWLWWRentry = false
+            DCMViewSettings.avoidSetWLWWReentry = false
         }
 
         if self.is2DViewer() {
-            do {
-                try HorosObjCException.perform {
-                    storeWindowLevelInPresentationState(self)
-                }
-            } catch {
-                let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-                NSLog("***** exception in %@: %@", "-[DCMView setWLWW::]" as NSString, objcLogArg(e))
-            }
+            storeWindowLevelInPresentationState(self, "-[DCMView setWLWW::]")
         }
     }
 
@@ -314,28 +302,25 @@ extension DCMView {
     public dynamic func discretelySetWLWW(_ wl: Float, _ ww: Float) {
         self.curDCM?.changeWLWW(wl, ww)
 
-        self.horos_curWW = self.curDCM?.ww ?? 0
-        self.horos_curWL = self.curDCM?.wl ?? 0
-        self.horos_curWLWWSUVConverted = self.curDCM?.suvConverted ?? false
-        self.horos_curWLWWSUVFactor = 1.0
-        if self.horos_curWLWWSUVConverted && self.is2DViewer() {
-            self.horos_curWLWWSUVFactor = (self.windowController() as? ViewerController)?.factorPET2SUV() ?? 0
-        }
+        let curDCM = self.curDCM
+        var state = self.windowLevelState
+        state.mirror(level: curDCM?.wl ?? 0, width: curDCM?.ww ?? 0, suvConverted: curDCM?.suvConverted ?? false,
+                      suvFactor: { self.windowSUVFactor() })
+        self.windowLevelState = state
 
         self.loadTextures()
         self.needsDisplay = true
 
         if self.is2DViewer() {
-            do {
-                try HorosObjCException.perform {
-                    storeWindowLevelInPresentationState(self)
-                }
-            } catch {
-                if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                    _N2LogExceptionImpl(e, false, "-[DCMView discretelySetWLWW::]")
-                }
-            }
+            storeWindowLevelInPresentationState(self, "-[DCMView discretelySetWLWW::]")
         }
+    }
+
+    /// What converts the view's window to SUV: the 2D viewer's PET-to-SUV
+    /// factor, 1 in another viewer.
+    final func windowSUVFactor() -> Float {
+        guard self.is2DViewer() else { return 1 }
+        return (self.windowController() as? ViewerController)?.factorPET2SUV() ?? 0
     }
 
     @objc(setFusion::)
@@ -402,113 +387,26 @@ extension DCMView {
         b.pointee = self.horos_blueTable
     }
 
+    /// The view's colour tables: `r`, `g` and `b`, or the grey levels when
+    /// `r` is nil (ColourTableState decides whether anything changes and
+    /// whether the colour buffer goes).
     @objc(setCLUT:::)
     public dynamic func setCLUT(_ r: UnsafeMutablePointer<UInt8>!, _ g: UnsafeMutablePointer<UInt8>!, _ b: UnsafeMutablePointer<UInt8>!) {
-        DCMView.horos_static_drawLock?.lock()
-
-        let redTable: UnsafeMutablePointer<UInt8> = self.horos_redTable
-        let greenTable: UnsafeMutablePointer<UInt8> = self.horos_greenTable
-        let blueTable: UnsafeMutablePointer<UInt8> = self.horos_blueTable
-
-        var needUpdate = true
-
-        if r == nil { // -> BW
-            if self.horos_colorBuf == nil && self.horos_colorTransfer == false { needUpdate = false } // -> We are already in BW
-        } else if memcmp(redTable, r, 256) == 0 && memcmp(greenTable, g, 256) == 0 && memcmp(blueTable, b, 256) == 0 { needUpdate = false }
-
-        if needUpdate {
-            if let r {
-                var BWCLUT = true
-
-                for i in 0..<256 {
-                    redTable[i] = r[i]
-                    greenTable[i] = g[i]
-                    blueTable[i] = b[i]
-
-                    if Int(redTable[i]) != i || Int(greenTable[i]) != i || Int(blueTable[i]) != i { BWCLUT = false }
-                }
-
-                if BWCLUT {
-                    self.horos_colorTransfer = false
-                    if let colorBuf = self.horos_colorBuf { free(colorBuf) }
-                    self.horos_colorBuf = nil
-                } else {
-                    self.horos_colorTransfer = true
-                }
-            } else {
-                self.horos_colorTransfer = false
-                if let colorBuf = self.horos_colorBuf { free(colorBuf) }
-                self.horos_colorBuf = nil
-
-                for i in 0..<256 {
-                    redTable[i] = UInt8(truncatingIfNeeded: i)
-                    greenTable[i] = UInt8(truncatingIfNeeded: i)
-                    blueTable[i] = UInt8(truncatingIfNeeded: i)
-                }
-            }
+        let request = r.map { ColourTableState.Request(red: $0, green: g, blue: b) }
+        if self.colourTableState.set(self.colourTables, to: request, holdsColourBuffer: self.horos_colorBuf != nil) == .greyLevels {
+            if let colorBuf = self.horos_colorBuf { free(colorBuf) }
+            self.horos_colorBuf = nil
         }
-
-        DCMView.horos_static_drawLock?.unlock()
 
         self.loadTextures()
         self.updateTilingViews()
     }
 
+    /// Makes the PET blending tables every view shares again from the
+    /// preferences (PETBlendingTables).
     @objc(computePETBlendingCLUT)
     public dynamic class func computePETBlendingCLUT() {
-        if let table = DCMView.horos_static_PETredTable { free(table) }
-        if let table = DCMView.horos_static_PETgreenTable { free(table) }
-        if let table = DCMView.horos_static_PETblueTable { free(table) }
-
-        DCMView.horos_static_PETredTable = nil
-        DCMView.horos_static_PETgreenTable = nil
-        DCMView.horos_static_PETblueTable = nil
-
-        let defaults = UserDefaults.standard
-        let cluts = defaults.dictionary(forKey: "CLUT") as NSDictionary?
-        let petBlendingCLUTName = defaults.string(forKey: "PET Blending CLUT")
-        var aCLUT: NSDictionary? = nil
-        if let cluts, let petBlendingCLUTName {
-            aCLUT = cluts.object(forKey: petBlendingCLUTName) as? NSDictionary
-        }
-        if let aCLUT {
-            var array: NSArray?
-
-            let red = malloc(256)!.bindMemory(to: UInt8.self, capacity: 256)
-            let green = malloc(256)!.bindMemory(to: UInt8.self, capacity: 256)
-            let blue = malloc(256)!.bindMemory(to: UInt8.self, capacity: 256)
-            DCMView.horos_static_PETredTable = red
-            DCMView.horos_static_PETgreenTable = green
-            DCMView.horos_static_PETblueTable = blue
-
-            array = aCLUT.object(forKey: "Red") as? NSArray
-            for i in 0..<256 {
-                red[i] = UInt8(truncatingIfNeeded: (array?.object(at: i) as? NSNumber)?.intValue ?? 0)
-            }
-
-            array = aCLUT.object(forKey: "Green") as? NSArray
-            for i in 0..<256 {
-                green[i] = UInt8(truncatingIfNeeded: (array?.object(at: i) as? NSNumber)?.intValue ?? 0)
-            }
-
-            array = aCLUT.object(forKey: "Blue") as? NSArray
-            for i in 0..<256 {
-                blue[i] = UInt8(truncatingIfNeeded: (array?.object(at: i) as? NSNumber)?.intValue ?? 0)
-            }
-        } else {
-            let red = malloc(256)!.bindMemory(to: UInt8.self, capacity: 256)
-            let green = malloc(256)!.bindMemory(to: UInt8.self, capacity: 256)
-            let blue = malloc(256)!.bindMemory(to: UInt8.self, capacity: 256)
-            DCMView.horos_static_PETredTable = red
-            DCMView.horos_static_PETgreenTable = green
-            DCMView.horos_static_PETblueTable = blue
-
-            for i in 0..<256 {
-                red[i] = UInt8(truncatingIfNeeded: i)
-                green[i] = UInt8(truncatingIfNeeded: i)
-                blue[i] = UInt8(truncatingIfNeeded: i)
-            }
-        }
+        PETBlendingTables.recompute()
     }
 
     @objc(prepareToRelease)
@@ -529,66 +427,110 @@ extension DCMView {
     }
 
     @objc(syncMessage:)
-    dynamic func syncMessage(_ inc: Int16) -> NSDictionary! {
-        var inc = inc
-        var thickDCM: AnyObject? = nil
-
+    dynamic func syncMessage(_ inc: Int) -> NSDictionary! {
         if self.horos_curImage < 0 {
             return nil
         }
+        let current = Int(self.horos_curImage)
+        let count = self.horos_dcmPixList?.count ?? 0
 
-        let farEnd = ThickSlabRange.farEndIndex(currentIndex: Int(self.horos_curImage),
-                                                stack: Int(self.curDCM?.stack ?? 0),
-                                                count: self.horos_dcmPixList?.count ?? 0,
+        let farEnd = ThickSlabRange.farEndIndex(currentIndex: current, stack: Int(self.curDCM?.stack ?? 0), count: count,
                                                 flippedData: self.horos_flippedData)
-        if farEnd >= 0 {
-            thickDCM = objcID(self.horos_dcmPixList?.object(at: farEnd))
+        let thickDCM = farEnd >= 0 ? self.horos_dcmPixList?.object(at: farEnd) as? DCMPix : nil
+
+        let p = self.horos_dcmPixList?.object(at: current) as? DCMPix
+        let direction = self.horos_flippedData ? 0 &- inc : inc
+        let message = ViewerSyncMessage(position: ViewerSyncMessage.position(current: current, count: count, flippedData: self.horos_flippedData),
+                                        direction: Int32(clamping: direction),
+                                        location: Float(p?.sliceLocation ?? 0),
+                                        offset: self.horos_syncRelativeDiff,
+                                        frameOfReferenceUID: p?.frameofReferenceUID,
+                                        studyInstanceUID: self.horosStudyInstanceUID(at: current))
+        return self.syncUserInfo(message, image: self.curDCM, farEndImage: thickDCM)
+    }
+
+    /// The user info of OsirixSyncNotification: the message's values, this
+    /// view and its two images (the current one and the far end of a thick
+    /// slab), as the plugins of the former SDK read them.
+    final func syncUserInfo(_ message: ViewerSyncMessage, image: DCMPix?, farEndImage: DCMPix?) -> NSMutableDictionary {
+        let info = NSMutableDictionary(capacity: ViewerSyncMessage.Key.all.count)
+        info.setObject(self, forKey: ViewerSyncMessage.Key.view as NSString)
+        message.forEachEntry { info.setObject($1, forKey: $0 as NSString) }
+        if let image { info.setObject(image, forKey: ViewerSyncMessage.Key.image as NSString) }
+        if let farEndImage { info.setObject(farEndImage, forKey: ViewerSyncMessage.Key.farEndImage as NSString) }
+        return info
+    }
+
+    /// Posts OsirixSyncNotification from this view with `userInfo` as it is.
+    final func postSyncMessage(_ userInfo: NSDictionary) {
+        postNotification(NSNotification.Name.OsirixSync, object: self, userInfo: userInfo)
+    }
+
+    /// The study of an image of the view's series.
+    final func horosStudyInstanceUID(at index: Int) -> String? {
+        (self.horos_dcmFilesList?.object(at: index) as? DicomImage)?.series?.study?.studyInstanceUID
+    }
+
+    /// The slice location of an image of the view's series: the loaded
+    /// image's, or the database's while it is not loaded.
+    private func syncLocation(at index: Int) -> Float {
+        if let pix = self.horos_dcmPixList?.object(at: index) as? DCMPix, pix.isLoaded() {
+            return Float(pix.sliceLocation)
         }
+        return (self.horos_dcmFilesList?.object(at: index) as? DicomImage)?.sliceLocation?.floatValue ?? 0
+    }
 
-        let pos: Int32 = self.horos_flippedData ? Int32(truncatingIfNeeded: (self.horos_dcmPixList?.count ?? 0) - 1 - Int(self.horos_curImage)) : Int32(self.horos_curImage)
-
-        if self.horos_flippedData { inc = 0 &- inc }
-
-        let instructions = NSMutableDictionary()
-
-        let p = self.horos_dcmPixList?.object(at: Int(self.horos_curImage)) as? DCMPix
-
-        instructions.setObject(self, forKey: kSyncView)
-        instructions.setObject(NSNumber(value: pos), forKey: kSyncPos)
-        instructions.setObject(NSNumber(value: Int32(inc)), forKey: kSyncDirection)
-        instructions.setObject(NSNumber(value: Float(p?.sliceLocation ?? 0)), forKey: kSyncLocation)
-        instructions.setObject(NSNumber(value: self.horos_syncRelativeDiff), forKey: kSyncOffset)
-
-        if let frameofReferenceUID = objcGetter(p, #selector(getter: DCMPix.frameofReferenceUID)) {
-            instructions.setObject(frameofReferenceUID, forKey: kSyncFrameOfReferenceUID)
+    /// The distance between the first two images, from the loaded images
+    /// when both are, else from the database.
+    private func syncSliceInterval() -> Float {
+        let first = self.horos_dcmPixList?.object(at: 0) as? DCMPix, second = self.horos_dcmPixList?.object(at: 1) as? DCMPix
+        if let first, let second, second.isLoaded() && first.isLoaded() {
+            return Float(abs(second.sliceLocation - first.sliceLocation))
         }
-
-        if (self.horos_dcmFilesList?.object(at: Int(self.horos_curImage)) as? NSObject)?.value(forKeyPath: kStudyInstanceUIDPath as String) != nil {
-            if let studyID = objcID((self.horos_dcmFilesList?.object(at: Int(self.horos_curImage)) as? NSObject)?.value(forKeyPath: kStudyInstanceUIDPath as String)) {
-                instructions.setObject(studyID, forKey: kSyncStudyID)
-            }
+        func stored(_ index: Int) -> Float {
+            (self.horos_dcmFilesList?.object(at: index) as? DicomImage)?.sliceLocation?.floatValue ?? 0
         }
+        return abs(stored(1) - stored(0))
+    }
 
-        if let curDCM = self.curDCM {
-            instructions.setObject(curDCM, forKey: kSyncDCMPix)
+    /// The rules of the synchronization, with the tolerances of the preferences.
+    var sliceSynchronizer: SliceSynchronizer {
+        let preferences = PreferencesSource.process.preferences
+        return SliceSynchronizer(parallelPlaneTolerance: preferences[ViewerPreferences.parallelPlaneTolerance],
+                                 syncPlaneTolerance: preferences[ViewerPreferences.parallelPlaneToleranceForSync])
+    }
+
+    /// The lines where another viewer's slice cuts this one, as the view
+    /// keeps them in its float[2][3] arrays.
+    var referenceLines: ReferenceLines {
+        get {
+            let direction: UnsafeMutablePointer<Float> = self.horos_sliceVector
+            return ReferenceLines(cut: .init(self.horos_sliceFromTo), seriesStart: .init(self.horos_sliceFromToS),
+                                  seriesEnd: .init(self.horos_sliceFromToE), farEnd: .init(self.horos_sliceFromTo2),
+                                  thickness: self.horos_sliceFromToThickness, direction: SIMD3(direction[0], direction[1], direction[2]))
         }
-
-        if let thickDCM {
-            instructions.setObject(thickDCM, forKey: kSyncDCMPix2) // WARNING thickDCM can be nil!! nothing after this one...
+        set {
+            newValue.cut.write(to: self.horos_sliceFromTo)
+            newValue.seriesStart.write(to: self.horos_sliceFromToS)
+            newValue.seriesEnd.write(to: self.horos_sliceFromToE)
+            newValue.farEnd.write(to: self.horos_sliceFromTo2)
+            self.horos_sliceFromToThickness = newValue.thickness
+            let direction: UnsafeMutablePointer<Float> = self.horos_sliceVector
+            direction[0] = newValue.direction.x
+            direction[1] = newValue.direction.y
+            direction[2] = newValue.direction.z
         }
-
-        return instructions
     }
 
     @objc(sendSyncMessage:)
-    public dynamic func sendSyncMessage(_ inc: Int16) {
+    public dynamic func sendSyncMessage(_ inc: Int) {
         if self.horos_dcmPixList == nil { return }
 
         if ViewerController.numberOf2DViewer() > 1 && self.horos_isKeyView && self.is2DViewer() {
             let instructions = self.syncMessage(inc)
 
             if let instructions {
-                postNotification(NSNotification.Name.OsirixSync, object: self, userInfo: instructions)
+                self.postSyncMessage(instructions)
 
                 // most subclasses just need this. NO sync notification for subclasses.
                 if self.horos_blending != nil { // We have to reload the blending image..
@@ -601,115 +543,67 @@ extension DCMView {
 
     @objc(invalidateReferenceLines)
     public dynamic func invalidateReferenceLines() {
-        self.horos_sliceFromTo[0] = Float.infinity
-        self.horos_sliceFromTo2[0] = Float.infinity
-        self.horos_sliceFromToS[0] = Float.infinity
-        self.horos_sliceFromToE[0] = Float.infinity
-        let sliceVector: UnsafeMutablePointer<Float> = self.horos_sliceVector
-        sliceVector[2] = 0
-        sliceVector[1] = 0
-        sliceVector[0] = 0
+        var lines = self.referenceLines
+        lines.invalidate()
+        self.referenceLines = lines
     }
 
+    /// The lines where the slice of `oPix` (and the far end of its slab,
+    /// `oPix2`) cut this view's image, kept for the drawing; whether they
+    /// changed.
     @objc(computeSlice::)
     dynamic func computeSlice(_ oPix: DCMPix!, _ oPix2: DCMPix!) -> Bool {
-        // float vectorA[9], vectorA2[9], vectorB[9], originA[3], originA2[3],
-        // originB[3], the copies below and slicePoint[3]: one buffer on the stack.
-        return withUnsafeTemporaryAllocation(of: Float.self, capacity: 66) { buffer -> Bool in
+        let before = self.referenceLines
+
+        // float vectorA[9], vectorB[9], originA[3], originB[3] and slicePoint[3]: one buffer on the stack.
+        withUnsafeTemporaryAllocation(of: Float.self, capacity: 27) { buffer in
             let base = buffer.baseAddress!
-            base.initialize(repeating: 0, count: 66)
-            let vectorA = base, vectorA2 = base + 9, vectorB = base + 18
-            let originA = base + 27, originA2 = base + 30, originB = base + 33
-            var changed = false
-
-            let sliceFromTo: UnsafeMutablePointer<Float> = self.horos_sliceFromTo
-            let sliceFromToS: UnsafeMutablePointer<Float> = self.horos_sliceFromToS
-            let sliceFromToE: UnsafeMutablePointer<Float> = self.horos_sliceFromToE
-            let sliceFromTo2: UnsafeMutablePointer<Float> = self.horos_sliceFromTo2
-            let sliceVector: UnsafeMutablePointer<Float> = self.horos_sliceVector
-
-            // Copy to test for change
-            let csliceFromTo = base + 36, csliceFromToS = base + 42, csliceFromToE = base + 48, csliceFromTo2 = base + 54
-            let csliceVector = base + 60
-            let csliceFromToThickness: Float
-
-            csliceFromToThickness = self.horos_sliceFromToThickness
-            for y in 0..<3 {
-                for x in 0..<2 {
-                    csliceFromTo[x * 3 + y] = sliceFromTo[x * 3 + y]
-                    csliceFromToS[x * 3 + y] = sliceFromToS[x * 3 + y]
-                    csliceFromToE[x * 3 + y] = sliceFromToE[x * 3 + y]
-                    csliceFromTo2[x * 3 + y] = sliceFromTo2[x * 3 + y]
-                }
-                csliceVector[y] = sliceVector[y]
-            }
+            base.initialize(repeating: 0, count: 27)
+            let vectorA = base, vectorB = base + 9, originA = base + 18, originB = base + 21, slicePoint = base + 24
 
             originA[0] = Float(oPix?.originX ?? 0); originA[1] = Float(oPix?.originY ?? 0); originA[2] = Float(oPix?.originZ ?? 0)
-            if oPix2 != nil {
-                originA2[0] = Float(oPix2?.originX ?? 0); originA2[1] = Float(oPix2?.originY ?? 0); originA2[2] = Float(oPix2?.originZ ?? 0)
-            }
             originB[0] = Float(self.curDCM?.originX ?? 0); originB[1] = Float(self.curDCM?.originY ?? 0); originB[2] = Float(self.curDCM?.originZ ?? 0)
-
             oPix?.orientation(vectorA)
-            if oPix2 != nil { oPix2?.orientation(vectorA2) }
             self.curDCM?.orientation(vectorB)
 
-            let slicePoint = base + 63
-
-            if Int(intersect3D_2Planes(vectorA + 6, originA, vectorB + 6, originB, sliceVector, slicePoint)) == noErr {
-                sliceFromTo.withMemoryRebound(to: Float3.self, capacity: 2) { sft in
-                    self.computeSliceIntersection(oPix, sliceFromTo: sft, vector: vectorB, origin: originB)
+            if Int(intersect3D_2Planes(vectorA + 6, originA, vectorB + 6, originB, self.horos_sliceVector, slicePoint)) == noErr {
+                @MainActor func cut(_ pix: DCMPix?, _ line: UnsafeMutablePointer<Float>) {
+                    line.withMemoryRebound(to: Float3.self, capacity: 2) { sft in
+                        self.computeSliceIntersection(pix, sliceFromTo: sft, vector: vectorB, origin: originB)
+                    }
                 }
+                cut(oPix, self.horos_sliceFromTo)
                 self.horos_sliceFromToThickness = Float(oPix?.sliceThickness ?? 0)
 
-                if ((objcGetter(oPix, #selector(getter: DCMPix.pixArray)) as? NSArray)?.object(at: 0) as? DCMPix)?.identicalOrientation(to: oPix) ?? false
-                    && ((objcGetter(oPix, #selector(getter: DCMPix.pixArray)) as? NSArray)?.lastObject as? DCMPix)?.identicalOrientation(to: oPix) ?? false {
-                    let first = (objcGetter(oPix, #selector(getter: DCMPix.pixArray)) as? NSArray)?.object(at: 0) as? DCMPix
-                    sliceFromToS.withMemoryRebound(to: Float3.self, capacity: 2) { sft in
-                        self.computeSliceIntersection(first, sliceFromTo: sft, vector: vectorB, origin: originB)
-                    }
-                    let last = (objcGetter(oPix, #selector(getter: DCMPix.pixArray)) as? NSArray)?.lastObject as? DCMPix
-                    sliceFromToE.withMemoryRebound(to: Float3.self, capacity: 2) { sft in
-                        self.computeSliceIntersection(last, sliceFromTo: sft, vector: vectorB, origin: originB)
-                    }
+                // The two ends of the source's series, when its images share one orientation.
+                let series = objcGetter(oPix, #selector(getter: DCMPix.pixArray)) as? NSArray
+                let first = series?.firstObject as? DCMPix, last = series?.lastObject as? DCMPix
+                if (first?.identicalOrientation(to: oPix) ?? false) && (last?.identicalOrientation(to: oPix) ?? false) {
+                    cut(first, self.horos_sliceFromToS)
+                    cut(last, self.horos_sliceFromToE)
                 } else {
-                    sliceFromToS[0] = Float.infinity
-                    sliceFromToE[0] = Float.infinity
+                    self.horos_sliceFromToS[0] = Float.infinity
+                    self.horos_sliceFromToE[0] = Float.infinity
                 }
 
                 if oPix2 != nil {
-                    sliceFromTo2.withMemoryRebound(to: Float3.self, capacity: 2) { sft in
-                        self.computeSliceIntersection(oPix2, sliceFromTo: sft, vector: vectorB, origin: originB)
-                    }
+                    cut(oPix2, self.horos_sliceFromTo2)
                 } else {
-                    sliceFromTo2[0] = Float.infinity
+                    self.horos_sliceFromTo2[0] = Float.infinity
                 }
             } else {
                 self.invalidateReferenceLines()
             }
-
-            if csliceFromToThickness != self.horos_sliceFromToThickness { changed = true }
-            for y in 0..<3 {
-                for x in 0..<2 {
-                    if csliceFromTo[x * 3 + y] != sliceFromTo[x * 3 + y] { changed = true }
-                    if csliceFromToS[x * 3 + y] != sliceFromToS[x * 3 + y] { changed = true }
-                    if csliceFromToE[x * 3 + y] != sliceFromToE[x * 3 + y] { changed = true }
-                    if csliceFromTo2[x * 3 + y] != sliceFromTo2[x * 3 + y] { changed = true }
-                }
-                if csliceVector[y] != sliceVector[y] { changed = true }
-            }
-
-            return changed
         }
+
+        return self.referenceLines != before
     }
 
     @IBAction @objc(alwaysSyncMenu:)
     public dynamic func alwaysSyncMenu(_ sender: Any!) {
-        if UserDefaults.standard.integer(forKey: "SAMESTUDY") == NSControl.StateValue.on.rawValue {
-            UserDefaults.standard.set(NSControl.StateValue.on.rawValue, forKey: "SAMESTUDY")
-        } else {
-            UserDefaults.standard.set(NSControl.StateValue.off.rawValue, forKey: "SAMESTUDY")
-        }
+        let preferences = PreferencesSource.process.preferences
+        let on = NSControl.StateValue.on.rawValue, off = NSControl.StateValue.off.rawValue
+        preferences.set(preferences[ViewerPreferences.sameStudy] == on ? on : off, for: ViewerPreferences.sameStudy)
     }
 
     @objc(setSyncOnLocationImpossible:)
@@ -729,7 +623,7 @@ extension DCMView {
 
     @objc(sync:)
     public dynamic func sync(_ note: NSNotification!) {
-        if DCMView.horos_static_gDontListenToSyncMessage {
+        if !SliceSyncSettings.listensToMessages {
             return
         }
 
@@ -747,55 +641,46 @@ extension DCMView {
             self.horos_avoidRecursiveSync = self.horos_avoidRecursiveSync &+ 1
 
             if noteObject !== self && self.horosFollowsSync && self.horos_matrix == nil && newImage > -1 {
-                let instructions = objcGetter(note, #selector(getter: NSNotification.userInfo)) as? NSDictionary
+                let received = ReceivedSync(note)
+                let message = received.message
 
-                let diff: Int32 = (kvcValue(instructions, kSyncDirection) as? NSNumber)?.int32Value ?? 0
-                let pos: Int32 = (kvcValue(instructions, kSyncPos) as? NSNumber)?.int32Value ?? 0
-                let loc: Float = (kvcValue(instructions, kSyncLocation) as? NSNumber)?.floatValue ?? 0
-                let oStudyId = kvcValue(instructions, kSyncStudyID) as? String
-                let oFrameofReferenceUIDObject = objcID(kvcValue(instructions, kSyncFrameOfReferenceUID))
-                let oFrameofReferenceUID = oFrameofReferenceUIDObject as? String
-                let oPix = kvcValue(instructions, kSyncDCMPix) as? DCMPix
-                let oPix2 = kvcValue(instructions, kSyncDCMPix2) as? DCMPix
-                let otherView = kvcValue(instructions, kSyncView) as? DCMView
-                var destPoint3D: Float3 = zero3
-                var point3D = false
-                let sharedPoint = (instructions?.object(forKey: kSyncPatientCrosshair) as? NSNumber)?.boolValue ?? false
-                var same3DReferenceWorld = false
+                let diff: Int32 = message.direction ?? 0
+                let pos: Int32 = message.position
+                let oStudyId = message.studyInstanceUID
+                let oFrameofReferenceUIDObject = message.frameOfReferenceUID as NSString?
+                let oFrameofReferenceUID = message.frameOfReferenceUID
+                let oPix = received.image
+                let oPix2 = received.farEndImage
+                let otherView = received.view
+                let point3D = message.patientPoint != nil
+                let sharedPoint = message.sharesPatientCrosshair
 
                 if otherView === self.horos_blending || self === otherView?.blending {
                     self.horos_syncOnLocationImpossible = false
                     otherView?.setSyncOnLocationImpossible(false)
                 }
 
-                if kvcValue(instructions, kSyncOffset) == nil {
+                if message.offset == nil {
                     NSLog("***** err offsetsync")
                     self.horos_avoidRecursiveSync = self.horos_avoidRecursiveSync &- 1
                     return
                 }
 
-                if kvcValue(instructions, kSyncView) == nil {
+                if !received.namesView {
                     NSLog("****** err view")
                     self.horos_avoidRecursiveSync = self.horos_avoidRecursiveSync &- 1
                     return
                 }
 
-                if kvcValue(instructions, kSyncPoint3DX) != nil {
-                    destPoint3D.0 = (kvcValue(instructions, kSyncPoint3DX) as? NSNumber)?.floatValue ?? 0
-                    destPoint3D.1 = (kvcValue(instructions, kSyncPoint3DY) as? NSNumber)?.floatValue ?? 0
-                    destPoint3D.2 = (kvcValue(instructions, kSyncPoint3DZ) as? NSNumber)?.floatValue ?? 0
-
-                    point3D = true
-                }
-
-                let destinationStudy = (self.horos_dcmFilesList?.object(at: Int(newImage)) as? NSObject)?.value(forKeyPath: kStudyInstanceUIDPath as String) as? String
-                let useFrameOfReference = UserDefaults.standard.bool(forKey: ViewerReferenceLines.frameOfReferencePreferenceKey)
-                let sameStudyOnly = UserDefaults.standard.bool(forKey: ViewerReferenceLines.sameStudyPreferenceKey)
-                same3DReferenceWorld = ViewerReferenceLines.sameThreeDWorld(destinationFrame: self.curDCM?.frameofReferenceUID,
-                                                                            sourceFrame: oFrameofReferenceUID,
-                                                                            destinationStudy: destinationStudy,
-                                                                            sourceStudy: oStudyId,
-                                                                            useFrameOfReference: useFrameOfReference)
+                let preferences = PreferencesSource.process.preferences
+                let destinationStudy = self.horosStudyInstanceUID(at: Int(newImage))
+                let useFrameOfReference = preferences[ViewerPreferences.useFrameofReferenceUID]
+                let sameStudyOnly = preferences[ViewerPreferences.sameStudy] != 0
+                let same3DReferenceWorld = ViewerReferenceLines.sameThreeDWorld(destinationFrame: self.curDCM?.frameofReferenceUID,
+                                                                                sourceFrame: oFrameofReferenceUID,
+                                                                                destinationStudy: destinationStudy,
+                                                                                sourceStudy: oStudyId,
+                                                                                useFrameOfReference: useFrameOfReference)
 
                 var registeredViewer = false
 
@@ -811,11 +696,14 @@ extension DCMView {
                                                                             useFrameOfReference: useFrameOfReference,
                                                                             sameStudyOnly: sameStudyOnly,
                                                                             registered: registeredViewer)
-                // Kept for diagnosis and logged, never drawn; nothing is
-                // missing while the lines are turned off.
+                // Kept for diagnosis and logged when it changes, never drawn;
+                // nothing is missing while the lines are turned off.
                 self.referenceLineAbsenceReason = DISPLAYCROSSREFERENCELINES != 0 ? relationshipReason : nil
-                if let relationshipReason, !relationshipReason.isEmpty {
-                    NSLog("-- %@%@\r%@\r%@", ViewerReferenceLines.logPrefix() as NSString, relationshipReason as NSString, objcLogArg(oFrameofReferenceUIDObject), objcLogArg(self.curDCM?.frameofReferenceUID as NSString?))
+                if relationshipReason != self.horos_loggedReferenceLineReason {
+                    self.horos_loggedReferenceLineReason = relationshipReason
+                    if let relationshipReason, !relationshipReason.isEmpty {
+                        NSLog("-- %@%@\r%@\r%@", ViewerReferenceLines.logPrefix() as NSString, relationshipReason as NSString, objcLogArg(oFrameofReferenceUIDObject), objcLogArg(self.curDCM?.frameofReferenceUID as NSString?))
+                    }
                 }
 
                 if ViewerReferenceLines.admitSynchronization(sameWorld: same3DReferenceWorld,
@@ -824,7 +712,8 @@ extension DCMView {
                                                              manualSync: self.horos_syncSeriesIndex != -1) { // We received a message from the keyWindow -> display the slice cut to our window!
                     if same3DReferenceWorld || registeredViewer {
                         // Double-Click -> find the nearest point on our plane, go to this plane and draw the intersection!
-                        if point3D {
+                        if let patientPoint = message.patientPoint {
+                            var destPoint3D: Float3 = (patientPoint.x, patientPoint.y, patientPoint.z)
                             var resultPoint: Float3 = zero3
 
                             let newIndex: Int32 = sharedPoint ? -1 : withFloats(&destPoint3D) { d in withFloats(&resultPoint) { r in self.findPlaneAndPoint(d, r) } }
@@ -851,8 +740,10 @@ extension DCMView {
                         }
                     }
 
+                    let mode = Int(SliceSyncSettings.mode)
+
                     // Absolute Vodka
-                    if Int(DCMView.horos_static_syncro) == syncroABS && point3D == false && self.horos_syncSeriesIndex == -1 {
+                    if mode == syncroABS && point3D == false && self.horos_syncSeriesIndex == -1 {
                         let mapped = SyncSeriesIndex.absoluteIndex(position: Int(pos),
                                                                    count: self.horos_dcmPixList?.count ?? 0,
                                                                    flippedData: self.horos_flippedData)
@@ -860,7 +751,7 @@ extension DCMView {
                     }
 
                     // Absolute Ratio
-                    if Int(DCMView.horos_static_syncro) == syncroRatio && point3D == false && self.horos_syncSeriesIndex == -1 {
+                    if mode == syncroRatio && point3D == false && self.horos_syncSeriesIndex == -1 {
                         let mapped = SyncSeriesIndex.ratioIndex(position: Int(pos),
                                                                 sourceCount: otherView?.dcmPixList?.count ?? 0,
                                                                 count: self.horos_dcmPixList?.count ?? 0,
@@ -869,131 +760,72 @@ extension DCMView {
                     }
 
                     // Based on Location
-                    if !sharedPoint && ((Int(DCMView.horos_static_syncro) == syncroLOC && point3D == false) || self.horos_syncSeriesIndex != -1) {
+                    if !sharedPoint && ((mode == syncroLOC && point3D == false) || self.horos_syncSeriesIndex != -1) {
                         if self.horos_volumicSeries == true && (otherView?.volumicSeries ?? false) == true {
-                            var orientA: Float9 = zero9, orientB: Float9 = zero9
-
-                            withFloats(&orientA) { self.curDCM?.orientation($0) }
-                            withFloats(&orientB) { otherView?.curDCM?.orientation($0) }
-
-                            var planeTolerance = UserDefaults.standard.float(forKey: kParallelPlaneToleranceSync as String) //We don't need to be very strict :
-
-                            if self.horos_syncSeriesIndex != -1 { // Manual Sync !
-                                planeTolerance = 0.78 // 0.78 is about 45 degrees
-                            }
-
-                            if withFloats(&orientA, { a in withFloats(&orientB) { b in DCMView.angleBetweenVector(a + 6, andVector: b + 6) } }) < planeTolerance {
+                            // We don't need to be very strict, except by hand.
+                            if self.sliceSynchronizer.followsByLocation(receiverNormal: horosPlaneNormal(self.curDCM),
+                                                                        sourceNormal: horosPlaneNormal(otherView?.curDCM),
+                                                                        manual: self.horos_syncSeriesIndex != -1) {
                                 // we need to avoid the situations where a localizer blocks two series from synchronizing
-                                // if( (sliceVector[0] == 0 && sliceVector[1] == 0 && sliceVector[2] == 0) || syncSeriesIndex != -1)  // Planes are parallel !
-                                do {
-                                    var noSlicePosition = false, everythingLoaded = true
-                                    var index: Int32 = -1, i: Int32
-                                    var smallestdiff: Float = -1, fdiff: Float, slicePosition: Float
+                                var noSlicePosition = false
+                                var index: Int32 = -1
+                                var smallestdiff: Float = -1
+                                let fileCount = self.horos_dcmFilesList?.count ?? 0
 
-                                    if ((self.windowController() as? ViewerController)?.isEverythingLoaded() ?? false)
-                                        && ((otherView?.windowController() as? ViewerController)?.isEverythingLoaded() ?? false)
-                                        && (self.horos_syncSeriesIndex == -1 || (otherView?.syncSeriesIndex ?? 0) == -1) {
-                                        var centerPix: Float3 = zero3
-                                        withFloats(&centerPix) { c in
-                                            oPix?.convertX(Float((oPix?.pwidth ?? 0) / 2), pixY: Float((oPix?.pheight ?? 0) / 2), toDICOMCoords: c)
+                                if ((self.windowController() as? ViewerController)?.isEverythingLoaded() ?? false)
+                                    && ((otherView?.windowController() as? ViewerController)?.isEverythingLoaded() ?? false)
+                                    && (self.horos_syncSeriesIndex == -1 || (otherView?.syncSeriesIndex ?? 0) == -1) {
+                                    var centerPix: Float3 = zero3
+                                    withFloats(&centerPix) { c in
+                                        oPix?.convertX(Float((oPix?.pwidth ?? 0) / 2), pixY: Float((oPix?.pheight ?? 0) / 2), toDICOMCoords: c)
+                                    }
+
+                                    var oPixOrientation: Float9 = zero9; withFloats(&oPixOrientation) { oPix?.orientation($0) }
+                                    index = withFloats(&centerPix) { c in
+                                        withFloats(&oPixOrientation) { o in
+                                            self.findPlane(forPoint: c, preferParallelTo: o, localPoint: nil, distanceWithPlane: &smallestdiff, preferImageType: objcGetter(oPix, #selector(getter: DCMPix.imageType)) as? NSString)
                                         }
+                                    }
+                                } else {
+                                    // Not loaded, or both synchronised by hand: the slice whose
+                                    // location is nearest, within the receiver's own sub-stack.
+                                    let acrossWorlds = registeredViewer == false && same3DReferenceWorld == false
+                                    let bothByHand = (otherView?.syncSeriesIndex ?? 0) != -1 && self.horos_syncSeriesIndex != -1
+                                    let correction: Float? = acrossWorlds && bothByHand ? self.horos_syncRelativeDiff - (otherView?.syncRelativeDiff ?? 0) : nil
+                                    noSlicePosition = acrossWorlds && !bothByHand && sameStudyOnly && fileCount > 0
 
-                                        var oPixOrientation: Float9 = zero9; withFloats(&oPixOrientation) { oPix?.orientation($0) }
-                                        index = withFloats(&centerPix) { c in
-                                            withFloats(&oPixOrientation) { o in
-                                                self.findPlane(forPoint: c, preferParallelTo: o, localPoint: nil, distanceWithPlane: &smallestdiff, preferImageType: objcGetter(oPix, #selector(getter: DCMPix.imageType)) as? NSString)
-                                            }
-                                        }
-                                    } else {
-                                        // The positions the loop below compares, to find where the
-                                        // receiver's own sub-stack reaches the target.
-                                        let expectedIndex = DCMView.syncExpectedIndex(current: Int(self.horos_curImage), count: self.horos_dcmFilesList?.count ?? 0, target: loc) { j in
-                                            var position: Float
-                                            if (self.horos_dcmPixList?.object(at: j) as? DCMPix)?.isLoaded() ?? false {
-                                                position = Float((self.horos_dcmPixList?.object(at: j) as? DCMPix)?.sliceLocation ?? 0)
-                                            } else {
-                                                position = (kvcValue(self.horos_dcmFilesList?.object(at: j) as? NSObject, kSliceLocation) as? NSNumber)?.floatValue ?? 0
-                                            }
-                                            if registeredViewer == false && same3DReferenceWorld == false &&
-                                                (otherView?.syncSeriesIndex ?? 0) != -1 && self.horos_syncSeriesIndex != -1 {
-                                                position -= (self.horos_syncRelativeDiff - (otherView?.syncRelativeDiff ?? 0))
-                                            }
-                                            return position
-                                        }
-                                        i = 0
-                                        while Int(i) < (self.horos_dcmFilesList?.count ?? 0) {
-                                            everythingLoaded = (self.horos_dcmPixList?.object(at: Int(i)) as? DCMPix)?.isLoaded() ?? false
-                                            if everythingLoaded {
-                                                slicePosition = Float((self.horos_dcmPixList?.object(at: Int(i)) as? DCMPix)?.sliceLocation ?? 0)
-                                            } else {
-                                                slicePosition = (kvcValue(self.horos_dcmFilesList?.object(at: Int(i)) as? NSObject, kSliceLocation) as? NSNumber)?.floatValue ?? 0
-                                            }
+                                    let sourceType = oPix?.imageType
+                                    let found = SliceSynchronizer.nearestLocation(count: fileCount, current: Int(self.horos_curImage), target: message.location,
+                                                                                  correction: correction, location: { self.syncLocation(at: $0) },
+                                                                                  matchesType: { i in
+                                        !(sourceType?.isEmpty ?? true) && objcStringEqual((self.horos_dcmPixList?.object(at: i) as? DCMPix)?.imageType, sourceType)
+                                    })
+                                    index = Int32(truncatingIfNeeded: found.index)
+                                    smallestdiff = found.distance
+                                }
 
-                                            fdiff = slicePosition - loc
+                                if noSlicePosition == false {
+                                    if index >= 0 {
+                                        newImage = index
+                                    }
 
-                                            if registeredViewer == false {
-                                                // Manual sync
-                                                if same3DReferenceWorld == false {
-                                                    if (otherView?.syncSeriesIndex ?? 0) != -1 && self.horos_syncSeriesIndex != -1 {
-                                                        slicePosition -= (self.horos_syncRelativeDiff - (otherView?.syncRelativeDiff ?? 0))
-
-                                                        fdiff = slicePosition - loc
-                                                    } else if UserDefaults.standard.bool(forKey: kSameStudy as String) { noSlicePosition = true }
-                                                }
+                                    if (self.horos_dcmPixList?.count ?? 0) > 1 {
+                                        if SliceSynchronizer.locationIsImpossible(distance: smallestdiff, sliceInterval: self.syncSliceInterval()) {
+                                            if otherView === self.horos_blending || self === otherView?.blending {
+                                                self.horos_syncOnLocationImpossible = true
+                                                otherView?.setSyncOnLocationImpossible(true)
                                             }
-
-                                            if fdiff < 0 { fdiff = -fdiff }
-
-                                            let sourceType = oPix?.imageType
-                                            let matchingType = !(sourceType?.isEmpty ?? true) && objcStringEqual((self.horos_dcmPixList?.object(at: Int(i)) as? DCMPix)?.imageType, sourceType)
-                                            let selectedMatchingType = index >= 0 && !(sourceType?.isEmpty ?? true) && objcStringEqual((self.horos_dcmPixList?.object(at: Int(index)) as? DCMPix)?.imageType, sourceType)
-                                            if smallestdiff == -1 ||
-                                                DCMView.syncCandidateWins(distance: fdiff, selectedDistance: smallestdiff,
-                                                                          matchingType: matchingType, selectedMatchingType: selectedMatchingType,
-                                                                          index: Int(i), selectedIndex: Int(index), expectedIndex: expectedIndex) {
-                                                smallestdiff = fdiff
-                                                index = i
-                                            }
-                                            i += 1
                                         }
                                     }
 
-                                    if noSlicePosition == false {
-                                        if index >= 0 {
-                                            newImage = index
-                                        }
-
-                                        if (self.horos_dcmPixList?.count ?? 0) > 1 {
-                                            var sliceDistance: Float
-
-                                            if ((self.horos_dcmPixList?.object(at: 1) as? DCMPix)?.isLoaded() ?? false) && ((self.horos_dcmPixList?.object(at: 0) as? DCMPix)?.isLoaded() ?? false) { everythingLoaded = true }
-                                            else { everythingLoaded = false }
-
-                                            if everythingLoaded {
-                                                sliceDistance = Float(abs(((self.horos_dcmPixList?.object(at: 1) as? DCMPix)?.sliceLocation ?? 0) - ((self.horos_dcmPixList?.object(at: 0) as? DCMPix)?.sliceLocation ?? 0)))
-                                            } else {
-                                                sliceDistance = abs(((kvcValue(self.horos_dcmFilesList?.object(at: 1) as? NSObject, kSliceLocation) as? NSNumber)?.floatValue ?? 0) - ((kvcValue(self.horos_dcmFilesList?.object(at: 0) as? NSObject, kSliceLocation) as? NSNumber)?.floatValue ?? 0))
-                                            }
-
-                                            if abs(smallestdiff) > sliceDistance * 2 {
-                                                if otherView === self.horos_blending || self === otherView?.blending {
-                                                    self.horos_syncOnLocationImpossible = true
-                                                    otherView?.setSyncOnLocationImpossible(true)
-                                                }
-                                            }
-                                        }
-
-                                        // newImage >= [dcmFilesList count] compares as unsigned long.
-                                        if UInt(bitPattern: Int(newImage)) >= UInt(self.horos_dcmFilesList?.count ?? 0) { newImage = Int32(truncatingIfNeeded: (self.horos_dcmFilesList?.count ?? 0) - 1) }
-                                        if newImage < 0 { newImage = 0 }
-                                    }
+                                    newImage = Int32(truncatingIfNeeded: SliceSynchronizer.clampedIndex(Int(newImage), count: fileCount))
                                 }
                             }
                         } else if self.horos_volumicSeries == false && (otherView?.volumicSeries ?? false) == false { // For example time or functional series
                             // The same two mappings as above; they were written out
                             // a second time here, which is how two copies of one
                             // rule drift apart.
-                            let nonVolumicMode = UserDefaults.standard.integer(forKey: kDefaultModeForNonVolumicSeries as String)
+                            let nonVolumicMode = preferences[ViewerPreferences.defaultModeForNonVolumicSeries]
                             var mapped = SyncSeriesIndex.noIndex
 
                             if nonVolumicMode == syncroRatio {
@@ -1012,7 +844,7 @@ extension DCMView {
                     }
 
                     // Relative
-                    if Int(DCMView.horos_static_syncro) == syncroREL && point3D == false && self.horos_syncSeriesIndex == -1 {
+                    if mode == syncroREL && point3D == false && self.horos_syncSeriesIndex == -1 {
                         let mapped = SyncSeriesIndex.relativeIndex(current: Int(newImage),
                                                                    difference: Int(diff),
                                                                    count: self.horos_dcmPixList?.count ?? 0,
@@ -1027,8 +859,8 @@ extension DCMView {
                     if newImage != prevImage {
                         if self.horos_avoidRecursiveSync <= 1 {
                             if (selfViewer !== frontMostViewer && otherViewer === frontMostViewer) || (otherViewer as? ViewerController)?.timer != nil {
-                                if self.horos_listType == CChar(UInt8(ascii: "i")) { self.setIndex(Int16(truncatingIfNeeded: newImage)) }
-                                else { self.setIndexWithReset(Int16(truncatingIfNeeded: newImage), true) }
+                                if self.horos_listType == CChar(UInt8(ascii: "i")) { self.setIndex(Int(newImage)) }
+                                else { self.setIndexWithReset(Int(newImage), true) }
                                 (self.windowController() as? ViewerController)?.adjustSlider()
                             }
                         }
@@ -1041,16 +873,16 @@ extension DCMView {
                         if self.computeSlice(oPix, oPix2) {
                             self.needsDisplay = true
                         }
-                        if self.horos_sliceFromTo[0] == Float.infinity && DISPLAYCROSSREFERENCELINES != 0 {
+                        if !self.referenceLines.cut.isDrawn && DISPLAYCROSSREFERENCELINES != 0 {
                             self.referenceLineAbsenceReason = ViewerReferenceLines.reasonForParallelPlanes()
                         } else {
                             self.referenceLineAbsenceReason = nil
                         }
-                    } else if self.horos_sliceFromTo[0] != Float.infinity && (self.horos_sliceVector[0] != 0 || self.horos_sliceVector[1] != 0 || self.horos_sliceVector[2] != 0) {
+                    } else if self.referenceLines.hasLine {
                         self.invalidateReferenceLines()
                         self.needsDisplay = true
                     }
-                } else if self.horos_sliceFromTo[0] != Float.infinity && (self.horos_sliceVector[0] != 0 || self.horos_sliceVector[1] != 0 || self.horos_sliceVector[2] != 0) {
+                } else if self.referenceLines.hasLine {
                     self.invalidateReferenceLines()
                     self.needsDisplay = true
                 }
@@ -1155,14 +987,13 @@ extension DCMView {
 
     @objc(observeValueForKeyPath:ofObject:change:context:)
     public override dynamic func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        // UserDefaults reports a default on the thread that wrote it.
-        let newValue = (change?[NSKeyValueChangeKey.newKey] as? NSNumber)?.int32Value ?? 0
+        // UserDefaults reports a default on the thread that wrote it, as it was written ("2" as text, or
+        // nothing once removed): the level is read from the store, as integer(forKey:) reads it.
+        let newValue = Int32(truncatingIfNeeded: PreferencesSource.process.preferences[ViewerPreferences.annotations])
         onMainActor {
-            if keyPath == "ANNOTATIONS" {
-                if newValue != self.horos_annotationType {
-                    self.annotationType = newValue
-                    self.needsDisplay = true
-                }
+            if keyPath == ViewerPreferences.annotations.name && newValue != self.horos_annotationType {
+                self.annotationType = newValue
+                self.needsDisplay = true
             }
 
             if keyPath == "LabelFONTNAME" || keyPath == "LabelFONTSIZE" {
@@ -1179,7 +1010,7 @@ extension DCMView {
 
     @objc(barMenu:)
     dynamic func barMenu(_ sender: Any!) {
-        UserDefaults.standard.set(objcTag(sender), forKey: "CLUTBARS")
+        PreferencesSource.process.preferences.set(objcTag(sender), for: ViewerPreferences.clutBars)
 
         let nc = NotificationCenter.default
         nc.post(name: NSNotification.Name.OsirixUpdateView, object: self, userInfo: nil)
@@ -1189,7 +1020,7 @@ extension DCMView {
     public dynamic func annotMenu(_ sender: Any!) {
         let chosenLine = Int16(truncatingIfNeeded: objcTag(sender))
 
-        UserDefaults.standard.set(Int(chosenLine), forKey: "ANNOTATIONS")
+        PreferencesSource.process.preferences.set(Int(chosenLine), for: ViewerPreferences.annotations)
         DCMView.setDefaults()
 
         let nc = NotificationCenter.default
@@ -1207,21 +1038,21 @@ extension DCMView {
         self.setSyncro(Int16(truncatingIfNeeded: objcTag(sender)))
     }
 
+    /// The synchronization mode every 2D view shares (SliceSyncSettings).
     @objc(syncro)
-    public dynamic func syncro() -> Int16 { return DCMView.horos_static_syncro }
+    public dynamic func syncro() -> Int16 { return SliceSyncSettings.mode }
 
     @objc(syncro)
-    public dynamic class func syncro() -> Int16 { return DCMView.horos_static_syncro }
+    public dynamic class func syncro() -> Int16 { return SliceSyncSettings.mode }
 
     @objc(setSyncro:)
     public dynamic class func setSyncro(_ s: Int16) {
-        DCMView.horos_static_syncro = s
+        SliceSyncSettings.mode = s
         NotificationCenter.default.post(name: NSNotification.Name.OsirixSyncSeries, object: nil, userInfo: nil)
     }
 
     @objc(setSyncro:)
     public dynamic func setSyncro(_ s: Int16) {
-        DCMView.horos_static_syncro = s
-        NotificationCenter.default.post(name: NSNotification.Name.OsirixSyncSeries, object: nil, userInfo: nil)
+        DCMView.setSyncro(s)
     }
 }

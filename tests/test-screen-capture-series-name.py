@@ -20,6 +20,7 @@ in each of its ten nibs, inside its box and clear of the other controls, and
 stores what was typed as it will be written.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
+import process_graph_stand_in
 from pathlib import Path
 import json
 import re
@@ -60,25 +61,34 @@ for language in LANGUAGES:
     if re.search(r'^"OsiriX Screen Captures" = ', text, re.M):
         failures.append(f'{language}: the catalog still has the former default name')
 
-capture = source('Horos/Sources/ViewerController.mm')
-capture = capture[capture.index('- (IBAction)captureAndSetKeyImage:'):]
-if capture.count('[HorosScreenCaptureSeriesName current]') != 1:
+# The capture is Swift: ViewerImageExporter.swift, behind the viewer's
+# -captureAndSetKeyImage: (ViewerController+KeyImageCapture.swift).
+capture = source('Horos/Sources/ViewerImageExporter.swift')
+capture = capture[capture.index('    func captureKeyImage('):capture.index('    // MARK: - The report')]
+if 'imageExporter.captureKeyImage()' not in source('Horos/Sources/ViewerController+KeyImageCapture.swift'):
+    failures.append('the menu item does not reach the capture')
+if capture.count('ScreenCaptureSeriesName.current()') != 1:
     failures.append('the capture must read the name of its series once')
-if 'exportDICOMFileInt:1 withName:seriesName allViewers:NO' not in capture:
+if 'writeDICOM(format: 1, name: seriesName, allViewers: false, to: destination)' not in capture:
     failures.append('the capture is not exported under the name in use')
-if '[iseries.name isEqualToString:seriesName]' not in capture:
+if '(iseries.name as NSString?)?.isEqual(to: seriesName)' not in capture:
     failures.append('the series of an earlier capture is not looked for by the name in use')
 if 'O2ScreenCapturesSeriesName' in capture:
     failures.append('the capture still uses the fixed name')
 
-export = source('Horos/Sources/DICOMExport.mm')
-if 'exportSeriesDescription = [@"IsiX SC" retain];' not in export or 'OsiriX SC' in export:
+# DICOMExport is Swift.
+export = source('Horos/Sources/DICOMExport.swift')
+if 'horos_seriesDescription = "IsiX SC"' not in export or 'OsiriX SC' in export:
     failures.append('a DICOMExport nobody named must write "IsiX SC"')
-database = source('Horos/Sources/DicomDatabase.mm')
+# DicomDatabase is Swift: the import reads the names back in
+# DicomFileIndexer.swift, and the exported constant is set at load in
+# DicomDatabase+CAPI.m.
+database = source('Horos/Sources/DicomFileIndexer.swift')
+capi = source('Horos/Sources/DicomDatabase+CAPI.m')
 for name in ('OsiriX Annotations SR', 'OsiriX ROI SR', 'OsiriX Report SR', 'OsiriX WindowsState SR'):
-    if f'isEqualToString: @"{name}"' not in database:
+    if f'isEqualString(curDict?.object(forKey: "seriesDescription"), "{name}")' not in database:
         failures.append(f'{name} is a name the database reads back: it must stay')
-if 'O2ScreenCapturesSeriesName = [[HorosScreenCaptureSeriesName defaultName] copy];' not in database:
+if 'O2ScreenCapturesSeriesName = [[HorosScreenCaptureSeriesName defaultName] copy];' not in capi:
     failures.append('the exported constant must be the default name')
 
 pane = source('Preference Panes/OSIViewerPreferencePane/OSIViewerPreferencePanePref.swift')
@@ -138,6 +148,7 @@ if shutil.which('xcrun') is None:
 
 DRIVER = r'''
 import Foundation
+import IsiXPreferences
 
 var failed = false
 func check(_ got: String, _ expected: String, _ what: String) {
@@ -201,6 +212,14 @@ preference(" Reconstruções ")
 check(Name.current(), "Reconstrucoes", "a preference stored with accents")
 preference(nil)
 
+// The preference stored as it will be written, in preferences of its own.
+for (stored, kept) in [("Imagens-chave", "Imagens-chave"), (" Reconstruções ", "Reconstrucoes"), ("画像", nil)] as [(String, String?)] {
+    let memory = MemoryPreferences([Name.defaultsKey: stored])
+    Name.normalizePreference(in: memory)
+    check(memory.object(forKey: Name.defaultsKey) as? String ?? "(removed)", kept ?? "(removed)", "«\(stored)» stored again")
+    check(Name.current(in: memory), kept ?? "IsiX Screen Captures", "the name of «\(stored)»")
+}
+
 if failed { exit(1) }
 print("PASS: names in ASCII within a Long String, the default name of \(catalogs.count) catalogs, and the preference")
 '''
@@ -219,6 +238,7 @@ with tempfile.TemporaryDirectory(prefix='horos-capture-series-') as folder:
     main.write_text(DRIVER)
     binary = Path(folder) / 'check'
     built = subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(Path(folder) / 'modules'),
+                            *process_graph_stand_in.swift_flags(Path(folder) / 'isix'),
                             str(root / 'Horos/Sources/ScreenCaptureSeriesName.swift'), str(main), '-o', str(binary)],
                            capture_output=True, text=True)
     if built.returncode:

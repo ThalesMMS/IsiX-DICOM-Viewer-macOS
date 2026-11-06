@@ -12,7 +12,7 @@ failures = []
 
 
 def text(relative):
-    return (root / relative).read_bytes().decode('latin1')
+    return ((root / relative).read_bytes() if (root / relative).exists() else b'').decode('latin1')
 
 
 def require(condition, message):
@@ -20,10 +20,7 @@ def require(condition, message):
         failures.append(message)
 
 
-delegates = (
-    'Horos/Sources/VRController.mm',
-    'Horos/Sources/SRController.mm',
-)
+delegates = ()
 for path in delegates:
     require('HorosToolbarPolicy prepareItem' in text(path),
             '%s does not prepare toolbar items after plugins' % path)
@@ -36,10 +33,12 @@ for path in delegates:
     require('HorosToolbarPolicy adoptToolbar' in source,
             '%s does not adopt its toolbar once attached' % path)
 # MPRController, XMLController, the orthogonal MPR and PET-CT viewers,
-# CPRController and the endoscopy viewer are Swift.
+# CPRController, the endoscopy viewer, VRController (its toolbar in
+# VRController+Toolbar.swift) and the surface rendering (its toolbar in
+# SRController+Toolbar.swift) are Swift.
 for name in ('MPRController', 'XMLController', 'OrthogonalMPRViewer', 'OrthogonalMPRPETCTViewer',
-             'CPRController', 'EndoscopyViewer'):
-    swift = sources.source_text(name)
+             'CPRController', 'EndoscopyViewer', 'VRController+Toolbar', 'SRController'):
+    swift = sources.class_text(name) if name == 'SRController' else sources.source_text(name)
     require('ToolbarPolicy.prepare(toolbarItem)' in swift,
             '%s does not prepare toolbar items after plugins' % name)
     require('NSToolbarItem.Identifier.space.rawValue' not in swift and '.space,' not in swift
@@ -50,11 +49,11 @@ for name in ('MPRController', 'XMLController', 'OrthogonalMPRViewer', 'Orthogona
     require('ToolbarPolicy.adopt(toolbar:' in swift,
             '%s does not adopt its toolbar once attached' % name)
 
-# The database window's toolbar delegate is Swift
-# (BrowserController+Toolbar.swift), and the viewer's
-# (ViewerController+Toolbar.swift): the same checks, in the Swift spelling of
-# +[HorosToolbarPolicy ...] (the Swift class is ToolbarPolicy).
-for name in ('BrowserController+Toolbar', 'ViewerController+Toolbar'):
+# The database window's toolbar delegate is Swift (BrowserToolbar.swift), and
+# the viewer's items are made by ViewerToolbarItemFactory.swift: the same
+# checks, in the Swift spelling of +[HorosToolbarPolicy ...] (the Swift class
+# is ToolbarPolicy).
+for name in ('BrowserToolbar', 'ViewerToolbarItemFactory'):
     swift_delegate = sources.source_text(name)
     swift_path = sources.source_path(name).relative_to(root)
     require('ToolbarPolicy.prepare(' in swift_delegate,
@@ -74,15 +73,31 @@ require('NSToolbarSpaceItemIdentifier' not in viewer,
         'Horos/Sources/ViewerController.m names the AppKit Space directly instead of through ToolbarPolicy')
 # Fullscreen is the image alone: the whole screen, with the detached panel put away
 # on entering and never raised over the image.
-require('fullscreenContentRectOnScreen: [self.window.screen frame]]' in viewer and 'reservingPanelHeight' not in viewer,
-        'custom fullscreen does not take the whole screen')
-fullscreen = viewer[viewer.index('-(IBAction) fullScreenMenu:(id) sender'):viewer.index('- (BOOL) FullScreenON')]
-require('[toolbarPanel.window orderOut: self]' in fullscreen and 'toolbarPanelLevelWhenFullScreen' not in viewer,
-        'fullscreen keeps the detached toolbar over the image')
-require('shouldKeepDetachedToolbarVisibleWhenFullScreen: FullScreenOn' in viewer,
-        'the toolbar panel is shown again while fullscreen is on')
-require('setStripAboveImage: slider.superview collapsed: YES' in fullscreen and 'setStripAboveImage: slider.superview collapsed: NO restoringHeight: previousSliderStripHeight' in fullscreen,
-        'fullscreen leaves the image slider strip over the image, or does not give it back')
+if '-(IBAction) fullScreenMenu:(id) sender' in viewer:
+    require('fullscreenContentRectOnScreen: [self.window.screen frame]]' in viewer and 'reservingPanelHeight' not in viewer,
+            'custom fullscreen does not take the whole screen')
+    fullscreen = viewer[viewer.index('-(IBAction) fullScreenMenu:(id) sender'):viewer.index('- (BOOL) FullScreenON')]
+    require('[toolbarPanel.window orderOut: self]' in fullscreen and 'toolbarPanelLevelWhenFullScreen' not in viewer,
+            'fullscreen keeps the detached toolbar over the image')
+    require('setStripAboveImage: slider.superview collapsed: YES' in fullscreen and 'setStripAboveImage: slider.superview collapsed: NO restoringHeight: previousSliderStripHeight' in fullscreen,
+            'fullscreen leaves the image slider strip over the image, or does not give it back')
+else:
+    # The full screen is Swift: the viewer's FullScreenSession enters and leaves it.
+    fullscreen = text('Horos/Sources/FullScreenSession.swift')
+    require('ToolbarPolicy.fullscreenContentRect(on: viewer.window?.screen?.frame ?? .zero)' in fullscreen and 'reservingPanelHeight' not in fullscreen,
+            'custom fullscreen does not take the whole screen')
+    require('viewer.horos_toolbarPanel?.window?.orderOut(viewer)' in fullscreen and 'toolbarPanelLevelWhenFullScreen' not in fullscreen,
+            'fullscreen keeps the detached toolbar over the image')
+    require('ToolbarPolicy.setStrip(aboveImage: viewer.horos_slider?.superview, collapsed: true' in fullscreen
+            and 'ToolbarPolicy.setStrip(aboveImage: viewer.horos_slider?.superview, collapsed: false, restoringHeight: viewer.horos_previousSliderStripHeight)' in fullscreen,
+            'fullscreen leaves the image slider strip over the image, or does not give it back')
+if '- (void) redrawToolbar\n' in viewer:
+    require('shouldKeepDetachedToolbarVisibleWhenFullScreen: FullScreenOn' in viewer,
+            'the toolbar panel is shown again while fullscreen is on')
+else:
+    # -redrawToolbar is Swift: ViewerToolbarItemFactory.redrawToolbar(in:).
+    require('ToolbarPolicy.shouldKeepDetachedToolbarVisible(whenFullScreen: viewer.horos_FullScreenOn)' in text('Horos/Sources/ViewerToolbarItemFactory.swift'),
+            'the toolbar panel is shown again while fullscreen is on')
 panel = (root / 'Horos/Sources/ToolbarPanel.swift').read_text()
 require(panel.count('ToolbarPolicy.shouldKeepDetachedToolbarVisible(whenFullScreen:') == 3,
         'the detached panel can come back by itself while its viewer is in fullscreen')
@@ -91,7 +106,7 @@ order_out = panel_window[panel_window.index('public override func orderOut'):pan
 require('v?.toolbarPanel?.window !== self || !frontViewerKeepsPanel' in order_out and 'if let v = v, frontViewerKeepsPanel' in order_out
         and 'shouldKeepDetachedToolbarVisible(whenFullScreen: v?.fullScreenON() ?? false)' in order_out,
         'the panel of the front viewer refuses to leave when that viewer goes fullscreen')
-vr = text('Horos/Sources/VRController.mm')
+vr = sources.class_text('VRController')
 require('imageSize.width > 32' not in vr,
         'VR still normalizes icons before plugins have replaced the item')
 

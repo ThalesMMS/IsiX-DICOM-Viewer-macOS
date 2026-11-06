@@ -14,15 +14,23 @@ location at the folder holding it and imports its studies; keeping it can stop
 the question for that folder, except when opening it would upgrade its model.
 """
 from pathlib import Path
-import subprocess,tempfile
+import subprocess,sys,tempfile
 root=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(root/'tests'))
+import process_graph_stand_in  # noqa: E402
 main=r'''
 import AppKit
-// The application's browser, which the choice hands an import to.
+import IsiXPreferences
+
+// The portal is outside what this test compiles.
+enum WebPortal { @MainActor static func adoptOpenedDatabase() {} }
+// The application's browser, which the choice hands an import to, through
+// the graph of the database window; there is none in this test.
 final class BrowserController: NSObject {
- static func currentBrowser() -> BrowserController? { nil }
  func subSelectFilesAndFolders(toAdd: [Any]!) {}
 }
+@MainActor final class BrowserWindowGraph { let browser = BrowserController() }
+extension ProcessGraph { @MainActor var browserWindow: BrowserWindowGraph? { nil } }
 let name="horos-first-use-test-\(UUID().uuidString)"
 let defaults=UserDefaults(suiteName:name)!
 defer {defaults.removePersistentDomain(forName:name)}
@@ -36,9 +44,9 @@ defaults.setVolatileDomain([:],forName:UserDefaults.argumentDomain)
 defaults.set(1,forKey:"DEFAULT_DATABASELOCATION")
 assert(!DatabaseFirstUse.needsChoice(defaults:defaults,documents:documents))
 defaults.set(0,forKey:"DEFAULT_DATABASELOCATION")
-defaults.set(true,forKey:DatabaseFirstUse.completedKey)
+defaults.set(true,forKey:DatabasePreferences.databaseLocationChoiceCompleted.name)
 assert(!DatabaseFirstUse.needsChoice(defaults:defaults,documents:documents))
-defaults.set(false,forKey:DatabaseFirstUse.completedKey)
+defaults.set(false,forKey:DatabasePreferences.databaseLocationChoiceCompleted.name)
 for name in ["IsiX Data","IsiX DICOM Viewer Data","Isis DICOM Viewer Data"] {
  let folder=documents.appendingPathComponent(name)
  try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)
@@ -54,9 +62,9 @@ assert(DatabaseFirstUse.needsChoice(defaults:defaults,documents:documents),"Horo
 DatabaseLocation.adoptHorosDirectory(horos.path,defaults:defaults)
 assert(!DatabaseFirstUse.needsChoice(defaults:defaults,documents:documents),"adopted Horos Data")
 defaults.removeObject(forKey:DatabaseLocation.adoptedHorosDirectoriesKey)
-defaults.set(true,forKey:DatabaseFirstUse.pendingKey)
+defaults.set(true,forKey:DatabasePreferences.databaseLocationChoicePending.name)
 assert(DatabaseFirstUse.needsChoice(defaults:defaults,documents:documents))
-defaults.set(false,forKey:DatabaseFirstUse.pendingKey)
+defaults.set(false,forKey:DatabasePreferences.databaseLocationChoicePending.name)
 
 // Where first use finds a Horos database: where Horos's preferences put it, or
 // in Documents.
@@ -151,5 +159,5 @@ print("PASS: fresh install prompts, also beside a Horos database it explains and
 with tempfile.TemporaryDirectory(prefix='horos-first-use-') as tmp:
  p=Path(tmp);(p/'main.swift').write_text(main)
  sources=['CloudFileAccess.swift','DatabaseLocation.swift','PreferencesContinuity.swift','ForeignDatabaseChoice.swift','DatabaseFirstUse.swift']
- subprocess.run(['xcrun','--sdk','macosx','swiftc',*[str(root/'Horos/Sources'/s) for s in sources],str(p/'main.swift'),'-o',str(p/'test')],check=True,timeout=300)
+ subprocess.run(['xcrun','--sdk','macosx','swiftc',*process_graph_stand_in.swift_flags(p/'isix'),*[str(root/'Horos/Sources'/s) for s in sources],str(p/'main.swift'),'-o',str(p/'test')],check=True,timeout=300)
  subprocess.run([str(p/'test'),str(p/'Documents')],check=True,timeout=120)

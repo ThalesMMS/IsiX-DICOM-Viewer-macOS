@@ -1,11 +1,10 @@
 # IsiX DICOM Viewer
 
-[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.4.0/IsiX-DICOM-Viewer-5.4.0-Apple-Silicon-Macs.zip)
-[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.4.0/IsiX-DICOM-Viewer-5.4.0-Intel-Macs.zip)
+[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0/IsiX-DICOM-Viewer-6.0.0-Apple-Silicon-Macs.zip)
+[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0/IsiX-DICOM-Viewer-6.0.0-Intel-Macs.zip)
 
-The `horos` branch contains the stable 5.x release line. The [`beta` branch](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/tree/beta) contains the 6.0 migration and its new IsiXPluginKit interface. Corrections that apply to both lines are carried across separately.
-
-**6.0.0-beta1 prerelease:** [release notes and downloads](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/tag/v6.0.0-beta1). It requires plugins built for IsiXPluginKit; the stable 5.x line retains its existing plugin interfaces.
+**6.0.0 stable release:** [release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/tag/v6.0.0) · [IsiXPluginKit SDK](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0/IsiXPluginKit-SDK-6.0.0.zip).
+This release supports IsiXPluginKit v1 and compatible Horos and OsiriX plugins built for the running architecture.
 
 Browse the [latest release](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest)
 or the [complete release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases).
@@ -22,8 +21,8 @@ Horos, HorosCloud and OsiriX are names and marks of their respective owners.
 IsiX DICOM Viewer is not made, sponsored or endorsed by the Horos Project,
 Purview or Pixmeo, and its own name and icon are not covered by the LGPLv3
 grant that covers the source code. Folders, classes and identifiers that still
-say Horos or OsiriX are kept for compatibility with existing plugins, links
-and data.
+say Horos or OsiriX are kept for compatibility with links, data and the
+application's own interfaces.
 
 The fork targets **macOS 15 (Sequoia) or later, on Apple Silicon and on the
 Intel Macs that run macOS 15 or later**, with a separate package for each. Its main changes
@@ -89,6 +88,25 @@ and imports its studies, leaving the Horos database unchanged. **Keep Using
 Horos Data** opens it as before, and can stop the question for that folder,
 except when the start would upgrade the database to a newer format.
 
+## Plugins
+
+IsiX DICOM Viewer loads three plugin formats. `.isixplugin` bundles are built
+for its plugin API version 1, written in Swift against `IsiXPluginKit.framework`,
+the public plugin interface for new plugins. Plugins made for Horos or OsiriX
+(`.horosplugin`, `.osirixplugin`) load as they are, without being rebuilt or
+changed; the application still provides `Horos.framework` and its aliases
+`HorosAPI`, `OsiriXAPI`, `OsiriX Headers` and `HorosDCM`, which they link. A
+plugin built for another architecture, or renamed to another format's
+extension, is listed in **Plugins > Plugins Manager** with the reason and not
+loaded. Plugins in the folders of a Horos installation are listed and left as
+they are.
+
+Plugins are installed in `~/Library/Application Support/IsiX/Plugins`, or in
+`/Library/Application Support/IsiX/Plugins` for every user of the Mac. The
+plugin template, the SDK and its documentation are published at
+[github.com/ThalesMMS/IsiXPluginTemplate](https://github.com/ThalesMMS/IsiXPluginTemplate).
+The App Store version loads no plugins.
+
 ## If the application closes while it opens
 
 Hold **Shift** and **Option** while IsiX DICOM Viewer opens, until its window
@@ -123,9 +141,8 @@ controllers and views. Swift extensions implement substantial parts of the 2D
 viewer's ROI, fusion, printing, export, toolbar, and interaction workflows.
 
 Compatibility headers, explicit Objective-C selectors, and C/Objective-C++
-bridges connect migrated code to the remaining application and plugin SDK.
-The migration is ongoing. Plugins that draw with OpenGL must adapt to the new
-rendering interfaces in the application and plugin SDK.
+bridges connect migrated code to the remaining application. The migration is
+ongoing.
 
 ### Metal rendering
 
@@ -273,15 +290,19 @@ DCMTK snapshot, Jasper sources, unused parser and codec implementations, and
 unused build targets have been removed.
 
 Current dependency work includes a pinned DCMTK 3.7.0+ development revision,
-OpenSSL 3.5.9, corrected OpenJPEG 2.5.0 builds, and updated NIfTI-1 I/O 2.1.0
-and znzlib 3.0.0 components. The public DICOM-Swift package provides DICOMweb
+OpenSSL 3.5.9, OpenJPEG 2.5.4, and updated NIfTI-1 I/O 2.1.0 and znzlib 3.0.0
+components. The public DICOM-Swift package provides DICOMweb
 multipart and transfer support through its DicomWebClient and DicomData products. ITK and VTK remain part of the imaging
 stack, with build adjustments for the current Apple toolchain. CharLS is used
 through DCMTK rather than a separate build target.
 
-Dependency revisions are recorded by Git and the build scripts. Vendored
-components retain their provenance and license notices. Release assets record
-the exact dependency revisions and any packaging patches.
+Dependency revisions are declared authoritatively in three files: the native
+sources in `Horos/Scripts/external-sources.json`, the prebuilt libraries in
+`Horos/Scripts/external-inputs.lock`, and the Swift packages in the project's
+`Package.resolved`. NIfTI's file-selection manifest repeats its pin, kept equal
+by a test. Vendored components retain their provenance and license
+notices. Release assets record the exact dependency revisions and any packaging
+patches.
 
 ## Build from source
 
@@ -307,6 +328,18 @@ build directory. It never uses the libraries of the Homebrew installed on the
 Mac, and it stops the build if a file differs from the declaration. After that
 first download the build works offline.
 
+The native libraries compiled by the build (DCMTK, OpenSSL, OpenJPEG, ITK, VTK,
+and the NIfTI-1 I/O files) come from original upstream archives declared in
+`Horos/Scripts/external-sources.json`: the official URL, the upstream commit,
+the archive's SHA-256, its layout, version and license digest. Each recipe has
+`Horos/Scripts/external-inputs.sh --source` download the archive into a cache,
+check its SHA-256, and extract it into a temporary directory of the target that
+compiles it, apart from the Debug and Release build outputs.
+Later builds verify the extracted tree before reusing it and recover it from the
+cached archive if a file was changed or removed. No source patch is applied.
+Swift packages are resolved by Xcode from `Package.resolved` (see below), and
+system libraries and frameworks come from the macOS SDK.
+
 OpenJPEG 2.5.4 is acquired from its official upstream commit archive, declared
 with its commit, SHA-256, layout and license in
 `Horos/Scripts/external-sources.json`. It is extracted into the OpenJPEG target's
@@ -316,8 +349,8 @@ including the legacy `include/OpenJPEG` alias used by Horos and Decompress.
 
 For offline builds, supply the exact declared archive in the directory selected
 by `EXTERNAL_SOURCES_DOWNLOADS` (an absolute path), or in Xcode's
-`$PROJECT_TEMP_DIR/ExternalSources.downloads` cache, and supply the bottles and
-initialized submodules as above. Set `EXTERNAL_INPUTS_OFFLINE=1` to make a missing
+`$PROJECT_TEMP_DIR/ExternalSources.downloads` cache, and supply the bottles as
+above. Set `EXTERNAL_INPUTS_OFFLINE=1` to make a missing
 or corrupt source archive fail immediately with its required filename and digest.
 `EXTERNAL_SOURCES_MIRROR` can name an HTTPS or `file://` directory containing the
 declared archive filenames; mirrors pass the same digest, layout and version
@@ -350,6 +383,16 @@ configuration and compiled with no source patch; diagnostics of its own code
 are those of the upstream release. The consumed source record, license and
 NOTICE accompany the app in `Contents/Resources/CompiledSources/ITK`.
 
+DCMTK is compiled from the archive of its pinned development commit
+`414cbd77b01d6f0138ea58a7eca34b2c19157c78` (version 3.7.0+), with no source
+patch; the JPEG-LS symbol localization happens on the installed libraries. The
+consumed source record, the DCMTK copyright and the CharLS and IJG notices
+accompany the app in `Contents/Resources/CompiledSources/DCMTK`. OpenSSL 3.5.9 is
+compiled from the official signed release asset `openssl-3.5.9.tar.gz`, whose
+release commit the declaration records; its source record and license accompany
+the app in `Contents/Resources/CompiledSources/OpenSSL`. A new OpenSSL pin also
+reconfigures DCMTK, which links it.
+
 VTK's FreeType source is checked against its original release archive.
 Its installed static module retains the public `vtkfreetype_FT_MulFix` ABI through
 a Mach-O symbol alias to the original function; the raw name is made local so
@@ -365,27 +408,40 @@ so a built application no longer depends on its build directory or on
 Homebrew and can be moved. It is signed ad hoc, which is not a Developer ID
 signature: Gatekeeper on another Mac does not approve it.
 
-Clone the repository and its pinned submodules:
+Clone the repository; it has no submodules to initialize:
 
 ```sh
 git clone https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS.git
 cd IsiX-DICOM-Viewer-macOS
-git submodule update --init -- DCMTK OpenSSL/upstream
 ```
 
-For an existing checkout, initialize or update the submodules before building:
+DCMTK and OpenSSL used to be git submodules. A checkout made before they became
+pinned archives keeps the former `DCMTK` and `OpenSSL/upstream` worktrees after
+`git pull`, as untracked directories the build no longer reads; no script
+removes them. Check them for local work first: uncommitted changes, and, since
+a submodule sits on a detached commit, local commits and stashes that removing
+its repository would lose.
 
 ```sh
-git submodule sync -- DCMTK OpenSSL/upstream
-git submodule update --init -- DCMTK OpenSSL/upstream
+for tree in DCMTK OpenSSL/upstream; do
+    git -C "$tree" status --short
+    git -C "$tree" log --oneline HEAD --branches --not --remotes
+    git -C "$tree" stash list
+done
 ```
 
-The build initializes only these two production sources, without recursing
-into OpenSSL's optional test dependencies. Existing optional checkouts are
-left in place. OpenSSL reads its pinned source directly and writes generated
-files into each configuration's separate build directory. Its external
-cryptography tests are opt-in through `tools/test-openssl-cryptography.py`,
-which acquires its own pinned test inputs.
+Then remove them and their submodule metadata yourself:
+
+```sh
+modules="$(git rev-parse --git-common-dir)/modules"
+rm -rf DCMTK OpenSSL/upstream "$modules/DCMTK" "$modules/OpenSSL"
+git config --remove-section submodule.DCMTK
+git config --remove-section submodule.OpenSSL
+```
+
+OpenSSL writes generated files into each configuration's separate build
+directory. Its external cryptography tests are opt-in through
+`tools/test-openssl-cryptography.py`, which acquires its own pinned test inputs.
 
 The original acquired VTK release builds with the host recipe; the `VTK-no-OpenGL-export.patch` that
 the 29 September release needed for VTK 8.2 no longer applies.
@@ -414,7 +470,7 @@ xcodebuild -project Horos.xcodeproj -scheme Horos \
 
 `Horos.xcodeproj` requires the public
 [DICOM-Swift package](https://github.com/ThalesMMS/DICOM-Swift) at exact version
-`3.0.1` (revision `2cb82e44c1041a2c1e85319fb5661f442d0b1ee9`). The app
+`3.1.1` (revision `229714f81e3090a937a17c344ca804fa4473cbe7`). The app
 links `DicomWebClient`, `DicomWebOIDC` and their `DicomData` dependency. Optional codecs, server,
 UI and ZIP products are not linked. Resolver downloads of optional dependencies
 do not imply that their code is part of the app.
@@ -485,9 +541,8 @@ after export. See [distribution builds](Horos/Configuration/README.md) for
 signing and version settings. Upload and submission are separate steps.
 
 From a clean clone, that command alone produces the self-contained package: it
-builds the dependencies, downloads the pinned bottles once, and needs no file
-from an earlier build. On the Apple Silicon Mac where this was checked, a clean
-clone took about 11 minutes.
+builds the dependencies, downloads the pinned bottles and source archives once,
+and needs no file from an earlier build.
 
 That builds the arm64 package, in `build/Release/arm64/IsiX DICOM Viewer.app`.
 The x86_64 package for Intel Macs is built on the same Mac with
@@ -521,6 +576,15 @@ every file of the bundle:
 cd build/Release/arm64 && shasum -a 256 -c SHA256SUMS.txt
 python3 tools/audit-release-bundle.py "build/Release/arm64/IsiX DICOM Viewer.app" --strict --notices --expect-arch arm64
 ```
+
+The arm64 build also exports the plugin SDK a release publishes,
+`build/Release/IsiXPluginKit-SDK-<version>.zip`, with
+`tools/export-isix-plugin-kit.py --xcode Release --archs arm64,x86_64 --zip`:
+the framework for both architectures, `SDK.json`, the license files, the kit's
+README and `LegacyPorting/`, the porting kit for Horos and OsiriX plugins with
+its `PORTING.json`. `<version>` is the one `HUMAN_READABLE_VERSION` shows in
+`Horos/Horos.xcconfig`, or `HOROS_SDK_VERSION`. A replaced SDK is kept as
+`IsiXPluginKit-SDK-<version>.previous-<date>.zip`.
 
 To go back to the previous artifact, move the current three files aside and
 rename the `*.previous-<date>*` files of one date to `IsiX DICOM Viewer.app`,
@@ -564,7 +628,8 @@ directly; a missing required notice is a failure, not an optional fixture skip.
 
 Horos and the modifications in this fork are distributed under the
 **GNU Lesser General Public License, version 3 (LGPLv3)**. See
-[LICENSE](LICENSE), [COPYING.LESSER](COPYING.LESSER), and [NOTICE](NOTICE).
+[LICENSE](LICENSE), [COPYING.LESSER](COPYING.LESSER), [COPYING](COPYING) (the GNU GPLv3
+that the LGPLv3 supplements), and [NOTICE](NOTICE).
 
 - The **Horos Project** created Horos from the original **OsiriX Team** work.
   Their copyright and license notices remain in the source and distribution.

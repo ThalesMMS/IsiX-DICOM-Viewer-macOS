@@ -116,24 +116,36 @@ with tempfile.TemporaryDirectory(prefix='horos-adaptive-') as tmp:
     print(run.stdout.strip())
     check(run.returncode == 0, 'the automatic limit check failed: ' + run.stdout[-300:])
 
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_text()
-retrieve = node[node.index('- (BOOL)retrieveDICOMweb'):]
-retrieve = retrieve[:retrieve.index('\n}\n')]
-check('BOOL adaptive = node.adaptiveRequests;' in retrieve and 'acquireNode:limiterNode limit:limit adaptive:adaptive' in retrieve,
+# The query node is Swift: its DICOMweb retrieve and the session that runs its
+# requests are in DCMTKQueryNode+DICOMweb, its WADO-URI retrieves in +WADO.
+retrieve = (root / 'Horos/Sources/DCMTKQueryNode+DICOMweb.swift').read_text()
+check('let adaptive = node?.adaptiveRequests ?? false' in retrieve
+      and 'NodeRequestLimiter.shared.acquire(node: limiterNode, limit: limit, adaptive: adaptive' in retrieve,
       'WADO-RS acquires in the node mode')
-check('reportNode:limiterNode outcome:outcome' in retrieve and
-      "latency:[request objectForKey:@\"uid\"] ? NSProcessInfo.processInfo.systemUptime - started : 0" in retrieve,
+check('NodeRequestLimiter.shared.report(node: limiterNode, outcome: outcome' in retrieve and
+      'latency: request.uid != nil ? ProcessInfo.processInfo.systemUptime - started : 0' in retrieve,
       'WADO-RS reports, with an instance latency only')
-check('attempts < 3' in retrieve and "[[requestError.userInfo objectForKey:@\"HorosDICOMwebObjectsHandedOver\"] unsignedIntegerValue] == 0" in retrieve,
+# The decisions are the module's: the queue of the retrieve's requests.
+queue = (root / 'Modules/IsiXDICOMNetwork/Sources/DICOMwebRetrieveQueue.swift').read_text()
+check('busyOrTransient && request.attempts < adaptiveRepeats && (failure?.objectsHandedOver ?? 0) == 0' in queue
+      and 'public static let adaptiveRepeats = 3' in queue
+      and 'if adaptive && DICOMwebRetrieveQueue.repeatsAdaptively(request, failure: failure,' in retrieve,
       'a busy request that brought nothing is asked again, a bounded number of times')
-check('} else if (requestError) recover(request, requestError);' in retrieve,
-      'anything else recovers as HorosDICOMwebRetrieveRecovery says')
+check('} else if let failure {\n                        recover(request, failure: failure)' in retrieve
+      and 'var action = DICOMwebRecovery.action(for: failure, attempts: request.attempts + 1)' in queue,
+      'anything else recovers as DICOMwebRecovery says')
 check('requests at once (automatic)' in retrieve, 'the status shows the window')
-check(node.count('downloader.adaptiveRequests = [HorosNodeRequestLimiter adaptiveForStoredValue:') == 3, 'WADO-URI uses the node mode')
+wado = (root / 'Horos/Sources/DCMTKQueryNode+WADO.swift').read_text()
+check('downloader.adaptiveRequests = NodeRequestLimiter.adaptive(forStoredValue:' in wado
+      and wado.count('wadoDownloader(authorization: authorization)') == 3 and wado.count('WADODownload()') == 1,
+      'WADO-URI uses the node mode')
 download = (root / 'Horos/Sources/WADODownload.swift').read_text()
 check('tryAcquire(node: node!, limit: Int(WADOMaximumConcurrentDownloads), adaptive: self.adaptiveRequests)' in download and
       'report(NodeRequestLimiter.outcome(forStatus: statusCode), task: task, retryAfter:' in download and
-      'if adaptiveRequests { attempts = max(attempts, 4) }' in download, 'WADO-URI acquires, reports and retries in the automatic mode')
+      'WADORetrieveSettings.retryAttempts(preferences: processGraph.preferences, adaptive: adaptiveRequests)' in download
+      and 'if adaptive { attempts = max(attempts, adaptiveRetryAttempts) }' in
+      (root / 'Modules/IsiXDICOMNetwork/Sources/WADORetrieveRules.swift').read_text(),
+      'WADO-URI acquires, reports and retries in the automatic mode')
 client = (root / 'Horos/Sources/DICOMwebClient.swift').read_text()
 check('info[Self.retryAfterKey] = wait' in client and 'RequestOutcome' not in client, 'the client carries Retry-After and stays apart')
 editor = (root / 'Horos/Sources/DICOMwebNodeEditor.swift').read_text()

@@ -49,43 +49,4 @@
 // Swift is compiling the extension itself.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift, the Decompress helper: DCMPix.m imports
-// DicomDatabase.h. The former declarations, without their implementation.
-@interface DicomDatabase (Instance)
-
--(BOOL)isLocal;
-
--(DataNodeIdentifier*)dataNodeIdentifier;
-
-#pragma mark Entities
--(NSEntityDescription*)imageEntity;
--(NSEntityDescription*)seriesEntity;
--(NSEntityDescription*)studyEntity;
--(NSEntityDescription*)albumEntity;
--(NSEntityDescription*)logEntryEntity;
-
-#pragma mark Paths
-// these paths are inside baseDirPath
--(NSString*)modelVersionFilePath; // this should become private
--(NSString*)loadingFilePath; // this should become private
-// these paths are inside dataBaseDirPath
--(NSString*)dataDirPath;
--(NSString*)incomingDirPath;
--(NSString*)errorsDirPath;
--(NSString*)decompressionDirPath;
--(NSString*)toBeIndexedDirPath;
--(NSString*)reportsDirPath;
--(NSString*)tempDirPath;
--(NSString*)dumpDirPath;
--(NSString*)pagesDirPath;
--(NSString*)htmlTemplatesDirPath;
-- (NSString *)statesDirPath;
-- (NSString *)clutsDirPath;
-- (NSString *)presetsDirPath;
-
--(NSUInteger)computeDataFileIndex; // this method should be private, but is declared because called from deprecated api
--(NSString*)uniquePathForNewDataFileWithExtension:(NSString*)ext;
-
-@end
 #endif

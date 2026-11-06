@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 
 /// Window with only a toolbar
 ///
@@ -75,6 +76,29 @@ public final class ToolBarNSWindow: NSPanel {
         return super.isKeyWindow
     }
 
+    /// Draws the toolbar again with the appearance the viewer's key status
+    /// gives it. AppKit tells a window's views that its key status changed
+    /// only when that window's own status does; this panel borrows the
+    /// viewer's, so a viewer that takes or loses the keyboard without the
+    /// panel being touched (a click in its image, another viewer clicked)
+    /// left the toolbar drawn as it was before.
+    @objc(refreshActiveAppearance)
+    func refreshActiveAppearance() {
+        guard let frame = contentView?.superview else { return }
+        // What AppKit sends a window's views when its key status changes: the
+        // toolbar's controls take their active or inactive state from it, and
+        // only part of them from being drawn again.
+        let keyStatusChanged = NSSelectorFromString("_windowChangedKeyState")
+        if frame.responds(to: keyStatusChanged) {
+            _ = frame.perform(keyStatusChanged)
+        }
+        var pending: [NSView] = [frame]
+        while let view = pending.popLast() {
+            view.needsDisplay = true
+            pending.append(contentsOf: view.subviews)
+        }
+    }
+
     public override func orderBack(_ sender: Any?) {
         let v = self.toolbar?.delegate as? ViewerController
 
@@ -82,11 +106,31 @@ public final class ToolBarNSWindow: NSPanel {
             super.orderBack(self)
             v?.toolbarPanel?.applicationDidChangeScreenParameters(nil)
             self.order(.above, relativeTo: v?.window?.windowNumber ?? 0)
+            hideOtherToolbarsOfScreen()
         }
     }
 
+    /// Every viewer of a screen has its toolbar in the same place, and only
+    /// the front viewer's is shown. A panel that was clicked stayed on
+    /// screen when another viewer came to the front some other way (the
+    /// Window menu, a click in its image): that viewer's toolbar was ordered
+    /// in under it, and the one on top was drawn inactive, being another
+    /// viewer's. The panel ordered in for the front viewer takes the others out.
+    private func hideOtherToolbarsOfScreen() {
+        for case let other as ToolBarNSWindow in NSApp.windows
+        where other !== self && other.isVisible && other.screen == self.screen && !(other.toolbar?.customizationPaletteIsRunning ?? false) {
+            other.orderOutLeavingFrontViewer()
+        }
+    }
+
+    /// Out of the screen, without the hand-over to the front viewer's panel
+    /// that -orderOut: does.
+    private func orderOutLeavingFrontViewer() {
+        super.orderOut(nil)
+    }
+
     public override func orderOut(_ sender: Any?) {
-        if UserDefaults.standard.bool(forKey: "hideToolbarIfNotActive") == false && AppController.usetoolbarpanel() == true {
+        if PreferencesSource.process.preferences[ApplicationPreferences.hidesToolbarIfNotActive] == false && AppController.usetoolbarpanel() == true {
 
             let v = ViewerController.frontMostDisplayed2DViewer(for: self.screen)
             // The front viewer keeps its panel, except in full screen, where

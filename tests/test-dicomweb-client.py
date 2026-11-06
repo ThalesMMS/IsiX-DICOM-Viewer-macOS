@@ -317,6 +317,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self.send_budget(mode)
         if mode == 'stow-401':
             return self.reply(401, REFUSAL)
+        if mode == 'stow-too-large':
+            # A refusal marked as DICOM JSON whose body is plain text, not a
+            # store answer, and echoes the credential the request carried.
+            return self.reply(413, REFUSAL)
         if mode == 'stow-legacy':
             return self.reply(200, json.dumps({'sopInstanceUIDs': [p['uid'] for p in stow['parts']]}).encode(), content_type='application/json')
         if mode == 'stow-xml':
@@ -675,6 +679,8 @@ let memory=Memory()
     let split=try DICOMwebNodeConfiguration(address:"https://pacs.example/dicom-web/",qidoPath:"/qido",wadoPath:"wado/rs",credentialIdentifier:"",retrieveTransferSyntax:"*")
     check(split.qidoURLString=="https://pacs.example/dicom-web/qido" && split.wadoURLString=="https://pacs.example/dicom-web/wado/rs"
           && split.storeURLString=="https://pacs.example/dicom-web/studies" && split.retrieveTransferSyntax=="","paths resolve below the address")
+    let shared=try DICOMwebNodeConfiguration(address:"https://pacs.example",qidoPath:"/wado",wadoPath:"wado/",credentialIdentifier:"",retrieveTransferSyntax:"")
+    check(shared.storeURLString=="https://pacs.example/wado/studies","STOW-RS stores below the path QIDO and WADO share")
 
     // Credentials: each kind sends its header; the server records them.
     let basic=try DICOMwebCredentials.store(kind:.basic,username:"reader",secret:secrets[0],headerName:"")
@@ -779,6 +785,13 @@ let memory=Memory()
     check(results.allSatisfy{$0.status == .failure},"401: nothing stored")
     check(results[0].httpStatus==401 && results[2].httpStatus==0 && results[2].reason.hasPrefix("Not sent."),"401 stops the batches after it")
     check(results.allSatisfy{clean(NSError(domain:"x",code:0,userInfo:[NSLocalizedDescriptionKey:$0.reason]))},"store reasons are sanitized")
+    // A refusal whose body is not a store answer is still the node's HTTP
+    // refusal, with its reason, and not a transport failure that may have
+    // left the instances stored; the credential it echoes stays out.
+    results=try node("stow-too-large",credential:bearer).store(files:Array(small.prefix(2)),cancelled:{false})
+    check(results.allSatisfy{$0.status == .failure && $0.httpStatus==413 && $0.reason.contains("HTTP 413") && $0.reason.contains("node reason 1155")
+                             && !$0.reason.contains("Incomplete or invalid")},"413 with a text body is the node's refusal: \(results.map(\.reason))")
+    check(results.allSatisfy{clean(NSError(domain:"x",code:0,userInfo:[NSLocalizedDescriptionKey:$0.reason]))},"an echoed credential stays out of the refusal")
     requireNothingLeft("STOW-RS",since:beforeStow)
     do {_ = try ok.store(files:[],cancelled:{false});check(false,"stored nothing")} catch {}
 
@@ -830,7 +843,7 @@ let memory=Memory()
 def sources_at(revision, folder):
     names = ['Horos/Sources/DICOMwebCredentials.swift', 'Horos/Sources/DICOMwebMultipart.swift', 'Horos/Sources/DICOMwebClient.swift',
              'Horos/Sources/DICOMwebNode.swift']
-    if not revision: names.append('Horos/Sources/NonInteractiveKeychainRead.swift')
+    if not revision: names += ['Horos/Sources/NonInteractiveKeychainRead.swift', 'Horos/Sources/DICOMwebClient+LogText.swift']
     if revision:
         listed = subprocess.run(['git', 'ls-tree', '--name-only', revision, 'Horos/Sources/DICOM-Swift/'], cwd=root,
                                 capture_output=True, text=True).stdout.split()
@@ -949,7 +962,7 @@ try:
         assert any(r['method'] == 'POST' for r in seen(mode)), 'authenticated STOW'
         assert any(r['query'].get('limit') == ['1'] for r in seen(mode)), 'authenticated Test'
     for r in requests:
-        if r['path'].split('/')[1] not in ('auth-basic', 'auth-key', 'auth-bearer', 'unauthorized', 'stow-401'):
+        if r['path'].split('/')[1] not in ('auth-basic', 'auth-key', 'auth-bearer', 'unauthorized', 'stow-401', 'stow-too-large'):
             assert not any(s in json.dumps(r['headers']) for s in SECRETS), 'a secret went to ' + r['path']
     # Paths: QIDO and WADO under their own paths, the Test query with limit=1.
     node = seen('node')
@@ -984,6 +997,8 @@ try:
             assert part['type'] == 'application/dicom; transfer-syntax=1.2.840.10008.1.2.1', part['type']
             assert part['length'] == part['size'], 'Content-Length of each part'
     assert len([s for s in stow_requests if s['mode'] == 'stow-401']) == 1, 'a 401 stops the send'
+    too_large = seen('stow-too-large')
+    assert len(too_large) == 1 and too_large[0]['headers'].get('authorization') == 'Bearer ' + SECRETS[2], 'one refused send with its credential'
     assert not [s for s in stow_requests if s['mode'] == 'stow-meta-rejected'], 'invalid File Meta never reaches transport'
     meta = [s for s in stow_requests if s['mode'] == 'stow-meta']
     assert [p['uid'] for s in meta for p in s['parts']] == ['2.25.799.1', '2.25.799.600', '2.25.799.2'], 'valid neighbors retain order and payload identity'

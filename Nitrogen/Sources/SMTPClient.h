@@ -35,25 +35,12 @@
      PURPOSE.
  ============================================================================*/
 
-// SMTPClient is implemented in Swift
-// (Nitrogen/Sources/SMTPClient.swift). This header keeps <Horos/SMTPClient.h>:
-// the constants, the TLS modes and their type stay here, and the constants are
-// defined in SMTPClient+CAPI.m; the class comes from the generated interface,
-// which declares the same name and selectors.
+// SMTPClient is implemented in Swift (Nitrogen/Sources/SMTPClient.swift),
+// with the keys of +send:'s dictionary. This header keeps <Horos/SMTPClient.h>:
+// the TLS modes and their type stay here; the class comes from the generated
+// interface, which declares the same name and selectors.
 
 #import <Cocoa/Cocoa.h>
-
-
-extern NSString* const SMTPServerAddressKey;
-extern NSString* const SMTPServerPortsKey;
-extern NSString* const SMTPServerTLSModeKey;
-extern NSString* const SMTPFromKey;
-extern NSString* const SMTPServerAuthFlagKey;
-extern NSString* const SMTPServerAuthUsernameKey;
-extern NSString* const SMTPServerAuthPasswordKey;
-extern NSString* const SMTPToKey;
-extern NSString* const SMTPSubjectKey;
-extern NSString* const SMTPMessageKey;
 
 enum {
 	SMTPClientTLSModeNone = 0,
@@ -65,32 +52,6 @@ typedef NSInteger SMTPClientTLSMode;
 #if defined(HOROS_BRIDGING_HEADER)
 // Swift is compiling the class itself: headers it imports may only name it.
 @class SMTPClient;
-// Defined in SMTPClient+CAPI.m and read by +send:; it was never in the public
-// header, so only Swift sees this declaration.
-extern NSString* const SMTPHeadersKey;
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift: code that names the class compiles as before,
-// without its implementation.
-@interface SMTPClient : NSObject
-
-@property(readonly,retain) NSString* address;
-@property(readonly,retain) NSArray* ports;
-@property(readonly,assign) SMTPClientTLSMode tlsMode;
-@property(readonly,retain) NSString* username;
-@property(readonly,retain) NSString* password;
-
-+(void)send:(NSDictionary*)params;
-
-+(SMTPClient*)clientWithServerAddress:(NSString*)address ports:(NSArray*)ports tlsMode:(SMTPClientTLSMode)tlsMode username:(NSString*)authUsername password:(NSString*)authPassword;
-
-+(void)splitAddress:(NSString*)address intoEmail:(NSString**)email description:(NSString**)desc;
-
--(id)initWithServerAddress:(NSString*)address ports:(NSArray*)ports tlsMode:(SMTPClientTLSMode)tlsMode username:(NSString*)authUsername password:(NSString*)authPassword;
-
--(void)sendMessage:(NSString*)message withSubject:(NSString*)subject from:(NSString*)from to:(NSString*)to;
--(void)sendMessage:(NSString*)message withSubject:(NSString*)subject from:(NSString*)from to:(NSString*)to headers:(NSDictionary*)headers;
-
-@end
 #endif

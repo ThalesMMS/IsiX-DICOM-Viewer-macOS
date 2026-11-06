@@ -48,13 +48,6 @@
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.
 @class RemoteDicomDatabase;
-
-// N2LogStackTrace(@"%@", message), in RemoteDicomDatabase+CAPI.m: Swift cannot
-// call the variadic function.
-extern void RemoteDicomDatabaseLogStackTrace(NSString* message);
-// NSAssert(NSThread.isMainThread, …) of -requestDatabasePasswordOnMainThread, in
-// RemoteDicomDatabase+CAPI.m: Swift cannot call the assertion handler's variadic method.
-extern void RemoteDicomDatabaseAssertPasswordDialogOnMainThread(id object, SEL selector);
 #else
 #import "Horos-Swift.h"
 #endif

@@ -39,6 +39,9 @@
 
 import AppKit
 import CoreData
+import IsiXDICOMDataset
+import IsiXDICOMFile
+import IsiXStorage
 import Synchronization
 
 /// What `%@` prints for an object: its description, or "(null)" for nil.
@@ -53,14 +56,18 @@ private func isEqualString(_ string: String?, _ other: String?) -> Bool {
     return (string as NSString).isEqual(to: other)
 }
 
-/// A Cocoa call that reports its failure through an NSError** parameter.
-private func reportingError(_ error: NSErrorPointer, _ body: () throws -> Void) -> Bool {
-    do {
-        try body()
-        return true
-    } catch let failure {
-        error?.pointee = failure as NSError
-        return false
+/// The preparation HorosCreateReportFromTemplate runs over the private copy
+/// of a template, written to throw: false or the error of the step that
+/// failed, which goes to the NSError** the C function reads.
+private func preparation(_ prepare: @escaping (String) throws -> Bool) -> (String?, NSErrorPointer) -> Bool {
+    return { prepared, error in
+        guard let prepared = prepared else { return false }
+        do {
+            return try prepare(prepared)
+        } catch let failure {
+            error?.pointee = failure as NSError
+            return false
+        }
     }
 }
 
@@ -147,58 +154,54 @@ public final class Reports: NSObject {
         NSLog("Report: DICOM_Field: %@", formatArgument(rawField))
 
         var found: String?
-        do {
-            try HorosObjCException.perform {
-                let dicomFields = (rawField as NSString?).flatMap { Reports.components(of: $0) }
+        if let e = HorosObjCException.caught({
+            let dicomFields = (rawField as NSString?).flatMap { Reports.components(of: $0) }
 
-                var dcmObject: DCMObject? = path.flatMap { HorosDCMTKObject(contentsOfFile: $0) }
-                if dcmObject != nil {
-                    var lastObj: AnyObject? = nil
-                    for element in dicomFields ?? NSArray() {
-                        guard let original = element as AnyObject as? NSString else { continue }
-                        let dicomField = Reports.removingSpaces(original)
+            var dcmObject: DCMObject? = path.flatMap { DCMObject.object(contentsOfFile: $0) }
+            if dcmObject != nil {
+                var lastObj: AnyObject? = nil
+                for element in dicomFields ?? NSArray() {
+                    guard let original = element as AnyObject as? NSString else { continue }
+                    let dicomField = Reports.removingSpaces(original)
 
-                        if lastObj == nil {
-                            lastObj = dcmObject?.attribute(withName: dicomField as String?)
-                        }
-
-                        if lastObj == nil {
-                            lastObj = dcmObject?.attribute(for: DCMAttributeTag.tag(withTagString: dicomField as String?) as? DCMAttributeTag)
-                        }
-
-                        if lastObj == nil {
-                            break
-                        }
-
-                        if !(lastObj is DCMSequenceAttribute) {
-                            break
-                        } else {
-                            // Read only first item...
-                            dcmObject = ((lastObj as? NSObject)?.value(forKey: "sequence") as? NSArray)?.object(at: 0) as? DCMObject
-
-                            if (dicomFields?.lastObject as AnyObject?) !== dicomField {
-                                lastObj = nil
-                            }
-                        }
+                    if lastObj == nil {
+                        lastObj = (dicomField as String?).flatMap { dcmObject?.attribute(withName: $0) }
                     }
 
-                    if let sequence = lastObj as? DCMSequenceAttribute {
-                        lastObj = sequence.readableDescription() as NSString?
+                    if lastObj == nil {
+                        lastObj = dcmObject?.attribute(for: DICOMAttributeTag.tag(withTagString: dicomField as String?))
                     }
 
-                    if let attribute = lastObj as? DCMAttribute {
-                        lastObj = attribute.value() as AnyObject?
+                    if lastObj == nil {
+                        break
                     }
 
-                    if let string = lastObj as? NSString {
-                        found = string as String
+                    if !(lastObj is DCMSequenceAttribute) {
+                        break
+                    } else {
+                        // Read only first item...
+                        dcmObject = ((lastObj as? NSObject)?.value(forKey: "sequence") as? NSArray)?.object(at: 0) as? DCMObject
+
+                        if (dicomFields?.lastObject as AnyObject?) !== dicomField {
+                            lastObj = nil
+                        }
                     }
                 }
+
+                if let sequence = lastObj as? DCMSequenceAttribute {
+                    lastObj = sequence.readableDescription() as NSString?
+                }
+
+                if let attribute = lastObj as? DCMAttribute {
+                    lastObj = attribute.value() as AnyObject?
+                }
+
+                if let string = lastObj as? NSString {
+                    found = string as String
+                }
             }
-        } catch {
-            if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                _N2LogExceptionImpl(e, false, "-[Reports getDICOMStringValueForField:inDICOMFile:]")
-            }
+        }) {
+            _N2LogExceptionImpl(e, false, "-[Reports getDICOMStringValueForField:inDICOMFile:]")
         }
 
         if let found = found {
@@ -212,17 +215,15 @@ public final class Reports: NSObject {
 
     /// The image paths of the study's first series, which DICOM_FIELD
     /// placeholders are read from.
-    private func firstSeriesImagePaths(_ study: NSManagedObject!) -> [Any]? {
-        let series = BrowserController.currentBrowser()?.childrenArray(study)
-        guard (series?.count ?? 0) > 0 else { return nil }
-        // The first child goes as it is, whatever its class, as the Objective-C sent it.
-        return BrowserController.currentBrowser()?.perform(#selector(BrowserController.imagesPathArray(_:)), with: series?.first)?
-            .takeUnretainedValue() as? [Any]
+    /// A path is nil for an image without one.
+    private func firstSeriesImagePaths(_ study: NSManagedObject!) -> [String?]? {
+        guard let first = DatabaseItemChildren.children(of: study)?.first else { return nil }
+        return DatabaseItemChildren.children(of: first)?.map { ($0 as? DicomImage)?.completePath() }
     }
 
-    private func dicomValue(from paths: [Any]?) -> (String?) -> String? {
+    private func dicomValue(from paths: [String?]?) -> (String?) -> String? {
         return { field in
-            (paths?.count ?? 0) > 0 ? self.getDICOMStringValue(forField: field, inDICOMFile: paths?.first as? String) : ""
+            (paths?.count ?? 0) > 0 ? self.getDICOMStringValue(forField: field, inDICOMFile: paths?.first ?? nil) : ""
         }
     }
 
@@ -237,19 +238,19 @@ public final class Reports: NSObject {
 
         case 1:
             let destinationFile = String(format: "%@%@.rtf", formatArgument(path), formatArgument(uniqueFilename))
-            let templatePath = (BrowserController.currentBrowser()?.database?.baseDirPath as NSString?)?.appendingPathComponent("ReportTemplate.rtf")
+            let templatePath = (BrowserDatabaseSource.process.browserDatabase?.baseDirPath as NSString?)?.appendingPathComponent("ReportTemplate.rtf")
             let values = reportFieldValues(forStudy: study)
             let paths = firstSeriesImagePaths(study)
             let dicomValue = self.dicomValue(from: paths)
-            let created = HorosCreateReportFromTemplate(templatePath, destinationFile, { prepared, error in
+            let created = HorosCreateReportFromTemplate(templatePath, destinationFile, preparation { prepared in
                 var attributes: NSDictionary? = nil
-                guard let prepared = prepared,
-                      let rtfData = NSData(contentsOfFile: prepared),
+                guard let rtfData = NSData(contentsOfFile: prepared),
                       let rtf = NSMutableAttributedString(rtf: rtfData as Data, documentAttributes: &attributes) else { return false }
                 HorosFillAttributedReport(rtf, values as? [AnyHashable: Any], dicomValue)
                 let documentAttributes = attributes as? [NSAttributedString.DocumentAttributeKey: Any] ?? [:]
                 guard let data = rtf.rtf(from: NSRange(location: 0, length: rtf.length), documentAttributes: documentAttributes) else { return false }
-                return reportingError(error) { try (data as NSData).write(toFile: prepared, options: .atomic) }
+                try (data as NSData).write(toFile: prepared, options: .atomic)
+                return true
             }, nil)
             if !created {
                 _ = HorosAlertPanel.runCritical(title: NSLocalizedString("Report", comment: ""),
@@ -291,19 +292,24 @@ public final class Reports: NSObject {
     @objc(_runAppleScript:withArguments:)
     @discardableResult
     class func _runAppleScript(_ source: String!, withArguments args: NSArray!) -> Any! {
+        return StudyDocumentError.raisingForObjectiveC { try runAppleScript(source, withArguments: args as? [Any]) }
+    }
+
+    /// Runs the AppleScript `source` with `args`; its result. An error of the
+    /// script fails with the editor's own message and number.
+    @discardableResult
+    class func runAppleScript(_ source: String?, withArguments args: [Any]?) throws -> Any? {
         var errs: NSDictionary? = nil
 
         guard let source = source else {
-            NSException(name: .genericException, reason: "Couldn't read script source", userInfo: nil).raise()
-            return nil
+            throw StudyDocumentError.failed("Couldn't read script source")
         }
 
         guard let script = NSAppleScript(source: source) else {
-            NSException(name: .genericException, reason: "Invalid script source", userInfo: nil).raise()
-            return nil
+            throw StudyDocumentError.failed("Invalid script source")
         }
 
-        let r = script.run(withArguments: args, error: &errs)
+        let r = script.run(withArguments: args as NSArray?, error: &errs)
         if let errs = errs {
             // The caller turns this into a generic "report could not be created",
             // so the editor's own number and message have to be recorded here or
@@ -312,11 +318,9 @@ public final class Reports: NSObject {
             NSLog("***** report AppleScript failed: %@ (%@)",
                   formatArgument(errs[NSAppleScript.errorBriefMessage] ?? errs[NSAppleScript.errorMessage] ?? errs),
                   formatArgument(errs[NSAppleScript.errorNumber] ?? "no number"))
-            NSException(name: .genericException,
-                        reason: String(format: "%@ (%@)",
-                                       formatArgument(errs[NSAppleScript.errorMessage] ?? errs[NSAppleScript.errorBriefMessage] ?? errs),
-                                       formatArgument(errs[NSAppleScript.errorNumber] ?? "no number")),
-                        userInfo: nil).raise()
+            throw StudyDocumentError.failed(String(format: "%@ (%@)",
+                                                      formatArgument(errs[NSAppleScript.errorMessage] ?? errs[NSAppleScript.errorBriefMessage] ?? errs),
+                                                      formatArgument(errs[NSAppleScript.errorNumber] ?? "no number")))
         }
 
         return r
@@ -359,52 +363,48 @@ public final class Reports: NSObject {
     // MARK: Word
 
     @objc public class func checkForWordTemplates() {
-        do {
-            try HorosObjCException.perform {
-                var path = BrowserController.currentBrowser()?.database?.baseDirPath
+        if let exception = HorosObjCException.caught({
+            var path = BrowserDatabaseSource.process.browserDatabase?.baseDirPath
 
-                if path == nil {
-                    path = DicomDatabase.defaultBaseDirPath()
-                }
+            if path == nil {
+                path = DicomDatabase.defaultBaseDirPath()
+            }
 
-                // previously, we had a single word template in the Horos Data folder
-                let oldReportFilePath = (path as NSString?)?.appendingPathComponent("ReportTemplate.doc")
+            // previously, we had a single word template in the Horos Data folder
+            let oldReportFilePath = (path as NSString?)?.appendingPathComponent("ReportTemplate.doc")
 
-                // today, we use a dir in the database folder, which contains the templates
-                guard let templatesDirPath = Reports.databaseWordTemplatesDirPath() else {
-                    return
-                }
+            // today, we use a dir in the database folder, which contains the templates
+            guard let templatesDirPath = Reports.databaseWordTemplatesDirPath() else {
+                return
+            }
 
-                var templatesCount = 0
+            var templatesCount = 0
 
-                if FileManager.default.fileExists(atPath: templatesDirPath) {
-                    for filename in (try? FileManager.default.contentsOfDirectory(atPath: templatesDirPath)) ?? [] {
-                        let pathExtension = (filename as NSString).pathExtension.lowercased()
-                        if pathExtension == "doc" || pathExtension == "docx" {
-                            templatesCount += 1
-                        }
+            if FileManager.default.fileExists(atPath: templatesDirPath) {
+                for filename in (try? FileManager.default.contentsOfDirectory(atPath: templatesDirPath)) ?? [] {
+                    let pathExtension = (filename as NSString).pathExtension.lowercased()
+                    if pathExtension == "doc" || pathExtension == "docx" {
+                        templatesCount += 1
                     }
                 }
-
-                if templatesCount == 0, let oldReportFilePath = oldReportFilePath, FileManager.default.fileExists(atPath: oldReportFilePath) {
-                    try? FileManager.default.moveItem(atPath: oldReportFilePath,
-                                                      toPath: (templatesDirPath as NSString).appendingPathComponent((oldReportFilePath as NSString).lastPathComponent))
-                }
-
-                // The default template is a .docx now. It goes beside whatever is
-                // there - the .doc an older version installed included - and
-                // never over a file of the same name.
-                Reports.installDefaultTemplate("ReportTemplate.docx", as: "Basic Report Template.docx", in: templatesDirPath)
             }
-        } catch {
-            if let exception = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                _N2LogExceptionImpl(exception, false, "+[Reports checkForWordTemplates]")
+
+            if templatesCount == 0, let oldReportFilePath = oldReportFilePath, FileManager.default.fileExists(atPath: oldReportFilePath) {
+                try? FileManager.default.moveItem(atPath: oldReportFilePath,
+                                                  toPath: (templatesDirPath as NSString).appendingPathComponent((oldReportFilePath as NSString).lastPathComponent))
             }
+
+            // The default template is a .docx now. It goes beside whatever is
+            // there - the .doc an older version installed included - and
+            // never over a file of the same name.
+            Reports.installDefaultTemplate("ReportTemplate.docx", as: "Basic Report Template.docx", in: templatesDirPath)
+        }) {
+            _N2LogExceptionImpl(exception, false, "+[Reports checkForWordTemplates]")
         }
     }
 
     @objc public class func databaseWordTemplatesDirPath() -> String! {
-        var path = BrowserController.currentBrowser()?.database?.baseDirPath
+        var path = BrowserDatabaseSource.process.browserDatabase?.baseDirPath
 
         if path == nil {
             path = DicomDatabase.defaultBaseDirPath()
@@ -594,45 +594,42 @@ public final class Reports: NSObject {
         ].joined()
 
         var reportError: NSError? = nil
-        let created = HorosCreateReportFromTemplate(template, destinationFile, { prepared, error in
-            guard let prepared = prepared as NSString? else { return false }
+        let created = HorosCreateReportFromTemplate(template, destinationFile, preparation { prepared in
+            let prepared = prepared as NSString
             let directory = prepared.deletingLastPathComponent as NSString
             // Word also identifies unsaved documents by name. Give this private
             // template a per-run name so cleanup cannot target a user's report.doc.
             let privateTemplate = directory.appendingPathComponent(
                 ((directory.lastPathComponent + "-template") as NSString).appendingPathExtension(prepared.pathExtension) ?? "")
-            if !reportingError(error, { try FileManager.default.moveItem(atPath: prepared as String, toPath: privateTemplate) }) { return false }
+            try FileManager.default.moveItem(atPath: prepared as String, toPath: privateTemplate)
             guard let sourceData = self.generateWordReportMergeData(forStudy: study,
                 toPath: directory.appendingPathComponent("MergeData.rtf")) else { return false }
             let fileExtension = isEqualString(((destinationFile as NSString?)?.pathExtension as NSString?)?.lowercased, "docx") ? "docx" : "doc"
             let output = directory.appendingPathComponent(
                 ((directory.lastPathComponent + "-merged") as NSString).appendingPathExtension(fileExtension) ?? "")
-            if !reportingError(error, { try FileManager.default.copyItem(atPath: privateTemplate, toPath: output) }) { return false }
-            var result: Any? = nil
+            try FileManager.default.copyItem(atPath: privateTemplate, toPath: output)
+            let result: Any?
             do {
                 // Output starts as a template copy. A missing script result must
                 // never let that nonempty, unmerged file become the study report.
-                try HorosObjCException.perform {
-                    result = type(of: self)._runAppleScript(source, withArguments: [sourceData, output, privateTemplate, fileExtension] as NSArray)
-                }
-            } catch let caught {
+                result = try type(of: self).runAppleScript(source, withArguments: [sourceData, output, privateTemplate, fileExtension])
+            } catch let failed {
                 // Keep the editor's own message: the caller only sees a BOOL, and
                 // the preparation wrapper would otherwise replace it.
-                let exception = (caught as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-                error?.pointee = NSError(domain: "HorosWordReport", code: 1,
-                                         userInfo: [NSLocalizedDescriptionKey: exception.map { $0.reason ?? $0.name.rawValue } ?? (caught as NSError).localizedDescription])
-                return false
+                let exception = StudyDocumentError.exception(of: failed)
+                throw NSError(domain: "HorosWordReport", code: 1,
+                              userInfo: [NSLocalizedDescriptionKey: exception.reason ?? exception.name.rawValue])
             }
             if !((result as AnyObject?)?.isEqual(NSNumber(value: true)) ?? false) {
                 NSLog("***** Word merge script did not confirm successful save.")
                 return false
             }
-            var attributes: [FileAttributeKey: Any]? = nil
-            if !reportingError(error, { attributes = try FileManager.default.attributesOfItem(atPath: output) }) { return false }
-            if !isEqualString(attributes?[.type] as? String, FileAttributeType.typeRegular.rawValue) ||
-                ((attributes?[.size] as? NSNumber)?.uint64Value ?? 0) == 0 { return false }
+            let attributes = try FileManager.default.attributesOfItem(atPath: output)
+            if !isEqualString(attributes[.type] as? String, FileAttributeType.typeRegular.rawValue) ||
+                ((attributes[.size] as? NSNumber)?.uint64Value ?? 0) == 0 { return false }
             // Only the private copy is replaced here; publication happens after success.
-            return reportingError(error) { try FileManager.default.moveItem(atPath: output, toPath: prepared as String) }
+            try FileManager.default.moveItem(atPath: output, toPath: prepared as String)
+            return true
         }, &reportError)
         if !created {
             // Name what Word refused: the generic sentence alone sent people
@@ -717,7 +714,7 @@ public final class Reports: NSObject {
 
     // ODT templates live beside the legacy ReportTemplate.odt in the database root.
     @objc public class func openDocumentTemplatesList() -> NSMutableArray! {
-        let directory = BrowserController.currentBrowser()?.database?.baseDirPath
+        let directory = BrowserDatabaseSource.process.browserDatabase?.baseDirPath
         let templates = NSMutableArray()
         for name in directory.flatMap({ try? FileManager.default.contentsOfDirectory(atPath: $0) }) ?? [] {
             let path = (directory! as NSString).appendingPathComponent(name)
@@ -739,7 +736,7 @@ public final class Reports: NSObject {
         }
         // Only resolve a listed file, never silently substitute a missing selection.
         guard let listed = name, templates.contains(listed) else { return nil }
-        return (BrowserController.currentBrowser()?.database?.baseDirPath as NSString?)?.appendingPathComponent(listed)
+        return (BrowserDatabaseSource.process.browserDatabase?.baseDirPath as NSString?)?.appendingPathComponent(listed)
     }
 
     @objc(createNewOpenDocumentReportForStudy:toDestinationPath:)
@@ -772,7 +769,7 @@ public final class Reports: NSObject {
     // MARK: Pages.app
 
     @objc class func databasePagesTemplatesDirPath() -> String! {
-        var path = BrowserController.currentBrowser()?.database?.baseDirPath
+        var path = BrowserDatabaseSource.process.browserDatabase?.baseDirPath
 
         if path == nil {
             path = DicomDatabase.defaultBaseDirPath()
@@ -824,14 +821,7 @@ public final class Reports: NSObject {
         let data = try? NSData(contentsOfFile: aPath, options: .mappedIfSafe)
         guard let unpacked = HorosExtractPagesPackage(data as Data?) else { return false }
         var replaced = false
-        var raised: NSException? = nil
-        do {
-            try HorosObjCException.perform {
-                replaced = HorosReplaceReportFile(unpacked, aPath, nil)
-            }
-        } catch {
-            raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-        }
+        let raised = HorosObjCException.caught { replaced = HorosReplaceReportFile(unpacked, aPath, nil) }
         try? FileManager.default.removeItem(atPath: unpacked)
         raised?.raise()
         return replaced
@@ -857,8 +847,7 @@ public final class Reports: NSObject {
             return false
         }
         var error: NSError? = nil
-        let created = HorosCreateReportFromTemplate(template, aPath, { prepared, preparationError in
-            guard let prepared = prepared else { return false }
+        let created = HorosCreateReportFromTemplate(template, aPath, preparation { prepared in
             // A template Pages '09 wrote keeps its text in index.xml and can be
             // filled in here. One that Pages 5 or later wrote keeps it in
             // Index/*.iwa, where nothing here can reach it - and unpacking it first
@@ -874,11 +863,10 @@ public final class Reports: NSObject {
             if legacy {
                 if !self.decompressPagesFileIfNecessary(prepared) { return false }
                 let indexPath = (prepared as NSString).appendingPathComponent("index.xml")
-                var xml: NSMutableString? = nil
-                if !reportingError(preparationError, { xml = try NSMutableString(contentsOfFile: indexPath, encoding: String.Encoding.utf8.rawValue) }) { return false }
-                guard let xml = xml else { return false }
+                let xml = try NSMutableString(contentsOfFile: indexPath, encoding: String.Encoding.utf8.rawValue)
                 self.searchAndReplaceFields(fromStudy: aStudy, in: xml)
-                return reportingError(preparationError) { try xml.write(toFile: indexPath, atomically: true, encoding: String.Encoding.utf8.rawValue) }
+                try xml.write(toFile: indexPath, atomically: true, encoding: String.Encoding.utf8.rawValue)
+                return true
             }
 
             let values = self.reportFieldValues(forStudy: aStudy)
@@ -890,8 +878,9 @@ public final class Reports: NSObject {
             // is handed to Pages as one; the report is a .pages either way.
             let document = isEqualString((prepared as NSString).pathExtension.lowercased(), "pages")
                 ? prepared : ((prepared as NSString).deletingPathExtension as NSString).appendingPathExtension("pages") ?? prepared
-            if document != prepared,
-               !reportingError(preparationError, { try FileManager.default.moveItem(atPath: prepared, toPath: document) }) { return false }
+            if document != prepared {
+                try FileManager.default.moveItem(atPath: prepared, toPath: document)
+            }
             let substitute = { (text: String) -> String in
                 let filled = NSMutableString(string: text)
                 HorosFillReportText(filled, values as? [AnyHashable: Any], dicomValue)
@@ -903,8 +892,9 @@ public final class Reports: NSObject {
             // fail, the copy is as it was and the rest is still filled in.
             PagesHeaderFooterFill.fill(documentAt: document, substitute: substitute)
             let filled = PagesDocumentFill.fill(documentAt: document, substitute: substitute)
-            if document != prepared,
-               !reportingError(preparationError, { try FileManager.default.moveItem(atPath: document, toPath: prepared) }) { return false }
+            if document != prepared {
+                try FileManager.default.moveItem(atPath: document, toPath: prepared)
+            }
             return filled
         }, &error)
         if !created {
@@ -917,7 +907,7 @@ public final class Reports: NSObject {
         guard let aPath else { return false }
         return NSWorkspace.shared.openDocument(atPath: aPath, applicationURLs: [pagesApplication]) { opened in
             guard !opened else { return }
-            DispatchQueue.main.async {
+            onMainRunLoop {
                 _ = HorosAlertPanel.runCritical(title: NSLocalizedString("Pages", comment: ""),
                                             message: NSLocalizedString("The report was created and attached to the study, but Pages could not open it. Check that Pages can launch, then open the report again. The generated report has been kept.", comment: ""),
                                             defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)

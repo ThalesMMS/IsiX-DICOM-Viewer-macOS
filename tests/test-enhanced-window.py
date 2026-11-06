@@ -23,28 +23,33 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
+# The reading is the IsiXImaging module's ImageAttributeReader; its group 0028
+# loader, readPixelDescription(from:), is the old -dcmFrameworkLoad0x0028:.
+module = root / 'Modules/IsiXImaging/Sources'
+groups = (module / 'ImageAttributeReader+FunctionalGroups.swift').read_text()
+reader = (module / 'ImageAttributeReader.swift').read_text()
 failures = []
 
 # The sequence is read where it lives: once for the whole object, and again for
 # the frame, so that a frame stating its own window keeps it.
-if pix.count('attributeWithName:@"FrameVOILUTSequence"') != 2:
+if groups.count('sequence(named: "FrameVOILUTSequence")') != 2:
     failures.append('the frame VOI LUT sequence is not read in both functional groups')
-if 'sequenceItem attributeWithName:@"FrameVOILUTSequence"' not in pix:
+if 'sequenceItem.sequence(named: "FrameVOILUTSequence")' not in groups:
     failures.append('the shared functional group does not carry the window')
 
 # The per-frame read has to come after the shared one.
-shared = pix.find('attributeWithName:@"FrameVOILUTSequence"')
-perframe = pix.find('attributeWithName:@"FrameVOILUTSequence"', shared + 1)
-transformation = pix.find('attributeWithName:@"PixelValueTransformationSequence"', shared)
+shared = groups.find('sequence(named: "FrameVOILUTSequence")')
+perframe = groups.find('sequence(named: "FrameVOILUTSequence")', shared + 1)
+transformation = groups.find('"PixelValueTransformationSequence"', shared)
 if not (shared < transformation < perframe):
     failures.append('the per-frame window is not read after the shared one')
 
-# And the nil comparison is gone.
-if '[[dcmObject attributeValueWithName:@"PhotometricInterpretation"] rangeOfString:@"PALETTE"]' in pix:
-    failures.append('an object that states no Photometric Interpretation is still read as PALETTE')
-if 'photometricInterpretation.length && [photometricInterpretation rangeOfString:@"PALETTE"]' not in pix:
+# And the nil comparison is gone: no Photometric Interpretation is not PALETTE.
+if 'let photometricInterpretation, !photometricInterpretation.isEmpty' not in reader:
     failures.append('the PALETTE test no longer checks that there is a string to test')
+palette = reader.find('range(of: "PALETTE")')
+if palette < 0 or reader.rfind('!photometricInterpretation.isEmpty', 0, palette) < 0:
+    failures.append('an object that states no Photometric Interpretation is still read as PALETTE')
 
 # What -rangeOfString: on nil actually answers, so the reason above is not a
 # claim but a measurement.

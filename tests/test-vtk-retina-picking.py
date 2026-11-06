@@ -51,6 +51,19 @@ for scale in [CGFloat(1), CGFloat(2)] {
     precondition(abs(displaySize.height - 300 * scale) < 1e-8)
     precondition(abs(VTKRetinaGeometry.displayScale(of: view) - scale) < 1e-8)
 
+    // A pane on a screen of this scale, and the VRView it shows in a hidden window
+    // on a screen of any scale: at the pane's scale, its centre is the VTK window's.
+    let paneCentre = view.convertToBacking(NSPoint(x: 200, y: 150))
+    let hosted = VTKRetinaGeometry.backingRect(view.bounds, hostScale: scale).size
+    let centred = VTKRetinaGeometry.windowCenterOffset(forDisplay: paneCentre, displaySize: hosted)
+    precondition(abs(centred.x) < 1e-8 && abs(centred.y) < 1e-8)
+    for hiddenScale in [CGFloat(1), CGFloat(2)] where hiddenScale != scale {
+        let own = VTKRetinaGeometry.backingRect(view.bounds, hostScale: hiddenScale).size
+        let jump = VTKRetinaGeometry.windowCenterOffset(forDisplay: paneCentre, displaySize: own)
+        precondition(abs(abs(jump.x) - abs(200 * (scale - hiddenScale))) < 1e-8,
+                     "The hidden window's own scale must be what moved the centre away")
+    }
+
     let resizeThreshold = VTKRetinaGeometry.resizeHandleDisplayThreshold(pointThreshold: 20, scale: scale)
     precondition(abs(resizeThreshold - 20 * scale) < 1e-8)
     precondition(VTKRetinaGeometry.isViewportResizeHandle(x: 19 * scale, y: 3 * scale, threshold: resizeThreshold))

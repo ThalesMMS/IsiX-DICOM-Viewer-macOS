@@ -111,8 +111,8 @@ program = r'''
 #import "HorosPluginInstall.h"
 int main(int argc, char **argv) { @autoreleasepool {
  NSString *root = [NSString stringWithUTF8String:argv[1]];
- NSString *source = [root stringByAppendingPathComponent:@"new/QAUniversal.horosplugin"];
- NSString *destination = [root stringByAppendingPathComponent:@"installed/QAUniversal.horosplugin"];
+ NSString *source = [root stringByAppendingPathComponent:@"new/QAVersion1.isixplugin"];
+ NSString *destination = [root stringByAppendingPathComponent:@"installed/QAVersion1.isixplugin"];
  NSString *payload = @"Contents/Resources/seal.txt";
  NSData *old = [NSData dataWithContentsOfFile:[destination stringByAppendingPathComponent:payload]];
  NSData *updated = [NSData dataWithContentsOfFile:[source stringByAppendingPathComponent:payload]];
@@ -152,12 +152,12 @@ with tempfile.TemporaryDirectory(prefix='horos-plugin-update-recovery-') as dire
                     str(p / 'fixtures')], check=True)
     data = p / 'fs'
     for parent in ('new', 'installed'):
-        shutil.copytree(p / 'fixtures/QAUniversal.horosplugin',
-                        data / parent / 'QAUniversal.horosplugin')
-    (data / 'new/QAUniversal.horosplugin/Contents/Resources/seal.txt').write_text(
+        shutil.copytree(p / 'fixtures/QAVersion1.isixplugin',
+                        data / parent / 'QAVersion1.isixplugin')
+    (data / 'new/QAVersion1.isixplugin/Contents/Resources/seal.txt').write_text(
         'Updated synthetic resource')
     subprocess.run(['codesign', '--force', '--sign', '-',
-                    str(data / 'new/QAUniversal.horosplugin')],
+                    str(data / 'new/QAVersion1.isixplugin')],
                    check=True, capture_output=True)
     (p / 'retain.m').write_text(program)
     compiled = subprocess.run(
@@ -177,21 +177,21 @@ with tempfile.TemporaryDirectory(prefix='horos-plugin-update-recovery-') as dire
             failures.append('previous-version installer harness failed')
 
     leftover = p / 'leftover'
-    installed = leftover / 'QAUniversal.horosplugin'
-    shutil.copytree(p / 'fixtures/QAUniversal.horosplugin', installed)
-    staging = leftover / '.horos-plugin-update-deadbeef' / 'QAUniversal.horosplugin'
-    shutil.copytree(p / 'fixtures/QAUniversal.horosplugin', staging)
+    installed = leftover / 'QAVersion1.isixplugin'
+    shutil.copytree(p / 'fixtures/QAVersion1.isixplugin', installed)
+    staging = leftover / '.horos-plugin-update-deadbeef' / 'QAVersion1.isixplugin'
+    shutil.copytree(p / 'fixtures/QAVersion1.isixplugin', staging)
     (staging / 'Contents/Resources/seal.txt').write_text('Previous working copy')
     if swift.exists() and (p / 'policy').exists():
         adopt = r'''import Foundation
 let root = CommandLine.arguments[1]
 let adopted = PluginUpdateRecovery.adoptLeftoverStaging(inDirectory: root)
 assert(adopted != nil, "leftover staging after a published swap must become the previous copy")
-let previous = PluginUpdateRecovery.previousPath(forDestination: root + "/QAUniversal.horosplugin")
+let previous = PluginUpdateRecovery.previousPath(forDestination: root + "/QAVersion1.isixplugin")
 assert(adopted == previous, adopted ?? "nil")
 assert((try? String(contentsOfFile: previous + "/Contents/Resources/seal.txt")) == "Previous working copy")
 assert(!FileManager.default.fileExists(atPath: root + "/.horos-plugin-update-deadbeef"))
-PluginUpdateRecovery.discardPrevious(forDestination: root + "/QAUniversal.horosplugin")
+PluginUpdateRecovery.discardPrevious(forDestination: root + "/QAVersion1.isixplugin")
 assert(!FileManager.default.fileExists(atPath: previous))
 print("PASS: leftover staging is adopted as the previous plugin and can be discarded")
 '''

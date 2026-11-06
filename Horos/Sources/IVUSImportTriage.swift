@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXDICOMFile
 
 /// Whether an IVUS / ultrasound object can be handed to the incoming indexer
 /// and the thumbnail stack without taking the process down.
@@ -117,9 +118,12 @@ public final class IVUSImportTriage: NSObject {
 
     @objc(assessPath:)
     public static func assessPath(_ path: String) -> IVUSImportAssessment {
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe),
-              hasDICOMPreamble(data),
-              let parsed = DICOMTriageMetadata.parse(data) else {
+        assess(DICOMTriageFile(path: path))
+    }
+
+    /// The assessment of a file another triage may also be reading.
+    static func assess(_ file: DICOMTriageFile) -> IVUSImportAssessment {
+        guard let data = file.data, hasDICOMPreamble(data), let parsed = file.parsed else {
             return IVUSImportAssessment(
                 detectedDICOM: false, appliesToFile: false,
                 sopClassUID: nil, modality: nil, manufacturer: nil,
@@ -191,7 +195,9 @@ public final class IVUSImportTriage: NSObject {
             error = text
         } else if parsed.encapsulated == false {
             let bytesPerSample = max(bitsAllocated / 8, 1)
-            let oneFrame = rows * columns * bytesPerSample * samples
+            // Native YBR_FULL_422 stores two samples per pixel of the three it declares.
+            let oneFrame = rows * columns * bytesPerSample
+                * DICOMImportRules.storedSamplesPerPixel(samples, photometricInterpretation: photometric)
             if oneFrame > 0 && parsed.pixelDataBytes > 0 && parsed.pixelDataBytes < oneFrame {
                 let text = "Pixel Data is \(parsed.pixelDataBytes) bytes where \(oneFrame) are needed for one frame"
                 reasons.append(text)

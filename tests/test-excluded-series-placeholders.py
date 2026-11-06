@@ -148,48 +148,110 @@ with tempfile.TemporaryDirectory(prefix='horos-excluded-series-') as folder:
     if result.returncode != 0:
         sys.exit('FAIL: the store driver failed')
 
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_text()
+# The query node is Swift, split by responsibility into DCMTKQueryNode+*.swift;
+# its query identifiers come from IsiXDICOMNetwork.
+sys.path.insert(0, str(root / 'tests'))
+from sources import class_text  # noqa: E402
+node = class_text('DCMTKQueryNode')
 
 
 def method(source, signature):
     start = source.index(signature)
-    return source[start:source.index('\n}\n', start)]
+    return source[start:source.index('\n    }\n', start)]
 
 
-for signature in ('- (void)noteExcludedSeries:(NSDictionary*)excluded everything:(BOOL)everything',
-                  '- (void)noteExplicitRetrieveOfSeriesExcludedByRule:(NSString*)rule'):
+for signature in ('func noteExcludedSeries(_ excluded: [String: [String]], everything: Bool)',
+                  'func noteExplicitRetrieveOfSeriesExcluded(byRule rule: String)'):
     body = method(node, signature)
-    assert 'errorMessage' not in body and 'NSLog' in body and 'setStatus' in body, signature
-retrieve = method(node, '- (BOOL)retrieveDICOMweb')
-assert 'recordPlaceholdersOfExcludedSeries:excluded' in retrieve, 'a DICOMweb study retrieve records its placeholders'
-record = method(node, '- (void)recordPlaceholdersOfExcludedSeries:')
-assert 'recordStudy:study node:identifier' in record and 'previewImageOfStudy:' in record
-assert 'acquireNode:limiterNode' in record and 'releaseNode:limiterNode' in record, 'pictures take a slot of the node'
-walk = method(node, '- (BOOL) queryImagesHierarchicallyForStudy:')
-for tag in ('DCM_SeriesDate', 'DCM_SeriesTime', 'DCM_Modality'):
-    assert f'seriesDataset.insertEmptyElement( {tag}, OFTrue);' in walk, tag
-click = method(node, '+ (void)retrieveExcludedSeries:(id)object')
-assert 'DCMTKSeriesQueryNode queryNodeWithDataset' in click and 'retrieveStudies:@[series]' in click
+    assert 'errorMessage' not in body and 'postNotice' not in body and 'NSLog' in body \
+        and 'Thread.current.status = text' in body, signature
+retrieve = method(node, 'func retrieveDICOMweb() -> Bool')
+assert 'recordPlaceholdersOfExcludedSeries(excluded' in retrieve, 'a DICOMweb study retrieve records its placeholders'
+record = method(node, 'func recordPlaceholdersOfExcludedSeries(')
+assert 'ExcludedSeries.record(study: study, node: identifier' in record and 'client.previewPicture(study: study' in record
+assert 'NodeRequestLimiter.shared.acquire(node: limiterNode' in record and 'NodeRequestLimiter.shared.release(node: limiterNode)' in record, \
+    'pictures take a slot of the node'
+identifiers = (root / 'Modules/IsiXDICOMNetwork/Sources/QueryIdentifier.swift').read_text()
+listing = identifiers[identifiers.index('public static func seriesListing('):]
+listing = listing[:listing.index('return identifier')]
+assert 'QueryIdentifiers.seriesListing(study: studyInstanceUID)' in method(node, 'func queryImagesHierarchically(')
+for tag in ('.seriesDate', '.seriesTime', '.modality'):
+    assert tag in listing, tag
+click = method(node, 'class func retrieveExcludedSeries(_ object: Any?)')
+assert 'DCMTKSeriesQueryNode(dataset: identifier.dataset()' in click and 'QueryController.retrieveStudies([series]' in click
 assert 'series.lastRetrieveIncomplete' in click and 'not retrieved. Click its thumbnail to try again.' in click \
-    and 'errorMessage' not in click, 'a click that brought nothing says so in its Activity row'
-
-viewer = (root / 'Horos/Sources/ViewerController.m').read_text()
-build = viewer[viewer.index('- (void) buildMatrixPreview: (BOOL) showSelected'):]
-build = build[:build.index('\n}\n')]
-assert '[BrowserController horosExcludedSeriesOfLocalStudy: s database:' in build, 'the viewer leaves out placeholders whose middle instance is here'
-assert 'i += excluded.count;' in build and '[seriesArray addObject: [[BrowserController currentBrowser] childrenArray: s]];' in build
-assert 'matrixPreviewRetrieveExcludedSeries:' in build and 'O2ViewerThumbnailsMatrixRepresentedObject object: excluded' in build
+    and 'errorMessage' not in click and 'postNotice' not in click, 'a click that brought nothing says so in its Activity row'
+viewer = (((root / 'Horos/Sources/ViewerController.m').read_text()) if (root / 'Horos/Sources/ViewerController.m').exists() else '')
+if '- (void) buildMatrixPreview: (BOOL) showSelected' in viewer:
+    build = viewer[viewer.index('- (void) buildMatrixPreview: (BOOL) showSelected'):]
+    build = build[:build.index('\n}\n')]
+    assert '[BrowserController horosExcludedSeriesOfLocalStudy: s database:' in build, 'the viewer leaves out placeholders whose middle instance is here'
+    assert 'i += excluded.count;' in build and '[seriesArray addObject: [[BrowserController currentBrowser] childrenArray: s]];' in build
+    assert 'matrixPreviewRetrieveExcludedSeries:' in build and 'O2ViewerThumbnailsMatrixRepresentedObject object: excluded' in build
+elif (root / 'Horos/Sources/SeriesListPresenter.swift').is_file():
+    # The series list is built by SeriesListPresenter.swift, with the studies
+    # and series of ViewerController+SeriesPopup.swift.
+    build = (root / 'Horos/Sources/SeriesListPresenter.swift').read_text()
+    build = build[build.index('// MARK: - Building the list'):]
+    studies = (root / 'Horos/Sources/ViewerController+SeriesPopup.swift').read_text()
+    assert 'BrowserController.horosExcludedSeries(ofLocalStudy: local, database:' in build, 'the viewer leaves out placeholders whose middle instance is here'
+    # The series of a local study come from the browser, through the menu's
+    # SeriesMenuBrowsing once the menu moved to SeriesMenuPresenter.
+    assert 'countedCells += placeholders.count' in build and ('viewerArrayAdd(BrowserController.currentBrowser()?.childrenArray(local), to: seriesArray)' in studies
+                                                             or 'viewerArrayAdd(browser.series(of: local), to: seriesArray)' in studies)
+    assert 'matrixPreviewRetrieveExcludedSeries(_:)' in build and 'O2ViewerThumbnailsMatrixRepresentedObject.object(placeholder)' in build
+else:
+    # The series list is Swift: ViewerController+SeriesThumbnails.swift builds it,
+    # with the studies and series of ViewerController+SeriesPopup.swift.
+    build = (root / 'Horos/Sources/ViewerController+SeriesThumbnails.swift').read_text()
+    build = build[build.index('func buildMatrixPreview(_ showSelected: Bool)'):build.index('func matrixPreviewSelectCurrentSeries()')]
+    studies = (root / 'Horos/Sources/ViewerController+SeriesPopup.swift').read_text()
+    assert 'BrowserController.horosExcludedSeries(ofLocalStudy: s, database:' in build, 'the viewer leaves out placeholders whose middle instance is here'
+    assert 'i += excluded.count' in build and 'viewerArrayAdd(BrowserController.currentBrowser()?.childrenArray(local), to: seriesArray)' in studies
+    assert 'matrixPreviewRetrieveExcludedSeries(_:)' in build and 'O2ViewerThumbnailsMatrixRepresentedObject.object(excluded)' in build
 thumbnails = (root / 'Horos/Sources/O2ViewerThumbnailsMatrix.swift').read_text()
 assert 'O2ViewerThumbnailsMatrixRepresentedObject)?.object is DicomSeries' in thumbnails, 'only a series is dragged'
 
-browser = (root / 'Horos/Sources/BrowserController+ExcludedSeries.swift').read_text()
+# The browser's placeholders are its ViewerOpener's; the browser keeps the
+# selectors the preview, the viewers and the cells send.
+facade = (root / 'Horos/Sources/BrowserController+ExcludedSeries.swift').read_text()
+assert 'viewerOpener.prepareExcludedSeries(of: item)' in facade and 'viewerOpener.layOutExcludedSeriesCells()' in facade
+browser = (root / 'Horos/Sources/ViewerOpener.swift').read_text()
 assert 'ExcludedSeries.withoutLocalInstances(pending)' in browser and 'compressedSopInstanceUID IN %@' in browser
-assert 'static let firstTag = -1000' in browser and 'cell.tag = ExcludedSeriesCells.firstTag - k' in browser
-preview = (root / 'Horos/Sources/BrowserController+Preview.swift').read_text()
-assert 'let cellCount = (horos_matrixViewArray?.count ?? 0) + horosExcludedSeries.count' in preview
-selection = (root / 'Horos/Sources/BrowserController+DatabaseDragExport+Selection.swift').read_text()
-assert 'cell.tag >= 0 && cell.tag < (matrixViewArray?.count ?? 0)' in selection, 'the matrix selection reads series by tag'
-controller = (root / 'Horos/Sources/BrowserController.m').read_text()
-assert '[HorosExcludedSeries forgetStudy: study.studyInstanceUID database: database.dataBaseDirPath];' in controller
-assert '[self horosPrepareExcludedSeriesOf: item];' in controller
+assert 'static let firstExcludedSeriesTag = -1000' in browser and 'cell.tag = Self.firstExcludedSeriesTag - k' in browser
+# Opening takes a series by its cell's tag through IsiXDatabase's
+# ThumbnailCellTag, which names no row for a placeholder's negative tag; a
+# bare `count > tag` lets it through and the array read traps.
+opening = browser[browser.index('func open(_ selectedLines: [Any]?'):browser.index('/// The images of the selection, of the thumbnails or of the list.')]
+assert opening.count('ThumbnailCellTag.') == 3, 'every series read by tag in opening goes through the rule'
+assert 'matrixViewArray[cell.tag]' not in opening and 'curList[$0.tag]' not in opening and 'matrixViewArray.count > tag' not in opening
+# Merging the selected thumbnails, the matrix selection's files and its first
+# image, and the preview's slider take a row by tag through the same rule.
+merging = (root / 'Horos/Sources/StudyMergeJob.swift').read_text()
+merging = merging[merging.index('func mergeSelectedThumbnails()'):]
+merging = merging[:merging.index('\n    }\n')]
+assert 'ThumbnailCellTag.rows(tags: tags, of: matrixViewArray)' in merging and 'matrixViewArray[$0.tag]' not in merging
+assert 'guard !series.isEmpty else { return }' in merging, 'placeholders alone have nothing to merge'
+split = (root / 'Horos/Sources/BrowserController+SplitView.swift').read_text()
+assert split.count('let row = ViewerOpener.thumbnailRow(cell, of: ') == 2 and 'object(at: cell.tag)' not in split
+assert 'ThumbnailCellTag.rowIndex(tag: cell.tag, count: rows.count).map { rows[$0] }' in browser
+slider = (root / 'Horos/Sources/BrowserPreviewPane.swift').read_text()
+slider = slider[slider.index('func initAnimationSlider()'):slider.index('private func animate(_ slider: NSSlider?, tag: Int)')]
+assert 'ThumbnailCellTag.rowIndex(tag: cell.tag, count: (browser.horos_matrixViewArray ?? []).count) == nil' in slider
+assert 'selectCell(withTag: 0)' in slider and 'cell.tag >= (' not in slider, 'a placeholder falls back to the first thumbnail'
+rules = (root / 'Modules/IsiXDatabase/Sources/BrowserWindowRules.swift').read_text()
+assert 'public enum ThumbnailCellTag' in rules and '(0..<max(count, 0)).contains(tag) ? tag : nil' in rules
+# The thumbnails' layout and a selection's thumbnails are the database
+# preview's, BrowserPreviewPane.swift.
+preview = (root / 'Horos/Sources/BrowserPreviewPane.swift').read_text()
+assert 'let cellCount = (browser.horos_matrixViewArray?.count ?? 0) + browser.horosExcludedSeries.count' in preview
+# The thumbnails' selection a print reads is PrintSelection's
+# (PrintSelection+DatabaseSelection.swift).
+selection = (root / 'Horos/Sources/PrintSelection+DatabaseSelection.swift').read_text()
+assert 'cell.tag >= 0 && cell.tag < matrixViewArray.count' in selection, 'the matrix selection reads series by tag'
+# Deleting a study and showing a selection's thumbnails are Swift:
+# StudyDeletionJob.swift and BrowserPreviewPane.swift.
+deletion = (root / 'Horos/Sources/StudyDeletionJob.swift').read_text()
+assert 'ExcludedSeries.forget(study: uid, database: folder)' in deletion
+assert 'self.browser.horosPrepareExcludedSeries(of: item)' in preview
 print('PASS: no notice; placeholders after the series, outside the arrays other uses read; recorded, pictured, forgotten')

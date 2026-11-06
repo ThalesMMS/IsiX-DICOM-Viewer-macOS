@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import Synchronization
 
 /// The name a file arrived with, for the moment between copying it into the
 /// database and reading it.
@@ -27,12 +28,8 @@ import Foundation
 /// once the table grows past what an import can hold.
 @objc(HorosImportedFileNames)
 public final class ImportedFileNames: NSObject {
-    private static let gate = NSLock()
-    // nonisolated(unsafe): read and written only between `gate.lock()` and
-    // `gate.unlock()`, as every use below shows. Remove when the lock becomes
-    // a Mutex that holds them.
-    nonisolated(unsafe) private static var names: [String: String] = [:]
-    nonisolated(unsafe) private static var order: [String] = []
+    /// The names by path, and the paths in the order they came.
+    private static let table = Mutex<(names: [String: String], order: [String])>(([:], []))
     /// An import hands over its files in one batch, so the table only has to
     /// hold a batch; well past that, the oldest entries were never claimed.
     private static let limit = 20_000
@@ -40,11 +37,11 @@ public final class ImportedFileNames: NSObject {
     @objc(rememberName:forPath:)
     public static func remember(_ name: String?, forPath path: String?) {
         guard let name, !name.isEmpty, let path, !path.isEmpty else { return }
-        gate.lock()
-        defer { gate.unlock() }
-        if names.updateValue(name, forKey: path) == nil { order.append(path) }
-        while order.count > limit {
-            names.removeValue(forKey: order.removeFirst())
+        table.withLock { table in
+            if table.names.updateValue(name, forKey: path) == nil { table.order.append(path) }
+            while table.order.count > limit {
+                table.names.removeValue(forKey: table.order.removeFirst())
+            }
         }
     }
 
@@ -52,23 +49,21 @@ public final class ImportedFileNames: NSObject {
     @objc(nameForPath:)
     public static func name(forPath path: String?) -> String? {
         guard let path else { return nil }
-        gate.lock()
-        defer { gate.unlock() }
-        guard let name = names.removeValue(forKey: path) else { return nil }
-        if let position = order.firstIndex(of: path) { order.remove(at: position) }
-        return name
+        return table.withLock { table in
+            guard let name = table.names.removeValue(forKey: path) else { return nil }
+            if let position = table.order.firstIndex(of: path) { table.order.remove(at: position) }
+            return name
+        }
     }
 
     @objc public static func forgetAll() {
-        gate.lock()
-        names.removeAll()
-        order.removeAll()
-        gate.unlock()
+        table.withLock { table in
+            table.names.removeAll()
+            table.order.removeAll()
+        }
     }
 
     @objc public static var count: Int {
-        gate.lock()
-        defer { gate.unlock() }
-        return names.count
+        table.withLock { $0.names.count }
     }
 }

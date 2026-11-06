@@ -39,6 +39,7 @@
 
 import AppKit
 import UniformTypeIdentifiers
+import IsiXPreferences
 import PreferencePanes
 
 /// Enables the quality slider of a compression row for JPEG 2000 (3) and JPEG-LS (4).
@@ -65,7 +66,7 @@ final class IsQualityEnabled: ValueTransformer {
 
 /// The General preferences pane.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors
+/// Implemented in Swift: the Objective-C name, the selectors
 /// and OSIGeneralPreferencePanePref.h are those of the former class. Its
 /// xib connects the outlets by name.
 // Main actor: a preferences pane, which the preferences window creates, shows
@@ -74,11 +75,6 @@ final class IsQualityEnabled: ValueTransformer {
 @MainActor
 @objc(OSIGeneralPreferencePanePref)
 public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDelegate {
-    /// What -willUnselect left for +applyLanguagesIfNeeded, when quitting.
-    // Set by the pane's languages table and applied by AppController when it
-    // quits, on the main thread.
-    private static var languagesToMoveWhenQuitting: NSArray?
-
     /// +initialize registered the transformer on the first message to the
     /// class; Swift has no +initialize, so every entry point runs this once.
     nonisolated private static let registerTransformers: Void = {
@@ -92,7 +88,8 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
     @IBOutlet var mainWindow: NSWindow?
     @IBOutlet var CheckUpdatesOnOff: NSButton?
 
-    /// Retained, as it was; the xib's language table binds to self.languages.
+    /// Always nil: macOS chooses the app's language in System Settings. Kept
+    /// for old preference bundles.
     @objc public dynamic var languages: NSMutableArray?
 
     private var topLevelObjects: NSArray?
@@ -111,9 +108,6 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
     }
 
     private func finishInitOnMainActor() {
-        // Localization resources remain inside the signed bundle.
-        languages = HorosLanguageRows(Bundle.main, UserDefaults.standard)
-
         let nib = NSNib(nibNamed: "OSIGeneralPreferencePanePref", bundle: nil)
         nib?.instantiate(withOwner: self, topLevelObjects: &topLevelObjects)
 
@@ -211,12 +205,12 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
         save.nameFieldStringValue = "IsiX-DICOM-Viewer-Preferences.plist"
 
         if save.runModal() == .OK {
-            let defaultsPreferences = DefaultsOsiriX.getDefaults()
+            let defaultsPreferences = DefaultPreferences.applicationDefaults()
             let customizedPreferences = NSMutableDictionary()
 
             for k in UserDefaults.standard.dictionaryRepresentation().keys {
                 let value = UserDefaults.standard.object(forKey: k)
-                let defaultValue = defaultsPreferences?.object(forKey: k)
+                let defaultValue = defaultsPreferences.object(forKey: k)
                 if let value = value, defaultValue == nil || !(value as AnyObject).isEqual(defaultValue) {
                     customizedPreferences.setObject(value, forKey: k as NSString)
                 }
@@ -250,6 +244,7 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
 
                 do {
                     try HorosObjCException.perform {
+                        guard RemoteConfigurationURL.isAcceptable(url) else { return }
                         var activated = false
                         if !Thread.isMainThread {
                             activated = UserDefaults.standard.bool(forKey: "SyncPreferencesFromURL")
@@ -290,7 +285,7 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
         mainView.window?.makeFirstResponder(nil)
 
         // +[NSURL URLWithString:] answered nil for a nil string.
-        if UserDefaults.standard.string(forKey: "SyncPreferencesURL").flatMap({ NSURL(string: $0) }) == nil {
+        if !RemoteConfigurationURL.isAcceptable(UserDefaults.standard.string(forKey: "SyncPreferencesURL").flatMap { URL(string: $0) }) {
             _ = HorosAlertPanel.runInformational(
                 title: NSLocalizedString("Sync Preferences", comment: ""),
                 message: NSLocalizedString("The provided URL doesn't seem correct. Check it's validity.", comment: ""),
@@ -345,27 +340,12 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
 
     private func willUnselectOnMainActor() {
         mainView.window?.makeFirstResponder(nil)
-
-        var enabled = false
-
-        for d in languages ?? [] {
-            if ((d as AnyObject).value(forKey: "active") as? NSNumber)?.boolValue == true {
-                enabled = true
-            }
-        }
-
-        // At least one language must be active !
-        if !enabled, let languages = languages, languages.count > 0 {
-            (languages.object(at: 0) as AnyObject).setValue(NSNumber(value: true), forKey: "active")
-        }
-
-        OSIGeneralPreferencePanePref.languagesToMoveWhenQuitting = languages?.copy() as? NSArray
     }
 
+    /// Does nothing now that the pane has no language list; kept for old
+    /// preference bundles.
     @objc public class func applyLanguagesIfNeeded() {
         _ = registerTransformers
-        HorosApplyLanguageRows(languagesToMoveWhenQuitting as? [Any], UserDefaults.standard)
-        languagesToMoveWhenQuitting = nil
     }
 
     @IBAction @objc(endEditCompressionSettings:)

@@ -37,15 +37,15 @@
 
 // N2View is implemented in Swift (Nitrogen/Sources/N2View.swift).
 // This header keeps <Horos/N2View.h>: it brings in the generated interface,
-// which declares the same class name and selectors. The notification names stay
-// in Objective-C, in N2View+CAPI.m.
+// which declares the same class name and selectors. The notification name and
+// the key of its former size are constants of this header.
 
 #import <Cocoa/Cocoa.h>
 
 @class N2Layout;
 
-extern NSString* N2ViewBoundsSizeDidChangeNotification;
-extern NSString* N2ViewBoundsSizeDidChangeNotificationOldBoundsSize;
+static NSNotificationName const N2ViewBoundsSizeDidChangeNotification = @"N2ViewBoundsSizeDidChangeNotification";
+static NSString* const N2ViewBoundsSizeDidChangeNotificationOldBoundsSize = @"oldBoundsSize";
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.

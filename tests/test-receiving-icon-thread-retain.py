@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """The receiving icon keeps a thread only while that thread is receiving.
 
-`-[AppController _receivingIconSet:]` counts, per thread, how many receptions
-are running, and shows the download icon while any count is above zero. The
-dictionary is keyed by the thread's address, and every call retained the
-thread to make that key (`CFBridgingRetain`) without ever releasing it: each
-DICOM reception leaked two retains of its thread, and the thread with them.
-The thread is now retained once when it gets an entry and released
-when the entry goes.
+The Dock's receiving arrow shows while any thread runs a reception. The
+listener and import threads start and end them through
+`ProcessGraph.showReceiving` and `-[AppController setReceivingIcon]` /
+`-unsetReceivingIcon`, which go to `ReceivingIndicator.showReceiving`, which
+counts them per thread in IsiXInstallation's `ReceivingThreadCounter`. A
+thread is counted under its identity: the counter keeps it while it has an
+entry, so that identity cannot go to a new thread, and lets it go with its last
+reception. Before, every call retained the thread to make its key without ever
+releasing it: each DICOM reception leaked two retains of its thread, and the
+thread with them.
 
-The method is compiled from AppController.swift with `swiftc`, in a stand-in
-AppController with a stand-in N2MutableUInteger, and the retain count of the
-calling thread is read around the calls.
+The counter is compiled from its module source with `swiftc`, and the retain
+count of the calling thread is read around the calls; the wiring is read in
+the app sources.
 """
 from pathlib import Path
 import subprocess
@@ -19,39 +22,35 @@ import re
 import sys
 import tempfile
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
 import sources
 
-application = sources.source_text('AppController')
+counter_source = root / 'Modules/IsiXInstallation/Sources/ReceivingThreadCounter.swift'
+if not counter_source.is_file():
+    sys.exit('FAIL: ReceivingThreadCounter.swift is gone from IsiXInstallation')
 
-# nonisolated: the listener threads call it.
-found = re.search(r'@objc\(_receivingIconSet:\) (?:nonisolated )?func _receivingIconSet\(_ flag: Bool\) \{', application)
-start = found.start() if found else -1
-if start < 0:
-    sys.exit('FAIL: -_receivingIconSet: is gone from AppController.swift')
-method = application[start:application.index('\n    }\n', start) + len('\n    }\n')]
+failures = []
+application = sources.source_text('AppController')
+indicator = sources.source_text('ReceivingIndicator')
+graph = sources.source_text('ProcessGraph')
+# Every way in reaches the one counter.
+if not re.search(r'func setReceivingIcon\(\) \{\s*receivingIndicator\.showReceiving\(true\)\s*\}', application) \
+        or not re.search(r'func unsetReceivingIcon\(\) \{\s*receivingIndicator\.showReceiving\(false\)\s*\}', application):
+    failures.append('-setReceivingIcon / -unsetReceivingIcon do not go to the receiving indicator')
+if 'receivingIndicator.showReceiving(receiving)' not in graph:
+    failures.append('ProcessGraph.showReceiving does not go to the receiving indicator')
+show = re.search(r'nonisolated func showReceiving\(_ receiving: Bool\) \{.*?\n    \}\n', indicator, re.S)
+if not show or 'receptions.begin()' not in show.group(0) or 'receptions.end()' not in show.group(0):
+    failures.append('ReceivingIndicator.showReceiving does not count the calling thread in its ReceivingThreadCounter')
 
 main = r'''import Foundation
 
-final class N2MutableUInteger: NSObject {
-    var unsignedIntegerValue: UInt
-    init(_ value: UInt) { unsignedIntegerValue = value }
-    static func mutableUInteger(with value: UInt) -> N2MutableUInteger { N2MutableUInteger(value) }
-    func increment() { unsignedIntegerValue += 1 }
-    func decrement() { unsignedIntegerValue -= 1 }
-}
-
-final class AppController: NSObject {
-    enum State { static var receivingDict: NSMutableDictionary? = nil }
-    @objc func _receivingIconUpdate() {}
-%s
-}
-
 // The main thread is never deallocated and does not count its retains, so the
 // receptions run on threads of their own.
-let app = AppController()
-func set(_ flag: Bool) { autoreleasepool { app._receivingIconSet(flag) } }
-func entries() -> Int { AppController.State.receivingDict?.count ?? 0 }
+let counter = ReceivingThreadCounter()
+func set(_ flag: Bool) { autoreleasepool { if flag { counter.begin() } else { counter.end() } } }
+func entries() -> Int { counter.receivingThreads }
 func onThread(_ body: @escaping () -> Void) {
     let done = DispatchSemaphore(value: 0)
     Thread { body(); done.signal() }.start()
@@ -114,21 +113,20 @@ onThread {
 }
 
 print("PASS: a thread is retained once while it receives, and released when it stops")
-''' % method
+'''
 
-failures = []
 with tempfile.TemporaryDirectory(prefix='horos-receiving-icon-') as tmp:
     p = Path(tmp)
     (p / 'main.swift').write_text(main)
-    build = subprocess.run(['swiftc', str(p / 'main.swift'), '-o', str(p / 'test')],
+    build = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', str(counter_source), str(p / 'main.swift'), '-o', str(p / 'test')],
                            capture_output=True, text=True)
     if build.returncode:
         print(build.stderr.strip()[-2000:])
-        sys.exit('FAIL: -_receivingIconSet: did not compile')
+        sys.exit('FAIL: ReceivingThreadCounter did not compile')
     run = subprocess.run([str(p / 'test')], capture_output=True, text=True, timeout=60)
     print((run.stdout + run.stderr).strip()[-2000:])
     if run.returncode:
-        failures.append('-_receivingIconSet: does not give back the retains of the thread')
+        failures.append('ReceivingThreadCounter does not give back the retains of the thread')
 
 for failure in failures:
     print('FAIL: %s' % failure)

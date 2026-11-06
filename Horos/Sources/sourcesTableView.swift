@@ -47,7 +47,15 @@ import Cocoa
 /// and OSIPACSOnDemand.xib use the name as customClass.
 @objc(sourcesTableView)
 public final class sourcesTableView: NSTableView {
-    // -draggingSourceOperationMaskForLocal: stays in Objective-C, in
-    // sourcesTableView+CAPI.m: Swift marks it unavailable (deprecated since
-    // macOS 10.7), so it can neither override it nor reuse its selector.
+    // The former -draggingSourceOperationMaskForLocal:, deprecated since macOS
+    // 10.7 and unavailable in Swift: NSTableView asks it from this method,
+    // which answers in its place.
+    public override func draggingSession(_ session: NSDraggingSession,
+                                         sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+        if context != .withinApplication {
+            // link for external dragged URLs
+            return .link
+        }
+        return super.draggingSession(session, sourceOperationMaskFor: context)
+    }
 }

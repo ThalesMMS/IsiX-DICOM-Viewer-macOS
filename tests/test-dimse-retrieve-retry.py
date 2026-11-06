@@ -1,22 +1,41 @@
 #!/usr/bin/env python3
-"""Bounded IMAGE-level recovery uses only confirmed missing identities."""
+"""Bounded IMAGE-level recovery uses only confirmed missing identities.
+
+A local DIMSE retrieve (C-MOVE or C-GET) whose listing was confirmed asks again,
+in at most two IMAGE-level rounds, for the instances that did not arrive; a
+DICOMweb or WADO retrieve and a cancelled one are not retried. The source
+checks name where the application does it, and the compiled driver runs the
+inventory's rules for the rounds.
+"""
 from pathlib import Path
 import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-node = (ROOT / 'Horos/Sources/DCMTKQueryNode.mm').read_text()
-recovery = node[node.index('- (void)retryMissingDIMSEInstances:'):node.index('- (void) move:(NSDictionary*) dict retrieveMode:')]
-assert 'NSThread.isMainThread' in recovery
-assert 'waitForReceivedImportsRefreshing:' in recovery
-assert 'retrySeriesAfterRound:round' in recovery and 'round < 2' in recovery
-assert 'DCM_StudyInstanceUID' in recovery and 'DCM_SeriesInstanceUID' in recovery and 'DCM_SOPInstanceUID' in recovery
-assert 'UID_GETStudyRootQueryRetrieveInformationModel : UID_MOVEStudyRootQueryRetrieveInformationModel' in recovery
-assert 'if (NSThread.currentThread.isCancelled) return;' in recovery
-assert 'dataset:&dataset destination:[dict objectForKey:@"moveDestination"]]) return;' in recovery
-assert 'rsp.DimseStatus == 0xb000 || rsp.DimseStatus == 0xa702' in node
-assert '!NSThread.currentThread.isCancelled && !recoverablePartial' in node
-assert 'localRetrieve && !dicomweb && retrieveMode != WADORetrieveMode && !NSThread.currentThread.isCancelled' in node
+import sys
+sys.path.insert(0, str(ROOT / 'tests'))
+from sources import class_text  # noqa: E402
+import retrieve_inventory_harness  # noqa: E402
+node = class_text('DCMTKQueryNode')
+recovery = node[node.index('private func retryMissingDIMSEInstances('):node.index('// MARK: Series left out by a rule')]
+assert 'Thread.isMainThread' in recovery
+assert 'waitForReceivedImports(refreshing:' in recovery
+assert 'retrySeries(afterRound: round' in recovery and 'for round in 0..<2' in recovery
+assert 'QueryIdentifiers.retrieve(instances: uids, series: seriesUID, study: inventoryStudyUID)' in recovery
+identifiers = (ROOT / 'Modules/IsiXDICOMNetwork/Sources/QueryIdentifier.swift').read_text()
+instances = identifiers[identifiers.index('public static func retrieve(instances'):]
+instances = instances[:instances.index('return identifier')]
+assert '.studyInstanceUID' in instances and '.seriesInstanceUID' in instances and '.sopInstanceUID' in instances
+assert 'get ? .getStudyRoot : .moveStudyRoot' in recovery
+assert 'if Thread.current.isCancelled { return }' in recovery
+assert 'identifier: request, destination: destination) { return }' in recovery
+assert 'result.status == 0xb000 || result.status == 0xa702' in node
+assert '!Thread.current.isCancelled && !recoverablePartial' in node
+# The recovery follows a local DIMSE retrieve only: never a DICOMweb or WADO one,
+# whose mode is the module's DICOMRetrieveMode, nor a cancelled one.
+assert 'localRetrieve && !dicomweb && Int(retrieveMode) != DICOMRetrieveMode.wado.rawValue && !Thread.current.isCancelled' in node
+modes = (ROOT / 'Modules/IsiXDICOMNetwork/Sources/DICOMRetrieveMode.swift').read_text()
+assert 'case wado = 2' in modes
 
 driver = r'''
 import Foundation
@@ -78,6 +97,6 @@ print("ok: two bounded selective rounds, pending imports, cancellation, unknown 
 with tempfile.TemporaryDirectory(prefix='dimse-retry-') as directory:
     folder = Path(directory)
     (folder / 'main.swift').write_text(driver)
-    subprocess.run(['xcrun','swiftc',str(ROOT / 'Horos/Sources/RetrieveInventory.swift'),str(folder / 'main.swift'),
+    subprocess.run(['xcrun','swiftc',*retrieve_inventory_harness.swiftc_arguments(folder / 'harness'),str(folder / 'main.swift'),
                     '-o',str(folder / 'test')],check=True)
     subprocess.run([str(folder / 'test'),directory],check=True,timeout=20)

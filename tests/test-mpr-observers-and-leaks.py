@@ -98,9 +98,22 @@ deinit = block(controller, 'deinit {')
 if 'observesPresetsAndDefaults = true' not in awake:
     failures.append('-awakeFromNib does not record that it added the key-value observers')
 guarded = block(deinit, 'if observesPresetsAndDefaults {')
-if 'removeObserver(self, forKeyPath: "values.MPR2DViewsPosition")' not in guarded \
+# The defaults key paths are written as literals ("values.MPR2DViewsPosition")
+# or through the preferences catalog (controllerKeyPath(...mpr2DViewsPosition)).
+views_position = re.compile(r'removeObserver\(self,\s*forKeyPath:\s*(?:"values\.MPR2DViewsPosition"'
+                            r'|ReconstructionPreferences\.controllerKeyPath\(ReconstructionPreferences\.mpr2DViewsPosition\))')
+if not views_position.search(guarded) \
         or 'removeObserver(self, forKeyPath: "selectedObjects"' not in guarded:
     failures.append('deinit removes key-value observers that a failed nib load never added')
+# Every key path that -awakeFromNib observes is removed inside the guard, none outside it.
+key_path = r'forKeyPath:\s*("[^"]*"|ReconstructionPreferences\.controllerKeyPath\([^)]*\))'
+added = set(re.findall(r'addObserver\(self,\s*' + key_path, awake))
+removed = set(re.findall(r'removeObserver\(self,\s*' + key_path, guarded))
+if added != removed:
+    failures.append(f'deinit does not remove under the guard exactly what -awakeFromNib observes: '
+                    f'added {sorted(added)}, removed {sorted(removed)}')
+if re.search(r'removeObserver\(self,\s*forKeyPath:', deinit.replace(guarded, '')):
+    failures.append('deinit removes a key-value observer outside the guard')
 
 # The ROI manager.
 if re.search(r'unowned\(unsafe\)\s+var\s+_ROIManager', view):

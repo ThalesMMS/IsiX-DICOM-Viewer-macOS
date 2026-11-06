@@ -11,13 +11,14 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXDICOMNetwork
 
 // MARK: - Sources and destinations
 
 /// DICOMweb nodes where the Query/Retrieve window and the Send sheet list
 /// DICOM nodes.
 ///
-/// Those windows work with server dictionaries, as `DCMNetServiceDelegate`
+/// Those windows work with server dictionaries, as `DICOMNodeService`
 /// gives them for the DIMSE nodes in `SERVERS`. A DICOMweb node is given to
 /// them as a dictionary of the same shape, made here from `DICOMWEB_SERVERS`
 /// and never stored in `SERVERS`: `DICOMwebNode` names the node by its
@@ -32,8 +33,8 @@ public final class DICOMwebSources: NSObject {
     @objc public static let nodeKey = "DICOMwebNode"
     /// What the AE Title column and the Send sheet show for a DICOMweb node.
     @objc public static let title = "DICOMweb"
-    /// The retrieve mode of DCMNetServiceDelegate.h that a DICOMweb node is given.
-    static let retrieveMode = 3
+    /// The retrieve mode a DICOMweb node is given.
+    static let retrieveMode = DICOMRetrieveMode.dicomWeb.rawValue
 
     /// The server dictionary of a node.
     @objc(serverForNode:)
@@ -123,7 +124,7 @@ public final class DICOMwebSources: NSObject {
         inventoryEndpoint(forServer: server, in: .standard)
     }
 
-    /// Where the Send sheet says the files go: {address}/studies.
+    /// Where the Send sheet says the files go: the node's store URL.
     public static func storeURL(forServer server: [AnyHashable: Any]?, in defaults: UserDefaults) -> String {
         guard let node = node(forServer: server, in: defaults), !node.stowEndpoint.isEmpty else { return address(forServer: server) }
         return node.stowEndpoint + "/studies"
@@ -218,13 +219,49 @@ public final class DICOMwebSendReport: NSObject {
     /// stored with a warning: its SOP Instance UID (or file name) and why.
     @objc(detailWithLimit:)
     public func detail(limit: Int) -> String {
-        let notable = results.filter { $0.status != .success }
+        detail(limit: limit) { _, result in
+            (result.sopInstanceUID.isEmpty ? (result.path as NSString).lastPathComponent : result.sopInstanceUID,
+             result.reason.isEmpty ? NSLocalizedString("stored with a warning", comment: "DICOMweb send") : result.reason)
+        }
+    }
+
+    /// `detail(limit:)` as the log may write it: an instance without a SOP
+    /// Instance UID told by its place among the files of the send and the
+    /// shape of its name, and each reason as `logReason` has it.
+    ///
+    /// The system log is readable by every process of the user and travels in
+    /// sysdiagnose reports. The instances told by a file name are the files
+    /// that are not DICOM, or name no instance, and the files a cancelled
+    /// send never read; a file the database copied is named by a number, but
+    /// one it indexed where it lies keeps the name its owner gave it, and
+    /// people name files after patients. The reason the user is shown may
+    /// end with what the node said about a refused request.
+    @objc(logDetailWithLimit:)
+    public func logDetail(limit: Int) -> String {
+        detail(limit: limit) { position, result in
+            (Self.hasFormOfUID(result.sopInstanceUID) ? result.sopInstanceUID
+                : "file \(position) " + StoreReport.logName(ofFileAtPath: result.path),
+             result.logReason.isEmpty ? "stored with a warning" : result.logReason)
+        }
+    }
+
+    /// Whether `text` is written as a UID is, in digits and dots, 64 at most:
+    /// what a file gives as its SOP Instance UID is whatever it holds there.
+    static func hasFormOfUID(_ text: String) -> Bool {
+        let digits = UInt8(ascii: "0")...UInt8(ascii: "9")
+        return !text.isEmpty && text.utf8.count <= 64 && text.utf8.allSatisfy { $0 == UInt8(ascii: ".") || digits.contains($0) }
+    }
+
+    /// The summary and a line per instance not stored, or stored with a
+    /// warning, each told by `telling` from its place among the files of the
+    /// send, from 1, as a name and a reason.
+    private func detail(limit: Int, telling: (Int, DICOMwebStoreResult) -> (name: String, reason: String)) -> String {
+        let notable = results.enumerated().filter { $0.element.status != .success }
         let shown = notable.prefix(max(limit, 0))
         var lines = [summary]
-        for result in shown {
-            let name = result.sopInstanceUID.isEmpty ? (result.path as NSString).lastPathComponent : result.sopInstanceUID
-            let reason = result.reason.isEmpty ? NSLocalizedString("stored with a warning", comment: "DICOMweb send") : result.reason
-            lines.append("  " + name + ": " + reason)
+        for (index, result) in shown {
+            let told = telling(index + 1, result)
+            lines.append("  " + told.name + ": " + told.reason)
         }
         if notable.count > shown.count {
             lines.append("  " + String(format: NSLocalizedString("… and %ld more", comment: "DICOMweb send"), notable.count - shown.count))
@@ -319,7 +356,8 @@ public final class DICOMwebSender: NSObject {
                 try? FileManager.default.removeItem(atPath: converted)
                 let uid = DICOMwebClient.fileMeta(URL(fileURLWithPath: path))?.meta.mediaStorageSOPInstanceUID ?? ""
                 results[index] = DICOMwebStoreResult(path: path, sopInstanceUID: uid, status: .failure,
-                    reason: String(format: NSLocalizedString("Not sent: it could not be converted to %@.", comment: "DICOMweb send"), target))
+                    reason: String(format: NSLocalizedString("Not sent: it could not be converted to %@.", comment: "DICOMweb send"), target),
+                    logReason: "Not sent: it could not be converted to the Send Syntax \(syntax).")
             }
         }
         var stopped = cancelled()
@@ -336,14 +374,16 @@ public final class DICOMwebSender: NSObject {
             for (position, item) in sent.enumerated() {
                 let result = stored[position]
                 results[item.index] = DICOMwebStoreResult(path: files[item.index], sopInstanceUID: result.sopInstanceUID,
-                    status: result.status, reason: result.reason, reasonCode: result.reasonCode, httpStatus: result.httpStatus)
+                    status: result.status, reason: result.reason, logReason: result.logReason,
+                    reasonCode: result.reasonCode, httpStatus: result.httpStatus)
             }
             stopped = cancelled()
         }
         // Whatever was not tried because the send was cancelled.
         for index in files.indices where results[index] == nil {
             results[index] = DICOMwebStoreResult(path: files[index], sopInstanceUID: "", status: .failure,
-                                                 reason: NSLocalizedString("Not sent: the send was cancelled.", comment: ""))
+                                                 reason: NSLocalizedString("Not sent: the send was cancelled.", comment: ""),
+                                                 logReason: "Not sent: the send was cancelled.")
         }
         return DICOMwebSendReport(results: results.map { $0! }, cancelled: stopped)
     }

@@ -313,6 +313,17 @@ with tempfile.TemporaryDirectory(prefix='horos-gsps-') as raw:
     for flag in ('SHUTTER', 'COMPOUND', 'MASK', 'INTERPOLATED'):
         if flag not in joined:
             failures.append('unsupported %s was not flagged: %s' % (flag, missing['unsupported']))
+    # The document is dictionaries, which keep no order, and Swift seeds its
+    # hashing per process: the list is alphabetical, the same on every run.
+    expected = [label + ' is not in the documented GSPS subset' for label in
+                ('Compound Graphic', 'Display Shutter', 'Graphic Type INTERPOLATED', 'Mask Subtraction')]
+    if missing['unsupported'] != expected:
+        failures.append('unsupported features are not in alphabetical order: %s' % missing['unsupported'])
+    case_path = tmp / 'case.json'
+    orders = {tuple(json.loads(subprocess.run([str(tmp / 'gsps-test'), str(case_path)], check=True, capture_output=True,
+                                              text=True).stdout)['unsupported']) for _ in range(8)}
+    if len(orders) != 1:
+        failures.append('unsupported features came out in %d orders over 8 runs: %s' % (len(orders), sorted(orders)))
 
     color = run_case(tmp, {
         'expectUnsupportedSOP': True,

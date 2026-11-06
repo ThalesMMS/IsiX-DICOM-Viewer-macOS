@@ -240,7 +240,7 @@ public final class VolumeMetalRenderer {
         float4 shading;      // ambient, diffuse, specular (each with the lights folded in), specularPower
         float4 cropMin;      // xyz, w: crop enabled
         float4 cropMax;      // xyz
-        float4 windowCenter; // xy: VTK's window centre in half widths and heights
+        float4 windowCenter; // xy: VTK's window centre in half widths and heights; z: write the picture
         float4 background;   // rgb, w: scalar written where a projection finds no sample
         uint4 size;          // width, height, maxSteps, anchored projection
         uint4 viewport;      // full size and top-left origin of the output region
@@ -367,6 +367,7 @@ public final class VolumeMetalRenderer {
     }
     kernel void volumeRender(texture3d<float, access::sample> volume [[texture(0)]],
                              texture2d<float, access::read> clut [[texture(1)]],
+                             texture2d<float, access::write> picture [[texture(2)]],
                              device const float *opacity [[buffer(0)]],
                              device uchar4 *output [[buffer(1)]],
                              device float *scalarOutput [[buffer(2)]],
@@ -597,6 +598,16 @@ public final class VolumeMetalRenderer {
             rgb = p.background.xyz;
         }
         rgb = clamp(rgb, 0.0, 1.0);
+        if (p.windowCenter.z != 0.0) {
+            // The two buffers below as the host converts them
+            // (RayCastPicture.composite), in the format and row order the
+            // presenter samples. NaN is tested on its bits: fast math may
+            // fold isnan away.
+            uint3 words = (uint3(rgb * 255.0 + 0.5) * 32767u + 127u) / 255u;
+            bool undefined = (as_type<uint>(acc.a) & 0x7fffffffu) > 0x7f800000u;
+            uint alpha = uint((undefined ? 0.0 : clamp(acc.a, 0.0, 1.0)) * 32767.0 + 0.5);
+            picture.write(float4(float3(words), float(alpha)) / 65535.0, uint2(gid.x, p.size.y - 1 - gid.y));
+        }
         output[gid.y * p.size.x + gid.x] = uchar4(uchar(rgb.b * 255.0 + 0.5), uchar(rgb.g * 255.0 + 0.5), uchar(rgb.r * 255.0 + 0.5), 255);
     }
     """#
@@ -801,18 +812,45 @@ public final class VolumeMetalRenderer {
 
     /// Copy directly into the host's owned storage, only after GPU completion.
     /// The ordinary Data result above remains independent of later renders.
-    func render(_ request: VolumeRenderRequest, scalarInto destination: NSMutableData) throws -> (bgra: Data, milliseconds: Double) {
+    /// With `picture`, an `rgba16Unorm` texture at least the request's size, a
+    /// composite render writes it as VTK's image would hold the frame, bottom
+    /// row first, and hands back no bytes: `lastComposite` has them for
+    /// whoever asks.
+    func render(_ request: VolumeRenderRequest, scalarInto destination: NSMutableData,
+                picture: MTLTexture? = nil) throws -> (bgra: Data, milliseconds: Double) {
         let result = try render(request, scalarSink: { bytes, count in
             destination.length = count
             memcpy(destination.mutableBytes, bytes, count)
-        })
+        }, picture: picture)
         return (result.bgra, result.milliseconds)
     }
 
-    private func render(_ request: VolumeRenderRequest, scalarSink: ((UnsafeRawPointer, Int) -> Void)?) throws -> VolumeRenderResult {
+    /// How many renders finished; what `lastComposite` holds is the latest.
+    private(set) var renderCount = 0
+
+    /// The colour and opacity of the last composite render, as `render` hands
+    /// them back without a picture; valid until the next render.
+    func lastComposite(width: Int, height: Int) -> (bgra: Data, scalar: Data)? {
+        let count = width * height
+        guard count > 0, let outputBuffer, let scalarBuffer, outputBuffer.length >= count * 4, scalarBuffer.length >= count * 4 else { return nil }
+        return (Data(bytes: outputBuffer.contents(), count: count * 4), Data(bytes: scalarBuffer.contents(), count: count * 4))
+    }
+
+    /// Bound in the picture's place when a render writes none; never written.
+    private lazy var noPicture: MTLTexture? = {
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Unorm, width: 1, height: 1, mipmapped: false)
+        descriptor.usage = [.shaderWrite]
+        descriptor.storageMode = .private
+        return device.makeTexture(descriptor: descriptor)
+    }()
+
+    private func render(_ request: VolumeRenderRequest, scalarSink: ((UnsafeRawPointer, Int) -> Void)?,
+                        picture requestedPicture: MTLTexture? = nil) throws -> VolumeRenderResult {
         let traceStart = MetalPerformanceTrace.now()
         guard let texture, let uploaded, let brickRanges else { throw ResliceFailure.device("No volume is uploaded.") }
         let count = request.width * request.height
+        let picture = request.mode == .composite ? requestedPicture : nil
+        guard let pictureTexture = picture ?? noPicture else { throw ResliceFailure.memory("Metal refused the image.") }
         // An RGB volume's projection keeps three values a pixel.
         let scalars = colourVolume && request.mode != .composite ? 3 : 1
         func scalarResult(_ buffer: MTLBuffer) -> Data {
@@ -822,6 +860,12 @@ public final class VolumeMetalRenderer {
                 return Data()
             }
             return Data(bytes: buffer.contents(), count: bytes)
+        }
+        func finished(_ output: MTLBuffer, _ scalar: MTLBuffer, milliseconds: Double) -> VolumeRenderResult {
+            renderCount &+= 1
+            if picture != nil { return VolumeRenderResult(bgra: Data(), scalar: Data(), milliseconds: milliseconds) }
+            return VolumeRenderResult(bgra: Data(bytes: output.contents(), count: count * 4), scalar: scalarResult(scalar),
+                                      milliseconds: milliseconds)
         }
         let maximumImageBytes = 8192 * 8192 * 4
         if try growOutput(&outputBuffer, bytes: count * 4, maximumBytes: maximumImageBytes) { outputAllocations[0] += 1 }
@@ -854,7 +898,7 @@ public final class VolumeMetalRenderer {
             shading: request.shading.terms,
             cropMin: SIMD4(request.crop?.minimum ?? SIMD3(0, 0, 0), request.crop == nil ? 0 : 1),
             cropMax: SIMD4(request.crop?.maximum ?? SIMD3(0, 0, 0), 0),
-            windowCenter: SIMD4(camera.windowCenter.x, camera.windowCenter.y, 0, 0),
+            windowCenter: SIMD4(camera.windowCenter.x, camera.windowCenter.y, picture == nil ? 0 : 1, 0),
             background: SIMD4(request.background, request.scalarBackground),
             size: SIMD4(UInt32(request.width), UInt32(request.height), maxSteps, request.anchoredProjection ? 1 : 0),
             viewport: SIMD4(UInt32(request.viewportSize.x), UInt32(request.viewportSize.y),
@@ -871,7 +915,7 @@ public final class VolumeMetalRenderer {
             let times: Metal4ComputeSubmitter.Times
             do {
                 times = try withUnsafeBytes(of: &params) { parameters in
-                    try submitter.dispatch(pipeline: pipeline, textures: [texture, clut],
+                    try submitter.dispatch(pipeline: pipeline, textures: [texture, clut, pictureTexture],
                                            buffers: [opacity.values, output, scalar, nil, brickRanges, opacity.prefix, depthBuffer],
                                            uniformsIndex: 3, parameters: parameters,
                                            size: MTLSize(width: request.width, height: request.height, depth: 1),
@@ -889,9 +933,7 @@ public final class VolumeMetalRenderer {
                 throw error
             }
             let milliseconds = Double(DispatchTime.now().uptimeNanoseconds - started) / 1e6
-            let result = VolumeRenderResult(bgra: Data(bytes: output.contents(), count: count * 4),
-                                            scalar: scalarResult(scalar),
-                                            milliseconds: milliseconds)
+            let result = finished(output, scalar, milliseconds: milliseconds)
             MetalPerformanceTrace.record("vr.render.metal4", startedAt: traceStart, committedAt: times.committedAt,
                                          completedAt: times.observedAt, gpuStartTime: times.gpuStartTime,
                                          gpuEndTime: times.gpuEndTime, failed: false, finishedAt: MetalPerformanceTrace.now(),
@@ -903,7 +945,7 @@ public final class VolumeMetalRenderer {
         }
         let started = DispatchTime.now().uptimeNanoseconds
         encoder.setComputePipelineState(pipeline)
-        encoder.setTexture(texture, index: 0); encoder.setTexture(clut, index: 1)
+        encoder.setTexture(texture, index: 0); encoder.setTexture(clut, index: 1); encoder.setTexture(pictureTexture, index: 2)
         encoder.setBuffer(opacity.values, offset: 0, index: 0); encoder.setBuffer(output, offset: 0, index: 1)
         encoder.setBuffer(scalar, offset: 0, index: 2)
         encoder.setBytes(&params, length: MemoryLayout<Params>.stride, index: 3)
@@ -923,9 +965,7 @@ public final class VolumeMetalRenderer {
             throw command.error ?? ResliceFailure.device("The volume render failed.")
         }
         let milliseconds = Double(DispatchTime.now().uptimeNanoseconds - started) / 1e6
-        let result = VolumeRenderResult(bgra: Data(bytes: output.contents(), count: count * 4),
-                                        scalar: scalarResult(scalar),
-                                        milliseconds: milliseconds)
+        let result = finished(output, scalar, milliseconds: milliseconds)
         MetalPerformanceTrace.record("vr.render", startedAt: traceStart, committedAt: committedAt, completedAt: completedAt,
                                      command: command, finishedAt: MetalPerformanceTrace.now(),
                                      extra: ["width": request.width, "height": request.height])
@@ -933,7 +973,7 @@ public final class VolumeMetalRenderer {
     }
 }
 
-/// Objective-C face for `VRHostBridge.mm`. Vectors travel as number arrays.
+/// Objective-C face for the 3D view's host (VRController+VolumeMetal.swift). Vectors travel as number arrays.
 @objc(HorosVolumeRenderer)
 public final class VolumeRendererBridge: NSObject {
     private let engine: VolumeMetalRenderer
@@ -961,6 +1001,15 @@ public final class VolumeRendererBridge: NSObject {
     @objc public var isReady: Bool { engine.isReady }
     @objc public var volumeBytes: Int { engine.volumeBytes }
     @objc public var colourTableUploads: Int { engine.colourTableUploads }
+    /// Set for the next renders of the host's: a composite render writes this
+    /// texture and hands back no bytes.
+    public var pictureTarget: MTLTexture?
+    public var renderCount: Int { engine.renderCount }
+
+    /// What a render into `pictureTarget` did not hand back.
+    public func lastComposite(width: Int, height: Int) -> (bgra: Data, scalar: Data)? {
+        engine.lastComposite(width: width, height: height)
+    }
     @objc public var opacityTableUploads: Int { engine.opacityTableUploads }
     @objc public func releaseVolume() { engine.release(); opacityCurve = nil }
 
@@ -1164,7 +1213,7 @@ public final class VolumeRendererBridge: NSObject {
                                                       SIMD4((0..<4).map { clippingPlanes[index + $0].floatValue }) },
                                                   geometryDepth: geometryDepth)
             if let scalarOut {
-                let result = try engine.render(request, scalarInto: scalarOut)
+                let result = try engine.render(request, scalarInto: scalarOut, picture: pictureTarget)
                 lastMilliseconds = result.milliseconds
                 return result.bgra as NSData
             }

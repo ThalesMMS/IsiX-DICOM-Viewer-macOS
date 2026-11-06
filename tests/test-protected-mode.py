@@ -22,7 +22,7 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
+from sources import source_text, class_text  # noqa: E402
 failures = []
 
 swift = root / 'Horos/Sources/ProtectedMode.swift'
@@ -105,26 +105,26 @@ with tempfile.TemporaryDirectory(prefix='horos-protected-mode-') as directory:
                 failures.append('the %s start failed its assertions' % mode)
 
 # --- read in main, before NSApplicationMain ----------------------------------
-main = (root / 'Horos/Sources/main.m').read_bytes().decode('latin1')
-body = main[main.index('int main('):]
-if 'HorosActivateProtectedModeIfRequested()' not in body:
+body = (root / 'Horos/Sources/main.swift').read_text()
+if 'ProtectedMode.activateIfRequested()' not in body:
     failures.append('main does not turn protected mode on')
-elif not (body.index('HorosImportPreviousPreferences()') < body.index('HorosActivateProtectedModeIfRequested()')
+elif not (body.index('PreferencesContinuity.importPreviousPreferences()') < body.index('ProtectedMode.activateIfRequested()')
           < body.index('NSApplicationMain')):
     failures.append('protected mode must be decided after the preference import and before NSApplicationMain')
-if '@"HorosProtectedMode"' not in main or '@objc(HorosProtectedMode)' not in protected:
-    failures.append('main looks up a class name that ProtectedMode.swift does not export')
+if '@objc(HorosProtectedMode)' not in protected:
+    failures.append('ProtectedMode.swift no longer exports HorosProtectedMode to the Objective-C callers')
 
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-init = browser[browser.index('- (id)initWithWindow:'):]
-init = init[:init.index('_distantAlbumNoOfStudiesCache')]
+# The browser is Swift: its init is BrowserController.swift.
+browser = class_text('BrowserController')
+init = browser[browser.index('public override init(window: NSWindow?) {'):]
+init = init[:init.index('studyListState.searchType = 7')]
 if '_currentModifierFlags' in init or 'setRunOsiriXInProtectedMode' in init:
     failures.append('the browser still reads Shift and Option, after the plugins are loaded')
-if '[HorosProtectedMode alertMessage]' not in init:
+if 'message: ProtectedMode.alertMessage' not in init:
     failures.append('the browser does not show the protected mode alert that lists what is off')
 
 # --- every start point asks --------------------------------------------------
-app = source_text('AppController')
+app = class_text('AppController')
 
 
 def method(text, signature, end):
@@ -132,17 +132,23 @@ def method(text, signature, end):
     return text[start:text.index(end, start + len(signature))]
 
 
-restart = method(app, 'public func restartSTORESCP()', 'Is called restart')
+# Every start of the listeners goes through DICOMListenerController's restart.
+lifecycle = source_text('DICOMListenerController')
+restart = method(lifecycle, '    func restart() {', 'storeListenerTitles()')
 if 'ProtectedMode.isActive' not in restart or 'return' not in restart:
-    failures.append('restartSTORESCP starts the listeners in protected mode')
+    failures.append('the restart starts the listeners in protected mode')
+if 'dicomListener.restart()' not in method(app, 'public func restartSTORESCP()', '\n    }\n'):
+    failures.append('restartSTORESCP does not go through the listener controller')
 at = app.index('xmlrpcServer = XMLRPCInterface()')
-if 'ProtectedMode.isActive' not in app[app.rindex('"httpXMLRPCServer"', 0, at):at]:
+if 'ProtectedMode.isActive' not in app[app.rindex('NetworkPreferences.xmlrpcServer', 0, at):at]:
     failures.append('the XML-RPC server starts in protected mode')
-launch = method(app, 'func applicationDidFinishLaunching(', 'DistributionChannel.configureMenu')
+launch = method(app, 'func didFinishLaunching() {', 'DistributionChannel.configureMenu')
 updates = launch[launch.index('#if !MACAPPSTORE'):]
 if not re.match(r'#if !MACAPPSTORE\s+if ProtectedMode\.isActive', updates):
     failures.append('automatic update checks start in protected mode')
-for marker in ('checkForUpdatesPlugins', 'AppController.checkForUpdates(_:)'):
+if 'updateCheckScheduler.startAtLaunch(' not in updates:
+    failures.append('the launch no longer starts the automatic update checks where protected mode is checked')
+for marker in ('checkForUpdatesPlugins', 'updateCheckScheduler.startAtLaunch('):
     if marker in updates and updates.index(marker) < updates.index('} else {'):
         failures.append('%s runs before the protected mode check' % marker)
 
@@ -159,24 +165,30 @@ toggle = method(publisher, 'public func toggleSharing(_ activate: Bool)', 'Horos
 if 'ProtectedMode.isActive' not in toggle:
     failures.append('Bonjour database sharing starts in protected mode')
 
-clean = (root / 'Horos/Sources/DicomDatabase+Clean.swift').read_text()
-timer = method(clean, 'private class func _cleanTimerCallback', 'initiateCleanUnlessAlreadyCleaning')
+clean = (root / 'Horos/Sources/DatabaseCleanupService.swift').read_text()
+timer = method(clean, 'private static func timerPass', 'initiateCleanUnlessAlreadyCleaning')
 if 'ProtectedMode.isActive' not in timer:
     failures.append('automatic cleaning runs in protected mode')
 
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-routing = re.search(r'if \(self\.isLocal && returnArray && \[\[NSUserDefaults standardUserDefaults\] '
-                    r'boolForKey: @"AUTOROUTINGACTIVATED"\][^\n]*', database)
-if not routing or '![HorosProtectedMode isActive]' not in routing.group():
+database = (root / 'Horos/Sources/DicomFileIndexer.swift').read_text()  # DicomDatabase is Swift
+# The indexer reaches the database as `database` and reads the preferences it is given.
+routing = re.search(r'if database\.isLocal\(\) && returnArray && '
+                    r'preferences\[NetworkPreferences\.autoroutingActivated\][^\n]*', database)
+if not routing or '!ProtectedMode.isActive' not in routing.group():
     failures.append('auto-routing runs in protected mode')
 
+# Only version 1 plugins load, through one loader, which refuses every plugin
+# in protected mode before its signature or code is looked at.
 manager = source_text('PluginManager')
-if 'if DCMPix.isRunOsiriXInProtectedModeActivated() == false && PluginManager.isPluginBundleSignatureValid(path)' not in manager:
+version1 = (root / 'Horos/Sources/PluginManager+IsiXPlugins.swift').read_text()
+if 'guard DCMPix.isRunOsiriXInProtectedModeActivated() == false else' not in version1 \
+        or version1.index('isRunOsiriXInProtectedModeActivated') > version1.index('isPluginBundleSignatureValid(path)') \
+        or 'PluginManager.loadIsiXPlugin(atPath: path)' not in manager:
     failures.append('plugin loading no longer refuses every plugin in protected mode')
 
 # --- the crash offer: before the plugins, whatever hideListenerError says ----
 offer_at = app.index('NSLocalizedString("IsiX DICOM Viewer crashed during last startup"')
-plugins_at = app.index('State.pluginManager = PluginManager()')
+plugins_at = app.index('Once.pluginManager = PluginManager()')
 if offer_at > plugins_at:
     failures.append('Protected Mode chosen after a failed start comes after the plugins are loaded')
 offer = app[app.rindex('if !DatabaseFirstUse.hasPendingChoice', 0, offer_at):offer_at]

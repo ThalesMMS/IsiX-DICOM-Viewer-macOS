@@ -11,7 +11,8 @@ controller = source_text('CPRController')
 # CPRMPRDCMView is Swift.
 view = source_text('CPRMPRDCMView')
 path = source_text('CPRCurvedPath')
-resolution = (root / 'Horos/Sources/VRView.mm').read_text(encoding='latin1')
+# -getResolution is Swift (VRView+Camera.swift).
+resolution = (root / 'Horos/Sources/VRView+Camera.swift').read_text(encoding='utf-8')
 needed_controller = [
     'selectCurvedPathDrawingTool',
     'tCurvedROI',

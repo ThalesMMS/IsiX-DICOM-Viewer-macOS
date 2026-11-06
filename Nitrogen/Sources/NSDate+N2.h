@@ -46,12 +46,4 @@
 // Swift is compiling the extension itself.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift, the Decompress helper: code that only names these
-// selectors compiles there, as it did before, without their implementation.
-@interface NSDate (N2)
-
-+(id)dateWithYYYYMMDD:(NSString*)datestr HHMMss:(NSString*)timestr;
-
-@end
 #endif

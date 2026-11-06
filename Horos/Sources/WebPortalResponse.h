@@ -39,37 +39,15 @@
 // subclasses, and NSMutableDictionary (WebPortalProxy) are implemented in Swift
 // (Horos/Sources/WebPortalResponse.swift). This header keeps
 // <Horos/WebPortalResponse.h>: it brings in the generated interface, which
-// declares the same class names and selectors. iPhoneCompatibleNumericalFormat
-// and the accessors below stay in Objective-C, in WebPortalResponse+CAPI.mm.
+// declares the same class names and selectors.
 
-#import "HTTPResponse.h"
+#import <Foundation/Foundation.h>
 
 @class WebPortalConnection, WebPortalSession, WebPortal;
-
-// HTTPDataResponse's `data` instance variable, which it sends: Swift cannot
-// reach an instance variable, and WebPortalResponse's `data` property keeps
-// its value there, as the former class did (WebPortalResponse+CAPI.mm).
-@interface HTTPDataResponse (WebPortalResponseData)
-
--(NSData*)webPortalResponseData;
--(void)setWebPortalResponseData:(NSData*)data;
-
-@end
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the classes themselves: headers it imports may only name them.
 @class WebPortalResponse, WebPortalProxy, WebPortalProxyObjectTransformer, InfoTransformer, StringTransformer, DateTransformer, DicomStudyTransformer, DicomSeriesTransformer, WebPortalUserTransformer;
 #else
 #import "Horos-Swift.h"
-
-// The former `httpHeaders` property, implemented in WebPortalResponse+CAPI.mm.
-// HTTPDataResponse's HTTPResponse conformance declares -httpHeaders with
-// another type, which Swift cannot redeclare: Swift calls the dictionary
-// `mutableHTTPHeaders`, and this category keeps -httpHeaders for
-// Objective-C code and plugins.
-@interface WebPortalResponse (HTTPHeaders)
-
-@property(readonly) NSMutableDictionary* httpHeaders;
-
-@end
 #endif

@@ -52,14 +52,10 @@ enum _N3BezierPathElement {
 };
 typedef NSInteger N3BezierPathElement;
 
+// N3BezierPath and N3MutableBezierPath are implemented in Swift
+// (N3BezierPath.swift) over IsiXGeometry's BezierCore.
 @interface N3BezierPath : NSObject <NSCopying, NSMutableCopying, NSSecureCoding, NSFastEnumeration> // fast enumeration returns NSValues of the endpoints
-{
-    N3MutableBezierCoreRef _bezierCore;
-    CGFloat _length;
-    N3BezierCoreRandomAccessorRef _bezierCoreRandomAccessor;
-}
 
-- (id)init;
 - (id)initWithBezierPath:(N3BezierPath *)bezierPath;
 - (id)initWithDictionaryRepresentation:(NSDictionary *)dict;
 - (id)initWithN3BezierCore:(N3BezierCoreRef)bezierCore;
@@ -121,8 +117,6 @@ typedef NSInteger N3BezierPathElement;
 
 
 @interface N3MutableBezierPath : N3BezierPath
-{
-}
 
 - (void)moveToVector:(N3Vector)vector;
 - (void)lineToVector:(N3Vector)vector;

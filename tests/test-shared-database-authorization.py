@@ -38,7 +38,12 @@ print("ok: fragmented authorization, wrong/empty password, malformed lengths, co
 '''
 with tempfile.TemporaryDirectory(prefix='horos-auth-') as temp:
     folder=Path(temp);(folder/'main.swift').write_text(code);binary=folder/'probe'
-    build=subprocess.run(['xcrun','swiftc',str(root/'Horos/Sources/SharedDatabaseAuthorization.swift'),str(folder/'main.swift'),'-o',str(binary)],capture_output=True,text=True)
+    # The app's class keeps its names over IsiXDICOMNetwork's framing.
+    import sys
+    sys.path.insert(0, str(root/'tests'))
+    import isix_modules
+    modules=isix_modules.module_flags('IsiXDICOMNetwork', folder/'modules')
+    build=subprocess.run(['xcrun','swiftc',*modules,str(root/'Horos/Sources/SharedDatabaseAuthorization.swift'),str(folder/'main.swift'),'-o',str(binary)],capture_output=True,text=True)
     assert build.returncode==0,build.stderr
     result=subprocess.run([str(binary)],capture_output=True,text=True,timeout=20)
     assert result.returncode==0,result.stderr
@@ -46,12 +51,15 @@ with tempfile.TemporaryDirectory(prefix='horos-auth-') as temp:
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
-# BonjourPublisher is Swift.
+# BonjourPublisher is Swift; the requests it serves are read by IsiXDICOMNetwork's parser.
 server=sources.source_text('BonjourPublisher')
-gate=server.index('protected && !_authorized')
-assert gate < server.index('if strcmp(command, "DATAB") == 0')
-assert 'guard let name = NSString(utf8String: command) else { close(); return }' in server and 'command[5] != 0' in server
-assert 'length == 0 || length > 4097' in server
+assert '_parser.next(unread, access: Self.access)' in server and 'case .refused:' in server
+parser=(root/'Modules/IsiXDICOMNetwork/Sources/SharedDatabaseRequestParser.swift').read_text()
+gate=parser.index('rules.isPasswordProtected && !isAuthorized && !SharedDatabaseEnvelope.isPublicCommand(command)')
+assert gate < parser.index('SharedDatabaseCommand(rawValue: command)')
+assert 'guard name[5] == 0 else { return (.refused, offset) }' in parser
+assert 'NSString(utf8String: name.baseAddress!.assumingMemoryBound(to: CChar.self))' in parser
+assert 'length == 0 || length > SharedDatabaseEnvelope.maximumPasswordLength + 1' in parser
 # RemoteDicomDatabase is Swift: the client's source, whatever its language.
 client=sources.source_text('RemoteDicomDatabase')
 assert ('SharedDatabaseAuthorization.authenticatedRequest(request as Data, password:' if sources.is_swift('RemoteDicomDatabase')

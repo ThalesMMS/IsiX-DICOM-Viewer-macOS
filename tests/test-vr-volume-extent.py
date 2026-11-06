@@ -1,16 +1,52 @@
 #!/usr/bin/env python3
-"""Check production VR import extents against real VTK and boundary-marked buffers."""
+"""Check production VR import extents against real VTK and boundary-marked buffers.
+
+The importers are the VTK adapter's (IsiXVTKVolumePipeline.mm); the view hands
+them the series' width, height and number of images."""
 from pathlib import Path
 import re
 import subprocess
 import sys
 import tempfile
 root = Path(__file__).resolve().parents[1]
-path = 'Horos/Sources/VRView.mm'
-source = (subprocess.check_output(['git', 'show', sys.argv[1]+':'+path])
-          if len(sys.argv)>1 else (root/path).read_bytes()).decode('latin1')
-expressions = re.findall(r'(?:reader|blendingReader)->SetWholeExtent\(([^;]+)\);', source)
-assert len(expressions) == 3
+
+
+def read(path):
+    return (subprocess.check_output(['git', 'show', sys.argv[1]+':'+path])
+            if len(sys.argv)>1 else (root/path).read_bytes()).decode('latin1')
+
+
+try:
+    view = read('Horos/Sources/VRView.m')
+except (OSError, subprocess.CalledProcessError):
+    # The class is Swift since (VRView.swift).
+    view = ''
+preview_objc = '[vtk makePreviewImport: isRGB ? (void*) data : (void*) data8 rgb: isRGB width: [firstObject pwidth] height: [firstObject pheight] depth: (long)[pixList count] error: &vtkError]'
+if view:
+    calls = [preview_objc]
+else:
+    # The preset previews' pipeline is Swift (VRView+Subclasses.swift).
+    view = read('Horos/Sources/VRView+Subclasses.swift')
+    calls = ['try vtk.makePreviewImport(voxels, rgb: isRGB, width: firstObject.pwidth, height: firstObject.pheight,\n'
+             '                                      depth: pix.count)']
+if '-(short) setPixSource:' in view:
+    calls += ['[vtk importVolume: isRGB ? (void*) data : (void*) data8 rgb: isRGB width: [firstObject pwidth] height: [firstObject pheight] depth: [pixList count] error: &vtkError]',
+              'width: [blendingFirstObject pwidth] height: [blendingFirstObject pheight] depth: [blendingPixList count]']
+else:
+    # The volumes are built in Swift (VRView+Volume.swift), an extension of the view.
+    view += read('Horos/Sources/VRView+Volume.swift')
+    calls += ['let voxels = isRGB ? UnsafeMutableRawPointer(horos_data) : UnsafeMutableRawPointer(horos_data8)',
+              'try vtk.importVolume(voxels!, rgb: isRGB, width: Int(firstObject?.pwidth ?? 0), height: Int(firstObject?.pheight ?? 0),\n'
+              '                                              depth: horos_pixList?.count ?? 0)',
+              'let count = blendingPixList?.count ?? 0\n'
+              '            let pheight = Int(blendingFirstObject?.pheight ?? 0), pwidth = Int(blendingFirstObject?.pwidth ?? 0)',
+              'rgb: isBlendingRGB, width: pwidth, height: pheight, depth: count,']
+for call in calls:
+    assert call in view, 'the view no longer hands the importer the series\' size: ' + call
+source = read('Horos/Sources/Adapters/VTK/IsiXVTKVolumePipeline.mm')
+expressions = re.findall(r'o->(?:reader|blendingReader)->SetWholeExtent\(([^;]+)\);', source)
+# The volume, the fused volume, the RGB volume and the preset preview's volume.
+assert len(expressions) in (3, 4), expressions
 for old, new in [('[firstObject pwidth]', 'width'), ('[firstObject pheight]', 'height'),
                  ('[blendingFirstObject pwidth]', 'width'), ('[blendingFirstObject pheight]', 'height'),
                  ('[pixList count]', 'depth'), ('[blendingPixList count]', 'depth')]:
@@ -27,7 +63,7 @@ code = r'''
 #include <cstdio>
 int main() {
  int count=0;
- for(int variant=0;variant<3;variant++)for(int depth: {16,3,2,1})for(double spacing: {1.,2.5}) {
+ for(int variant=0;variant<VARIANTS;variant++)for(int depth: {16,3,2,1})for(double spacing: {1.,2.5}) {
   const int width=4,height=3;
   for(int components: {1,4}) {
    std::vector<unsigned short> scalar(width*height*depth);
@@ -57,7 +93,7 @@ int main() {
  }
  std::printf("PASS: %d VTK imports preserve all samples, boundary slices and physical Z bounds\n",count);
 }
-'''.replace('CASES', '\n'.join(f'case {i}: reader->SetWholeExtent({e}); break;' for i,e in enumerate(expressions)))
+'''.replace('VARIANTS', str(len(expressions))).replace('CASES', '\n'.join(f'case {i}: reader->SetWholeExtent({e}); break;' for i,e in enumerate(expressions)))
 with tempfile.TemporaryDirectory(prefix='horos-vr-extent-') as d:
     p=Path(d); (p/'test.cxx').write_text(code)
     # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.

@@ -68,7 +68,8 @@ print("PASS: top-level tags, one and two levels of nesting, case, refusals and r
 '''
 
 # The writer has to receive the path, and the editor has to send it.
-writer = (root / 'Horos/Sources/XMLControllerDCMTKCategory.mm').read_bytes().decode('latin1')
+# The writer is the DCMTK adapter's tag editor.
+writer = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKTagEditor.mm').read_bytes().decode('latin1')
 assert 'HorosTagPathStep' in writer, 'the edit has no room for a path'
 assert 'std::vector<HorosTagPathStep> path;' in writer
 start = writer.index('static bool HorosWriteInDataSet')
@@ -97,15 +98,15 @@ assert '"(%@,%@)"' in path_body, 'the row address is no longer built as (group,e
 assert '"[%d]"' in path_body, 'the item index is no longer built as [n]'
 assert 'appending(".")' in path_body, 'the components are no longer joined with a period'
 # The attributes it reads are written as four lowercase hexadecimal digits.
-attributes = (root / 'DCM Framework/DCMAttribute.m').read_bytes().decode('latin1')
-assert '@"group" stringValue:[NSString stringWithFormat:@"%04x"' in attributes, (
+attributes = (root / 'Modules/IsiXDICOMDataset/Sources/DCMAttribute.swift').read_text(encoding='utf-8')
+assert 'XMLNode.attribute(withName: "group", stringValue: String(format: "%04x"' in attributes, (
     'the group attribute is no longer four hexadecimal digits')
 
 apply_start = editor.index('while i < (self.modifiedFields?.count ?? 0)')
-apply_body = editor[apply_start:editor.index('XMLControllerCAPIModifyDicom(', apply_start)]
+apply_body = editor[apply_start:editor.index('XMLController.modifyDicom(', apply_start)]
 assert 'DICOMTagPath.path(with: field)' in apply_body, (
     'the editor still reduces the row address to its first tag')
-assert re.search(r'tag = DCMAttributeTag\.tag\(withTagString: field\)', apply_body), (
+assert re.search(r'tag = DICOMAttributeTag\.tag\(withTagString: field\)', apply_body), (
     'a plain tag must still be accepted')
 
 with tempfile.TemporaryDirectory(prefix='horos-tag-path-') as tmp:

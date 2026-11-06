@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 import ObjectiveC
 
 /// Shows a ROI drawn in one 2D viewer on the other series propagated with it,
@@ -31,8 +32,7 @@ import ObjectiveC
 @objc(HorosROISeriesPropagation)
 public final class ROISeriesPropagation: NSObject {
 
-    @objc public static let defaultsKey = "PropagateROIsBetweenSeries"
-    private static let propagateKey = "COPYSETTINGS"
+    @objc public static let defaultsKey = ViewerPreferences.propagateROIsBetweenSeries.name
     private static let shared = ROISeriesPropagation()
     private static var copyMarker: UInt8 = 0
 
@@ -70,8 +70,8 @@ public final class ROISeriesPropagation: NSObject {
     }
 
     private var isOn: Bool {
-        let defaults = UserDefaults.standard
-        return defaults.bool(forKey: Self.defaultsKey) && defaults.bool(forKey: Self.propagateKey)
+        let preferences = PreferencesSource.process.preferences
+        return preferences[ViewerPreferences.propagateROIsBetweenSeries] && preferences[ViewerPreferences.copySettings]
     }
 
     private static func isCopy(_ roi: ROI) -> Bool {
@@ -95,6 +95,10 @@ public final class ROISeriesPropagation: NSObject {
         guard !updating, isOn, let roi = note.object as? ROI, !Self.isCopy(roi),
               Self.rectKind(of: roi.type) != nil,
               let view = roi.curView, view.is2DViewer(),
+              // The marker of a two-click Length's first point is the view's
+              // own hint, not a ROI of the series: copied, it showed the hint
+              // as a point with coordinates in the other viewers.
+              roi !== view.horos_lengthPendingMarker,
               let viewer = view.windowController() as? ViewerController, !viewer.windowWillClose()
         else { return }
         pruneLinks()
@@ -242,7 +246,11 @@ public final class ROISeriesPropagation: NSObject {
             return NSPoint(x: s[0] / sx, y: s[1] / sy)
         }
 
-        let depths = anchors.map { local(patient($0), on: pix)[2] }
+        // A ROI kept as a rectangle has one anchor, which is at one depth on
+        // any plane: its plane is probed along both axes of its image.
+        let probe = kind == .pointsOnly ? anchors :
+            ROISeriesTransfer.planeProbe(rect: roi.rect, spacingX: sourcePix.pixelSpacingX, spacingY: sourcePix.pixelSpacingY)
+        let depths = probe.map { local(patient($0), on: pix)[2] }
         guard ROISeriesTransfer.isFlat(depths: depths, tolerance: tolerance) else { return nil }
 
         let points = NSMutableArray()

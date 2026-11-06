@@ -11,6 +11,8 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXDICOMNetwork
+import IsiXPreferences
 import os
 
 /// Why the XML-RPC listener turned a request away before reading it.
@@ -43,7 +45,7 @@ public enum RISRefusal: Int {
 @objc(HorosRISRequestAlert)
 public final class RISRequestAlert: NSObject {
     /// Whether failed requests are shown in an alert, beyond the log.
-    @objc public static let showAlertsKey = "httpXMLRPCServerShowFailureAlerts"
+    @objc public static let showAlertsKey = NetworkPreferences.xmlrpcServerShowsFailureAlerts.name
 
     // MARK: Messages
 
@@ -106,18 +108,16 @@ public final class RISRequestAlert: NSObject {
         return message + "\n\n" + String(format: NSLocalizedString("Error code: %@", comment: "RIS request: error code"), String(code))
     }
 
-    /// How the filters of a request read in a message: `PatientID = 123`.
+    /// How the filters of a request read in a message: `PatientID = 123`
+    /// (`RISRequestRules`).
     @objc(describeFilters:)
     public static func describe(filters: [String: Any]) -> String {
-        let terms = filters.keys.sorted().map { "\($0) = \(String(describing: filters[$0]! as AnyObject))" }
-        return terms.isEmpty ? "-" : terms.joined(separator: ", ")
+        RISRequestRules.describe(filters: filters)
     }
 
     /// How a link reads in a message: its method, then its other parameters.
     public static func describe(method: String?, parameters: [String: String]) -> String {
-        var filters = parameters
-        filters["methodName"] = nil
-        return (method ?? "image") + (filters.isEmpty ? "" : " (" + describe(filters: filters) + ")")
+        RISRequestRules.describe(method: method, parameters: parameters)
     }
 
     // MARK: Reporting
@@ -125,8 +125,11 @@ public final class RISRequestAlert: NSObject {
     /// Logs a failed request and shows it. Callable from any thread.
     @objc(reportMessage:code:)
     public static func report(_ message: String, code: Int) {
-        NSLog("RIS request failed (%d): %@", code, message)
-        guard UserDefaults.standard.bool(forKey: showAlertsKey) else { return }
+        // The message names the request with the values of its filters: a
+        // patient's identifier, an accession number. Whoever reports logs
+        // the request by its keys.
+        NSLog("RIS request failed (%d): %@", code, LogText.shape(of: message))
+        guard PreferencesSource.process.preferences[NetworkPreferences.xmlrpcServerShowsFailureAlerts] else { return }
         show(text(message, code: code))
     }
 
@@ -208,10 +211,11 @@ public final class RISRequestAlert: NSObject {
     /// The text of the alert on screen, for checks run against the app.
     @MainActor @objc public private(set) static var shownText: String?
 
+    /// From the main run loop: the alert is modal, and the main queue goes on
+    /// while it is open. A failure met meanwhile reaches `present` too, which
+    /// keeps it for the next alert.
     private static func show(_ text: String) {
-        DispatchQueue.main.async {
-            MainActor.assumeIsolated { present(text) }
-        }
+        onMainRunLoop { present(text) }
     }
 
     @MainActor private static func present(_ text: String) {

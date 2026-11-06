@@ -38,35 +38,52 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXDICOMNetwork
+import IsiXPreferences
+import os
 
-/** \brief  Searches and retrieves Bonjour shared databases */
+/// The sources the database window lists besides its own database: other local
+/// folders, shared databases entered by address and DICOM destinations.
+/// Confined to the main actor, with the browser window that makes and reads it;
+/// a preference or a notification that arrives on another thread is handled
+/// there. The order of the sources is a rule of IsiXDICOMNetwork.
+///
+/// Despite the name, it browses for nothing: the shared databases and DICOM
+/// nodes that Bonjour finds come to the Sources list through the browser
+/// window's own Network.framework browsers (BrowserSourcesHelper).
+@MainActor
 @objc(BonjourBrowser)
-public final class BonjourBrowser: NSObject, NetServiceDelegate, NetServiceBrowserDelegate {
-    private let browser: NetServiceBrowser
+public final class BonjourBrowser: NSObject {
+    private let processGraph: ProcessGraph
     private let _services: NSMutableArray
     // Not retained, as the Objective-C ivar was not.
     private weak var interfaceOsiriX: BrowserController?
 
-    // The browser the last -initWithBrowserController: made. Not retained, as the
-    // Objective-C static was not; weak, so it never answers a freed object.
-    // nonisolated(unsafe): only -initWithBrowserController: writes it, when the
-    // browser window builds its browser on the main thread, and the Swift
-    // runtime loads and stores a weak reference atomically.
-    nonisolated(unsafe) private static weak var _currentBrowser: BonjourBrowser?
+    /// The browser the last -initWithBrowserController: made. Not retained, as
+    /// the Objective-C static was not; weak, so it never answers a freed object.
+    private struct Latest: Sendable {
+        weak var browser: BonjourBrowser?
+    }
+
+    private nonisolated static let latest = OSAllocatedUnfairLock(initialState: Latest())
 
     @objc(currentBrowser)
-    public class func currentBrowser() -> BonjourBrowser? {
-        return _currentBrowser
+    public nonisolated class func currentBrowser() -> BonjourBrowser? {
+        return latest.withLock { $0.browser }
     }
 
     @objc(initWithBrowserController:)
-    public init(browserController bC: BrowserController?) {
-        browser = NetServiceBrowser()
+    public convenience init(browserController bC: BrowserController?) {
+        self.init(browserController: bC, processGraph: ProcessGraph.process)
+    }
+
+    init(browserController bC: BrowserController?, processGraph: ProcessGraph) {
+        self.processGraph = processGraph
         _services = NSMutableArray()
 
         super.init()
 
-        Self._currentBrowser = self
+        Self.latest.withLock { $0.browser = self }
 
         buildFixedIPList()
         buildLocalPathsList()
@@ -75,31 +92,31 @@ public final class BonjourBrowser: NSObject, NetServiceDelegate, NetServiceBrows
 
         interfaceOsiriX = bC
 
-        //[browser setDelegate:self];
-
-        //if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DoNotSearchForBonjourServices"] == NO)
-        //	[browser searchForServicesOfType:@"_osirixdb._tcp." inDomain:@""];
-
-        //		[browser scheduleInRunLoop: [NSRunLoop currentRunLoop] forMode: NSDefaultRunLoopMode];
-
-        NSUserDefaultsController.shared.addObserver(self, forValuesKey: "SERVERS", options: .initial, context: nil)
+        NSUserDefaultsController.shared.addObserver(self, forValuesKey: NetworkPreferences.dicomNodes.name, options: .initial, context: nil)
 
         NotificationCenter.default.addObserver(self,
-                                               selector: #selector(updateFixedList(_:)),
+                                               selector: #selector(servicesDidChange(_:)),
                                                name: NSNotification.Name("DCMNetServicesDidChange"),
                                                object: nil)
     }
 
-    public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        if (object as AnyObject?) === NSUserDefaultsController.shared {
-            if let keyPath, (keyPath as NSString).isEqual(to: "values.SERVERS") {
-                updateFixedList(nil)
+    // The shared user defaults controller reports a preference on the thread
+    // that wrote it: the list is rebuilt on the main actor.
+    public nonisolated override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
+        if object is NSUserDefaultsController {
+            if keyPath == NetworkPreferences.controllerKeyPath(NetworkPreferences.dicomNodes) {
+                onMainActor { self.updateFixedList(nil) }
             }
         }
     }
 
-    deinit {
-        NSUserDefaultsController.shared.removeObserver(self, forValuesKey: "SERVERS")
+    // Posted by whoever changed the DICOM nodes, on its own thread.
+    @objc private nonisolated func servicesDidChange(_ note: Notification) {
+        onMainActor { self.updateFixedList(nil) }
+    }
+
+    isolated deinit {
+        NSUserDefaultsController.shared.removeObserver(self, forValuesKey: NetworkPreferences.dicomNodes.name)
 
         NotificationCenter.default.removeObserver(self)
     }
@@ -109,93 +126,107 @@ public final class BonjourBrowser: NSObject, NetServiceDelegate, NetServiceBrows
     }
 
     @objc(showErrorMessage:)
-    public func showErrorMessage(_ s: String) {
-        if UserDefaults.standard.bool(forKey: "hideListenerError") == false {
-            onMainActorSync {
+    public nonisolated func showErrorMessage(_ s: String) {
+        if processGraph.preferences[NetworkPreferences.hidesListenerErrors] == false {
+            // From the main run loop: the main queue goes on while it is open.
+            onMainRunLoopSync {
                 let alert = NSAlert()
                 alert.messageText = NSLocalizedString("Network Error", comment: "")
                 alert.informativeText = s
                 alert.runModal()
             }
         } else {
-            NSLog("*** Bonjour Browser Error (not displayed - hideListenerError): %@", s)
+            // The text is whatever the caller was told, which the log is not.
+            NSLog("*** Bonjour Browser Error (not displayed - hideListenerError): %@", LogText.notice(title: "Network Error", text: s))
         }
     }
 
-    @objc public func syncOsiriXDBList() {
+    /// Replaces the shared databases entered by address with the list the
+    /// `syncOsiriXDBURL` preference points to, and returns once it is read.
+    @objc public nonisolated func syncOsiriXDBList() {
         autoreleasepool {
-            let value = UserDefaults.standard.value(forKey: "syncOsiriXDBURL") as? String
-
-            if let url = value.flatMap({ NSURL(string: $0) }) {
-                if let r = NSArray(contentsOf: url as URL) {
-                    UserDefaults.standard.set(r, forKey: "OSIRIXSERVERS")
-                }
-            }
+            guard let url = Self.serverListURL(processGraph.preferences) else { return }
+            Self.storeServerList(try? Data(contentsOf: url), in: processGraph.preferences)
         }
     }
 
-    /// [[services objectAtIndex: i] valueForKey:@"type"] isEqualToString: type]
-    private func service(_ i: Int, isOfType type: String) -> Bool {
-        let value = (_services.object(at: i) as? NSObject)?.value(forKey: "type") as? NSString
-        return value?.isEqual(to: type) ?? false
+    /// The same, without holding a thread while the list downloads.
+    private nonisolated static func syncServerList(_ processGraph: ProcessGraph) async {
+        guard let url = serverListURL(processGraph.preferences),
+              let response = try? await URLSession.shared.data(from: url) else { return }
+        storeServerList(response.0, in: processGraph.preferences)
+    }
+
+    private nonisolated static func serverListURL(_ preferences: UserDefaults) -> URL? {
+        // Text only, as `object(forKey:) as? String` took it.
+        preferences[NetworkPreferences.syncOsiriXDBURL.reading(as: PropertyListValue?.self)]?.stringValue.flatMap { NSURL(string: $0) as URL? }
+            .flatMap { RemoteConfigurationURL.isAcceptable($0) ? $0 : nil }
+    }
+
+    /// A property list whose root is a list, as -[NSArray initWithContentsOfURL:] read it.
+    private nonisolated static func storeServerList(_ data: Data?, in preferences: UserDefaults) {
+        guard let data,
+              let list = (try? PropertyListSerialization.propertyList(from: data, options: [], format: nil)) as? [Any] else { return }
+        preferences.set(list.compactMap(PropertyListValue.init), for: NetworkPreferences.osirixServers)
+    }
+
+    /// The `type` of an entry of the list.
+    private static func type(of entry: Any) -> String? {
+        (entry as? NSDictionary)?.object(forKey: "type") as? String
     }
 
     private func removeServices(ofType type: String) {
-        var i = 0
-        while i < _services.count {
-            if service(i, isOfType: type) {
-                _services.removeObject(at: i)
-                i -= 1
-            }
-            i += 1
-        }
+        let kept = _services.filter { Self.type(of: $0) != type }
+        _services.setArray(kept)
     }
 
     @objc public func buildFixedIPList() {
-        if UserDefaults.standard.bool(forKey: "syncOsiriXDB") {
-            Thread.detachNewThreadSelector(#selector(syncOsiriXDBList), toTarget: self, with: nil)
+        let preferences = processGraph.preferences
+        if preferences[NetworkPreferences.syncsOsiriXDB] {
+            let processGraph = processGraph
+            Task.detached(priority: .utility) { await Self.syncServerList(processGraph) }
         }
 
-        let osirixServersArray = UserDefaults.standard.array(forKey: "OSIRIXSERVERS") ?? []
+        let osirixServersArray = preferences[NetworkPreferences.osirixServers]?.map(\.object) ?? []
 
-        removeServices(ofType: "fixedIP")
+        removeServices(ofType: DatabaseSourceKind.fixedIP.rawValue)
 
-        for server in osirixServersArray {
-            let dict = NSMutableDictionary(dictionary: server as! NSDictionary)
-            dict.setValue("fixedIP", forKey: "type")
+        for case let server as [String: Any] in osirixServersArray {
+            let dict = NSMutableDictionary(dictionary: server)
+            dict["type"] = DatabaseSourceKind.fixedIP.rawValue
 
             _services.add(dict)
         }
     }
 
     @objc public func buildDICOMDestinationsList() {
-        let dbArray = DCMNetServiceDelegate.dicomServersListSendOnly(true, qrOnly: false) ?? []
+        let nodes = DICOMNodeService.dicomNodes(sendOnly: true, queryRetrieveOnly: false)
 
-        removeServices(ofType: "dicomDestination")
+        removeServices(ofType: DatabaseSourceKind.dicomDestination.rawValue)
 
-        for server in dbArray {
-            let dict = NSMutableDictionary(dictionary: server as! NSDictionary)
+        for node in nodes {
+            let dict = NSMutableDictionary(dictionary: node.propertyList)
 
-            dict.setValue("dicomDestination", forKey: "type")
+            dict["type"] = DatabaseSourceKind.dicomDestination.rawValue
             _services.add(dict)
         }
     }
 
     @objc public func buildLocalPathsList() {
-        let dbArray = UserDefaults.standard.array(forKey: "localDatabasePaths") ?? []
-        let defaultPath = DicomDatabase.baseDirPath(forMode: Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "DEFAULT_DATABASELOCATION")),
-                                                    path: UserDefaults.standard.string(forKey: "DEFAULT_DATABASELOCATIONURL"))
+        let preferences = processGraph.preferences
+        let dbArray = preferences[DatabasePreferences.localDatabaseSources.reading(as: [PropertyListValue]?.self)]?.map(\.object) ?? []
+        let defaultPath = DicomDatabase.baseDirPath(forMode: Int32(truncatingIfNeeded: preferences[DatabasePreferences.defaultDatabaseLocation]),
+                                                    path: preferences[DatabasePreferences.defaultDatabaseLocationURL])
 
-        removeServices(ofType: "localPath")
+        removeServices(ofType: DatabaseSourceKind.localPath.rawValue)
 
-        for entry in dbArray {
-            let dict = NSMutableDictionary(dictionary: entry as! NSDictionary)
-
-            let path = dict.value(forKey: "Path") as? NSString
+        for case let entry as [String: Any] in dbArray {
+            let path = entry["Path"] as? NSString
             let isDefault = defaultPath.map { path?.isEqual(to: $0) ?? false } ?? false
             let isDefaultData = defaultPath.map { DatabaseLocation.isDataDirectoryName(($0 as NSString).lastPathComponent) && (path?.isEqual(to: ($0 as NSString).deletingLastPathComponent) ?? false) } ?? false
             if isDefault == false && isDefaultData == false {
-                dict.setValue("localPath", forKey: "type")
+                let dict = NSMutableDictionary(dictionary: entry)
+                dict["type"] = DatabaseSourceKind.localPath.rawValue
                 _services.add(dict)
             }
         }
@@ -212,88 +243,8 @@ public final class BonjourBrowser: NSObject, NetServiceDelegate, NetServiceBrows
     }
 
     @objc public func arrangeServices() {
-        // Order them, first the localPath, fixedIP, and then bonjour
-
-        let result = NSMutableArray()
-
-        for type in ["localPath", "fixedIP", "bonjour", "dicomDestination"] {
-            for i in 0..<_services.count where service(i, isOfType: type) {
-                result.add(_services.object(at: i))
-            }
-        }
-
-        _services.removeAllObjects()
-        _services.addObjects(from: result as! [Any])
-    }
-
-    //———————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
-
-    public func netService(_ sender: NetService, didNotResolve errorDict: [String: NSNumber]) {
-        sender.stop()
-    }
-
-    public func netServiceDidResolveAddress(_ sender: NetService) {
-        do {
-            try HorosObjCException.perform {
-                if let addresses = sender.addresses, addresses.count > 0 {
-                    var ipAddressString: String?
-                    var portString: String?
-
-                    // Iterate through addresses until we find an IPv4 address
-                    var address = addresses[0]
-                    for candidate in addresses {
-                        address = candidate
-                        if Self.family(of: address) == sa_family_t(AF_INET) { break }
-                    }
-
-                    address.withUnsafeBytes { bytes in
-                        guard let socketAddress = bytes.baseAddress, bytes.count >= MemoryLayout<sockaddr>.size else { return }
-                        var buffer = [CChar](repeating: 0, count: 256)
-
-                        switch Int32(socketAddress.assumingMemoryBound(to: sockaddr.self).pointee.sa_family) {
-                        case AF_INET:
-                            var sin = socketAddress.loadUnaligned(as: sockaddr_in.self)
-                            if inet_ntop(AF_INET, &sin.sin_addr, &buffer, socklen_t(buffer.count)) != nil {
-                                ipAddressString = String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
-                                portString = String(format: "%d", Int32(UInt16(bigEndian: sin.sin_port)))
-                            }
-                        case AF_INET6:
-                            var sin6 = socketAddress.loadUnaligned(as: sockaddr_in6.self)
-                            if inet_ntop(AF_INET6, &sin6.sin6_addr, &buffer, socklen_t(buffer.count)) != nil {
-                                ipAddressString = String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
-                                portString = String(format: "%d", Int32(UInt16(bigEndian: sin6.sin6_port)))
-                            }
-                        default:
-                            break
-                        }
-                    }
-
-                    if let ipAddressString, let portString {
-                        for serviceDict in self._services {
-                            let serviceDict = serviceDict as! NSDictionary
-                            if (serviceDict.object(forKey: "service") as AnyObject?) === sender {
-                                NSLog("netServiceDidResolveAddress: %@:%@", ipAddressString, portString)
-
-                                serviceDict.setValue(ipAddressString, forKey: "Address")
-                                serviceDict.setValue(portString, forKey: "OsiriXPort")
-                            }
-                        }
-                    }
-                }
-
-                sender.stop()
-            }
-        } catch {
-            if let exception = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                _N2LogExceptionImpl(exception, false, "-[BonjourBrowser netServiceDidResolveAddress:]")
-            }
-        }
-    }
-
-    private static func family(of address: Data) -> sa_family_t? {
-        return address.withUnsafeBytes { bytes in
-            guard let base = bytes.baseAddress, bytes.count >= MemoryLayout<sockaddr>.size else { return nil }
-            return base.assumingMemoryBound(to: sockaddr.self).pointee.sa_family
-        }
+        // Order them: the local paths, the fixed addresses, then the DICOM destinations.
+        let arranged = DatabaseSourceKind.arranged(Array(_services)) { Self.type(of: $0) }
+        _services.setArray(arranged)
     }
 }

@@ -9,8 +9,8 @@ the remote nodes configured with the old title could no longer send to it -
 with nothing said anywhere.
 
 It is now stored the first time the listeners are started, and only then, on
-the main thread before their threads start (storeListenerTitles).
-AppController is Swift: its part is read in the Swift spelling.
+the main thread before their threads start (storeListenerTitles of
+DICOMListenerController, which is read in the Swift spelling with AppController).
 """
 from pathlib import Path
 import re
@@ -18,10 +18,15 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
+from sources import source_text, class_text  # noqa: E402
 failures = []
-controller = source_text('AppController')
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
+application = class_text('AppController')
+# The registration and the launch's writes of the preferences.
+launch = source_text('ApplicationPreferencesSetup') + source_text('LaunchPreferenceMigrations')
+controller = source_text('DICOMListenerController')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+defaults = default_preferences.source()
 
 
 def body(source, signature):
@@ -50,9 +55,10 @@ else:
     # would see the registered default and never store anything.
     if 'persistentDomain(forName:' not in start:
         failures.append('the AE title is stored without asking whether the user set one')
-    if not re.search(r'persistentDomain\(forName:.*\)\?\["AETITLE"\] == nil', start):
+    if 'let aeTitle = NetworkPreferences.aeTitle' not in start \
+            or not re.search(r'persistentDomain\(forName:.*\)\?\[aeTitle\.name\] == nil', start):
         failures.append('the check is not "the user domain has no AETITLE"')
-    if 'defaults.set(derived, forKey: "AETITLE")' not in start:
+    if 'preferences.set(derived, for: aeTitle)' not in start:
         failures.append('the derived AE title is not stored')
     # And the explicit opt-in still wins: it runs first and writes its own value.
     hostname = start.find('setAETitleToHostname')
@@ -64,31 +70,35 @@ else:
         failures.append('storing the AE title is not reported')
 
 # The defaults are registered, so nothing in them overwrites a configured value.
-if 'UserDefaults.standard.register(defaults: (DefaultsOsiriX.getDefaults()' not in controller:
+if 'preferences.register(defaults: (DefaultPreferences.applicationDefaults()' not in launch \
+        or 'ApplicationPreferencesSetup.register()' not in application:
     failures.append('the defaults are no longer registered; they may overwrite user values')
-if re.search(r'UserDefaults\.standard\.set(Value)?\([^\n]*forKey:\s*"AEPORT"\)',
-             controller):
+if re.search(r'UserDefaults\.standard\.set(Value)?\([^\n]*forKey:\s*"AEPORT"\)', application) \
+        or re.search(r'\.set\([^\n]*for: NetworkPreferences\.aePort\)', controller + launch):
     failures.append('the listener port is written at launch')
 
-# The registered default is still derived from the host name only when absent,
-# which is the mechanism this defends against.
-window = defaults[defaults.find('// ** AETITLE'):]
-window = window[:window.find('AEPORT') + 40]
-if 'objectForKey:@"AETITLE"] == nil' not in window:
-    failures.append('the AETITLE default is no longer conditional')
-if 'gethostname' not in window:
+# The default is still derived from the host name, and only as a registered
+# default, which a stored title always wins over: the mechanism this defends
+# against. The catalog key of IsiXPreferences carries the rule.
+start = defaults.find('static let aeTitle = PreferenceKey')
+window = defaults[start:defaults.find('static let', start + 1)] if start >= 0 else ''
+if 'registered: PreferenceDefault' not in window:
+    failures.append('the AETITLE default is no longer only a registered default')
+if 'environment.hostName' not in window or 'gethostname' not in defaults:
     failures.append('the AETITLE default no longer comes from the computer name')
 # Without a computer name the default is ISIX, the application's own title, in
 # the registered defaults and where the listener re-derives it; the example
 # node carries it too. A stored title is never compared with it, so a stored
 # ISIS from an earlier installation stays ISIS.
-if '[defaultValues setObject:@"ISIX" forKey:@"AETITLE"];' not in window:
+if default_preferences.registered(viewer=False).get('AETITLE') != 'ISIX':
     failures.append('the AETITLE fallback of the registered defaults is not ISIX')
 if 'static let fallback = "ISIX"' not in title_rules:
     failures.append('the AETITLE fallback of setAETitleToHostname is not ISIX')
-if '[aServer setObject:@"ISIX" forKey: @"AETitle"];' not in defaults:
+if default_preferences.registered()['SERVERS'][0].get('AETitle') != 'ISIX':
     failures.append('the example node does not use the ISIX title')
-for source, text in (('AppController.swift', controller), ('DefaultsOsiriX.m', defaults),
+for source, text in (('AppController.swift', application), ('DICOMListenerController.swift', controller),
+                     ('the launch', launch),
+                     ('IsiXPreferences', defaults),
                      ('ListenerAETitle.swift', title_rules)):
     if re.search(r'"ISIS"', text):
         failures.append('%s still names the ISIS title' % source)

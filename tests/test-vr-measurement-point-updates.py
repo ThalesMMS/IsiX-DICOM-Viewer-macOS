@@ -1,15 +1,38 @@
 #!/usr/bin/env python3
-"""Exercise production drag updates with the locally built VTK point arrays."""
+"""Exercise production drag updates with the locally built VTK point arrays.
+
+The view moves the line's last point through the VTK adapter
+(IsiXVTKVolumeActors.mm), whose update runs here."""
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 root=Path(__file__).resolve().parents[1]
-path='Horos/Sources/VRView.mm'
-source=(subprocess.check_output(['git','show',sys.argv[1]+':'+path]) if len(sys.argv)>1 else (root/path).read_bytes()).decode('latin1')
-a=source.index('pts->SetPoint( pts->GetNumberOfPoints()-1',source.index('- (void)mouseDragged:'))
-b=source.index('[self computeLength];',a)
-block=source[a:b].replace('[self captureCurrentLineProjection];', '') # Projection anchoring has its own real-VTK test.
+def read(path):
+    return (subprocess.check_output(['git','show',sys.argv[1]+':'+path]) if len(sys.argv)>1 else (root/path).read_bytes()).decode('latin1')
+try:
+    view=read('Horos/Sources/VRView.m')
+except (OSError, subprocess.CalledProcessError):
+    # The class is Swift since (VRView.swift): the drag is read below.
+    view=''
+if '- (void)mouseDragged:' in view:
+    drag=view[view.index('- (void)mouseDragged:'):]
+    drag=drag[:drag.index('\n}\n')]
+    moves='[vtk moveLastActiveLinePointX: tempPoint[0] y: tempPoint[ 1]];'
+else:
+    # The drag is Swift (VRView+Mouse.swift), an extension of the view.
+    mouse=read('Horos/Sources/VRView+Mouse.swift')
+    drag=mouse[mouse.index('public override func mouseDragged(with theEvent: NSEvent)'):]
+    drag=drag[:drag.index('\n    }\n')]
+    moves='vtk.moveLastActiveLinePointX(tempPoint[0], y: tempPoint[1])'
+if moves not in drag:
+    print('FAIL: the drag no longer moves the line\'s last point through the adapter', file=sys.stderr)
+    sys.exit(1)
+source=read('Horos/Sources/Adapters/VTK/IsiXVTKVolumeActors.mm')
+a=source.index('[&] {',source.index('- (void)moveLastActiveLinePointX:(double)x y:(double)y'))+len('[&] {')
+b=source.index('    });',a)
+block=source[a:b]
+cell=source[source.index('static vtkCellArray *IsiXVTKClosedCell(vtkPoints *pts)'):source.index('static void IsiXVTKEmptyPolyData')]
 install=root/'build/Build/Intermediates.noindex/Horos.build/Release/VTK.build/Install'
 if not (install/'lib').is_dir():
     print('needs built VTK libraries in', install, file=sys.stderr)
@@ -21,8 +44,9 @@ code=r'''
 #include <vtkDataArray.h>
 #include <cassert>
 #include <cstdio>
-void update(vtkPolyData *Line2DData,double *tempPoint) {
- vtkPoints *pts=Line2DData->GetPoints();long i;
+CELL
+void update(vtkPolyData *data,double *tempPoint) {
+ double x=tempPoint[0],y=tempPoint[1];
  BLOCK
 }
 int main(){
@@ -36,7 +60,7 @@ int main(){
  }
  data->Delete();std::puts("PASS: 20 production drag updates invalidate real VTK point buffers and retain endpoint coordinates");
 }
-'''.replace('BLOCK',block)
+'''.replace('BLOCK',block).replace('CELL',cell)
 with tempfile.TemporaryDirectory(prefix='horos-vr-points-') as d:
     p=Path(d);(p/'test.cxx').write_text(code)
     # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.

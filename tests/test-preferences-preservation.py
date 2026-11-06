@@ -26,6 +26,7 @@ import time
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_text  # noqa: E402
+import isix_modules  # noqa: E402
 double = r'''
 import Foundation
 public typealias DICOMwebCredentialKind = DICOMwebCredentials.Kind
@@ -80,7 +81,9 @@ with tempfile.TemporaryDirectory(prefix='horos-preferences-') as folder:
     tmp = Path(folder)
     (tmp / 'main.swift').write_text(driver)
     (tmp / 'credentials.swift').write_text(double)
-    subprocess.run(['xcrun', 'swiftc', str(root / 'Horos/Sources/DICOMwebNode.swift'), str(tmp / 'credentials.swift'),
+    # DICOMwebNode reads and writes its entries through IsiXDICOMNetwork.
+    modules = isix_modules.module_flags('IsiXDICOMNetwork', tmp / 'modules')
+    subprocess.run(['xcrun', 'swiftc', *modules, str(root / 'Horos/Sources/DICOMwebNode.swift'), str(tmp / 'credentials.swift'),
                     str(tmp / 'main.swift'), '-o', str(tmp / 'test')], check=True)
     # A suite of this check's own name, removed when it ends; cfprefsd writes
     # it back as an empty file a moment later, which goes too.

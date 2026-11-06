@@ -7,11 +7,24 @@
 extern "C" {
 #endif
 
+// The step of a Stored Print that failed, so the app can tell a file it could
+// not read from a printer it could not reach and from a printer that refused
+// the job.
+enum {
+    HorosStoredPrintStageNone = 0,
+    HorosStoredPrintStageLoad = 1,     // reading the Stored Print or its images
+    HorosStoredPrintStageConnect = 2,  // association with the printer
+    HorosStoredPrintStageJob = 3       // film session, film box, image boxes or print action
+};
+
 typedef struct {
     int operationStatus;
     int cleanupStatus;
     int releaseStatus;
     int printAccepted;
+    int failedStage;
+    // The last failure status the printer answered with, 0 when it sent none.
+    int dimseStatus;
 } HorosStoredPrintResult;
 
 void *HorosStoredPrintOpen(const char *config, const char *logger, const char *printer,

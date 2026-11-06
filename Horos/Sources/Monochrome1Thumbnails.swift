@@ -12,6 +12,7 @@
 
 import CoreData
 import Foundation
+import IsiXPreferences
 
 /// Series thumbnails stored with MONOCHROME1 shown in reverse.
 ///
@@ -24,7 +25,7 @@ import Foundation
 @objc(HorosMonochrome1Thumbnails)
 public final class Monochrome1Thumbnails: NSObject {
     /// The databases already done, by their base directory.
-    @objc public static let doneKey = "MONOCHROME1ThumbnailsRebuiltDatabases"
+    @objc public static let doneKey = DatabasePreferences.monochrome1ThumbnailsRebuiltDatabases.name
 
     @objc public static let modalities = ["CR", "DX", "DR", "MG", "RG", "RF", "XA", "PX", "IO", "OT"]
 
@@ -36,10 +37,10 @@ public final class Monochrome1Thumbnails: NSObject {
     @objc(claimDatabaseAtPath:)
     public static func claimDatabase(atPath path: String?) -> Bool {
         guard let path = path, !path.isEmpty else { return false }
-        var done = UserDefaults.standard.stringArray(forKey: doneKey) ?? []
+        var done = PreferencesSource.process.preferences[DatabasePreferences.monochrome1ThumbnailsRebuiltDatabases] ?? []
         if done.contains(path) { return false }
         done.append(path)
-        UserDefaults.standard.set(done, forKey: doneKey)
+        PreferencesSource.process.preferences.set(done, for: DatabasePreferences.monochrome1ThumbnailsRebuiltDatabases)
         return true
     }
 

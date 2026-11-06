@@ -56,7 +56,7 @@
 // As before, Objective-C code may not call them by this name.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wincompatible-property-type"
-@interface O2DicomPredicateEditorView (DCMAttributeTagAsTag)
+@interface O2DicomPredicateEditorView (AttributeTagAsTag)
 
 @property(retain) DCMAttributeTag* tag NS_UNAVAILABLE;
 

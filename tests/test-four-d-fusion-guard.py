@@ -83,8 +83,13 @@ with tempfile.TemporaryDirectory(prefix='horos-four-d-fusion-') as tmp:
     ], check=True)
     subprocess.run([str(p / 'test')], check=True)
 
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-header = (root / 'Horos/Sources/ViewerController.h').read_bytes().decode('latin1')
+# The 3D viewers are opened by ThreeDViewerLauncher (the viewer's selectors
+# are its façade); the checks each door runs are IsiXImaging's VolumeEligibility.
+viewer = (root / 'Horos/Sources/ThreeDViewerLauncher.swift').read_text(encoding='utf-8')
+eligibility = (root / 'Modules/IsiXImaging/Sources/ViewerReconstruction/VolumeEligibility.swift').read_text(encoding='utf-8')
+# The declaration Objective-C sees: the @objc name of the Swift method, which
+# the generated interface publishes.
+header = (root / 'Horos/Sources/ViewerController+ReconstructionChecks.swift').read_text(encoding='utf-8')
 swift = (root / 'Horos/Sources/FourDSeriesGuard.swift').read_text(encoding='utf-8')
 
 check('fusionRefusalHostTimes' in swift or 'fusionRefusal(hostTimes' in swift,
@@ -92,9 +97,9 @@ check('fusionRefusalHostTimes' in swift or 'fusionRefusal(hostTimes' in swift,
 check('fourDFusionRefusalReason' in header,
       'ViewerController must expose the fusion 4D refusal')
 
-# ActivateBlending: is Swift (ViewerController+Blending.swift); its
-# body, under the reentry guard, is activateBlendingInside.
-blending_source = sources.source_text('ViewerController+Blending')
+# ActivateBlending: is ViewerFusion's (ViewerController+Blending.swift keeps
+# the selector); its body, under the reentry guard, is activateBlendingInside.
+blending_source = sources.source_text('ViewerFusion')
 blend = body(blending_source, 'func activateBlending(_ bC: ViewerController!)') + \
     body(blending_source, 'func activateBlendingInside(_ bC: ViewerController!)')
 check('fourDFusionRefusalReason' in blend or 'refuseFourDFusionWithTitle' in blend
@@ -103,12 +108,15 @@ check('fourDFusionRefusalReason' in blend or 'refuseFourDFusionWithTitle' in ble
 check('PET-CT Fusion' in blend or 'refuseFourDFusionWithTitle' in blend,
       'ActivateBlending must keep the PET-CT Fusion title on refusal')
 
-mpr = body(viewer, '-(IBAction) orthogonalMPRViewer:(id) sender')
-check('refuseFourDFusionWithTitle' in mpr or 'fourDFusionRefusalReason' in mpr,
+mpr = body(viewer, 'func openOrthogonalMPR(_ sender: Any?)')
+check('passesChecks(.orthogonalMPR, sender: sender)' in mpr
+      and '[.thicknessAndInterval, .volumic, .geometry, .fourDFrames] + (fused ? [.fourDFusion] : [])' in eligibility
+      and 'return fourDFusionRefusalReason(forOverlay: viewer.horos_blending).map { .fourDFusion(reason: $0) }' in viewer
+      and 'alert(NSLocalizedString("PET-CT Fusion", comment: ""), reason)' in viewer,
       'orthogonalMPRViewer must refuse fusion 4D before opening PET-CT')
-check('fileList[curMovieIndex]' not in mpr,
+check('horos_fileList(at: Int(horos_curMovieIndex))' not in mpr,
       'orthogonalMPRViewer must not index fileList with an unwrapped curMovieIndex')
-check('alignedTimeIndexRequested' in mpr or 'wrappedIndex' in mpr,
+check('FourDSeriesGuard.alignedTimeIndex(requested:' in mpr or 'FourDSeriesGuard.wrappedIndex(' in mpr,
       'PET-CT title must wrap the 4D time into 0 ..< maxMovieIndex')
 
 if failures:

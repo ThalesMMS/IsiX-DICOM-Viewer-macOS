@@ -40,10 +40,12 @@
 #import "Point3D.h"
 
 /** \brief Interpolates flight path between FlyThru steps
+
+What Spline3D and Piecewise3D answer: once an abstract class whose methods did
+nothing, a protocol now that the two are its only implementations.
 */
 
-@interface Interpolation3D : NSObject {
-}
+@protocol Interpolation3D <NSObject>
 
 - (void) addPoint: (float) t : (Point3D*) p;
 - (Point3D*) evaluateAt: (float) t;

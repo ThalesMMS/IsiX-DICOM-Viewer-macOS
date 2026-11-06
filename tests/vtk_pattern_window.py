@@ -159,7 +159,7 @@ public:
   return true;
  }
 };
-// Makes them VTK's window and renderer, as the app's VRPresentation.mm does.
+// Makes them VTK's window and renderer, as the app's VTK adapter (IsiXVTKVolumePresentation.mm) does.
 class PatternFactory : public vtkObjectFactory {
 public:
  static PatternFactory *New(){auto f=new PatternFactory;f->InitializeObjectBase();return f;}
@@ -183,7 +183,7 @@ def compile(install, root, source, output, scene=False, libraries=(), frameworks
     system frameworks."""
     # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.
     libs = [install / 'wlib' / 'libVTK.a']
-    sources = [str(source)] + ([str(root / 'Horos/Sources/SceneFactory.cxx')] if scene else [])
+    sources = [str(source)] + ([str(root / 'Horos/Sources/Adapters/VTK/SceneFactory.cxx')] if scene else [])
     extra = [flag for framework in frameworks for flag in ('-framework', framework)]
     subprocess.run(['xcrun', 'clang++', '-std=c++17', '-fsanitize=address', '-I' + str(install / 'include'),
                     '-I' + str(root / 'Horos/Sources'), *sources, *[str(x) for x in libs], '-lz', *extra,

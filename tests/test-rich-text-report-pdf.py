@@ -45,20 +45,25 @@ if 'isUsablePDF(at: outPdfPath' not in transform or transform.index('isUsablePDF
 if 'NSRunAlertPanel' in report or 'HorosAlertPanel' in report or 'NSAlert' in report:
     failures.append('a conversion failure still opens a modal panel from inside the conversion')
 
-# The report actions of BrowserController are Swift; the panel is
-# HorosAlertPanel there, as NSRunAlertPanel was in Objective-C.
-browser = source_text('BrowserController+Reports')
-export = browser[browser.index('    @objc(convertReportToPDF:)'):]
-export = export[:export.index('    @objc(deleteReport:)')]
-if 'HorosAlertPanel.run(' not in export:
+# The report actions of BrowserController are StudyReports'; the panel is
+# HorosAlertPanel there (reportError), as NSRunAlertPanel was in Objective-C.
+browser = source_text('StudyReports')
+alert = browser[browser.index('    private func reportError('):]
+alert = alert[:alert.index('\n    }\n')]
+if 'HorosAlertPanel.run(' not in alert:
+    failures.append('the report errors are not shown in a panel')
+export = browser[browser.index('    func exportSelectedReportAsPDF()'):]
+export = export[:export.index('    func deleteSelectedReport()')]
+if 'reportError(' not in export:
     failures.append('Convert Report to PDF does not tell the user when nothing was written')
-batch = browser[browser.index('    @objc(convertReportToDICOMSR:)'):]
-batch = batch[:batch.index('    @objc(convertReportToPDF:)')]
-if 'failedReports' not in batch or 'HorosAlertPanel.run(' not in batch:
+batch = browser[browser.index('    func convertSelectionToDICOMPDF()'):]
+batch = batch[:batch.index('    func exportSelectedReportAsPDF()')]
+if 'failures.append(' not in batch or 'reportError(failures' not in batch:
     failures.append('the DICOM PDF batch does not tell the user which reports failed')
-# DicomStudy is Swift; the assertion reads its Swift spelling.
-study = source_text('DicomStudy')
-if 'notificationTitle(NSLocalizedString("Report Error", comment: "")' not in study:
+# The validated report's DICOM PDF is the Report category's; the assertion reads its Swift spelling.
+validated = report[report.index('func archiveValidatedReportAsDICOMPDF()'):]
+validated = validated[:validated.index('@objc func saveReportAsDicomInTmp()')]
+if 'userNotifications.post(title: NSLocalizedString("Report Error", comment: "")' not in validated:
     failures.append('a validated study whose DICOM PDF failed says nothing')
 burner = source_text('BurnerWindowController')
 if 'report not converted to PDF for the medium' not in burner:

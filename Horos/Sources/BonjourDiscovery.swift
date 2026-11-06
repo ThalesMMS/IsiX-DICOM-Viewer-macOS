@@ -195,15 +195,22 @@ public final class BonjourService: NetService {
         schedule(reference, for: lookup, error: error)
     }
 
+    /// The service, as the completion of its resolution finds it, if it
+    /// still exists.
+    ///
+    /// `@unchecked Sendable`: the service is confined to the main queue its
+    /// resolution is scheduled on, where the completion runs, later.
+    private struct ResolvingService: @unchecked Sendable {
+        weak var service: BonjourService?
+    }
+
     private func queueCompletion() {
         guard !completionQueued else { return }
         completionQueued = true
         let currentGeneration = generation
-        // Unsafe only for the compiler: the service is confined to the main
-        // queue its resolution is scheduled on, where this block runs.
-        nonisolated(unsafe) weak let service = self
+        let resolving = ResolvingService(service: self)
         DispatchQueue.main.async {
-            guard let self = service, self.generation == currentGeneration, self.timeout != nil else { return }
+            guard let self = resolving.service, self.generation == currentGeneration, self.timeout != nil else { return }
             self.completionQueued = false
             let candidates = self.lookups.flatMap { lookup in lookup.addresses.map { (lookup, $0) } }
             // IPv4 first within what arrived, without waiting for a family or an
@@ -216,7 +223,7 @@ public final class BonjourService: NetService {
             let snapshot = Snapshot(addresses: ordered.map(\.1.socketAddress), hostName: first.0.hostName,
                                     port: first.0.port, txt: first.0.txt)
             self.stop()
-            self.lock.lock(); self.snapshot = snapshot; self.lock.unlock()
+            self.lock.withLock { self.snapshot = snapshot }
             self.delegate?.netServiceDidResolveAddress?(self)
         }
     }
@@ -369,7 +376,7 @@ public final class HorosBonjourBrowser: NSObject {
                 case .waiting(let error):
                     // An interface that went away can come back on this browser.
                     // Keep what was found; the Sources liveness policy decides.
-                    NSLog("Horos Bonjour waiting for %@: %@", type, String(describing: error))
+                    NSLog("Horos Bonjour waiting for %@: %@", type, LogText.error(error))
                 case .failed(let error):
                     self.fail(error)
                 default:
@@ -536,7 +543,7 @@ public final class BonjourAdvertisement: NSObject {
         let data: Data
         do { data = try Self.encodeTXTRecord(values) }
         catch {
-            NSLog("Horos Bonjour invalid TXT record for %@ %@:%ld: %@", name, type, port, error as NSError)
+            NSLog("Horos Bonjour invalid TXT record for %@ %@:%ld: %@", name, type, port, LogText.error(error))
             return
         }
         let changed = txtData != data
@@ -601,7 +608,7 @@ public final class BonjourAdvertisement: NSObject {
     private func failed(_ error: DNSServiceErrorType) {
         registration?.close(); registration = nil
         isPublished = false
-        NSLog("Warning: Horos Bonjour service did not publish: %@ %@:%ld DNS-SD error=%d", name, type, port, error)
+        NSLog("Warning: Horos Bonjour service did not publish: %@ %@:%ld DNS-SD error=%d", name, type, port, Int32(error))
         // Reconnect to the same API after a daemon failure; never a helper process,
         // and never a retry loop for a configuration or permission error.
         guard active, retry == nil, Self.isTransient(error) else { return }

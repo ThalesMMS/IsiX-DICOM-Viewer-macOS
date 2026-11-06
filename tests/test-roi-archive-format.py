@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """rois_series / JSON format diagnosis: incompatible or empty is never a silent success."""
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402  - ROIInterchange.swift writes IsiXROI's ROIInterchangeDocument
 import json
 import subprocess
 import tempfile
@@ -224,6 +227,7 @@ with tempfile.TemporaryDirectory(prefix='horos-roi-archive-') as d:
         '-strict-concurrency=complete', '-default-isolation', 'nonisolated',
         '-target', 'arm64-apple-macos26.0',
         '-import-objc-header', str(p / 'Bridge.h'), '-I', str(root / 'Horos/Sources'),
+        *isix_modules.module_flags('IsiXROI', p / 'modules', ('-target', 'arm64-apple-macos26.0')),
         str(root / 'Horos/Sources/HistoricalArchive.swift'),
         str(root / 'Horos/Sources/RestrictedUnarchiver.swift'),
         str(root / 'Horos/Sources/ROIIntersliceGeometry.swift'),

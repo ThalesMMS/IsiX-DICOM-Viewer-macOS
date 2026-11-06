@@ -36,8 +36,8 @@ static int publish(const char *source, const char *destination, unsigned int fla
 #undef NSFileManager
 int main(int argc,char **argv) { @autoreleasepool {
  NSString *root=[NSString stringWithUTF8String:argv[1]];
- NSString *source=[root stringByAppendingPathComponent:@"new/QAUniversal.horosplugin"];
- NSString *destination=[root stringByAppendingPathComponent:@"installed/QAUniversal.horosplugin"];
+ NSString *source=[root stringByAppendingPathComponent:@"new/QAVersion1.isixplugin"];
+ NSString *destination=[root stringByAppendingPathComponent:@"installed/QAVersion1.isixplugin"];
  NSString *payload=@"Contents/Resources/seal.txt";
  NSData *old=[NSData dataWithContentsOfFile:[destination stringByAppendingPathComponent:payload]];
  NSData *updated=[NSData dataWithContentsOfFile:[source stringByAppendingPathComponent:payload]];
@@ -63,11 +63,11 @@ int main(int argc,char **argv) { @autoreleasepool {
  NSCAssert([[NSData dataWithContentsOfFile:[destination stringByAppendingPathComponent:payload]] isEqual:updated],@"Published version must be complete");
  NSCAssert([[NSData dataWithContentsOfFile:[source stringByAppendingPathComponent:payload]] isEqual:updated],@"Installation must retain source");
  NSCAssert([[NSData dataWithContentsOfFile:[HorosPluginPreviousPath(destination) stringByAppendingPathComponent:payload]] isEqual:old],@"Successful update must keep the previous working plugin");
- NSString *fresh=[root stringByAppendingPathComponent:@"fresh/QAUniversal.horosplugin"];
+ NSString *fresh=[root stringByAppendingPathComponent:@"fresh/QAVersion1.isixplugin"];
  NSCAssert(HorosInstallPlugin(source,fresh,&error),@"Fresh installation must succeed");
  for(NSString *entry in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:destination.stringByDeletingLastPathComponent error:NULL])
   NSCAssert(![entry hasPrefix:@".horos-plugin-update-"],@"Normal completion must clean staging");
- NSCAssert(NSClassFromString(@"QAUniversal")==Nil,@"Validation must not execute plugin code");
+ NSCAssert(NSClassFromString(@"QAVersion1")==Nil,@"Validation must not execute plugin code");
  puts("PASS: copy failure, staged corruption, swap failure, replacement, fresh install, source preservation and staging cleanup");
 } }
 '''
@@ -79,20 +79,20 @@ with tempfile.TemporaryDirectory(prefix='horos-plugin-atomic-') as directory:
  for mode in ('normal','interrupt','interrupt-after'):
   data=p/mode
   for parent in ('new','installed'):
-   shutil.copytree(p/'fixtures/QAUniversal.horosplugin',data/parent/'QAUniversal.horosplugin')
-  (data/'new/QAUniversal.horosplugin/Contents/Resources/seal.txt').write_text('Updated synthetic resource')
-  subprocess.run(['codesign','--force','--sign','-',str(data/'new/QAUniversal.horosplugin')],check=True,capture_output=True)
+   shutil.copytree(p/'fixtures/QAVersion1.isixplugin',data/parent/'QAVersion1.isixplugin')
+  (data/'new/QAVersion1.isixplugin/Contents/Resources/seal.txt').write_text('Updated synthetic resource')
+  subprocess.run(['codesign','--force','--sign','-',str(data/'new/QAVersion1.isixplugin')],check=True,capture_output=True)
   result=subprocess.run([str(p/'test'),str(data)]+([mode] if mode!='normal' else []),timeout=30)
   assert result.returncode==({'normal':0,'interrupt':77,'interrupt-after':78}[mode]), result.returncode
   if mode=='interrupt':
-   assert (data/'installed/QAUniversal.horosplugin/Contents/Resources/seal.txt').read_text()=='Original synthetic resource'
-   assert (data/'new/QAUniversal.horosplugin').exists()
+   assert (data/'installed/QAVersion1.isixplugin/Contents/Resources/seal.txt').read_text()=='Original synthetic resource'
+   assert (data/'new/QAVersion1.isixplugin').exists()
    print('PASS: process exit immediately before publication leaves installed version intact')
 
   if mode=='interrupt-after':
-   assert (data/'installed/QAUniversal.horosplugin/Contents/Resources/seal.txt').read_text()=='Updated synthetic resource'
-   subprocess.run(['codesign','--verify','--deep',str(data/'installed/QAUniversal.horosplugin')],check=True,capture_output=True)
-   backups=list((data/'installed').glob('.horos-plugin-update-*/QAUniversal.horosplugin/Contents/Resources/seal.txt'))
+   assert (data/'installed/QAVersion1.isixplugin/Contents/Resources/seal.txt').read_text()=='Updated synthetic resource'
+   subprocess.run(['codesign','--verify','--deep',str(data/'installed/QAVersion1.isixplugin')],check=True,capture_output=True)
+   backups=list((data/'installed').glob('.horos-plugin-update-*/QAVersion1.isixplugin/Contents/Resources/seal.txt'))
    assert len(backups)==1 and backups[0].read_text()=='Original synthetic resource'
-   assert (data/'new/QAUniversal.horosplugin').exists()
+   assert (data/'new/QAVersion1.isixplugin').exists()
    print('PASS: process exit after publication leaves complete signed update and recoverable old staging copy')

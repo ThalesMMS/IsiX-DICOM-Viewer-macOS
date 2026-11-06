@@ -242,13 +242,20 @@ swift = (root / 'Horos/Sources/HorosDirectTransfer.swift').read_text(encoding='u
 assert 'HorosDirectTransfer.swift in Sources' in pbx, 'the helper must be in the Horos target'
 # Swift in the Horos module sees the policy without Horos-Swift.h.
 assert is_swift('SendController'), 'SendController is expected in Swift'
-offis = objc_body(send, 'func sendDICOMFilesOffis(_ dict: NSDictionary!)')
-assert 'HorosDirectTransferPolicy' in offis or 'DirectTransferPolicy' in offis, (
-    'sendDICOMFilesOffis must ask the Swift policy before C-STORE')
-assert 'Using DICOM transfer' in offis or 'falling back to DICOM' in offis.lower() or 'DICOM C-STORE' in offis, (
+# The Send sheet asks the policy for the route of its request; the send queue
+# (IsiXDICOMNetwork) tries the direct transfer first on that route and sends by
+# C-STORE when it failed; the activity transport runs the direct transfer.
+request = objc_body(send, 'private func sendRequest(to node: [AnyHashable: Any]?, objects: [Any]) -> DICOMSendRequest?')
+assert 'DirectTransferPolicy.route(' in request and '.directTransferFirst' in request, (
+    'the send request must ask the Swift policy before C-STORE')
+queue = (root / 'Modules/IsiXDICOMNetwork/Sources/DICOMSendQueue.swift').read_text(encoding='utf-8')
+assert 'case .directTransferFirst:' in queue and 'sendByDirectTransfer(request)' in queue and 'if outcome != .failed' in queue, (
+    'the send queue must fall back to C-STORE only when the direct transfer failed')
+transport = objc_body((root / 'Horos/Sources/ActivitySendTransport.swift').read_text(encoding='utf-8'),
+                      'func sendByDirectTransfer(_ request: DICOMSendRequest) async -> DICOMSendOutcome')
+assert 'Using DICOM transfer' in transport and 'falling back to DICOM C-STORE' in transport, (
     'DIMSE fallback must be named, not a silent success')
-assert ('HorosDirectTransferService' in offis or 'DirectTransferService.shared' in offis
-        or 'DirectTransferClient' in offis), (
+assert 'DirectTransferService.shared' in transport, (
     'an authorized direct peer must use the Horos-Horos sender')
 
 assert 'NSClassFromString("HorosDirectTransfer' in bonjour, (

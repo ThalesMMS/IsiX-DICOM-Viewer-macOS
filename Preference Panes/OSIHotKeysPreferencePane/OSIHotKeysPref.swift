@@ -43,7 +43,7 @@ import PreferencePanes
 /// The Hot Keys preference pane: one key per viewer action, kept in the
 /// HOTKEYS default as {key: index of the action}.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// the xib's outlets, actions and bindings are those of the former class.
 // Main actor: a preferences pane, which the preferences window creates, shows
 // and hides on the main thread. Its NSPreferencePane overrides, nonisolated in

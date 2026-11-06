@@ -36,11 +36,14 @@ import re
 import subprocess
 import sys
 import tempfile
+from sources import class_text
+from isix_modules import module_driver
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-attribute = (root / 'DCM Framework/DCMPixelDataAttribute.mm').read_bytes().decode('latin1')
-pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
+# The colour conversions of the dataset model (IsiXDICOMDataset).
+attribute = (root / 'Modules/IsiXDICOMDataset/Sources/DCMPixelDataAttribute+Colour.swift').read_text(encoding='utf-8')
+pix = class_text('DCMPix')
 
 
 def strip(text):
@@ -49,14 +52,14 @@ def strip(text):
 
 
 # --- one matrix, in one place --------------------------------------------------
-at = attribute.find('static inline void ybrToRGB(')
+at = attribute.find('static func ybrToRGB(')
 if at < 0:
     failures.append('there is no single place where a luminance and two chrominance samples '
                     'become a colour')
     matrix = ''
 else:
-    end = attribute.index('\n}\n', at)
-    matrix = attribute[at:end + 3]
+    end = attribute.index('\n    }\n', at)
+    matrix = attribute[at:end + 7]
     for coefficient in ('45941', '23401', '11277', '58065'):
         if coefficient not in matrix:
             failures.append('the full-range matrix is missing %s, so YBR_FULL is still '
@@ -65,70 +68,69 @@ else:
         if coefficient not in matrix:
             failures.append('the partial-range matrix lost %s' % coefficient)
 
-convert = strip(attribute[attribute.find('- (NSData *) convertYBrToRGB:'):][:6000])
+convert = strip(attribute[attribute.find('public func convertYBrToRGB('):][:6000])
 if not convert:
     failures.append('-convertYBrToRGB:kind:isPlanar: is gone')
 else:
-    if 'ybrToRGB(' not in convert:
+    if 'Self.ybrToRGB(' not in convert:
         failures.append('the conversion does not go through the shared matrix, so the layouts '
                         'can disagree about what a colour is')
     if '_422' not in convert:
         failures.append('the subsampled layout is no longer recognised, and copying its samples '
                         'straight through is what made a grey ultrasound green and purple')
-    if 'hasPrefix: @"YBR_PARTIAL"' not in convert:
+    if 'hasPrefix("YBR_PARTIAL")' not in convert:
         failures.append('nothing tells the two ranges apart')
 
 # --- and the two decisions in the reader ---------------------------------------
-code = strip(pix)
-at = code.find('if (isRGB == YES)')
-window = code[max(at - 1200, 0):at + 900] if at >= 0 else ''
-if not window:
+# The frame loading is the IsiXImaging module's, which DCMPix delegates to: the
+# photometry decides colour, and the loader reads the colour samples.
+frames = root / 'Modules/IsiXImaging/Sources'
+photometry = strip((frames / 'FramePhotometry.swift').read_text())
+loader = strip((frames / 'FrameLoader.swift').read_text())
+colour = loader[loader.find('func loadColour('):loader.find('func loadGrey(')]
+if 'func loadColour(' not in loader or 'func read(' not in photometry or 'func loadFrame(' not in pix:
     failures.append('the colour branch of the reader is gone')
 else:
-    if 'SamplesperPixel' not in window:
+    if 'SamplesperPixel' not in photometry:
         failures.append('a photometric interpretation that says RGB is still believed over the '
                         'number of samples the object carries')
-    if 'height * width * 3 * 2' not in window:
+    if 'frame.count >= count &* 6' not in colour:
         failures.append('the width of a sample still comes from what the object declares rather '
                         'than from how many bytes it carries')
-    if 'bitsAllocated > 8' in window:
+    if 'bitsAllocated' in colour:
         failures.append('the colour branch still chooses by the declared bits')
 
 # --- the matrix answers what the standard says ---------------------------------
 if matrix:
     DRIVER = '''
-#import <Foundation/Foundation.h>
-#include <cstdio>
-MATRIX
-int main() {
-    unsigned char r, g, b;
-    // Grey: Cb and Cr at 128 leave the luminance alone in full range.
-    ybrToRGB(0, 128, 128, NO, &r, &g, &b);    printf("%d %d %d\\n", r, g, b);
-    ybrToRGB(128, 128, 128, NO, &r, &g, &b);  printf("%d %d %d\\n", r, g, b);
-    ybrToRGB(255, 128, 128, NO, &r, &g, &b);  printf("%d %d %d\\n", r, g, b);
-    // Pure red, green and blue, converted to YBR_FULL and back.
-    ybrToRGB(76, 85, 255, NO, &r, &g, &b);    printf("%d %d %d\\n", r, g, b);
-    ybrToRGB(150, 44, 21, NO, &r, &g, &b);    printf("%d %d %d\\n", r, g, b);
-    ybrToRGB(29, 255, 107, NO, &r, &g, &b);   printf("%d %d %d\\n", r, g, b);
-    // Partial range: 16 is black and 235 is white.
-    ybrToRGB(16, 128, 128, YES, &r, &g, &b);  printf("%d %d %d\\n", r, g, b);
-    ybrToRGB(235, 128, 128, YES, &r, &g, &b); printf("%d %d %d\\n", r, g, b);
-    // The corners of the cube, where the matrix runs off both ends and has to
-    // be clamped rather than wrapped.
-    ybrToRGB(255, 255, 255, NO, &r, &g, &b);  printf("%d %d %d\\n", r, g, b);
-    ybrToRGB(0, 0, 0, NO, &r, &g, &b);        printf("%d %d %d\\n", r, g, b);
-    return 0;
+import IsiXDICOMFile
+
+func show(_ y: Int, _ cb: Int, _ cr: Int, _ partial: Bool) {
+    let colour = DCMPixelDataAttribute.ybrToRGB(luminance: y, blueDifference: cb, redDifference: cr, partialRange: partial)
+    print(colour.0, colour.1, colour.2)
 }
-'''.replace('MATRIX', matrix)
+// Grey: Cb and Cr at 128 leave the luminance alone in full range.
+show(0, 128, 128, false)
+show(128, 128, 128, false)
+show(255, 128, 128, false)
+// Pure red, green and blue, converted to YBR_FULL and back.
+show(76, 85, 255, false)
+show(150, 44, 21, false)
+show(29, 255, 107, false)
+// Partial range: 16 is black and 235 is white.
+show(16, 128, 128, true)
+show(235, 128, 128, true)
+// The corners of the cube, where the matrix runs off both ends and has to
+// be clamped rather than wrapped.
+show(255, 255, 255, false)
+show(0, 0, 0, false)
+'''
     with tempfile.TemporaryDirectory(prefix='horos-ybr-') as directory:
-        main = Path(directory) / 'main.mm'
-        main.write_text(DRIVER)
         binary = Path(directory) / 'ybr'
-        build = subprocess.run(['xcrun', 'clang++', '-std=c++11', '-w', '-framework',
-                                'Foundation', str(main), '-o', str(binary)],
-                               capture_output=True, text=True)
-        if build.returncode != 0:
-            failures.append('the matrix does not compile:\n%s' % build.stderr[-800:])
+        try:
+            module_driver('IsiXDICOMDataset', DRIVER, binary)
+        except subprocess.CalledProcessError as error:
+            failures.append('the matrix does not compile:\n%s' % error.stderr[-800:])
         else:
             run = subprocess.run([str(binary)], capture_output=True, text=True, timeout=60)
             got = [line.split() for line in run.stdout.splitlines()]

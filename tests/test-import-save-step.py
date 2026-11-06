@@ -41,9 +41,13 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
+# DicomDatabase is Swift (DicomDatabase.swift and its DicomDatabase+*.swift
+# extensions); the assertions read its Swift spelling.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources as dicom_database_sources  # noqa: E402
+database = dicom_database_sources.class_text('DicomDatabase')
 
-at = database.find('@"Synchronizing database..."')
+at = database.find('NSLocalizedString("Synchronizing database..."')
 if at < 0:
     failures.append('the step that synchronises the database is gone')
 else:
@@ -61,27 +65,27 @@ else:
     if 'rebuilding the database index' not in region:
         failures.append('a failed save does not say what state it leaves the copied files in')
 
-    guard = region.find('protectionAgainstReentry = YES')
-    if guard < 0:
-        failures.append('the guard against a re-entrant save is gone')
-    else:
-        window = region[guard:guard + 1600]
-        if '@finally' not in window:
-            failures.append('a save that raises leaves the re-entry flag set, and every later '
-                            'import in the session then skips its save in silence')
-        clear = window.find('protectionAgainstReentry = NO')
-        finally_at = window.find('@finally')
-        if clear < 0 or clear < finally_at:
-            failures.append('the re-entry flag is cleared outside the @finally, so an exception '
-                            'still leaves it set')
-    tail = region[region.find('protectionAgainstReentry = YES'):]
-    if 'another import is saving' not in tail:
-        failures.append('a save skipped because another import holds the flag is skipped in '
-                        'silence')
+    if 'protectionAgainstReentry' in database:
+        failures.append('the process-wide flag is back: its second import skips its save, and a '
+                        'context writes only its own rows')
+    if 'try context?.save()' not in region:
+        failures.append('the import no longer saves')
+
+    # The gate is left whatever the save did: the method runs in an @try
+    # (HorosObjCException.caught) inside the gate, so that an exception reaches
+    # no `defer` it would pass over, and it is logged once the gate is free.
+    add = database[database.find('raised = database.databaseWriterGate.withExclusiveWrite {'):]
+    gate = add.find('database.databaseWriterGate.withExclusiveWrite {')
+    attempt = add.find('HorosObjCException.caught {')
+    index = add.find('self.indexDescribedFiles(')
+    logged = add.find('if let raised { DicomDatabaseObjC.log(raised')
+    if not 0 <= gate < attempt < index < logged:
+        failures.append('an exception inside the writer gate is not caught before the gate is '
+                        'left, and it would stay held for the session')
 
 for failure in failures:
     print('FAIL: %s' % failure)
 if failures:
     sys.exit(1)
 print('ok: the synchronising step names its error, keeps the copied files, and cannot leave the '
-      're-entry guard set')
+      'writer gate held')

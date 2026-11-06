@@ -41,7 +41,7 @@ import Cocoa
 
 /// The Hot Keys pane's array controller (customClass in OSIHotKeysPref.xib).
 ///
-/// Implemented in Swift since #711. The former class overrode nothing: its
+/// Implemented in Swift. The former class overrode nothing: its
 /// body was commented out.
 @objc(HotKeyArrayController)
 public final class HotKeyArrayController: NSArrayController {

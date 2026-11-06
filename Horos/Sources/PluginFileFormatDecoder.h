@@ -38,30 +38,27 @@
 
 #import <Cocoa/Cocoa.h>
 
-/** \brief Plugin for adding file format */
-@interface PluginFileFormatDecoder : NSObject {
+/** \brief Plugin for adding file format
 
-	NSNumber *_height;
-	NSNumber *_width;
-	float *_fImage;
-	NSNumber * _rowBytes;
-	NSNumber *_windowWidth;
-	NSNumber *_windowLevel;
-	BOOL _isRGB;
-	
-	NSString *_patientName;
-	NSString *_patientID;
-	NSString *_studyID;
-	NSString *_seriesID;
-	NSString *_imageID;
-	NSString *_studyDescription;
-	NSString *_seriesDescription;
-}
+The base class of the principal class of a file-format plugin, and the messages
+DicomFile and DCMPix send to it. A plugin built for Horos or OsiriX subclasses
+it in Objective-C, sets the instance variables the former SDK declared here
+(_height, _width, _rowBytes, _fImage, _isRGB and the others) directly in
+-checkLoadAtPath:, and inherits the methods that answer them.
+
+PluginFileFormatDecoder.swift implements the class (@objc @implementation), so
+the runtime sees an Objective-C class of this name that such a subclass can
+inherit from. Its instance variables are Swift stored properties of the same
+names; the linker exports their offsets under the _OBJC_IVAR_$_ names the
+plugin's binary looks up (Horos/Scripts/Horos/legacy-plugin-ivar-aliases.rsp).
+*/
+@interface PluginFileFormatDecoder : NSObject
+
 // not used currently
 + (float *)decodedDataAtPath:(NSString *)path;
 
 /*
-	This is the main method to get the fImage float pointer used by DCMPix to create an image.  
+	This is the main method to get the fImage float pointer used by DCMPix to create an image.
 	If the data is RGB the pointe should be to unsigned char with the format ARGB
 	Grayscale data is a float pointer
 */
@@ -84,6 +81,5 @@
 - (NSString *)imageID;
 - (NSString *)studyDescription;
 - (NSString *)seriesDescription;
-
 
 @end

@@ -35,10 +35,6 @@
      PURPOSE.
  ============================================================================*/
 
-// Exception names are C constants, which do not migrate to Swift: the
-// definition moved from N2Exceptions.mm to N2Exceptions+CAPI.m, with the same
-// value.
-
 #import <Cocoa/Cocoa.h>
 
-extern NSString* N2VirtualMethodException;
+static NSString* const N2VirtualMethodException = @"N2VirtualMethodException";

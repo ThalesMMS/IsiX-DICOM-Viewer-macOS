@@ -39,10 +39,12 @@
 
 import Cocoa
 import PreferencePanes
+import IsiXDICOMFile
+import IsiXPreferences
 
 /// The Database preference pane.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// the xib's outlets, actions and bindings are those of the former class. The
 /// defaults keys and the types written are the former ones.
 // Main actor: a preferences pane, which the preferences window creates, shows
@@ -128,16 +130,12 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
         }
         mainViewDidLoad()
 
-        NSUserDefaultsController.shared.addObserver(self, forKeyPath: "values.eraseEntireDBAtStartup", options: .new, context: nil)
         NSUserDefaultsController.shared.addObserver(self, forKeyPath: "values.dbFontSize", options: .new, context: nil)
-        NSUserDefaultsController.shared.addObserver(self, forKeyPath: "values.horizontalHistory", options: .new, context: nil)
     }
 
     deinit {
         NSLog("dealloc OSIDatabasePreferencePanePref")
 
-        // As before, values.horizontalHistory is not removed.
-        NSUserDefaultsController.shared.removeObserver(self, forKeyPath: "values.eraseEntireDBAtStartup")
         NSUserDefaultsController.shared.removeObserver(self, forKeyPath: "values.dbFontSize")
     }
 
@@ -153,16 +151,6 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
         let fromDefaults = (object as AnyObject?) === NSUserDefaultsController.shared
         onMainActor {
             if fromDefaults {
-                if keyPath == "values.eraseEntireDBAtStartup" {
-                    if UserDefaults.standard.bool(forKey: "eraseEntireDBAtStartup") {
-                        _ = runAlertPanel(.critical, NSLocalizedString("Erase Entire Database", comment: ""), NSLocalizedString("Warning! With this option, each time IsiX DICOM Viewer is restarted, the entire database will be erased. All studies will be deleted. This cannot be undone.", comment: ""), NSLocalizedString("OK", comment: ""))
-                    }
-                }
-
-                if keyPath == "values.horizontalHistory" {
-                    _ = runAlertPanel(.critical, NSLocalizedString("Restart", comment: ""), NSLocalizedString("Restart IsiX DICOM Viewer to apply this change.", comment: ""), NSLocalizedString("OK", comment: ""))
-                }
-
                 if keyPath == "values.dbFontSize" {
                     // -refreshMatrix: does not read its sender, formerly the pane.
                     if let browser = BrowserController.currentBrowser() {
@@ -181,7 +169,7 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
 
         l.add(NSLocalizedString("Displayed SOP Class UIDs", comment: ""))
 
-        for case let s as String in sortedSyntaxes(DCMAbstractSyntaxUID.imageSyntaxes()) {
+        for case let s as String in sortedSyntaxes(DICOMSOPClass.imageSyntaxes()) {
             l.add(String(format: "%@ - %@", s, BrowserController.compressionString(s) ?? "(null)"))
         }
 
@@ -194,7 +182,7 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
 
         l.add(NSLocalizedString("Stored SOP Class UIDs", comment: ""))
 
-        for case let s as String in sortedSyntaxes(DCMAbstractSyntaxUID.allSupportedSyntaxes()) {
+        for case let s as String in sortedSyntaxes(DICOMSOPClass.allSupportedSyntaxes()) {
             l.add(String(format: "%@ - %@", s, BrowserController.compressionString(s) ?? "(null)"))
         }
 
@@ -205,26 +193,68 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
         ((syntaxes ?? []) as NSArray).sortedArray(using: #selector(NSString.compare(_:))) as NSArray
     }
 
+    /// Tag of the reports menu's label over the report plugins in every localized
+    /// nib. The label is found by this tag, not by position or title: the nib puts
+    /// a separator before it, and its title is translated.
+    private static let reportPluginsLabelTag = -1
+
+    /// Fills the reports menu with the installed report plugins, below the nib's
+    /// separator and "Plugins" label. Each plugin item carries its plugin name as
+    /// represented object, which is what `setReportMode:` saves; the label is
+    /// disabled and only names the group. Without plugins the label and its
+    /// separator are taken out.
     @objc public func buildPluginsMenu() {
-        var numberOfReportPlugins = 0
-        for case let k as String in (PluginManager.reportPlugins() as NSDictionary?)?.allKeys ?? [] {
-            reportsMode?.addItem(withTitle: k)
-            reportsMode?.lastItem?.indentationLevel = 1
-            numberOfReportPlugins += 1
+        guard let reportsMode, let menu = reportsMode.menu else { return }
+        for item in menu.items where item.representedObject is String {
+            menu.removeItem(item)
+        }
+        guard let label = menu.items.first(where: { $0.tag == Self.reportPluginsLabelTag && !$0.isSeparatorItem }) else { return }
+        let labelIndex = menu.index(of: label)
+        let separator = labelIndex > 0 ? menu.items[labelIndex - 1] : nil
+
+        let names = (PluginManager.reportPlugins()?.allKeys ?? [])
+            .compactMap { $0 as? String }
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+
+        if names.isEmpty {
+            menu.removeItem(label)
+            if let separator, separator.isSeparatorItem {
+                menu.removeItem(separator)
+            }
+            return
         }
 
-        if numberOfReportPlugins <= 0 {
-            for _ in 0..<2 {
-                if let reportsMode, let last = reportsMode.lastItem {
-                    reportsMode.removeItem(at: reportsMode.index(of: last))
-                }
-            }
+        if names.count == 1 {
+            label.title = NSLocalizedString("Plugin", comment: "Reports menu label over a single report plugin")
+        }
+        reportsMode.autoenablesItems = false
+        label.isEnabled = false
+        label.target = nil
+        label.action = nil
+
+        // Items are added directly: -addItemWithTitle: would first remove an
+        // existing item of the same title, such as one of the editors above.
+        for name in names {
+            let item = NSMenuItem(title: name, action: nil, keyEquivalent: "")
+            item.indentationLevel = 1
+            item.representedObject = name
+            menu.addItem(item)
+        }
+    }
+
+    /// Selects the report choice saved in the preferences: the saved plugin's item
+    /// for mode 3, otherwise the item whose tag is the mode.
+    private func selectSavedReportMode() {
+        let defaults = UserDefaults.standard
+        let mode = Int(intValue(defaults.string(forKey: "REPORTSMODE")))
+        if mode == 3 {
+            // A plugin that is no longer installed leaves nothing selected.
+            let plugin = defaults[DatabasePreferences.reportsPlugin]
+            reportsMode?.select(reportsMode?.itemArray.first { item in
+                (item.representedObject as? String).map { $0 == plugin } ?? false
+            })
         } else {
-            if numberOfReportPlugins == 1 {
-                reportsMode?.item(at: 4)?.title = "Plugin"
-            }
-            reportsMode?.autoenablesItems = false
-            reportsMode?.item(at: 4)?.isEnabled = false
+            reportsMode?.selectItem(withTag: mode)
         }
     }
 
@@ -304,11 +334,7 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
 
         // REPORTS
         buildPluginsMenu()
-        if intValue(defaults.string(forKey: "REPORTSMODE")) == 3 {
-            reportsMode?.selectItem(withTitle: defaults.string(forKey: "REPORTSPLUGIN") ?? "")
-        } else {
-            reportsMode?.selectItem(withTag: Int(intValue(defaults.string(forKey: "REPORTSMODE"))))
-        }
+        selectSavedReportMode()
 
         // DATABASE AUTO-CLEANING
 
@@ -362,18 +388,18 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
         // 5 : OO
 
         let defaults = UserDefaults.standard
+        guard let selected = reportsMode?.selectedItem else { return }
 
-        let indexOfPluginsLabel = Int32(truncatingIfNeeded: reportsMode?.indexOfItem(withTitle: "Plugins") ?? 0)
-        let indexOfPluginLabel = Int32(truncatingIfNeeded: reportsMode?.indexOfItem(withTitle: "Plugin") ?? 0)
-        var indexOfLabel = (indexOfPluginsLabel > indexOfPluginLabel) ? indexOfPluginsLabel : indexOfPluginLabel
-
-        indexOfLabel = (indexOfLabel <= 0) ? 10000 : indexOfLabel
-
-        if (reportsMode?.indexOfSelectedItem ?? 0) >= Int(indexOfLabel) { // in this case it is a plugin
+        if let plugin = selected.representedObject as? String {
             defaults.set(3, forKey: "REPORTSMODE")
-            defaults.set(reportsMode?.selectedItem?.title, forKey: "REPORTSPLUGIN")
+            defaults.set(plugin, for: DatabasePreferences.reportsPlugin)
+        } else if selected.tag == Self.reportPluginsLabelTag || selected.isSeparatorItem {
+            // The label only names the plugins below it and is never a choice:
+            // nothing is saved and the saved choice is shown again.
+            selectSavedReportMode()
+            return
         } else {
-            defaults.set(reportsMode?.selectedItem?.tag ?? 0, forKey: "REPORTSMODE")
+            defaults.set(selected.tag, forKey: "REPORTSMODE")
         }
         NotificationCenter.default.post(name: NSNotification.Name("reportModeChanged"), object: nil)
     }
@@ -422,6 +448,21 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
         commentsElement?.stringValue = title.substring(with: NSRange(location: 8, length: 6))
 
         setAutoComments(sender)
+    }
+
+    /// Switching the kiosk mode on deletes the whole database at the next
+    /// start, so it asks first.
+    @IBAction public func eraseEntireDatabaseChanged(_ sender: Any?) {
+        guard let button = sender as? NSButton, button.state == .on else { return }
+        let answer = HorosAlertPanel.runInformational(
+            title: NSLocalizedString("Delete the Entire Database at Each Startup?", comment: "Kiosk mode confirmation"),
+            message: NSLocalizedString("Every time IsiX DICOM Viewer starts, all the studies in the default database will be deleted. This cannot be undone.",
+                                       comment: "Kiosk mode confirmation"),
+            defaultButton: NSLocalizedString("Cancel", comment: ""), alternateButton: NSLocalizedString("OK", comment: ""), otherButton: nil)
+        if answer != HorosAlertPanel.alternateResponse {
+            button.state = .off
+            UserDefaults.standard.set(false, forKey: "eraseEntireDBAtStartup")
+        }
     }
 
     @IBAction public func databaseCleaning(_ sender: Any?) {

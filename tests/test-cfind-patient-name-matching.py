@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """A C-FIND PatientName of `*` matches every study, as an empty one does.
 
-The listener's STUDY level builds its PatientName condition with the browser's
--patientsnamePredicate:soundex:. That method stripped the `*` around each name
+The listener's STUDY level builds its PatientName condition with the
+database's name search, PatientNameMatching.namePredicate, which the browser's
+-patientsnamePredicate:soundex: also hands on. That search stripped the `*` around each name
 component and then asked for `name CONTAINS[cd] ""`, which never matches in the
 SQLite store: `*`, which PS3.4 C.2.2.2.3 makes universal matching, returned no
 study, and so did `SMITH^*`. A `*` or `?` inside a component was compared
 literally.
 
-The method is compiled as it is, with xcrun swiftc, and its predicates fetched
+PatientNameMatching.swift is compiled as it is, with xcrun swiftc, and its predicates fetched
 from a temporary SQLite Core Data store, next to the SCP's own conjunction with
 `hasDICOM`. The control fetch `name CONTAINS[cd] ""` must still find nothing in
 that store: it is what the old method produced for `*`. The SCP side is read
-from OsiriXSCPDataHandler.mm: a predicate with no condition is dropped, and the
-`hasDICOM` condition no longer vanishes when it is the only one.
+from IsiXDICOMNetwork's SCPQueryMatching.swift: a predicate with no condition
+is dropped, and the `hasDICOM` condition no longer vanishes when it is the only
+one.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
@@ -29,21 +31,13 @@ failures = []
 plugins = source_text('BrowserController+Plugins')
 start = plugins.index('    @objc(patientsnamePredicate:soundex:)')
 method = plugins[start:plugins.index('    @objc(federatedSourceCatalog)', start)]
-if 'nonisolated func patientsnamePredicate' not in method:
-    failures.append('patientsnamePredicate:soundex: is not nonisolated: the listener calls it off the main thread')
+if 'nonisolated func patientsnamePredicate' not in method \
+        or 'PatientNameMatching.namePredicate(s, soundex: soundex ? { DicomStudy.soundex($0) } : nil)' not in method:
+    failures.append('the browser\'s -patientsnamePredicate:soundex: is not the database\'s name search, from any thread')
 
 code = r'''
 import CoreData
 func check(_ c: Bool, _ what: String, line: Int = #line) { if !c { print("FAIL: \(what) (line \(line))"); exit(1) } }
-func objcTry(_ body: () -> Void) -> NSException? { body(); return nil }
-func objcPredicate(_ format: String, _ arguments: Any?...) -> NSPredicate {
-    NSPredicate(format: format, argumentArray: arguments.map { $0 ?? NSNull() })
-}
-func _N2LogExceptionImpl(_ e: NSException, _ b: Bool, _ s: String) {}
-enum DicomStudy { static func soundex(_ s: String) -> String { String(s.uppercased().prefix(1)) + "000" } }
-@MainActor final class BrowserFixture: NSObject {
-METHOD
-}
 func attribute(_ name: String, _ type: NSAttributeType = .stringAttributeType) -> NSAttributeDescription {
     let a = NSAttributeDescription(); a.name = name; a.attributeType = type; a.isOptional = true; return a
 }
@@ -70,7 +64,6 @@ func fetch(_ p: NSPredicate) -> [String] {
     }
     return result
 }
-let browser = MainActor.assumeIsolated { BrowserFixture() }
 let dicom = NSPredicate(format: "hasDICOM == %d", true)
 let all = names.filter { $0 != "NOT^DICOM" }.sorted()
 // Control: what the old method asked for "*" finds nothing in this store.
@@ -86,8 +79,7 @@ let cases: [(String, [String])] = [
     ("Nobody", []), ("Nobody*", []), ("*Nobody*", []), ("QA^Isolation04", []), ("?MITHX", []), ("JOHN^SMITH", []),
 ]
 for (value, expected) in cases {
-    // Through the main actor, so the former method, isolated to it, compiles in this driver too.
-    let p = MainActor.assumeIsolated { browser.patientsnamePredicate(value, soundex: false)! }
+    let p = PatientNameMatching.namePredicate(value, soundex: nil)
     let got = fetch(NSCompoundPredicate(andPredicateWithSubpredicates: [p, dicom]))
     check(got == expected, "PatientName '\(value)': \(got), expected \(expected)")
     if value.replacingOccurrences(of: "*", with: "").trimmingCharacters(in: CharacterSet(charactersIn: " ^")).isEmpty {
@@ -97,7 +89,7 @@ for (value, expected) in cases {
 // The SCP's conjunction when PatientName is its only key: hasDICOM alone.
 check(fetch(dicom) == all, "hasDICOM alone")
 print("PASS: universal '', '*', wildcard components, case, negative controls, hasDICOM conjunction")
-'''.replace('METHOD', method)
+'''
 
 with tempfile.TemporaryDirectory(prefix='horos-cfind-pn-') as tmp:
     p = Path(tmp)
@@ -114,16 +106,19 @@ with tempfile.TemporaryDirectory(prefix='horos-cfind-pn-') as tmp:
         if run.returncode:
             failures.append('driver failed: ' + (run.stdout + run.stderr)[-2000:])
 
-scp = source_text('OsiriXSCPDataHandler')
-body = scp[scp.index('- (NSPredicate *)predicateForDataset:'):scp.index('- (const char*) encodeString:')]
-name = body[body.index('if (key == DCM_PatientsName)'):body.index('else if (key == DCM_PatientID)')]
-if not re.search(r'patientsnamePredicate: patientNameString soundex: NO\];.*?subpredicates\] count\] == 0\)\s*predicate = nil;',
-                 name, re.S):
+# The listener's matching is IsiXDICOMNetwork's SCPQueryMatching; the app
+# gives it the database's name search.
+root = Path(__file__).resolve().parents[1]
+matching = (root / 'Modules/IsiXDICOMNetwork/Sources/SCPQueryMatching.swift').read_text()
+name = matching[matching.index('case .patientName:'):matching.index('case .patientID:')]
+if not re.search(r'environment\.patientNamePredicate\(.*?subpredicates\.isEmpty \{ condition = nil \}', name, re.S):
     failures.append('the STUDY level keeps a PatientName predicate with no condition')
-dicom = body[body.index('predicate = [NSPredicate predicateWithFormat:@"hasDICOM == %d", YES];'):]
-dicom = dicom[:dicom.index('NSTimeInterval startDate')]
-if not re.search(r'if \(predicate && compoundPredicate\)\s*compoundPredicate = \[NSCompoundPredicate andPredicateWithSubpredicates:'
-                 r'.*?else if \(predicate\)\s*compoundPredicate = predicate;', dicom, re.S):
+environment = source_text('SCPDatabaseSession+Find')
+if 'PatientNameMatching.namePredicate(name, soundex: nil)' not in environment:
+    failures.append('the listener does not match PatientName with the database\'s name search')
+dicom = matching[matching.index('let hasDICOM: NSPredicate?'):matching.index('var start: TimeInterval')]
+if not re.search(r'compound = compound\.map \{ NSCompoundPredicate\(andPredicateWithSubpredicates: \[\$0, hasDICOM\]\) \} \?\? hasDICOM',
+                 dicom):
     failures.append('hasDICOM is still dropped when compoundPredicate is nil')
 
 for failure in failures:

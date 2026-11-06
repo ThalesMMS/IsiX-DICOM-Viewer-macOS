@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
 """Verify production full-screen behavior, resize limits and the Query/Retrieve command."""
 from pathlib import Path
+from sources import class_text
 import subprocess,tempfile
 root=Path(__file__).resolve().parents[1]
-query=(root/'Horos/Sources/QueryController.mm').read_bytes().decode('latin1')
-for statement in ['[HorosFullScreenWindowSupport enablePrimaryFullScreen: [self window]];',
-                  'designedMinimumSize = [[self window] minSize];',
-                  '[HorosWindowSizeLimits applyMinimumSize: designedMinimumSize toWindow: [self window]];',
-                  'NSApplicationDidChangeScreenParametersNotification',
-                  '- (IBAction) fullScreenMenu:(id) sender',
-                  '[HorosFullScreenWindowSupport toggleFullScreen: [self window]];',
-                  '- (void) windowDidExitFullScreen:(NSNotification *)notification']:
-    assert statement in query, f'missing in QueryController.mm: {statement}'
-assert 'setLevel: NSFloatingWindowLevel' not in query, 'the Query window still sets the floating level directly'
-browser=(root/'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-assert '[HorosFullScreenWindowSupport enablePrimaryFullScreen: self.window];' in browser
-assert 'NSWindowCollectionBehaviorFullScreenPrimary' not in browser, 'the database still builds the behavior inline'
+query=class_text('QueryController')
+for statement in ['FullScreenWindowSupport.enablePrimaryFullScreen(window)',
+                  'designedMinimumSize = window.minSize',
+                  'WindowSizeLimits.apply(designedMinimumSize, to: window)',
+                  'NSApplication.didChangeScreenParametersNotification',
+                  '@IBAction @objc(fullScreenMenu:)',
+                  'FullScreenWindowSupport.toggleFullScreen(window)',
+                  'public func windowDidExitFullScreen(_ notification: Notification)']:
+    assert statement in query, f'missing in QueryController: {statement}'
+assert '.level = .floating' not in query and 'NSWindow.Level.floating' not in query, 'the Query window still sets the floating level directly'
+# The database window is wired in BrowserController+Window.swift.
+browser=class_text('BrowserController')
+window=(root/'Horos/Sources/BrowserController+Window.swift').read_text()
+assert 'if let window { FullScreenWindowSupport.enablePrimaryFullScreen(window) }' in window
+assert 'NSWindowCollectionBehaviorFullScreenPrimary' not in browser and '.fullScreenPrimary' not in window, 'the database still builds the behavior inline'
 source=r'''
 import AppKit
 // Unrelated flags survive; auxiliary and none give way to primary.

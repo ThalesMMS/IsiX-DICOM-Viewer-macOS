@@ -53,6 +53,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import ab_protocol  # noqa: E402
 import object_probe  # noqa: E402
+sys.path.insert(0, str(ROOT / "tests"))
+import process_graph_stand_in  # noqa: E402
+
+# Sources that read their development switches through PreferencesSource: a dylib with one of them also compiles
+# the process graph's stand-in, the app's PreferencesSource.swift and the IsiXPreferences module.
+PREFERENCES_READERS = {"MetalPerformanceTrace.swift", "Metal4ComputeSubmitter.swift"}
 
 # What xcodebuild passes swiftc for the Horos target (its SwiftDriver line in a build log): the module is
 # optimized in both configurations, and Debug adds debug information and testability.
@@ -69,6 +75,8 @@ def swift_dylib(sources: list[Path], shim: Path, output: Path, configuration: st
         argv += ["-D", define]
     argv += [*map(str, sources), str(shim), "-Xlinker", "-install_name", "-Xlinker", f"@rpath/{output.name}",
              "-o", str(output)]
+    if any(source.name in PREFERENCES_READERS for source in sources):
+        argv[-2:-2] = process_graph_stand_in.swift_flags(output.parent / "isix", ["-target", "arm64-apple-macos26.0"])
     subprocess.run(argv, check=True)
     return output
 

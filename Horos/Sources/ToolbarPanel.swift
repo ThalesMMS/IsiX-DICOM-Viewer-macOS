@@ -176,6 +176,8 @@ public final class ToolbarPanelController: NSWindowController, NSToolbarDelegate
 
         NotificationCenter.default.addObserver(self, selector: #selector(windowDidBecomeMain(_:)), name: NSWindow.didBecomeMainNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(windowDidBecomeKey(_:)), name: NSWindow.didBecomeKeyNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(viewerKeyStatusDidChange(_:)), name: NSWindow.didBecomeKeyNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(viewerKeyStatusDidChange(_:)), name: NSWindow.didResignKeyNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(toolbarDidChange(_:)), name: NSToolbar.didRemoveItemNotification, object: toolbar)
         NotificationCenter.default.addObserver(self, selector: #selector(toolbarDidChange(_:)), name: NSToolbar.willAddItemNotification, object: toolbar)
         NotificationCenter.default.addObserver(self, selector: #selector(windowDidEndSheet(_:)), name: NSWindow.didEndSheetNotification, object: self.window)
@@ -228,6 +230,14 @@ public final class ToolbarPanelController: NSWindowController, NSToolbarDelegate
                 self.window?.orderOut(self)
             }
         }
+    }
+
+    /// The viewer took or lost the keyboard: its toolbar is drawn active or
+    /// inactive with it.
+    @objc(viewerKeyStatusDidChange:)
+    public func viewerKeyStatusDidChange(_ aNotification: Notification?) {
+        guard let changed = aNotification?.object as AnyObject?, changed === viewer?.window else { return }
+        (self.window as? ToolBarNSWindow)?.refreshActiveAppearance()
     }
 
     /// The customization sheet leaves this panel as the key window, which the

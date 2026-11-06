@@ -38,10 +38,14 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
-import UniformTypeIdentifiers
 import DiscRecording
 import DiscRecordingUI
+import IsiXContracts
+import IsiXDICOMDataset
+import IsiXDICOMFile
+import IsiXPreferences
 import Synchronization
+import UniformTypeIdentifiers
 
 /// Window Controller for DICOM disk burning
 ///
@@ -106,6 +110,23 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
     @objc public dynamic var password: String?
 
     @objc public dynamic var filesToBurn: NSArray?
+
+    /// Where the window reads the burn's options and keeps its choices: the
+    /// preferences of the process. Its checkboxes are bound to the same keys.
+    /// Asked at each read, not stored, so it holds for a window made without
+    /// one of its initializers, as tools/probe-burn-size-estimate.m makes one.
+    nonisolated private var preferences: any PreferenceStore {
+        PreferencesSource.process.preferences
+    }
+
+    /// The graph of the database window that opened the burner: the database
+    /// of the files to burn, the Sources list a USB volume leaves, and the
+    /// browser the HTML pages are written with. Kept under a lock, because the
+    /// burn thread reads it; nil for a window made without its initializers.
+    private let openingWindow = Mutex<BrowserWindowGraph?>(nil)
+    nonisolated private var browserWindow: BrowserWindowGraph? {
+        openingWindow.withLock { $0 }
+    }
 
     /// Overridden so that -initWithWindowNibName: is inherited, unchanged.
     public override init(window: NSWindow?) {
@@ -178,6 +199,9 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
     @objc(initWithFiles:)
     public convenience init(files theFiles: [Any]!) {
         self.init(windowNibName: "BurnViewer")
+        // The selectors the browser and the plugins send: the burner of the
+        // database window of the process.
+        openingWindow.withLock { $0 = PreferencesSource.process.processGraph.browserWindow }
 
         try? FileManager.default.removeItem(atPath: folderToBurn())
 
@@ -192,6 +216,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
     @objc(initWithFiles:managedObjects:)
     public convenience init(files theFiles: [Any]!, managedObjects: [Any]!) {
         self.init(windowNibName: "BurnViewer")
+        openingWindow.withLock { $0 = PreferencesSource.process.processGraph.browserWindow }
 
         try? FileManager.default.removeItem(atPath: folderToBurn())
 
@@ -204,7 +229,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
         var patient: NSString?
         _multiplePatients = false
 
-        for managedObject in BrowserController.currentBrowser()?.database?.objects(withIDs: dbObjectsID as? [Any]) ?? [] {
+        for managedObject in browserWindow?.database?.objects(withIDs: dbObjectsID as? [Any]) ?? [] {
             let newPatient = (managedObject as AnyObject).value(forKeyPath: "series.study.patientUID") as? NSString
 
             if patient == nil {
@@ -242,7 +267,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
         window?.delegate = self
         setup(nil)
 
-        compressionMode?.selectCell(withTag: UserDefaults.standard.integer(forKey: "Compression Mode for Burning"))
+        compressionMode?.selectCell(withTag: BurnOptions(preferences).compressionMode)
     }
 
     deinit {
@@ -310,7 +335,11 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
 
             anonymizationTags = nil
 
-            if UserDefaults.standard.bool(forKey: "anonymizedBeforeBurning") {
+            // The options the burn starts with: the window's controls are disabled
+            // from here until it ends, and the burn thread reads these.
+            let options = BurnOptions(preferences)
+
+            if options.anonymized {
                 let panelController = Anonymization.showPanel(forDefaultsKey: "AnonymizationFields", modalFor: window, modalDelegate: nil, didEnd: nil, representedObject: nil)
 
                 if Int64(panelController?.end ?? 0) == Int64(AnonymizationPanelCancel.rawValue) {
@@ -324,112 +353,115 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
 
             buttonsDisabled = true
 
-            do {
-                try HorosObjCException.perform {
-                    if let cdName = self.cdName, (cdName as NSString).length > 0 {
-                        self.runBurnAnimation = true
+            if let exception = HorosObjCException.caught({
+                if let cdName = self.cdName, (cdName as NSString).length > 0 {
+                    self.runBurnAnimation = true
 
-                        if UserDefaults.standard.integer(forKey: "burnDestination") == Int(USBKey.rawValue) {
-                            self.writeVolumePath = nil
-                            if self.selectedUSB != UInt(bitPattern: NSNotFound) && self.selectedUSB < UInt(self.volumes().count) {
-                                self.writeVolumePath = self.volumes()[Int(self.selectedUSB)] as? String
-                            }
-
-                            if self.writeVolumePath == nil {
-                                HorosAlertPanel.runCritical(title: NSLocalizedString("USB Writing", comment: ""), message: NSLocalizedString("No destination selected.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-
-                                self.buttonsDisabled = false
-                                self.runBurnAnimation = false
-                                self.burning = false
-                                return
-                            }
-
-                            let result = HorosAlertPanel.runCritical(title: NSLocalizedString("USB Writing", comment: ""), message: String(format: NSLocalizedString("The ENTIRE content of the selected media (%@) will be deleted, before writing the new data. Do you confirm?", comment: ""), self.writeVolumePath ?? "(null)"), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil)
-
-                            if result != HorosAlertPanel.defaultResponse {
-                                self.buttonsDisabled = false
-                                self.runBurnAnimation = false
-                                self.burning = false
-                                return
-                            }
-
-                            BrowserController.currentBrowser()?.removePath(fromSources: self.writeVolumePath)
+                    if options.destination == Int(USBKey.rawValue) {
+                        self.writeVolumePath = nil
+                        if self.selectedUSB != UInt(bitPattern: NSNotFound) && self.selectedUSB < UInt(self.volumes().count) {
+                            self.writeVolumePath = self.volumes()[Int(self.selectedUSB)] as? String
                         }
 
-                        if UserDefaults.standard.integer(forKey: "burnDestination") == Int(DMGFile.rawValue) {
-                            let savePanel = NSSavePanel()
-                            savePanel.canSelectHiddenExtension = true
-                            savePanel.allowedContentTypes = [UTType(filenameExtension: "dmg")!]
-                            savePanel.title = "Save as DMG"
-                            savePanel.nameFieldStringValue = cdName
+                        if self.writeVolumePath == nil {
+                            HorosAlertPanel.runCritical(title: NSLocalizedString("USB Writing", comment: ""), message: NSLocalizedString("No destination selected.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
 
-                            if savePanel.runModal() == .OK {
-                                self.writeDMGPath = savePanel.url?.path
-                                if let writeDMGPath = self.writeDMGPath {
-                                    try? FileManager.default.removeItem(atPath: writeDMGPath)
-                                }
-                            } else {
-                                self.buttonsDisabled = false
-                                self.runBurnAnimation = false
-                                self.burning = false
-                                return
-                            }
+                            self.buttonsDisabled = false
+                            self.runBurnAnimation = false
+                            self.burning = false
+                            return
                         }
 
-                        self.password = ""
+                        let result = HorosAlertPanel.runCritical(title: NSLocalizedString("USB Writing", comment: ""), message: String(format: NSLocalizedString("The ENTIRE content of the selected media (%@) will be deleted, before writing the new data. Do you confirm?", comment: ""), self.writeVolumePath ?? "(null)"), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil)
 
-                        if UserDefaults.standard.bool(forKey: "EncryptCD") {
-                            var result = NSApplication.ModalResponse(rawValue: 0)
-                            repeat {
-                                self.window!.beginSheet(self.passwordWindow, completionHandler: nil)
-
-                                result = NSApp.runModal(for: self.passwordWindow)
-                                self.passwordWindow.makeFirstResponder(nil)
-
-                                self.passwordWindow.sheetParent?.endSheet(self.passwordWindow)
-                                self.passwordWindow.orderOut(self)
-                            } while ((self.password as NSString?)?.length ?? 0) < 8 && result == .stop
-
-                            if result == .stop {
-
-                            } else {
-                                self.buttonsDisabled = false
-                                self.runBurnAnimation = false
-                                self.burning = false
-                                return
-                            }
+                        if result != HorosAlertPanel.defaultResponse {
+                            self.buttonsDisabled = false
+                            self.runBurnAnimation = false
+                            self.burning = false
+                            return
                         }
 
-                        // What the thread needs is taken here, on the main thread.
-                        self.isSettingUpBurn = true
-                        let t = Thread(target: self, selector: #selector(self.performBurn(_:)), object: self.burnJob())
-                        t.name = NSLocalizedString("Burning...", comment: "")
-                        ThreadsManager.default().addThreadAndStart(t)
-                    } else {
-                        self.perform(NSSelectorFromString("beginBurnWarningSheet"))
-
-                        self.buttonsDisabled = false
-                        self.runBurnAnimation = false
-                        self.burning = false
-                        return
+                        self.browserWindow?.browser.removePath(fromSources: self.writeVolumePath)
                     }
+
+                    if options.destination == Int(DMGFile.rawValue) {
+                        let savePanel = NSSavePanel()
+                        savePanel.canSelectHiddenExtension = true
+                        savePanel.allowedContentTypes = [UTType(filenameExtension: "dmg")!]
+                        savePanel.title = "Save as DMG"
+                        savePanel.nameFieldStringValue = cdName
+
+                        if savePanel.runModal() == .OK {
+                            self.writeDMGPath = savePanel.url?.path
+                            if let writeDMGPath = self.writeDMGPath {
+                                try? FileManager.default.removeItem(atPath: writeDMGPath)
+                            }
+                        } else {
+                            self.buttonsDisabled = false
+                            self.runBurnAnimation = false
+                            self.burning = false
+                            return
+                        }
+                    }
+
+                    self.password = ""
+
+                    if options.encrypted {
+                        var result = NSApplication.ModalResponse(rawValue: 0)
+                        repeat {
+                            self.window!.beginSheet(self.passwordWindow, completionHandler: nil)
+
+                            result = NSApp.runModal(for: self.passwordWindow)
+                            self.passwordWindow.makeFirstResponder(nil)
+
+                            self.passwordWindow.sheetParent?.endSheet(self.passwordWindow)
+                            self.passwordWindow.orderOut(self)
+                        } while ((self.password as NSString?)?.length ?? 0) < 8 && result == .stop
+
+                        if result == .stop {
+
+                        } else {
+                            self.buttonsDisabled = false
+                            self.runBurnAnimation = false
+                            self.burning = false
+                            return
+                        }
+                    }
+
+                    // What the thread needs is taken here, on the main thread.
+                    self.isSettingUpBurn = true
+                    let t = Thread(target: self, selector: #selector(self.performBurn(_:)), object: self.burnJob(options))
+                    t.name = NSLocalizedString("Burning...", comment: "")
+                    ThreadsManager.default().addThreadAndStart(t)
+                } else {
+                    _ = HorosAlertPanel.run(title: NSLocalizedString("Burn Warning", comment: ""),
+                                            message: NSLocalizedString("Please add CD name", comment: ""),
+                                            defaultButton: NSLocalizedString("OK", comment: ""),
+                                            alternateButton: nil, otherButton: nil)
+
+                    self.buttonsDisabled = false
+                    self.runBurnAnimation = false
+                    self.burning = false
+                    return
                 }
-            } catch {
-                NSLog("*** exception: %@", BurnerWindowController.logged(error))
+            }) {
+                NSLog("*** exception: %@", exception)
             }
         }
     }
 
     /// What the burn thread needs from the window, taken on the main thread
-    /// before the thread starts.
-    private func burnJob() -> BurnJob {
+    /// before the thread starts, with the options in the preferences now
+    /// unless the burn read them already.
+    private func burnJob(_ options: BurnOptions? = nil) -> BurnJob {
+        let options = options ?? BurnOptions(preferences)
         return BurnJob(files: (files?.copy() as? NSArray) ?? NSArray(),
                        dbObjectsID: dbObjectsID?.copy() as? NSArray,
                        originalDbObjectsID: originalDbObjectsID?.copy() as? NSArray,
                        anonymizationTags: anonymizationTags?.copy() as? NSArray,
                        folder: folderToBurn(),
                        name: cdName,
-                       destination: UserDefaults.standard.integer(forKey: "burnDestination"),
+                       options: options,
                        writeDMGPath: writeDMGPath,
                        writeVolumePath: writeVolumePath,
                        compressionMode: compressionMode?.selectedTag() ?? 0,
@@ -439,10 +471,10 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
     // MARK: - Burn thread
 
     /// The input of a burn: the files, the database objects, the anonymization
-    /// tags, the folder and its name, the destination and the paths chosen for
-    /// it, the compression mode and the password. Taken on the main thread by
-    /// -burnJob and read by the burn thread instead of the window; immutable,
-    /// its arrays copies.
+    /// tags, the folder and its name, the options of the preferences, the paths
+    /// chosen for the destination, the compression mode and the password.
+    /// Taken on the main thread by -burnJob and read by the burn thread instead
+    /// of the window; immutable, its arrays copies.
     private final class BurnJob: @unchecked Sendable {
         let files: NSArray
         let dbObjectsID: NSArray?
@@ -450,14 +482,14 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
         let anonymizationTags: NSArray?
         let folder: String
         let name: String?
-        let destination: Int
+        let options: BurnOptions
         let writeDMGPath: String?
         let writeVolumePath: String?
         let compressionMode: Int
         let password: String?
 
         init(files: NSArray, dbObjectsID: NSArray?, originalDbObjectsID: NSArray?, anonymizationTags: NSArray?,
-             folder: String, name: String?, destination: Int, writeDMGPath: String?, writeVolumePath: String?,
+             folder: String, name: String?, options: BurnOptions, writeDMGPath: String?, writeVolumePath: String?,
              compressionMode: Int, password: String?) {
             self.files = files
             self.dbObjectsID = dbObjectsID
@@ -465,7 +497,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
             self.anonymizationTags = anonymizationTags
             self.folder = folder
             self.name = name
-            self.destination = destination
+            self.options = options
             self.writeDMGPath = writeDMGPath
             self.writeVolumePath = writeVolumePath
             self.compressionMode = compressionMode
@@ -487,8 +519,9 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
         }
 
         autoreleasepool {
-            // The burn reads its images on a private-queue context, on its queue.
-            let idatabase = BrowserController.currentBrowser()?.database?.privateQueueIndependentDatabase() as AnyObject?
+            // The burn reads its images on a private-queue context, on its queue:
+            // off the main thread, the browser's database comes from the process graph.
+            let idatabase = self.browserWindow?.processGraph.browserDatabase?.privateQueueIndependentDatabase() as AnyObject?
             N2ManagedObjectContextPerformAndWait((idatabase as? DicomDatabase)?.managedObjectContext) {
                 // Retained and never released, as before.
                 if let idatabase = idatabase {
@@ -498,106 +531,104 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
                 let dbObjects = ((idatabase as? DicomDatabase)?.objects(withIDs: job.dbObjectsID as? [Any]) as NSArray?)?.mutableCopy() as? NSMutableArray
                 let originalDbObjects = ((idatabase as? DicomDatabase)?.objects(withIDs: job.originalDbObjectsID as? [Any]) as NSArray?)?.mutableCopy() as? NSMutableArray
 
-                do {
-                    try HorosObjCException.perform {
-                        var files = job.files
+                if let exception = HorosObjCException.caught({
+                    var files = job.files
 
-                        if let anonymizationTags = job.anonymizationTags {
-                            var anonymizationError: NSError?
-                            let anonOut = Anonymization.anonymizeFiles(job.files, dicomImages: dbObjects, toPath: (FileManager.default.tmpDirPath() as NSString).appendingPathComponent("burnAnonymized"), withTags: anonymizationTags, error: &anonymizationError)
-                            if anonOut == nil {
-                                // A requested anonymized burn must never fall back to the source files.
-                                let anonymizationError = anonymizationError
+                    if let anonymizationTags = job.anonymizationTags {
+                        var anonymizationError: NSError?
+                        let anonOut = Anonymization.anonymizeFiles(job.files, dicomImages: dbObjects, toPath: (FileManager.default.tmpDirPath() as NSString).appendingPathComponent("burnAnonymized"), withTags: anonymizationTags, error: &anonymizationError)
+                        if anonOut == nil {
+                            // A requested anonymized burn must never fall back to the source files.
+                            let anonymizationError = anonymizationError
+                            onMainActor {
+                                self.isSettingUpBurn = false
+                                self.buttonsDisabled = false
+                                self.runBurnAnimation = false
+                                self.burning = false
+                                if !(anonymizationError?.domain == NSCocoaErrorDomain && anonymizationError?.code == NSUserCancelledError) {
+                                    AnonymizationErrorPresenter.present(error: anonymizationError)
+                                }
+                            }
+                            return
+                        }
+
+                        files = anonOut!.allValues as NSArray
+                        // The window keeps its own copy.
+                        nonisolated(unsafe) let anonymizedFiles = files.mutableCopy() as? NSMutableArray
+                        onMainActor { self.anonymizedFiles = anonymizedFiles }
+                    }
+
+                    self.prepareContent(job, files: files, dbObjects: dbObjects, originalDbObjects: originalDbObjects)
+
+                    onMainActor {
+                        self.isSettingUpBurn = false
+                        self.burning = true
+                    }
+
+                    var failed = false
+                    var burnFailure: String?
+
+                    if FileManager.default.fileExists(atPath: job.folder) && self.cancelled == false {
+                        if files.count != 0 {
+                            switch job.options.destination {
+                            case Int(DMGFile.rawValue):
+                                let result = BurnerWindowController.makeDiskImage(job.writeDMGPath, from: job.folder)
+                                if result.written == false {
+                                    failed = true
+                                    burnFailure = result.failure
+                                }
+
+                            case Int(CDDVD.rawValue):
+                                // Disc Recording's panels, on the main thread once the state above is
+                                // published; outside the main queue block, as they are modal.
                                 onMainActor {
-                                    self.isSettingUpBurn = false
-                                    self.buttonsDisabled = false
-                                    self.runBurnAnimation = false
-                                    self.burning = false
-                                    if !(anonymizationError?.domain == NSCocoaErrorDomain && anonymizationError?.code == NSUserCancelledError) {
-                                        AnonymizationErrorPresenter.present(error: anonymizationError)
-                                    }
+                                    self.performSelector(onMainThread: #selector(self.burnCD(_:)), with: nil, waitUntilDone: false)
                                 }
                                 return
-                            }
 
-                            files = anonOut!.allValues as NSArray
-                            // The window keeps its own copy.
-                            nonisolated(unsafe) let anonymizedFiles = files.mutableCopy() as? NSMutableArray
-                            onMainActor { self.anonymizedFiles = anonymizedFiles }
-                        }
-
-                        self.prepareContent(job, files: files, dbObjects: dbObjects, originalDbObjects: originalDbObjects)
-
-                        onMainActor {
-                            self.isSettingUpBurn = false
-                            self.burning = true
-                        }
-
-                        var failed = false
-                        var burnFailure: String?
-
-                        if FileManager.default.fileExists(atPath: job.folder) && self.cancelled == false {
-                            if files.count != 0 {
-                                switch job.destination {
-                                case Int(DMGFile.rawValue):
-                                    let result = BurnerWindowController.makeDiskImage(job.writeDMGPath, from: job.folder)
-                                    if result.written == false {
-                                        failed = true
-                                        burnFailure = result.failure
-                                    }
-
-                                case Int(CDDVD.rawValue):
-                                    // Disc Recording's panels, on the main thread once the state above is
-                                    // published; outside the main queue block, as they are modal.
-                                    onMainActor {
-                                        self.performSelector(onMainThread: #selector(self.burnCD(_:)), with: nil, waitUntilDone: false)
-                                    }
-                                    return
-
-                                case Int(USBKey.rawValue):
-                                    let result = BurnerWindowController.copyToVolume(job.writeVolumePath, from: job.folder, name: job.name)
-                                    if result.written == false {
-                                        failed = true
-                                        burnFailure = result.failure
-                                    }
-
-                                default:
-                                    break
+                            case Int(USBKey.rawValue):
+                                let result = BurnerWindowController.copyToVolume(job.writeVolumePath, from: job.folder, name: job.name)
+                                if result.written == false {
+                                    failed = true
+                                    burnFailure = result.failure
                                 }
-                            }
-                        }
 
-                        let result = (failed: failed, failure: burnFailure)
-                        onMainActor {
-                            self.failed = result.failed
-                            self.burnFailure = result.failure
-
-                            self.buttonsDisabled = false
-                            self.runBurnAnimation = false
-                            self.burning = false
-
-                            if self.failed {
-                                // A medium that was not written must not sound and look like one that
-                                // was. The window stays open, so the destination can be changed and
-                                // the burn tried again.
-                                let message = self.burnFailure ?? NSLocalizedString("The files were not written.", comment: "")
-                                DispatchQueue.main.async {
-                                    let alert = NSAlert()
-                                    alert.messageText = NSLocalizedString("The medium was not created", comment: "")
-                                    alert.informativeText = message
-                                    alert.addButton(withTitle: NSLocalizedString("OK", comment: ""))
-                                    alert.runModal()
-                                }
-                            } else if self.cancelled == false {
-                                // Finished ! Close the window....
-
-                                NSSound(named: "Glass.aiff")?.play()
-                                self.window?.performSelector(onMainThread: #selector(NSWindow.performClose(_:)), with: self, waitUntilDone: false)
+                            default:
+                                break
                             }
                         }
                     }
-                } catch {
-                    NSLog("*** exception: %@", BurnerWindowController.logged(error))
+
+                    let result = (failed: failed, failure: burnFailure)
+                    onMainActor {
+                        self.failed = result.failed
+                        self.burnFailure = result.failure
+
+                        self.buttonsDisabled = false
+                        self.runBurnAnimation = false
+                        self.burning = false
+
+                        if self.failed {
+                            // A medium that was not written must not sound and look like one that
+                            // was. The window stays open, so the destination can be changed and
+                            // the burn tried again.
+                            let message = self.burnFailure ?? NSLocalizedString("The files were not written.", comment: "")
+                            onMainRunLoop {
+                                let alert = NSAlert()
+                                alert.messageText = NSLocalizedString("The medium was not created", comment: "")
+                                alert.informativeText = message
+                                alert.addButton(withTitle: NSLocalizedString("OK", comment: ""))
+                                alert.runModal()
+                            }
+                        } else if self.cancelled == false {
+                            // Finished ! Close the window....
+
+                            NSSound(named: "Glass.aiff")?.play()
+                            self.window?.performSelector(onMainThread: #selector(NSWindow.performClose(_:)), with: self, waitUntilDone: false)
+                        }
+                    }
+                }) {
+                    NSLog("*** exception: %@", exception)
                 }
             }
         }
@@ -841,7 +872,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
 
         windowWillClose = true
 
-        UserDefaults.standard.set(compressionMode?.selectedTag() ?? 0, forKey: "Compression Mode for Burning")
+        preferences.set(compressionMode?.selectedTag() ?? 0, for: ApplicationPreferences.burnCompressionMode)
 
         NSLog("Burner windowWillClose")
 
@@ -923,7 +954,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
 
             var title: String?
 
-            if _multiplePatients || UserDefaults.standard.bool(forKey: "anonymizedBeforeBurning") {
+            if _multiplePatients || BurnOptions(preferences).anonymized {
                 title = String(format: "Archive-%@", BurnerWindowController.calendarDescription(Date(), "%Y%m%d"))
             } else {
                 title = (defaultTitle() as NSString).uppercased
@@ -954,7 +985,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
 
         // -exportQuicktimeInt:::, without the window: the class method is the one
         // made for any thread.
-        BrowserController.exportQuicktime(images as? [Any], burnFolder, true, BrowserController.currentBrowser(), nil)
+        BrowserController.exportQuicktime(images as? [Any], burnFolder, true, browserWindow?.browser, nil)
     }
 
     @objc(getSizeOfDirectory:)
@@ -1029,264 +1060,265 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
 
         onMainActor { self.finalSizeField?.stringValue = "" }
 
-        do {
-            try HorosObjCException.perform {
-                let selectedCompressionMode = job.compressionMode
+        if let e = HorosObjCException.caught({
+            let selectedCompressionMode = job.compressionMode
+            let options = job.options
 
-                let enumerator: NSEnumerator? = files.objectEnumerator()
+            let enumerator: NSEnumerator? = files.objectEnumerator()
 
-                let burnFolder = job.folder
-                let subFolder = String(format: "%@/DICOM", burnFolder)
-                let manager = FileManager.default
-                var i: Int32 = 0
+            let burnFolder = job.folder
+            let subFolder = String(format: "%@/DICOM", burnFolder)
+            let manager = FileManager.default
+            var i: Int32 = 0
 
-                //create burn Folder and dicomdir.
+            //create burn Folder and dicomdir.
 
-                if !manager.fileExists(atPath: burnFolder) {
-                    try? manager.createDirectory(atPath: burnFolder, withIntermediateDirectories: true, attributes: nil)
+            if !manager.fileExists(atPath: burnFolder) {
+                try? manager.createDirectory(atPath: burnFolder, withIntermediateDirectories: true, attributes: nil)
+            }
+            if !manager.fileExists(atPath: subFolder) {
+                try? manager.createDirectory(atPath: subFolder, withIntermediateDirectories: true, attributes: nil)
+            }
+
+            // The bundled DICOMDIR template is absent; do not copy it.
+
+            let newFiles = NSMutableArray()
+            let compressedArray = NSMutableArray()
+            let bigEndianFilesToConvert = NSMutableArray()
+
+            while let file = enumerator?.nextObject() as? String, self.cancelled == false {
+                autoreleasepool {
+                    let newPath = String(format: "%@/%05d", subFolder, i)
+                    i += 1
+
+                    try? manager.copyItem(atPath: file, toPath: newPath)
+
+                    if DicomFile.isDICOMFile(newPath) {
+                        if (DicomFile.getDicomField("TransferSyntaxUID", forFile: newPath) as NSString?)?.isEqual(to: DCMTransferSyntax.explicitVRBigEndianUID) == true {
+                            bigEndianFilesToConvert.add(newPath)
+                        }
+
+                        switch selectedCompressionMode {
+                        case 0:
+                            break
+
+                        case 1:
+                            compressedArray.add(newPath)
+
+                        case 2:
+                            compressedArray.add(newPath)
+
+                        default:
+                            break
+                        }
+                    }
+
+                    newFiles.add(newPath)
                 }
-                if !manager.fileExists(atPath: subFolder) {
-                    try? manager.createDirectory(atPath: subFolder, withIntermediateDirectories: true, attributes: nil)
-                }
+            }
 
-                // The bundled DICOMDIR template is absent; do not copy it.
+            if bigEndianFilesToConvert.count != 0 {
+                _ = DatabaseIngest.process.fileConverting(of: nil).convertNow(bigEndianFilesToConvert.map { "\($0)" }, mode: .decompress, into: nil)
+            }
 
-                let newFiles = NSMutableArray()
-                let compressedArray = NSMutableArray()
-                let bigEndianFilesToConvert = NSMutableArray()
+            if newFiles.count > 0 && self.cancelled == false {
+                // The conversion reads the compression lists of the preferences, so JPEG
+                // instead of JPEG 2000 is the lists switched to JPEG for the while, and
+                // put back as they were stored, each as any property list.
+                let compressionLists = (DatabasePreferences.compressionSettings.reading(as: PropertyListValue?.self),
+                                        DatabasePreferences.compressionSettingsLowRes.reading(as: PropertyListValue?.self))
+                var savedCompressionLists: (PropertyListValue, PropertyListValue)?
 
-                while let file = enumerator?.nextObject() as? String, self.cancelled == false {
-                    autoreleasepool {
-                        let newPath = String(format: "%@/%05d", subFolder, i)
-                        i += 1
-
-                        try? manager.copyItem(atPath: file, toPath: newPath)
-
-                        if DicomFile.isDICOMFile(newPath) {
-                            if (DicomFile.getDicomField("TransferSyntaxUID", forFile: newPath) as NSString?)?.isEqual(to: DCM_ExplicitVRBigEndian) == true {
-                                bigEndianFilesToConvert.add(newPath)
-                            }
-
-                            switch selectedCompressionMode {
-                            case 0:
-                                break
-
-                            case 1:
-                                compressedArray.add(newPath)
-
-                            case 2:
-                                compressedArray.add(newPath)
-
-                            default:
-                                break
-                            }
-                        }
-
-                        newFiles.add(newPath)
-                    }
-                }
-
-                if bigEndianFilesToConvert.count != 0 {
-                    DicomDatabase.decompressDicomFiles(atPaths: bigEndianFilesToConvert as? [Any])
-                }
-
-                if newFiles.count > 0 && self.cancelled == false {
-                    var copyCompressionSettings: Any?
-                    var copyCompressionSettingsLowRes: Any?
-
-                    if UserDefaults.standard.bool(forKey: "JPEGinsteadJPEG2000") && selectedCompressionMode == 1 { // Temporarily switch the prefs... ugly....
-                        copyCompressionSettings = UserDefaults.standard.object(forKey: "CompressionSettings")
-                        copyCompressionSettingsLowRes = UserDefaults.standard.object(forKey: "CompressionSettingsLowRes")
-
-                        UserDefaults.standard.set([["modality": NSLocalizedString("default", comment: ""), "compression": NSNumber(value: Int32(compression_JPEG)), "quality": "0"] as NSDictionary] as NSArray, forKey: "CompressionSettings")
-
-                        UserDefaults.standard.set([["modality": NSLocalizedString("default", comment: ""), "compression": NSNumber(value: Int32(compression_JPEG)), "quality": "0"] as NSDictionary] as NSArray, forKey: "CompressionSettingsLowRes")
-
-                        UserDefaults.standard.synchronize()
-                    }
-
-                    do {
-                        try HorosObjCException.perform {
-                            switch selectedCompressionMode {
-                            case 1:
-                                BrowserController.currentBrowser()?.database?.processFiles(atPaths: compressedArray as? [Any], intoDirAtPath: nil, mode: Int32(Compress))
-
-                            case 2:
-                                BrowserController.currentBrowser()?.database?.processFiles(atPaths: compressedArray as? [Any], intoDirAtPath: nil, mode: Int32(Decompress))
-
-                            default:
-                                break
-                            }
-                        }
-                    } catch {
-                        NSLog("Exception while prepareCDContent compression: %@", BurnerWindowController.logged(error))
-                    }
-
-                    if let copyCompressionSettings = copyCompressionSettings, let copyCompressionSettingsLowRes = copyCompressionSettingsLowRes {
-                        UserDefaults.standard.set(copyCompressionSettings, forKey: "CompressionSettings")
-                        UserDefaults.standard.set(copyCompressionSettingsLowRes, forKey: "CompressionSettingsLowRes")
-                        UserDefaults.standard.synchronize()
-                    }
-
-                    thread.name = NSLocalizedString("Burning...", comment: "")
-                    thread.status = NSLocalizedString("Writing DICOMDIR...", comment: "")
-                    DicomDir.createDicomDir(atDir: burnFolder)
-
-                    if UserDefaults.standard.bool(forKey: "BurnWeasis") && self.cancelled == false {
-                        thread.name = NSLocalizedString("Burning...", comment: "")
-                        thread.status = NSLocalizedString("Adding Weasis...", comment: "")
-
-                        let weasisPath = AppController.shared()?.weasisBasePath() as NSString?
-                        for subpath in (weasisPath.flatMap { try? manager.contentsOfDirectory(atPath: $0 as String) } ?? []) {
-                            try? manager.copyItem(atPath: weasisPath!.appendingPathComponent(subpath), toPath: (burnFolder as NSString).appendingPathComponent(subpath))
-                        }
-
-                        let burnWeasisPath = (burnFolder as NSString).appendingPathComponent("weasis") as NSString
-                        let skips = [".DS_Store"] as NSArray
-                        for case let weasisPath as NSString in (Horos.weasisCustomizationPaths() as NSArray).reverseObjectEnumerator() { // reversed to mimic the WebPortal priorities
-                            let de = manager.enumerator(atPath: weasisPath as String)
-                            while let subpath = de?.nextObject() as? NSString {
-                                if !skips.contains(subpath.lastPathComponent) {
-                                    let dest = burnWeasisPath.appendingPathComponent(subpath as String)
-                                    if (de?.fileAttributes?[FileAttributeKey.type] as? NSObject)?.isEqual(FileAttributeType.typeDirectory.rawValue) == true {
-                                        try? manager.createDirectory(atPath: dest, withIntermediateDirectories: true, attributes: nil)
-                                    } else {
-                                        if manager.fileExists(atPath: dest) {
-                                            try? manager.removeItem(atPath: dest)
-                                        }
-                                        try? manager.copyItem(atPath: weasisPath.appendingPathComponent(subpath as String), toPath: dest)
-                                    }
-                                }
-                            }
-                        }
-
-                        // Change Label in Autorun.inf
-                        var encoding: UInt = 0
-                        var autorunInf = try? NSString(contentsOfFile: (burnFolder as NSString).appendingPathComponent("Autorun.inf"), usedEncoding: &encoding)
-
-                        if (autorunInf?.length ?? 0) != 0 {
-                            autorunInf = autorunInf?.replacingOccurrences(of: "Label=Weasis", with: String(format: "Label=%@", job.name ?? "(null)")) as NSString?
-
-                            try? manager.removeItem(atPath: (burnFolder as NSString).appendingPathComponent("Autorun.inf"))
-                            try? autorunInf?.write(toFile: (burnFolder as NSString).appendingPathComponent("Autorun.inf"), atomically: true, encoding: encoding)
-                        }
-                    }
-
-                    if UserDefaults.standard.bool(forKey: "BurnHtml") == true && UserDefaults.standard.bool(forKey: "anonymizedBeforeBurning") == false && self.cancelled == false {
-                        thread.name = NSLocalizedString("Burning...", comment: "")
-                        thread.status = NSLocalizedString("Adding HTML pages...", comment: "")
-                        self.produceHtml(burnFolder, dicomObjects: originalDbObjects)
-                    }
-
-                    if ((UserDefaults.standard.string(forKey: "SupplementaryBurnPath") as NSString?)?.length ?? 0) <= 1 {
-                        UserDefaults.standard.set(false, forKey: "BurnSupplementaryFolder")
-                    }
-
-                    if (UserDefaults.standard.string(forKey: "SupplementaryBurnPath").map { manager.fileExists(atPath: ($0 as NSString).expandingTildeInPath) } ?? false) == false {
-                        UserDefaults.standard.set(false, forKey: "BurnSupplementaryFolder")
-                    }
-
-                    if UserDefaults.standard.bool(forKey: "BurnSupplementaryFolder") && self.cancelled == false {
-                        thread.name = NSLocalizedString("Burning...", comment: "")
-                        thread.status = NSLocalizedString("Adding Supplementary folder...", comment: "")
-                        var supplementaryBurnPath = UserDefaults.standard.string(forKey: "SupplementaryBurnPath")
-                        if supplementaryBurnPath != nil {
-                            supplementaryBurnPath = (supplementaryBurnPath! as NSString).expandingTildeInPath
-                            if manager.fileExists(atPath: supplementaryBurnPath!) {
-                                let enumerator = manager.enumerator(atPath: supplementaryBurnPath!)
-                                while let file = enumerator?.nextObject() as? String {
-                                    try? manager.copyItem(atPath: String(format: "%@/%@", supplementaryBurnPath!, file), toPath: String(format: "%@/%@", burnFolder, file))
-                                }
-                            } else {
-                                UserDefaults.standard.set(false, forKey: "BurnSupplementaryFolder")
-                            }
-                        }
-                    }
-
-                    if UserDefaults.standard.bool(forKey: "copyReportsToCD") == true && UserDefaults.standard.bool(forKey: "anonymizedBeforeBurning") == false && self.cancelled == false {
-                        thread.name = NSLocalizedString("Burning...", comment: "")
-                        thread.status = NSLocalizedString("Adding Reports...", comment: "")
-
-                        let studies = NSMutableArray()
-
-                        for im in dbObjects ?? [] {
-                            let image = im as AnyObject
-                            if image.value(forKeyPath: "series.study.reportURL") != nil {
-                                if let study = image.value(forKeyPath: "series.study"), studies.contains(study) == false {
-                                    studies.add(study)
-                                }
-                            }
-                        }
-
-                        for case let study as DicomStudy in studies {
-                            let reportURL = study.value(forKey: "reportURL") as? NSString
-                            let modality = self.cleanString(forFile: study.value(forKey: "modality") as? String) ?? "(null)"
-                            let date = self.cleanString(forFile: BrowserController.dateTime(withSecondsFormat: study.value(forKey: "date") as? Date)) ?? "(null)"
-
-                            if reportURL?.hasPrefix("http://") == true || reportURL?.hasPrefix("https://") == true {
-                                var enc: UInt = 0
-                                let urlContent = URL(string: reportURL! as String).flatMap { try? NSString(contentsOf: $0, usedEncoding: &enc) }
-
-                                try? urlContent?.write(toFile: String(format: "%@/Report-%@ %@.%@", burnFolder, modality, date, self.cleanString(forFile: reportURL!.pathExtension) ?? "(null)"), atomically: true, encoding: enc)
-                            } else {
-                                // Convert to PDF
-
-                                // A report that cannot become a PDF goes on the medium as it is.
-                                var pdfPath: String?
-                                do {
-                                    try HorosObjCException.perform {
-                                        pdfPath = study.saveReportAsPdfInTmp()
-                                    }
-                                } catch {
-                                    let e = BurnerWindowController.exception(error)
-                                    NSLog("****** report not converted to PDF for the medium, copied as it is: %@", e?.reason ?? e?.name.rawValue ?? "(null)")
-                                }
-
-                                if ((pdfPath as NSString?)?.length ?? 0) == 0 || manager.fileExists(atPath: pdfPath!) == false {
-                                    if let reportURL = reportURL {
-                                        try? manager.copyItem(atPath: reportURL as String, toPath: String(format: "%@/Report-%@ %@.%@", burnFolder, modality, date, self.cleanString(forFile: reportURL.pathExtension) ?? "(null)"))
-                                    }
-                                } else {
-                                    try? manager.copyItem(atPath: pdfPath!, toPath: String(format: "%@/Report-%@ %@.pdf", burnFolder, modality, date))
-                                }
-                            }
-
-                            if self.cancelled {
-                                break
-                            }
-                        }
+                if options.jpegInsteadOfJPEG2000 && selectedCompressionMode == 1 {
+                    let full = self.preferences[compressionLists.0]
+                    let lowResolution = self.preferences[compressionLists.1]
+                    let jpeg: [PropertyListValue] = [.dictionary(["modality": .string(NSLocalizedString("default", comment: "")),
+                                                                  "compression": .integer(Int(compression_JPEG)),
+                                                                  "quality": .string("0")])]
+                    self.preferences.set(jpeg, for: DatabasePreferences.compressionSettings)
+                    self.preferences.set(jpeg, for: DatabasePreferences.compressionSettingsLowRes)
+                    if let full, let lowResolution {
+                        savedCompressionLists = (full, lowResolution)
                     }
                 }
 
-                if UserDefaults.standard.bool(forKey: "EncryptCD") && self.cancelled == false {
-                    if self.cancelled == false {
-                        thread.name = NSLocalizedString("Burning...", comment: "")
-                        thread.status = NSLocalizedString("Encrypting...", comment: "")
+                let ingest = DatabaseIngest.process
+                let browserConversion = ingest.browserDatabase.map { ingest.fileConverting(of: $0) }
+                // The conversion catches and logs what the Decompress
+                // service and the database raise; a failed conversion
+                // leaves the files as they were.
+                switch selectedCompressionMode {
+                case 1:
+                    try? browserConversion?.convertInChunks(compressedArray.map { "\($0)" }, mode: .compress, into: nil)
 
-                        // ZIP method - zip test.zip /testFolder -r -e -P hello
+                case 2:
+                    try? browserConversion?.convertInChunks(compressedArray.map { "\($0)" }, mode: .decompress, into: nil)
 
-                        BrowserController.encryptFileOrFolder(burnFolder, inZIPFile: ((burnFolder as NSString).deletingLastPathComponent as NSString).appendingPathComponent("encryptedDICOM.zip"), password: job.password)
-                        onMainActor { self.password = "" }
+                default:
+                    break
+                }
 
-                        try? manager.removeItem(atPath: burnFolder)
-                        try? manager.createDirectory(atPath: burnFolder, withIntermediateDirectories: true, attributes: nil)
-
-                        try? manager.moveItem(atPath: ((burnFolder as NSString).deletingLastPathComponent as NSString).appendingPathComponent("encryptedDICOM.zip"), toPath: (burnFolder as NSString).appendingPathComponent("encryptedDICOM.zip"))
-                        try? (NSLocalizedString("The images are encrypted with a password in this ZIP file: first, unzip this file to read the content. Use an Unzip application to extract the files.", comment: "") as NSString).write(toFile: (burnFolder as NSString).appendingPathComponent("ReadMe.txt"), atomically: true, encoding: String.Encoding.ascii.rawValue)
-                    }
+                if let saved = savedCompressionLists {
+                    self.preferences.set(saved.0, for: compressionLists.0)
+                    self.preferences.set(saved.1, for: compressionLists.1)
                 }
 
                 thread.name = NSLocalizedString("Burning...", comment: "")
-                thread.status = String(format: NSLocalizedString("Writing %3.2fMB...", comment: ""), Double(Float(self.getSizeOfDirectory(burnFolder).int64Value / 1024)))
+                thread.status = NSLocalizedString("Writing DICOMDIR...", comment: "")
+                DicomDir.createDicomDir(atDir: burnFolder)
 
-                let finalSize = String(format: NSLocalizedString("Final files size to burn: %3.2fMB", comment: ""), Double(Float(self.getSizeOfDirectory(burnFolder).int64Value / 1024)))
-                onMainActor { self.finalSizeField?.stringValue = finalSize }
+                if options.includesWeasis && self.cancelled == false {
+                    thread.name = NSLocalizedString("Burning...", comment: "")
+                    thread.status = NSLocalizedString("Adding Weasis...", comment: "")
+
+                    let weasisPath = (Bundle.main.resourcePath as NSString?)?.appendingPathComponent("weasis") as NSString?
+                    for subpath in (weasisPath.flatMap { try? manager.contentsOfDirectory(atPath: $0 as String) } ?? []) {
+                        try? manager.copyItem(atPath: weasisPath!.appendingPathComponent(subpath), toPath: (burnFolder as NSString).appendingPathComponent(subpath))
+                    }
+
+                    let burnWeasisPath = (burnFolder as NSString).appendingPathComponent("weasis") as NSString
+                    let skips = [".DS_Store"]
+                    for path in Horos.weasisCustomizationPaths().reversed() { // reversed to mimic the WebPortal priorities
+                        let weasisPath = path as NSString
+                        let de = manager.enumerator(atPath: weasisPath as String)
+                        while let subpath = de?.nextObject() as? NSString {
+                            if !skips.contains(subpath.lastPathComponent) {
+                                let dest = burnWeasisPath.appendingPathComponent(subpath as String)
+                                if (de?.fileAttributes?[FileAttributeKey.type] as? NSObject)?.isEqual(FileAttributeType.typeDirectory.rawValue) == true {
+                                    try? manager.createDirectory(atPath: dest, withIntermediateDirectories: true, attributes: nil)
+                                } else {
+                                    if manager.fileExists(atPath: dest) {
+                                        try? manager.removeItem(atPath: dest)
+                                    }
+                                    try? manager.copyItem(atPath: weasisPath.appendingPathComponent(subpath as String), toPath: dest)
+                                }
+                            }
+                        }
+                    }
+
+                    // Change Label in Autorun.inf
+                    var encoding: UInt = 0
+                    var autorunInf = try? NSString(contentsOfFile: (burnFolder as NSString).appendingPathComponent("Autorun.inf"), usedEncoding: &encoding)
+
+                    if (autorunInf?.length ?? 0) != 0 {
+                        autorunInf = autorunInf?.replacingOccurrences(of: "Label=Weasis", with: String(format: "Label=%@", job.name ?? "(null)")) as NSString?
+
+                        try? manager.removeItem(atPath: (burnFolder as NSString).appendingPathComponent("Autorun.inf"))
+                        try? autorunInf?.write(toFile: (burnFolder as NSString).appendingPathComponent("Autorun.inf"), atomically: true, encoding: encoding)
+                    }
+                }
+
+                if options.addsHTML && self.cancelled == false {
+                    thread.name = NSLocalizedString("Burning...", comment: "")
+                    thread.status = NSLocalizedString("Adding HTML pages...", comment: "")
+                    self.produceHtml(burnFolder, dicomObjects: originalDbObjects)
+                }
+
+                if let supplementaryBurnPath = self.supplementaryFolder(of: options), self.cancelled == false {
+                    thread.name = NSLocalizedString("Burning...", comment: "")
+                    thread.status = NSLocalizedString("Adding Supplementary folder...", comment: "")
+                    if manager.fileExists(atPath: supplementaryBurnPath) {
+                        let enumerator = manager.enumerator(atPath: supplementaryBurnPath)
+                        while let file = enumerator?.nextObject() as? String {
+                            try? manager.copyItem(atPath: String(format: "%@/%@", supplementaryBurnPath, file), toPath: String(format: "%@/%@", burnFolder, file))
+                        }
+                    } else {
+                        self.preferences.set(false, for: ApplicationPreferences.burnSupplementaryFolder)
+                    }
+                }
+
+                if options.addsReports && self.cancelled == false {
+                    thread.name = NSLocalizedString("Burning...", comment: "")
+                    thread.status = NSLocalizedString("Adding Reports...", comment: "")
+
+                    let studies = NSMutableArray()
+
+                    for im in dbObjects ?? [] {
+                        let image = im as AnyObject
+                        if image.value(forKeyPath: "series.study.reportURL") != nil {
+                            if let study = image.value(forKeyPath: "series.study"), studies.contains(study) == false {
+                                studies.add(study)
+                            }
+                        }
+                    }
+
+                    for case let study as DicomStudy in studies {
+                        let reportURL = study.value(forKey: "reportURL") as? NSString
+                        let modality = self.cleanString(forFile: study.value(forKey: "modality") as? String) ?? "(null)"
+                        let date = self.cleanString(forFile: BrowserController.dateTime(withSecondsFormat: study.value(forKey: "date") as? Date)) ?? "(null)"
+
+                        if reportURL?.hasPrefix("http://") == true || reportURL?.hasPrefix("https://") == true {
+                            var enc: UInt = 0
+                            let urlContent = URL(string: reportURL! as String).flatMap { try? NSString(contentsOf: $0, usedEncoding: &enc) }
+
+                            try? urlContent?.write(toFile: String(format: "%@/Report-%@ %@.%@", burnFolder, modality, date, self.cleanString(forFile: reportURL!.pathExtension) ?? "(null)"), atomically: true, encoding: enc)
+                        } else {
+                            // Convert to PDF
+
+                            // A report that cannot become a PDF goes on the medium as it is.
+                            var pdfPath: String?
+                            do {
+                                pdfPath = try study.reportPDFInTmp()
+                            } catch {
+                                let e = StudyDocumentError.exception(of: error)
+                                NSLog("****** report not converted to PDF for the medium, copied as it is: %@", e.reason ?? e.name.rawValue)
+                            }
+
+                            if ((pdfPath as NSString?)?.length ?? 0) == 0 || manager.fileExists(atPath: pdfPath!) == false {
+                                if let reportURL = reportURL {
+                                    try? manager.copyItem(atPath: reportURL as String, toPath: String(format: "%@/Report-%@ %@.%@", burnFolder, modality, date, self.cleanString(forFile: reportURL.pathExtension) ?? "(null)"))
+                                }
+                            } else {
+                                try? manager.copyItem(atPath: pdfPath!, toPath: String(format: "%@/Report-%@ %@.pdf", burnFolder, modality, date))
+                            }
+                            // The PDF in the temporary folder is ours to remove once on the medium.
+                            if let pdfPath { try? manager.removeItem(atPath: pdfPath) }
+                        }
+
+                        if self.cancelled {
+                            break
+                        }
+                    }
+                }
             }
-        } catch {
-            if let e = BurnerWindowController.exception(error) {
-                _N2LogExceptionImpl(e, false, "-[BurnerWindowController prepareCDContent::]")
+
+            if options.encrypted && self.cancelled == false {
+                if self.cancelled == false {
+                    thread.name = NSLocalizedString("Burning...", comment: "")
+                    thread.status = NSLocalizedString("Encrypting...", comment: "")
+
+                    // ZIP method - zip test.zip /testFolder -r -e -P hello
+
+                    BrowserController.encryptFileOrFolder(burnFolder, inZIPFile: ((burnFolder as NSString).deletingLastPathComponent as NSString).appendingPathComponent("encryptedDICOM.zip"), password: job.password)
+                    onMainActor { self.password = "" }
+
+                    try? manager.removeItem(atPath: burnFolder)
+                    try? manager.createDirectory(atPath: burnFolder, withIntermediateDirectories: true, attributes: nil)
+
+                    try? manager.moveItem(atPath: ((burnFolder as NSString).deletingLastPathComponent as NSString).appendingPathComponent("encryptedDICOM.zip"), toPath: (burnFolder as NSString).appendingPathComponent("encryptedDICOM.zip"))
+                    try? (NSLocalizedString("The images are encrypted with a password in this ZIP file: first, unzip this file to read the content. Use an Unzip application to extract the files.", comment: "") as NSString).write(toFile: (burnFolder as NSString).appendingPathComponent("ReadMe.txt"), atomically: true, encoding: String.Encoding.ascii.rawValue)
+                }
             }
+
+            thread.name = NSLocalizedString("Burning...", comment: "")
+            thread.status = String(format: NSLocalizedString("Writing %3.2fMB...", comment: ""), Double(Float(self.getSizeOfDirectory(burnFolder).int64Value / 1024)))
+
+            let finalSize = String(format: NSLocalizedString("Final files size to burn: %3.2fMB", comment: ""), Double(Float(self.getSizeOfDirectory(burnFolder).int64Value / 1024)))
+            onMainActor { self.finalSizeField?.stringValue = finalSize }
+        }) {
+            _N2LogExceptionImpl(e, false, "-[BurnerWindowController prepareCDContent::]")
         }
+    }
+
+    /// The supplementary folder to put on the medium, nil when none. A path
+    /// that cannot be used turns the option off in the preferences, so that the
+    /// window's checkbox, bound to it, shows it off.
+    nonisolated private func supplementaryFolder(of options: BurnOptions) -> String? {
+        guard let folder = options.usableSupplementaryFolder(exists: { FileManager.default.fileExists(atPath: $0) }) else {
+            preferences.set(false, for: ApplicationPreferences.burnSupplementaryFolder)
+            return nil
+        }
+        return options.includesSupplementaryFolder ? folder : nil
     }
 
     @IBAction @objc(estimateFolderSize:)
@@ -1299,20 +1331,15 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
             size += Int(truncatingIfNeeded: (fattrs?.fileSize() ?? 0) / 1024)
         }
 
-        if UserDefaults.standard.bool(forKey: "BurnWeasis") {
+        let options = BurnOptions(preferences)
+
+        if options.includesWeasis {
             size += 17 * 1024 // About 17MB
         }
 
-        if ((UserDefaults.standard.string(forKey: "SupplementaryBurnPath") as NSString?)?.length ?? 0) <= 1 {
-            UserDefaults.standard.set(false, forKey: "BurnSupplementaryFolder")
-        }
-
-        if (UserDefaults.standard.string(forKey: "SupplementaryBurnPath").map { FileManager.default.fileExists(atPath: ($0 as NSString).expandingTildeInPath) } ?? false) == false {
-            UserDefaults.standard.set(false, forKey: "BurnSupplementaryFolder")
-        }
-
-        if UserDefaults.standard.bool(forKey: "BurnSupplementaryFolder") {
-            size += Int(getSizeOfDirectory(UserDefaults.standard.string(forKey: "SupplementaryBurnPath")).int64Value)
+        // The size of the folder as the preference writes it, its tilde not expanded.
+        if supplementaryFolder(of: options) != nil {
+            size += Int(getSizeOfDirectory(options.supplementaryFolderPath).int64Value)
         }
 
         sizeField?.stringValue = String(format: "%@ %d  %@ %3.2fMB", NSLocalizedString("No of files:", comment: ""), Int32(truncatingIfNeeded: files?.count ?? 0), NSLocalizedString("Files size (without compression):", comment: ""), Double(size) / 1024.0)
@@ -1367,19 +1394,9 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
         return result?.takeUnretainedValue() as? Object
     }
 
-    /// The NSException an @catch received.
-    nonisolated private static func exception(_ error: Error) -> NSException? {
-        return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-
-    /// What NSLog(@"%@", exception) printed of the NSException an @catch received.
-    nonisolated private static func logged(_ error: Error) -> NSObject {
-        return exception(error) ?? (error as NSError)
-    }
-
     /// -[NSDate descriptionWithCalendarFormat:timeZone:nil locale:nil], which Swift
     /// cannot call.
     private static func calendarDescription(_ date: Date, _ format: String) -> String {
-        return HorosDateString(date, format) ?? "(null)"
+        return DICOMCalendarDate.string(from: date, calendarFormat: format) ?? "(null)"
     }
 }

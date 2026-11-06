@@ -74,6 +74,12 @@
                                     <action selector="showDatabase:" target="898" id="1030"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Горизонтальная панель истории (при следующем запуске)" id="hzh-his-001">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <binding destination="12279" name="value" keyPath="values.horizontalHistory" id="hzh-bnd-001"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="Показать/скрыть панель альбомов и источников" id="14591">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
@@ -228,6 +234,17 @@
                                                 </binding>
                                             </connections>
                                         </menuItem>
+                                        <menuItem title="Импортировать изображения и PDF в выбранное исследование…" id="Isp-im-Itm">
+                                            <connections>
+                                                <action selector="importImagesAndPDFsIntoSelectedStudy:" target="Isp-im-Obj" id="Isp-im-Act"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="Lgc-im-Sep"/>
+                                        <menuItem title="Импортировать исследования из Horos или OsiriX…" id="Lgc-im-Itm">
+                                            <connections>
+                                                <action selector="importStudiesFromEarlierApplication:" target="Isp-im-Obj" id="Lgc-im-Act"/>
+                                            </connections>
+                                        </menuItem>
                                     </items>
                                 </menu>
                             </menuItem>
@@ -263,6 +280,11 @@
                                         <menuItem title="Экспорт в файл(ы) DICOM..." keyEquivalent="e" id="11548">
                                             <connections>
                                                 <action selector="exportDICOMFile:" target="-1" id="11559"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Экспортировать как синтетическое DWI…" id="Sdw-ex-Itm">
+                                            <connections>
+                                                <action selector="exportSyntheticDWI:" target="-1" id="Sdw-ex-Act"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem title="Экспорт на электронную почту..." id="11549">
@@ -330,6 +352,11 @@
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="1728">
                                             <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                        </menuItem>
+                                        <menuItem title="Найти неиндексированные файлы…" id="Fui-db-Itm">
+                                            <connections>
+                                                <action selector="findUnindexedFiles:" target="Dbc-cm-Obj" id="Fui-db-Act"/>
+                                            </connections>
                                         </menuItem>
                                         <menuItem title="Перестроить всю базу данных..." id="1112">
                                             <connections>
@@ -440,6 +467,12 @@
                                 <modifierMask key="keyEquivalentModifierMask" shift="YES" control="YES"/>
                                 <connections>
                                     <action selector="querySelectedStudy:" target="-1" id="13799"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Рабочий список модальностей…" id="Mwl-mn-Itm">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="showModalityWorklist:" target="Mwl-cm-Obj" id="Mwl-mn-Act"/>
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="14650">
@@ -692,6 +725,11 @@
                                     <action selector="revertSeries:" target="-1" id="13221"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Дублировать серию" id="Dup-sr-Itm">
+                                <connections>
+                                    <action selector="duplicateSeriesInNewViewer:" target="Vsc-cm-Obj" id="Dup-sr-Act"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="Масштаб" id="14455">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <menu key="submenu" title="Масштаб" id="14456">
@@ -820,9 +858,29 @@
                                     <action selector="flipDataSeries:" target="-1" id="13248"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Инвертировать значения пикселей" id="Inv-pv-Itm">
+                                <connections>
+                                    <action selector="invertPixelValues:" target="Vsc-cm-Obj" id="Inv-pv-Act"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Сократить серию…" id="Rds-sr-Itm">
+                                <connections>
+                                    <action selector="openReducedSeries:" target="Vsc-cm-Obj" id="Rds-sr-Act"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Переориентировать все изображения по текущему" id="Rao-ci-Itm">
+                                <connections>
+                                    <action selector="reorientAllImagesToCurrentImage:" target="Vsc-cm-Obj" id="Rao-ci-Act"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="Разделить серию по значению b" id="Bvs-sp-Itm">
                                 <connections>
                                     <action selector="splitSeriesByBValue:" target="-1" id="Bvs-sp-Act"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Заполнить пропуски в шаге срезов" id="Fsg-gp-Itm">
+                                <connections>
+                                    <action selector="fillSpacingGaps:" target="Vsc-cm-Obj" id="Fsg-gp-Act"/>
                                 </connections>
                             </menuItem>
                             <menuItem title="Использовать VOI LUT" state="on" id="13192">
@@ -1048,6 +1106,11 @@
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="captureAndSetKeyImage:" target="-1" id="14837"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Создать документ Key Object Selection" id="Kos-dc-Itm">
+                                            <connections>
+                                                <action selector="createKeyObjectSelectionDocument:" target="Vsc-cm-Obj" id="Kos-dc-Act"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="Kim-sq-Sep"/>
@@ -1675,6 +1738,11 @@
                                     <action selector="roiSaveSeries:" target="-1" id="13659"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Экспорт ROI в CSV…" id="Rcv-ex-Itm">
+                                <connections>
+                                    <action selector="roiExportCSV:" target="Vsc-cm-Obj" id="Rcv-ex-Act"/>
+                                </connections>
+                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="12924">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
@@ -1800,7 +1868,7 @@
                                         <menuItem isSeparatorItem="YES" id="12219">
                                             <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                         </menuItem>
-                                        <menuItem title="Сгруппировать выбранные ROI" keyEquivalent="g" id="12946">
+                                        <menuItem title="Сгруппировать выбранные ROI" keyEquivalent="G" id="12946">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="groupSelectedROIs:" target="-1" id="12948"/>
@@ -1870,12 +1938,23 @@
                                     <action selector="flipROIVertically:" target="-1" id="fqf-58-4Om"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Создать точки между двумя точками" id="roi-points-between-menu">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="createPointsBetweenTwoPoints:" target="Vsc-cm-Obj" id="roi-points-between-action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="Объём ROI" id="13007">
                                 <menu key="submenu" title="Объём ROI" id="13008">
                                     <items>
                                         <menuItem title="Вычислить объем..." id="13010">
                                             <connections>
                                                 <action selector="roiVolume:" target="-1" id="13011"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Создать серию-маску" id="Rms-sr-Itm">
+                                            <connections>
+                                                <action selector="generateROIMaskSeries:" target="Rms-cm-Obj" id="Rms-sr-Act"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="13027">
@@ -1943,6 +2022,11 @@
                             <menuItem title="Задать значения пикселей..." id="11232">
                                 <connections>
                                     <action selector="roiSetPixelsSetup:" target="-1" id="11233"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Нормировать серию по среднему ROI…" id="Nrm-rm-Itm">
+                                <connections>
+                                    <action selector="normalizeSeriesByROIMean:" target="Vsc-cm-Obj" id="Nrm-rm-Act"/>
                                 </connections>
                             </menuItem>
                             <menuItem title="Наращивание области (2D/3D-сегментация)..." id="11234">
@@ -2104,6 +2188,11 @@ CA
                                     <action selector="closeAllViewers:" target="694" id="12218"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Закрыть окна просмотра этого исследования" id="Cvs-st-Itm">
+                                <connections>
+                                    <action selector="closeViewersOfThisStudy:" target="Vsc-cm-Obj" id="Cvs-st-Act"/>
+                                </connections>
+                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="14129"/>
                             <menuItem title="Вынести все на передний план" id="5">
                                 <connections>
@@ -2128,6 +2217,11 @@ CA
                 <outlet property="windowsTilingMenuRows" destination="14015" id="14036"/>
             </connections>
         </customObject>
+        <customObject id="Vsc-cm-Obj" userLabel="ViewerStudyCommands" customClass="IsiXViewerStudyCommands"/>
+        <customObject id="Rms-cm-Obj" userLabel="ROIMaskSeriesCommands" customClass="IsiXROIMaskSeriesCommands"/>
+        <customObject id="Dbc-cm-Obj" userLabel="DatabaseCommands" customClass="IsiXDatabaseCommands"/>
+        <customObject id="Isp-im-Obj" userLabel="DatabaseStudyCommands" customClass="IsiXDatabaseStudyCommands"/>
+        <customObject id="Mwl-cm-Obj" userLabel="NetworkWorklistCommands" customClass="IsiXNetworkWorklistCommands"/>
         <customObject id="898" userLabel="BrowserController" customClass="BrowserController">
             <connections>
                 <outlet property="CDpasswordWindow" destination="13805" id="13823"/>
@@ -3597,18 +3691,18 @@ Gw
                             <action selector="cancelModal:" target="694" id="13864"/>
                         </connections>
                     </button>
-                    <textField verticalHuggingPriority="750" allowsCharacterPickerTouchBarItem="YES" id="13865">
+                    <secureTextField verticalHuggingPriority="750" allowsCharacterPickerTouchBarItem="YES" id="13865">
                         <rect key="frame" x="106" y="56" width="428" height="22"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" drawsBackground="YES" id="13866">
+                        <secureTextFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" drawsBackground="YES" usesSingleLineMode="YES" id="13866">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                        </textFieldCell>
-                        <connections>
-                            <binding destination="12279" name="value" keyPath="values.defaultZIPPasswordForEmail" id="13867"/>
-                        </connections>
-                    </textField>
+                            <allowedInputSourceLocales>
+                                <string>NSAllRomanInputSourcesLocaleIdentifier</string>
+                            </allowedInputSourceLocales>
+                        </secureTextFieldCell>
+                    </secureTextField>
                 </subviews>
             </view>
         </window>
@@ -4250,7 +4344,7 @@ Gw
                 </subviews>
             </view>
         </window>
-        <window title="Локальная база данных" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" frameAutosaveName="" animationBehavior="default" id="aMa-Mw-HRb" customClass="N2OpenGLViewWithSplitsWindow">
+        <window title="Локальная база данных" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" frameAutosaveName="" animationBehavior="default" id="aMa-Mw-HRb">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
             <rect key="contentRect" x="283" y="305" width="1043" height="691"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>

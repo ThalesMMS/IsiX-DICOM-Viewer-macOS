@@ -102,14 +102,14 @@ body = download[at:at + 4000] if at >= 0 else ''
 if not body:
     failures.append('the download completion is gone')
 else:
-    if 'DICM' not in body:
+    if 'looksLikeDICOM' not in body:
         failures.append('a WADO reply is written without checking that it is DICOM at all')
     if 'recordFailure(forURL' not in body:
         failures.append('a reply that is not DICOM is still counted as received')
     if not re.search(r'recordFailure\(forURL:[^\n]*statusCode:\s*0', body):
         failures.append('a reply that is not DICOM is not treated as worth asking for again')
     # And the file must not be left for the importer to find.
-    if 'removeItem(atPath' not in body:
+    if 'ingest.discard(draft)' not in body:
         failures.append('the file that is not DICOM is left in the incoming folder')
 
 # --- the fixture can produce the case ----------------------------------------

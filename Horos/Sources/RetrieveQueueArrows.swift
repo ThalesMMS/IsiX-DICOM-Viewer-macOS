@@ -12,6 +12,7 @@
 
 import AppKit
 import ObjectiveC
+import Synchronization
 
 /// The download arrows of the Query & Retrieve list turn into a Return arrow
 /// while Command is held over the window: a click then queues the retrieve
@@ -25,10 +26,9 @@ public final class RetrieveQueueArrows: NSObject {
     private let columnIdentifier: NSUserInterfaceItemIdentifier
     private let arrow: NSImage?
     private let queueArrow: NSImage?
-    // Set once in init and read again only by deinit: nonisolated(unsafe)
-    // lets the nonisolated deinit remove them.
-    nonisolated(unsafe) private var monitor: Any?
-    nonisolated(unsafe) private var observers: [NSObjectProtocol] = []
+    /// The key-event monitor and the window observers: set in init and
+    /// removed by the deinit, which is not isolated to the main actor.
+    private let registrations = Mutex<(monitor: Any?, observers: [NSObjectProtocol])>((nil, []))
     @objc public private(set) var showsQueueArrows = false
 
     private static var key: UInt8 = 0
@@ -52,21 +52,24 @@ public final class RetrieveQueueArrows: NSObject {
         let symbol = NSImage(systemSymbolName: "return", accessibilityDescription: NSLocalizedString("Queue the download", comment: "Accessibility description of the Return arrow of the Query & Retrieve list, shown while Command is held"))
         queueArrow = symbol?.withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 9, weight: .semibold))
         super.init()
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+        let monitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
             MainActor.assumeIsolated { self?.update(command: event.modifierFlags.contains(.command)) }
             return event
         }
         // A window that stops being key no longer sees Command go up.
-        for name in [NSWindow.didResignKeyNotification, NSApplication.didResignActiveNotification] {
-            observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+        let observers = [NSWindow.didResignKeyNotification, NSApplication.didResignActiveNotification].map { name in
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.update(command: false) }
-            })
+            }
         }
+        registrations.withLock { $0 = (monitor, observers) }
     }
 
     deinit {
-        if let monitor { NSEvent.removeMonitor(monitor) }
-        for observer in observers { NotificationCenter.default.removeObserver(observer) }
+        registrations.withLock { registered in
+            if let monitor = registered.monitor { NSEvent.removeMonitor(monitor) }
+            for observer in registered.observers { NotificationCenter.default.removeObserver(observer) }
+        }
     }
 
     /// Shows the Return arrows while Command is held with the list's window key.

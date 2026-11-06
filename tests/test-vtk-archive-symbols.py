@@ -88,7 +88,7 @@ for configuration in ('Debug', 'Release'):
 
 # The base classes the host's factories replace, read from where they are registered.
 overridden = set()
-for name in ('Horos/Sources/SceneFactory.cxx', 'Horos/Sources/VRPresentation.mm'):
+for name in ('Horos/Sources/Adapters/VTK/SceneFactory.cxx', 'Horos/Sources/Adapters/VTK/IsiXVTKVolumePresentation.mm'):
     text = (root / name).read_text(encoding='utf-8', errors='replace')
     overridden |= set(re.findall(r'(?:Add<\w+>|RegisterOverride)\(\s*"(vtk\w+)"', text))
 if len(overridden) < 11:

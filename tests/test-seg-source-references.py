@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Prove frame-level provenance refusal and multiframe round trips in the real SEG codec."""
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402  - ROIInterchange.swift writes IsiXROI's ROIInterchangeDocument
 import argparse
 import subprocess
 import tempfile
@@ -91,5 +94,5 @@ with tempfile.TemporaryDirectory(prefix='horos-seg-source-') as folder:
                          if args.baseline else source.read_bytes())
         files.append(str(path))
     (tmp/'main.swift').write_text(setup + ('' if args.baseline else multiframe))
-    subprocess.run(['xcrun','swiftc',*files,str(tmp/'main.swift'),'-o',str(tmp/'probe')],check=True)
+    subprocess.run(['xcrun','swiftc',*isix_modules.module_flags('IsiXROI',tmp/'modules'),*files,str(tmp/'main.swift'),'-o',str(tmp/'probe')],check=True)
     subprocess.run([str(tmp/'probe')],check=True)

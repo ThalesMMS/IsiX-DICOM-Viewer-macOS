@@ -35,18 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
-#import "N2XMLRPCConnection.h"
+// XMLRPCInterface is implemented in Swift (Horos/Sources/XMLRPCInterface.swift
+// and its XMLRPCInterface+*.swift extensions). This header keeps
+// <Horos/XMLRPCMethods.h>: it brings in the generated interface, which declares
+// the same class name and selectors.
 
-@class N2ConnectionListener;
-@class HTTPServerRequest;
+#import <Foundation/Foundation.h>
 
-/** \brief XML-RPC for RIS integration */
-@interface XMLRPCInterface : NSObject<N2XMLRPCConnectionDelegate> {
-    N2ConnectionListener* _listener;
-    BOOL _https;
-}
-
--(id)methodCall:(NSString*)methodName parameters:(NSDictionary*)parameters error:(NSError**)error;
--(void)processXMLRPCMessage:(NSString*)selName httpServerMessage:(NSMutableDictionary*)httpServerMessage HTTPServerRequest:(HTTPServerRequest*)mess version:(NSString*)vers paramDict:(NSDictionary*)paramDict encoding:(NSString*)encoding __deprecated;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class XMLRPCInterface;
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+#endif

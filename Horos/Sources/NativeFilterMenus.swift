@@ -13,13 +13,14 @@
 import AppKit
 
 /// Menu items for the filters the app provides itself. A plugin bundle declares its items in its
-/// Info.plist, and `+[PluginManager setMenus::::]` makes them; T2 Fit Map and ROI Enhancement have no
-/// bundle, so they were registered and never reachable from a menu.
+/// Info.plist, and `+[PluginManager setMenus::::]` makes them; T1 Fit Map, T2 Fit Map and ROI Enhancement
+/// have no bundle, so they were registered and never reachable from a menu.
 @objc(HorosNativeFilterMenus)
 public final class NativeFilterMenus: NSObject {
     /// Each native filter: its menu title, the class registered under that title, and whether its
     /// historical bundle was a ROI tool (`roiTool`) rather than an image filter (`imageFilter`).
     private static let filters: [(title: String, className: String, roiTool: Bool)] = [
+        ("T1 Fit Map", "IsiXT1FitMapFilter", false),
         ("T2 Fit Map", "T2FitMapFilter", false),
         ("ROI Enhancement", "ROIEnhancementFilter", true),
     ]

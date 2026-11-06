@@ -22,11 +22,18 @@ if 'buildsParallelROIStore = false' not in source:
     failures.append('HorosSEGSurface must not claim a parallel ROI store')
 if 'nativeViewerOverlayImplemented = true' not in source:
     failures.append('native overlay plumbing is missing')
-viewer = (root / 'Horos/Sources/ViewerSEGSurface.mm').read_text()
-for contract in ('horosVolumeSession', 'HorosDrawObjectsCanvasNotification', 'HorosSEGSurfacePolyData', 'vtkCutter', 'sourceClosed:', 'setOpacity:'):
+# The panel is Swift; its meshes and their sections by the viewers' planes are
+# the VTK adapter's (IsiXVTKActor), over the shared SEG polygon data.
+viewer = (root / 'Horos/Sources/ViewerSEGSurface.swift').read_text()
+adapter = (root / 'Horos/Sources/Adapters/VTK/IsiXVTKSceneActors.mm').read_text()
+for contract in ('horosVolumeSession', 'name: .HorosDrawObjectsCanvas', 'IsiXVTKActor.mesh(vertices:', 'sections(planeThrough:',
+                 'sourceClosed(_:)', 'setOpacity('):
     if contract not in viewer:
         failures.append('native overlay missing ' + contract)
-if 'SEGViewerSession.swift in Sources' not in pbx or 'ViewerSEGSurface.mm in Sources' not in pbx:
+for contract in ('HorosSEGSurfacePolyData(vertices, triangles)', 'HorosSEGSurfaceCut(mesh, point, direction)'):
+    if contract not in adapter:
+        failures.append('the VTK adapter does not build the meshes with ' + contract)
+if 'SEGViewerSession.swift in Sources' not in pbx or 'ViewerSEGSurface.swift in Sources' not in pbx:
     failures.append('native session and consumer must be built')
 if 'simplificationForcesSphericalTopology = false' not in source:
     failures.append('refinement must refuse spherical topology')

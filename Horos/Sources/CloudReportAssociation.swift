@@ -79,7 +79,6 @@ public final class CloudReportAssociation: NSObject {
     /// not enough: a scanner's Dose SR or Enhanced SR carries its own study's UID
     /// and references the images of the exam it was acquired with, often another
     /// study. Joining it there left its own study empty for ever.
-    @objc(isReportCandidate:)
     public static func isReportCandidate(_ item: [String: Any]) -> Bool {
         let description = string(item["seriesDescription"])
         if osiriXInternalSeries.contains(description) {

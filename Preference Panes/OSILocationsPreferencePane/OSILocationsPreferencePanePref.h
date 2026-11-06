@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // OSILocationsPreferencePanePref and the NotWADOValueTransformer value transformer
-// are implemented in Swift since #711
+// are implemented in Swift
 // (Preference Panes/OSILocationsPreferencePane/OSILocationsPreferencePanePref.swift). This
 // header keeps its path: it brings in the generated interface, which declares the same
 // class names and selectors.

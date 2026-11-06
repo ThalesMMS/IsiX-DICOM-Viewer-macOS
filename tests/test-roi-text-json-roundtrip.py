@@ -28,6 +28,8 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+import isix_modules  # noqa: E402  - ROIInterchange.swift writes IsiXROI's ROIInterchangeDocument
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 sources = ['ViewerController+ROIInterchange.swift', 'ROIInterchange.swift', 'ROIAssociation.swift',
            'ROIArchiveFormat.swift', 'ROIIntersliceGeometry.swift']
@@ -40,12 +42,24 @@ def read(name):
     return (root / path).read_bytes()
 
 
-# The .roi import decodes through the restricted unarchiver.
-try:
-    read('RestrictedUnarchiver.swift')
-    sources.append('RestrictedUnarchiver.swift')
-except (subprocess.CalledProcessError, FileNotFoundError):
-    pass
+# The .roi import decodes through the restricted unarchiver; the conversions
+# are ViewerROIInterchange's, over the viewer's ROI lists (ViewerROISlices).
+for optional in ('RestrictedUnarchiver.swift', 'ViewerROIInterchange.swift'):
+    try:
+        read(optional)
+        sources.append(optional)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+
+
+def roi_slices():
+    """The ViewerROISlices of the viewer's ROI state, when the revision has it."""
+    try:
+        text = read('ViewerController+ROIState.swift').decode('utf-8')
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return ''
+    start = text.find('@MainActor struct ViewerROISlices {')
+    return text[start:text.index('\n}\n', start) + 3] if start >= 0 else ''
 
 
 doubles = r'''
@@ -75,7 +89,7 @@ public class MyPoint: NSObject {
     public class func point(_ p: NSPoint) -> MyPoint { MyPoint(p) }
 }
 
-/// Only what ROI.m does that the interchange reads: rectangle, oval and 2D point
+/// Only what the ROI does that the interchange reads: rectangle, oval and 2D point
 /// ignore setPoints: and answer points from their rect; a text ROI keeps its
 /// anchor in rect.origin and its size follows the label.
 public class ROI: NSObject {
@@ -132,13 +146,33 @@ public class HorosVolumeLengthROI: ROI {
     public class func validPayload(_ payload: [String: Any]) -> Bool { true }
 }
 
+public class DicomStudy: NSObject {
+    public var studyInstanceUID: String!
+}
+
+public class DicomSeries: NSObject {
+    public var study: DicomStudy!
+    public var seriesDICOMUID: String!
+    public var seriesInstanceUID: String!
+    public var modality: String!
+    public var name: String!
+}
+
 public class DicomImage: NSObject {
     let sop: String
     let keys: [String: String]
     public var instanceNumber: NSNumber?
-    init(sop: String, number: Int, keys: [String: String]) { self.sop = sop; instanceNumber = NSNumber(value: number); self.keys = keys }
+    public let series: DicomSeries! = DicomSeries()
+    init(sop: String, number: Int, keys: [String: String]) {
+        self.sop = sop; instanceNumber = NSNumber(value: number); self.keys = keys
+        series.study = DicomStudy()
+        series.study.studyInstanceUID = keys["series.study.studyInstanceUID"]
+        series.seriesDICOMUID = keys["series.seriesDICOMUID"]
+        series.seriesInstanceUID = keys["series.seriesInstanceUID"]
+        series.modality = keys["series.modality"]
+        series.name = keys["series.name"]
+    }
     public func sopInstanceUID() -> String? { sop }
-    public override func value(forKeyPath keyPath: String) -> Any? { keys[keyPath] }
 }
 
 /// An axial 64 x 64 image, 0.5 mm pixels, at z.
@@ -172,26 +206,38 @@ public class DCMPix: NSObject {
 }
 
 public class ImageViewDouble: NSObject {
-    public var curImage: Int16 = 0
+    public var curImage = 0
     public var needsDisplay = false
     public func roiSet(_ roi: ROI) {}
-    public func setIndex(_ index: Int16) {}
+    public func setIndex(_ index: Int) {}
 }
 
-public class ViewerController: NSObject {
+/// The viewer is on the main actor, as AppKit's window controllers are.
+@MainActor public class ViewerController: NSObject {
     public var window: NSWindow? = nil
     var pixes: [NSMutableArray] = []
     var rois: [NSMutableArray] = []
     let view = ImageViewDouble()
     public func pixList(_ i: Int) -> NSMutableArray! { pixes[i] }
     public func roiList(_ i: Int) -> NSMutableArray! { rois[i] }
+    public func horos_roiList(at i: Int) -> NSMutableArray? { i < rois.count ? rois[i] : nil }
     public func maxMovieIndex() -> Int32 { Int32(pixes.count) }
     public func curMovieIndex() -> Int16 { 0 }
     public func fileList() -> NSMutableArray! { NSMutableArray() }
     public func add(toUndoQueue what: String) {}
     public func roiSelectDeselectAll(_ sender: Any?) {}
+    @objc(roiSaveSeries:) public func roiSaveSeries(_ sender: Any?) {}
     public func imageView() -> ImageViewDouble { view }
     public func add(_ roi: HorosVolumeLengthROI, movieIndex: Int) {}
+}
+
+/// The target of ROI > Export ROIs as CSV…, after which the JSON item goes.
+@MainActor public class ViewerStudyCommands: NSObject {
+    @objc(roiExportCSV:) public func roiExportCSV(_ sender: Any?) {}
+}
+
+func postViewerNotification(_ name: Notification.Name, _ object: Any?, _ userInfo: [AnyHashable: Any]? = nil) {
+    NotificationCenter.default.post(name: name, object: object, userInfo: userInfo)
 }
 '''
 
@@ -301,9 +347,12 @@ with tempfile.TemporaryDirectory() as tmp:
     tmp = Path(tmp)
     for name in sources:
         (tmp / name).write_bytes(read(name))
-    (tmp / 'Doubles.swift').write_text(doubles)
+    (tmp / 'Doubles.swift').write_text(doubles + roi_slices())
     (tmp / 'main.swift').write_text(main)
-    build = subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', *[str(tmp / n) for n in sources],
+    # The viewer and its ROI code are on the main actor, as the harness's top-level code is.
+    build = subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', '-swift-version', '6', '-default-isolation', 'MainActor',
+                            *isix_modules.module_flags('IsiXROI', tmp / 'modules'),
+                            *[str(tmp / n) for n in sources],
                             str(tmp / 'Doubles.swift'), str(tmp / 'main.swift'), '-o', str(tmp / 'harness')],
                            capture_output=True, text=True)
     if build.returncode != 0:

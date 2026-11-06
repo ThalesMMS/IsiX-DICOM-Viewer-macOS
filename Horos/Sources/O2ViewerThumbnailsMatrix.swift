@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 
 /// The viewer's series and studies thumbnails.
 ///
@@ -49,8 +50,7 @@ import AppKit
 ///
 /// Implemented in Swift: the Objective-C name and
 /// <Horos/O2ViewerThumbnailsMatrix.h> are those of the former class, and
-/// Viewer.xib uses the name as customClass. -draggingSourceOperationMaskForLocal:,
-/// which Swift marks unavailable, is a category in O2ViewerThumbnailsMatrix+CAPI.m.
+/// Viewer.xib uses the name as customClass.
 @objc(O2ViewerThumbnailsMatrix)
 public final class O2ViewerThumbnailsMatrix: NSMatrix, NSDraggingSource {
     private var draggingStartingPoint = NSZeroPoint
@@ -156,7 +156,8 @@ public final class O2ViewerThumbnailsMatrix: NSMatrix, NSDraggingSource {
 
             var screen: NSScreen? = nil
 
-            for case let s as NSScreen in AppController.shared().viewerScreens() ?? [] {
+            let processGraph = PreferencesSource.process.processGraph
+            for s in processGraph.windowArranger.viewerScreens() {
                 if NSPointInRect(screenPoint, s.frame) {
                     screen = s
                 }
@@ -170,12 +171,12 @@ public final class O2ViewerThumbnailsMatrix: NSMatrix, NSDraggingSource {
 
             if abs(screenPoint.x - draggingStartingPoint.x) > 50 && !(w?.windowController is ThumbnailsListPanel) && screen != nil && NSPointInRect(screenPoint, usefulRect) {
                 let series = (self.selectedCell()?.representedObject as? O2ViewerThumbnailsMatrixRepresentedObject)?.object as? NSManagedObject
-                let newViewer = BrowserController.currentBrowser()?.loadSeries(series, nil, true, keyImagesOnly: false)
+                let newViewer = OSIWindowController.browserWindowGraph(serving: self)?.browser.loadSeries(series, nil, true, keyImagesOnly: false)
                 newViewer?.setHighLighted(1.0)
-                if UserDefaults.standard.bool(forKey: "AUTOTILING") {
+                if PreferencesSource.process.preferences[ViewerPreferences.autoTiling] {
                     NSApp.sendAction(NSSelectorFromString("tileWindows:"), to: nil, from: self)
                 } else {
-                    AppController.shared().checkAllWindowsAreVisible(self, makeKey: true)
+                    processGraph.appController?.checkAllWindowsAreVisible(self, makeKey: true)
                 }
 
                 newViewer?.window?.makeKeyAndOrderFront(self)

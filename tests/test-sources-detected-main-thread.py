@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A disc scan marks its source as detected from the main queue.
+"""A disc scan marks its source as detected from the main run loop.
 
 The Sources table shows `arrangedObjects.description` through its bindings, and
 `description` follows `available`, which follows `detected`. KVO runs on the
@@ -12,17 +12,18 @@ Core Animation commits the transaction, which draws the table on the exiting
 thread. `tableView(_:willDisplayCell:for:row:)` belongs to the main actor, so the
 app stopped there in every browse of a disc and every copy that kept it mounted.
 
-Traced in the app with `CA_ASSERT_MAIN_THREAD_TRANSACTIONS`: browsing a mounted
-disc, the one transaction made off the main thread came from that write.
+Traced in the app with a breakpoint on `CA::Transaction::create()`, the one
+transaction made off the main thread came from that write, in Debug and Release,
+before and after the scan took the copy over.
 
 What must stay true:
 
-- `volumeScanThread` writes `detected` only inside its hop to the main queue;
+- `volumeScanThread` writes `detected` only inside its hop to the main run loop;
 - a real thread that writes a value a table shows through bindings draws that
   table off the main thread, which is why the hop exists: when this stops being
   so the test says so, and the hop can be revisited;
-- the same write through `DispatchQueue.main.sync`, from a real thread, draws
-  the table only on the main thread.
+- the same write through `onMainRunLoopSync`, from a real thread, draws the
+  table only on the main thread.
 """
 import json
 from pathlib import Path
@@ -85,7 +86,7 @@ func drawn(by write: @escaping @Sendable () -> Void) -> [String: Int] {
 
 nonisolated(unsafe) let shared = node
 let onThread = drawn { shared.label = "on the thread" }
-let hopped = drawn { DispatchQueue.main.sync { MainActor.assumeIsolated { shared.label = "from the main queue" } } }
+let hopped = drawn { onMainRunLoopSync { shared.label = "from the main run loop" } }
 let answer = try! JSONSerialization.data(withJSONObject: ["on the thread": onThread, "hopped": hopped])
 print(String(decoding: answer, as: UTF8.self))
 '''
@@ -123,15 +124,15 @@ def drawings():
         program = Path(folder) / 'main.swift'
         program.write_text(PROGRAM)
         built = Path(folder) / 'program'
-        subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', str(program),
+        subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', str(program), str(root / 'Horos/Sources/MainActorCallbacks.swift'),
                         '-o', str(built)], check=True, capture_output=True, text=True, timeout=240)
         return json.loads(subprocess.run([str(built)], check=True, capture_output=True, text=True, timeout=30).stdout)
 
 
 scan_thread = code_of(body(source_text('BrowserController+Sources'), 'func volumeScanThread()'))
 check(scan_thread, 'volumeScanThread not found')
-hop = body(scan_thread, 'DispatchQueue.main.sync {')
-check('.detected = true' in hop, 'the scan does not mark its source from the main queue')
+hop = body(scan_thread, 'onMainRunLoopSync {')
+check('.detected = true' in hop, 'the scan does not mark its source from the main run loop')
 outside = scan_thread.replace(hop, '') if hop else scan_thread
 check(not re.search(r'\bdetected\s*=', outside), 'the scan writes detected on its own thread')
 
@@ -148,4 +149,4 @@ if failures:
     for failure in failures:
         print(f'FAIL: {failure}')
     sys.exit(1)
-print(f'ok: the scan marks its source from the main queue, and the table draws there: {seen}')
+print(f'ok: the scan marks its source from the main run loop, and the table draws there: {seen}')

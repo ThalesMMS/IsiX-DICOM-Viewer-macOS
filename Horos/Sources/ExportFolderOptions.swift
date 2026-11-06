@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 
 /// Adds field choices to the existing export accessory without duplicating its controls.
 @objc(HorosExportFolderOptions)
@@ -20,7 +21,9 @@ public final class ExportFolderOptions: NSView {
     private let series = NSPopUpButton()
     private let custom = NSButton(checkboxWithTitle: NSLocalizedString("Customize folder names", comment: ""), target: nil, action: nil)
     private var observer: NSObjectProtocol?
-    private static let preference = "DICOMExportFolderFields"
+    /// Where the folder names and the DICOMDIR switch are read, and the
+    /// accepted names kept: the preferences of the process.
+    private let preferences: any PreferenceStore = PreferencesSource.process.preferences
 
     @objc(initWithLegacyView:)
     public init(legacyView: NSView) {
@@ -60,10 +63,10 @@ public final class ExportFolderOptions: NSView {
         note.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         note.textColor = .secondaryLabelColor
         addSubview(note)
-        if let saved = UserDefaults.standard.dictionary(forKey: Self.preference) {
-            custom.state = (saved["enabled"] as? Bool == true) ? .on : .off
-            for (key, popup) in [("patient", patient), ("study", study), ("series", series)] {
-                if let index = saved[key] as? Int, (0..<popup.numberOfItems).contains(index) { popup.selectItem(at: index) }
+        if let saved = preferences[ApplicationPreferences.exportFolderFields] {
+            custom.state = saved.customized ? .on : .off
+            for (field, popup) in [(saved.patient, patient), (saved.study, study), (saved.series, series)] {
+                if let index = field, (0..<popup.numberOfItems).contains(index) { popup.selectItem(at: index) }
             }
         }
         observer = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
@@ -77,16 +80,16 @@ public final class ExportFolderOptions: NSView {
     isolated deinit { if let observer { NotificationCenter.default.removeObserver(observer) } }
 
     @objc private func updateControls() {
-        let ordinary = !UserDefaults.standard.bool(forKey: "AddDICOMDIRForExport")
+        let ordinary = !preferences[ApplicationPreferences.addDICOMDIRForExport]
         custom.isEnabled = ordinary
         for popup in [patient, study, series] { popup.isEnabled = ordinary && custom.state == .on }
     }
 
     /// Persist only after the export panel is accepted. Other export flows never read this preference.
-    @objc public func acceptedOptions() -> NSDictionary? {
-        let values: [String: Any] = ["enabled": custom.state == .on, "patient": patient.indexOfSelectedItem,
-                                     "study": study.indexOfSelectedItem, "series": series.indexOfSelectedItem]
-        UserDefaults.standard.set(values, forKey: Self.preference)
-        return custom.state == .on && !UserDefaults.standard.bool(forKey: "AddDICOMDIRForExport") ? values as NSDictionary : nil
+    @objc public func acceptedOptions() -> [String: Any]? {
+        let fields = ExportFolderFields(customized: custom.state == .on, patient: patient.indexOfSelectedItem,
+                                        study: study.indexOfSelectedItem, series: series.indexOfSelectedItem)
+        preferences.set(fields, for: ApplicationPreferences.exportFolderFields)
+        return fields.customized && !preferences[ApplicationPreferences.addDICOMDIRForExport] ? fields.namingOptions : nil
     }
 }

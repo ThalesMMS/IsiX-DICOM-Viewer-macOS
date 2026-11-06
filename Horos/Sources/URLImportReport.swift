@@ -50,8 +50,9 @@ public final class URLImportReport: NSObject {
     @objc(recordIndexedURL:)
     public func recordIndexed(url: String) { indexed.append(url) }
 
-    /// Handed to the import folder to be expanded there - an archive gets its own
-    /// verdict from the importer once it has been.
+    /// Handed to the import folder: an archive, to be expanded there, which gets
+    /// its own verdict from the importer once it has been, or a DICOM object the
+    /// import has not finished with.
     @objc(recordExpandedURL:)
     public func recordExpanded(url: String) { expanded.append(url) }
 
@@ -67,23 +68,50 @@ public final class URLImportReport: NSObject {
         return refused.isEmpty && failed.isEmpty
     }
 
+    /// The outcome as the log may write it: how many of each, and where each
+    /// one that brought nothing was asked for, by its origin and path. The
+    /// summary is for the person who reads it: it quotes a reason, which can
+    /// be the description the system has of an error, and a URL that could
+    /// not be read is in it whole, query string and all.
+    @objc public var logSummary: String {
+        var parts = ["\(indexed.count) added to the database", "\(expanded.count) handed to the import folder",
+                     "\(failed.count) not downloaded", "\(refused.count) not something this database can take"]
+        let lost = (failed + refused).map { $0.0 }
+        parts += lost.prefix(5).map { LogText.url(string: $0) }
+        if lost.count > 5 { parts.append("and \(lost.count - 5) more") }
+        return parts.joined(separator: "; ")
+    }
+
     /// One sentence for the alert, naming what went wrong rather than only that
-    /// something did.
+    /// something did, in the language of the interface.
+    ///
+    /// The same text is the error message of the AppleScript command: a message
+    /// for the person who reads it, like the reasons it quotes, which are
+    /// localized where they are made. A script decides by the error number and
+    /// by the paths the command returns, not by these words.
     @objc public var summary: String {
         var parts: [String] = []
         if !indexed.isEmpty {
-            parts.append("\(indexed.count) added to the database")
+            parts.append(indexed.count == 1
+                ? NSLocalizedString("1 added to the database", comment: "URL import report: one URL's object is in the database")
+                : String(format: NSLocalizedString("%ld added to the database", comment: "URL import report: how many URLs' objects are in the database"),
+                         indexed.count))
         }
         if !expanded.isEmpty {
-            parts.append("\(expanded.count) handed to the import folder to be expanded")
+            parts.append(expanded.count == 1
+                ? NSLocalizedString("1 handed to the import folder", comment: "URL import report: one URL's payload waits in the import folder")
+                : String(format: NSLocalizedString("%ld handed to the import folder", comment: "URL import report: how many URLs' payloads wait in the import folder"),
+                         expanded.count))
         }
         for (url, reason) in failed {
-            parts.append("\(short(url)) could not be downloaded: \(reason)")
+            parts.append(String(format: NSLocalizedString("%1$@ could not be downloaded: %2$@", comment: "URL import report: the URL, then why nothing came of it"),
+                                short(url), reason))
         }
         for (url, reason) in refused {
-            parts.append("\(short(url)) is not something this database can take: \(reason)")
+            parts.append(String(format: NSLocalizedString("%1$@ is not something this database can take: %2$@", comment: "URL import report: the URL, then what it answered with"),
+                                short(url), reason))
         }
-        return parts.isEmpty ? "nothing was downloaded" : parts.joined(separator: "\n")
+        return parts.isEmpty ? NSLocalizedString("Nothing was downloaded.", comment: "") : parts.joined(separator: "\n")
     }
 
     private func short(_ url: String) -> String {

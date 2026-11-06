@@ -10,7 +10,7 @@ leaves the zoom to the views.
 
 Read from the sources: the tiling no longer touches the scale or the offsets,
 and -reshape still scales the image, the origin and the other images' zoom
-with the view's size.
+(written by ImagePresentationStore) with the view's size.
 """
 from pathlib import Path
 import sys
@@ -27,13 +27,25 @@ for needle in ['"scale"', '"xOffset"', '"yOffset"', 'scaleValue', 'setOriginX', 
 if 'resizeSubviews(withOldSize: bounds.size)' not in tiling:
     failures.append('the tiling no longer resizes the views')
 
-view = source_text('DCMView')
-reshape = view[view.index('- (void) reshape'):]
-reshape = reshape[:reshape.index('\n}\n')]
-for needle in ['self.scaleValue = scaleValue * yChanged;', 'origin.x *= yChanged;',
-               '[pix.imageObj setValue: [NSNumber numberWithFloat: s * yChanged] forKey: @"scale"];']:
+# -reshape is DCMView+Geometry.swift's horosReshape(), which DCMView.swift's
+# -reshape calls (subclasses override it).
+geometry = (Path(__file__).resolve().parents[1] / 'Horos/Sources/DCMView+Geometry.swift').read_text()
+reshape = geometry[geometry.index('public dynamic func horosReshape()'):]
+reshape = reshape[:reshape.index('\n    }\n')]
+for needle in ['self.scaleValue = self.horos_scaleValue * yChanged', 'origin.x *= CGFloat(yChanged)',
+               'ImagePresentationStore(series: nil, image: pix.imageObj()).storeResized(by: yChanged)']:
     if needle not in reshape:
         failures.append(f'-[DCMView reshape] no longer scales with the view: {needle}')
+# The other images' own zoom is written by ImagePresentationStore (ImagePresentationStore.swift).
+store = (Path(__file__).resolve().parents[1] / 'Horos/Sources/ImagePresentationStore.swift').read_text()
+resized = store[store.index('func storeResized(by factor: Float) {'):]
+resized = resized[:resized.index('\n    }\n')]
+if 'image?.scale = scale != 0 ? NSNumber(value: scale * factor) : nil' not in resized:
+    failures.append('-[DCMView reshape] no longer scales the other images\' own zoom with the view')
+view = source_text('DCMView')
+stub = view[view.index('    @objc(reshape)\n    public dynamic func reshape() {'):]
+if 'self.horosReshape()' not in stub[:stub.index('\n    }\n')]:
+    failures.append('-[DCMView reshape] no longer calls horosReshape')
 
 if failures:
     print('FAIL')

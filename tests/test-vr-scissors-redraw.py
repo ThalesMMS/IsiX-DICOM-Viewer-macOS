@@ -58,26 +58,38 @@ def code(text):
     return '\n'.join(line.split('//', 1)[0] for line in text.splitlines())
 
 
-view = read('Horos/Sources/VRView.mm')
+try:
+    view = read('Horos/Sources/VRView.m')
+except (OSError, subprocess.CalledProcessError):
+    # The class is Swift since (VRView.swift).
+    view = ''
 
-if 'picture.presentsWithTransaction = YES;' not in (body(view, '- (CAMetalLayer *) horosPictureLayer') or ''):
+# The picture layer is Swift (VRView+Render.swift), an extension of VRView.
+view_render = read('Horos/Sources/VRView+Render.swift')
+picture_layer = view_render[view_render.find('func horosPictureLayer() -> CAMetalLayer?'):]
+if 'created.presentsWithTransaction = true' not in picture_layer[:picture_layer.find('\n    }\n')]:
     failures.append('the picture layer no longer presents with the transaction: the premise of this check changed')
 
 cut = body(view, '- (void) deleteRegion:(int) c :(NSArray*) pxList :(BOOL) blendedSeries')
+display, cleared_text, redraw = '[self display]', '[ROIPoints removeAllObjects]', 'setNeedsDisplay'
+if cut is None and '- (void) deleteRegion:' not in view:
+    # The cut is Swift (VRView+Scissors.swift), an extension of VRView.
+    cut = body(read('Horos/Sources/VRView+Scissors.swift'), '    func deleteRegion(_ c: Int32, _ pxList: NSArray, _ blendedSeries: Bool)')
+    display, cleared_text, redraw = 'display()', 'horos_ROIPoints?.removeAllObjects()', 'needsDisplay'
 if cut is None:
     failures.append('-[VRView deleteRegion:::] not found')
 else:
     cut = code(cut)
     loop = cut.find('waitUntilAllOperationsAreFinished')
-    cleared = cut.find('[ROIPoints removeAllObjects]')
+    cleared = cut.find(cleared_text)
     if loop < 0 or cleared < 0:
         failures.append('the cut loop or the outline deletion of -deleteRegion::: not found')
     else:
-        if '[self display]' not in cut[:loop]:
+        if display not in cut[:loop]:
             failures.append('-deleteRegion::: no longer draws the frame before the cut')
-        if '[self display]' not in cut[cleared:]:
+        if display not in cut[cleared:]:
             failures.append('-deleteRegion::: does not draw the cut frame with -display after deleting the outline')
-        if 'setNeedsDisplay' in cut[loop:]:
+        if redraw in cut[loop:]:
             failures.append('-deleteRegion::: leaves the cut frame to -setNeedsDisplay:, which the screen never shows')
 
 if failures:

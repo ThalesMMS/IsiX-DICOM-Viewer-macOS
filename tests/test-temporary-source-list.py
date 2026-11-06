@@ -27,14 +27,18 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sources import source_text  # noqa: E402
+from sources import source_text, class_text  # noqa: E402
 failures = []
 location = root / 'Horos/Sources/SourceLocation.swift'
-# BrowserController (Sources) is Swift, where HorosSourceLocation is SourceLocation.
-sources = source_text('BrowserController+Sources')
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-# AppController is Swift, where HorosSourceLocation is SourceLocation.
-app = source_text('AppController')
+# The Sources list (SourceList.swift) writes the list, where HorosSourceLocation
+# is SourceLocation; the entry it adds is IsiXDatabase's SourceListRules.
+sources = source_text('SourceList')
+rules = (root / 'Modules/IsiXDatabase/Sources/SourceListRules.swift').read_text()
+browser = class_text('BrowserController')
+# The startup pass is a step of the launch: ApplicationPreferencesSetup hands
+# SourceLocation's rule to IsiXPreferences' LaunchPreferenceMigrations.
+app = source_text('ApplicationPreferencesSetup')
+migrations = source_text('LaunchPreferenceMigrations')
 
 DRIVER = '''
 import Foundation
@@ -103,14 +107,15 @@ if results:
             failures.append('%s: %r, expected %r' % (key, got, want))
 
 # --- and the three places that touch the list have to use it ------------------
-if 'SourceLocation.isTemporaryLocation(' not in sources:
+if 'isTemporary: SourceLocation.isTemporaryLocation(' not in sources or 'if isTemporary { return .unchanged }' not in rules:
     failures.append('opening a database from a temporary place still writes it into the list')
-if 'HorosSourceLocation' not in browser:
+if 'SourceLocation.permanentEntries(in:' not in browser or 'SourceLocation.temporaryEntries(in:' not in browser:
     failures.append('the list is not cleaned of temporary entries when the browser opens')
 code = re.sub(r'//[^\n]*', '', app)
-if 'SourceLocation.permanentEntries(in:' not in code:
+if 'forgetTemporarySources(in: preferences, isTemporary: { SourceLocation.isTemporaryLocation($0) })' not in code \
+        or '!isTemporary(path), !seen.contains(path)' not in migrations:
     failures.append('the startup pass still prunes by a hand-written list of prefixes')
-if '"/private/var/tmp/"' in code:
+if '"/private/var/tmp/"' in code + migrations:
     failures.append('the hand-written prefix list is still there, and it misses '
                     '/private/var/folders/.../T - the one macOS actually uses')
 

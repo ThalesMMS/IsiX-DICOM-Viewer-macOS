@@ -71,38 +71,10 @@ enum TransferSyntaxCodes
 enum SendServerType { osirixServer, offisServer };
 
 @class Wait;
-@class DCMTKStoreSCU;
 
 #if defined(HOROS_BRIDGING_HEADER)
 // Swift is compiling the class itself: headers it imports may only name it.
 @class SendController;
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift, the DCM framework: DCMNetServiceDelegate.m imports
-// this header for the transfer syntax codes above. The interface is the former
-// one, without its instance variables.
-/** \brief Window Controller for DICOM Send */
-@interface SendController : NSWindowController
-
-+ (void) sendFiles:(NSArray *)files;
-+ (void) sendFiles:(NSArray *)files toNode: (NSDictionary*) node;
-+ (void) sendFiles:(NSArray *)files toNode: (NSDictionary*) node usingSyntax: (int) syntax;
-- (void) sendDICOMFilesOffis:(NSDictionary *) dict;
-+ (int) sendControllerObjects;
-- (id)initWithFiles:(NSArray *)files;
-- (id)serverAtIndex:(int)index;
-- (id)server;
-- (NSString *)numberFiles;
-- (void)setNumberFiles:(NSString *)numberFiles;
-- (IBAction) endSelectServer:(id) sender;
-- (int)keyImageIndex;
-- (void)setKeyImageIndex:(int)index;
-- (void)releaseSelfWhenDone:(id)sender;
-- (IBAction)selectServer: (id)sender;
-- (void) sendToNode: (NSDictionary*) node;
-- (void) sendToNode: (NSDictionary*) node objects:(NSArray*) objects;
-- (void) updateDestinationPopup:(NSNotification*) note;
-
-@end
 #endif

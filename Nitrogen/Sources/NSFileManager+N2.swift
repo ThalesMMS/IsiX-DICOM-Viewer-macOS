@@ -38,15 +38,12 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Foundation
+import IsiXStorage
 
 // NSFileManager (N2) is implemented in Swift; the selectors and
 // <Horos/NSFileManager+N2.h> are those of the former category. Where the
 // Objective-C raised an NSException, this raises the same one: the callers
 // catch it.
-//
-// -findSystemFolderOfType:forDomain:, -sizeAtPath:, -sizeAtFSRef: and
-// -destinationOfAliasAtPath: stay in Objective-C, in NSFileManager+N2+CAPI.m:
-// FSRef and the File Manager calls they make are not visible to Swift.
 
 /// `[NSException raise:name format:…]`.
 private func raise(_ name: NSExceptionName, _ reason: String) -> Never {

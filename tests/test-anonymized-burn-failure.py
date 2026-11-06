@@ -46,8 +46,15 @@ final class DicomDatabase: NSObject {
 }
 final class BrowserController: NSObject {
     static let browser = BrowserController()
-    class func currentBrowser() -> BrowserController! { return browser }
     var database: DicomDatabase! = DicomDatabase()
+}
+// The graph of the database window that opened the burner: off the main
+// thread, the burn reads the browser's database through the process graph.
+final class ProcessGraph: @unchecked Sendable {
+    var browserDatabase: DicomDatabase? { BrowserController.browser.database }
+}
+final class BrowserWindowGraph: @unchecked Sendable {
+    let processGraph = ProcessGraph()
 }
 final class Anonymization: NSObject {
     class func anonymizeFiles(_ files: NSArray?, dicomImages: NSArray?, toPath dirPath: String?, withTags intags: NSArray?,
@@ -62,9 +69,12 @@ final class Anonymization: NSObject {
 final class AnonymizationErrorPresenter: NSObject {
     static func present(error supplied: NSError?) { alerts += 1 }
 }
+// The options of the preferences the burn started with (IsiXPreferences' BurnOptions): the thread reads the destination.
+struct BurnOptions: Sendable { var destination: Int }
 final class BurnerWindowController: NSObject {
     var files: NSMutableArray?, dbObjectsID: NSMutableArray?, originalDbObjectsID: NSMutableArray?
     var anonymizationTags: NSArray?, cancelled = false
+    var browserWindow: BrowserWindowGraph? = BrowserWindowGraph()
     var writeDMGPath: String?, writeVolumePath: String?
     // What the window's bindings observe: written on the main thread only.
     var anonymizedFiles: NSMutableArray? { didSet { check(Thread.isMainThread) } }
@@ -79,7 +89,7 @@ final class BurnerWindowController: NSObject {
         check(Thread.isMainThread)
         return BurnJob(files: files ?? [], dbObjectsID: dbObjectsID, originalDbObjectsID: originalDbObjectsID,
                        anonymizationTags: anonymizationTags, folder: "/nonexistent-horos-test-media-folder", name: "TEST",
-                       destination: Int(DMGFile.rawValue), writeDMGPath: writeDMGPath, writeVolumePath: writeVolumePath,
+                       options: BurnOptions(destination: Int(DMGFile.rawValue)), writeDMGPath: writeDMGPath, writeVolumePath: writeVolumePath,
                        compressionMode: 0, password: nil)
     }
     private func prepareContent(_ job: BurnJob, files: NSArray, dbObjects: NSMutableArray?, originalDbObjects: NSMutableArray?) {
@@ -115,6 +125,9 @@ METHOD
 BurnerWindowController().run()
 NSLog("PASS %@ on the %@ thread: preparation gate and UI reset", mode, caller)
 '''.replace('METHOD', method)
+# The guards the burn calls are the module's own members of HorosObjCException.
+import objc_exception_guards  # noqa: E402
+harness += objc_exception_guards.source(log=False).replace('import Foundation\n', '', 1)
 with tempfile.TemporaryDirectory(prefix='horos-burn-anonymization-') as tmp:
     p = Path(tmp)
     (p / 'main.swift').write_text(harness)

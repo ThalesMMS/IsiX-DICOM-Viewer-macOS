@@ -117,8 +117,8 @@ private let rightSectionType = Int(CPRTransverseViewRightSectionType.rawValue)
 /// -[DCMPix setArrayPix::] sent with the NSArray itself: DCMPix keeps the array
 /// it gets without retaining it, so it must be the list the view keeps, not the
 /// copy that bridging to [Any] would pass.
-private func sendSetArrayPix(_ pix: AnyObject, _ array: NSArray, _ i: Int16) {
-    typealias SetArrayPix = @convention(c) (AnyObject, Selector, NSArray, Int16) -> Void
+private func sendSetArrayPix(_ pix: AnyObject, _ array: NSArray, _ i: Int) {
+    typealias SetArrayPix = @convention(c) (AnyObject, Selector, NSArray, Int) -> Void
     let selector = NSSelectorFromString("setArrayPix::")
     let imp = (pix as! NSObject).method(for: selector)
     unsafeBitCast(imp, to: SetArrayPix.self)(pix, selector, array, i)
@@ -138,9 +138,9 @@ private func mutableBezierPath(withCPRStraightenedViewPlaneRun planeRun: _CPRStr
     var i = planeRun.range.location
     while i < NSMaxRange(planeRun.range) {
         if i == planeRun.range.location {
-            mutableBezierPath?.move(to: N3VectorMake(CGFloat(i), CGFloat((planeRun.distances.object(at: i - planeRun.range.location) as AnyObject).doubleValue) * pixelsPerMm, 0))
+            mutableBezierPath.move(to: N3VectorMake(CGFloat(i), CGFloat((planeRun.distances.object(at: i - planeRun.range.location) as AnyObject).doubleValue) * pixelsPerMm, 0))
         } else {
-            mutableBezierPath?.line(to: N3VectorMake(CGFloat(i), CGFloat((planeRun.distances.object(at: i - planeRun.range.location) as AnyObject).doubleValue) * pixelsPerMm, 0))
+            mutableBezierPath.line(to: N3VectorMake(CGFloat(i), CGFloat((planeRun.distances.object(at: i - planeRun.range.location) as AnyObject).doubleValue) * pixelsPerMm, 0))
         }
         i += 1
     }
@@ -152,9 +152,9 @@ private func mutableBezierPath(withCPRStraightenedViewPlaneRun planeRun: _CPRStr
 /// transverse section lines, the planes of the three MPR views and the nodes.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
-/// <Horos/CPRStraightenedView.h> are those of the former class. Its superclass,
-/// DCMView, stays in Objective-C; the ivars it reads of it go through
-/// DCMView+SwiftIvars.h.
+/// <Horos/CPRStraightenedView.h> are those of the former class.
+/// Its superclass, DCMView, is Swift too; the state it reads of it is DCMView's
+/// stored properties.
 @objc(CPRStraightenedView)
 public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate {
     // MARK: - The former instance variables
@@ -409,8 +409,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
     }
 
     /// The setter of the class extension's readwrite curvedVolumeData.
-    @objc(setCurvedVolumeData:)
-    private dynamic func setCurvedVolumeData(_ curvedVolumeData: CPRVolumeData!) {
+    private func setCurvedVolumeData(_ curvedVolumeData: CPRVolumeData!) {
         _curvedVolumeData = curvedVolumeData
     }
 
@@ -490,20 +489,17 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
 
     // The properties of the class extension.
 
-    @objc(lastRequest)
-    private dynamic var lastRequest: CPRStraightenedGeneratorRequest? {
+    private var lastRequest: CPRStraightenedGeneratorRequest? {
         get { return _lastRequest }
         set { _lastRequest = newValue }
     }
 
-    @objc(straightenedSession)
-    private dynamic var straightenedSession: CPRStraightenedSession? {
+    private var straightenedSession: CPRStraightenedSession? {
         get { return _straightenedSession }
         set { _straightenedSession = newValue }
     }
 
-    @objc(drawAllNodes)
-    private dynamic var drawAllNodes: Bool {
+    private var drawAllNodes: Bool {
         get { return _drawAllNodes }
         set {
             let drawAllNodes = newValue
@@ -514,8 +510,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         }
     }
 
-    @objc(mousePlanePointsInPix)
-    private dynamic var mousePlanePointsInPix: NSMutableDictionary? {
+    private var mousePlanePointsInPix: NSMutableDictionary? {
         get { return _mousePlanePointsInPix }
         set { _mousePlanePointsInPix = newValue }
     }
@@ -572,7 +567,6 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         }
     }
 
-    @objc(drawTextualData::)
     public override dynamic func drawTextualData(_ size: NSRect, _ annotations: Int) {
         if _displayTransverseLines {
             var length = Float(curvedPathLength)
@@ -652,7 +646,6 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         }
     }
 
-    @objc(subDrawRect:)
     public override dynamic func subDraw(_ rect: NSRect) {
         var lineStart: N3Vector
         var lineEnd: N3Vector
@@ -1133,14 +1126,8 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
             if _clickedNode == false {
                 var clickCount: Int32 = 1
 
-                do {
-                    try HorosObjCException.perform {
-                        if event.type == .leftMouseDown || event.type == .rightMouseDown || event.type == .leftMouseUp || event.type == .rightMouseUp {
-                            clickCount = Int32(truncatingIfNeeded: event.clickCount)
-                        }
-                    }
-                } catch {
-                    clickCount = 1
+                if event.type == .leftMouseDown || event.type == .rightMouseDown || event.type == .leftMouseUp || event.type == .rightMouseUp {
+                    clickCount = Int32(truncatingIfNeeded: event.clickCount)
                 }
 
                 if clickCount == 2 {
@@ -1153,23 +1140,23 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
 
                     if self.roiTool(tool) && self.click(inROI: tempPt) != nil {
                         cprWindowController?.roiGetInfo(self)
-                    } else if frameZoomed.boolValue == false {
+                    } else if cprFrameZoomed.boolValue == false {
                         let frame1 = windowController?.mprView1?.frame ?? NSZeroRect
                         let frame3 = windowController?.mprView3?.frame ?? NSZeroRect
-                        splitPosition.0 = cInt32(Double(frame1.origin.x + frame1.size.width))  // vert
-                        splitPosition.1 = cInt32(Double(frame1.origin.y + frame1.size.height)) // hori12
-                        splitPosition.2 = cInt32(Double(frame3.origin.y + frame3.size.height)) // horiz2
+                        cprSplitPosition.0 = cInt32(Double(frame1.origin.x + frame1.size.width))  // vert
+                        cprSplitPosition.1 = cInt32(Double(frame1.origin.y + frame1.size.height)) // hori12
+                        cprSplitPosition.2 = cInt32(Double(frame3.origin.y + frame3.size.height)) // horiz2
 
-                        frameZoomed = ObjCBool(true)
+                        cprFrameZoomed = ObjCBool(true)
 
                         windowController?.verticalSplit?.setPosition(windowController?.verticalSplit?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
                         windowController?.horizontalSplit1?.setPosition(windowController?.horizontalSplit1?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
                         windowController?.horizontalSplit2?.setPosition(windowController?.horizontalSplit2?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
                     } else {
-                        frameZoomed = ObjCBool(false)
-                        windowController?.verticalSplit?.setPosition(CGFloat(splitPosition.0), ofDividerAt: 0)
-                        windowController?.horizontalSplit1?.setPosition(CGFloat(splitPosition.1), ofDividerAt: 0)
-                        windowController?.horizontalSplit2?.setPosition(CGFloat(splitPosition.2), ofDividerAt: 0)
+                        cprFrameZoomed = ObjCBool(false)
+                        windowController?.verticalSplit?.setPosition(CGFloat(cprSplitPosition.0), ofDividerAt: 0)
+                        windowController?.horizontalSplit1?.setPosition(CGFloat(cprSplitPosition.1), ofDividerAt: 0)
+                        windowController?.horizontalSplit2?.setPosition(CGFloat(cprSplitPosition.2), ofDividerAt: 0)
 
                         windowController?.mprView1?.restoreCamera()
                         windowController?.mprView1?.camera?.forceUpdate = true
@@ -1375,7 +1362,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         if pixArray.count != 0 {
             var j = 0
             while j < pixArray.count {
-                sendSetArrayPix(pixArray.object(at: j) as AnyObject, pixArray, Int16(truncatingIfNeeded: j))
+                sendSetArrayPix(pixArray.object(at: j) as AnyObject, pixArray, j)
                 j += 1
             }
 
@@ -1427,8 +1414,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         return true
     }
 
-    @objc(horosStraightenedSession)
-    private dynamic func horosStraightenedSession() -> CPRStraightenedSession! {
+    private func horosStraightenedSession() -> CPRStraightenedSession! {
         if self.straightenedSession == nil {
             self.straightenedSession = CPRStraightenedSession()
         }
@@ -1443,8 +1429,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         _generator?.runUntilAllRequestsAreFinished()
     }
 
-    @objc(_fusionModeForCPRViewClippingRangeMode:)
-    private dynamic class func _fusionMode(forCPRViewClippingRangeMode clippingRangeMode: CPRViewClippingRangeMode) -> Int {
+    private class func _fusionMode(forCPRViewClippingRangeMode clippingRangeMode: CPRViewClippingRangeMode) -> Int {
         switch clippingRangeMode {
         case CPRViewClippingRangeMode(CPRViewClippingRangeVRMode.rawValue):
             return 0 // not supported
@@ -1460,8 +1445,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         }
     }
 
-    @objc(_sendWillEditCurvedPath)
-    private dynamic func _sendWillEditCurvedPath() {
+    private func _sendWillEditCurvedPath() {
         if _editingCurvedPathCount == 0 {
             if _delegate?.responds(to: #selector(CPRViewDelegate.cprViewWillEditCurvedPath(_:))) ?? false {
                 _delegate?.cprViewWillEditCurvedPath?(self)
@@ -1470,15 +1454,13 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         _editingCurvedPathCount += 1
     }
 
-    @objc(_sendDidUpdateCurvedPath)
-    private dynamic func _sendDidUpdateCurvedPath() {
+    private func _sendDidUpdateCurvedPath() {
         if _delegate?.responds(to: #selector(CPRViewDelegate.cprViewDidUpdateCurvedPath(_:))) ?? false {
             _delegate?.cprViewDidUpdateCurvedPath?(self)
         }
     }
 
-    @objc(_sendDidEditCurvedPath)
-    private dynamic func _sendDidEditCurvedPath() {
+    private func _sendDidEditCurvedPath() {
         _editingCurvedPathCount -= 1
         if _editingCurvedPathCount == 0 {
             if _delegate?.responds(to: #selector(CPRViewDelegate.cprViewDidEditCurvedPath(_:))) ?? false {
@@ -1487,22 +1469,19 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         }
     }
 
-    @objc(_sendWillEditDisplayInfo)
-    private dynamic func _sendWillEditDisplayInfo() {
+    private func _sendWillEditDisplayInfo() {
         if _delegate?.responds(to: #selector(CPRViewDelegate.cprViewWillEditDisplayInfo(_:))) ?? false {
             _delegate?.cprViewWillEditDisplayInfo?(self)
         }
     }
 
-    @objc(_sendDidEditDisplayInfo)
-    private dynamic func _sendDidEditDisplayInfo() {
+    private func _sendDidEditDisplayInfo() {
         if _delegate?.responds(to: #selector(CPRViewDelegate.cprViewDidEditDisplayInfo(_:))) ?? false {
             _delegate?.cprViewDidEditDisplayInfo?(self)
         }
     }
 
-    @objc(_sendNewRequest)
-    private dynamic func _sendNewRequest() {
+    private func _sendNewRequest() {
         var request: CPRStraightenedGeneratorRequest
 
         if (_curvedPath?.bezierPath?.elementCount() ?? 0) >= 3 {
@@ -1566,15 +1545,13 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         //    _needsNewRequest = YES;
     }
 
-    @objc(_sendNewRequestIfNeeded)
-    private dynamic func _sendNewRequestIfNeeded() {
+    private func _sendNewRequestIfNeeded() {
         if _needsNewRequest {
             self._sendNewRequest()
         }
     }
 
-    @objc(_updateGeneratedHeight)
-    private dynamic func _updateGeneratedHeight() {
+    private func _updateGeneratedHeight() {
         var newGeneratedHeight: CGFloat
 
         newGeneratedHeight = (curvedPathLength / NSWidth(self.bounds)) * NSHeight(self.bounds)
@@ -1587,8 +1564,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         }
     }
 
-    @objc(_adjustROIs)
-    private dynamic func _adjustROIs() {
+    private func _adjustROIs() {
         if (self.curvedPath?.isPlaneMeasurable() ?? false) == false {
             var i = 0
             while i < (self.curRoiList?.count ?? 0) {
@@ -1639,8 +1615,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         self.needsDisplay = true
     }
 
-    @objc(_drawVerticalLines:)
-    private dynamic func _drawVerticalLines(_ verticalLines: NSArray?) {
+    private func _drawVerticalLines(_ verticalLines: NSArray?) {
         var lineStart: N3Vector
         var lineEnd: N3Vector
         var pixToSubdrawRectOpenGLTransform = [Double](repeating: 0, count: 16)
@@ -1660,8 +1635,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         roiPopMatrix()
     }
 
-    @objc(_drawPlaneRuns:)
-    private dynamic func _drawPlaneRuns(_ planeRuns: NSArray?) {
+    private func _drawPlaneRuns(_ planeRuns: NSArray?) {
         var pixelsPerMm: CGFloat
         var i: Int
         var planePointVector: N3Vector
@@ -1688,8 +1662,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         roiPopMatrix()
     }
 
-    @objc(_runsForPlane:verticalLineIndexes:)
-    private dynamic func _runs(forPlane plane: N3Plane, verticalLineIndexes verticalLinesHandle: AutoreleasingUnsafeMutablePointer<NSArray?>?) -> NSArray {
+    private func _runs(forPlane plane: N3Plane, verticalLineIndexes verticalLinesHandle: AutoreleasingUnsafeMutablePointer<NSArray?>?) -> NSArray {
         var numVectors: Int
         var i: Int
         var topPointAbove: Bool
@@ -1797,8 +1770,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         return runs
     }
 
-    @objc(_updateMousePlanePointsForViewPoint:)
-    private dynamic func _updateMousePlanePoints(forViewPoint point: NSPoint) { // this will modify _mousePlanePointsInPix and _displayInfo
+    private func _updateMousePlanePoints(forViewPoint point: NSPoint) { // this will modify _mousePlanePointsInPix and _displayInfo
         var lineDistance: CGFloat
         var runDistance: CGFloat
         var linePixVector: N3Vector
@@ -1836,8 +1808,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
 
     /// point and distance are in view coordinates, vector is in patient
     /// coordinates closestPoint is in pixCoordinates.
-    @objc(_distanceToPoint:onVerticalLines:pixVector:volumeVector:)
-    private dynamic func _distance(toPoint point: NSPoint, onVerticalLines verticalLines: NSArray?, pixVector closestPixVectorPtr: UnsafeMutablePointer<N3Vector>?, volumeVector volumeVectorPtr: UnsafeMutablePointer<N3Vector>?) -> CGFloat {
+    private func _distance(toPoint point: NSPoint, onVerticalLines verticalLines: NSArray?, pixVector closestPixVectorPtr: UnsafeMutablePointer<N3Vector>?, volumeVector volumeVectorPtr: UnsafeMutablePointer<N3Vector>?) -> CGFloat {
         var pixToViewTransform: N3AffineTransform
         var pixelsPerMm: CGFloat
         var pixPointVector: N3Vector
@@ -1879,8 +1850,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
 
     /// point and distance are in view coordinates, vector is in patient
     /// coordinates closestPoint is in pixCoordinates.
-    @objc(_distanceToPoint:onPlaneRuns:pixVector:volumeVector:)
-    private dynamic func _distance(toPoint point: NSPoint, onPlaneRuns planeRuns: NSArray?, pixVector closestPixVectorPtr: UnsafeMutablePointer<N3Vector>?, volumeVector volumeVectorPtr: UnsafeMutablePointer<N3Vector>?) -> CGFloat {
+    private func _distance(toPoint point: NSPoint, onPlaneRuns planeRuns: NSArray?, pixVector closestPixVectorPtr: UnsafeMutablePointer<N3Vector>?, volumeVector volumeVectorPtr: UnsafeMutablePointer<N3Vector>?) -> CGFloat {
         var pixelsPerMm: CGFloat
         var closeVector = N3Vector()
         var closestVector: N3Vector
@@ -1922,8 +1892,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         return minDistance
     }
 
-    @objc(_buildVerticalLinesAndPlaneRunsForPlaneFullName:)
-    private dynamic func _buildVerticalLinesAndPlaneRuns(forPlaneFullName planeFullName: String) {
+    private func _buildVerticalLinesAndPlaneRuns(forPlaneFullName planeFullName: String) {
         var planeName: String
         var plane: N3Plane
         var slabThickness: CGFloat
@@ -1958,8 +1927,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         }
     }
 
-    @objc(_clearAllPlanes)
-    private dynamic func _clearAllPlanes() {
+    private func _clearAllPlanes() {
         _verticalLines?.removeAllObjects()
         _planeRuns?.removeAllObjects()
     }

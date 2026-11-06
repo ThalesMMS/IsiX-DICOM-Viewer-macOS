@@ -187,7 +187,9 @@ final class UpdateInstaller: NSObject {
         panel.onCancel = { [weak self] in self?.download?.cancel() }
         let download = UpdateDownload(archive: archive, destination: folder.appendingPathComponent("Horos.zip"),
             progress: { [weak self] received, expected in self?.panel.showProgress(received, of: expected) },
-            completion: { [weak self] result in self?.downloaded(result) })
+            // The download answers on the main queue; a failure is a modal alert,
+            // which opens from the main run loop so that the queue goes on meanwhile.
+            completion: { [weak self] result in onMainRunLoop { [weak self] in self?.downloaded(result) } })
         self.download = download
         download.start()
     }
@@ -215,7 +217,9 @@ final class UpdateInstaller: NSObject {
             } catch {
                 outcome = .failure(.extraction)
             }
-            DispatchQueue.main.async { self.verified(outcome) }
+            // From the main run loop: the installation asks and reports in modal
+            // alerts, and the main queue goes on while they are open.
+            onMainRunLoop { self.verified(outcome) }
         }
     }
 

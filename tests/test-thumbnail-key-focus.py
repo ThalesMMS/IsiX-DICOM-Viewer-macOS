@@ -10,12 +10,14 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
+import process_graph_stand_in  # the panel reads the catalog's keys through PreferencesSource
 
 source = sources.source_text('ThumbnailsListPanel')
 start = source.index('@objc(windowDidBecomeKey:)')
 method = source[start:source.index('@objc(windowDidResignMain:)', start)]
 code = r'''
 import Foundation
+import IsiXPreferences
 func check(_ c: Bool, _ what: String) { if !c { FileHandle.standardError.write("FAIL: \(what)\n".data(using: .utf8)!); exit(1) } }
 class NSWindow: NSObject {
     enum OrderingMode { case above, below }
@@ -71,5 +73,6 @@ print("PASS: key-only focus hands off the list; other screens, spare panels, hid
 '''.replace('METHOD', method)
 with tempfile.TemporaryDirectory(prefix='horos-thumbnail-key-') as folder:
     folder = Path(folder); (folder/'main.swift').write_text(code)
-    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', str(folder/'main.swift'), '-o', str(folder/'test')], check=True)
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', str(folder/'main.swift'), *process_graph_stand_in.swift_flags(folder/'isix'),
+                    '-o', str(folder/'test')], check=True)
     subprocess.run([str(folder/'test')], check=True)

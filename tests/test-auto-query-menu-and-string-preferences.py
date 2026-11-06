@@ -7,10 +7,11 @@ items, whose condition admits only `setFixedTilingRows:` and
 `setFixedTilingColumns:`, so it never ran and the item fell through to the
 final `return true`. It is now a branch of its own.
 
-`-runPreferencesUpdateCheck:` compares each string preference with its
-previous value, and logged "*** isKindOfClass NSString" whenever the previous
-value was not a string, including when there was none, as for a key seen for
-the first time. Only a value of another type is logged now.
+The check of the preferences (IsiXPreferences' PreferenceChange, answered by
+PreferenceChangeResponder) compares each string preference with its previous
+value, and logged "*** isKindOfClass NSString" whenever the previous value was
+not a string, including when there was none, as for a key seen for the first
+time. Only a value of another type is logged now.
 The listener's string settings are compared on their own, with the settings
 the running listeners were started with.
 
@@ -75,22 +76,31 @@ else:
         failures.append('the refresh test comes after the tiling branch')
 
 # 2. A missing previous value is not reported as a value of the wrong type.
-check = method('@objc(runPreferencesUpdateCheck:) public func runPreferencesUpdateCheck(_ timer: Timer!) {')
-string_keys = re.findall(r'if let previous = previousDefaults\?\.value\(forKey: ("[^"]+")\) as\? NSString \{', check)
-logs = re.findall(r'else(.*)\{ NSLog\("\*\*\* isKindOfClass NSString"\) \}', check)
+marks = sources.source_text('PreferenceChange')
+responder = sources.source_text('PreferenceChangeResponder')
+string_keys = re.findall(r'compared\.textChanged\((\w+\.\w+), mistyped: &mistyped\)', marks)
 # The listener's own strings (title, extra parameters, transfer syntax) left this
 # comparison when its settings came to be applied while the app runs: they are
 # compared with those the running listeners were started with.
 if len(string_keys) < 3:
     failures.append('only %d string preferences are compared' % len(string_keys))
-listener = re.search(r'\[\s*"STORESCP", "USESTORESCP", "STORESCPTLS", "AETITLE", "AEPORT", "STORESCPEXTRA", "AETransferSyntax",', application)
+# They are read by IsiXDICOMNetwork's ListenerSettings, which the listener
+# controller compares with the settings the listeners were started with.
+listener_settings = sources.source_text('ListenerSettings')
+listener = all(f'NetworkPreferences.{key}]' in listener_settings for key in ('aeTitle', 'storeSCPExtra', 'aeTransferSyntax')) \
+    and 'ListenerSettings(preferences: preferences) != appliedSettings' in sources.source_text('DICOMListenerController') \
+    and 'listener.applySettingsIfChanged()' in responder
 if not listener:
     failures.append("the listener's string settings are no longer compared with those it runs with")
-if len(logs) != len(string_keys):
-    failures.append('%d string preferences, %d logs' % (len(string_keys), len(logs)))
-for key, guard in zip(string_keys, logs):
-    if guard.strip() != 'if previousDefaults?.value(forKey: %s) != nil' % key:
-        failures.append('%s logs "isKindOfClass NSString" when it had no previous value' % key)
+compare = marks[marks.index('func textChanged('):]
+compare = compare[:compare.index('\n        }\n')]
+# Nothing before the change: not compared and not logged; text: compared; anything else: logged.
+steps = [line.strip() for line in compare.splitlines()[1:]]
+if steps[:4] != ['guard let before = previous[key.name] else { return false }', 'guard let text = before as? String else {',
+                 'mistyped.append(key.name)', 'return false']:
+    failures.append('a string preference without a previous value is reported, or one of another type is not')
+if 'for _ in change.mistypedTextKeys {\n            NSLog("*** isKindOfClass NSString")' not in responder:
+    failures.append('a string preference of another type is not logged once')
 
 for failure in failures:
     print('FAIL: %s' % failure)

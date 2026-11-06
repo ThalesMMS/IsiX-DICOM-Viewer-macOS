@@ -45,7 +45,7 @@ import Cocoa
 /// the table's DNDArrayController, and a row dragged out of the application
 /// is offered as a link.
 ///
-/// Implemented in Swift since #711: the Objective-C name is the one
+/// Implemented in Swift: the Objective-C name is the one
 /// OSILocationsPreferencePanePref.xib uses as customClass.
 @objc(ServerTableView)
 public final class ServerTableView: NSTableView {

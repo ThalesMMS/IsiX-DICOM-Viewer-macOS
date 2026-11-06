@@ -59,7 +59,7 @@ if not method:
 else:
     resolved = re.search(r'location\(location, port: port, to: &host, port: &(\w+)\)', method)
     compared = re.search(r'if db\.port == (\w+)', method)
-    created = re.search(r'RemoteDicomDatabase\(host: host, port: ([^,]+), update: flagUpdate\)', method)
+    created = re.search(r'RemoteDicomDatabase\(host: host, port: ([^,]+), update: \w+\)', method)
     if not resolved or not compared or not created:
         failures.append('the lookup or the creation of the database changed; this test needs a new look')
     else:

@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 
 /// How a ROI label stays readable over any image: a dark box behind its
 /// text, and the ROI's colour lightened toward WCAG's 4.5:1 contrast with
@@ -19,8 +20,8 @@ import AppKit
 /// and the text's black shadow keep it readable from there.
 @objc(HorosROILabelContrast)
 public final class ROILabelContrast: NSObject {
-    @objc public static let backgroundKey = "ROILabelBackground"
-    @objc public static let backgroundOpacityKey = "ROILabelBackgroundOpacity"
+    @objc public static let backgroundKey = ViewerPreferences.roiLabelBackground.name
+    @objc public static let backgroundOpacityKey = ViewerPreferences.roiLabelBackgroundOpacity.name
     @objc public static let minimumContrast: CGFloat = 4.5
     /// The largest share of white mixed into the ROI's colour: two thirds of
     /// its saturation remain, so labels of different ROIs stay apart.
@@ -29,9 +30,9 @@ public final class ROILabelContrast: NSObject {
     /// The box's opacity when it is drawn, kept where it can still darken the
     /// image; zero when it is switched off.
     @objc public static var backgroundOpacity: CGFloat {
-        let defaults = UserDefaults.standard
-        guard defaults.bool(forKey: backgroundKey) else { return 0 }
-        let opacity = CGFloat(defaults.float(forKey: backgroundOpacityKey))
+        let preferences = PreferencesSource.process.preferences
+        guard preferences[ViewerPreferences.roiLabelBackground] else { return 0 }
+        let opacity = CGFloat(preferences[ViewerPreferences.roiLabelBackgroundOpacity])
         return opacity.isFinite ? min(max(opacity, 0.2), 1) : 0.8
     }
 

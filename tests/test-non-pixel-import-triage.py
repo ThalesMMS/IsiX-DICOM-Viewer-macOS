@@ -15,6 +15,7 @@ they are merged, and a segmentation is still judged as an image.
 from pathlib import Path
 import subprocess
 import tempfile
+import isix_modules
 
 root = Path(__file__).resolve().parents[1]
 sources = [root / 'Horos/Sources/EnhancedImportTriage.swift', root / 'Horos/Sources/DICOMTriageMetadata.swift',
@@ -52,6 +53,11 @@ func write(_ name: String, _ data: Data) -> String { let p = directory.appending
 let pdfBytes = Data("%PDF-1.4 synthetic".utf8)
 let pdf = write("pdf.dcm", file(uiElement(0x0008, 0x0016, "1.2.840.10008.5.1.4.1.1.104.1") + element(0x0042, 0x0011, "OB", pdfBytes)))
 let pdfAssessment = EnhancedImportTriage.assessPath(pdf)
+// The incoming scan hands one mapped and parsed file to its triages.
+let shared = DICOMTriageFile(path: pdf)
+expect(shared.parsed != nil && !shared.isDeflated, "the shared file is parsed")
+expect(EnhancedImportTriage.assess(shared).mayMergeIntoIncoming == pdfAssessment.mayMergeIntoIncoming, "the shared file assesses as the path does")
+expect(EnhancedImportTriage.isDeflatedDICOM(atPath: pdf) == shared.isDeflated, "the deflate check reads as the path does")
 expect(pdfAssessment.detectedDICOM, "the encapsulated PDF is DICOM")
 expect(pdfAssessment.mayMergeIntoIncoming, "an encapsulated PDF is merged into incoming: \(pdfAssessment.recordedError ?? "")")
 expect(pdfAssessment.thumbnailCompatible, "an encapsulated PDF does not claim a broken thumbnail")
@@ -93,7 +99,8 @@ with tempfile.TemporaryDirectory() as tmp:
     driver = Path(tmp) / 'main.swift'
     driver.write_text(DRIVER)
     binary = Path(tmp) / 'driver'
-    build = subprocess.run(['xcrun', 'swiftc'] + [str(s) for s in sources] + [str(driver), '-o', str(binary)], capture_output=True, text=True)
+    build = subprocess.run(['xcrun', 'swiftc', *isix_modules.module_flags('IsiXDICOMFile', Path(tmp) / 'modules')]
+                           + [str(s) for s in sources] + [str(driver), '-o', str(binary)], capture_output=True, text=True)
     if build.returncode != 0:
         failures.append('driver did not compile:\n' + build.stderr[-3000:])
     else:

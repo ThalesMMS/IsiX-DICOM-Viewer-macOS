@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Foundation
+import IsiXDICOMFile
 
 /// A database attribute (patient name, study date...) shown among the DICOM
 /// tags of the smart album editor: its name is the key path the predicate
@@ -46,9 +47,9 @@ import Foundation
 ///
 /// Implemented in Swift: the Objective-C name, the selectors
 /// and <Horos/O2DicomPredicateEditorDCMAttributeTag.h> are those of the
-/// former class. DCMAttributeTag stays in Objective-C.
+/// former class, over the DICOM attribute tag of the IsiXDICOMFile module.
 @objc(O2DicomPredicateEditorDCMAttributeTag)
-public final class O2DicomPredicateEditorDCMAttributeTag: DCMAttributeTag {
+public final class O2DicomPredicateEditorDCMAttributeTag: DICOMAttributeTag {
     private var _description: String?
     private var _cskey: String?
 
@@ -62,42 +63,27 @@ public final class O2DicomPredicateEditorDCMAttributeTag: DCMAttributeTag {
         return O2DicomPredicateEditorDCMAttributeTag(group: group, element: element, vr: vr, name: name, description: description, cskey: nil)
     }
 
-    /// As the former initializer, it sets the tag's instance variables after
-    /// -[NSObject init], without the tag dictionary lookup of
-    /// -initWithGroup:element:. DCMAttributeTag has no setter for group,
-    /// element and name: key-value coding sets its _group, _element and _name
-    /// variables, retaining the name as DCMAttributeTag's -dealloc expects.
+    /// As the former initializer, it names the tag itself, without the
+    /// dictionary lookup of -initWithGroup:element:.
     @objc(initWithGroup:element:vr:name:description:cskey:)
     public init(group: Int32, element: Int32, vr: String!, name: String!, description: String!, cskey: String!) {
         _description = description
         _cskey = cskey
-        super.init()
-        setValue(NSNumber(value: group), forKey: "group")
-        setValue(NSNumber(value: element), forKey: "element")
-        self.vr = vr
-        setValue(name, forKey: "name")
+        super.init(group: group, element: element, vr: vr, name: name)
     }
 
     // The initializers the former subclass inherited from DCMAttributeTag.
 
-    public override init() {
-        super.init()
-    }
-
-    public override init!(group: Int32, element: Int32) {
+    public override init(group: Int32, element: Int32) {
         super.init(group: group, element: element)
     }
 
-    public override init!(tag: DCMAttributeTag!) {
-        super.init(tag: tag)
-    }
-
-    public override init!(tagString: String!) {
+    public override init(tagString: String?) {
         super.init(tagString: tagString)
     }
 
-    public override init!(name: String!) {
-        super.init(name: name)
+    public override init(group: Int32, element: Int32, vr: String?, name: String?) {
+        super.init(group: group, element: element, vr: vr, name: name)
     }
 
     public override var description: String {

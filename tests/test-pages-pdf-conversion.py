@@ -8,8 +8,8 @@ study Validated. The AppleScript still said `tell application "Pages"` and
 export then failed or wrote nothing, and a missing source DICOM left the
 encapsulated PDF without the study's StudyInstanceUID.
 
-File > Report > Convert to DICOM PDF is -convertReportToDICOMSR:, in
-BrowserController+Reports.swift.
+File > Report > Convert to DICOM PDF is -convertReportToDICOMSR:, which
+BrowserController forwards to StudyReports.convertSelectionToDICOMPDF.
 
 The original .pages is never the export destination. A conversion that cannot
 run leaves that file and its reportURL alone, and nothing is imported.
@@ -35,8 +35,8 @@ report_mm = source_text('DicomStudy+Report')
 report_h = (root / 'Horos/Sources/DicomStudy+Report.h').read_bytes().decode('latin1')
 # DicomStudy is Swift.
 study = source_text('DicomStudy')
-# The report actions of BrowserController are Swift.
-browser = source_text('BrowserController+Reports')
+# The report actions of BrowserController are StudyReports'.
+browser = source_text('StudyReports')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 
 if 'NSWorkspace.shared.open' not in source:
@@ -73,15 +73,23 @@ instance = report_mm.find('func transformPdf(atPath pdfPath: String!, toDicomAtP
 if instance < 0 or 'self.studyInstanceUID' not in report_mm[instance:]:
     failures.append('the instance PDF→DICOM path does not read the study UID')
 
-validated = study[study.find('generateDICOMPDFWhenValidated'):]
-validated = validated[:validated.find('let previousState = self.primitiveValue(forKey: "stateText")')]
-if 'dicomStudyFileExists(filePath)' not in validated and 'isUsablePDF' not in validated:
+anchor = study.find('DatabasePreferences.generatesDICOMPDFWhenValidated')
+if anchor < 0:
+    failures.append('Validated no longer reads the preference that makes the DICOM PDF')
+state = study[max(anchor, 0):]
+state = state[:state.find('let previousState = self.primitiveValue(forKey: "stateText")')]
+if 'self.archiveValidatedReportAsDICOMPDF()' not in state:
+    failures.append('Validated no longer makes the DICOM PDF through archiveValidatedReportAsDICOMPDF')
+# The DICOM PDF of a validated report is the Report category's.
+validated = report_mm[report_mm.find('func archiveValidatedReportAsDICOMPDF()'):]
+validated = validated[:validated.find('@objc func saveReportAsDicomInTmp()')]
+if 'FileManager.default.fileExists(atPath: filePath)' not in validated and 'isUsablePDF' not in validated:
     failures.append('Validated still imports a path even when conversion wrote nothing')
 if 'reportURL' in validated and 'setValue' in validated:
     failures.append('Validated rewrites reportURL when making the PDF')
 
-manual = browser[browser.find('    @objc(convertReportToDICOMSR:)'):]
-manual = manual[:manual.find('    @objc(convertReportToPDF:)')]
+manual = browser[browser.find('    func convertSelectionToDICOMPDF()'):]
+manual = manual[:manual.find('    func exportSelectedReportAsPDF()')]
 if 'FileManager.default.fileExists(atPath: filename)' not in manual:
     failures.append('the manual DICOM PDF action still imports a path conversion did not write')
 if 'saveReportAsDicom(atPath:' not in manual:
@@ -115,29 +123,34 @@ try Data("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n".utf8).write(to: pdf
 expect(PagesPDFConversion.isUsablePDF(at: pdf.path), "a tiny one-page PDF must be accepted")
 try FileManager.default.removeItem(at: pdf)
 
-var error: NSError?
-expect(!PagesPDFConversion.convertReport(at: report.path, toPDFAt: report.path, error: &error),
-       "exporting onto the report itself must be refused")
+/// The error of a conversion that was refused, nil when it converted.
+func refusal(_ reportPath: String, _ pdfPath: String) -> NSError? {
+    do {
+        try PagesPDFConversion.convertReport(at: reportPath, toPDFAt: pdfPath)
+        return nil
+    } catch {
+        return error as NSError
+    }
+}
+
+var error = refusal(report.path, report.path)
+expect(error != nil, "exporting onto the report itself must be refused")
 expect((try Data(contentsOf: report)) == original, "refusing same-path overwrote the report")
 expect(!FileManager.default.fileExists(atPath: pdf.path), "a refused conversion left a PDF")
 
 let inside = report.appendingPathComponent("Preview.pdf")
-error = nil
-expect(!PagesPDFConversion.convertReport(at: report.path, toPDFAt: inside.path, error: &error),
-       "exporting inside the report package must be refused")
+error = refusal(report.path, inside.path)
+expect(error != nil, "exporting inside the report package must be refused")
 expect((try Data(contentsOf: report)) == original, "a package-path refusal changed the report")
 
-error = nil
-expect(!PagesPDFConversion.convertReport(at: directory.appendingPathComponent("missing.pages").path,
-                                         toPDFAt: pdf.path, error: &error),
-       "a missing report must not convert")
+error = refusal(directory.appendingPathComponent("missing.pages").path, pdf.path)
+expect(error != nil, "a missing report must not convert")
 expect(!FileManager.default.fileExists(atPath: pdf.path), "a missing report created a PDF")
 expect((try Data(contentsOf: report)) == original, "a missing-report attempt changed another report")
 
 if PagesApplication.url() == nil {
-    error = nil
-    expect(!PagesPDFConversion.convertReport(at: report.path, toPDFAt: pdf.path, error: &error),
-           "with no Pages, conversion must fail")
+    error = refusal(report.path, pdf.path)
+    expect(error != nil, "with no Pages, conversion must fail")
     expect((try Data(contentsOf: report)) == original, "missing Pages deleted the report")
     expect(!FileManager.default.fileExists(atPath: pdf.path), "missing Pages left a PDF")
     expect(error?.localizedDescription.contains("Pages") == true,
@@ -209,6 +222,7 @@ with tempfile.TemporaryDirectory(prefix='horos-pages-pdf-') as tmp:
     built = subprocess.run(
         ['xcrun', 'swiftc',
          str(root / 'Horos/Sources/PagesApplication.swift'),
+         str(root / 'Horos/Sources/MainActorCallbacks.swift'),
          str(conversion),
          str(folder / 'main.swift'),
          '-o', str(folder / 'test')],

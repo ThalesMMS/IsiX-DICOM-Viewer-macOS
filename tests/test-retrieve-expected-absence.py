@@ -22,6 +22,8 @@ import json
 import subprocess
 import sys
 import tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import retrieve_inventory_harness  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -51,23 +53,37 @@ def block(text, start):
 
 
 failures = []
-node = read('Horos/Sources/DCMTKQueryNode.mm').decode('utf-8', 'replace')
-begin = block(node, '- (void)beginRetrieveInventory')
-if '_numberImages.unsignedIntegerValue && unique.count != _numberImages.unsignedIntegerValue' in begin or \
-        'unique.count != _numberImages' in begin:
+# The query node is Swift, split by responsibility; its identifiers come from
+# IsiXDICOMNetwork.
+NODE = ['Horos/Sources/DCMTKQueryNode.swift'] + ['Horos/Sources/DCMTKQueryNode+%s.swift' % part for part in
+                                                 ('Query', 'Network', 'Retrieve', 'RetrieveInventory', 'WADO', 'DICOMweb')]
+node = '\n'.join(read(path).decode('utf-8', 'replace') for path in NODE)
+begin = block(node, 'func beginRetrieveInventory(forCGET')
+import re
+if re.search(r'numberImagesValue[^\n]*!=|!=[^\n]*numberImagesValue|instances\.count\s*!=', begin) or \
+        'confirmed: confirmed && !Thread.current.isCancelled' not in begin:
     failures.append('the inventory is still unconfirmed when the listed UIDs do not add up to the reported count')
-if 'reported:_numberImages.integerValue seriesReported:' not in begin:
+if 'reported: numberImagesValue?.intValue ?? 0, seriesReported:' not in begin:
     failures.append('the inventory does not record the count the peer reports')
-walk = block(node, '- (BOOL) queryImagesHierarchicallyForStudy:')
-if 'DCM_NumberOfSeriesRelatedInstances' not in walk or '_seriesInstanceCounts setObject:' not in walk:
+walk = block(node, 'func queryImagesHierarchically(')
+identifiers = read('Modules/IsiXDICOMNetwork/Sources/QueryIdentifier.swift').decode('utf-8', 'replace')
+listing = block(identifiers, 'public static func seriesListing(')
+if '.numberOfSeriesRelatedInstances' not in listing or 'seriesInstanceCountsStorage?[uid] = count' not in walk:
     failures.append('the walk does not ask for, or keep, what each series says it holds')
-query = read('Horos/Sources/QueryController.mm').decode('latin-1')
-retrieve = block(query, '-(void) retrieve:(id)sender onlyIfNotAvailable:(BOOL) onlyIfNotAvailable')
+# The Query window is Swift, split by responsibility.
+query = b'\n'.join(read('Horos/Sources/%s.swift' % name) for name in (
+    'QueryController', 'QueryController+Retrieve', 'QueryController+AutoQuery', 'QueryController+Results')).decode('utf-8')
+retrieve = block(query, 'func retrieve(_ sender: Any?, onlyIfNotAvailable: Bool, forViewing: Bool, items: [Any]!, showGUI: Bool)')
 if '!inventory.isSatisfied' not in retrieve:
     failures.append('the auto-query still retrieves a study whose only gaps are expected absences')
-if 'if (inventory.isSatisfied) localFiles = totalFiles;' not in block(query, '- (void) addStudyIfNotAvailable:'):
+# The automatic query chooses in IsiXDICOMNetwork, from what the app reports
+# of the inventory.
+choice = read('Modules/IsiXDICOMNetwork/Sources/AutoRetrieveChoice.swift').decode('utf-8', 'replace')
+ports = read('Horos/Sources/QueryWindowAutoQueryPorts.swift').decode('utf-8', 'replace')
+if 'if inventory.isSatisfied { here = total }' not in block(choice, 'func addIfNotHere(') or \
+        'isSatisfied: inventory.isSatisfied' not in block(ports, 'func retrieveInventory(of study: AutoQueryStudy)'):
     failures.append('the automatic retrieve of new studies still fetches a satisfied one again')
-column = block(query, '- (HorosLocalCompleteness*) inventoryCompletenessForItem:')
+column = block(query, 'nonisolated func inventoryCompleteness(forItem item: Any?, inventory: RetrieveInventory)')
 if 'inventory.reportedCount' not in column or 'completeButExpectedAbsences' not in column:
     failures.append('the Local column does not show local instances against the reported count, complete but for expected absences')
 
@@ -144,8 +160,8 @@ print(first.path)
 
 with tempfile.TemporaryDirectory(prefix='horos-expected-absence-') as directory:
     work = Path(directory)
-    sources = []
-    for name in ('RetrieveInventory.swift', 'LocalCompleteness.swift'):
+    sources = retrieve_inventory_harness.swiftc_arguments(work / 'harness')
+    for name in ('LocalCompleteness.swift',):
         (work / name).write_bytes(read('Horos/Sources/' + name))
         sources.append(str(work / name))
     (work / 'main.swift').write_text(driver)

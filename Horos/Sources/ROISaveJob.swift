@@ -72,8 +72,7 @@ final class ROISaveJob {
                     self.next = end
                 } else if self.added < self.written.count {
                     let end = min(self.added + Self.imagesPerTurn, self.written.count)
-                    database.addFiles(atPaths: Array(self.written[self.added..<end]), postNotifications: end == self.written.count,
-                                      dicomOnly: true, rereadExistingItems: true, generatedByOsiriX: true)
+                    DatabaseIngest.process.index(Array(self.written[self.added..<end]), preset: end == self.written.count ? .generated : .generatedQuiet, in: database)
                     self.added = end
                 }
             } } catch {

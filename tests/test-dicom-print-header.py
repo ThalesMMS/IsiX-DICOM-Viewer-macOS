@@ -15,7 +15,8 @@
 
 The writer is compiled from AYNSImageToDicom.swift with Address Sanitizer and
 writes a grayscale and a color object from 36 dpi images, which are then read
-here byte by byte. randomNumberBetween is compiled from PSGenerator+CAPI.m.
+here byte by byte. randomNumberBetween is compiled from PSGenerator.swift, or
+from PSGenerator+CAPI.m in the revisions that kept it in C.
 `<git revision>` as an optional argument reads the sources from that
 revision, the negative control.
 """
@@ -78,10 +79,26 @@ let left = (try? FileManager.default.contentsOfDirectory(atPath: folder + "/empt
 print("empty " + String(empty == nil) + " " + String(left.count))
 '''
 
-capi = read('Horos/Sources/PSGenerator+CAPI.m')
-function = capi[capi.index('int randomNumberBetween'):]
-function = function[:function.index('\n}') + 2]
-draws = '#include <stdio.h>\n#include <stdlib.h>\n' + function + r'''
+swift_draws = 'func randomNumberBetween(' in read('Horos/Sources/PSGenerator.swift')
+if swift_draws:
+    generator_source = read('Horos/Sources/PSGenerator.swift')
+    function = generator_source[generator_source.index('func randomNumberBetween('):]
+    function = function[:function.index('\n}') + 2]
+    draws = 'import Foundation\n' + function + r'''
+var seen = [0, 0, 0]
+for _ in 0..<200000 {
+    let n = randomNumberBetween(0, 3)
+    if n < 0 || n > 2 { print("out \(n)"); exit(1) }
+    seen[Int(n)] += 1
+}
+print("counts \(seen[0]) \(seen[1]) \(seen[2])")
+print("empty \(randomNumberBetween(5, 5))")
+'''
+else:
+    capi = read('Horos/Sources/PSGenerator+CAPI.m')
+    function = capi[capi.index('int randomNumberBetween'):]
+    function = function[:function.index('\n}') + 2]
+    draws = '#include <stdio.h>\n#include <stdlib.h>\n' + function + r'''
 int main(void) {
     int seen[4] = {0};
     for (int i = 0; i < 200000; i++) {
@@ -181,8 +198,12 @@ with tempfile.TemporaryDirectory(prefix='horos-print-header-') as directory:
         if len(instances) != 2:
             failures.append('the two objects do not have UIDs of their own')
 
-    (folder / 'draws.c').write_text(draws)
-    subprocess.run(['xcrun', 'clang', '-fsanitize=address', str(folder / 'draws.c'), '-o', str(folder / 'draws')], check=True)
+    if swift_draws:
+        (folder / 'draws.swift').write_text(draws)
+        subprocess.run(['xcrun', 'swiftc', '-sanitize=address', str(folder / 'draws.swift'), '-o', str(folder / 'draws')], check=True)
+    else:
+        (folder / 'draws.c').write_text(draws)
+        subprocess.run(['xcrun', 'clang', '-fsanitize=address', str(folder / 'draws.c'), '-o', str(folder / 'draws')], check=True)
     result = subprocess.run([str(folder / 'draws')], capture_output=True, text=True)
     counts = re.search(r'counts (\d+) (\d+) (\d+)', result.stdout)
     if result.returncode or not counts or min(map(int, counts.groups())) < 60000:

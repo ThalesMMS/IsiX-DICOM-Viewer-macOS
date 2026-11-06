@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """HorosDICOMWriter writes valid objects through DCMTK.
 
-Builds Horos/Sources/HorosDICOMWriter.mm, with the host reader and codecs
-(horos_reader.py), against the built DCM.framework, and writes:
+Builds Horos/Sources/HorosDICOMWriter.swift and the DCMTK file adapter, with the
+host reader and codecs (horos_reader.py), against the dataset model of the Debug build, and
+writes:
 
 - an Encapsulated PDF document with the attributes the report path sets,
   a non-ASCII patient name, dates, an empty sequence and the PDF bytes;
@@ -26,13 +27,13 @@ from dcmtk_build import ROOT
 import horos_reader
 
 if len(sys.argv) != 3:
-    print('skipped: needs the built DCM framework and a Python with pydicom/numpy: PRODUCTS_DIR PYTHON',
+    print('skipped: needs the dataset model and DCMTK of the Debug build and a Python with pydicom/numpy: PRODUCTS_DIR PYTHON',
           file=sys.stderr)
     raise SystemExit(2)
 products, python = Path(sys.argv[1]).resolve(), sys.argv[2]
 validator = ROOT / 'Binaries/dciodvfy'
-if not (products / 'DCM.framework').is_dir():
-    print('skipped: no DCM.framework in %s: PRODUCTS_DIR PYTHON' % products, file=sys.stderr)
+if horos_reader.missing(products):
+    print('skipped: %s: PRODUCTS_DIR PYTHON' % horos_reader.missing(products), file=sys.stderr)
     raise SystemExit(2)
 if horos_reader.missing(products):
     print('skipped: %s: PRODUCTS_DIR PYTHON' % horos_reader.missing(products), file=sys.stderr)
@@ -224,7 +225,8 @@ with tempfile.TemporaryDirectory(prefix='horos-writer-') as work:
                               capture_output=True, text=True, timeout=60, env={**os.environ, 'NSZombieEnabled': 'YES'})
     negative_output = negative.stdout + negative.stderr
     if 'message sent to deallocated instance' not in negative_output:
-        print('FAIL: original new-family ownership did not trigger the expected zombie', file=sys.stderr)
+        print('FAIL: original new-family ownership did not trigger the expected zombie (exit %s):\n%s'
+              % (negative.returncode, negative_output[-2000:]), file=sys.stderr)
         raise SystemExit(1)
     print('negative: original header rejected by actual deallocated-object diagnostic')
     subprocess.run([python, '-c', check, str(out)], check=True)

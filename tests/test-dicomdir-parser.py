@@ -77,6 +77,7 @@ with tempfile.TemporaryDirectory(prefix='horos-dicomdir-parser-') as tmp:
     subprocess.run(['xcrun', 'clang', '-c', str(p / 'n2.m'), '-o', str(p / 'n2.o')], check=True)
     subprocess.run(['xcrun', 'swiftc', '-module-name', 'Horos', '-import-objc-header', str(p / 'bridging.h'),
                     '-Xcc', '-I' + str(root / 'Horos/Sources'), str(p / 'DicomDirParser.swift'), str(p / 'main.swift'),
+                    str(root / 'Horos/Sources/HorosObjCException+Guards.swift'),
                     str(p / 'HorosObjCException.o'), str(p / 'n2.o'), '-o', str(p / 'parser')], check=True, capture_output=True)
 
     for mode, names in (('missing', []), ('latin1', LATIN1), ('utf8', UTF8)):

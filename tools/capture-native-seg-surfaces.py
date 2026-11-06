@@ -10,7 +10,8 @@ view drew, overlays included. Nothing here is a claim about pixels; the
 comparison is `tools/compare-native-seg-surfaces.py`.
 
     python3 tools/capture-native-seg-surfaces.py --pid N import <file> --label seg
-    python3 tools/capture-native-seg-surfaces.py --pid N open3d   # 3D MPR; open the VR through the 3D Viewer menu with the viewer in front
+    python3 tools/capture-native-seg-surfaces.py --pid N open3d   # 3D MPR
+    python3 tools/capture-native-seg-surfaces.py --pid N vr       # VR window, as the 3D Viewer menu opens it
     python3 tools/capture-native-seg-surfaces.py --pid N capture visible
     python3 tools/capture-native-seg-surfaces.py --pid N visible 0
     python3 tools/capture-native-seg-surfaces.py --pid N undo 4
@@ -34,6 +35,7 @@ parser.add_argument('--slices', type=int, default=16)
 sub = parser.add_subparsers(dest='command', required=True)
 p = sub.add_parser('import'); p.add_argument('file', type=Path)
 sub.add_parser('open3d')
+sub.add_parser('vr')
 p = sub.add_parser('capture'); p.add_argument('state')
 p = sub.add_parser('visible'); p.add_argument('flag', type=int, choices=[0, 1])
 p = sub.add_parser('undo'); p.add_argument('count', type=int)
@@ -110,6 +112,12 @@ if (s377VC) {
 elif args.command == 'open3d':
     body = r'''
 if (s377VC) { if (!s377MPR) (void)[s377VC openMPRViewer]; s377R[@"opened"] = @YES; }
+'''
+elif args.command == 'vr':
+    # The menu's action, on the run loop, as the user opens the window: it
+    # checks the data and shows the window -openVRViewerForMode: prepared.
+    body = r'''
+if (s377VC) { (void)[s377VC performSelector:@selector(VRViewer:) withObject:nil afterDelay:0.2]; s377R[@"scheduled"] = @YES; }
 '''
 elif args.command == 'capture':
     capture = r'''

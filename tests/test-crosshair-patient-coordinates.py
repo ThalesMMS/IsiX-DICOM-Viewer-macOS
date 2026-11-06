@@ -26,12 +26,13 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-objects = [root / 'build/Build/Intermediates.noindex/Horos.build' / configuration /
-           'Horos.build/Objects-normal/arm64/DCMPix.o'
-           for configuration in ('Debug', 'Release')]
-obj = next((o for o in objects if o.is_file()), None)
+sys.path.insert(0, str(root / 'tests'))
+import app_object_probe  # noqa: E402
+import roi_harness  # noqa: E402
+
+obj = app_object_probe.built_object('DCMPix')
 if obj is None:
-    print('needs a built DCMPix.o in %s' % ' or '.join(str(o) for o in objects), file=sys.stderr)
+    print('needs a built DCMPix.o: build Debug or Release once', file=sys.stderr)
     raise SystemExit(2)
 
 failures = []
@@ -104,24 +105,28 @@ def swift_method(text, signature):
     return None
 
 
-# -sync3DPosition stayed in DCMView.m; -syncMessage: and -sync: are Swift, in
-# DCMView+WindowLevel.swift.
-view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
+# -sync3DPosition is Swift, in DCMView+MouseTracking.swift; -syncMessage: and
+# -sync: in DCMView+WindowLevel.swift.
+tracking = source_text('DCMView+MouseTracking')
 windowLevel = source_text('DCMView+WindowLevel')
-# The dictionary keys are file constants there; the checks below name the keys.
-keys = dict(re.findall(r'private let (kSync\w+): NSString = "([^"]*)"', windowLevel))
+# The message's values and keys are ViewerSyncMessage's (IsiXImaging); the
+# dictionary of the notification is made and read in DCMView+WindowLevel.swift.
+syncMessage = (root / 'Modules/IsiXImaging/Sources/ViewerNavigation/ViewerSyncMessage.swift').read_text()
+keys = dict(re.findall(r'public static let (\w+) = "([^"]*)"', syncMessage))
 
-sender = re.search(r'- \(void\) sync3DPosition\s*\{(.*?)\n\}', view, re.S)
+sender = swift_method(tracking, '@objc(sync3DPosition)')
 if not sender:
     failures.append('-[DCMView sync3DPosition] is gone')
 else:
-    text = sender.group(1)
-    if 'HorosThickSlabRange' not in text:
+    text = sender
+    if not re.search(r'\bThickSlabRange\.farEndIndex\(', text):
         failures.append('sync3DPosition must ask HorosThickSlabRange for the far end of the slab')
     if re.search(r'stack\s*-\s*1\)', text):
         failures.append('sync3DPosition still computes the slab end itself')
-    if 'DCMPix2' not in text:
+    if 'farEndImage: thickDCM' not in text:
         failures.append('sync3DPosition no longer sends the far end at all')
+    if not re.search(r'patientPoint: ViewerSyncMessage\.PatientPoint\(x: location\[0\], y: location\[1\], z: location\[2\]\)', text):
+        failures.append('sync3DPosition no longer sends the point in patient coordinates')
 
 message = swift_method(windowLevel, '@objc(syncMessage:)')
 if message is None:
@@ -132,8 +137,7 @@ else:
     # stack -1), in Swift also through the optional chain: stack ?? 0) - 1).
     if re.search(r'stack(?:\s*\?\?\s*0\s*\))?\s*-\s*1\)', message):
         failures.append('syncMessage: still computes the slab end itself')
-    if not any(re.search(r'forKey:\s*%s\b' % name, message)
-               for name, value in keys.items() if value == 'DCMPix2'):
+    if 'farEndImage: thickDCM' not in message or keys.get('farEndImage') != 'DCMPix2':
         failures.append('syncMessage: no longer sends the far end at all')
 
 # The receiver has to consume patient coordinates, and only inside the same-world
@@ -143,28 +147,37 @@ if receiver is None:
     failures.append('-[DCMView sync:] is gone')
 else:
     text = receiver
+    # The receiver reads the point through ViewerSyncMessage, which reads the three keys.
+    reader = syncMessage[syncMessage.index('public init(entry:'):]
+    reader = reader[:reader.index('\n    }\n')]
     for key in ('point3DX', 'point3DY', 'point3DZ'):
-        if not any(re.search(r'kvcValue\(instructions,\s*%s\)' % name, text)
-                   for name, value in keys.items() if value == key):
+        if not any('Key.%s' % name in reader for name, value in keys.items() if value == key):
             failures.append('sync: no longer reads %s' % key)
+    if 'ReceivedSync(note)' not in text or 'message.patientPoint' not in text:
+        failures.append('sync: no longer reads the patient point of the message')
     if 'findPlaneAndPoint(' not in text:
         failures.append('sync: no longer finds the plane for the patient point')
     if 'convertDICOMCoords(' not in text:
         failures.append('sync: no longer converts the patient point into its own slice')
     world = text.find('if same3DReferenceWorld || registeredViewer {')
-    point = text.find('if point3D {')
+    point = text.find('if let patientPoint = message.patientPoint {')
     if world < 0 or point < 0 or not world < point:
         failures.append('the patient-coordinate crosshair must stay inside the same-world guard')
 
-if sender and 'convertPixX:' not in sender.group(1):
+if sender and 'curDCM.convertX(' not in sender:
     failures.append('sync3DPosition no longer converts the mouse position to patient coordinates')
 
 # -convertDICOMCoords:toSliceCoords: answers in millimetres; the drawing turns
 # that into pixels. Both halves have to stay, or the crosshair moves by the
 # pixel spacing without anything looking wrong.
-if not re.search(r'slicePoint3D\[\s*0\]\s*/\s*self\.curDCM\.pixelSpacingX', view):
+# The drawing is DCMView+Drawing.swift's, its arithmetic DrawingGeometry's.
+drawing = (root / 'Horos/Sources/DCMView+Drawing.swift').read_text()
+geometry = (root / 'Modules/IsiXImaging/Sources/ViewDrawing/DrawingGeometry.swift').read_text()
+handed = re.search(r'DrawingGeometry\.slicePoint\(\(slicePoint3D\[0\], slicePoint3D\[1\]\),\s*'
+                   r'pixelSpacingX: pix\?\.pixelSpacingX \?\? 0, pixelSpacingY: pix\?\.pixelSpacingY \?\? 0', drawing)
+if not handed or 'var x = Float(Double(point.0) / pixelSpacingX)' not in geometry:
     failures.append('the crosshair is no longer divided by pixelSpacingX before being drawn')
-if not re.search(r'slicePoint3D\[\s*1\]\s*/\s*self\.curDCM\.pixelSpacingY', view):
+if not handed or 'var y = Float(Double(point.1) / pixelSpacingY)' not in geometry:
     failures.append('the crosshair is no longer divided by pixelSpacingY before being drawn')
 
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
@@ -179,23 +192,25 @@ PROBE = r'''
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+// PIX_IVARS
 
 @interface ProbePix : DCMPix
 - (void) prepareOrientation:(const double*)o origin:(const double*)p;
 @end
 @implementation ProbePix
 - (void) CheckLoad {}
-- (float*) computefImage { return fImage; }
+- (float*) computefImage { return PIX_IVAR( self, float*, fImage); }
 - (void) prepareOrientation:(const double*)o origin:(const double*)p
 {
-    width = 64; height = 64; isRGB = NO;
-    pixelSpacingX = pixelSpacingY = 2.0;      // 2 mm pixels, so a wrong factor shows
+    PIX_IVAR( self, long, width) = 64; PIX_IVAR( self, long, height) = 64; PIX_IVAR( self, BOOL, isRGB) = NO;
+    PIX_IVAR( self, double, pixelSpacingX) = PIX_IVAR( self, double, pixelSpacingY) = 2.0;      // 2 mm pixels, so a wrong factor shows
+    double *orientation = PIX_ORIENTATION( self);
     for( int i = 0; i < 6; i++) orientation[ i] = o[ i];
     // The third vector is the slice normal; DCMPix fills it from the first two.
     orientation[ 6] = orientation[ 1]*orientation[ 5] - orientation[ 2]*orientation[ 4];
     orientation[ 7] = orientation[ 2]*orientation[ 3] - orientation[ 0]*orientation[ 5];
     orientation[ 8] = orientation[ 0]*orientation[ 4] - orientation[ 1]*orientation[ 3];
-    originX = p[ 0]; originY = p[ 1]; originZ = p[ 2];
+    PIX_IVAR( self, double, originX) = p[ 0]; PIX_IVAR( self, double, originY) = p[ 1]; PIX_IVAR( self, double, originZ) = p[ 2];
 }
 @end
 
@@ -268,54 +283,13 @@ int main(){ @autoreleasepool {
 }}
 '''
 
-FRAMEWORKS = ['Foundation', 'AppKit', 'AVFoundation', 'CoreData', 'CoreMedia', 'CoreVideo']
-
-
-def objectiveCStubs():
-    listing = subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
-    names = sorted({m.group(1) for m in re.finditer(r'_OBJC_CLASS_\$_(\w+)', listing)})
-    sources = root / 'Horos/Sources'
-    declared = [n for n in names
-                if n != 'ROI' and ((sources / (n + '.h')).is_file() or (sources / (n + '.m')).is_file()
-                                   or (sources / (n + '.mm')).is_file())]
-    return ('@interface ROI : NSObject @end\n@implementation ROI @end\n'
-            + ''.join('@interface %s : NSObject @end\n@implementation %s @end\n' % (n, n)
-                      for n in declared))
-
-
-def link(directory, placeholders):
-    assembly = ''.join('.globl %s\n%s: .quad 0\n' % (s, s) for s in sorted(placeholders))
-    (directory / 'placeholders.s').write_text('.data\n' + assembly)
-    command = ['xcrun', 'clang++', '-std=c++11', '-Wno-deprecated-declarations',
-               '-I' + str(root / 'Horos/Sources'),
-               str(directory / 'probe.mm'), str(directory / 'stubs.mm'),
-               str(directory / 'placeholders.s'), str(obj),
-               '-Wl,-undefined,dynamic_lookup', '-o', str(directory / 'probe')]
-    for framework in FRAMEWORKS:
-        command += ['-framework', framework]
-    subprocess.run(command, check=True, capture_output=True)
-
-
 roundTrip = ''
 if not failures:
     with tempfile.TemporaryDirectory(prefix='horos-crosshair-') as name:
         directory = Path(name)
-        (directory / 'probe.mm').write_text(PROBE)
-        (directory / 'stubs.mm').write_text('#import <Foundation/Foundation.h>\n' + objectiveCStubs())
-        placeholders = set()
-        for _ in range(200):
-            link(directory, placeholders)
-            run = subprocess.run([str(directory / 'probe')], capture_output=True, text=True)
-            missing = re.search(r"symbol not found in flat namespace '([^']+)'", run.stderr)
-            if not missing:
-                break
-            if missing.group(1) in placeholders:
-                print('cannot satisfy %s' % missing.group(1), file=sys.stderr)
-                raise SystemExit(1)
-            placeholders.add(missing.group(1))
-        else:
-            print('too many unresolved symbols in %s' % obj, file=sys.stderr)
-            raise SystemExit(1)
+        (directory / 'probe.mm').write_text(PROBE.replace('// PIX_IVARS\n', roi_harness.PIX_IVARS))
+        # The probe's ROI stands in for the app's, which this object only names.
+        run = app_object_probe.link_and_run(directory, [directory / 'probe.mm'], [obj], always_stub=('ROI',))
         if run.returncode:
             sys.stderr.write(run.stderr)
             failures.append('the patient-coordinate round trip does not land where the geometry says')

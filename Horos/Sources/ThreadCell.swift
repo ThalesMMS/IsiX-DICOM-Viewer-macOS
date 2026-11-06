@@ -43,28 +43,13 @@ import AppKit
 // selectors and <Horos/ThreadCell.h> are those of the former class.
 //
 // Synchronization: every @synchronized (_thread) of the Objective-C is
-// objcSynchronized below, on the same thread object and around the same
-// statements; @synchronized of a nil thread took no lock, and neither does it.
+// objc_sync_enter/objc_sync_exit on the same thread object and around the same
+// statements; @synchronized of a nil thread took no lock, and neither does
+// this. Where AppKit or a thread's observers may raise (-cleanup, the Cancel
+// button) it is HorosObjCException.synchronized, which leaves the lock and
+// raises again as @synchronized did; elsewhere defer leaves it.
 // KVO observers are added and removed in the same order, and the handler goes
 // to the main thread the same way.
-
-/// `@synchronized (object) { … }`: the same recursive lock, taken on nothing
-/// when the object is nil, and left before an exception raised inside goes on.
-@inline(__always)
-fileprivate func objcSynchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T {
-    guard let object else { return body() }
-    objc_sync_enter(object)
-    var result: T?
-    var raised: NSException?
-    do {
-        try HorosObjCException.perform { result = body() }
-    } catch {
-        raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    objc_sync_exit(object)
-    if let raised { raised.raise() }
-    return result!
-}
 
 /// `[object autorelease]`: released when the current pool drains, as before,
 /// not when the reference goes away.
@@ -110,7 +95,7 @@ public final class ThreadCell: NSTextFieldCell {
     private var _sweepIndicator: NSProgressIndicator?
     private var _cancelButton: NSButton?
     // nonisolated(unsafe): the thread's KVO callbacks read both on the thread
-    // that changed it, inside objcSynchronized(_thread), the lock under which
+    // that changed it, inside the @synchronized lock of _thread, under which
     // the main thread's -setThread: writes them.
     nonisolated(unsafe) private var _thread: Thread?
     nonisolated(unsafe) private var _retainedThreadDictionary: NSMutableDictionary?
@@ -137,6 +122,10 @@ public final class ThreadCell: NSTextFieldCell {
     /// Assign and read-only, as before: not retained (unowned(unsafe), not weak,
     /// for the same reason). The activity table view, which outlives its cells.
     @objc public private(set) unowned(unsafe) var view: NSTableView!
+
+    /// The graph of the database window the activity table is in, kept once
+    /// a size of the browser's text has found it.
+    private var browserWindow: BrowserWindowGraph?
 
     @objc(initWithThread:manager:view:)
     public init(thread: Thread!, manager: ThreadsManager!, view: NSTableView!) {
@@ -190,6 +179,7 @@ public final class ThreadCell: NSTextFieldCell {
         retainShared(cell._thread, _thread)
         retainShared(cell._retainedThreadDictionary, _retainedThreadDictionary)
         retainShared(cell.activityAccessibilityRow, activityAccessibilityRow)
+        retainShared(cell.browserWindow, browserWindow)
         return cell
     }
 
@@ -208,10 +198,10 @@ public final class ThreadCell: NSTextFieldCell {
         }
 
         if Thread.isMainThread == false {
-            ThreadCellLogStackTrace("We shoud be on MAIN thread")
+            N2LogStackTraceMessage("We shoud be on MAIN thread")
         }
 
-        objcSynchronized(_thread) {
+        HorosObjCException.synchronized(_thread) {
             self.activityAccessibilityRow?.setAccessibilityChildren([])
             _cancelButton?.setAccessibilityParent(nil)
             _progressIndicator?.setAccessibilityParent(nil)
@@ -250,38 +240,39 @@ public final class ThreadCell: NSTextFieldCell {
     @objc public dynamic var thread: Thread! {
         get { return _thread }
         set(thread) {
-            objcSynchronized(_thread) {
-                do {
-                    try HorosObjCException.perform {
-                        if self.KVOObserving {
-                            self.removeThreadObservers()
-                            self.KVOObserving = false
-                        }
-                    }
-                } catch {
-                    if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                        _N2LogExceptionImpl(e, false, "-[ThreadCell setThread:]")
-                    }
+            // Removing an observer the thread does not have raises: that is
+            // caught and logged, and nothing else here raises.
+            let former = _thread
+            if let former { objc_sync_enter(former) }
+            defer { if let former { objc_sync_exit(former) } }
+
+            if let e = HorosObjCException.caught({
+                if self.KVOObserving {
+                    self.removeThreadObservers()
+                    self.KVOObserving = false
                 }
+            }) {
+                _N2LogExceptionImpl(e, false, "-[ThreadCell setThread:]")
+            }
 
-                autoreleaseLater(_thread)
-                autoreleaseLater(_retainedThreadDictionary)
+            autoreleaseLater(_thread)
+            autoreleaseLater(_retainedThreadDictionary)
 
-                _thread = thread
+            _thread = thread
 
-                objcSynchronized(_thread) {
-                    _retainedThreadDictionary = _thread?.threadDictionary
+            if let thread { objc_sync_enter(thread) }
+            defer { if let thread { objc_sync_exit(thread) } }
 
-                    if let thread = _thread, _retainedThreadDictionary != nil {
-                        thread.addObserver(self, forKeyPath: NSThreadIsCancelledKey, options: .initial, context: nil)
-                        thread.addObserver(self, forKeyPath: NSThreadStatusKey, options: .initial, context: nil)
-                        thread.addObserver(self, forKeyPath: NSThreadProgressDetailsKey, options: .initial, context: nil)
-                        thread.addObserver(self, forKeyPath: NSThreadProgressKey, options: .initial, context: nil)
-                        thread.addObserver(self, forKeyPath: NSThreadSupportsCancelKey, options: .initial, context: nil)
+            _retainedThreadDictionary = _thread?.threadDictionary
 
-                        KVOObserving = true
-                    }
-                }
+            if let thread = _thread, _retainedThreadDictionary != nil {
+                thread.addObserver(self, forKeyPath: NSThreadIsCancelledKey, options: .initial, context: nil)
+                thread.addObserver(self, forKeyPath: NSThreadStatusKey, options: .initial, context: nil)
+                thread.addObserver(self, forKeyPath: NSThreadProgressDetailsKey, options: .initial, context: nil)
+                thread.addObserver(self, forKeyPath: NSThreadProgressKey, options: .initial, context: nil)
+                thread.addObserver(self, forKeyPath: NSThreadSupportsCancelKey, options: .initial, context: nil)
+
+                KVOObserving = true
             }
         }
     }
@@ -293,10 +284,13 @@ public final class ThreadCell: NSTextFieldCell {
                      context: (args.object(at: 3) as! NSValue).pointerValue)
     }
 
-    /// The row of the thread in the activity table, as
-    /// `[self.manager.threads indexOfObject:self.thread]` was: 0 without a
-    /// manager, NSNotFound without a thread.
+    /// The row of the thread in the activity table: the one its list gives
+    /// this cell, which is not the thread's place among the manager's threads
+    /// once the retrieves waiting in line have been put in the line's order.
+    /// Outside that list, as `[self.manager.threads indexOfObject:self.thread]`
+    /// was: 0 without a manager, NSNotFound without a thread.
     private func rowOfThread() -> Int {
+        if let row = (self.view?.delegate as? BrowserActivityHelper)?.row(of: self) { return row }
         guard let threads = manager?.threads() else { return 0 }
         guard let thread = self.thread else { return NSNotFound }
         return threads.index(of: thread)
@@ -342,16 +336,12 @@ public final class ThreadCell: NSTextFieldCell {
 
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
         if let obj = object as? Thread, obj === _thread {
-            let leave: Bool = objcSynchronized(_thread) {
-                if _thread?.isFinished == true {
-                    return true
-                }
-
-                if _retainedThreadDictionary !== _thread?.threadDictionary {
-                    return true
-                }
-                return false
-            }
+            let leave: Bool = {
+                let lock = _thread
+                if let lock { objc_sync_enter(lock) }
+                defer { if let lock { objc_sync_exit(lock) } }
+                return _thread?.isFinished == true || _retainedThreadDictionary !== _thread?.threadDictionary
+            }()
             if leave {
                 return
             }
@@ -381,7 +371,7 @@ public final class ThreadCell: NSTextFieldCell {
 
     @objc(cancelThreadAction:)
     func cancelThreadAction(_ source: Any?) {
-        objcSynchronized(_thread) {
+        HorosObjCException.synchronized(_thread) {
             if let thread = _thread, thread.isFinished == false {
                 thread.status = NSLocalizedString("Cancelling...", comment: "")
                 thread.setIsCancelled(true)
@@ -389,15 +379,25 @@ public final class ThreadCell: NSTextFieldCell {
         }
     }
 
-    /// `[[BrowserController currentBrowser] fontSize:type]`: 0 without a browser.
-    private func browserFontSize(_ type: String) -> CGFloat {
-        return CGFloat(BrowserController.currentBrowser()?.fontSize(type) ?? 0)
+    /// The size of a kind of the browser's text: 0 outside the database
+    /// window. The graph of that window is found through the window of the
+    /// table that draws the cell, or of its activity table, the first time a
+    /// size is asked, and kept.
+    private func browserFontSize(_ type: String, in view: NSView? = nil) -> CGFloat {
+        if browserWindow == nil {
+            let table: NSView? = view ?? self.view
+            browserWindow = PreferencesSource.process.processGraph.browserWindow(of: table?.window)
+        }
+        return CGFloat(browserWindow?.browser.fontSize(type) ?? 0)
     }
 
     public override func drawInterior(withFrame frame: NSRect, in view: NSView) {
-        let finished: Bool = objcSynchronized(_thread) {
-            _thread?.isFinished == true
-        }
+        let finished: Bool = {
+            let lock = _thread
+            if let lock { objc_sync_enter(lock) }
+            defer { if let lock { objc_sync_exit(lock) } }
+            return _thread?.isFinished == true
+        }()
         if finished {
             return
         }
@@ -408,7 +408,7 @@ public final class ThreadCell: NSTextFieldCell {
         var textAttributes: [NSAttributedString.Key: Any] = [:]
         if let textColor = self.textColor {
             textAttributes[.foregroundColor] = textColor
-            textAttributes[.font] = NSFont.labelFont(ofSize: browserFontSize("threadNameSize"))
+            textAttributes[.font] = NSFont.labelFont(ofSize: browserFontSize("threadNameSize", in: view))
             textAttributes[.paragraphStyle] = paragraphStyle
         }
 
@@ -417,7 +417,10 @@ public final class ThreadCell: NSTextFieldCell {
         var tempName: String?
         var tempStatus: String?
         var tempDetails: String?
-        objcSynchronized(_thread) {
+        do {
+            let lock = _thread
+            if let lock { objc_sync_enter(lock) }
+            defer { if let lock { objc_sync_exit(lock) } }
             tempName = _thread?.name
             tempStatus = _thread?.status
             tempDetails = _thread?.progressDetails
@@ -428,7 +431,7 @@ public final class ThreadCell: NSTextFieldCell {
         // which gives up the room it takes.
         if let details = tempDetails, !details.isEmpty {
             var detailsAttributes = textAttributes
-            detailsAttributes[.font] = NSFont.monospacedDigitSystemFont(ofSize: browserFontSize("threadNameStatus"), weight: .regular)
+            detailsAttributes[.font] = NSFont.monospacedDigitSystemFont(ofSize: browserFontSize("threadNameStatus", in: view), weight: .regular)
             let width = ceil((details as NSString).size(withAttributes: detailsAttributes).width)
             let detailsFrame = NSMakeRect(NSMaxX(nameFrame) - width, nameFrame.origin.y, width, nameFrame.size.height)
             (details as NSString).draw(with: detailsFrame, options: [.usesLineFragmentOrigin], attributes: detailsAttributes)
@@ -438,7 +441,7 @@ public final class ThreadCell: NSTextFieldCell {
         (tempName! as NSString).draw(with: nameFrame, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine], attributes: textAttributes)
 
         let statusFrame = self.statusFrame()
-        textAttributes[.font] = NSFont.labelFont(ofSize: browserFontSize("threadNameStatus"))
+        textAttributes[.font] = NSFont.labelFont(ofSize: browserFontSize("threadNameStatus", in: view))
         if tempStatus == nil { tempStatus = "" }
         (tempStatus! as NSString).draw(with: statusFrame, options: [.usesLineFragmentOrigin], attributes: textAttributes)
 

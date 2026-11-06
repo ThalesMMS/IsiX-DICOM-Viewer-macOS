@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Execute both production hanging-protocol ordering blocks on real Core Data objects.
+"""Execute the production hanging-protocol ordering on real Core Data objects.
 
-The blocks live in -[BrowserController databaseOpenStudy:withProtocol:], Swift
-(BrowserController+DatabaseDragExport.swift): they are copied out of
-that file, with the file's own objcBoolValue/objcIntegerValue helpers, into a
-Swift program around stub DicomSeries/DicomStudy classes.
+The ordering is the browser's ViewerOpener's (ViewerOpener.swift): its
+SeriesOrder sort of the study's series and of each comparative study's
+(ordered(_:by:)), the series kept of each comparative study
+(comparativeSeries(of:by:)) and a study standing for its first series
+(seriesLevel(_:)). They are copied out of that file, with the file's own
+plistBool/plistInteger helpers, into a Swift program around stub
+DicomSeries/DicomStudy classes.
 
-The blocks call -[NSString contains:], Swift (n2Contains in
+The sort calls -[NSString contains:], Swift (n2Contains in
 NSString+N2.swift): the program is compiled together with that source, so the
 method it runs is the application's, not a copy.
 """
@@ -15,16 +18,13 @@ import re, subprocess, sys, tempfile
 root=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(root/'tools'))
 import object_probe  # noqa: E402
-s=(root/'Horos/Sources/BrowserController+DatabaseDragExport.swift').read_text()
-marker='// Sort series according to SeriesOrder, if available'
-a=s.index(marker);b=s.index('// Prepare the series to be displayed',a);current=s[a:b]
-a=s.index(marker,b);b=s.index('if series.count > n {',a);comparative=s[a:b]
-a=s.index('// Expand comparatives study according to NumberOfSeriesPerComparative')
-b=s.index('// Prepare the series',a);expansion=s[a:b]
-a=s.index('// Go to the series level, if we are at study level (comparatives)',b)
-b=s.index('self.viewerDICOMInt(',a);normalization=s[a:b]
-# The blocks read the protocol through the file's own helpers.
-helpers=''.join(re.search(r'\nfileprivate func %s\(.*?\n}\n'%name,s,re.S).group(0) for name in ('objcBoolValue','objcIntegerValue'))
+s=(root/'Horos/Sources/ViewerOpener.swift').read_text()
+def static(name):
+    a=s.index('    nonisolated static func %s(' % name)
+    return s[a:s.index('\n    }\n',a)+7]
+statics=''.join(static(name) for name in ('ordered','comparativeSeries','seriesLevel'))
+# The functions read the protocol through the file's own helpers.
+helpers=''.join(re.search(r'\nnonisolated private func %s\(.*?\n}\n'%name,s,re.S).group(0) for name in ('plistBool','plistInteger'))
 code=r'''
 import Foundation
 import CoreData
@@ -42,22 +42,17 @@ func check(_ c: @autoclosure () -> Bool, line: Int = #line) {
     @objc func imageSeriesContainingPixels(_ pixels: Bool) -> NSArray! { return pixelSeries }
     @objc func imageSeries() -> NSArray! { return imageSeriesArray }
 }
+enum ViewerOpener {
+STATICS}
 func expanded(_ studies: [Any], _ currentHangingProtocol: [AnyHashable: Any]!) -> NSArray {
-    var comparatives = NSMutableArray(array: studies)
-EXPANSION
-    let seriesArray = comparatives
-NORMALIZATION
-    return seriesArray
+    ViewerOpener.seriesLevel(ViewerOpener.comparativeSeries(of: studies, by: currentHangingProtocol)) as NSArray
 }
+// The study's series and each comparative study's go through the same sort.
 func current(_ input: [Any], _ currentHangingProtocol: [AnyHashable: Any]!) -> NSArray {
-    var seriesArray = NSMutableArray(array: input)
-CURRENT
-    return seriesArray
+    ViewerOpener.ordered(input, by: currentHangingProtocol) as NSArray
 }
 func comparative(_ input: [Any], _ currentHangingProtocol: [AnyHashable: Any]!) -> NSArray {
-    var series = NSMutableArray(array: input)
-COMPARATIVE
-    return series
+    ViewerOpener.ordered(input, by: currentHangingProtocol) as NSArray
 }
 @_cdecl("hanging_main") public func hangingMain() -> Int32 { autoreleasepool {
     let entity = NSEntityDescription(); entity.name = "Series"; entity.managedObjectClassName = "DicomSeries"
@@ -106,17 +101,14 @@ COMPARATIVE
     NSLog("PASS: single/multiple comparative selection and fallback; current/comparative series names; unrelated comments, case modes, fallback and missing names")
     return 0
 } }
-'''.replace('HELPERS',helpers).replace('CURRENT',current).replace('COMPARATIVE',comparative).replace('EXPANSION',expansion).replace('NORMALIZATION',normalization)
+'''.replace('HELPERS',helpers).replace('STATICS',statics)
 with tempfile.TemporaryDirectory(prefix='horos-hanging-name-') as directory:
  p=Path(directory);(p/'hanging.swift').write_text(code)
  (p/'main.c').write_text('int hanging_main(void);\nint main(void) { return hanging_main(); }\n')
- capi=object_probe.first_app_object('NSString+N2+CAPI')
- if capi is None:
-  print('needs a built NSString+N2+CAPI.o: script/build_and_run.sh',file=sys.stderr);raise SystemExit(2)
  (p/'bridging.h').write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n#import "NSString+N2.h"\n')
  # NSString (N2) calls NSMutableString (N2), Swift too; the blocks and the
  # string methods are compiled as one module, as they are in the application.
- library=object_probe.swift_dylib([p/'hanging.swift',root/'Nitrogen/Sources/NSString+N2.swift',root/'Nitrogen/Sources/NSMutableString+N2.swift'],[capi],p/'libHanging.dylib',
+ library=object_probe.swift_dylib([p/'hanging.swift',root/'Nitrogen/Sources/NSString+N2.swift',root/'Nitrogen/Sources/NSMutableString+N2.swift'],[],p/'libHanging.dylib',
                                   bridging_header=p/'bridging.h',include_dirs=(root/'Nitrogen/Sources',),frameworks=('Cocoa','CoreData'))
  subprocess.run(['xcrun','clang',str(p/'main.c'),str(library),'-Wl,-rpath,'+str(p),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

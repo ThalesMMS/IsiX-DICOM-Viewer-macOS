@@ -20,6 +20,7 @@ import tempfile
 import zipfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text
+import objc_exception_guards  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 reports = source_text('Reports')
@@ -69,9 +70,10 @@ import Foundation
 import Synchronization
 var base = ""
 final class Database { var baseDirPath: String? { base } }
-final class BrowserController {
-    static func currentBrowser() -> BrowserController? { nil }
-    var database: Database? { Database() }
+// The registered source of the browser's database: none, so the default folder answers.
+struct BrowserDatabaseSource {
+    static let process = BrowserDatabaseSource()
+    var browserDatabase: Database? { nil }
 }
 enum DicomDatabase { static func defaultBaseDirPath() -> String { base } }
 func _N2LogExceptionImpl(_ exception: NSException, _ fatal: Bool, _ context: String) {}
@@ -165,6 +167,8 @@ check(found("notes") == nil && found("D") == nil, "not a Pages file")
 check(found("") == "A.pages", "no name: the first listed")
 print("PASS: new databases get the .docx and current-format Pages defaults; existing templates are kept and the new ones go beside; .template files are listed and found")
 '''.replace('METHODS', methods).replace('PRELUDE', prelude)
+# The template methods guard through the module's own members of HorosObjCException.
+program += objc_exception_guards.source(log=False).replace('import Foundation\n', '', 1)
 with tempfile.TemporaryDirectory(prefix='horos-report-defaults-') as folder:
     p = Path(folder)
     (p / 'bridge.h').write_text(bridge)

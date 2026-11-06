@@ -12,6 +12,7 @@
 
 import CoreData
 import Foundation
+import IsiXContracts
 
 /// The domain of the errors a private-queue read reports before it reads.
 let HorosPrivateQueueReadErrorDomain = "HorosPrivateQueueRead"
@@ -49,8 +50,32 @@ public extension N2ManagedDatabase {
             throw NSError(domain: HorosPrivateQueueReadErrorDomain, code: 1, userInfo: [
                 NSLocalizedDescriptionKey: "The database has no store to read from."])
         }
-        return try context.performAndWait {
-            defer { context.reset() }
+        return try Self.perform(body, on: context, resetting: true)
+    }
+
+    /// Runs `body` on a new private-queue context of this database, made for
+    /// this read alone, and waits for it, returning what it returns.
+    ///
+    /// For a read that may take long and must not hold up the others: it does
+    /// not wait for the shared read context of `performPrivateRead`, nor does
+    /// that one wait for it. Otherwise the same: nothing goes to the main
+    /// thread, only values and permanent object IDs may leave `body`, and a
+    /// Core Data exception becomes the thrown error, as does a database with no
+    /// store.
+    func performIndependentRead<T>(_ body: @Sendable (NSManagedObjectContext) throws -> T) throws -> T {
+        guard self.managedObjectContext?.persistentStoreCoordinator != nil, let context = self.privateQueueContext() else {
+            throw NSError(domain: HorosPrivateQueueReadErrorDomain, code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "The database has no store to read from."])
+        }
+        return try Self.perform(body, on: context, resetting: false)
+    }
+
+    /// `body` on `context`'s queue, waited for; its Objective-C exception is
+    /// the thrown error. `resetting`: the context forgets its objects after.
+    private static func perform<T>(_ body: @Sendable (NSManagedObjectContext) throws -> T, on context: NSManagedObjectContext,
+                                   resetting: Bool) throws -> T {
+        try context.performAndWait {
+            defer { if resetting { context.reset() } }
             var value: T?
             var thrown: Error?
             try HorosObjCException.perform {
@@ -224,6 +249,31 @@ public final class HorosLocalQueryReader: NSObject {
         }
     }
 
+    /// The local studies among these Study Instance UIDs, each as a value of
+    /// the contract: its object ID's URI, its UID, its files as `rawNoFiles`
+    /// counts them, its State and its Comment. Only those studies are read,
+    /// by UID, in batches.
+    static func studySnapshots(ofStudyInstanceUIDs studyInstanceUIDs: Set<String>,
+                               in database: N2ManagedDatabase) throws -> [LocalStudySnapshot] {
+        let wanted = Array(studyInstanceUIDs.filter { !$0.isEmpty })
+        guard !wanted.isEmpty else { return [] }
+        return try database.performPrivateRead { context -> [LocalStudySnapshot] in
+            var studies: [LocalStudySnapshot] = []
+            for start in stride(from: 0, to: wanted.count, by: 500) {
+                let request = NSFetchRequest<DicomStudy>(entityName: "Study")
+                request.predicate = NSPredicate(format: "studyInstanceUID IN %@", Array(wanted[start..<min(start + 500, wanted.count)]))
+                request.relationshipKeyPathsForPrefetching = ["series"]
+                for study in try context.fetch(request) {
+                    guard let uid = study.studyInstanceUID else { continue }
+                    studies.append(LocalStudySnapshot(identifier: LocalRecordIdentifier(uri: study.objectID.uriRepresentation()),
+                                                      studyInstanceUID: uid, fileCount: study.rawNoFiles()?.intValue ?? 0,
+                                                      state: study.stateText?.intValue, comment: study.comment))
+                }
+            }
+            return studies
+        }
+    }
+
     /// The files of a local study, or of its series `seriesInstanceUID` when
     /// one is given: the study's or the series' `rawNoFiles`, 0 when the study
     /// or the series is no longer there.
@@ -231,34 +281,51 @@ public final class HorosLocalQueryReader: NSObject {
     public static func fileCount(ofStudy studyID: NSManagedObjectID, seriesInstanceUID: String?,
                                  in database: N2ManagedDatabase) throws -> NSNumber {
         return try database.performPrivateRead { context -> NSNumber in
-            guard let study = try? context.existingObject(with: studyID) as? DicomStudy else { return 0 }
-            guard let seriesInstanceUID else { return study.rawNoFiles() ?? 0 }
-            for case let series as DicomSeries in study.series ?? []
-            where (series.value(forKey: "seriesDICOMUID") as? String) == seriesInstanceUID {
-                return series.rawNoFiles() ?? 0
-            }
-            return 0
+            fileCount(ofStudy: studyID, seriesInstanceUID: seriesInstanceUID, in: context)
         }
     }
 
-    /// The SOP Instance UIDs already here for the studies with this UID, only
-    /// those of the series `seriesInstanceUID` when one is given.
-    @objc(SOPInstanceUIDsOfStudyInstanceUID:seriesInstanceUID:inDatabase:error:)
-    public static func sopInstanceUIDs(ofStudyInstanceUID studyInstanceUID: String, seriesInstanceUID: String?,
-                                       in database: N2ManagedDatabase) throws -> [String] {
-        return try database.performPrivateRead { context -> [String] in
+    /// As fileCount(ofStudy:seriesInstanceUID:in:), for the study whose
+    /// object ID has this URI: 0 when the URI names no record of the store.
+    static func fileCount(ofStudyAt uri: URL, seriesInstanceUID: String?, in database: N2ManagedDatabase) throws -> Int {
+        return try database.performPrivateRead { context -> Int in
+            guard let studyID = context.persistentStoreCoordinator?.managedObjectID(forURIRepresentation: uri) else { return 0 }
+            return fileCount(ofStudy: studyID, seriesInstanceUID: seriesInstanceUID, in: context).intValue
+        }
+    }
+
+    /// Inside the context's queue.
+    private static func fileCount(ofStudy studyID: NSManagedObjectID, seriesInstanceUID: String?,
+                                  in context: NSManagedObjectContext) -> NSNumber {
+        guard let study = try? context.existingObject(with: studyID) as? DicomStudy else { return 0 }
+        guard let seriesInstanceUID else { return study.rawNoFiles() ?? 0 }
+        for case let series as DicomSeries in study.series ?? []
+        where (series.value(forKey: "seriesDICOMUID") as? String) == seriesInstanceUID {
+            return series.rawNoFiles() ?? 0
+        }
+        return 0
+    }
+
+    /// The series of the local studies with this UID, each as a value of the
+    /// contract: its UID and the SOP Instance UIDs of its images, without the
+    /// empty ones.
+    static func seriesSnapshots(ofStudyInstanceUID studyInstanceUID: String,
+                                in database: N2ManagedDatabase) throws -> [LocalSeriesSnapshot] {
+        return try database.performPrivateRead { context -> [LocalSeriesSnapshot] in
             let request = NSFetchRequest<DicomStudy>(entityName: "Study")
             request.predicate = NSPredicate(format: "studyInstanceUID == %@", studyInstanceUID)
-            var uids: [String] = []
+            var found: [LocalSeriesSnapshot] = []
             for study in try context.fetch(request) {
-                for case let series as NSObject in (study.value(forKey: "series") as? NSSet) ?? [] {
-                    if let seriesInstanceUID, !seriesInstanceUID.isEmpty,
-                       (series.value(forKey: "seriesDICOMUID") as? String) != seriesInstanceUID { continue }
+                for case let series as DicomSeries in study.series ?? [] {
                     let images = (series.value(forKey: "images") as? NSSet)?.value(forKey: "sopInstanceUID") as? NSSet
-                    for case let uid as String in images ?? [] where !uid.isEmpty { uids.append(uid) }
+                    var uids = Set<String>()
+                    for case let uid as String in images ?? [] where !uid.isEmpty { uids.insert(uid) }
+                    found.append(LocalSeriesSnapshot(studyInstanceUID: studyInstanceUID,
+                                                     seriesInstanceUID: series.value(forKey: "seriesDICOMUID") as? String,
+                                                     sopInstanceUIDs: uids))
                 }
             }
-            return uids
+            return found
         }
     }
 }

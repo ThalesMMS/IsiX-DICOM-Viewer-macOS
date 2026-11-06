@@ -42,9 +42,13 @@ def files(pattern):
 
 
 failures = []
-helper = read('Horos/Sources/vtkHorosFixedPointVolumeRayCastMIPHelper.cxx')
-mapper = read('Horos/Sources/vtkHorosFixedPointVolumeRayCastMapper.h')
-view = read('Horos/Sources/VRView.mm')
+helper = read('Horos/Sources/Adapters/VTK/vtkHorosFixedPointVolumeRayCastMIPHelper.cxx')
+mapper = read('Horos/Sources/Adapters/VTK/vtkHorosFixedPointVolumeRayCastMapper.h')
+try:
+    view = read('Horos/Sources/VRView.m')
+except (OSError, subprocess.CalledProcessError):
+    # The class is Swift since (VRView.swift): its extensions are read below.
+    view = ''
 
 if re.search(r'static\s+int\s+vtkMeanIPMode', helper) or 'setvtkMeanIPMode' in helper:
     failures.append('the MIP helper still keeps a process-wide mean flag')
@@ -70,9 +74,29 @@ def method(source, signature):
             if depth == 0: return source[start:index + 1]
         index += 1
 
-if 'volumeMapper->SetMeanIntensity( modeID == 3);' not in method(view, '- (void) setMode: (long) modeID'):
+# The view's mappers are its VTK adapter's, which sets their mode.
+pipeline = read('Horos/Sources/Adapters/VTK/IsiXVTKVolumePipeline.mm')
+set_mode = method(pipeline, 'static void IsiXVTKSetBlendMode(vtkHorosFixedPointVolumeRayCastMapper *mapper, long modeID)')
+if 'mapper->SetMeanIntensity( modeID == 3);' not in set_mode:
+    failures.append('the adapter does not set a mapper\'s mean for mode 3 only')
+# The modes are Swift (VRView+Engine.swift), an extension of the view; a
+# revision that still has them in VRView.m is read there.
+if '- (void) setMode: (long) modeID' in view:
+    view_mode = method(view, '- (void) setMode: (long) modeID')
+    view_blending_mode = method(view, '- (void) setBlendingMode: (long) modeID')
+    sets_volume, sets_blending = '[vtk setVolumeBlendMode: modeID];', '[vtk setBlendingBlendMode: modeID];'
+else:
+    view_engine = read('Horos/Sources/VRView+Engine.swift')
+    view_mode = method(view_engine, 'func setMode(_ modeID: Int)')
+    view_blending_mode = method(view_engine, 'func setBlendingMode(_ modeID: Int)')
+    sets_volume, sets_blending = 'horos_vtk.setVolumeBlendMode(modeID)', 'horos_vtk.setBlendingBlendMode(modeID)'
+if sets_volume not in view_mode or \
+        'IsiXVTKSetBlendMode(mapper, mode);' not in method(pipeline, '- (void)setVolumeBlendMode:(long)mode') or \
+        '_o->volumeMapper;' not in method(pipeline, '- (void)setVolumeBlendMode:(long)mode'):
     failures.append('the 3D view does not set its mapper\'s mean for mode 3 only')
-if 'blendingVolumeMapper->SetMeanIntensity( modeID == 3);' not in method(view, '- (void) setBlendingMode: (long) modeID'):
+if sets_blending not in view_blending_mode or \
+        'IsiXVTKSetBlendMode(mapper, mode);' not in method(pipeline, '- (void)setBlendingBlendMode:(long)mode') or \
+        '_o->blendingVolumeMapper;' not in method(pipeline, '- (void)setBlendingBlendMode:(long)mode'):
     failures.append('the 3D view does not set a fused series\' mean for mode 3 only')
 # MPRController and CPRController are Swift; an earlier revision has the Objective-C.
 for name, spellings in (('Horos/Sources/MPRController', (('.swift', 'mprView1?.vrView?.setMode(Int(_clippingRangeMode))'),

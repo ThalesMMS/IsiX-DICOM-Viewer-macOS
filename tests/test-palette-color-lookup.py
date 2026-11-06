@@ -39,9 +39,13 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from isix_modules import module_driver  # noqa: E402
+
 root = Path(__file__).resolve().parents[1]
 failures = []
-source = (root / 'DCM Framework/DCMPixelDataAttribute.mm').read_bytes().decode('latin1')
+# The palette conversion of the dataset model (IsiXDICOMDataset).
+source = (root / 'Modules/IsiXDICOMDataset/Sources/DCMPixelDataAttribute+Colour.swift').read_text(encoding='utf-8')
 
 
 def body(signature, text):
@@ -61,7 +65,7 @@ def body(signature, text):
     return ''
 
 
-convert = body('- (NSData *)convertPaletteToRGB:', source)
+convert = body('private func paletteToRGB(', source)
 if not convert:
     failures.append('-convertPaletteToRGB: is gone')
 else:
@@ -69,27 +73,23 @@ else:
     code = re.sub(r'//[^\n]*', '', convert)
     code = re.sub(r'/\*.*?\*/', '', code, flags=re.S)
 
-    windows = [code[at:at + 700]
-               for at in range(len(code))
-               if code.startswith('BluePaletteColorLookupTableData', at)]
-    if not windows:
-        failures.append('the blue lookup table is no longer read at all')
-    for blue in windows:
-        # Everything up to the next attribute belongs to reading the blue one.
-        blue = blue.split('PaletteColorLookupTableDescriptor')[0]
-        if 'greenCLUT' in blue or 'GreenPaletteColorLookupTableData' in blue:
-            failures.append('the blue lookup table is still read from the green attribute, so '
-                            'every paletted image comes back with blue equal to green')
-            break
+    # The three tables are read by one loop over the three colours, each from
+    # the attribute that names it.
+    if ('["Red", "Green", "Blue"].enumerated()' not in code
+            or 'withName: "\\(name)PaletteColorLookupTableData"' not in code):
+        failures.append('the three lookup tables are no longer read alike, each from its own '
+                        'attribute, so blue can be read from the green one again')
+    if re.search(r'(?<!Segmented)GreenPaletteColorLookupTableData', code):
+        failures.append('a table is read from the green attribute by name, outside the loop')
 
-    if 'objectAtIndex:1' not in code:
+    if 'Self.element(descriptor, 1)' not in code:
         failures.append('the descriptor\'s first mapped value is ignored, so a palette whose '
                         'first entry stands for a pixel value other than zero is read from the '
                         'wrong end')
-    if 'ENTRY_FOR' not in code:
+    if 'Self.paletteEntry(for:' not in code:
         failures.append('the pixel value is not turned into a table entry in one place, so the '
                         'offset and the clamp can differ between the loops')
-    if 'NSSwapBigShortToHost' in code:
+    if 'byteSwapped' in code or 'bigEndian:' in code:
         failures.append('a 16-bit palette index is still byte-swapped, which asks for entry 256 '
                         'when the pixel is 1')
     if code.count('/256') or code.count('/ 256'):
@@ -100,36 +100,29 @@ else:
                         'entry is')
 
 # --- the entry lookup itself ---------------------------------------------------
-at = source.find('#define ENTRY_FOR')
-macro = source[at:source.index('\n\n', at)] if at >= 0 else ''
-if not macro:
+at = source.find('static func paletteEntry(')
+if at < 0:
     failures.append('the entry lookup is gone')
 else:
     DRIVER = '''
-#include <cstdio>
-MACRO
-
-int main() {
-    // value, first mapped, entries -> entry
-    printf("%ld\\n", (long) ENTRY_FOR(0L, 0, 256));      // the bottom
-    printf("%ld\\n", (long) ENTRY_FOR(255L, 0, 256));    // the top
-    printf("%ld\\n", (long) ENTRY_FOR(256L, 0, 256));    // past the top, clamped
-    printf("%ld\\n", (long) ENTRY_FOR(1000L, 1000, 256));// the first mapped value
-    printf("%ld\\n", (long) ENTRY_FOR(1255L, 1000, 256));// the last it maps
-    printf("%ld\\n", (long) ENTRY_FOR(999L, 1000, 256)); // below it, clamped
-    printf("%ld\\n", (long) ENTRY_FOR(4095L, 0, 4096));  // a 12-bit index
-    printf("%ld\\n", (long) ENTRY_FOR(7L, 0, 0));        // no table at all
-    return 0;
+// value, first mapped, entries -> entry
+for (value, first, entries) in [(0, 0, 256),         // the bottom
+                                (255, 0, 256),       // the top
+                                (256, 0, 256),       // past the top, clamped
+                                (1000, 1000, 256),   // the first mapped value
+                                (1255, 1000, 256),   // the last it maps
+                                (999, 1000, 256),    // below it, clamped
+                                (4095, 0, 4096),     // a 12-bit index
+                                (7, 0, 0)] {         // no table at all
+    print(DCMPixelDataAttribute.paletteEntry(for: value, first: first, entries: entries))
 }
-'''.replace('MACRO', macro)
+'''
     with tempfile.TemporaryDirectory(prefix='horos-clut-') as directory:
-        driver = Path(directory) / 'main.cc'
-        driver.write_text(DRIVER)
         binary = Path(directory) / 'clut'
-        build = subprocess.run(['xcrun', 'clang++', '-std=c++11', '-w', str(driver),
-                                '-o', str(binary)], capture_output=True, text=True)
-        if build.returncode != 0:
-            failures.append('the entry lookup does not compile:\n%s' % build.stderr[-800:])
+        try:
+            module_driver('IsiXDICOMDataset', DRIVER, binary)
+        except subprocess.CalledProcessError as error:
+            failures.append('the entry lookup does not compile:\n%s' % error.stderr[-800:])
         else:
             run = subprocess.run([str(binary)], capture_output=True, text=True, timeout=60)
             got = run.stdout.split()

@@ -27,49 +27,52 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-vr = (root / 'Horos/Sources/VRController.mm').read_bytes().decode('latin1')
+# VRController is Swift; its 3D presets are in VRController+Presets.swift.
+vr = '\n'.join(path.read_text() for path in sorted((root / 'Horos/Sources').glob('VRController*.swift')))
 
-at = vr.find('- (void)displayPresetsForSelectedGroup;\n{')
-body = vr[at:vr.index('\n}', at) + 2] if at >= 0 else ''
+at = vr.find('    public final func displayPresetsForSelectedGroup() {')
+body = vr[at:vr.index('\n    }\n', at) + 7] if at >= 0 else ''
 if not body:
     failures.append('displayPresetsForSelectedGroup is gone')
 else:
-    for wanted in ('HorosPresetPageLayout clampPage:', 'HorosPresetPageLayout presetIndicesForPage:',
-                   'HorosPresetPageLayout selectableSlotForPage:'):
+    for wanted in ('PresetPageLayout.clamp(page:', 'PresetPageLayout.presetIndices(page:',
+                   'PresetPageLayout.selectableSlot(page:'):
         if wanted not in body:
             failures.append('the refresh no longer asks for %s' % wanted)
     # The shapes that went wrong: a signed index walked against an unsigned count,
     # and slot 0 selected whatever was there.
-    if 'i--' in body or 'int i, n;' in body:
+    if 'i -= 1' in body or 'stride(from:' in body:
         failures.append('the signed index walk is back in displayPresetsForSelectedGroup')
-    if re.search(r'objectAtIndex:\s*0\]\s*setSelected', body):
+    if re.search(r'object\(at:\s*0\) as\? VRPresetPreview\)\?\.setSelected\(', body):
         failures.append('slot 0 is selected again without asking whether it holds a preset')
     # And a page with nothing on it has nothing selected: the ring has to go too,
     # or Apply still looks like it would do something.
-    if 'setSelectedPresetPreview: nil' not in body or 'hideSelectionFrame' not in body:
+    if 'setSelectedPresetPreview(nil)' not in body or 'hideSelectionFrame()' not in body:
         failures.append('a page with no preset on it keeps the previous selection ring')
-preview = (root / 'Horos/Sources/VRPresetPreview.mm').read_bytes().decode('latin1')
-if '- (void)hideSelectionFrame;' not in preview or 'setSelectedState:NO]' not in preview:
+preview = (root / 'Horos/Sources/VRPresetPreview.swift').read_text()
+hide = preview[preview.find('    public func hideSelectionFrame() {'):]
+if not hide or 'setSelectedState(false)' not in hide[:hide.find('\n    }\n')]:
     failures.append('VRPresetPreview cannot put its selection frame away')
 
 # The number of pages comes from the same place, so an empty group cannot reach a
 # division that is only accidentally safe.
-if re.search(r'presetPageMax\s*=\s*\(\(long\)', vr):
+if re.search(r'presetPageMax\s*=\s*Int32\(\s*\(', vr):
     failures.append('presetPageMax is computed by hand again')
-if 'HorosPresetPageLayout pageCountForPresetCount:' not in vr:
+if 'PresetPageLayout.pageCount(presetCount:' not in vr:
     failures.append('the page count no longer comes from the layout')
 
-# Both places that turn a selection into a preset have to survive a stale one.
-for name, marker in (('updatePresetInfoPanel', '- (void)updatePresetInfoPanel;'),
-                     ('load3DSettings:', '- (IBAction)load3DSettings:(id)sender;')):
+# Both places that turn a selection into a preset have to survive a stale one
+# (-load3DSettings: applies the selection through applySelectedPreset()).
+for name, marker in (('updatePresetInfoPanel', '    public final func updatePresetInfoPanel() {'),
+                     ('load3DSettings:', '    private func applySelectedPreset() {')):
     at = vr.find(marker)
     section = vr[at:at + 2600] if at >= 0 else ''
     if not section:
         failures.append('%s is gone' % name)
         continue
-    if re.search(r'objectAtIndex:\s*\[selectedPresetPreview index\]', section):
+    if re.search(r'object\(at:\s*Int\(selectedPresetPreview', section):
         failures.append('%s still indexes the settings list with the raw selection' % name)
-    if 'selected >= (NSInteger) [settingsList count]' not in section:
+    if 'selected >= 0 && selected < settingsList.count' not in section:
         failures.append('%s does not check the selection against the list it is about to index'
                         % name)
 

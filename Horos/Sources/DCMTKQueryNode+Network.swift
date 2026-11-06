@@ -1,0 +1,637 @@
+/*=========================================================================
+ This file is part of the Horos Project (www.horosproject.org)
+ 
+ Horos is free software: you can redistribute it and/or modify
+ it under the terms of the GNU Lesser General Public License as published by
+ the Free Software Foundation,  version 3 of the License.
+ 
+ The Horos Project was based originally upon the OsiriX Project which at the time of
+ the code fork was licensed as a LGPL project.  However, not all of the the source-code
+ was properly documented and file headers were not all updated with the appropriate
+ license terms. The Horos Project, originally was licensed under the  GNU GPL license.
+ However, contributors to the software since that time have agreed to modify the license
+ to the GNU LGPL in order to be conform to the changes previously made to the
+ OsiriX Project.
+ 
+ Horos is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY EXPRESS OR IMPLIED, INCLUDING ANY WARRANTY OF
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE OR USE.  See the
+ GNU Lesser General Public License for more details.
+ 
+ You should have received a copy of the GNU Lesser General Public License
+ along with Horos.  If not, see http://www.gnu.org/licenses/lgpl.html
+ 
+ Prior versions of this file were published by the OsiriX team pursuant to
+ the below notice and licensing protocol.
+ ============================================================================
+ Program:   OsiriX
+  Copyright (c) OsiriX Team
+  All rights reserved.
+  Distributed under GNU - LGPL
+  
+  See http://www.osirix-viewer.com/copyright.html for details.
+     This software is distributed WITHOUT ANY WARRANTY; without even
+     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+     PURPOSE.
+ ============================================================================*/
+//
+//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
+
+import Cocoa
+import IsiXDICOMNetwork
+import IsiXKeychain
+import IsiXPreferences
+import Synchronization
+
+/// The "Connecting to..." window of a request made on the main thread, which
+/// keeps the main run loop going while the request waits. Off the main
+/// thread there is none, and every call does nothing.
+final class QueryProgressWindow: @unchecked Sendable {
+    private var wait: WaitRendering?
+
+    init?(message: String, showWindow: Bool = false) {
+        guard Thread.isMainThread else { return nil }
+        MainActor.assumeIsolated {
+            let window = WaitRendering(message)
+            window?.setCancel(true)
+            if showWindow { window?.showWindow(nil) }
+            window?.start()
+            wait = window
+        }
+    }
+
+    func run() {
+        guard Thread.isMainThread else { return }
+        MainActor.assumeIsolated { _ = wait?.run() }
+    }
+
+    var aborted: Bool {
+        guard Thread.isMainThread else { return false }
+        return MainActor.assumeIsolated { wait?.aborted() ?? false }
+    }
+
+    func end() {
+        guard Thread.isMainThread else { return }
+        MainActor.assumeIsolated {
+            wait?.end()
+            wait = nil
+        }
+    }
+}
+
+/// An association and what its request sends, handed to the thread that runs
+/// the request while the thread that asked waits for it.
+///
+/// `@unchecked Sendable`: the adapter's objects are not Sendable. The thread
+/// that asked does not touch the request again, and uses the association
+/// only once the request's thread has let it go, or to close the transport of
+/// an association it gives up on, which the adapter allows from any thread.
+private struct AssociationHandOff<Request>: @unchecked Sendable {
+    let association: IsiXDCMTKAssociation
+    let request: Request
+}
+
+/// A failure of an association, as the notices and the log say it.
+struct AssociationFailure: Error {
+    /// What failed, as the notice and the log title it. A closed set: the log
+    /// writes it as it is, so it cannot take text from a peer or a request.
+    enum Category: String {
+        case query = "DICOM Network Failure (query)"
+        case secureQuery = "DICOM Network Failure (TLS query)"
+        case peerAddress = "DICOM Network Failure"
+        case verification = "DICOM Verification Failed"
+    }
+
+    let category: Category
+    /// The step that failed with its DCMTK condition, a status, or the
+    /// diagnosis of the connection: codes, counts, the peer's address and
+    /// paths of files the app named itself (the TLS set-up, a received file),
+    /// never a value of the request's identifier or of a received object.
+    let reason: String
+}
+
+/// What the adapter's NSErrors say of a DCMTK condition; Swift sees them as Error.
+extension Error {
+    /// The DCMTK condition is good(), though not EC_Normal.
+    var isGoodCondition: Bool { ((self as NSError).userInfo[IsiXDCMTKConditionGoodKey] as? NSNumber)?.boolValue ?? false }
+    var conditionKind: IsiXDCMTKConditionKind { IsiXDCMTKError.kind(ofError: self as NSError) }
+    /// "mmmm:cccc text", as the logs and notices give a condition.
+    var conditionDescription: String { IsiXDCMTKError.conditionDescription(ofError: self as NSError) }
+    var conditionText: String { (self as NSError).userInfo[IsiXDCMTKConditionTextKey] as? String ?? localizedDescription }
+}
+
+/// The DIMSE associations of a node: verification, C-FIND, C-MOVE and C-GET,
+/// what to say when they fail, and the progress of a retrieve. What DCMTK
+/// does for them is in Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCU.
+extension DCMTKQueryNode {
+    private static let associationNumber = Atomic<Int32>(0)
+
+    /// Where a query that failed with no window to show it is said.
+    static let applicationNotices = ApplicationNetworkNotices.process
+
+    /// Verbose output, as the service class users have always had it on: the
+    /// progress of the association, its negotiation and the command of each
+    /// response. The datasets exchanged are not part of it. The service class
+    /// users printed them on every request: the identifier of each C-FIND,
+    /// C-MOVE and C-GET, which holds the values of the keys asked (a patient's
+    /// name, ID and birth date, an accession number), and what the peer
+    /// answered. The standard output of an application started from a
+    /// terminal or by a script is on screen or in a transcript, so they are
+    /// printed only while the user default of
+    /// `NetworkPreferences.dumpsDICOMDatasets` asks for them.
+    static let verboseAssociations = true
+
+    private static func standardError(_ text: String) {
+        FileHandle.standardError.write(Data(text.utf8))
+    }
+
+    private static func errmsg(_ text: String) {
+        standardError("DCMTKQueryNode: \(text)\n")
+    }
+
+    /// The node's settings as the description of a failure gives them.
+    var nodeConfigurationDescription: String {
+        DicomNodeConfiguration.description(forServer: extraParameters() as? [String: Any] ?? [:], callingAETitle: callingAETitle)
+    }
+
+    // MARK: Verification
+
+    /// Locations' Verify, which reaches it by name through a Foundation-only
+    /// runtime bridge: its preference pane lives below this executable.
+    @objc(verifyDICOMServer:)
+    class func verifyDICOMServer(_ server: [AnyHashable: Any]?) -> Bool {
+        if DICOMwebSources.isDICOMwebServer(server) {
+            if Thread.isMainThread {
+                let success = QueryNodeShared(false)
+                let done = DispatchSemaphore(value: 0)
+                // The node's settings as Locations gave them; nothing changes them.
+                let parameters = UncheckedSendableBox(server)
+                let wait = QueryProgressWindow(message: NSLocalizedString("Verifying DICOMweb...", comment: ""), showWindow: true)
+                let worker = ActivityThread.startUnlisted(name: "DICOMweb verification") { _ in
+                    autoreleasepool {
+                        success.modify { $0 = verifyDICOMServer(parameters.value) }
+                        done.signal()
+                    }
+                }
+                while done.wait(timeout: .now() + .milliseconds(50)) == .timedOut {
+                    wait?.run()
+                    if wait?.aborted == true { worker.cancel() }
+                }
+                wait?.end()
+                return success.current
+            }
+            do {
+                try DICOMwebSources.client(forServer: server, timeout: 10).verify()
+                return true
+            } catch {
+                return false
+            }
+        }
+        let address = server?["Address"] as? String ?? "", title = server?["AETitle"] as? String ?? ""
+        let port = Self.int32(server?["Port"])
+        guard !address.isEmpty, !title.isEmpty, port > 0, port <= 65535 else { return false }
+        let node = self.init(dataset: nil, callingAET: UserDefaults.defaultAETitle(), calledAET: title, hostname: address,
+                             port: port, transferSyntax: Self.int32(server?["TransferSyntax"]), compression: 0,
+                             extraParameters: server)
+        return node.setupNetwork(service: .verification, identifier: nil)
+    }
+
+    /// -intValue of a property-list value: a number or a text.
+    static func int32(_ value: Any?) -> Int32 {
+        if let number = value as? NSNumber { return number.int32Value }
+        if let text = value as? String { return (text as NSString).intValue }
+        return 0
+    }
+
+    // MARK: The association
+
+    /// The association for `service`, the service itself with `identifier`,
+    /// and its release: shared by verification, query and retrieve. Says what
+    /// failed in the notices panel, unless verifying or given up, and answers
+    /// whether it all went through. `quietly` is for an attempt that another
+    /// follows when it fails (the IMAGE level of a retrieve, before the series
+    /// or study level): its failure is logged and not told, since a notice
+    /// for a request the peer refused stood over a retrieve that then arrived.
+    @discardableResult
+    func setupNetwork(service: QueryRetrieveService, identifier: DICOMQueryIdentifier?, destination: String? = nil,
+                      quietly: Bool = false) -> Bool {
+        autoreleasepool {
+            var succeed = true
+            let completed = endedNormally(HorosObjCException.caught {
+                succeed = associate(service: service, identifier: identifier, destination: destination, quietly: quietly)
+            })
+            return completed && succeed
+        }
+    }
+
+    private func associate(service: QueryRetrieveService, identifier: DICOMQueryIdentifier?, destination: String?, quietly: Bool) -> Bool {
+        let verbose = Self.verboseAssociations
+        let verifying = service == .verification
+        _abortAssociation = false
+        let preferences = PreferencesSource.process.preferences
+        let wait = QueryProgressWindow(message: String(format: NSLocalizedString("Connecting to %@...", comment: ""), _hostname ?? ""))
+        let uniqueStringID = "\(getpid()).\(Self.associationNumber.wrappingAdd(1, ordering: .relaxed).oldValue).\(Int32.random(in: 0...Int32.max))"
+        let host = _hostname ?? "", called = calledAETitle ?? ""
+        var succeed = true
+        var association: IsiXDCMTKAssociation?
+        do {
+            let parameters = IsiXDCMTKAssociationParameters()
+            parameters.callingAETitle = callingAETitle
+            parameters.calledAETitle = calledAETitle
+            parameters.peerHost = host
+            parameters.peerPort = _port
+            parameters.abstractSyntax = service.rawValue
+            if service.isGet { parameters.preferredTransferSyntax = preferences[NetworkPreferences.preferredSyntaxForIncoming] }
+            parameters.acseTimeout = self.association.acseTimeout
+            parameters.dimseTimeout = self.association.dimseTimeout
+            parameters.connectionTimeout = preferences[NetworkPreferences.dicomConnectionTimeout]
+            parameters.verbose = verbose
+            parameters.dumpsDatasets = preferences[NetworkPreferences.dumpsDICOMDatasets]
+            if self.association.secureConnection {
+                prepareSecureTransport(parameters, uniqueStringID: uniqueStringID)
+            }
+
+            do {
+                association = try IsiXDCMTKAssociation(parameters: parameters)
+            } catch let error as NSError {
+                let category: AssociationFailure.Category = (error.userInfo[IsiXDCMTKSecureTransportKey] as? NSNumber)?.boolValue == true ? .secureQuery
+                    : (error.userInfo[IsiXDCMTKPeerAddressKey] as? NSNumber)?.boolValue == true ? .peerAddress : .query
+                throw AssociationFailure(category: category, reason: error.localizedDescription)
+            }
+            guard let association else { throw AssociationFailure(category: .query, reason: "no association") }
+
+            // Asked for on a thread of its own, so that the window can be
+            // cancelled and this thread's cancellation stops waiting for it.
+            var condition = waitFor(association: association, wait: wait)
+            if !association.hasAssociation && condition == nil {
+                // No association, and no reason given.
+                condition = IsiXDCMTKError.error(for: .illegalParameter)
+            }
+            // Otherwise the reason the request came back with: overwriting it
+            // made a closed port, an unknown host name, a refused association
+            // and a blocked local network all report "Illegal parameter".
+            if condition != nil { wait?.end() }
+
+            if let failure = condition, !failure.isGoodCondition {
+                // The DICOM condition is the same for a closed port, an unknown
+                // name, a firewall and a denied Local Network permission:
+                // the diagnosis establishes which it was.
+                let what = failure.conditionKind == .associationRejected ? "Association Rejected : " : "Association Request Failed : "
+                throw AssociationFailure(category: .query, reason: NetworkDiagnosis.explainFailure(
+                    toHost: host, port: Int(_port), condition: what + failure.conditionDescription))
+            }
+            if association.acceptedPresentationContextCount == 0 {
+                Self.errmsg("No Acceptable Presentation Contexts")
+                throw AssociationFailure(category: .query, reason: "No acceptable presentation contexts")
+            }
+
+            let dataset = identifier?.dataset()
+            switch service {
+            case .verification:
+                var status: UInt16 = 0xffff
+                condition = association.echo(withStatus: &status)
+                if condition == nil && status != 0 {
+                    throw AssociationFailure(category: .verification, reason: String(format: "C-ECHO returned status 0x%04x", status))
+                }
+                if condition != nil { succeed = false }
+            case .findStudyRoot:
+                if condition == nil {
+                    if let dataset { condition = find(on: association, identifier: dataset, wait: wait) }
+                    else { condition = IsiXDCMTKError.error(for: .illegalParameter) }
+                    wait?.end()
+                }
+            case .moveStudyRoot:
+                condition = dataset.map { cMove(on: association, identifier: $0, destination: destination, quietly: quietly) }
+                    ?? IsiXDCMTKError.error(for: .illegalParameter)
+            case .getStudyRoot, .getPatientStudyOnly:
+                condition = dataset.map { cGet(on: association, identifier: $0, quietly: quietly) } ?? IsiXDCMTKError.error(for: .illegalParameter)
+            case .getPatientRoot:
+                NSLog("Q/R SCU bad Abstract Sytnax: %@", service.rawValue)
+            }
+
+            // Tear down the association.
+            if condition == nil {
+                if _abortAssociation {
+                    if verbose { print("Aborting Association") }
+                    if let failure = association.closeTransportConnection() {
+                        if verbose { Self.errmsg("Association Abort Failed:\n\(failure.conditionDescription)") }
+                        throw AssociationFailure(category: .query, reason: "Association Abort Failed " + failure.conditionDescription)
+                    }
+                } else {
+                    if verbose { print("Releasing Association") }
+                    if let failure = association.releaseAssociation() {
+                        if verbose { Self.errmsg("Association Release Failed:\n\(failure.conditionDescription)") }
+                        throw AssociationFailure(category: .query, reason: "Association Release Failed " + failure.conditionDescription)
+                    }
+                }
+            } else if let failure = condition, failure.conditionKind == .peerRequestedRelease {
+                Self.errmsg("Protocol Error: peer requested release (Aborting)")
+                if verbose { print("Aborting Association") }
+                let reason = "Protocol Error: peer requested release (Aborting) " + failure.conditionDescription
+                if let abort = association.closeTransportConnection(), verbose { Self.errmsg("Association Abort Failed:\n\(abort.conditionDescription)") }
+                throw AssociationFailure(category: .query, reason: reason)
+            } else if let failure = condition, failure.conditionKind == .peerAbortedAssociation {
+                if verbose { print("Peer Aborted Association") }
+            } else if let failure = condition {
+                if verbose {
+                    Self.errmsg("SCU Failed:\n\(failure.conditionDescription)")
+                    print("Aborting Association")
+                }
+                let reason = "SCU Failed " + failure.conditionDescription
+                if let abort = association.closeTransportConnection(), verbose { Self.errmsg("Association Abort Failed:\n\(abort.conditionDescription)") }
+                throw AssociationFailure(category: .query, reason: reason)
+            }
+        } catch {
+            let failure = error as? AssociationFailure ?? AssociationFailure(category: .query, reason: "\(error)")
+            // The whole configuration, in a fixed order, so the report from a
+            // machine that works and the report from one that does not differ
+            // only where the configurations do.
+            let response = "\(called)  /  \(host):\(_port)\r\r\(failure.category.rawValue)\r\(failure.reason)\r\r\(nodeConfigurationDescription)"
+            if quietly {
+                NSLog("---- %@: %@ (another level follows)", failure.category.rawValue, failure.reason)
+            } else if !verifying && !_abortAssociation && !Thread.current.isCancelled {
+                if showErrorMessageValue {
+                    Self.postNotice(NSLocalizedString("Query Failed (1)", comment: ""), response)
+                } else {
+                    Self.applicationNotices.notify(title: NSLocalizedString("Query Failed (1)", comment: ""), description: response, name: "autoquery")
+                }
+            }
+            NSLog("---- DCMTKQueryNode failed: %@", failure.reason)
+            succeed = false
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        wait?.end()
+        // The association's network, association and TLS layer are destroyed
+        // two minutes after this, when no thread can be using them any more.
+        association = nil
+        if self.association.secureConnection { removeSecureTransportFiles(uniqueStringID: uniqueStringID) }
+        return succeed
+    }
+
+    /// Asks for the association on a thread, and waits for it while the
+    /// window runs, until it answers or is given up: then DUL_NETWORKCLOSED.
+    private func waitFor(association: IsiXDCMTKAssociation, wait: QueryProgressWindow?) -> (any Error)? {
+        let lock = NSRecursiveLock()
+        let started = DispatchSemaphore(value: 0)
+        let outcome = QueryNodeShared<(any Error)?>(nil)
+        let requested = AssociationHandOff(association: association, request: ())
+        // DCMTK blocks the thread that asks for the association until the
+        // peer answers or the connection times out: a thread of its own.
+        ActivityThread.startUnlisted(name: "DCMTKQueryNode ASC_requestAssociation") { [self] _ in
+            autoreleasepool {
+                lock.lock()
+                started.signal()
+                if !_abortAssociation {
+                    let condition = requested.association.request()
+                    outcome.modify { $0 = condition }
+                }
+                // After cancellation, close through the public transport API.
+                // DCMTK's A-ABORT handshake otherwise waits up to a minute for an
+                // unresponsive peer.
+                if _abortAssociation && requested.association.hasAssociation {
+                    _ = requested.association.closeTransportConnection()
+                }
+                lock.unlock()
+            }
+        }
+        started.wait()
+        Thread.sleep(forTimeInterval: 0.05)
+        while !(wait?.aborted ?? false) && !_abortAssociation && !Thread.current.isCancelled && HorosDICOMGlobalAbortRequested() == 0 {
+            wait?.run()
+            Thread.sleep(forTimeInterval: 0.05)
+            if lock.try() {
+                lock.unlock()
+                break
+            }
+        }
+        if (wait?.aborted ?? false) || _abortAssociation || Thread.current.isCancelled || HorosDICOMGlobalAbortRequested() != 0 {
+            _abortAssociation = true
+            return IsiXDCMTKError.error(for: .networkClosed)
+        }
+        return outcome.current
+    }
+
+    /// Writes what DCMTK's TLS layer reads, under a name of this association.
+    private func prepareSecureTransport(_ parameters: IsiXDCMTKAssociationParameters, uniqueStringID: String) {
+        association.prepareSecureTransport(parameters, host: _hostname, port: _port, aeTitle: calledAETitle, uniqueStringID: uniqueStringID)
+    }
+
+    private func removeSecureTransportFiles(uniqueStringID: String) {
+        DICOMAssociationSettings.removeSecureTransportFiles(host: _hostname, port: _port, aeTitle: calledAETitle, uniqueStringID: uniqueStringID)
+    }
+
+    // MARK: C-FIND
+
+    /// The C-FIND on a thread of its own, waited for as the association is.
+    private func find(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset, wait: QueryProgressWindow?) -> (any Error)? {
+        let lock = NSRecursiveLock()
+        let started = DispatchSemaphore(value: 0)
+        let outcome = QueryNodeShared<(any Error)?>(nil)
+        let found = AssociationHandOff(association: association, request: identifier)
+        ActivityThread.startUnlisted(name: "CFind Thread") { [self] _ in
+            autoreleasepool {
+                lock.lock()
+                started.signal()
+                endedNormally(HorosObjCException.caught {
+                    outcome.modify { $0 = findSCU(on: found.association, identifier: found.request) }
+                })
+                lock.unlock()
+            }
+        }
+        started.wait()
+        Thread.sleep(forTimeInterval: 0.05)
+        while !(wait?.aborted ?? false) && !_abortAssociation && !Thread.current.isCancelled && HorosDICOMGlobalAbortRequested() == 0 {
+            wait?.run()
+            Thread.sleep(forTimeInterval: 0.05)
+            if lock.try() {
+                lock.unlock()
+                break
+            }
+        }
+        if (wait?.aborted ?? false) || _abortAssociation || Thread.current.isCancelled || HorosDICOMGlobalAbortRequested() != 0 {
+            _abortAssociation = true
+            return IsiXDCMTKError.error(for: .networkClosed)
+        }
+        return outcome.current
+    }
+
+    /// Sends the C-FIND; each match becomes a child. A failure status is said.
+    private func findSCU(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset) -> (any Error)? {
+        let result = association.find(withIdentifier: identifier) { [self] match in addChild(match) }
+        lastQuerySucceededValue = result.conditionGood && result.status == 0x0000
+        if result.condition == nil && result.status != 0x0000 && result.status != 0xff00 {
+            var response = "\(calledAETitle ?? "(null)")  /  \(_hostname ?? "(null)"):\(_port)\r\r" + result.statusText
+            if let detail = result.statusDetail { response += "\r\r\r" + detail }
+            if showErrorMessageValue && !_abortAssociation {
+                Self.postNotice(NSLocalizedString("Query Failed (2)", comment: ""), response)
+            } else {
+                Self.applicationNotices.notify(title: NSLocalizedString("Query Failed (2)", comment: ""), description: response, name: "autoquery")
+            }
+        }
+        return result.condition
+    }
+
+    // MARK: C-MOVE and C-GET
+
+    /// The instances a request names at the IMAGE level, nil when it names
+    /// none, and the series it names.
+    static func requestedInstances(_ request: IsiXDCMTKDataset?) -> (instances: [String]?, series: String) {
+        guard let request else { return ([], "") }
+        return QueryIdentifiers.requestedInstances(level: request.utf8Value(.queryRetrieveLevel),
+                                                   series: request.utf8Value(.seriesInstanceUID),
+                                                   sopInstanceUIDs: request.utf8Values(.sopInstanceUID))
+    }
+
+    /// The progress of a retrieval, as a fraction of the sub-operations the
+    /// peer has accounted for.
+    static func reportProgress(accounted: UInt, finished: UInt) {
+        let thread = Thread.current
+        thread.progress = CGFloat(RetrieveProgress.fraction(accounted: accounted, finished: finished))
+        ActivityProgressCount.set(done: Int(finished), total: Int(accounted), on: thread)
+    }
+
+    /// Updates `progress` and the bar after a response or a wait.
+    private func reportRetrieveProgress(_ progress: inout RetrieveProgress, requested: (instances: [String]?, series: String),
+                                        counted: Bool, accounted: UInt, finished: UInt) {
+        let shown = progress.update(counted: counted, accounted: accounted, finished: finished) {
+            guard let inventory = currentRetrieveInventory(), inventory.inventoryConfirmed else { return nil }
+            let arrivals = inventory.arrivals(requested: requested.instances ?? [], series: requested.series)
+            guard let received = arrivals.first, let asked = arrivals.last else { return nil }
+            return (UInt(max(0, received)), UInt(max(0, asked)))
+        }
+        if let shown { Self.reportProgress(accounted: shown.accounted, finished: shown.finished) }
+    }
+
+    /// The Failed SOP Instance UID List of a response: what the peer said it
+    /// cannot send.
+    private func recordFailedIdentifiers(_ failed: String?) {
+        guard let failed, let inventory = currentRetrieveInventory() else { return }
+        for uid in failed.components(separatedBy: "\\") where !uid.isEmpty { inventory.recordPeerFailedUID(uid) }
+    }
+
+    /// The C-MOVE and C-GET operations under way in the process, by node.
+    static let retrieveOperations = RetrieveOperationsUnderWay()
+
+    /// One C-MOVE, unless this node is already being moved. Listed among the
+    /// moves while it runs, so that a new query does not let it go.
+    private func cMove(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset, destination: String?, quietly: Bool) -> (any Error)? {
+        Self.retrieveOperations.run(for: self) { moveSCU(on: association, identifier: identifier, destination: destination, quietly: quietly) } ?? nil
+    }
+
+    private func moveSCU(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset, destination: String?, quietly: Bool) -> (any Error)? {
+        let showErrorMessageValue = showErrorMessageValue && !quietly
+        guard association.acceptsAbstractSyntax(QueryRetrieveService.moveStudyRoot.rawValue) else {
+            return IsiXDCMTKError.error(for: .noPresentationContext)
+        }
+        let requested = Self.requestedInstances(identifier)
+        var progress = RetrieveProgress()
+        let result = association.move(withIdentifier: identifier, destination: destination) { counted, accounted, finished in
+            reportRetrieveProgress(&progress, requested: requested, counted: counted, accounted: UInt(accounted), finished: UInt(finished))
+        }
+        // The wait looks at the listing once a second: what arrived since its last look.
+        if progress.listingShown { reportRetrieveProgress(&progress, requested: requested, counted: false, accounted: 0, finished: 0) }
+        let status = UInt(result.status), completed = UInt(result.completed), failed = UInt(result.failed)
+        let warnings = UInt(result.warnings), remaining = UInt(result.remaining)
+        countOfSuboperations = completed + failed + warnings + remaining
+        countOfSuccessfulSuboperations = completed
+        let inventory = currentRetrieveInventory()
+        inventory?.record(operation: "C-MOVE", status: status, completed: completed, failed: failed, warnings: warnings, remaining: remaining)
+        recordFailedIdentifiers(result.failedSOPInstanceUIDs)
+        if Thread.current.isCancelled { reportRetrieveCancellation("C-MOVE", confirmed: result.conditionGood && result.status == 0xfe00) }
+        if let condition = result.condition {
+            NSLog("---- C-MOVE failed: %@", condition.conditionText)
+            if showErrorMessageValue && !Thread.current.isCancelled {
+                Self.postNotice(NSLocalizedString("Move Failed", comment: ""), "\(condition.conditionText)\r\r\(nodeConfigurationDescription)")
+            }
+        } else {
+            let completion = RetrieveCompletion(operation: "C-MOVE", status: status, statusText: result.moveStatusText,
+                                                completed: completed, failed: failed, warnings: warnings, remaining: remaining)
+            // A C-MOVE that could not send everything ends on a warning, not a
+            // failure, and the association is released as if nothing were
+            // missing. The counts are the only thing that says otherwise, so
+            // they are what is reported - and the retrieval is not turned into
+            // an error, because an image-level retrieve cancels its thread on
+            // one and would stop fetching the instances that are still to come.
+            if !completion.everythingArrived {
+                result.printResponse()
+                NSLog("---- %@", completion.summary)
+                if showErrorMessageValue && inventory?.inventoryConfirmed != true && !Thread.current.isCancelled {
+                    Self.postNotice(NSLocalizedString("Move Failed", comment: ""), "\(completion.summary)\r\r\(nodeConfigurationDescription)")
+                }
+            }
+        }
+        return result.condition
+    }
+
+    /// One C-GET, unless this node is already being moved; listed among the
+    /// moves while it runs.
+    private func cGet(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset, quietly: Bool) -> (any Error)? {
+        Self.retrieveOperations.run(for: self) { getSCU(on: association, identifier: identifier, quietly: quietly) } ?? nil
+    }
+
+    private func getSCU(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset, quietly: Bool) -> (any Error)? {
+        let showErrorMessageValue = showErrorMessageValue && !quietly
+        countOfSuboperations = 0
+        countOfSuccessfulSuboperations = 0
+        guard association.acceptsAbstractSyntax(QueryRetrieveService.getStudyRoot.rawValue) else {
+            return IsiXDCMTKError.error(for: .noPresentationContext)
+        }
+        let requested = Self.requestedInstances(identifier)
+        var progress = RetrieveProgress()
+        let result = association.get(withIdentifier: identifier, storage: { SCPDatabaseSession(callingAETitle: $0) },
+                                     progress: { counted, accounted, finished in
+            reportRetrieveProgress(&progress, requested: requested, counted: counted, accounted: UInt(accounted), finished: UInt(finished))
+        }, incoming: {
+            // The stores land in the incoming folder, as the listener's do.
+            DatabaseIngest.process.requestImport()
+        })
+        let status = UInt(result.status), completed = UInt(result.completed), failed = UInt(result.failed)
+        let warnings = UInt(result.warnings), remaining = UInt(result.remaining)
+        countOfSuboperations = completed + failed + warnings + remaining
+        countOfSuccessfulSuboperations = completed
+        let inventory = currentRetrieveInventory()
+        inventory?.record(operation: "C-GET", status: status, completed: completed, failed: failed, warnings: warnings, remaining: remaining)
+        recordFailedIdentifiers(result.failedSOPInstanceUIDs)
+        // Only C-GET: its stores arrive on this association, so what did not
+        // arrive is known here.
+        var onlyUnoffered = false
+        if result.conditionGood && !Thread.current.isCancelled, let inventory, let instances = requested.instances {
+            onlyUnoffered = inventory.recordUnsent(requested: instances, series: requested.series, status: status,
+                                                   failed: failed, remaining: remaining)
+        }
+        if Thread.current.isCancelled { reportRetrieveCancellation("C-GET", confirmed: result.conditionGood && result.status == 0xfe00) }
+        var condition = result.condition
+        if let failure = result.condition {
+            NSLog("---- C-GET failed: %@", failure.conditionText)
+            if showErrorMessageValue && !Thread.current.isCancelled {
+                Self.postNotice(NSLocalizedString("Get Failed", comment: ""), "\(failure.conditionText)\r\r\(nodeConfigurationDescription)")
+            }
+        } else {
+            let statusText = HorosDIMSEPolicy.cGetStatusDescription(status)
+            let completion = RetrieveCompletion(operation: "C-GET", status: status, statusText: statusText,
+                                                completed: completed, failed: failed, warnings: warnings, remaining: remaining)
+            // Failures that are all instances of classes this retrieve does not
+            // offer to receive are expected absences: nothing failed that
+            // could have arrived.
+            if !completion.everythingArrived && onlyUnoffered {
+                NSLog("---- %@: only instances of storage classes this C-GET does not offer", completion.summary)
+            } else if !completion.everythingArrived {
+                NSLog("---- %@", completion.summary)
+                // A completed association with failed sub-operations can be
+                // repaired by the bounded inventory retry. A refused request
+                // still triggers the fallback.
+                let recoverablePartial = inventory?.inventoryConfirmed == true && (result.status == 0xb000 || result.status == 0xa702)
+                if !Thread.current.isCancelled && !recoverablePartial {
+                    condition = IsiXDCMTKError.receiveFailedError(withText: completion.summary)
+                }
+                if showErrorMessageValue && inventory?.inventoryConfirmed != true && !Thread.current.isCancelled {
+                    Self.postNotice(NSLocalizedString("Get Failed", comment: ""), "\(completion.summary)\r\r\(nodeConfigurationDescription)")
+                }
+            }
+        }
+        return condition
+    }
+
+    /// The storage SOP classes a C-GET offers to receive, in the Storage SCP role.
+    static var storageClassesOfferedByCGET: Set<String> { Set(IsiXDCMTKAssociation.storageSOPClassesOfferedByGet) }
+}

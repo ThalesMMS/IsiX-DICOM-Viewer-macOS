@@ -74,10 +74,17 @@ int main() { @autoreleasepool {
 } return 0; }
 '''
 
-swift = read('Horos/Sources/ViewerController+Toolbar.swift')
+# The viewer's -shutterOnOff: hands its work to ViewerToolbarItemFactory;
+# before, it was in ViewerController+Toolbar.swift.
+swift = read('Horos/Sources/ViewerToolbarItemFactory.swift')
 if swift is not None:
-    a = swift.index('@objc(shutterOnOff:)')
-    action = swift[a:swift.index('@objc(resetCLUT:)', a)]
+    action = swift[swift.index('    func shutterOnOff('):]
+else:
+    swift = read('Horos/Sources/ViewerController+Toolbar.swift')
+    if swift is not None:
+        a = swift.index('@objc(shutterOnOff:)')
+        action = swift[a:swift.index('@objc(resetCLUT:)', a)]
+if swift is not None:
     start = action.index('//shutterRect inside frame?')
     # The lines are a function of the method, which returns the rectangle.
     end = action.find('return shutterRect', start)
@@ -128,7 +135,7 @@ for (x, y, w, h), got in zip(CASES, results):
 # become the shutter: the check comes before -deleteROI:.
 if swift is not None:
     guard = action.find('if inside.size.width <= 0 || inside.size.height <= 0 { selectedROI = nil }')
-    delete = action.find('self.delete(selectedROI)')
+    delete = max(action.find('self.delete(selectedROI)'), action.find('viewer.delete(selectedROI)'))
     if guard < 0 or delete < 0 or guard > delete:
         failures.append('a ROI wholly outside the current image is deleted and becomes the shutter')
 
@@ -151,7 +158,7 @@ final class DCMPix: NSObject {
     var shutterPolygonal: NSArray? = nil
     init(_ w: Int, _ h: Int) { pwidth = w; pheight = h }
 }
-final class ImageView { var curImage: Int16 = 0; var dcmPixList: NSMutableArray? = nil; func setIndex(_ i: Int16) {} }
+final class ImageView { var curImage = 0; var dcmPixList: NSMutableArray? = nil; func setIndex(_ i: Int) {} }
 final class Button { var state: NSControl.StateValue = .off }
 var alerts = 0
 enum HorosAlertPanel {
@@ -211,6 +218,10 @@ print("ok")
 if swift is not None:
     body = action[action.index('    func shutterOnOff('):]
     body = body[:body.rindex('\n    }\n') + 7]
+    if 'in viewer: ViewerController' in body:
+        # The factory's method, which takes the viewer, behind the viewer's action.
+        body = ('}\nstruct Toolbar {\n    func objcTitle(_ o: Any?) -> String? { return nil }\n' + body +
+                '}\nextension ViewerController {\n    func shutterOnOff(_ sender: Any?) { Toolbar().shutterOnOff(sender, in: self) }\n')
     program = METHOD.replace('METHOD', body)
     with tempfile.TemporaryDirectory() as work:
         path = Path(work) / 'shutter.swift'

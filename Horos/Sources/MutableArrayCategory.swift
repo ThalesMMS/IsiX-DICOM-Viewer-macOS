@@ -41,9 +41,8 @@ import Foundation
 
 // NSMutableArray (MutableArrayCategory) is implemented in Swift; the
 // selectors and <Horos/MutableArrayCategory.h> are those of the former
-// category. -shuffle and NSArray (ArrayCategory) -shuffledArray draw from
-// rand(), which Swift cannot call: they stay in MutableArrayCategory+CAPI.m,
-// with the exported sortByAddress function.
+// category, without -shuffle and NSArray (ArrayCategory) -shuffledArray, which
+// nothing sent any more.
 
 public extension NSMutableArray {
 

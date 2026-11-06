@@ -38,21 +38,21 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
+import IsiXPreferences
 
 // The second part of the "ww/wl" block of DCMView is implemented in Swift:
 // the conversions between the view's and the image's coordinates, the
 // geometry helpers, the orientation letters and the textual annotations. An
-// extension of DCMView, which stays Objective-C, with the same selectors; their
-// former declarations are in DCMView+WindowLevel.h, shared with the first part
-// (DCMView+WindowLevel.swift).
+// extension of DCMView, with the same selectors. The first
+// part is DCMView+WindowLevel.swift.
 //
 // The conversions run per mouse event, and -drawOrientation: and
 // -drawTextualData:... per frame: the instance variables are read once through
 // their accessors where the Objective-C read them several times without a write
-// in between, the C arrays are stack buffers, and the NSString properties that
-// are only tested are read by message, without bridging them to String. The
-// Swift strings left are those of the APIs Swift imports with String (the
-// NSLocalizedString keys, -DrawNSStringGL:..., -isEqualToString:).
+// in between, and the C arrays are stack buffers. What the annotations say and
+// where it goes is AnnotationOverlayLayout's (IsiXImaging); the view reads the
+// values the fields ask for (ViewAnnotationValues) and draws the text.
 
 /// The OpenGL enumerant ROICanvasGL.h names, which Swift cannot import: that
 /// header imports Horos-Swift.h.
@@ -70,29 +70,10 @@ private func roiLoadIdentity() { ROICanvas.current?.loadIdentity() }
 private func roiScalef(_ x: Float, _ y: Float, _ z: Float) { ROICanvas.current?.scale(x: Double(x), y: Double(y), z: Double(z)) }
 private func roiTranslatef(_ x: Float, _ y: Float, _ z: Float) { ROICanvas.current?.translate(x: Double(x), y: Double(y), z: Double(z)) }
 
-/// A floating-point value converted to int as the arm64 code of the C did
-/// (fcvtzs): toward zero, saturated, NaN to 0; a Swift conversion traps instead.
-@inline(__always)
-private func cInt32(_ x: Double) -> Int32 {
-    if x.isNaN { return 0 }
-    if x >= 2147483647.0 { return Int32.max }
-    if x <= -2147483648.0 { return Int32.min }
-    return Int32(x)
-}
-
-/// The same, to long.
-@inline(__always)
-private func cLong(_ x: Double) -> Int {
-    if x.isNaN { return 0 }
-    if x >= 9223372036854775807.0 { return Int.max }
-    if x <= -9223372036854775808.0 { return Int.min }
-    return Int(x)
-}
-
 /// An object of an Objective-C collection or of an `id` result, to which the
 /// Objective-C sent messages whatever its class: they are sent to it the same
-/// way, so a malformed annotation raises the same NSException, which the
-/// @catch of -drawTextualData:... reports.
+/// way, so a malformed entry raises the same NSException, which the caller's
+/// @catch reports.
 @inline(__always)
 private func objcObject<T: AnyObject>(_ object: Any, _ type: T.Type) -> T {
     return unsafeBitCast(object as AnyObject, to: T.self)
@@ -112,134 +93,213 @@ private func objcProperty(_ receiver: NSObject?, _ getter: Selector) -> AnyObjec
     return receiver?.perform(getter)?.takeUnretainedValue()
 }
 
-/// `[object isEqualToString: string]` of an `id`: NO for nil.
-@inline(__always)
-private func objcIsEqualToString(_ object: Any?, _ string: String) -> Bool {
-    guard let object = object else { return false }
-    return objcObject(object, NSString.self).isEqual(to: string)
-}
+private let kImageTypeGetter = #selector(getter: DCMPix.imageType)
 
-/// An `id` that may be nil, as the NSArray the Objective-C sent it messages as.
-@inline(__always)
-private func objcArray(_ object: Any?) -> NSArray? {
-    guard let object = object else { return nil }
-    return unsafeBitCast(object as AnyObject, to: NSArray.self)
-}
+/// What a synchronization message searches, for a view's slices: the plane of
+/// each one, and what they were read for. The view keeps the last answer and
+/// drops it with its list of slices.
+struct SyncPlanes {
+    let imageType: String?
+    let volumic: Int32
+    let ends: [SIMD3<Float>]
+    let planes: [SliceSynchronizer.Plane]
 
-/// `[[dictionary objectForKey: key] intValue]` of the NSNumber dictionaries
-/// -drawTextualData:... builds: 0 for a missing key.
-@inline(__always)
-private func intValue(_ dictionary: NSDictionary, _ key: Any) -> Int32 {
-    return (dictionary.object(forKey: key) as? NSNumber)?.int32Value ?? 0
-}
-
-/// A "%@" argument: nil prints "(null)", as it did in a format.
-private func arg(_ value: Any?) -> CVarArg {
-    guard let value = value else { return "(null)" as NSString }
-    return unsafeBitCast(value as AnyObject, to: NSObject.self)
-}
-
-/// N2LogExceptionWithStackTrace for an exception HorosObjCException caught.
-private func logException(_ error: Error, _ function: StaticString) {
-    guard let exception = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException else { return }
-    function.withUTF8Buffer { buffer in
-        buffer.withMemoryRebound(to: CChar.self) { _N2LogExceptionImpl(exception, true, $0.baseAddress) }
+    /// The planes of the images a plane search looks in: each one's normal
+    /// (the last image's for all when the series is one volume), its origin,
+    /// and whether its image type is `preferredImageType` (never for an empty one).
+    /// `kept` answers while it was read for the same search and stack.
+    static func planes(of images: NSArray?, preferredImageType: NSString?, volumic: Int32, kept: inout SyncPlanes?) -> [SliceSynchronizer.Plane] {
+        guard let images else { return [] }
+        // A geometry rewritten in the same DCMPix objects moves the ends of the stack.
+        let first = images.firstObject.map { objcObject($0, DCMPix.self) }, last = images.lastObject.map { objcObject($0, DCMPix.self) }
+        let ends = [first, last].compactMap { $0 }.flatMap { [horosPlaneNormal($0), horosPlaneOrigin($0)] }
+        if let kept, kept.imageType == preferredImageType as String?, kept.volumic == volumic, kept.ends == ends {
+            return kept.planes
+        }
+        let prefersType = (preferredImageType?.length ?? 0) != 0
+        let volumeNormal: SIMD3<Float>? = volumic == 1 ? horosPlaneNormal(last) : nil
+        var planes: [SliceSynchronizer.Plane] = []
+        planes.reserveCapacity(images.count)
+        for element in images {
+            let pix = objcObject(element, DCMPix.self)
+            // Both are NSString: -isEqual: answers as -isEqualToString:, without bridging them to String.
+            let matchesType = prefersType && ((objcProperty(pix, kImageTypeGetter) as? NSString)?.isEqual(preferredImageType) ?? false)
+            planes.append(SliceSynchronizer.Plane(normal: volumeNormal ?? horosPlaneNormal(pix), origin: horosPlaneOrigin(pix), matchesType: matchesType))
+        }
+        kept = SyncPlanes(imageType: preferredImageType as String?, volumic: volumic, ends: ends, planes: planes)
+        return planes
     }
 }
 
-// The keys of the annotation positions and of the dictionaries
-// -drawTextualData:... builds per frame: constants, as the @"" of the
-// Objective-C were. NSString is not Sendable, and only DCMView, which AppKit
-// isolates to the main actor, reads them: they are isolated there.
-@MainActor private let kTopLeft: NSString = "TopLeft"
-@MainActor private let kMiddleLeft: NSString = "MiddleLeft"
-@MainActor private let kLowerLeft: NSString = "LowerLeft"
-@MainActor private let kTopRight: NSString = "TopRight"
-@MainActor private let kMiddleRight: NSString = "MiddleRight"
-@MainActor private let kLowerRight: NSString = "LowerRight"
-@MainActor private let kTopMiddle: NSString = "TopMiddle"
-@MainActor private let kLowerMiddle: NSString = "LowerMiddle"
+/// The annotations' texts and the orientation letters in the viewer's
+/// language, looked up once.
+private let annotationPhrases: AnnotationPhrases = {
+    var phrases = AnnotationPhrases()
+    phrases.imageSize = NSLocalizedString("Image size: %ld x %ld", comment: "")
+    phrases.viewSize = NSLocalizedString("View size: %ld x %ld", comment: "")
+    phrases.mouseColour = NSLocalizedString("X: %d px Y: %d px Value: R:%ld G:%ld B:%ld", comment: "No special characters for this string, only ASCII characters.")
+    phrases.mouseGrey = NSLocalizedString("X: %d px Y: %d px Value: %2.2f %@", comment: "No special characters for this string, only ASCII characters.")
+    phrases.fusedColour = NSLocalizedString("Fused Image : X: %d px Y: %d px Value: R:%ld G:%ld B:%ld", comment: "No special characters for this string, only ASCII characters.")
+    phrases.fusedGrey = NSLocalizedString("Fused Image : X: %d px Y: %d px Value: %2.2f %@", comment: "No special characters for this string, only ASCII characters.")
+    phrases.suv = NSLocalizedString("SUV: %.2f", comment: "SUV: Standard Uptake Value - No special characters for this string, only ASCII characters.")
+    phrases.fusedSUV = NSLocalizedString("SUV (fused image): %.2f", comment: "SUV: Standard Uptake Value - No special characters for this string, only ASCII characters.")
+    phrases.zoom = NSLocalizedString("Zoom: %0.0f%%", comment: "No special characters for this string, only ASCII characters.")
+    phrases.angle = NSLocalizedString(" Angle: %0.0f", comment: "No special characters for this string, only ASCII characters.")
+    phrases.imageRange = NSLocalizedString("Im: %ld-%ld/%ld %@", comment: "No special characters for this string, only ASCII characters.")
+    phrases.image = NSLocalizedString("Im: %ld/%ld %@", comment: "No special characters for this string, only ASCII characters.")
+    phrases.windowLevelDecimals = NSLocalizedString("WL: %0.4f WW: %0.4f", comment: "WW: window width, WL: window level")
+    phrases.windowLevel = NSLocalizedString("WL: %d WW: %d", comment: "WW: window width, WL: window level")
+    phrases.windowPercent = NSLocalizedString("From: %d %% (%0.2f) to: %d %% (%0.2f)", comment: "No special characters for this string, only ASCII characters.")
+    phrases.thicknessMicronsLocationMicrons = NSLocalizedString("Thickness: %0.2f %cm Location: %0.2f %cm", comment: "")
+    phrases.thicknessMicrons = NSLocalizedString("Thickness: %0.2f %cm Location: %0.2f mm", comment: "")
+    phrases.thickness = NSLocalizedString("Thickness: %0.2f mm Location: %0.2f mm", comment: "")
+    phrases.position = NSLocalizedString("Position: %@ ", comment: "")
+    phrases.letters = OrientationLetters(right: NSLocalizedString("R", comment: "R: Right"), left: NSLocalizedString("L", comment: "L: Left"),
+                                         anterior: NSLocalizedString("A", comment: "A: Anterior"), posterior: NSLocalizedString("P", comment: "P: Posterior"),
+                                         inferior: NSLocalizedString("I", comment: "I: Inferior"), superior: NSLocalizedString("S", comment: "S: Superior"))
+    return phrases
+}()
 
-private let kImageTypeGetter = #selector(getter: DCMPix.imageType)
-private let kLateralityGetter = #selector(getter: DCMPix.laterality)
-private let kMissingPixelsReasonGetter = #selector(getter: DCMPix.missingPixelsReason)
-private let kViewPositionGetter = #selector(getter: DCMPix.viewPosition)
-private let kPatientPositionGetter = #selector(getter: DCMPix.patientPosition)
-private let kRetrieveStatusOverlay = #selector(ViewerController.retrieveStatusOverlay)
+/// What the annotations of a view read from it, field by field, when a field
+/// shown at `level` asks: the mouse value, the window, the image's place in
+/// the series, the slice and the patient's name.
+@MainActor
+private struct ViewAnnotationValues: @MainActor AnnotationValueSource {
+    let view: DCMView
+    let level: Int
 
-// Copyright 2001, softSurfer (www.softsurfer.com)
-// This code may be freely used and modified for any purpose
-// providing that this copyright notice is included with it.
-// SoftSurfer makes no warranty for this code, and cannot be held
-// liable for any real or imagined damage resulting from its use.
-// Users of this code must verify correctness for their application.
+    func shows(_ token: String) -> Bool {
+        // A field holding the patient's name carries the prefix DCMPix marks it with.
+        let element = token.hasPrefix(DCMPixAnnotationPatientNamePrefix) ? AnnotationElement.patientName : AnnotationLevel.element(forItem: token)
+        return AnnotationLevel.shows(element, level: level)
+    }
 
-// Assume that classes are already given for the objects:
-//    Point and Vector with
-//        coordinates {float x, y, z;}
-//        operators for:
-//            Point  = Point ± Vector
-//            Vector = Point - Point
-//            Vector = Scalar * Vector    (scalar product)
-//    Plane with a point and a normal {Point V0; Vector n;}
-//===================================================================
+    func showsPatientName() -> Bool {
+        AnnotationLevel.shows(.patientName, level: Int(view.horos_annotationType))
+    }
 
-// dot product (3D) which allows vector operations in arguments
-// (the dot and norm macros of the C: norm = length of vector, the square root
-// of the float dot product computed in double)
+    func imageSize() -> (width: Int, height: Int) {
+        (view.curDCM?.pwidth ?? 0, view.curDCM?.pheight ?? 0)
+    }
 
-@inline(__always)
-private func dot(_ u: UnsafeMutablePointer<Float>, _ v: UnsafeMutablePointer<Float>) -> Float {
-    return u[0] * v[0] + u[1] * v[1] + u[2] * v[2]
-}
+    /// Only the views without a name, and the database's preview, show the value under the mouse.
+    func pixelProbe() -> AnnotationPixelProbe? {
+        let stringID = view.horos_stringID
+        guard (stringID?.length ?? 0) == 0 || (stringID?.isEqual(to: "previewDatabase") ?? false) else { return nil }
+        let pix = view.curDCM
+        let image = AnnotationPixelProbe.Reading(
+            x: view.horos_mouseXPos, y: view.horos_mouseYPos,
+            value: (pix?.isRGB ?? false) ? .colour(red: view.horos_pixelMouseValueR, green: view.horos_pixelMouseValueG, blue: view.horos_pixelMouseValueB)
+                                         : .grey(view.horos_pixelMouseValue),
+            suvConverted: pix?.suvConverted ?? false,
+            suv: (pix?.displaySUVValue ?? false) && (pix?.hasSUV ?? false) && !(pix?.suvConverted ?? false) ? view.getSUV() : nil)
+        var fused: AnnotationPixelProbe.Reading?
+        if let blending = view.horos_blending {
+            let fusedPix = blending.curDCM
+            fused = AnnotationPixelProbe.Reading(
+                x: view.horos_blendingMouseXPos, y: view.horos_blendingMouseYPos,
+                value: (fusedPix?.isRGB ?? false) ? .colour(red: view.horos_blendingPixelMouseValueR, green: view.horos_blendingPixelMouseValueG,
+                                                            blue: view.horos_blendingPixelMouseValueB)
+                                                  : .grey(view.horos_blendingPixelMouseValue),
+                suvConverted: fusedPix?.suvConverted ?? false,
+                suv: (fusedPix?.displaySUVValue ?? false) && (fusedPix?.hasSUV ?? false) && !(fusedPix?.suvConverted ?? false) ? view.getBlendedSUV() : nil)
+        }
+        return AnnotationPixelProbe(image: image, fused: fused)
+    }
 
-@inline(__always)
-private func norm(_ v: UnsafeMutablePointer<Float>) -> Double {
-    return sqrt(Double(dot(v, v)))
-}
+    func zoom() -> Float { view.displayedScaleValue() }
 
-@inline(__always)
-private func dot(_ u: UnsafeMutablePointer<Double>, _ v: UnsafeMutablePointer<Double>) -> Double {
-    return u[0] * v[0] + u[1] * v[1] + u[2] * v[2]
-}
+    func rotation() -> Float { view.displayedRotation() }
 
-@inline(__always)
-private func norm(_ v: UnsafeMutablePointer<Double>) -> Double {
-    return sqrt(dot(v, v))
+    /// The step between the images is given for a 2D viewer's series once it
+    /// is loaded and known to be one volume (asked once, then kept by the view).
+    func imagePosition() -> AnnotationImagePosition {
+        var step: (x: Double, y: Double, z: Double)?
+        if view.is2DViewer(), let viewer = view.windowController() as? ViewerController, viewer.isEverythingLoaded() {
+            if view.horos_volumicData == -1 {
+                view.horos_volumicData = viewer.isDataVolumicIn4D(true, checkEverythingLoaded: true, tryToCorrect: false) ? 1 : 0
+            }
+            let list = view.horos_dcmPixList
+            if view.horos_volumicSeries && (list?.count ?? 0) > 2 && view.horos_volumicData == 1,
+               let pix2 = list?.object(at: 2) as? DCMPix, let pix1 = list?.object(at: 1) as? DCMPix {
+                // From the second image: the first may be a scout.
+                step = (pix2.originX - pix1.originX, pix2.originY - pix1.originY, pix2.originZ - pix1.originZ)
+            }
+        }
+        return AnnotationImagePosition(current: Int(view.horos_curImage), count: view.horos_dcmPixList?.count ?? 0,
+                                       stack: Int(view.curDCM?.stack ?? 0), flipped: view.horos_flippedData, step: step)
+    }
+
+    /// The mouse in patient coordinates, at the middle image of a thick slab;
+    /// only views without a name show it.
+    func millimetrePosition() -> AnnotationMillimetrePosition? {
+        guard view.horos_stringID == nil else { return nil }
+        let pix = view.curDCM
+        var location: (Float, Float, Float) = (0, 0, 0)
+        withUnsafeMutablePointer(to: &location) { locationTuple in
+            locationTuple.withMemoryRebound(to: Float.self, capacity: 3) { locationPointer in
+                let stack = Int(pix?.stack ?? 0)
+                if stack > 1 {
+                    let curImage = Int(view.horos_curImage)
+                    let list = view.horos_dcmPixList
+                    var middle = view.horos_flippedData ? curImage - (stack - 1) / 2 : curImage + (stack - 1) / 2
+                    if middle < 0 { middle = 0 }
+                    if middle >= (list?.count ?? 0) { middle = (list?.count ?? 0) - 1 }
+                    if middle >= 0, let middlePix = list?.object(at: middle) as? DCMPix {
+                        middlePix.convertX(view.horos_mouseXPos, pixY: view.horos_mouseYPos, toDICOMCoords: locationPointer, pixelCenter: true)
+                    }
+                } else {
+                    pix?.convertX(view.horos_mouseXPos, pixY: view.horos_mouseYPos, toDICOMCoords: locationPointer, pixelCenter: true)
+                }
+            }
+        }
+        return AnnotationMillimetrePosition(x: location.0, y: location.1, z: location.2, isPlane: pix?.is3DPlane() ?? false,
+                                            pixelSpacingX: pix?.pixelSpacingX ?? 0)
+    }
+
+    /// The window, with the series' maximum for an image windowed as PET.
+    func windowLevel() -> AnnotationWindowLevel {
+        let pix = view.curDCM
+        let curImage = Int(view.horos_curImage), files = view.horos_dcmFilesList
+        let image = curImage >= 0 && curImage < (files?.count ?? 0) ? files?.object(at: curImage) as? NSObject : nil
+        let windowsAsPET = WindowLevelSettings.windowsAsPET(modality: image?.value(forKey: "modality") as? String,
+                                                            preferences: PreferencesSource.process.preferences)
+        return AnnotationWindowLevel(level: pix?.wl ?? 0, width: pix?.ww ?? 0, windowsAsPET: windowsAsPET,
+                                     maximumOfSeries: windowsAsPET ? pix?.maxValueOfSeries ?? 0 : 0)
+    }
+
+    func slice() -> AnnotationSlice {
+        let pix = view.curDCM
+        return AnnotationSlice(thickness: pix?.sliceThickness ?? 0, location: pix?.sliceLocation ?? 0, stack: Int(pix?.stack ?? 0),
+                               viewPosition: pix?.viewPosition, patientPosition: pix?.patientPosition)
+    }
+
+    func thickSlab() -> (thickness: Float, location: Float) {
+        var thickness: Float = 0, location: Float = 0
+        view.getThickSlabThickness(&thickness, location: &location)
+        return (thickness, location)
+    }
+
+    /// The name of the study of the current image.
+    func patientName() -> String? {
+        let curImage = Int(view.horos_curImage), files = view.horos_dcmFilesList
+        guard curImage >= 0 && curImage < (files?.count ?? 0) else { return nil }
+        return (files?.object(at: curImage) as? NSObject)?.value(forKeyPath: "series.study.name") as? String
+    }
 }
 
 extension DCMView {
 
     @objc(rotatePoint:)
     public dynamic func rotatePoint(_ a: NSPoint) -> NSPoint {
-        var a = a
-        let xx: Float, yy: Float
-        let size = self.frame
+        return ViewTransform.rotatedPoint(a, viewport: self.viewport, frameSize: self.frame.size, imageWidth: self.curDCM?.pwidth ?? 0,
+                                          imageHeight: self.curDCM?.pheight ?? 0, deg2rad: DCMView.horos_static_deg2rad)
+    }
 
-        if self.horos_xFlipped { a.x = size.size.width - a.x }
-        if self.horos_yFlipped { a.y = size.size.height - a.y }
-
-        a.x -= size.size.width / 2
-        //    a.x /= scaleValue;
-
-        a.y -= size.size.height / 2
-        //  a.y /= scaleValue;
-
-        let angle = Double(self.horos_rotation) * DCMView.horos_static_deg2rad
-        xx = Float(Double(a.x) * cos(angle) + Double(a.y) * sin(angle))
-        yy = Float(-Double(a.x) * sin(angle) + Double(a.y) * cos(angle))
-
-        a.y = CGFloat(yy)
-        a.x = CGFloat(xx)
-
-        let origin = self.horos_origin
-        a.x -= (origin.x)
-        a.y += (origin.y)
-
-        a.x += CGFloat(Double(self.curDCM?.pwidth ?? 0) / 2.0)
-        a.y += CGFloat(Double(self.curDCM?.pheight ?? 0) / 2.0)
-
-        return a
+    /// The image shown, as the conversions place it; nil when there is none.
+    private var conversionImage: ViewTransform.ImageExtent? {
+        guard let pix = self.curDCM else { return nil }
+        return ViewTransform.ImageExtent(width: pix.pwidth, height: pix.pheight, pixelRatio: pix.pixelRatio)
     }
 
     @objc(ConvertFromGL2GL:toView:)
@@ -252,40 +312,8 @@ extension DCMView {
 
     @objc(ConvertFromGL2View:)
     public dynamic func convert(fromGL2View a: NSPoint) -> NSPoint {
-        var a = a
-        let size = self.horos_drawingFrameRect
-
-        if self.curDCM != nil {
-            a.y *= CGFloat(self.curDCM?.pixelRatio ?? 0)
-            a.y -= CGFloat(Double(self.curDCM?.pheight ?? 0) * (self.curDCM?.pixelRatio ?? 0) * 0.5)
-            a.x -= CGFloat(Float(self.curDCM?.pwidth ?? 0) * 0.5)
-        }
-
-        let scaleValue = CGFloat(self.horos_scaleValue)
-        let origin = self.horos_origin
-        a.y -= (origin.y) / scaleValue
-        a.x += (origin.x) / scaleValue
-
-        let angle = Double(-self.horos_rotation) * DCMView.horos_static_deg2rad
-        let xx = Float(Double(a.x) * cos(angle) + Double(a.y) * sin(angle))
-        let yy = Float(-Double(a.x) * sin(angle) + Double(a.y) * cos(angle))
-
-        a.y = CGFloat(yy)
-        a.x = CGFloat(xx)
-
-        a.y *= scaleValue
-        a.y += size.size.height / 2.0
-
-        a.x *= scaleValue
-        a.x += size.size.width / 2.0
-
-        if self.horos_xFlipped { a.x = size.size.width - a.x }
-        if self.horos_yFlipped { a.y = size.size.height - a.y }
-
-        a.x -= size.size.width / 2.0
-        a.y -= size.size.height / 2.0
-
-        return a
+        return ViewTransform.imageToView(a, viewport: self.viewport, drawingSize: self.horos_drawingFrameRect.size,
+                                         image: self.conversionImage, deg2rad: DCMView.horos_static_deg2rad)
     }
 
     @objc(ConvertFromGL2NSView:)
@@ -330,185 +358,46 @@ extension DCMView {
 
     @objc(ConvertFromUpLeftView2GL:)
     public dynamic func convert(fromUpLeftView2GL a: NSPoint) -> NSPoint {
-        var a = a
-        let size = self.horos_drawingFrameRect
-        let scaleValue = CGFloat(self.horos_scaleValue)
-
-        if self.horos_xFlipped { a.x = size.size.width - a.x }
-        if self.horos_yFlipped { a.y = size.size.height - a.y }
-
-        a.x -= size.size.width / 2
-        a.x /= scaleValue
-
-        a.y -= size.size.height / 2
-        a.y /= scaleValue
-
-        let angle = Double(self.horos_rotation) * DCMView.horos_static_deg2rad
-        let xx = Float(Double(a.x) * cos(angle) + Double(a.y) * sin(angle))
-        let yy = Float(-Double(a.x) * sin(angle) + Double(a.y) * cos(angle))
-
-        a.y = CGFloat(yy)
-        a.x = CGFloat(xx)
-
-        let origin = self.horos_origin
-        a.x -= (origin.x) / scaleValue
-        a.y += (origin.y) / scaleValue
-
-        if self.curDCM != nil {
-            a.x += CGFloat(Float(self.curDCM?.pwidth ?? 0) * 0.5)
-            a.y += CGFloat(Double(self.curDCM?.pheight ?? 0) * (self.curDCM?.pixelRatio ?? 0) * 0.5)
-            a.y /= CGFloat(self.curDCM?.pixelRatio ?? 0)
-        }
-        return a
+        return ViewTransform.upLeftViewToImage(a, viewport: self.viewport, drawingSize: self.horos_drawingFrameRect.size,
+                                               image: self.conversionImage, deg2rad: DCMView.horos_static_deg2rad)
     }
 
     @objc(positionWithoutRotation:)
     public dynamic func positionWithoutRotation(_ tPt: NSPoint) -> NSPoint {
-        var tPt = tPt
-        let scaleValue = CGFloat(self.horos_scaleValue)
-        let deg2rad = DCMView.horos_static_deg2rad
-        var unrotatedRect = NSMakeRect(tPt.x / scaleValue, tPt.y / scaleValue, 1, 1)
-        var centeredRect = unrotatedRect
-
-        var ratio: Float = 1
-
-        if self.pixelSpacingX != 0 && self.pixelSpacingY != 0 {
-            ratio = Float(self.pixelSpacingX / self.pixelSpacingY)
-        }
-
-        centeredRect.origin.y -= self.origin.y * CGFloat(ratio) / scaleValue
-        centeredRect.origin.x -= -self.origin.x / scaleValue
-
-        unrotatedRect.origin.x = centeredRect.origin.x * CGFloat(cos(Double(-self.rotation) * deg2rad)) + centeredRect.origin.y * CGFloat(sin(Double(-self.rotation) * deg2rad)) / CGFloat(ratio)
-        unrotatedRect.origin.y = -centeredRect.origin.x * CGFloat(sin(Double(-self.rotation) * deg2rad)) + centeredRect.origin.y * CGFloat(cos(Double(-self.rotation) * deg2rad)) / CGFloat(ratio)
-
-        unrotatedRect.origin.y *= CGFloat(ratio)
-
-        unrotatedRect.origin.y += self.origin.y * CGFloat(ratio) / scaleValue
-        unrotatedRect.origin.x += -self.origin.x / scaleValue
-
-        tPt = NSMakePoint(unrotatedRect.origin.x, unrotatedRect.origin.y)
-        tPt.x = (tPt.x) * scaleValue - unrotatedRect.size.width / 2
-        tPt.y = (tPt.y) / CGFloat(ratio) * scaleValue - unrotatedRect.size.height / 2 / CGFloat(ratio)
-
-        return tPt
+        return ViewTransform.positionWithoutRotation(tPt, scale: self.horos_scaleValue, origin: self.origin, rotation: self.rotation,
+                                                     pixelSpacingX: self.pixelSpacingX, pixelSpacingY: self.pixelSpacingY,
+                                                     deg2rad: DCMView.horos_static_deg2rad)
     }
 
     @objc public dynamic var pixelSpacing: Double { return self.curDCM?.pixelSpacingX ?? 0 }
     @objc public dynamic var pixelSpacingX: Double { return self.curDCM?.pixelSpacingX ?? 0 }
     @objc public dynamic var pixelSpacingY: Double { return self.curDCM?.pixelSpacingY ?? 0 }
 
+    /// The orientation letters of `vector` (or of its opposite when `inv`),
+    /// copied into `orientation` as a C string.
     @objc(getOrientationText:::)
     public dynamic func getOrientationText(_ orientation: UnsafeMutablePointer<CChar>!, _ vector: UnsafeMutablePointer<Float>!, _ inv: Bool) {
-        orientation[0] = 0
-
-        let orientationX: String
-        let orientationY: String
-        let orientationZ: String
-
-        let optr = NSMutableString()
-
-        if inv {
-            orientationX = -vector[0] < 0 ? NSLocalizedString("R", comment: "R: Right") : NSLocalizedString("L", comment: "L: Left")
-            orientationY = -vector[1] < 0 ? NSLocalizedString("A", comment: "A: Anterior") : NSLocalizedString("P", comment: "P: Posterior")
-            orientationZ = -vector[2] < 0 ? NSLocalizedString("I", comment: "I: Inferior") : NSLocalizedString("S", comment: "S: Superior")
-        } else {
-            orientationX = vector[0] < 0 ? NSLocalizedString("R", comment: "R: Right") : NSLocalizedString("L", comment: "L: Left")
-            orientationY = vector[1] < 0 ? NSLocalizedString("A", comment: "A: Anterior") : NSLocalizedString("P", comment: "P: Posterior")
-            orientationZ = vector[2] < 0 ? NSLocalizedString("I", comment: "I: Inferior") : NSLocalizedString("S", comment: "S: Superior")
-        }
-
-        var absX = Float(fabs(Double(vector[0])))
-        var absY = Float(fabs(Double(vector[1])))
-        var absZ = Float(fabs(Double(vector[2])))
-
-        // get first 3 AXIS
-        for _ in 0 ..< 3 {
-            // The float is compared with the double .2, as in C.
-            if Double(absX) > 0.2 && absX >= absY && absX >= absZ {
-                optr.append(orientationX); absX = 0
-            } else if Double(absY) > 0.2 && absY >= absX && absY >= absZ {
-                optr.append(orientationY); absY = 0
-            } else if Double(absZ) > 0.2 && absZ >= absX && absZ >= absY {
-                optr.append(orientationZ); absZ = 0
-            } else {
-                break
-            }
-        }
-
-        strcpy(orientation, optr.utf8String!)
+        strcpy(orientation, annotationPhrases.letters.text((vector[0], vector[1], vector[2]), inverted: inv))
     }
 
-    // pbase_Plane(): get base of perpendicular from point to a plane
-    //    Input:  P = a 3D point
-    //            PL = a plane with point V0 and normal n
-    //    Output: *B = base point on PL of perpendicular from P
-    //    Return: the distance from P to the plane PL
-
+    /// The foot of the perpendicular from a point to a plane, and the
+    /// distance between them (softSurfer's pbase_Plane, in IsiXImaging).
     @objc(pbase_Plane::::)
     @discardableResult
     public dynamic class func pbase_Plane(_ point: UnsafeMutablePointer<Float>!, _ planeOrigin: UnsafeMutablePointer<Float>!, _ planeVector: UnsafeMutablePointer<Float>!, _ pointProjection: UnsafeMutablePointer<Float>!) -> Float {
-        // float sub[ 3], on the stack.
-        return withUnsafeTemporaryAllocation(of: Float.self, capacity: 3) { subBuffer -> Float in
-            let sb: Float, sn: Float, sd: Float
-            let sub = subBuffer.baseAddress!
-
-            sub[0] = point[0] - planeOrigin[0]
-            sub[1] = point[1] - planeOrigin[1]
-            sub[2] = point[2] - planeOrigin[2]
-
-            sn = -dot(planeVector, sub)
-            sd = dot(planeVector, planeVector)
-            sb = sn / sd
-
-            pointProjection[0] = point[0] + sb * planeVector[0]
-            pointProjection[1] = point[1] + sb * planeVector[1]
-            pointProjection[2] = point[2] + sb * planeVector[2]
-
-            sub[0] = point[0] - pointProjection[0]
-            sub[1] = point[1] - pointProjection[1]
-            sub[2] = point[2] - pointProjection[2]
-
-            return Float(norm(sub))
-        }
+        return ViewTransform.planeBase(point, planeOrigin, planeVector, pointProjection)
     }
 
     @objc(angleBetweenVector:andVector:)
     public dynamic class func angleBetweenVector(_ v1: UnsafeMutablePointer<Float>!, andVector v2: UnsafeMutablePointer<Float>!) -> Float {
-        if v1[0] == 0 && v1[1] == 0 && v1[2] == 0 && v2[0] == 0 && v2[1] == 0 && v2[2] == 0 {
-            return 0
-        }
-
-        if v1[0] == 0 && v1[1] == 0 && v1[2] == 0 {
-            return Float(DCMView.horos_static_deg2rad * 180)
-        }
-
-        if v2[0] == 0 && v2[1] == 0 && v2[2] == 0 {
-            return Float(DCMView.horos_static_deg2rad * 180)
-        }
-
-        let cosTheta = Float(Double(dot(v1, v2)) / (norm(v1) * norm(v2)))
-
-        return acosf(cosTheta)
+        // In IsiXImaging, where intersect3D_2Planes, which may run off the
+        // main thread, reads it too.
+        return PlaneGeometry.angle(v1, v2)
     }
 
     @objc(angleBetweenVectorD:andVectorD:)
     public dynamic class func angleBetweenVectorD(_ v1: UnsafeMutablePointer<Double>!, andVectorD v2: UnsafeMutablePointer<Double>!) -> Double {
-        if v1[0] == 0 && v1[1] == 0 && v1[2] == 0 && v2[0] == 0 && v2[1] == 0 && v2[2] == 0 {
-            return 0
-        }
-
-        if v1[0] == 0 && v1[1] == 0 && v1[2] == 0 {
-            return DCMView.horos_static_deg2rad * 180
-        }
-
-        if v2[0] == 0 && v2[1] == 0 && v2[2] == 0 {
-            return DCMView.horos_static_deg2rad * 180
-        }
-
-        let cosTheta = dot(v1, v2) / (norm(v1) * norm(v2))
-
-        return acos(cosTheta)
+        return ViewTransform.angle(v1, v2, deg2rad: DCMView.horos_static_deg2rad)
     }
 
     //===================================================================
@@ -523,97 +412,23 @@ extension DCMView {
     /// most common ImageType in the input array.
     @objc(cleanedOutDcmPixArray:)
     public dynamic class func cleanedOutDcmPixArray(_ input: NSArray!) -> NSArray! {
-        var cleaned: NSArray? = nil
-        do {
-            try HorosObjCException.perform {
-                // separate DCMPix into different arrays with common imageType
-                let dcmPixByImageType = NSMutableDictionary()
-                if let input = input {
-                    for pix in input {
-                        var pixImageType = objcProperty(objcObject(pix), kImageTypeGetter) as! NSString?
-                        if pixImageType == nil { pixImageType = "" } // to avoid inserting nil keys in the dictionary
-                        var dcmPixByImageTypeArray = dcmPixByImageType.object(forKey: pixImageType!) as! NSMutableArray?
-                        if dcmPixByImageTypeArray == nil {
-                            dcmPixByImageTypeArray = NSMutableArray()
-                            dcmPixByImageType.setObject(dcmPixByImageTypeArray!, forKey: pixImageType!)
-                        }
-                        dcmPixByImageTypeArray!.add(pix)
-                    }
-                }
-
-                // is there more than one imageType?
-                if dcmPixByImageType.count > 1 {
-                    // yes, find the most common one
-                    var maxCountIndex = 0
-                    let dcmPixByImageTypeArrays = dcmPixByImageType.allValues as NSArray
-                    var i = 1
-                    while i < dcmPixByImageType.count {
-                        if objcObject(dcmPixByImageTypeArrays.object(at: i), NSArray.self).count > objcObject(dcmPixByImageTypeArrays.object(at: maxCountIndex), NSArray.self).count {
-                            maxCountIndex = i
-                        }
-                        i += 1
-                    }
-
-                    // how many DCMPix have the most common imageType?
-                    let maxCount = objcObject(dcmPixByImageTypeArrays.object(at: maxCountIndex), NSArray.self).count
-
-                    // retain all DCMPix from groups with at least half the number of images with the most common imageType
-                    let r = NSMutableArray()
-                    if let input = input {
-                        for pix in input {
-                            let pixImageType = (objcProperty(objcObject(pix), kImageTypeGetter) as! NSString?) ?? ""
-                            if (objcArray(dcmPixByImageType.object(forKey: pixImageType))?.count ?? 0) >= maxCount / 2 {
-                                r.add(pix)
-                            }
-                        }
-                    }
-
-                    cleaned = r
-                }
-            }
-        } catch {
-            logException(error, "+[DCMView cleanedOutDcmPixArray:]")
-            cleaned = nil
+        guard let input = input else { return input }
+        // The image type of each DCMPix, read by message without bridging it;
+        // nil reads as an empty type. An entry that does not answer it keeps
+        // the whole list, as the exception the message raised kept it.
+        var types: [NSString] = []
+        types.reserveCapacity(input.count)
+        for pix in input {
+            guard let entry = objcObject(pix), entry.responds(to: kImageTypeGetter) else { return input }
+            types.append(objcProperty(entry, kImageTypeGetter) as? NSString ?? "")
         }
-        return cleaned ?? input
-    }
-
-    /// Planes this close are the same position for synchronization: a series
-    /// with several phases or types stacked one after the other repeats each
-    /// position once per sub-stack.
-    static let syncSamePositionTolerance: Float = 0.01
-
-    /// The index the receiver would reach by moving from its current image to
-    /// `target` without leaving its sub-stack: the step between neighbouring
-    /// images is taken on the side that stays in the sub-stack (the smaller
-    /// change of position), since the other side of a sub-stack's first or
-    /// last image jumps back across the whole range. NaN when it is unknown.
-    static func syncExpectedIndex(current: Int, count: Int, target: Float, position: (Int) -> Float) -> Double {
-        guard current >= 0, current < count else { return .nan }
-        let here = position(current)
-        var step: Float = 0
-        if current + 1 < count { step = position(current + 1) - here }
-        if current > 0 {
-            let back = here - position(current - 1)
-            if step == 0 || (back != 0 && abs(back) < abs(step)) { step = back }
+        // Several types: the groups with at least half as many images as the most common one.
+        guard let kept = ViewTransform.imagesKeptByType(types) else { return input }
+        let r = NSMutableArray()
+        for (pix, keep) in zip(input, kept) where keep {
+            r.add(pix)
         }
-        if step == 0 { return Double(current) }
-        return Double(current) + Double((target - here) / step)
-    }
-
-    /// Whether a candidate slice replaces the one selected so far when a
-    /// viewer synchronizes to another's position. The nearer plane wins; at the
-    /// same position, the image type of the source, then the slice nearest the
-    /// index expected in the receiver's own sub-stack, so each viewer stays in
-    /// the phase it shows instead of jumping to the first or last one that
-    /// repeats the position.
-    static func syncCandidateWins(distance: Float, selectedDistance: Float,
-                                  matchingType: Bool, selectedMatchingType: Bool,
-                                  index: Int, selectedIndex: Int, expectedIndex: Double) -> Bool {
-        if selectedIndex < 0 || distance < selectedDistance - syncSamePositionTolerance { return true }
-        if distance > selectedDistance + syncSamePositionTolerance { return false }
-        if matchingType != selectedMatchingType { return matchingType }
-        return !expectedIndex.isNaN && abs(Double(index) - expectedIndex) < abs(Double(selectedIndex) - expectedIndex)
+        return r
     }
 
     @objc(findPlaneForPoint:preferParallelTo:localPoint:distanceWithPlane:)
@@ -622,112 +437,54 @@ extension DCMView {
         return self.findPlane(forPoint: pt, preferParallelTo: parto, localPoint: location, distanceWithPlane: distanceResult, preferImageType: nil)
     }
 
+    /// The image of the series whose plane is nearest the point `pt`
+    /// (SliceSynchronizer), as an index of dcmPixList, or -1 when there is
+    /// none or it is farther than twice the slice thickness; `location` gets
+    /// the point's projection on it and `distanceResult` the distance.
     @objc(findPlaneForPoint:preferParallelTo:localPoint:distanceWithPlane:preferImageType:)
     @discardableResult
     public dynamic func findPlane(forPoint pt: UnsafeMutablePointer<Float>!, preferParallelTo parto: UnsafeMutablePointer<Float>!, localPoint location: UnsafeMutablePointer<Float>!, distanceWithPlane distanceResult: UnsafeMutablePointer<Float>!, preferImageType preferredImageType: NSString!) -> Int32 {
-        // float vectors[ 9], orig[ 3], locationTemp[ 3], on the stack.
-        return withUnsafeTemporaryAllocation(of: Float.self, capacity: 15) { buffer -> Int32 in
-            buffer.initialize(repeating: 0)
-            let vectors = buffer.baseAddress!
-            let orig = vectors + 9
-            let locationTemp = vectors + 12
-
-            var ii: Int32 = -1
-            var distance: Float = 999999
-            var tempDistance: Float
-
-            var vParallel = false
-
-            if self.horos_cleanedOutDcmPixArray == nil {
-                let cleaned: NSArray? = DCMView.cleanedOutDcmPixArray(self.horos_dcmPixList)
-                if let cleaned = cleaned { _ = Unmanaged.passRetained(cleaned) }
-                self.horos_cleanedOutDcmPixArray = cleaned
-            }
-            let cleanedOutDcmPixArray = self.horos_cleanedOutDcmPixArray
-            let volumicData = self.horos_volumicData
-
-            var currParallel = false
-            if volumicData == 1 { // All planes have the same orientation : we can compute currParallel only once !
-                (cleanedOutDcmPixArray?.lastObject as! DCMPix?)?.orientation(vectors)
-                if parto != nil && DCMView.angleBetweenVector(parto + 6, andVector: vectors + 6) < UserDefaults.standard.float(forKey: "PARALLELPLANETOLERANCE") { // are parallel!
-                    currParallel = true
-                }
-            }
-
-            var selectedPix: DCMPix? = nil
-            var selectedIndex = -1
-            if let cleanedOutDcmPixArray = cleanedOutDcmPixArray {
-                // The cleaned array keeps the order of dcmPixList, so the
-                // receiver's place in its sub-stack can be found in it.
-                let current = self.curDCM.map { cleanedOutDcmPixArray.indexOfObjectIdentical(to: $0) } ?? NSNotFound
-                var expectedIndex = Double.nan
-                if current != NSNotFound, let here = self.curDCM, let pt = pt {
-                    var normal = [Float](repeating: 0, count: 9), point = [Float](repeating: 0, count: 3)
-                    normal.withUnsafeMutableBufferPointer { here.orientation($0.baseAddress) }
-                    func along(_ p: UnsafePointer<Float>) -> Float { p[0] * normal[6] + p[1] * normal[7] + p[2] * normal[8] }
-                    expectedIndex = DCMView.syncExpectedIndex(current: current, count: cleanedOutDcmPixArray.count, target: along(pt)) { i in
-                        point.withUnsafeMutableBufferPointer { objcObject(cleanedOutDcmPixArray[i], DCMPix.self).origin($0.baseAddress) }
-                        return along(point)
-                    }
-                }
-                for (index, element) in cleanedOutDcmPixArray.enumerated() {
-                    let pix = objcObject(element, DCMPix.self)
-                    if volumicData != 1 {
-                        pix.orientation(vectors)
-
-                        if parto != nil && DCMView.angleBetweenVector(parto + 6, andVector: vectors + 6) < UserDefaults.standard.float(forKey: "PARALLELPLANETOLERANCE") { // are parallel!
-                            currParallel = true
-                        } else {
-                            currParallel = false
-                        }
-                    }
-
-                    pix.origin(orig)
-                    tempDistance = DCMView.pbase_Plane(pt, orig, vectors + 6, locationTemp)
-
-                    // Both are NSString: -isEqual: answers as -isEqualToString:,
-                    // without bridging them to String.
-                    let matchingType = (preferredImageType?.length ?? 0) != 0 && ((objcProperty(pix, kImageTypeGetter) as! NSString?)?.isEqual(preferredImageType) ?? false)
-                    let selectedMatchingType = (preferredImageType?.length ?? 0) != 0 && ((objcProperty(selectedPix, kImageTypeGetter) as! NSString?)?.isEqual(preferredImageType) ?? false)
-                    if (!vParallel && currParallel) || (currParallel == vParallel &&
-                        DCMView.syncCandidateWins(distance: tempDistance, selectedDistance: distance,
-                                                  matchingType: matchingType, selectedMatchingType: selectedMatchingType,
-                                                  index: index, selectedIndex: selectedIndex, expectedIndex: expectedIndex)) {
-                        vParallel = currParallel
-
-                        if location != nil {
-                            location[0] = locationTemp[0]
-                            location[1] = locationTemp[1]
-                            location[2] = locationTemp[2]
-                        }
-
-                        distance = tempDistance
-                        selectedPix = pix
-                        selectedIndex = index
-                    }
-                }
-            }
-
-            // Filtering by image type can reorder pixels or remove earlier instances.
-            // Callers index dcmPixList, so resolve the selected object in that array.
-            if let selectedPix = selectedPix {
-                // A message to a nil dcmPixList answers 0, as it did.
-                let originalIndex = self.horos_dcmPixList?.indexOfObjectIdentical(to: selectedPix) ?? 0
-                if originalIndex != NSNotFound {
-                    ii = Int32(truncatingIfNeeded: originalIndex)
-                }
-            }
-
-            if ii != -1 {
-                if (self.curDCM?.sliceThickness ?? 0) != 0 && Double(distance) > (self.curDCM?.sliceThickness ?? 0) * 2 { ii = -1 }
-            }
-
-            if let distanceResult = distanceResult {
-                distanceResult.pointee = distance
-            }
-
-            return ii
+        if self.horos_cleanedOutDcmPixArray == nil {
+            let cleaned: NSArray? = DCMView.cleanedOutDcmPixArray(self.horos_dcmPixList)
+            self.horos_cleanedOutDcmPixArray = cleaned
         }
+        let cleanedOutDcmPixArray = self.horos_cleanedOutDcmPixArray
+
+        var search = SliceSynchronizer.PlaneSearch(index: nil, distance: SliceSynchronizer.noDistance, location: nil)
+        if let pt {
+            // The cleaned array keeps the order of dcmPixList, so the
+            // receiver's place in its sub-stack can be found in it.
+            let current = self.curDCM.flatMap { here in cleanedOutDcmPixArray?.indexOfObjectIdentical(to: here) }.flatMap { $0 == NSNotFound ? nil : $0 }
+            search = self.sliceSynchronizer.nearestPlane(to: SIMD3(pt[0], pt[1], pt[2]),
+                                                         among: SyncPlanes.planes(of: cleanedOutDcmPixArray, preferredImageType: preferredImageType, volumic: self.horos_volumicData, kept: &self.horos_syncPlanes),
+                                                         parallelTo: parto.map { SIMD3($0[6], $0[7], $0[8]) },
+                                                         current: current, currentNormal: self.curDCM.map { horosPlaneNormal($0) })
+        }
+
+        if let location, let found = search.location {
+            location[0] = found.x
+            location[1] = found.y
+            location[2] = found.z
+        }
+
+        // Filtering by image type can reorder pixels or remove earlier instances.
+        // Callers index dcmPixList, so resolve the selected object in that array.
+        var ii: Int32 = -1
+        if let index = search.index, let selectedPix = cleanedOutDcmPixArray?.object(at: index) {
+            // A message to a nil dcmPixList answers 0, as it did.
+            let originalIndex = self.horos_dcmPixList?.indexOfObjectIdentical(to: selectedPix) ?? 0
+            if originalIndex != NSNotFound {
+                ii = Int32(truncatingIfNeeded: originalIndex)
+            }
+        }
+
+        if ii != -1 && !SliceSynchronizer.accepts(distance: search.distance, sliceThickness: self.curDCM?.sliceThickness ?? 0) { ii = -1 }
+
+        if let distanceResult = distanceResult {
+            distanceResult.pointee = search.distance
+        }
+
+        return ii
     }
 
     @objc(findPlaneForPoint:localPoint:distanceWithPlane:)
@@ -736,6 +493,10 @@ extension DCMView {
         return self.findPlane(forPoint: pt, preferParallelTo: nil, localPoint: location, distanceWithPlane: distanceResult)
     }
 
+    /// The orientation letters around the image (AnnotationOverlayLayout), and
+    /// under the top one the notices about the image: its laterality, a flip,
+    /// a VOI LUT, why it has no pixels, a series still being received, and the
+    /// reference lines of a viewer that is not the key one.
     @objc(drawOrientation:)
     public dynamic func drawOrientation(_ size: NSRect) {
         var size = size
@@ -745,96 +506,63 @@ extension DCMView {
         } else {
             size.origin = NSMakePoint(0, 0)
         }
-
         let stringSize = self.horos_stringSize
+        let layout = AnnotationOverlayLayout(originX: size.origin.x, originY: size.origin.y, width: size.size.width, height: size.size.height,
+                                             scale: Float(self.window?.backingScaleFactor ?? 0),
+                                             characterWidth: stringSize.width, lineHeight: stringSize.height)
+
+        var notices: [String] = []
+        if let laterality = self.curDCM?.laterality {
+            notices.append(laterality)
+        }
+        let xFlipped = self.horos_xFlipped
+        let yFlipped = self.horos_yFlipped
+        if self.is2DViewer() && (xFlipped || yFlipped) {
+            notices.append(xFlipped && yFlipped ? NSLocalizedString("Horizontally & Vertically Flipped", comment: "")
+                           : xFlipped ? NSLocalizedString("Horizontally Flipped", comment: "") : NSLocalizedString("Vertically Flipped", comment: ""))
+        }
+        if self.is2DViewer() && (self.curDCM?.voilutApplied ?? false) {
+            notices.append("VOI LUT Applied")
+        }
+        // An empty frame is otherwise indistinguishable from a dark one, and the
+        // only thing that said which it was went to the console.
+        if let missing = self.curDCM?.missingPixelsReason, !missing.isEmpty {
+            notices.append(missing)
+        }
+        // A series still being received, or received short, says so on the image:
+        // an open viewer is not a finished retrieve.
+        if self.is2DViewer(), let receiving = (self.windowController() as? ViewerController)?.retrieveStatusOverlay(), !receiving.isEmpty {
+            notices.append(receiving)
+        }
+        if self.is2DViewer() && (self.window?.isKeyWindow ?? false) == false {
+            let overlay = ViewerReferenceLines.overlayText(displayingLines: DISPLAYCROSSREFERENCELINES != 0,
+                                                          annotationType: Int(self.horos_annotationType))
+            if let overlay, !overlay.isEmpty {
+                notices.append(overlay)
+            }
+        }
 
         // Determine Anterior, Posterior, Left, Right, Head, Foot
-        // char string[ 10]; float vectors[ 9];, on the stack.
-        withUnsafeTemporaryAllocation(of: CChar.self, capacity: 10) { stringBuffer in
-            withUnsafeTemporaryAllocation(of: Float.self, capacity: 9) { vectorsBuffer in
-                stringBuffer.initialize(repeating: 0)
-                vectorsBuffer.initialize(repeating: 0)
-                let string = stringBuffer.baseAddress!
-                let vectors = vectorsBuffer.baseAddress!
+        // float vectors[ 9];, on the stack.
+        let commands = withUnsafeTemporaryAllocation(of: Float.self, capacity: 9) { vectorsBuffer in
+            vectorsBuffer.initialize(repeating: 0)
+            let vectors = vectorsBuffer.baseAddress!
+            self.orientationCorrected(toView: vectors)
+            let letters = annotationPhrases.letters
+            let row = (vectors[0], vectors[1], vectors[2]), column = (vectors[3], vectors[4], vectors[5])
+            return layout.orientationCommands(left: letters.text(row, inverted: true), right: letters.text(row, inverted: false),
+                                              top: letters.text(column, inverted: true), bottom: letters.text(column, inverted: false),
+                                              notices: notices)
+        }
+        for command in commands {
+            self.drawAnnotation(command)
+        }
+    }
 
-                self.orientationCorrected(toView: vectors)
-
-                // Left
-                self.getOrientationText(string, vectors, true)
-                self.drawCStringGL(string, DCMViewMainFont, cLong(Double(size.origin.x + 6)), cLong(Double(size.origin.y + 2 + size.size.height / 2)), rightAlignment: false, useStringTexture: true)
-
-                // Right
-                self.getOrientationText(string, vectors, false)
-                self.drawCStringGL(string, DCMViewMainFont, cLong(Double(size.origin.x + size.size.width - (2 + stringSize.width * CGFloat(strlen(string))))), cLong(Double(size.origin.y + 2 + size.size.height / 2)), rightAlignment: false, useStringTexture: true)
-
-                //Top
-                var yPosition = Float(size.origin.y + stringSize.height + 3)
-                self.getOrientationText(string, vectors + 3, true)
-
-                if strlen(string) != 0 {
-                    self.drawCStringGL(string, DCMViewMainFont, cLong(Double(size.origin.x + size.size.width / 2 - (stringSize.width * CGFloat(strlen(string)) / 2))), cLong(Double(yPosition)), rightAlignment: false, useStringTexture: true)
-                    yPosition = Float(CGFloat(yPosition) + (stringSize.height + 3))
-                }
-
-                if objcProperty(self.curDCM, kLateralityGetter) != nil {
-                    self.drawNSStringGL(objcProperty(self.curDCM, kLateralityGetter) as! NSString? as String?, DCMViewMainFont, cLong(Double(size.origin.x + size.size.width / 2)), cLong(Double(yPosition)), align: DCMViewTextAlignCenter, useStringTexture: true)
-                    yPosition = Float(CGFloat(yPosition) + (stringSize.height + 3))
-                }
-
-                let xFlipped = self.horos_xFlipped
-                let yFlipped = self.horos_yFlipped
-                if self.is2DViewer() && (xFlipped || yFlipped) {
-                    var flippedString: String? = nil
-
-                    if xFlipped && yFlipped {
-                        flippedString = NSLocalizedString("Horizontally & Vertically Flipped", comment: "")
-                    } else if xFlipped {
-                        flippedString = NSLocalizedString("Horizontally Flipped", comment: "")
-                    } else if yFlipped {
-                        flippedString = NSLocalizedString("Vertically Flipped", comment: "")
-                    }
-
-                    if let flippedString = flippedString {
-                        self.drawNSStringGL(flippedString, DCMViewMainFont, cLong(Double(size.origin.x + size.size.width / 2)), cLong(Double(yPosition)), align: DCMViewTextAlignCenter, useStringTexture: true)
-                        yPosition = Float(CGFloat(yPosition) + (stringSize.height + 3))
-                    }
-                }
-
-                if self.is2DViewer() && (self.curDCM?.voilutApplied ?? false) {
-                    self.drawNSStringGL("VOI LUT Applied", DCMViewMainFont, cLong(Double(size.origin.x + size.size.width / 2)), cLong(Double(yPosition)), align: DCMViewTextAlignCenter, useStringTexture: true)
-                    yPosition = Float(CGFloat(yPosition) + (stringSize.height + 3))
-                }
-
-                // An empty frame is otherwise indistinguishable from a dark one, and the
-                // only thing that said which it was went to the console.
-                if ((objcProperty(self.curDCM, kMissingPixelsReasonGetter) as! NSString?)?.length ?? 0) != 0 {
-                    self.drawNSStringGL(objcProperty(self.curDCM, kMissingPixelsReasonGetter) as! NSString? as String?, DCMViewMainFont, cLong(Double(size.origin.x + size.size.width / 2)), cLong(Double(yPosition)), align: DCMViewTextAlignCenter, useStringTexture: true)
-                    yPosition = Float(CGFloat(yPosition) + (stringSize.height + 3))
-                }
-
-                // A series still being received, or received short, says so on the image:
-                // an open viewer is not a finished retrieve.
-                if self.is2DViewer() && (objcObject(self.windowController())?.responds(to: kRetrieveStatusOverlay) ?? false) {
-                    let receiving = objcProperty(objcObject(self.windowController()), kRetrieveStatusOverlay) as! NSString?
-                    if (receiving?.length ?? 0) != 0 {
-                        self.drawNSStringGL(receiving as String?, DCMViewMainFont, cLong(Double(size.origin.x + size.size.width / 2)), cLong(Double(yPosition)), align: DCMViewTextAlignCenter, useStringTexture: true)
-                        yPosition = Float(CGFloat(yPosition) + (stringSize.height + 3))
-                    }
-                }
-
-                if self.is2DViewer() && (self.window?.isKeyWindow ?? false) == false {
-                    let overlay = ViewerReferenceLines.overlayText(displayingLines: DISPLAYCROSSREFERENCELINES != 0,
-                                                                  annotationType: Int(self.horos_annotationType))
-                    if !(overlay ?? "").isEmpty {
-                        self.drawNSStringGL(overlay, DCMViewMainFont, cLong(Double(size.origin.x + size.size.width / 2)), cLong(Double(yPosition)), align: DCMViewTextAlignCenter, useStringTexture: true)
-                        yPosition = Float(CGFloat(yPosition) + (stringSize.height + 3))
-                    }
-                }
-
-                //Bottom
-                self.getOrientationText(string, vectors + 3, false)
-                self.drawCStringGL(string, DCMViewMainFont, cLong(Double(size.origin.x + size.size.width / 2)), cLong(Double(size.origin.y + 2 + size.size.height - 6)), rightAlignment: false, useStringTexture: true)
-            }
+    /// Draws a line of the annotations' layout.
+    private func drawAnnotation(_ command: AnnotationOverlayLayout.Command) {
+        if case let .text(text, x, y, alignment) = command {
+            self.drawNSStringGL(text, DCMViewMainFont, x, y, align: DCMViewTextAlign(rawValue: UInt32(alignment.rawValue)), useStringTexture: true)
         }
     }
 
@@ -850,15 +578,13 @@ extension DCMView {
 
         // Location zero is a valid physical plane. Clip the slab to available
         // slices in its actual projection direction, including both end slices.
-        let available: Int = self.horos_flippedData ? curImage + 1 : dcmPixList!.count - curImage
-        let stack = Int(self.curDCM?.stack ?? 0)
-        let count = stack < available ? stack : available
-        let last = curImage + (self.horos_flippedData ? -1 : 1) * (count - 1)
-        let endLocation: Double = objcObject(dcmPixList!.object(at: last), DCMPix.self).sliceLocation
-        if location.pointee.isFinite && endLocation.isFinite {
-            thickness.pointee = Float(Double(thickness.pointee) + fabs(endLocation - Double(location.pointee)))
-            location.pointee = Float((Double(location.pointee) + endLocation) / 2.0)
-        }
+        guard let pixList = dcmPixList else { return }
+        let last = ViewTransform.thickSlabLastIndex(current: curImage, count: pixList.count, stack: Int(self.curDCM?.stack ?? 0),
+                                                    flipped: self.horos_flippedData)
+        let endLocation: Double = objcObject(pixList.object(at: last), DCMPix.self).sliceLocation
+        let slab = ViewTransform.thickSlab(thickness: thickness.pointee, location: location.pointee, endLocation: endLocation)
+        thickness.pointee = slab.thickness
+        location.pointee = slab.location
     }
 
     @objc(displayedScaleValue)
@@ -871,6 +597,11 @@ extension DCMView {
         return self.horos_rotation
     }
 
+    /// The annotations over the image: the lines of each position, built by
+    /// AnnotationOverlayLayout from the fields of the image's template and the
+    /// values ViewAnnotationValues reads from the view, the orientation
+    /// letters, the study number box, the gantry tilt and "Previous" marks,
+    /// and the signature. Plugin Only lets plugins draw the text.
     @objc(drawTextualData:annotationsLevel:fullText:onlyOrientation:)
     public dynamic func drawTextualData(_ size: NSRect, annotationsLevel annotations: Int, fullText: Bool, onlyOrientation: Bool) {
         var size = size
@@ -898,7 +629,6 @@ extension DCMView {
         roiColor3f(0.0, 0.0, 0.0)
         roiLineWidth(Float(1.0 * (self.window?.backingScaleFactor ?? 0)))
 
-        let fontList: DCMViewFontKind = DCMViewMainFont
         let stringSize = self.horos_stringSize
 
         if annotations == 4 {
@@ -911,8 +641,6 @@ extension DCMView {
                 size.origin = NSMakePoint(0, 0)
             }
 
-            var yRaster = 1, xRaster = 0
-
             if onlyOrientation {
                 if AnnotationLevel.shows(.orientation, level: annotations) {
                     self.drawOrientation(size)
@@ -920,513 +648,65 @@ extension DCMView {
                 return
             }
 
-            var colorBoxSize: Int32 = 0
-
-            if self.horos_studyColorR != 0 || self.horos_studyColorG != 0 || self.horos_studyColorB != 0 {
-                colorBoxSize = cInt32(Double(30 * sf))
+            // The number of the series, in a 2D viewer's own view, on the colour
+            // of the window's study: the same number as on its thumbnail.
+            let viewer2D = self.horos_stringID == nil && self.is2DViewer() ? self.windowController() as? ViewerController : nil
+            let seriesNumber = viewer2D?.seriesMenuPresenter.numberOfShownSeries() ?? 0
+            let colourBoxSize = AnnotationOverlayLayout.colourBoxSize(scale: sf, drawsBox: seriesNumber > 0)
+            var layout = AnnotationOverlayLayout(originX: size.origin.x, originY: size.origin.y, width: size.size.width, height: size.size.height,
+                                                 scale: sf, characterWidth: stringSize.width, lineHeight: stringSize.height,
+                                                 topLeftInset: self.horosScrollPreviewAnnotationInset(), colourBoxSize: colourBoxSize)
+            if colourBoxSize != 0 {
+                let badge = SeriesListIdentification.badge(number: seriesNumber, study: SeriesListIdentification.study(of: viewer2D))
+                let boxSize = self.convertToBacking(badge.frameSize)
+                let origin = layout.studyNumberOrigin
+                self.horosDraw(badge, bounds: NSMakeRect(origin.x, origin.y, boxSize.width, boxSize.height))
             }
 
-            if colorBoxSize != 0 && self.horos_stringID == nil && self.is2DViewer() == true {
-                if self.horos_studyDateBox == nil && self.horos_studyDateIndex != UInt(NSNotFound) {
-                    let boxColor = NSColor(calibratedRed: CGFloat(self.horos_studyColorR), green: CGFloat(self.horos_studyColorG), blue: CGFloat(self.horos_studyColorB), alpha: 1.0)
-
-                    let stanStringAttrib: [NSAttributedString.Key: Any] = [.font: NSFont(name: "Helvetica", size: 20)!]
-                    let studyDateIndex = self.horos_studyDateIndex
-                    let box: AnnotationBox
-                    if studyDateIndex &+ 1 < 10 {
-                        box = AnnotationBox(attributedString: NSAttributedString(string: NSString(format: " %d ", Int32(truncatingIfNeeded: studyDateIndex) &+ 1) as String, attributes: stanStringAttrib), boxColor: boxColor, borderColor: boxColor)
-                    } else {
-                        box = AnnotationBox(attributedString: NSAttributedString(string: NSString(format: "%d", Int32(truncatingIfNeeded: studyDateIndex) &+ 1) as String, attributes: stanStringAttrib), boxColor: boxColor, borderColor: boxColor)
-                    }
-                    // The ivar owns the box, as the alloc/init did.
-                    _ = Unmanaged.passRetained(box)
-                    self.horos_studyDateBox = box
+            // The fields of each position, in the dictionary's order.
+            let annotationsDictionary = self.curDCM?.annotationsDictionary
+            var positions: [String] = []
+            var fields: [String: [[String]]] = [:]
+            for case let position as String in annotationsDictionary?.allKeys ?? [] {
+                let lines = annotationsDictionary?.object(forKey: position)
+                guard let lines = lines as? [[String]] else {
+                    self.reportAnnotationsError(lines)
+                    continue
                 }
-
-                if let studyDateBox = self.horos_studyDateBox {
-                    let boxSize = self.convertToBacking(studyDateBox.frameSize)
-                    self.horosDraw(studyDateBox, bounds: NSMakeRect(size.origin.x + CGFloat(5 * sf), size.origin.y + CGFloat(4 * sf), boxSize.width, boxSize.height))
-                }
-            } else {
-                colorBoxSize = 0
+                positions.append(position)
+                fields[position] = lines
             }
 
-            let annotationsDictionary: NSMutableDictionary? = self.curDCM?.annotationsDictionary
-
-            let xRasterInit = NSMutableDictionary()
-            xRasterInit.setObject(NSNumber(value: cInt32(Double(size.origin.x + (6 + self.horosScrollPreviewAnnotationInset()) * CGFloat(sf)))), forKey: kTopLeft)
-            xRasterInit.setObject(NSNumber(value: cInt32(Double(size.origin.x + CGFloat(6 * sf)))), forKey: kMiddleLeft)
-            xRasterInit.setObject(NSNumber(value: cInt32(Double(size.origin.x + CGFloat(6 * sf)))), forKey: kLowerLeft)
-            xRasterInit.setObject(NSNumber(value: cInt32(Double(size.origin.x + size.size.width - CGFloat(2 * sf)))), forKey: kTopRight)
-            xRasterInit.setObject(NSNumber(value: cInt32(Double(size.origin.x + size.size.width - CGFloat(2 * sf)))), forKey: kMiddleRight)
-            xRasterInit.setObject(NSNumber(value: cInt32(Double(size.origin.x + size.size.width - CGFloat(2 * sf)))), forKey: kLowerRight)
-            xRasterInit.setObject(NSNumber(value: cInt32(Double(size.origin.x + size.size.width / 2))), forKey: kTopMiddle)
-            xRasterInit.setObject(NSNumber(value: cInt32(Double(size.origin.x + size.size.width / 2))), forKey: kLowerMiddle)
-
-            let alignLeft = NSNumber(value: Int32(bitPattern: DCMViewTextAlignLeft.rawValue))
-            let alignRight = NSNumber(value: Int32(bitPattern: DCMViewTextAlignRight.rawValue))
-            let alignCenter = NSNumber(value: Int32(bitPattern: DCMViewTextAlignCenter.rawValue))
-            let align = NSMutableDictionary()
-            align.setObject(alignLeft, forKey: kTopLeft)
-            align.setObject(alignLeft, forKey: kMiddleLeft)
-            align.setObject(alignLeft, forKey: kLowerLeft)
-            align.setObject(alignRight, forKey: kTopRight)
-            align.setObject(alignRight, forKey: kMiddleRight)
-            align.setObject(alignRight, forKey: kLowerRight)
-            align.setObject(alignCenter, forKey: kTopMiddle)
-            align.setObject(alignCenter, forKey: kLowerMiddle)
-
-            let yRasterInit = NSMutableDictionary()
-            yRasterInit.setObject(NSNumber(value: cInt32(Double(size.origin.y + stringSize.height + CGFloat(2 * sf)))), forKey: kTopLeft)
-            yRasterInit.setObject(NSNumber(value: cInt32(Double(size.origin.y + stringSize.height))), forKey: kTopMiddle)
-            yRasterInit.setObject(NSNumber(value: cInt32(Double(size.origin.y + stringSize.height + CGFloat(2 * sf)))), forKey: kTopRight)
-            yRasterInit.setObject(NSNumber(value: cInt32(Double(size.origin.y + size.size.height / 2))), forKey: kMiddleLeft)
-            yRasterInit.setObject(NSNumber(value: cInt32(Double(size.origin.y + size.size.height / 2))), forKey: kMiddleRight)
-            yRasterInit.setObject(NSNumber(value: cInt32(Double(size.origin.y + size.size.height - CGFloat(2 * sf)))), forKey: kLowerLeft)
-            yRasterInit.setObject(NSNumber(value: cInt32(Double(size.origin.y + size.size.height - CGFloat(2 * sf) - stringSize.height))), forKey: kLowerRight)
-            yRasterInit.setObject(NSNumber(value: cInt32(Double(size.origin.y + size.size.height - CGFloat(2 * sf)))), forKey: kLowerMiddle)
-
-            let lineUp = NSNumber(value: cInt32(Double(stringSize.height)))
-            let lineDown = NSNumber(value: cInt32(Double(-stringSize.height)))
-            let yRasterIncrement = NSMutableDictionary()
-            yRasterIncrement.setObject(lineUp, forKey: kTopLeft)
-            yRasterIncrement.setObject(lineUp, forKey: kTopMiddle)
-            yRasterIncrement.setObject(lineUp, forKey: kTopRight)
-            yRasterIncrement.setObject(lineUp, forKey: kMiddleLeft)
-            yRasterIncrement.setObject(lineUp, forKey: kMiddleRight)
-            yRasterIncrement.setObject(lineDown, forKey: kLowerLeft)
-            yRasterIncrement.setObject(lineDown, forKey: kLowerRight)
-            yRasterIncrement.setObject(lineDown, forKey: kLowerMiddle)
-
-
-            var increment: Int32 = 0
-            let orientationPositionKeys = NSArray(objects: kTopMiddle, kMiddleLeft, kMiddleRight, kLowerMiddle)
             var orientationDrawn = false
-            if AnnotationLevel.shows(.orientation, level: annotations) {
-                var k = 0
-                while k < orientationPositionKeys.count {
-                    let positionKey = objcObject(orientationPositionKeys.object(at: k), NSString.self)
-                    let annotationsOfPosition = objcArray(annotationsDictionary?.object(forKey: positionKey))
-                    xRaster = Int(intValue(xRasterInit, positionKey))
-                    yRaster = Int(intValue(yRasterInit, positionKey))
-                    increment = intValue(yRasterIncrement, positionKey)
-
-                    let enumerator: NSEnumerator?
-                    if positionKey.hasPrefix("Lower") {
-                        enumerator = annotationsOfPosition?.reverseObjectEnumerator()
-                    } else {
-                        enumerator = annotationsOfPosition?.objectEnumerator()
-                    }
-
-                    while let annot = enumerator?.nextObject() {
-                        let annotArray = objcObject(annot, NSArray.self)
-                        var j = 0
-                        while j < annotArray.count {
-                            if objcObject(annotArray.object(at: j), NSString.self).isEqual(to: "Orientation") {
-                                if !orientationDrawn {
-                                    self.drawOrientation(size)
-                                }
-                                orientationDrawn = true
-                            }
-                            j += 1
-                        }
-                    }
-                    k += 1
-                }
+            if AnnotationLevel.shows(.orientation, level: annotations) && AnnotationOverlayLayout.asksForOrientation(fields) {
+                self.drawOrientation(size)
+                orientationDrawn = true
+                layout = layout.withOrientationDrawn()
             }
-
-            if orientationDrawn {
-                yRasterInit.setObject(NSNumber(value: intValue(yRasterInit, kTopMiddle) &+ intValue(yRasterIncrement, kTopMiddle)), forKey: kTopMiddle)
-                yRasterInit.setObject(NSNumber(value: intValue(yRasterInit, kMiddleLeft) &+ intValue(yRasterIncrement, kMiddleLeft)), forKey: kMiddleLeft)
-                yRasterInit.setObject(NSNumber(value: intValue(yRasterInit, kMiddleRight) &+ intValue(yRasterIncrement, kMiddleRight)), forKey: kMiddleRight)
-                yRasterInit.setObject(NSNumber(value: intValue(yRasterInit, kLowerMiddle) &+ intValue(yRasterIncrement, kLowerMiddle)), forKey: kLowerMiddle)
-            }
-
-            let keys: NSArray? = annotationsDictionary?.allKeys as NSArray?
 
             // Where the lines of the lower left corner end, for the tilt mark above them.
-            var lowerLeftTop = Int(intValue(yRasterInit, kLowerLeft))
-            var k = 0
-            while k < (keys?.count ?? 0) {
-                let key = objcObject(keys!.object(at: k), NSString.self)
-
-                let annotationsOfKey = objcArray(annotationsDictionary?.object(forKey: key))
-                xRaster = Int(intValue(xRasterInit, key)) //* [self.window backingScaleFactor]; //Retina
-                yRaster = Int(intValue(yRasterInit, key)) //* [self.window backingScaleFactor]; //Retina
-                increment = intValue(yRasterIncrement, key) // * [self.window backingScaleFactor]; //retina
-
-                var enumerator: NSEnumerator?
-                if key.hasPrefix("Lower") {
-                    enumerator = annotationsOfKey?.reverseObjectEnumerator()
-                } else {
-                    enumerator = annotationsOfKey?.objectEnumerator()
-                }
-
-                let useStringTexture = true // HOROS-535 setting to NO causes annotations to be MIA
-
-                if key.hasPrefix("Lower") {
-                    enumerator = annotationsOfKey?.reverseObjectEnumerator()
-                } else {
-                    enumerator = annotationsOfKey?.objectEnumerator()
-                }
-
-                while let annot = enumerator?.nextObject() {
-                    do {
-                        try HorosObjCException.perform { () -> Void in
-                            let tempString = NSMutableString(string: "")
-                            let tempString2 = NSMutableString(string: "")
-                            let tempString3 = NSMutableString(string: "")
-                            let tempString4 = NSMutableString(string: "")
-                            let annotArray = objcObject(annot, NSArray.self)
-                            var j = 0
-                            while j < annotArray.count {
-                                // [annot objectAtIndex:j], which the Objective-C
-                                // sent again for each comparison.
-                                let item = objcObject(annotArray.object(at: j), NSString.self)
-                                // A level shows a token only with its element:
-                                // Basic leaves out the patient's name, Custom
-                                // whatever its sheet unchecks.
-                                let element = item.hasPrefix(DCMPixAnnotationPatientNamePrefix)
-                                    ? AnnotationElement.patientName : AnnotationLevel.element(forItem: item as String)
-                                if !AnnotationLevel.shows(element, level: annotations) {
-                                    j += 1
-                                    continue
-                                }
-                                if item.isEqual(to: "Image Size") && fullText {
-                                    tempString.appendFormat(NSLocalizedString("Image size: %ld x %ld", comment: "") as NSString, self.curDCM?.pwidth ?? 0, self.curDCM?.pheight ?? 0)
-                                } else if item.isEqual(to: "View Size") && fullText {
-                                    tempString.appendFormat(NSLocalizedString("View size: %ld x %ld", comment: "") as NSString, cLong(Double(size.size.width)), cLong(Double(size.size.height)))
-                                } else if item.isEqual(to: "Mouse Position (px)") {
-                                    let stringID = self.horos_stringID
-                                    if (stringID?.length ?? 0) == 0 || (stringID?.isEqual(to: "previewDatabase") ?? false) {
-                                        //                                if(mouseXPos!=0 || mouseYPos!=0)
-                                        do {
-                                            var pixelUnit: NSString = ""
-
-                                            if self.curDCM?.suvConverted ?? false {
-                                                pixelUnit = "SUV"
-                                            }
-
-                                            if self.curDCM?.isRGB ?? false {
-                                                tempString.appendFormat(NSLocalizedString("X: %d px Y: %d px Value: R:%ld G:%ld B:%ld", comment: "No special characters for this string, only ASCII characters.") as NSString, cInt32(Double(self.horos_mouseXPos)), cInt32(Double(self.horos_mouseYPos)), self.horos_pixelMouseValueR, self.horos_pixelMouseValueG, self.horos_pixelMouseValueB)
-                                            } else {
-                                                tempString.appendFormat(NSLocalizedString("X: %d px Y: %d px Value: %2.2f %@", comment: "No special characters for this string, only ASCII characters.") as NSString, cInt32(Double(self.horos_mouseXPos)), cInt32(Double(self.horos_mouseYPos)), Double(self.horos_pixelMouseValue), pixelUnit)
-                                            }
-
-                                            if let blendingView = self.horos_blending {
-                                                if blendingView.curDCM?.suvConverted ?? false {
-                                                    pixelUnit = "SUV"
-                                                }
-
-                                                if blendingView.curDCM?.isRGB ?? false {
-                                                    tempString2.appendFormat(NSLocalizedString("Fused Image : X: %d px Y: %d px Value: R:%ld G:%ld B:%ld", comment: "No special characters for this string, only ASCII characters.") as NSString, cInt32(Double(self.horos_blendingMouseXPos)), cInt32(Double(self.horos_blendingMouseYPos)), self.horos_blendingPixelMouseValueR, self.horos_blendingPixelMouseValueG, self.horos_blendingPixelMouseValueB)
-                                                } else {
-                                                    tempString2.appendFormat(NSLocalizedString("Fused Image : X: %d px Y: %d px Value: %2.2f %@", comment: "No special characters for this string, only ASCII characters.") as NSString, cInt32(Double(self.horos_blendingMouseXPos)), cInt32(Double(self.horos_blendingMouseYPos)), Double(self.horos_blendingPixelMouseValue), pixelUnit)
-                                                }
-                                            }
-
-                                            if self.curDCM?.displaySUVValue ?? false {
-                                                if (self.curDCM?.hasSUV ?? false) == true && (self.curDCM?.suvConverted ?? false) == false {
-                                                    tempString3.appendFormat(NSLocalizedString("SUV: %.2f", comment: "SUV: Standard Uptake Value - No special characters for this string, only ASCII characters.") as NSString, Double(self.getSUV()))
-                                                }
-                                            }
-
-                                            if let blendingView = self.horos_blending {
-                                                if (blendingView.curDCM?.displaySUVValue ?? false) && (blendingView.curDCM?.hasSUV ?? false) && (blendingView.curDCM?.suvConverted ?? false) == false {
-                                                    tempString4.appendFormat(NSLocalizedString("SUV (fused image): %.2f", comment: "SUV: Standard Uptake Value - No special characters for this string, only ASCII characters.") as NSString, Double(self.getBlendedSUV()))
-                                                }
-                                            }
-                                        }
-                                    }
-                                } else if item.isEqual(to: "Zoom") && fullText {
-                                    tempString.appendFormat(NSLocalizedString("Zoom: %0.0f%%", comment: "No special characters for this string, only ASCII characters.") as NSString, Double(self.displayedScaleValue()) * 100.0)
-                                } else if item.isEqual(to: "Rotation Angle") && fullText {
-                                    tempString.appendFormat(NSLocalizedString(" Angle: %0.0f", comment: "No special characters for this string, only ASCII characters.") as NSString, Double(Float(cLong(Double(self.displayedRotation())) % 360)))
-                                } else if item.isEqual(to: "Image Position") && fullText {
-                                    var orientationStack: NSString = ""
-                                    if self.is2DViewer() && (self.windowController() as? ViewerController)?.isEverythingLoaded() == true {
-                                        if self.horos_volumicData == -1 {
-                                            self.horos_volumicData = ((self.windowController() as? ViewerController)?.isDataVolumicIn4D(true, checkEverythingLoaded: true, tryToCorrect: false) ?? false) ? 1 : 0
-                                        }
-
-                                        let dcmPixList = self.horos_dcmPixList
-                                        if self.horos_volumicSeries == true && (dcmPixList?.count ?? 0) > 2 && self.horos_volumicData == 1 {
-                                            let interval3d: Double
-                                            let pix2 = objcObject(dcmPixList!.object(at: 2), DCMPix.self)
-                                            let pix1 = objcObject(dcmPixList!.object(at: 1), DCMPix.self)
-                                            var xd = pix2.originX - pix1.originX // To avoid the problem with 1st scout image
-                                            var yd = pix2.originY - pix1.originY
-                                            var zd = pix2.originZ - pix1.originZ
-
-                                            interval3d = sqrt(xd * xd + yd * yd + zd * zd)
-                                            xd /= interval3d; yd /= interval3d; zd /= interval3d
-
-                                            // float v[ 3]; char stackOrientationStart[ 10], stackOrientationEnd[ 10];
-                                            withUnsafeTemporaryAllocation(of: Float.self, capacity: 3) { vBuffer in
-                                                withUnsafeTemporaryAllocation(of: CChar.self, capacity: 20) { textBuffer in
-                                                    textBuffer.initialize(repeating: 0)
-                                                    let v = vBuffer.baseAddress!
-                                                    v[0] = Float(xd); v[1] = Float(yd); v[2] = Float(zd)
-                                                    let stackOrientationStart = textBuffer.baseAddress!
-                                                    let stackOrientationEnd = stackOrientationStart + 10
-                                                    if self.horos_flippedData == false {
-                                                        self.getOrientationText(stackOrientationStart, v, true)
-                                                        self.getOrientationText(stackOrientationEnd, v, false)
-                                                    } else {
-                                                        self.getOrientationText(stackOrientationStart, v, false)
-                                                        self.getOrientationText(stackOrientationEnd, v, true)
-                                                    }
-
-                                                    if stackOrientationStart[0] != 0 && stackOrientationEnd[0] != 0 {
-                                                        let pos: Float
-                                                        let pixCount = dcmPixList!.count
-
-                                                        if self.horos_flippedData {
-                                                            pos = Float(UInt(bitPattern: pixCount) &- UInt(bitPattern: Int(self.horos_curImage))) / Float(pixCount)
-                                                        } else {
-                                                            pos = Float(self.horos_curImage) / Float(pixCount)
-                                                        }
-
-                                                        // The float compared with the doubles 0.4 and 0.6, as in C.
-                                                        if Double(pos) < 0.4 {
-                                                            orientationStack = NSString(format: " %c (%c -> %c)", Int32(stackOrientationStart[0]), Int32(stackOrientationStart[0]), Int32(stackOrientationEnd[0]))
-                                                        } else if Double(pos) > 0.6 {
-                                                            orientationStack = NSString(format: " %c (%c -> %c)", Int32(stackOrientationEnd[0]), Int32(stackOrientationStart[0]), Int32(stackOrientationEnd[0]))
-                                                        } else {
-                                                            orientationStack = NSString(format: " (%c -> %c)", Int32(stackOrientationStart[0]), Int32(stackOrientationEnd[0]))
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    let curImage = Int(self.horos_curImage)
-                                    let pixCount = self.horos_dcmPixList?.count ?? 0
-                                    if (self.curDCM?.stack ?? 0) > 1 {
-                                        var maxVal: Int
-
-                                        if self.horos_flippedData {
-                                            maxVal = curImage - Int(self.curDCM?.stack ?? 0) + 1
-                                        } else {
-                                            maxVal = curImage + Int(self.curDCM?.stack ?? 0)
-                                        }
-
-                                        if maxVal < 0 { maxVal = 0 }
-                                        if maxVal > pixCount { maxVal = pixCount }
-
-                                        if self.horos_flippedData {
-                                            tempString.appendFormat(NSLocalizedString("Im: %ld-%ld/%ld %@", comment: "No special characters for this string, only ASCII characters.") as NSString, pixCount - curImage, pixCount &- maxVal, pixCount, orientationStack)
-                                        } else {
-                                            tempString.appendFormat(NSLocalizedString("Im: %ld-%ld/%ld %@", comment: "No special characters for this string, only ASCII characters.") as NSString, curImage + 1, maxVal, pixCount, orientationStack)
-                                        }
-                                    } else if fullText {
-                                        if self.horos_flippedData {
-                                            tempString.appendFormat(NSLocalizedString("Im: %ld/%ld %@", comment: "No special characters for this string, only ASCII characters.") as NSString, pixCount - curImage, pixCount, orientationStack)
-                                        } else {
-                                            tempString.appendFormat(NSLocalizedString("Im: %ld/%ld %@", comment: "No special characters for this string, only ASCII characters.") as NSString, curImage + 1, pixCount, orientationStack)
-                                        }
-                                    }
-                                } else if item.isEqual(to: "Mouse Position (mm)") {
-                                    if self.horos_stringID == nil {
-                                        //								if( mouseXPos != 0 || mouseYPos != 0)
-                                        do {
-                                            var location: (Float, Float, Float) = (0, 0, 0)
-
-                                            withUnsafeMutablePointer(to: &location) { locationTuple in
-                                                locationTuple.withMemoryRebound(to: Float.self, capacity: 3) { locationPointer in
-                                                    if (self.curDCM?.stack ?? 0) > 1 {
-                                                        var maxVal: Int
-                                                        let curImage = Int(self.horos_curImage)
-
-                                                        if self.horos_flippedData {
-                                                            maxVal = curImage - (Int(self.curDCM?.stack ?? 0) - 1) / 2
-                                                        } else {
-                                                            maxVal = curImage + (Int(self.curDCM?.stack ?? 0) - 1) / 2
-                                                        }
-
-                                                        let dcmPixList = self.horos_dcmPixList
-                                                        if maxVal < 0 { maxVal = 0 }
-                                                        if maxVal >= (dcmPixList?.count ?? 0) { maxVal = (dcmPixList?.count ?? 0) - 1 }
-
-                                                        if let pix = dcmPixList?.object(at: maxVal) {
-                                                            objcObject(pix, DCMPix.self).convertX(self.horos_mouseXPos, pixY: self.horos_mouseYPos, toDICOMCoords: locationPointer, pixelCenter: true)
-                                                        }
-                                                    } else {
-                                                        self.curDCM?.convertX(self.horos_mouseXPos, pixY: self.horos_mouseYPos, toDICOMCoords: locationPointer, pixelCenter: true)
-                                                    }
-                                                }
-                                            }
-
-                                            if self.curDCM?.is3DPlane() ?? false {
-                                                if fabs(Double(location.0)) < 1.0 && location.0 != 0.0 && (self.curDCM?.pixelSpacingX ?? 0) < 0.2 {
-                                                    tempString.appendFormat("X: %2.2f %cm Y: %2.2f %cm Z: %2.2f %cm" as NSString, Double(location.0) * 1000.0, Int32(0xB5), Double(location.1) * 1000.0, Int32(0xB5), Double(location.2) * 1000.0, Int32(0xB5))
-                                                } else {
-                                                    tempString.appendFormat("X: %2.2f mm Y: %2.2f mm Z: %2.2f mm" as NSString, Double(location.0), Double(location.1), Double(location.2))
-                                                }
-                                            } else {
-                                                if fabs(Double(location.0)) < 1.0 && location.0 != 0.0 && (self.curDCM?.pixelSpacingX ?? 0) < 0.2 {
-                                                    tempString.appendFormat("X: %2.2f %cm Y: %2.2f %cm" as NSString, Double(location.0) * 1000.0, Int32(0xB5), Double(location.1) * 1000.0, Int32(0xB5))
-                                                } else {
-                                                    tempString.appendFormat("X: %2.2f mm Y: %2.2f mm" as NSString, Double(location.0), Double(location.1))
-                                                }
-                                            }
-                                        }
-                                    }
-                                } else if item.isEqual(to: "Window Level / Window Width") {
-                                    let lwl: Float = self.curDCM?.wl ?? 0
-                                    let lww: Float = self.curDCM?.ww ?? 0
-
-                                    let iwl = cInt32(Double(lwl))
-                                    let iww = cInt32(Double(lww))
-
-                                    if lww < 50 && (lwl != Float(iwl) || lww != Float(iww)) {
-                                        tempString.appendFormat(NSLocalizedString("WL: %0.4f WW: %0.4f", comment: "WW: window width, WL: window level") as NSString, Double(lwl), Double(lww))
-                                    } else {
-                                        tempString.appendFormat(NSLocalizedString("WL: %d WW: %d", comment: "WW: window width, WL: window level") as NSString, cInt32(Double(lwl)), cInt32(Double(lww)))
-                                    }
-
-                                    let curImage = Int(self.horos_curImage)
-                                    if objcIsEqualToString(objcObject(self.horos_dcmFilesList?.object(at: curImage))?.value(forKey: "modality"), "PT") || (UserDefaults.standard.bool(forKey: "mouseWindowingNM") && objcIsEqualToString(objcObject(self.horos_dcmFilesList?.object(at: curImage))?.value(forKey: "modality"), "NM")) {
-                                        if (self.curDCM?.maxValueOfSeries ?? 0) != 0 {
-                                            let min = lwl - lww / 2, max = lwl + lww / 2
-
-                                            // %d with long arguments, as the Objective-C passed them.
-                                            tempString2.appendFormat(NSLocalizedString("From: %d %% (%0.2f) to: %d %% (%0.2f)", comment: "No special characters for this string, only ASCII characters.") as NSString, cLong(Double(min) * 100.0 / Double(self.curDCM?.maxValueOfSeries ?? 0)), Double(lwl - lww / 2), cLong(Double(max) * 100.0 / Double(self.curDCM?.maxValueOfSeries ?? 0)), Double(lwl + lww / 2))
-                                        }
-                                    }
-                                } else if item.isEqual(to: "Plugin") {
-
-                                    let userInfo = NSDictionary(objects: [NSNumber(value: Float(yRaster)),
-                                                                          NSNumber(value: Float(xRaster)),
-                                                                          NSNumber(value: intValue(align, key))],
-                                                                forKeys: ["yRaster" as NSString, "xRaster" as NSString, "alignment" as NSString])
-
-
-                                    NotificationCenter.default.post(name: .OsirixDrawTextInfo,
-                                                                    object: self,
-                                                                    userInfo: userInfo as? [AnyHashable: Any])
-                                    yRaster += Int(increment)
-                                } else if item.isEqual(to: "Orientation") {
-                                    if !orientationDrawn { self.drawOrientation(size) }
-                                    orientationDrawn = true
-                                } else if item.isEqual(to: "Thickness / Location / Position") {
-                                    if (self.curDCM?.sliceThickness ?? 0) != 0 && (self.curDCM?.sliceLocation ?? 0) != 0 {
-                                        if (self.curDCM?.stack ?? 0) > 1 {
-                                            var vv: Float = 0, pp: Float = 0
-
-                                            self.getThickSlabThickness(&vv, location: &pp)
-
-                                            if vv < 1.0 && vv != 0.0 {
-                                                if fabs(Double(pp)) < 1.0 && pp != 0.0 {
-                                                    tempString.appendFormat(NSLocalizedString("Thickness: %0.2f %cm Location: %0.2f %cm", comment: "") as NSString, fabs(Double(vv) * 1000.0), Int32(0xB5), Double(pp) * 1000.0, Int32(0xB5))
-                                                } else {
-                                                    tempString.appendFormat(NSLocalizedString("Thickness: %0.2f %cm Location: %0.2f mm", comment: "") as NSString, fabs(Double(vv) * 1000.0), Int32(0xB5), Double(pp))
-                                                }
-                                            } else {
-                                                tempString.appendFormat(NSLocalizedString("Thickness: %0.2f mm Location: %0.2f mm", comment: "") as NSString, fabs(Double(vv)), Double(pp))
-                                            }
-                                        } else if fullText {
-                                            if (self.curDCM?.sliceThickness ?? 0) < 1.0 && (self.curDCM?.sliceThickness ?? 0) != 0.0 {
-                                                if fabs(self.curDCM?.sliceLocation ?? 0) < 1.0 && (self.curDCM?.sliceLocation ?? 0) != 0.0 {
-                                                    tempString.appendFormat(NSLocalizedString("Thickness: %0.2f %cm Location: %0.2f %cm", comment: "") as NSString, (self.curDCM?.sliceThickness ?? 0) * 1000.0, Int32(0xB5), (self.curDCM?.sliceLocation ?? 0) * 1000.0, Int32(0xB5))
-                                                } else {
-                                                    tempString.appendFormat(NSLocalizedString("Thickness: %0.2f %cm Location: %0.2f mm", comment: "") as NSString, (self.curDCM?.sliceThickness ?? 0) * 1000.0, Int32(0xB5), self.curDCM?.sliceLocation ?? 0)
-                                                }
-                                            } else {
-                                                tempString.appendFormat(NSLocalizedString("Thickness: %0.2f mm Location: %0.2f mm", comment: "") as NSString, self.curDCM?.sliceThickness ?? 0, self.curDCM?.sliceLocation ?? 0)
-                                            }
-                                        }
-                                    } else if objcProperty(self.curDCM, kViewPositionGetter) != nil || objcProperty(self.curDCM, kPatientPositionGetter) != nil {
-                                        if let viewPosition = objcProperty(self.curDCM, kViewPositionGetter) {
-                                            tempString.appendFormat(NSLocalizedString("Position: %@ ", comment: "") as NSString, arg(viewPosition))
-                                        }
-                                        if let patientPosition = objcProperty(self.curDCM, kPatientPositionGetter) {
-                                            if objcProperty(self.curDCM, kViewPositionGetter) != nil {
-                                                tempString.append(objcObject(patientPosition, NSString.self) as String)
-                                            } else {
-                                                tempString.appendFormat(NSLocalizedString("Position: %@ ", comment: "") as NSString, arg(patientPosition))
-                                            }
-                                        }
-                                    }
-                                } else if item.isEqual(to: "PatientName") {
-                                    let curImage = Int(self.horos_curImage)
-                                    let dcmFilesList = self.horos_dcmFilesList
-                                    if AnnotationLevel.shows(.patientName, level: Int(self.horos_annotationType)) && curImage >= 0 && curImage < (dcmFilesList?.count ?? 0) {
-                                        let patientName = objcObject(dcmFilesList?.object(at: curImage))?.value(forKeyPath: "series.study.name")
-                                        if let patientName = patientName.map({ objcObject($0, NSString.self) }), patientName.length != 0 {
-                                            tempString.append(patientName as String)
-                                        }
-                                    }
-                                } else if item.hasPrefix(DCMPixAnnotationPatientNamePrefix) {
-                                    // A field holding the patient's name: Basic is
-                                    // the level without it; Full shows it, and
-                                    // Custom when its sheet says so.
-                                    if AnnotationLevel.shows(.patientName, level: Int(self.horos_annotationType)) {
-                                        tempString.appendFormat(" %@" as NSString, arg(item.substring(from: (DCMPixAnnotationPatientNamePrefix as NSString).length)))
-                                    }
-                                } else if fullText {
-                                    tempString.appendFormat(" %@" as NSString, arg(item))
-                                }
-                                j += 1
-                            }
-
-                            tempString.setString(tempString.trimmingCharacters(in: .whitespaces))
-                            tempString2.setString(tempString2.trimmingCharacters(in: .whitespaces))
-                            tempString3.setString(tempString3.trimmingCharacters(in: .whitespaces))
-                            tempString4.setString(tempString4.trimmingCharacters(in: .whitespaces))
-
-                            if !tempString.isEqual(to: "") {
-                                var xAdd = 0
-                                if key.isEqual(to: "TopLeft") && Float(yRaster &- Int(increment)) < Float(colorBoxSize) + 2 * sf {
-                                    xAdd = Int(colorBoxSize)
-                                }
-
-                                self.drawNSStringGL(tempString as String, fontList, xRaster &+ xAdd, yRaster, align: DCMViewTextAlign(rawValue: UInt32(bitPattern: intValue(align, key))), useStringTexture: useStringTexture)
-                                yRaster += Int(increment)
-                            }
-                            if !tempString2.isEqual(to: "") {
-                                var xAdd = 0
-                                if key.isEqual(to: "TopLeft") && Float(yRaster &- Int(increment)) < Float(colorBoxSize) + 2 * sf {
-                                    xAdd = Int(colorBoxSize)
-                                }
-
-                                self.drawNSStringGL(tempString2 as String, fontList, xRaster &+ xAdd, yRaster, align: DCMViewTextAlign(rawValue: UInt32(bitPattern: intValue(align, key))), useStringTexture: useStringTexture)
-                                yRaster += Int(increment)
-                            }
-                            if !tempString3.isEqual(to: "") {
-                                var xAdd = 0
-                                if key.isEqual(to: "TopLeft") && Float(yRaster &- Int(increment)) < Float(colorBoxSize) + 2 * sf {
-                                    xAdd = Int(colorBoxSize)
-                                }
-
-                                self.drawNSStringGL(tempString3 as String, fontList, xRaster &+ xAdd, yRaster, align: DCMViewTextAlign(rawValue: UInt32(bitPattern: intValue(align, key))), useStringTexture: useStringTexture)
-                                yRaster += Int(increment)
-                            }
-                            if !tempString4.isEqual(to: "") {
-                                var xAdd = 0
-                                if key.isEqual(to: "TopLeft") && Float(yRaster &- Int(increment)) < Float(colorBoxSize) + 2 * sf {
-                                    xAdd = Int(colorBoxSize)
-                                }
-
-                                self.drawNSStringGL(tempString4 as String, fontList, xRaster &+ xAdd, yRaster, align: DCMViewTextAlign(rawValue: UInt32(bitPattern: intValue(align, key))), useStringTexture: useStringTexture)
-                                yRaster += Int(increment)
-                            }
-                        }
-                    } catch {
-                        if self.horos_exceptionDisplayed == false {
-                            let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-                            HorosAlertPanel.runCritical(title: NSLocalizedString("Annotations Error", comment: ""), message: String(format: "%@\r\r%@", arg(e), arg(annot)), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-
-                            NSLog("draw custom annotation exception: %@\r\r%@", arg(e), arg(annot))
-
-                            self.horos_exceptionDisplayed = true
-                        }
+            var lowerLeftTop = Int(layout.start(of: "LowerLeft").y)
+            var lowerCorners = LowerCornerText()
+            let values = ViewAnnotationValues(view: self, level: annotations)
+            for position in positions {
+                let drawn = layout.commands(for: position, lines: fields[position] ?? [], fullText: fullText,
+                                            patientNamePrefix: DCMPixAnnotationPatientNamePrefix, phrases: annotationPhrases, values: values)
+                for command in drawn.commands {
+                    switch command {
+                    case .text:
+                        self.drawAnnotation(command)
+                    case let .plugin(x, y, alignment):
+                        let userInfo: [AnyHashable: Any] = ["yRaster": NSNumber(value: Float(y)), "xRaster": NSNumber(value: Float(x)),
+                                                            "alignment": NSNumber(value: Int32(alignment.rawValue))]
+                        NotificationCenter.default.post(name: .OsirixDrawTextInfo, object: self, userInfo: userInfo)
+                    case .orientation:
+                        if !orientationDrawn { self.drawOrientation(size) }
+                        orientationDrawn = true
                     }
-                } // while
-                if key.isEqual(to: kLowerLeft as String) { lowerLeftTop = yRaster }
-                k += 1
-            } // for k
+                }
+                if position == "LowerLeft" { lowerLeftTop = drawn.endY }
+                lowerCorners.note(position: position, commands: drawn.commands, endY: drawn.endY, characterWidth: Double(stringSize.width))
+            }
 
             // A 3D view of a series corrected for gantry tilt: above the lower left lines.
             if !self.is2DViewer(), AnnotationLevel.showsText(level: annotations),
@@ -1438,21 +718,36 @@ extension DCMView {
             }
 
             // An older study of the patient than another open viewer: centred at
-            // the bottom, above the lower orientation letter.
+            // the bottom, above the lower orientation letter, and above the lines
+            // of the lower corners where a narrow view brings them under it.
             if self.horos_stringID == nil && self.is2DViewer() && PreviousStudyMark.isEnabled
                 && PreviousStudyMark.isPrevious(self.windowController() as AnyObject?) {
                 let label = PreviousStudyMark.label
                 let labelSize = self.convertToBacking(label.frameSize)
-                self.horosDraw(label, bounds: NSMakeRect(size.origin.x + (size.size.width - labelSize.width) / 2,
-                                                         size.origin.y + size.size.height - labelSize.height - stringSize.height - CGFloat(6 * sf),
-                                                         labelSize.width, labelSize.height))
+                let x = size.origin.x + (size.size.width - labelSize.width) / 2
+                let top = lowerCorners.labelTop(preferred: Double(size.origin.y + size.size.height - labelSize.height - stringSize.height - CGFloat(6 * sf)),
+                                                minX: Double(x), maxX: Double(x + labelSize.width), height: Double(labelSize.height), gap: Double(6 * sf))
+                self.horosDraw(label, bounds: NSMakeRect(x, CGFloat(top), labelSize.width, labelSize.height))
             }
 
-            yRaster = cLong(Double(size.origin.y + size.size.height - 2))
-            xRaster = cLong(Double(size.origin.x + size.size.width - 2))
             if fullText && AnnotationLevel.showsText(level: annotations) {
-                self.drawNSStringGL("Made In IsiX DICOM Viewer", fontList, xRaster, yRaster, rightAlignment: true, useStringTexture: true)
+                let signature = layout.signature
+                self.drawNSStringGL("Made In IsiX DICOM Viewer", DCMViewMainFont, signature.x, signature.y, rightAlignment: true, useStringTexture: true)
             }
+        }
+    }
+
+    /// A position of the annotations that is not a list of lines of texts,
+    /// which a plugin may have put there: said once, as the drawing's
+    /// exceptions were.
+    private func reportAnnotationsError(_ lines: Any?) {
+        if self.horos_exceptionDisplayed == false {
+            let description = lines.map { String(describing: $0) } ?? "(null)"
+            HorosAlertPanel.runCritical(title: NSLocalizedString("Annotations Error", comment: ""),
+                                        message: "The annotations of a position are not lines of texts\r\r" + description,
+                                        defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            NSLog("draw custom annotation exception: %@", description)
+            self.horos_exceptionDisplayed = true
         }
     }
 

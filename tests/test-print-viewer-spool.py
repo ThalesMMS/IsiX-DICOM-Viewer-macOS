@@ -10,12 +10,14 @@ draws nothing for a missing file, so a failed write printed a blank cell and
 said nothing.
 
 This compiles the real methods against the real `HorosPrintSelection`, with a
-genuine image and a genuine directory. The spool methods, -endPrint: and
--printOperationDidRun:success:contextInfo: are Swift, in
-ViewerController+Export+PrintMovie.swift: they are taken from there as they
-stand and compiled with swiftc as an extension of a Swift double of the viewer
-that has the `horos_printSpoolDirectory` accessor they use; -dealloc stays in
-ViewerController.m.
+genuine image and a genuine directory. The print of the 2D viewer is
+ViewerPrintJob (ViewerPrintJob.swift): its spool methods, its plan and its
+settings are taken from there as they stand, and the viewer's façades
+(-preparePrintSpoolDirectory, -writePrintPage:index:into:,
+-discardPrintSpoolDirectory, in ViewerController+Export+PrintMovie.swift) from
+there, and compiled with swiftc around a Swift double of the viewer that has
+the `horos_printSpoolDirectory` accessor they use; the viewer's teardown asks
+for the spool to go (ViewerSessionGraph+ViewerLife.swift).
 """
 from pathlib import Path
 import re
@@ -28,30 +30,42 @@ import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
+viewer = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
 swift_viewer = source_text('ViewerController+Export+PrintMovie')
+job = source_text('ViewerPrintJob')
 failures = []
 
-start = swift_viewer.index('    @objc(preparePrintSpoolDirectory)')
-methods = swift_viewer[start:swift_viewer.index('    @objc(presentPrintPreparationFailure)', start)]
-
-helper_start = swift_viewer.index('/// Layout titles retain a numeric grid prefix')
-layout_helpers = swift_viewer[helper_start:swift_viewer.index('/// volumeData[index]', helper_start)]
-assert 'restorePrintLayout(self.horos_printLayout, settings: p)' in swift_viewer
+# The spool methods: the end of ViewerPrintJob.
+start = job.index('    // MARK: The spool')
+methods = job[start:job.rindex('\n}\n')]
+# The viewer's façades of the spool.
+facades = swift_viewer[swift_viewer.index('    @objc(preparePrintSpoolDirectory)'):swift_viewer.index('    @objc(presentPrintPreparationFailure)')]
+# The plan and the settings, which restore the layout of the sheet.
+plan = job[job.index('// MARK: - The plan'):job.index('// MARK: - The job')]
+assert 'ViewerPrintSettings.selectLayout(in: viewer.horos_printLayout, for: previous)' in job
 
 EXTENSION = '''
 import AppKit
-''' + layout_helpers + '''
+''' + plan + '''
 
-// The viewer's print spool accessor (ViewerController+SwiftIvars.h).
+// The viewer's print spool accessor (ViewerController+ExportState.swift).
 @objc(Viewer) public class Viewer: NSObject {
     @objc public var horos_printSpoolDirectory: String?
+    fileprivate var printJob: ViewerPrintJob { ViewerPrintJob(viewer: self) }
+}
+
+final class ViewerPrintJob {
+    let viewer: Viewer
+    init(viewer: Viewer) { self.viewer = viewer }
+''' + methods + '''
 }
 
 public extension Viewer {
-''' + methods + '''
+''' + facades + '''
+    // The settings as the preferences hand them back, restored in the sheet's popup.
     @MainActor @objc func restoreLayout(_ popup: NSPopUpButton, settings: NSDictionary?) {
-        restorePrintLayout(popup, settings: settings)
+        let values = (settings as? [String: Any]).flatMap { PropertyListValue.dictionary($0) }
+        ViewerPrintSettings.selectLayout(in: popup, for: values.map(ViewerPrintSettings.init(stored:)))
     }
 }
 '''
@@ -200,13 +214,14 @@ DRIVER = DRIVER.replace('PORTUGUESE_LAYOUTS', objc_array([item.get('title') for 
 DRIVER = DRIVER.replace('LAYOUT_TAGS', objc_array([item.get('tag') for item in english]))
 
 swift = root / 'Horos/Sources/PrintSelection.swift'
+plist = root / 'Modules/IsiXPreferences/Sources/PropertyListValue.swift'
 with tempfile.TemporaryDirectory(prefix='horos-print-viewer-spool-') as folder:
     path = Path(folder)
     (path / 'Check.m').write_text(DRIVER, encoding='utf-8')
     (path / 'Viewer.swift').write_text(EXTENSION, encoding='utf-8')
     build = subprocess.run(['xcrun', 'swiftc', '-emit-library', '-emit-objc-header',
                             '-emit-objc-header-path', str(path / 'Horos-Swift.h'),
-                            '-module-name', 'Horos', str(swift), str(path / 'Viewer.swift'),
+                            '-module-name', 'Horos', str(swift), str(plist), str(path / 'Viewer.swift'),
                             '-o', str(path / 'libHoros.dylib')], capture_output=True, text=True)
     if build.returncode:
         failures.append('the print policy or the viewer spool methods do not build: %s' % build.stderr.strip()[-900:])
@@ -224,27 +239,40 @@ with tempfile.TemporaryDirectory(prefix='horos-print-viewer-spool-') as folder:
                 failures.append('the viewer spool does not hold: %s' % (run.stderr.strip()[-500:] or 'no output'))
 
 # The caller has to be the one that changed, not only the policy.
-if '/tmp/print"' in viewer or '/tmp/print"' in swift_viewer:
+if '/tmp/print"' in viewer or '/tmp/print"' in swift_viewer or '/tmp/print"' in job:
     failures.append('the fixed /tmp/print path is still used')
-end_print = swift_viewer[swift_viewer.index('    @objc(endPrint:)'):swift_viewer.index('    @objc(printSlider:)')]
-if 'self.preparePrintSpoolDirectory() == false' not in end_print:
+end_print = job[job.index('    func endSheet('):job.index('    // MARK: The pages')]
+pages = job[job.index('    private func capturePages('):job.index('    func finish(pages:')]
+finish = job[job.index('    func finish(pages:'):job.index('    /// The end of the print operation')]
+if 'guard prepareSpoolDirectory() else {' not in end_print:
     failures.append('a spool directory that cannot be made must stop the print, not be ignored')
-if 'self.writePrintPage(im, index: i, into: files) == false' not in end_print:
+if 'if let page = writePage(image, index: index) {' not in pages or 'failed = true' not in pages:
     failures.append('the capture loop must write through the checked writer')
-if '!preparationCancelled && !preparationFailed' not in end_print:
+if '!cancelled && !failed && !pages.isEmpty' not in finish:
     failures.append('a failed preparation must not submit the prefix it captured')
-if 'printOperation.jobTitle = "IsiX DICOM Viewer"' not in end_print:
+if 'printOperation.jobTitle = "IsiX DICOM Viewer"' not in finish:
     failures.append('the job title must be a constant: the window title carries the patient name')
-if 'presentPrintPreparationFailure' not in end_print:
+if 'presentPreparationFailure()' not in end_print or 'presentPreparationFailure()' not in finish:
     failures.append('a failed preparation must say so')
-did_run = swift_viewer[swift_viewer.index('    @objc(printOperationDidRun:success:contextInfo:)'):start]
-if 'discardPrintSpoolDirectory' not in did_run:
+did_run = job[job.index('    func operationDidRun('):job.index('    /// Puts the viewer')]
+if 'discardSpoolDirectory()' not in did_run:
     failures.append('the finished job must remove its own spool directory')
-if 'success == false' not in did_run:
+if 'if !success {' not in did_run:
     failures.append('a cancelled or failed operation must not be recorded as a success')
-if 'discardPrintSpoolDirectory' not in viewer[viewer.index('- (void) dealloc\n{\n    [ViewerController clearFrontMost2DViewerCache];'):][:2000]:
+if 'printJob.operationDidRun(success: success)' not in swift_viewer:
+    failures.append('the viewer, delegate of the print operation, must hand its end to the job')
+# The teardown of -dealloc, in ViewerController.m or, since the class is
+# Swift, in the tearDown that -horosTearDown asks of the viewer's graph
+# (ViewerSessionGraph+ViewerLife.swift).
+dealloc_marker = '- (void) dealloc\n{\n    [ViewerController clearFrontMost2DViewerCache];'
+if dealloc_marker in viewer:
+    teardown = viewer[viewer.index(dealloc_marker):][:2000]
+else:
+    lifecycle = source_text('ViewerSessionGraph+ViewerLife')
+    teardown = lifecycle[lifecycle.index('    func tearDown(_ viewer: ViewerController) {'):][:2000]
+if 'discardPrintSpoolDirectory' not in teardown:
     failures.append('a viewer closed with a spool still around must take it with it')
-printing = '\n'.join(line for line in (end_print + did_run + methods).splitlines()
+printing = '\n'.join(line for line in (end_print + pages + finish + did_run + methods).splitlines()
                       if not line.lstrip().startswith('//'))
 if '@"/tmp' in printing or '"/tmp' in printing:
     failures.append('the printing path names a fixed temporary location again')

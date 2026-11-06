@@ -43,13 +43,12 @@ import Cocoa
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ROIVolumeController.h> are those of the former class, the File's
-/// Owner of ROIVolume.xib. The messages to the ROIVolumeView go through
-/// ROIVolumeViewHostBridge, because ROIVolumeView.h is C++.
+/// Owner of ROIVolume.xib.
 @objc(ROIVolumeController)
 public final class ROIVolumeController: Window3DController {
     /// The former `IBOutlet ROIVolumeView *view` ivar, which the xib sets
     /// through -setView:. -view stays the one of Window3DController, as before.
-    private var roiVolumeView: NSView?
+    private var roiVolumeView: ROIVolumeView?
     private var volumeFieldOutlet: NSTextField?
     private var seriesNameOutlet: NSTextField?
 
@@ -75,7 +74,7 @@ public final class ROIVolumeController: Window3DController {
 
     /// Where the xib sets the view outlet.
     @objc(setView:)
-    private func setROIVolumeViewOutlet(_ view: NSView?) {
+    private func setROIVolumeViewOutlet(_ view: ROIVolumeView?) {
         roiVolumeView = view
     }
 
@@ -96,18 +95,17 @@ public final class ROIVolumeController: Window3DController {
     }
 
     @IBAction public func changeParameters(_ sender: Any?) {
-        ROIVolumeViewHostBridge.setOpacity(opacity?.floatValue ?? 0,
+        roiVolumeView?.setOpacity(opacity?.floatValue ?? 0,
                                        showPoints: (showPoints?.state ?? .off) != .off,
                                        showSurface: (showSurfaces?.state ?? .off) != .off,
                                        showWireframe: (showWireframe?.state ?? .off) != .off,
                                        texture: (textured?.state ?? .off) != .off,
                                        useColor: (color?.state ?? .off) != .off,
-                                       color: colorWell?.color.usingColorSpace(.genericRGB),
-                                       ofView: roiVolumeView)
+                                       color: colorWell?.color.usingColorSpace(.genericRGB))
     }
 
     @IBAction public func reload(_ sender: Any?) {
-        _ = ROIVolumeViewHostBridge.renderVolume(ofView: roiVolumeView)
+        _ = roiVolumeView?.renderVolume()
 
         self.changeParameters(self)
     }
@@ -134,7 +132,7 @@ public final class ROIVolumeController: Window3DController {
 
         self.window?.delegate = self
 
-        guard let data = ROIVolumeViewHostBridge.setPixSource(iroi, ofView: roiVolumeView) as NSDictionary? else {
+        guard let data = roiVolumeView?.setPixSource(iroi) else {
             return nil
         }
 

@@ -16,7 +16,7 @@ columns times samples bytes, and the pixels it was built from: exactly in the
 lossless syntaxes, closely in JPEG Baseline.
 
 Usage: python test-odd-frame-decode.py PRODUCTS_DIR
-       PRODUCTS_DIR is build/Build/Products/Debug, holding DCM.framework
+       PRODUCTS_DIR is build/Build/Products/Debug, of a build that left its DCMTK
 """
 from pathlib import Path
 import subprocess
@@ -27,7 +27,7 @@ import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from horos_reader import compile_reader, missing
 
 if len(sys.argv) < 2:
-    print('skipped: needs the built DCM framework: PRODUCTS_DIR', file=sys.stderr)
+    print('skipped: needs the dataset model and DCMTK of the Debug build: PRODUCTS_DIR', file=sys.stderr)
     raise SystemExit(2)
 products = Path(sys.argv[1]).resolve()
 why = missing(products)

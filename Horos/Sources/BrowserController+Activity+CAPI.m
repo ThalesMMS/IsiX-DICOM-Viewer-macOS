@@ -35,27 +35,9 @@
      PURPOSE.
  ============================================================================*/
 
-#import "BrowserController+Activity.h"
+#import "BrowserController.h"
 #import "ThreadsManager.h"
 #import "ThreadCell.h"
-
-// -deallocActivity is one step of -[BrowserController dealloc], which sends it
-// first and ends with its own [super dealloc]. It used to remove an
-// observer of ThreadsManager's "threads" that nothing registered, which raised,
-// and then sent [super dealloc] itself, from a category, so the class's dealloc
-// went on over a freed object. The helper observes the threads controller and
-// stops in its own deinit; the list lets go of it before it is released.
-@implementation BrowserController (Activity)
-
--(void)deallocActivity
-{
-    if ([_activityTableView delegate] == _activityHelper) [_activityTableView setDelegate:nil];
-    if ([_activityTableView dataSource] == _activityHelper) [_activityTableView setDataSource:nil];
-    [_activityHelper release];
-    _activityHelper = nil;
-}
-
-@end
 
 // The accessibility rows of the activity list stay Objective-C: Swift types
 // NSTableView's -accessibilityRows as NSAccessibilityRow, which these

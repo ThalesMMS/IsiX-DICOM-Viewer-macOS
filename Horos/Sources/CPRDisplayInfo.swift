@@ -75,7 +75,7 @@ public final class CPRDisplayInfo: NSObject, NSCopying {
     // to handle tracking the mouse on intersections of the plane and the CPR
     @objc private(set) var planeIntersectionMouseCoordinates: NSMutableDictionary
 
-    @objc public override init() {
+    public override init() {
         planeIntersectionMouseCoordinates = NSMutableDictionary()
         super.init()
     }

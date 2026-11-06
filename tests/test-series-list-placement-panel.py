@@ -21,6 +21,7 @@ import tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
 import harness_defaults  # the harness's preferences stay in its own process
+import process_graph_stand_in  # the 2D viewer's sources read the catalog's keys through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 if len(sys.argv) > 1:
@@ -37,6 +38,7 @@ returning = panel[r:panel.index('    isolated deinit', r)]
 
 driver = r'''
 import AppKit
+import IsiXPreferences
 
 @MainActor func check(_ value: Bool, _ message: String) {
     if !value {
@@ -150,5 +152,5 @@ with tempfile.TemporaryDirectory(prefix='horos-series-list-placement-panel-') as
     subprocess.run(['xcrun', 'clang', '-c', str(folder / 'defaults.m'), '-o', str(folder / 'defaults.o')], check=True)
     subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library',
                     str(root / 'Horos/Sources/SeriesListLayout.swift'), str(folder / 'Check.swift'), str(folder / 'defaults.o'),
-                    '-o', str(folder / 'series-list-placement-panel')], check=True)
+                    *process_graph_stand_in.swift_flags(folder / 'isix'), '-o', str(folder / 'series-list-placement-panel')], check=True)
     sys.exit(subprocess.run([str(folder / 'series-list-placement-panel')]).returncode)

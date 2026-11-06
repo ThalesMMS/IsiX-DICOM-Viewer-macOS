@@ -38,10 +38,9 @@
 
 #import "DCMPix.h"
 
+/** A file parsed by DCMTK. Implemented in Swift (DCMTKFileFormat.swift) over the
+ DCMTK adapter; dcmtkDcmFileFormat is its DcmFileFormat, deleted with the object. */
 @interface DCMTKFileFormat : NSObject
-{
-    void *dcmtkDcmFileFormat;
-}
 @property void *dcmtkDcmFileFormat;
 
 - (id) initWithFile: (NSString*) file;

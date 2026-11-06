@@ -38,24 +38,15 @@
 
 #import <Cocoa/Cocoa.h>
 
-#ifdef __cplusplus
-#include "HorosStructuredReportBridge.h"
-#else
-typedef char HorosSRDocument;
-#endif
-
 #import "ROI.h"
 #import "DicomImage.h"
 
+/** \brief The DICOM structured reports the app writes for a study: annotations,
+ * ROIs, windows state and reports. Implemented in Swift (SRAnnotation.swift);
+ * DCMTK writes and reads the documents through the adapter
+ * (IsiXDCMTKStructuredReport).
+ */
 @interface SRAnnotation : NSObject
-{
-	HorosSRDocument			*document;
-	DicomImage          *image;
-	BOOL				_newSR;
-	NSString			*_seriesInstanceUID, *_DICOMSRDescription, *_DICOMSeriesNumber, *_reportURL;
-	NSData				*_dataEncapsulated;
-	NSDate				*_contentDate;
-}
 
 /** Extracts ROI as NSData from a DICOM SR
  * @param path File path

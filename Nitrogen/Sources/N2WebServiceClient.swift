@@ -42,11 +42,11 @@ import Synchronization
 
 /// DLog of N2Debug.h: NSLog in a DEBUG build, otherwise only while N2Debug is
 /// active.
-fileprivate func n2WebServiceClientDLog(_ format: String, _ arguments: CVarArg...) {
+fileprivate func n2WebServiceClientDLog(_ format: StaticString, _ arguments: CVarArg...) {
     #if DEBUG
-    withVaList(arguments) { NSLogv(format, $0) }
+    unifiedLogv(format, arguments)
     #else
-    if N2Debug.isActive() { withVaList(arguments) { NSLogv(format, $0) } }
+    if N2Debug.isActive() { unifiedLogv(format, arguments) }
     #endif
 }
 

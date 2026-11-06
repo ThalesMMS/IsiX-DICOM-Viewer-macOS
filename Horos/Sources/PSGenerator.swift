@@ -49,13 +49,22 @@ private func psSetString(_ string: NSMutableString, _ value: NSMutableString?) {
     }
 }
 
+/// A number from low up to, not including, high; low when high is not above it.
+/// It draws from arc4random_uniform. It drew from random(), seeded with the time
+/// of day, so the web portal's generated passwords could be found again from when
+/// they were made; and random() / RAND_MAX could give high itself, one past the
+/// end of the string it chose a character from.
+func randomNumberBetween(_ low: Int32, _ high: Int32) -> Int32 {
+    if high <= low { return low }
+    return low &+ Int32(bitPattern: arc4random_uniform(UInt32(bitPattern: high &- low)))
+}
+
 /// Password generator.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
-/// <Horos/PSGenerator.h> are those of the former class. The C function
-/// randomNumberBetween() stays in PSGenerator+CAPI.m, and the generator draws
-/// from it: arc4random_uniform, no longer random() seeded with the
-/// time.
+/// <Horos/PSGenerator.h> are those of the former class. The generator draws
+/// from randomNumberBetween(): arc4random_uniform, no longer random() seeded
+/// with the time.
 @objc(PSGenerator)
 public final class PSGenerator: NSObject {
     // Parameters

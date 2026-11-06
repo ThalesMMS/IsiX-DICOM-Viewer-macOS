@@ -31,6 +31,13 @@ public final class VTKRetinaGeometry: NSObject {
         return displayWidth / width
     }
 
+    /// `rect` in the backing of a window of `hostScale`, for a view that renders
+    /// for a window other than its own.
+    public static func backingRect(_ rect: NSRect, hostScale: CGFloat) -> NSRect {
+        NSRect(x: rect.origin.x * hostScale, y: rect.origin.y * hostScale,
+               width: rect.size.width * hostScale, height: rect.size.height * hostScale)
+    }
+
     @objc(displayPointFromWindowPoint:inView:)
     @MainActor public static func displayPoint(fromWindowPoint windowPoint: NSPoint, in view: NSView) -> NSPoint {
         VRInteractionGeometry.backingPoint(windowPoint, in: view)

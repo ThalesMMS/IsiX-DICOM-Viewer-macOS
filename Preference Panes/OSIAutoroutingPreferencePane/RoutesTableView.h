@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// RoutesTableView is implemented in Swift since #711 (Preference
+// RoutesTableView is implemented in Swift (Preference
 // Panes/OSIAutoroutingPreferencePane/RoutesTableView.swift). This header
 // keeps its path: it brings in the generated interface, which declares the
 // same class name.

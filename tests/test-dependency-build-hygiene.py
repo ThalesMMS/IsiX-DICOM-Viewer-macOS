@@ -67,12 +67,21 @@ else:
 
 # Exercise the actual Make guard without rebuilding OpenSSL. The fake make
 # publishes only the requested installation products and records whether the
-# incomplete marker protected both invocations.
+# incomplete marker protected both invocations. The Source stage stands for what
+# Config.sh resolved: the record of the pinned archive and its read-only license,
+# which Make.sh installs beside the libraries for the bundle and the release.
 with tempfile.TemporaryDirectory() as directory:
     temporary = Path(directory)
     target = temporary / 'OpenSSL.build'
     install = target / 'Install'
     (target / 'Config').mkdir(parents=True)
+    source_record = target / 'Source/share/source.json'
+    source_license = target / 'Source/source/LICENSE.txt'
+    source_record.parent.mkdir(parents=True)
+    source_license.parent.mkdir(parents=True)
+    source_record.write_text('{"name": "OpenSSL", "version": "selected"}\n')
+    source_license.write_text('license of the selected archive\n')
+    source_license.chmod(0o444)
     bin_dir = temporary / 'bin'
     bin_dir.mkdir()
     make = bin_dir / 'make'
@@ -105,23 +114,35 @@ done
     first = run_install()
     if first.returncode or len(calls()) != 2 or (install / '.incomplete').exists():
         failures.append('OpenSSL did not install and verify products with its marker: ' + first.stderr)
+    installed_record = install / 'share/source.json'
+    installed_license = install / 'share/licenses/OpenSSL/LICENSE.txt'
+    if not (installed_record.is_file() and installed_record.read_bytes() == source_record.read_bytes()):
+        failures.append('OpenSSL did not install the source record of its resolved Source stage')
+    if not (installed_license.is_file() and installed_license.read_bytes() == source_license.read_bytes()):
+        failures.append('OpenSSL did not install the license of its resolved Source stage')
     before = calls()
     cached = run_install()
     if cached.returncode or calls() != before:
         failures.append('OpenSSL did not reuse a complete installation')
     required = ['lib/libcrypto.a', 'lib/libssl.a'] + [
         'include/openssl/' + name + '.h'
-        for name in ('ssl', 'crypto', 'opensslv', 'opensslconf', 'configuration', 'bio', 'err', 'x509')]
+        for name in ('ssl', 'crypto', 'opensslv', 'opensslconf', 'configuration', 'bio', 'err', 'x509')] + [
+        'share/source.json', 'share/licenses/OpenSSL/LICENSE.txt']
     for product in required:
         for empty in (False, True):
             path = install / product
+            if not path.exists():
+                failures.append('OpenSSL did not install ' + product)
+                break
             if empty:
+                # The installed license keeps the read-only mode of the original.
+                path.chmod(0o644)
                 path.write_bytes(b'')
             else:
                 path.unlink()
             before = len(calls())
             recovered = run_install()
-            if recovered.returncode or len(calls()) != before + 2 or not path.stat().st_size:
+            if recovered.returncode or len(calls()) != before + 2 or not path.is_file() or not path.stat().st_size:
                 failures.append('OpenSSL reused a missing/empty product: ' + product)
     (install / '.incomplete').touch()
     before = len(calls())
@@ -135,30 +156,47 @@ done
     environment.pop('TEST_FAILED_INSTALL')
     if run_install().returncode or (install / '.incomplete').exists():
         failures.append('OpenSSL did not recover after a partial install')
+    # Without the record of what Config.sh resolved, the libraries cannot be
+    # attributed to a pinned source, so the installation must stay incomplete.
+    installed_record.unlink(missing_ok=True)
+    held_record = source_record.read_bytes()
+    source_record.unlink()
+    unrecorded = run_install()
+    if unrecorded.returncode == 0 or not (install / '.incomplete').exists():
+        failures.append('OpenSSL completed an installation without its resolved source record')
+    source_record.write_bytes(held_record)
+    if run_install().returncode or not installed_record.is_file() or installed_record.read_bytes() != held_record:
+        failures.append('OpenSSL did not recover once its source record was resolved again')
 
 # --- no private signing identity is baked into the project -------------------
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text(errors='replace')
 
-# Production acquisition must not pull OpenSSL's optional external test trees.
-submodules = re.search(r'/\* Submodules \*/ = \{\n\t\t\tisa = PBXShellScriptBuildPhase;(.*?)\n\t\t\};',
-                       project, re.S)
-if not submodules:
-    failures.append('the project has no production submodule phase')
-else:
-    phase = submodules.group(1)
-    for command in ('git submodule sync -- DCMTK OpenSSL/upstream FeedbackReporter',
-                    'git submodule update --init -- DCMTK OpenSSL/upstream FeedbackReporter'):
-        if command not in phase:
-            failures.append('production acquisition is missing: ' + command)
-    if '--recursive' in phase or 'deinit' in phase:
-        failures.append('production acquisition recurses or removes local optional checkouts')
+# Native sources come only from the archives external-sources.json pins: no
+# build phase initializes, syncs or updates git submodules any more, and the
+# repository tracks no submodule for them.
+if re.search(r'git submodule|/\* Submodules \*/', project):
+    failures.append('the project still acquires sources through git submodules')
+gitlinks = [entry for entry in subprocess.run(['git', 'ls-files', '--stage', '-z'], cwd=root, check=True,
+                                              capture_output=True).stdout.split(b'\0')
+            if entry.startswith(b'160000 ')]
+if gitlinks:
+    failures.append('the repository still tracks submodules: %s' % gitlinks)
+if (root / '.gitmodules').exists() and subprocess.run(['git', 'ls-files', '--error-unmatch', '.gitmodules'],
+                                                       cwd=root, capture_output=True).returncode == 0:
+    failures.append('the repository still declares submodules in .gitmodules')
 
-# OpenSSL reads source from the gitlink; generated files belong only to Config.
+# OpenSSL configures the original release archive that external-sources.json
+# pins, resolved read-only into its own Source stage, never a repository
+# checkout; generated files belong only to Config.
 configure = (scripts / 'OpenSSL/Config.sh').read_text(errors='replace')
+if 'source_dir="$(sh "$external_inputs" --source OpenSSL "$source_prefix"' not in configure:
+    failures.append('the OpenSSL configure step does not resolve its pinned source archive')
+if 'OpenSSL/upstream' in configure or '$PROJECT_DIR/$TARGET_NAME' in configure or 'git -C' in configure:
+    failures.append('the OpenSSL configure step still reads the repository checkout')
 if re.search(r'^\s*(ditto|cp|rsync)\b', configure, re.M):
     failures.append('the OpenSSL configure step still copies its source tree')
 if configure.count('"$source_dir/Configure" "${configure_args[@]}"') != 2:
-    failures.append('Debug and Release must configure from upstream in the separate build directory')
+    failures.append('Debug and Release must configure the resolved source in the separate build directory')
 if configure.rfind('echo "$hash"') < configure.rfind('if [ $configure_status -ne 0 ]'):
     failures.append('OpenSSL records its configure hash before checking Configure success')
 

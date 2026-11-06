@@ -64,7 +64,7 @@ a273S[@"cells"]=a273Cells;
 } a273State[@"viewers"]=a273Viewers;
 NSMutableArray *a273Panels=[NSMutableArray array];
 for(NSWindow *a273W in [(NSApplication*)NSApp windows]) if([NSStringFromClass(a273W.class) isEqualToString:@"ThumbnailsListNSWindow"]){id a273Owner=(id)[(id)a273W.windowController viewer];
-[a273Panels addObject:@{@"visible":@(a273W.isVisible), @"frame":NSStringFromRect(a273W.frame), @"owner":[NSString stringWithFormat:@"%p",a273Owner], @"ownerTitle":[(NSWindow *)(id)[a273Owner window] title] ?: @"", @"panelController":a273W.windowController.description ?: @"", @"panelScreen":[(NSObject*)a273W.windowController valueForKey:@"screen"], @"panelScroll":[NSString stringWithFormat:@"%p",(id)[(id)a273W.windowController thumbnailsView]], @"windowNumber":@(a273W.windowNumber)}];} a273State[@"panels"]=a273Panels;
+[a273Panels addObject:@{@"visible":@(a273W.isVisible), @"frame":NSStringFromRect(a273W.frame), @"owner":[NSString stringWithFormat:@"%p",a273Owner], @"ownerTitle":[(NSWindow *)(id)[a273Owner window] title] ?: @"", @"panelController":a273W.windowController.description ?: @"", @"panelScreen":@(*(long*)((char*)(void*)a273W.windowController + ((long (*)(void *))ivar_getOffset)(((void *(*)(Class, const char *))class_getInstanceVariable)(((Class (*)(id))object_getClass)((id)a273W.windowController), "screen")))), @"panelScroll":[NSString stringWithFormat:@"%p",(id)[(id)a273W.windowController thumbnailsView]], @"windowNumber":@(a273W.windowNumber)}];} a273State[@"panels"]=a273Panels;
 [[NSJSONSerialization dataWithJSONObject:a273State options:3 error:nil]writeToFile:OUTPUT atomically:YES];
 '''.replace('OUTPUT', '@' + json.dumps(str(staged)))
 commands = args.output / (args.label + '.lldb')

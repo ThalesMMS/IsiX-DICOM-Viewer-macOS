@@ -37,6 +37,11 @@ FOUNDATION_EXPORT NSString * const HorosObjCExceptionKey;
 /// sends every such call through here.
 ///
 ///     try HorosObjCException.perform { database.save() }
+/// Calls `function(context)` and answers the Objective-C exception it raised,
+/// or nil: what +performBlock:error: does, without a block or an NSError, for
+/// a call made at every mouse event (a ROI's drag).
+FOUNDATION_EXPORT NSException * _Nullable HorosObjCPerformFunction(void (*function)(void * _Nullable context), void * _Nullable context);
+
 @interface HorosObjCException : NSObject
 
 /// Runs `block`. An NSException it raises is caught and returned as an

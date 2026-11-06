@@ -3,22 +3,22 @@
 export PATH="$PATH:/opt/local/bin:/opt/local/sbin:/opt/homebrew/bin/"
 
 path="$( cd "$(dirname "${BASH_SOURCE[0]}")" && pwd )/$(basename "${BASH_SOURCE[0]}")"
-revision_file="$(dirname "$path")/UPSTREAM_REVISION"
-cd "$TARGET_NAME"; pwd
+set -e
+# The original release archive pinned in external-sources.json, verified by its
+# SHA-256 and extracted read-only beside this target's outputs; never patched.
+external_inputs="$(dirname "$path")/../external-inputs.sh"
+source_prefix="$TARGET_TEMP_DIR/Source"
+source_dir="$(sh "$external_inputs" --source OpenSSL "$source_prefix" \
+    "${EXTERNAL_SOURCES_DOWNLOADS:-$PROJECT_TEMP_DIR/ExternalSources.downloads}")"
 
 # One narrow hash for every dependency; see Horos/Scripts/dependency-hash.sh.
+# The selected record carries the archive identity; resolve and validate the
+# pristine tree before considering a configure hit.
 . "$(dirname "$path")/../dependency-hash.sh"
-dependency_hash "$path" "$revision_file" "$(dirname "$path")/Make.sh"
+dependency_hash "$path" "$(dirname "$path")/Make.sh" "$external_inputs" "$source_prefix/share/source.json" "$source_dir/VERSION.dat"
 
 set -e; set -o xtrace; set -o pipefail
 
-source_dir="$PROJECT_DIR/$TARGET_NAME/upstream"
-expected_revision="$(cat "$revision_file")"
-if [ "$(git -C "$source_dir" rev-parse HEAD)" != "$expected_revision" ] || \
-   [ -n "$(git -C "$source_dir" status --porcelain --untracked-files=normal)" ]; then
-    echo "error: OpenSSL must be the clean upstream revision $expected_revision. Local changes were preserved." >&2
-    exit 1
-fi
 cmake_dir="$TARGET_TEMP_DIR/Config"
 install_dir="$TARGET_TEMP_DIR/Install"
 
@@ -61,7 +61,7 @@ configure_args=( --prefix="$TARGET_TEMP_DIR/Install" --openssldir=/private/etc/s
 #args+=(-DCMAKE_OSX_ARCHITECTURES="$ARCHS")
 
 # Configure supports a separate build directory; keep generated headers and
-# objects here while reading the pinned upstream source without copying it.
+# objects here while reading the resolved original archive without copying it.
 
 #cfs+=(-Wno-sometimes-uninitialized)
 #cxxfs+=(-Wno-sometimes-uninitialized)

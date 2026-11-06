@@ -22,6 +22,11 @@ import AppKit
 /// stored, or stored with a warning, are listed with their reason in an alert
 /// and in the log, and the network log gets a line, as a DIMSE send does. A Send Syntax other than "As stored" is applied by
 /// DCMTK (`HorosDICOMWriter`) before the files are posted.
+///
+/// The alert and the panel name each file and say what the node said. The
+/// log, which every process of the user can read, is written the report's
+/// `logDetail` and the kind of an error: no file name, and none of the
+/// node's own words.
 @objc(HorosDICOMwebSendActivity)
 public final class DICOMwebSendActivity: NSObject {
     /// Sends `files` to the node `server` names, on `thread`.
@@ -35,6 +40,9 @@ public final class DICOMwebSendActivity: NSObject {
         thread.status = String(format: "%ld %@", files.count,
                                files.count == 1 ? NSLocalizedString("file", comment: "") : NSLocalizedString("files", comment: ""))
         thread.progress = 0
+        // What the log calls the node: the name Locations gives it, which is
+        // configuration.
+        let destination = node.name
 
         let log = NSMutableDictionary()
         log["logUID"] = String(format: "%lf", Date().timeIntervalSince1970)
@@ -64,15 +72,15 @@ public final class DICOMwebSendActivity: NSObject {
             let report = try sender.send(files: files, cancelled: { thread.isCancelled })
             thread.status = report.statusLine
             thread.progress = 1
-            NSLog("DICOMweb send to %@: %@", node.name, report.summary)
+            NSLog("DICOMweb send to %@: %@", destination, report.summary)
             record(report.cancelled ? "Cancelled" : report.isComplete ? "Complete" : "Incomplete",
                    sent: report.sentCount, failed: report.failedCount)
             if !report.isComplete || report.warningCount > 0 {
                 let detail = report.detail(limit: 20)
-                NSLog("DICOMweb send to %@:\n%@", node.name, detail)
+                NSLog("DICOMweb send to %@:\n%@", destination, report.logDetail(limit: 20))
                 if report.failedCount > 0 {
-                    AppController.shared()?.notificationTitle(NSLocalizedString("DICOMweb Send", comment: ""),
-                                                             description: report.summary, name: "send")
+                    PreferencesSource.process.processGraph.userNotifications.post(title: NSLocalizedString("DICOMweb Send", comment: ""),
+                                                                                  description: report.summary, name: "send")
                 }
                 // A send cancelled before anything was stored says so in the panel only.
                 if !report.cancelled || report.sentCount > 0 { alert(detail) }
@@ -80,14 +88,15 @@ public final class DICOMwebSendActivity: NSObject {
         } catch {
             let message = (error as NSError).localizedDescription
             thread.status = message
-            NSLog("DICOMweb send to %@ failed: %@", node.name, message)
+            // The message may quote an identity provider's own words.
+            NSLog("DICOMweb send to %@ failed: %@", destination, DICOMwebClient.logReason(for: error as NSError) ?? "(null)")
             record("Incomplete", sent: 0, failed: files.count)
             alert(message)
         }
     }
 
     private static func alert(_ message: String) {
-        DispatchQueue.main.async {
+        onMainRunLoop {
             HorosAlertPanel.runCritical(title: NSLocalizedString("DICOMweb Send", comment: ""), message: message,
                                         defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
         }

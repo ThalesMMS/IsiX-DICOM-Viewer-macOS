@@ -123,10 +123,9 @@ private typealias CrossLines = ((Float, Float, Float), (Float, Float, Float))
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/MPRDCMView.h> are those of the former class, the customClass of the
-/// three views of MPR.xib. Its superclass, DCMView, stays in Objective-C; the
-/// ivars it reads of it go through DCMView+SwiftIvars.h. The messages to the
-/// VRView, whose header is C++, go through HorosMPRVRViewMessages, which VRView
-/// adopts in VRHostBridge.h.
+/// three views of MPR.xib. Its superclass, DCMView, is Swift too; the state it reads of it is DCMView's
+/// stored properties. The messages to the
+/// VRView go through HorosMPRVRViewMessages, which VRView adopts in VRView+CAPI.m.
 @objc(MPRDCMView)
 public final class MPRDCMView: DCMView {
     // MARK: - The former instance variables
@@ -170,12 +169,6 @@ public final class MPRDCMView: DCMView {
 
     private var dontCheckRoiChange = false
 
-    /// The bridge's own messages to this view (MPRHostBridge.m): MPRHostBridge.h
-    /// declares them in a category of this class, which Swift cannot read.
-    private var host: HorosMPRHostViewMessages {
-        return (self as AnyObject) as! HorosMPRHostViewMessages
-    }
-
     /// [self window].backingScaleFactor, 0 without a window.
     private var backingScaleFactor: CGFloat {
         return self.window?.backingScaleFactor ?? 0
@@ -183,7 +176,7 @@ public final class MPRDCMView: DCMView {
 
     // MARK: - Properties
 
-    /// The windowController ivar, for MPRHostBridge.m.
+    /// The windowController ivar, for the Metal plane (MPRDCMView+MetalPlane.swift).
     @objc(horosMPRWindowController)
     var horosMPRWindowController: MPRController? {
         return windowControllerIvar
@@ -236,7 +229,7 @@ public final class MPRDCMView: DCMView {
         set { _dontUseAutoLOD = newValue }
     }
 
-    /// The former `VRView *`: VRView.h is C++, so the view is typed by the
+    /// The former `VRView *`: the view is typed by the
     /// messages the MPR sends it.
     @objc public dynamic var vrView: (NSView & HorosMPRVRViewMessages)! {
         return _vrView
@@ -283,8 +276,8 @@ public final class MPRDCMView: DCMView {
     /// caller made it.
     @objc(setDCMPixList:filesList:roiList:firstImage:type:reset:)
     public dynamic func setDCMPixList(_ pixList: NSMutableArray!, filesList files: NSArray!, roiList rois: NSMutableArray!,
-                                      firstImage: Int16, type: CChar, reset: Bool) {
-        super.setPixels(pixList, files: files as? [Any], rois: rois, firstImage: firstImage, level: type, reset: reset)
+                                      firstImage: Int, type: CChar, reset: Bool) {
+        super.setPixels(pixList, files: files, rois: rois, firstImage: firstImage, level: type, reset: reset)
 
         NotificationCenter.default.addObserver(self,
                                                selector: #selector(removeROI(_:)),
@@ -341,8 +334,9 @@ public final class MPRDCMView: DCMView {
         }
     }
 
-    @objc(checkForFrame)
-    private dynamic func checkForFrame() {
+    private func checkForFrame() {
+        _vrView?.setHostBackingScale(backingScaleFactor)
+
         // NSView frames are in points; vtkCocoaRenderWindow converts to pixels.
         let frameRect = self.convert(self.bounds, to: nil)
 
@@ -351,9 +345,19 @@ public final class MPRDCMView: DCMView {
         }
     }
 
-    /// DCMView's -displayedScaleValue, which only DCMView.m declares: a method
-    /// with its selector overrides it.
-    @objc(displayedScaleValue)
+    /// On a screen of another scale the picture must be rendered again at that
+    /// scale, or it keeps its pixels and changes size in the pane.
+    public override dynamic func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+
+        guard _vrView != nil, _camera != nil, self.window != nil else { return }
+
+        _camera?.forceUpdate = true
+        self.restoreCamera()
+        self.updateViewMPR()
+    }
+
+    /// DCMView's -displayedScaleValue.
     override dynamic func displayedScaleValue() -> Float {
         let o = windowControllerIvar?.originalPix
 
@@ -361,13 +365,11 @@ public final class MPRDCMView: DCMView {
     }
 
     /// DCMView's -displayedRotation, likewise.
-    @objc(displayedRotation)
     override dynamic func displayedRotation() -> Float {
         return _camera?.rollAngle ?? 0
     }
 
-    @objc(hasCameraChanged:)
-    private dynamic func hasCameraChanged(_ currentCamera: Camera?) -> Bool {
+    private func hasCameraChanged(_ currentCamera: Camera?) -> Bool {
         if _camera?.forceUpdate ?? false {
             _camera?.forceUpdate = false
             return true
@@ -414,7 +416,6 @@ public final class MPRDCMView: DCMView {
         _vrView?.setCamera(_camera)
     }
 
-    @objc(actualSize:)
     public override dynamic func actualSize(_ sender: Any!) {
         self.setOriginX(0, y: 0)
         self.rotation = 0.0
@@ -430,7 +431,6 @@ public final class MPRDCMView: DCMView {
         self.updateViewMPR()
     }
 
-    @objc(realSize:)
     public override dynamic func realSize(_ sender: Any!) {
         let screenNumber = ((self.window?.screen?.deviceDescription as NSDictionary?)?.value(forKey: "NSScreenNumber") as AnyObject?)?.intValue ?? 0
         let display = CGDirectDisplayID(UInt32(bitPattern: Int32(truncatingIfNeeded: screenNumber)))
@@ -459,10 +459,7 @@ public final class MPRDCMView: DCMView {
         }
     }
 
-    /// DCMView's -validateMenuItem:, which no header declares: a method with its
-    /// selector overrides it.
-    @objc(validateMenuItem:)
-    private dynamic func validateMenuItem(_ item: NSMenuItem) -> Bool {
+    public override dynamic func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if item.action == NSSelectorFromString("scaleToFit:") {
             return false
         }
@@ -541,8 +538,8 @@ public final class MPRDCMView: DCMView {
                 _vrView?.setLOD(_LOD)
             }
 
-            var imagePtr: UnsafeMutablePointer<Float>? = _moveCenter ? nil : host.horosMPRCopyImageWidth(&w, height: &h)
-            if imagePtr != nil { isRGB = ObjCBool(host.horosMPRCopiedImageIsRGB()); lastRenderingWasMoveCenter = false }
+            var imagePtr: UnsafeMutablePointer<Float>? = _moveCenter ? nil : self.horosMPRCopyImageWidth(&w, height: &h)
+            if imagePtr != nil { isRGB = ObjCBool(self.horosMPRCopiedImageIsRGB()); lastRenderingWasMoveCenter = false }
 
             if imagePtr == nil && self.frame.size.width > 0 && self.frame.size.height > 0 {
                 let clippingRangeMode = windowControllerIvar?.clippingRangeMode ?? 0
@@ -572,7 +569,7 @@ public final class MPRDCMView: DCMView {
             } else if imagePtr == nil {
                 imagePtr = _vrView?.image(inFullDepthWidth: &w, height: &h, isRGB: &isRGB)
             }
-            host.horosMPRVolumeRendered()
+            self.horosMPRVolumeRendered()
 
             ////
             var orientation = [Float](repeating: 0, count: 9)
@@ -622,7 +619,7 @@ public final class MPRDCMView: DCMView {
                 // A new plane replaces the cubic display plane, or drops it;
                 // moving the centre keeps the image, and so its display plane.
                 if _moveCenter == false {
-                    host.horosMPRAttachDisplayPlane(to: _pix)
+                    self.horosMPRAttachDisplayPlane(to: _pix)
                 }
 
                 if (_pix?.pwidth ?? 0) == w && (_pix?.pheight ?? 0) == h && isRGB.boolValue == (_pix?.isRGB ?? false) {
@@ -711,7 +708,7 @@ public final class MPRDCMView: DCMView {
                 blendingView.getWLWW(&previousWL, &previousWW)
 
                 // Metal resliced the fused series with the plane; otherwise VTK does.
-                var blendedImagePtr: UnsafeMutablePointer<Float>? = _moveCenter ? nil : host.horosMPRTakeFusedImageWidth(&w, height: &h)
+                var blendedImagePtr: UnsafeMutablePointer<Float>? = _moveCenter ? nil : self.horosMPRTakeFusedImageWidth(&w, height: &h)
                 if blendedImagePtr != nil {
                     isRGB = false
                 } else {
@@ -807,8 +804,7 @@ public final class MPRDCMView: DCMView {
                    Float(color?.blueComponent ?? 0), Float(color?.alphaComponent ?? 0))
     }
 
-    @objc(colorForView:)
-    private dynamic func colorForView(_ v: Int32) {
+    private func colorForView(_ v: Int32) {
         switch v {
         case 1:
             //roiColor4f (VIEW_1_RED, VIEW_1_GREEN, VIEW_1_BLUE, VIEW_1_ALPHA);
@@ -898,7 +894,6 @@ public final class MPRDCMView: DCMView {
         }
     }
 
-    @objc(drawTextualData::)
     public override dynamic func drawTextualData(_ size: NSRect, _ annotations: Int) {
         let copyScale = self.horos_scaleValue
         self.horos_scaleValue = 1
@@ -906,9 +901,8 @@ public final class MPRDCMView: DCMView {
         self.horos_scaleValue = copyScale
     }
 
-    @objc(subDrawRect:)
     public override dynamic func subDraw(_ r: NSRect) {
-        if self.stringID == "export" && UserDefaults.standard.bool(forKey: "exportDCMIncludeAllViews") == false {
+        if self.stringID == "export" && exportsAllViewsPreference == false {
             return
         }
 
@@ -1204,7 +1198,7 @@ public final class MPRDCMView: DCMView {
             if c == NSRightArrowFunctionKey { center.y -= CGFloat(move * slopeY); center.x += CGFloat(move * slopeX) }
             if c == NSLeftArrowFunctionKey { center.y += CGFloat(move * slopeY); center.x -= CGFloat(move * slopeX) }
 
-            _vrView?.setWindowCenter(center)
+            _vrView?.setWindowCenter(self.convertToBacking(center))
             self.updateViewMPR()
 
             _moveCenter = false
@@ -1387,7 +1381,6 @@ public final class MPRDCMView: DCMView {
         }
     }
 
-    @objc(roiChange:)
     public override dynamic func roiChange(_ note: Notification!) {
         if dontCheckRoiChange == false {
             let r = note?.object as? ROI
@@ -1418,8 +1411,7 @@ public final class MPRDCMView: DCMView {
 
     // MARK: - Mouse Events
 
-    @objc(angleBetween:center:)
-    private dynamic func angleBetween(_ mouseLocation: NSPoint, center: NSPoint) -> Float {
+    private func angleBetween(_ mouseLocation: NSPoint, center: NSPoint) -> Float {
         var mouseLocation = mouseLocation
         mouseLocation.x -= center.x
         mouseLocation.y -= center.y
@@ -1427,8 +1419,7 @@ public final class MPRDCMView: DCMView {
         return Float(-atan2(Double(mouseLocation.x), Double(mouseLocation.y)) / Double(deg2rad))
     }
 
-    @objc(centerLines)
-    private dynamic func centerLines() -> NSPoint {
+    private func centerLines() -> NSPoint {
         var r = NSMakePoint(0, 0)
 
         // One line or no lines : find the middle of the line
@@ -1464,11 +1455,10 @@ public final class MPRDCMView: DCMView {
         return r
     }
 
-    @objc(mouseOnLines:)
-    private dynamic func mouseOnLines(_ mouseLocation: NSPoint) -> Int32 {
+    private func mouseOnLines(_ mouseLocation: NSPoint) -> Int32 {
         var mouseLocation = mouseLocation
 
-        if UserDefaults.standard.integer(forKey: "ANNOTATIONS") == annotNone {
+        if preferredAnnotationLevel == annotNone {
             return 0
         }
 
@@ -1668,14 +1658,8 @@ public final class MPRDCMView: DCMView {
 
         var clickCount = 1
 
-        do {
-            try HorosObjCException.perform {
-                if theEvent.type == .leftMouseDown || theEvent.type == .rightMouseDown || theEvent.type == .leftMouseUp || theEvent.type == .rightMouseUp {
-                    clickCount = theEvent.clickCount
-                }
-            }
-        } catch {
-            clickCount = 1
+        if theEvent.type == .leftMouseDown || theEvent.type == .rightMouseDown || theEvent.type == .leftMouseUp || theEvent.type == .rightMouseUp {
+            clickCount = theEvent.clickCount
         }
 
         if clickCount == 2 && self.horos_drawingROI == false {
@@ -1888,7 +1872,6 @@ public final class MPRDCMView: DCMView {
         dontCheckRoiChange = false
     }
 
-    @objc(mouseDraggedImageScroll:)
     public override dynamic func mouseDraggedImageScroll(_ event: NSEvent!) {
         self.checkCursor()
 
@@ -2106,8 +2089,7 @@ public final class MPRDCMView: DCMView {
 
     // MARK: - Private Methods
 
-    @objc(drawOSIROIs)
-    private dynamic func drawOSIROIs() {
+    private func drawOSIROIs() {
         var pixToSubdrawRectOpenGLTransform = [Double](repeating: 0, count: 16)
 
         if self.ROIManager() == nil {

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """The medium size estimate counts what goes on the medium, and nothing else.
 
-Links the BurnerWindowController.o and DefaultsOsiriX.o the application is
-built from into tools/probe-burn-size-estimate.m and runs
+Links the BurnerWindowController.o the application is built from, and the
+IsiXPreferences module that registers its defaults (DefaultsOsiriX.o at a
+revision that still has it), into tools/probe-burn-size-estimate.m and runs
 -estimateFolderSize: over synthetic selections - small and large files, Unicode
 names - with the launcher preference absent (the app's registered value),
 true and false (a value persisted by an older version), Weasis on and off, and
@@ -24,8 +25,10 @@ BurnerWindowController is Swift. Its object, as the application
 builds it, goes into a library with the HorosObjCException and HorosAlertPanel
 objects it calls and stand-ins for the Swift classes of the module it names:
 the anonymization classes, ThreadsManager (Swift), DicomStudy
-(Swift) and AppController (Swift). The estimate reaches
-none of them, and a Swift symbol of the module that no stand-in provides is
+(Swift), AppController (Swift), BrowserController (Swift) and the single
+entry, DatabaseIngest. The estimate reaches none of them; it reads the
+preferences through the process graph, whose stand-in hands out the standard
+preferences the probe sets. A Swift symbol of the module that no stand-in provides is
 named as a failure before the probe runs. The probe sets the same `files` and
 `sizeField` of the Swift class. --revision still recompiles the Objective-C
 source of a revision from before the Swift translation.
@@ -47,12 +50,14 @@ import object_probe  # noqa: E402
 sys.path.insert(0, str(ROOT / "tests"))
 from sources import is_swift  # noqa: E402
 
-SOURCES = {"BurnerWindowController": "Horos/Sources/BurnerWindowController.m",
-           "DefaultsOsiriX": "Horos/Sources/DefaultsOsiriX.m"}
+SOURCES = {"BurnerWindowController": "Horos/Sources/BurnerWindowController.m"}
+# Before the defaults moved to the IsiXPreferences module.
+FORMER_DEFAULTS = "Horos/Sources/DefaultsOsiriX.m"
 # The Swift classes of module Horos that BurnerWindowController.swift calls
 # directly, with the signatures it calls them by.
 STAND_INS = """
 import AppKit
+import IsiXContracts
 @objc(BurnSizeProbeAnonymizationPanelController) public class AnonymizationPanelController: NSObject {
     @objc public var end: Int32 = 0
     @objc public var anonymizationViewController: AnonymizationViewController!
@@ -78,11 +83,51 @@ import AppKit
     public class func shared() -> AppController! { return nil }
     public func weasisBasePath() -> String! { return nil }
 }
+// Horos is Swift; the Weasis branch asks it for the customization folders.
+@objc(BurnSizeProbeHoros) public final class Horos: NSObject {
+    public static func weasisCustomizationPaths() -> [String] { return [] }
+}
+// BrowserController is Swift; the estimate never reaches the browser, the
+// object only names the class for the messages the burn itself sends it.
+@objc(BurnSizeProbeBrowserController) public final class BrowserController: NSObject {}
 @objc(BurnSizeProbeDicomStudy) public final class DicomStudy: NSObject {
     @objc public dynamic class func displaySeries(withSOPClassUID uid: String!, andSeriesDescription description: String!) -> Bool {
         return true
     }
-    public func saveReportAsPdfInTmp() -> String! { return nil }
+    public func reportPDFInTmp() throws -> String? { return nil }
+}
+// The failure of a report's conversion, which the burn logs.
+enum StudyDocumentError: Error {
+    static func exception(of error: Error) -> NSException {
+        return NSException(name: .genericException, reason: nil, userInfo: nil)
+    }
+}
+// The window reads the burn's options from the preferences of the process
+// graph, which are the standard preferences the probe sets.
+final class ProcessGraph: Sendable {
+    static let process = ProcessGraph()
+    private init() {}
+    var preferences: UserDefaults { UserDefaults.standard }
+    // The database window's graph, which the burner keeps from its
+    // initializers, and the browser's database the burn thread reads; the
+    // estimate reaches neither.
+    @MainActor var browserWindow: BrowserWindowGraph? { nil }
+    var browserDatabase: DicomDatabase? { nil }
+}
+@MainActor final class BrowserWindowGraph {
+    let processGraph: ProcessGraph
+    let browser: BrowserController
+    init(browser: BrowserController, processGraph: ProcessGraph) {
+        self.browser = browser
+        self.processGraph = processGraph
+    }
+    var database: DicomDatabase? { nil }
+}
+// The single entry converts the files of a burn; the estimate never reaches it.
+struct DatabaseIngest {
+    static let process = DatabaseIngest()
+    var browserDatabase: DicomDatabase? { nil }
+    func fileConverting(of database: DicomDatabase?) -> any DatabaseFileConverting { fatalError("not reached by the estimate") }
 }
 """
 
@@ -95,6 +140,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--revision")
 parser.add_argument("--configuration", default="Debug")
 arguments = parser.parse_args()
+if arguments.revision and subprocess.run(["git", "-C", str(ROOT), "cat-file", "-e", f"{arguments.revision}:{FORMER_DEFAULTS}"],
+                                         capture_output=True).returncode == 0:
+    SOURCES["DefaultsOsiriX"] = FORMER_DEFAULTS
 
 work = Path(tempfile.mkdtemp(prefix="horos-burn-estimate-"))
 # Removed however the test ends, skips included.
@@ -116,6 +164,14 @@ for name, source in SOURCES.items():
             print(f"needs a built {name}.o", file=sys.stderr)
             raise SystemExit(2)
     objects.append(obj)
+# The internal modules, for the probe's target: the probe registers the defaults
+# through IsiXPreferences, and the Swift object and its stand-ins import it and
+# IsiXContracts.
+import isix_modules  # noqa: E402
+MODULES = work / "IsiXPreferences"
+MODULE_TARGET = ["-target", "arm64-apple-macos26.0"]
+if "DefaultsOsiriX" not in SOURCES:
+    objects += [isix_modules.build_module("IsiXPreferences", MODULES, MODULE_TARGET), "-L/usr/lib/swift"]
 support = object_probe.app_object("N2Debug", arguments.configuration)
 if support is None:
     print("needs a built N2Debug.o", file=sys.stderr)
@@ -128,14 +184,21 @@ if is_swift("BurnerWindowController") and not arguments.revision:
         print("needs built HorosObjCException.o and HorosAlertPanel.o", file=sys.stderr)
         raise SystemExit(2)
     stand_ins = work / "stand_ins.swift"
-    stand_ins.write_text(STAND_INS)
+    # The guards the object calls are the module's own members of HorosObjCException.
+    import objc_exception_guards  # noqa: E402
+    stand_ins.write_text(STAND_INS + objc_exception_guards.source(log=False).replace("import Foundation\n", "", 1))
     bridging = work / "bridging.h"
-    bridging.write_text("#import <Foundation/Foundation.h>\n")
+    bridging.write_text("#import <Foundation/Foundation.h>\n#import \"%s\"\n@interface DicomDatabase : NSObject\n@end\n"
+                        % (ROOT / "Horos/Sources/HorosObjCException.h"))
+    module_flags = (isix_modules.module_flags("IsiXContracts", MODULES, MODULE_TARGET)
+                    + isix_modules.module_flags("IsiXPreferences", MODULES, MODULE_TARGET))
     # The main-actor hop of the SDK callbacks is the module's own function.
-    burner = object_probe.swift_dylib([stand_ins, ROOT / "Horos/Sources/MainActorCallbacks.swift"],
+    # PreferencesSource is the application's own, over the stand-in graph.
+    burner = object_probe.swift_dylib([stand_ins, ROOT / "Horos/Sources/MainActorCallbacks.swift",
+                                       ROOT / "Horos/Sources/PreferencesSource.swift"],
                                       [objects[0]] + helpers, work / "libBurnerWindowController.dylib",
                                       bridging_header=bridging,
-                                      frameworks=("Cocoa", "DiscRecording", "DiscRecordingUI"))
+                                      frameworks=("Cocoa", "DiscRecording", "DiscRecordingUI"), flags=module_flags)
     # A Swift class of the module the object came to name after these stand-ins
     # were written would stop the probe at load time with one dyld line; name them all.
     missing = undefined_module_symbols(burner)
@@ -148,7 +211,7 @@ if is_swift("BurnerWindowController") and not arguments.revision:
         raise SystemExit(1)
     objects[0] = burner
 probe = object_probe.link_probe(ROOT / "tools/probe-burn-size-estimate.m", objects + [support], work / "probe",
-                                frameworks=("Cocoa", "DiscRecording", "DiscRecordingUI", "IOKit", "AVFoundation"))
+                                frameworks=("Cocoa", "DiscRecording", "DiscRecordingUI", "IOKit", "AVFoundation", "Metal"))
 
 # The selection: small, large and Unicode-named files.
 selection = work / "selection"

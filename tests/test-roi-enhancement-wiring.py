@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Built-in ROI Enhancement is registered and Intel load failures keep its diagnosis."""
+"""Built-in ROI Enhancement is registered; the former plugin it replaces is refused."""
 from pathlib import Path
 import sys
 
@@ -14,14 +14,16 @@ viewer = source_path('ViewerController+ROIEnhancement')
 header = root / 'Horos/Sources/ViewerController+ROIEnhancement.h'
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 xib = (root / 'Horos/Resources/en.lproj/Viewer.xib').read_text(encoding='latin1', errors='replace')
-volume = (root / 'Horos/Sources/ROIVolume.mm').read_text(encoding='latin1', errors='replace')
+volume = source_text('ROIVolume')
 geometry = root / 'Horos/Sources/ROIIntersliceGeometry.swift'
 
 if 'ROIEnhancementFilter.register(in: plugins)' not in manager:
     print('FAIL: discoverPlugins does not register the built-in ROI Enhancement', file=sys.stderr)
     sys.exit(1)
-if 'ROIEnhancementCompatibility.diagnostic(forBundleAtPath:' not in manager:
-    print('FAIL: plugin load failures do not ask ROIEnhancementCompatibility for a diagnosis', file=sys.stderr)
+# The former public plugin it replaces is refused like every former plugin,
+# by its extension, before anything of it is read or loaded.
+if 'ROIEnhancementCompatibility' in manager or 'PluginAdmission.isManaged(name)' not in manager:
+    print('FAIL: the former ROI Enhancement plugin is not refused like every former plugin', file=sys.stderr)
     sys.exit(1)
 if 'T2FitMapFilter.register(in: plugins)' not in manager:
     print('FAIL: ROI Enhancement must not remove the built-in T2 Fit Map', file=sys.stderr)
@@ -52,9 +54,9 @@ if 'ROI Enhancement' in xib or 'roiEnhancement' in xib:
     print('FAIL: Viewer.xib must stay untouched', file=sys.stderr)
     sys.exit(1)
 if 'ROIEnhancement' in volume:
-    print('FAIL: ROIVolume.mm must stay untouched', file=sys.stderr)
+    print('FAIL: ROIVolume must stay untouched', file=sys.stderr)
     sys.exit(1)
 if geometry.is_file() and 'ROIEnhancement' in geometry.read_text(encoding='utf-8', errors='replace'):
     print('FAIL: ROIIntersliceGeometry.swift must stay untouched', file=sys.stderr)
     sys.exit(1)
-print('PASS: built-in ROI Enhancement is registered, diagnoses Intel ABI, and samples 4D ROIs')
+print('PASS: built-in ROI Enhancement is registered, the former plugin is refused, and samples 4D ROIs')

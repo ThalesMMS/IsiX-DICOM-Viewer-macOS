@@ -55,7 +55,6 @@
                     <customView translatesAutoresizingMaskIntoConstraints="NO" id="146" customClass="SRView">
                         <rect key="frame" x="0.0" y="0.0" width="500" height="380"/>
                         <connections>
-                            <outlet property="VRFrames" destination="620" id="632"/>
                             <outlet property="backColor" destination="JUS-Ju-8gs" id="0PD-Hb-nA0"/>
                             <outlet property="controller" destination="-2" id="664"/>
                             <outlet property="dcmBox" destination="768" id="792"/>
@@ -64,7 +63,6 @@
                             <outlet property="dcmframesSlider" destination="779" id="793"/>
                             <outlet property="dcmorientation" destination="773" id="795"/>
                             <outlet property="dcmrotation" destination="776" id="794"/>
-                            <outlet property="export3DVRWindow" destination="629" id="631"/>
                             <outlet property="export3DWindow" destination="585" id="594"/>
                             <outlet property="exportDCMWindow" destination="762" id="797"/>
                             <outlet property="framesSlider" destination="586" id="595"/>
@@ -827,114 +825,6 @@ Gw
                 </popUpButton>
             </subviews>
         </customView>
-        <window title="Fenêtre" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="629" userLabel="exportVR">
-            <windowStyleMask key="styleMask" titled="YES"/>
-            <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
-            <rect key="contentRect" x="150" y="341" width="361" height="166"/>
-            <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
-            <value key="minSize" type="size" width="361" height="166"/>
-            <view key="contentView" id="621">
-                <rect key="frame" x="0.0" y="0.0" width="361" height="166"/>
-                <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                <subviews>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" allowsCharacterPickerTouchBarItem="NO" translatesAutoresizingMaskIntoConstraints="NO" id="628">
-                        <rect key="frame" x="30" y="140" width="38" height="17"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Type:" id="972">
-                            <font key="font" metaFont="system"/>
-                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                            <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        </textFieldCell>
-                    </textField>
-                    <matrix verticalHuggingPriority="750" fixedFrame="YES" allowsEmptySelection="NO" autorecalculatesCellSize="YES" translatesAutoresizingMaskIntoConstraints="NO" id="620">
-                        <rect key="frame" x="71" y="79" width="228" height="78"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        <size key="cellSize" width="218" height="18"/>
-                        <size key="intercellSpacing" width="4" height="2"/>
-                        <buttonCell key="prototype" type="radio" title="Option" imagePosition="left" alignment="left" inset="2" id="1001">
-                            <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                            <font key="font" metaFont="system"/>
-                        </buttonCell>
-                        <cells>
-                            <column>
-                                <buttonCell type="radio" title="X seulement Rotation de l'axe - 18 images" imagePosition="left" alignment="left" state="on" tag="18" inset="2" id="619">
-                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <buttonCell type="radio" title="X seulement Rotation d'axe - 36 images" imagePosition="left" alignment="left" tag="36" inset="2" id="627">
-                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <buttonCell type="radio" title="Rotation 3D - 100 images" imagePosition="left" alignment="left" tag="10" inset="2" id="617">
-                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <buttonCell type="radio" title="Rotation 3D - 400 images" imagePosition="left" alignment="left" tag="20" inset="2" id="618">
-                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                            </column>
-                        </cells>
-                    </matrix>
-                    <button verticalHuggingPriority="750" fixedFrame="YES" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="624">
-                        <rect key="frame" x="250" y="12" width="97" height="32"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="OK" bezelStyle="rounded" alignment="center" borderStyle="border" tag="1" inset="2" id="970">
-                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                            <font key="font" metaFont="system"/>
-                            <string key="keyEquivalent" base64-UTF8="YES">
-DQ
-</string>
-                        </buttonCell>
-                        <connections>
-                            <action selector="endQuicktimeVRSettings:" target="146" id="634"/>
-                        </connections>
-                    </button>
-                    <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="625">
-                        <rect key="frame" x="153" y="12" width="97" height="32"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="Annuler" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="971">
-                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                            <font key="font" metaFont="system"/>
-                            <string key="keyEquivalent" base64-UTF8="YES">
-Gw
-</string>
-                        </buttonCell>
-                        <connections>
-                            <action selector="endQuicktimeVRSettings:" target="146" id="635"/>
-                        </connections>
-                    </button>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" allowsCharacterPickerTouchBarItem="NO" translatesAutoresizingMaskIntoConstraints="NO" id="828">
-                        <rect key="frame" x="34" y="55" width="34" height="17"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Taille:" id="973">
-                            <font key="font" metaFont="system"/>
-                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                            <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        </textFieldCell>
-                    </textField>
-                    <popUpButton verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="829">
-                        <rect key="frame" x="70" y="49" width="91" height="26"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <popUpButtonCell key="cell" type="push" title="768x768" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="768" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="832" id="974">
-                            <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
-                            <font key="font" metaFont="menu"/>
-                            <menu key="menu" title="Autres vues" id="830">
-                                <items>
-                                    <menuItem title="Actuellement" id="833"/>
-                                    <menuItem title="512x512" tag="512" id="831"/>
-                                    <menuItem title="768x768" state="on" tag="768" id="832"/>
-                                </items>
-                            </menu>
-                        </popUpButtonCell>
-                        <connections>
-                            <binding destination="818" name="selectedIndex" keyPath="values.EXPORTMATRIXFOR3D" id="834"/>
-                        </connections>
-                    </popUpButton>
-                </subviews>
-            </view>
-        </window>
         <window title="Informations pratiques" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" hidesOnDeactivate="YES" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="639" userLabel="Point Info" customClass="NSPanel">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" utility="YES" nonactivatingPanel="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>

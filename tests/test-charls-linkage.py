@@ -11,7 +11,7 @@ import argparse
 import sys
 import tempfile
 
-from dcmtk_build import ROOT as root, BUILD, CONFIGURATION
+from dcmtk_build import ROOT as root, BUILD, CONFIGURATION, dcmtk_source
 failures = []
 parser = argparse.ArgumentParser()
 parser.add_argument('--build', type=Path, default=BUILD,
@@ -51,7 +51,8 @@ for name, archive in copies.items():
         failures.append('%s does not define JpegLsDecode; this test is stale' % name)
 
 application = products / 'IsiX DICOM Viewer.app/Contents/MacOS/IsiX DICOM Viewer'
-helper = products / 'IsiX DICOM Viewer.app/Contents/Resources/Decompress'
+service = products / 'IsiX DICOM Viewer.app/Contents/XPCServices/Decompress.xpc'
+helper = service / 'Contents/MacOS/Decompress'
 for binary in (application, helper):
     if not binary.exists():
         print('skip: %s is not built' % binary.name)
@@ -65,16 +66,12 @@ for binary in (application, helper):
         failures.append('%s exposes the private CharLS API' % binary.name)
     print('%s: %d global CharLS API definitions; DCMTK codec is private' % (binary.name, len(defining)))
 
-# DCM.framework used to run the standalone CharLS; it has no codec now.
-framework = products / 'IsiX DICOM Viewer.app/Contents/Frameworks/DCM.framework/Versions/A/DCM'
-if not framework.exists():
-    print('skip: DCM.framework is not built')
-    sys.exit(2)
-carried = {line.split()[-1] for line in subprocess.check_output(['nm', str(framework)], text=True).splitlines()
-           if line.split()}
-if any(name.startswith('_JpegLs') for name in carried):
-    failures.append('DCM.framework carries the CharLS API')
-print('DCM.framework: no CharLS')
+# DCM.framework used to run the standalone CharLS. The framework is gone: its
+# dataset model is compiled into the application, and no framework of that
+# name may come back into the bundle.
+if (products / 'IsiX DICOM Viewer.app/Contents/Frameworks/DCM.framework').exists():
+    failures.append('the application bundle still carries DCM.framework')
+print('no DCM.framework in the bundle')
 
 # DCMTK's adapter and codec are partially linked before their private
 # definitions are localized, so plugins cannot interpose another codec ABI.
@@ -92,8 +89,10 @@ if '"-ldcmjpls"' in project or '"-ldcmtkcharls"' in project:
     failures.append('the host must link the isolated archive, not the colliding stock archives')
 
 # ------------------------------------------ 2. the ABI they pass across
+# CharLS's parameter block is internal to DCMTK and not installed: it is read
+# from the pinned original source that libdcmtkcharls is compiled from.
 headers = {
-    'dcmtkcharls': root / 'DCMTK/dcmjpls/libcharls/pubtypes.h',
+    'dcmtkcharls': dcmtk_source() / 'dcmjpls/libcharls/pubtypes.h',
 }
 probe = r'''
 #include <cstdio>
@@ -285,7 +284,12 @@ sys.exit(1 if failures else 0)
 '''
             path = Path(directory) / 'decode.py'
             path.write_text(script)
-            ran = subprocess.run([str(venv), str(path), directory, str(helper), str(Path(directory) / 'no-historical-samples')],
+            # The service converts through the tests' client, which takes the
+            # helper's command line (decompress_service.py).
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            import decompress_service
+            client = decompress_service.client(service)
+            ran = subprocess.run([str(venv), str(path), directory, str(client), str(Path(directory) / 'no-historical-samples')],
                                  capture_output=True, text=True)
             print(ran.stdout.strip())
             if ran.returncode != 0:

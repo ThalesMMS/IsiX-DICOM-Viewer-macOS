@@ -1,48 +1,38 @@
 #!/usr/bin/env python3
-"""The convolution workers run off the main thread without touching the viewer.
+"""The convolution's shares run off the main thread without touching the viewer.
 
--[ViewerController applyConvolutionOnSource:], which the 3D viewers' "Apply a
-filter" menu and the question about raw data before a 3D reconstruction run,
-starts -applyConvolutionXYThread: and -applyConvolutionZThread: on worker
-threads (NSThread). ViewerController is a window controller, isolated to the
-main actor; the two methods, in a Swift extension, were isolated too, and the
-Swift runtime checks the executor on entry: the first worker stopped the app
-(dispatch_assert_queue in swift_task_isCurrentExecutor).
+"Apply on source" of the 2D viewer (-[ViewerController applyConvolutionOnSource:],
+which the 3D viewers' "Apply a filter" menu and the question about raw data
+before a 3D reconstruction run) filters every slice on several cores. It once
+started worker threads on ViewerController, a window controller isolated to the
+main actor: the Swift runtime checks the executor on entry, and the first
+worker stopped the app (dispatch_assert_queue in swift_task_isCurrentExecutor).
+The work now goes to IsiXImaging's SeriesConvolution, whose shares run at once
+and return together.
 
-Checked in the sources of ViewerController+Convolution.swift:
-- the two worker methods are nonisolated;
-- their bodies read their dictionary only: no `self.`, no viewer accessor;
-- applyConvolutionOnSource: fills the dictionaries with the pixel lists, the
-  volumes and the lock (workerDictionary) on the main thread.
-
-`<git revision>` as an optional argument reads that revision, the negative
-control.
+Checked in the sources:
+- SeriesConvolution.perform takes a @Sendable body, which the compiler keeps
+  off the main actor;
+- the body ViewerColourTables.applyFilterToPixels hands it reads only the
+  slices it was given (the Sendable snapshot made on the main thread): no
+  `self`, no `viewer`;
+- no worker thread or condition lock is left in the viewer's convolution.
 """
 from pathlib import Path
 import re
-import subprocess
 import sys
 
 root = Path(__file__).resolve().parents[1]
-revision = sys.argv[1] if len(sys.argv) > 1 else None
 failures = []
-path = 'Horos/Sources/ViewerController+Convolution.swift'
 
 
 def read(path):
-    if revision:
-        data = subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:{path}'])
-    else:
-        data = (root / path).read_bytes()
-    return data.decode('utf-8')
+    return (root / path).read_text(encoding='utf-8')
 
 
-def method(text, selector):
-    """The declaration line and the braces of the @objc(selector) method; None if absent."""
-    at = text.find(f'@objc({selector})')
-    if at < 0:
-        return None, None
-    opening = text.index('{', at)
+def braces(text, start):
+    """The text between the brace at or after `start` and its partner."""
+    opening = text.index('{', start)
     depth = 0
     for index in range(opening, len(text)):
         if text[index] == '{':
@@ -50,27 +40,38 @@ def method(text, selector):
         elif text[index] == '}':
             depth -= 1
             if depth == 0:
-                return text[at:opening], text[opening + 1:index]
-    return None, None
+                return text[opening + 1:index]
+    return None
 
 
-source = read(path)
-for selector in ('applyConvolutionXYThread:', 'applyConvolutionZThread:'):
-    declaration, body = method(source, selector)
-    if body is None:
-        failures.append(f'{selector} not found')
-        continue
-    if not re.search(r'\bnonisolated\s+func\b', declaration):
-        failures.append(f'{selector} is isolated to the main actor, and runs on a worker thread')
-    if re.search(r'(?<![.\w])self\b|\bhoros_', body):
-        failures.append(f'{selector} reads the viewer from its worker thread')
+series = read('Modules/IsiXImaging/Sources/BufferOperations/SeriesConvolution.swift')
+if not re.search(r'func perform\(over count: Int, _ body: @Sendable \(Range<Int>\) -> Void\)', series):
+    failures.append('SeriesConvolution.perform does not take a @Sendable body')
 
-_, start = method(source, 'applyConvolutionOnSource:')
-if start is None or start.count('workerDictionary(self)') != 2:
-    failures.append('applyConvolutionOnSource: does not hand both passes their dictionary')
+tables = read('Horos/Sources/ViewerColourTables.swift')
+at = tables.find('func applyFilterToPixels(')
+if at < 0:
+    failures.append('ViewerColourTables.applyFilterToPixels not found')
+else:
+    method = braces(tables, at)
+    call = method.find('.perform(over:')
+    if call < 0:
+        failures.append('applyFilterToPixels does not hand the slices to SeriesConvolution')
+    else:
+        body = braces(method, call)
+        if re.search(r'(?<![.\w])(self|viewer)\b|\bhoros_', body):
+            failures.append('the shares of apply on source read the viewer off the main thread')
+        if 'slices.frames' not in body:
+            failures.append('the shares of apply on source do not read their snapshot of the slices')
+
+for path in ('Horos/Sources/ViewerColourTables.swift', 'Horos/Sources/ViewerController+Convolution.swift',
+             'Horos/Sources/ViewerController+ProcessingState.swift'):
+    text = read(path)
+    if re.search(r'\bNSConditionLock\b.*conv|convThread|detachNewThread|applyConvolution(XY|Z)Thread', text):
+        failures.append(f'{path} still has a convolution worker thread or its lock')
 
 if failures:
     for failure in failures:
         print('FAIL:', failure)
     sys.exit(1)
-print('PASS: the convolution workers are nonisolated and read only their dictionary')
+print('PASS: the convolution shares are Sendable and read only their snapshot of the slices')

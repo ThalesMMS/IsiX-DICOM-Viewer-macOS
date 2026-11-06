@@ -76,10 +76,11 @@ public final class ProtectedMode: NSObject {
     }
 
     /// Logs a service left off, for whoever reads the log after a support call.
-    /// The name goes into the format itself: the unified log shows arguments as
-    /// <private>, and these names are fixed strings of this application.
-    @objc(skip:) public static func skip(_ service: String) {
-        NSLog(("Protected Mode: " + service + " not started").replacingOccurrences(of: "%", with: "%%"))
+    /// The name is a literal of this application, passed as a C string inside
+    /// the executable, which the unified log shows; a string built at run time
+    /// would be <private>.
+    public static func skip(_ service: StaticString) {
+        NSLog("Protected Mode: %s not started", service.utf8Start)
     }
 
     /// The sentence of the alert shown when the browser opens in this mode.

@@ -322,11 +322,22 @@ public final class RegisteredGIF: NSObject {
     /// would keep the numbers and change the colours — a window level that
     /// reads darker on the clipboard than in the viewer. Converting first is
     /// what makes the animation the same picture as the static view.
+    ///
+    /// Without hints, AppKit rasterizes an image at the scale of the main
+    /// screen. The capture is asked for at the density of its own pixels
+    /// instead: the viewer's capture is a bitmap of the view's backing pixels,
+    /// and each frame keeps them, the size of the static capture, on a screen of
+    /// any scale. An image without pixels of its own (a PDF) is drawn at one
+    /// pixel a point.
     @objc(sRGBImageForImage:)
     public static func cgImage(_ image: NSImage) -> CGImage? {
         var rect = NSRect(x: 0, y: 0, width: image.size.width, height: image.size.height)
+        let pixelsWide = image.representations.map(\.pixelsWide).max() ?? 0
+        var ownPixels = AffineTransform.identity
+        ownPixels.scale(pixelsWide > 0 && rect.width > 0 ? CGFloat(pixelsWide) / rect.width : 1)
         guard rect.width > 0, rect.height > 0,
-              let captured = image.cgImage(forProposedRect: &rect, context: nil, hints: nil),
+              let captured = image.cgImage(forProposedRect: &rect, context: nil,
+                                           hints: [.ctm: NSAffineTransform(transform: ownPixels)]),
               captured.width > 0, captured.height > 0,
               let space = CGColorSpace(name: CGColorSpace.sRGB),
               let context = CGContext(data: nil, width: captured.width, height: captured.height,

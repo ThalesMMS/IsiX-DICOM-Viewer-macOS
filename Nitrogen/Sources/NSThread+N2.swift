@@ -41,7 +41,7 @@ import Foundation
 
 // NSThread (N2) is implemented in Swift; the selectors and
 // <Horos/NSThread+N2.h> are those of the former category, and the NSThread*Key
-// constants stay in NSThread+N2+CAPI.m.
+// constants are those of the header.
 //
 // ThreadsManager and every progress window read the status and the progress
 // from other threads. The synchronization is the one of the Objective-C:

@@ -94,7 +94,10 @@ with tempfile.TemporaryDirectory(prefix='horos-uid-bounds-') as folder:
                     '-fno-sanitize-recover=all', str(p / 'test.cc'), *dcmtk_flags(), '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test')], check=True)
 
-server = (root / 'Horos/Sources/HorosQueryRetrieveServer.mm').read_text()
-callback = server[server.index('void storeCallback('):server.index('class QueryRetrieveAssociation')]
+# The listener's C-STORE lives in the DCMTK adapter's database handle.
+server = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKSCPDatabase.mm').read_text()
+callback = server[server.index('void storeCallback('):server.index('NSDictionary<NSNumber *, NSData *> *StoredAttributes(')]
 assert callback.index('HorosFindSOPClassAndInstanceInDataSet(') < callback.index('context->callbackHandler(')
-assert 'DU_findSOPClassAndInstanceIn' not in (root / 'Horos/Sources/DCMTKStoreSCU.mm').read_text(encoding='latin1')
+# The send reads a file's identity in its DCMTK adapter.
+store = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKStoreSCU.mm').read_text()
+assert 'DU_findSOPClassAndInstanceIn' not in store and 'HorosFindSOPClassAndInstanceInDataSet(' in store

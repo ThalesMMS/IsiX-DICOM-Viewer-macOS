@@ -6,20 +6,20 @@ With a centerline of about 200 nodes, moving the slider held the main thread
 for 29 s (100 to 80 %) and 70 s (0 to 100 %): the slider sent its action at
 each value it went through, and each node it removed or restored rebuilt the
 CPRCurvedPath from its nodes, measuring the path up to every node, and showed
-it in the seven views. CPRCurvedPath.withPathRebuiltOnce(_:) lets the steps
-change the nodes only and rebuilds the path once at the end.
+it in the seven views. While CPRCurvedPath.holdsPathRebuild is set, the steps
+change the nodes only, and the path is rebuilt once when it is released.
 
 CPRCurvedPath is compiled as it is, with Nitrogen's N3BezierPath and
 HorosObjCException, and driven by the steps of -[CPRController removeNode]
 and -undoLastNodeRemoval (cheapest node out, last removal back) on a path of
-200 nodes, once rebuilding at each step as before and once inside
-withPathRebuiltOnce(_:):
-- the path is not rebuilt inside the block;
-- after it, the nodes, the Bezier path, the nodes' relative positions and the
-  transverse sections are those of the step-by-step path, for 200 to 160
-  nodes, back to 200 and down to 3;
-- an exception raised inside the block goes on, with the path rebuilt from
-  the nodes left, and the next edit rebuilds at once.
+200 nodes, once rebuilding at each step as before and once with
+holdsPathRebuild set:
+- the path is not rebuilt while it is held;
+- once released, the nodes, the Bezier path, the nodes' relative positions
+  and the transverse sections are those of the step-by-step path, for 200 to
+  160 nodes, back to 200 and down to 3;
+- a hold released without an edit keeps the path, and the next edit rebuilds
+  at once.
 The time of each way is printed, for information; nothing is asserted on it.
 
 -costFunction:, the steps without the views (-removeCheapestNode and
@@ -42,6 +42,11 @@ maximum, and the slider then goes down to 3 nodes and back without raising;
 a change that leaves the nodes as they were (the transverse section) keeps
 the history, and the slider brings back the path it had.
 
+-onSliderMove: is taken from CPRController.swift as it is and run on the
+Path Assistant's path through three nodes, 41 nodes of two segments, with
+the last segment's centerline of 21 points: the slider down and back to
+100 % brings back the 41 nodes, where it stopped at 21.
+
 -forgetCenterlineIfNodesChange(to:) and -onSliderEnabled are taken from
 CPRController.swift as they are too, and run as -CPRViewDidUpdateCurvedPath:
 runs them before -setCurvedPath:, so that a node edited by hand leaves no
@@ -58,8 +63,8 @@ CPRController.swift, CPRStretchedView.swift and CPR.xib are read for the rest:
 - the stretched view's mouse up ends the edit before it asks for the costs,
   and a node deleted during a drag is sent as an update at once, before the
   costs, not left for the mouse up;
-- -onSliderMove: runs the simplification inside withPathRebuiltOnce(_:) with
-  the steps that do not show the path, and shows it once;
+- -onSliderMove: runs the simplification with holdsPathRebuild set, with the
+  steps that do not show the path, and shows it once;
 - the slider sends its action on mouse up, not at each value it goes through;
 - the window is titled "Curved MPR", not "MPR" as the MPR window.
 
@@ -73,6 +78,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import n3_geometry_harness  # noqa: E402
 
 SKIPPED = 2
 root = Path(__file__).resolve().parents[1]
@@ -138,15 +146,27 @@ HEADERS = [
     'Nitrogen/Sources/N3BezierCoreAdditions.h',
     'Nitrogen/Sources/N3BezierPath.h',
 ]
-# (source, extra clang flags): Nitrogen is manual retain/release, as in the app.
+# (source, extra clang flags).
 OBJC_SOURCES = [
-    ('Nitrogen/Sources/N3Geometry.m', ['-fno-objc-arc']),
-    ('Nitrogen/Sources/N3BezierCore.m', ['-fno-objc-arc']),
-    ('Nitrogen/Sources/N3BezierCoreAdditions.m', ['-fno-objc-arc']),
-    ('Nitrogen/Sources/N3BezierPath.m', ['-fno-objc-arc']),
     ('Horos/Sources/HorosObjCException.m', ['-fobjc-exceptions']),
-    ('Horos/Sources/CPRCurvedPath+CAPI.m', ['-DHOROS_BRIDGING_HEADER=1']),
 ]
+# Revisions before CPRCurvedPathControlTokenNone moved into CPRCurvedPath.swift
+# define it in C.
+if revision and subprocess.run(['git', '-C', str(root), 'cat-file', '-e', f'{revision}:Horos/Sources/CPRCurvedPath+CAPI.m'],
+                               capture_output=True).returncode == 0:
+    OBJC_SOURCES.append(('Horos/Sources/CPRCurvedPath+CAPI.m', ['-DHOROS_BRIDGING_HEADER=1']))
+
+# Nitrogen's N3 geometry: the Objective-C (manual retain/release, as in the app)
+# of a revision that still has it, otherwise the Swift of this checkout, linked
+# from the libraries n3_geometry_harness builds.
+N3_OBJC = [(path, ['-fno-objc-arc']) for path in ('Nitrogen/Sources/N3Geometry.m', 'Nitrogen/Sources/N3BezierCore.m',
+                                                  'Nitrogen/Sources/N3BezierCoreAdditions.m', 'Nitrogen/Sources/N3BezierPath.m')]
+if subprocess.run(['git', '-C', str(root), 'cat-file', '-e', f'{revision or "HEAD"}:Nitrogen/Sources/N3Geometry.m'],
+                  capture_output=True).returncode == 0 and (revision or (root / 'Nitrogen/Sources/N3Geometry.m').exists()):
+    OBJC_SOURCES = N3_OBJC + OBJC_SOURCES
+    N3_LIBRARIES = None
+else:
+    N3_LIBRARIES = 'n3'
 
 BRIDGING = r'''
 #define HOROS_BRIDGING_HEADER 1
@@ -267,38 +287,26 @@ for (target, what) in [(160, "200 to 160 nodes"), (200, "back to 200 nodes"), (3
     let bezierBefore = batched.path.bezierPath
     var rebuiltInside = false
     let after = seconds {
-        batched.path.withPathRebuiltOnce {
-            batched.simplify(to: target)
-            rebuiltInside = batched.path.bezierPath !== bezierBefore
-        }
+        batched.path.holdsPathRebuild = true
+        batched.simplify(to: target)
+        rebuiltInside = batched.path.bezierPath !== bezierBefore
+        batched.path.holdsPathRebuild = false
     }
     expect(stepwise.path.nodes.count == target, "\(what): \(stepwise.path.nodes.count) nodes step by step")
-    expect(!rebuiltInside, "\(what): the path was rebuilt inside withPathRebuiltOnce")
-    expect(batched.path.bezierPath !== bezierBefore, "\(what): the path was not rebuilt after withPathRebuiltOnce")
+    expect(!rebuiltInside, "\(what): the path was rebuilt while holdsPathRebuild was set")
+    expect(batched.path.bezierPath !== bezierBefore, "\(what): the path was not rebuilt once holdsPathRebuild was released")
     same(batched.path, stepwise.path, what)
     timings.append(String(format: "%@: %.3f s rebuilt at each step, %.3f s rebuilt once", what, before, after))
 }
 
-// An exception inside the block goes on, with the path rebuilt from the nodes left.
-let raising = original.copy() as! CPRCurvedPath
-let reference = original.copy() as! CPRCurvedPath
-reference.removeNode(at: 1)
-var caught: NSException? = nil
-do {
-    try HorosObjCException.perform {
-        raising.withPathRebuiltOnce {
-            raising.removeNode(at: 1)
-            raising.removeNode(at: 10_000)
-        }
-    }
-} catch {
-    caught = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-}
-expect(caught?.name == .rangeException, "the exception inside the block did not go on: \(String(describing: caught))")
-same(raising, reference, "after an exception")
-let bezierAfterException = raising.bezierPath
-raising.removeNode(at: 1)
-expect(raising.bezierPath !== bezierAfterException, "an edit after an exception is not rebuilt at once")
+// A hold released without an edit keeps the path; the next edit rebuilds at once.
+let released = original.copy() as! CPRCurvedPath
+let bezierBeforeHold = released.bezierPath
+released.holdsPathRebuild = true
+released.holdsPathRebuild = false
+expect(released.bezierPath === bezierBeforeHold, "a hold without an edit rebuilt the path")
+released.removeNode(at: 1)
+expect(released.bezierPath !== bezierBeforeHold, "an edit after the hold is not rebuilt at once")
 
 // The controller's own steps keep one cost per node, each its node's.
 /// What -addObject: of CPRController.swift does.
@@ -313,6 +321,7 @@ private func debugAssert(_ condition: @autoclosure () -> Bool) {}
 final class SliderStandIn {
     var doubleValue: Double = 40
     var maxValue: Double = 100
+    var floatValue: Float { return Float(doubleValue) }
 }
 
 /// The controller's methods call their class by name.
@@ -354,6 +363,10 @@ final class ControllerSteps: NSObject {
 
     var sliderEnabled: Bool { return onSliderEnabled() }
 
+    /// How many times the path went to the views.
+    var shown = 0
+    func showCurvedPathInViews() { shown += 1 }
+
     func updateCurvedPathCost()
 %(updateCurvedPathCost)s
 
@@ -377,6 +390,9 @@ final class ControllerSteps: NSObject {
 
     func restoreLastRemovedNode() -> Bool
 %(restoreLastRemovedNode)s
+
+    func onSliderMove(_ sender: Any!)
+%(onSliderMove)s
 }
 
 /// Runs `body`, then whether it raised and whether there is one cost per node,
@@ -542,6 +558,33 @@ kept: for (what, edit) in notTheNodes {
            "\(what): the slider did not bring back the path it had")
 }
 
+// The Path Assistant's path through three nodes, as -assistedCurvedPath:
+// leaves it: two segments of 21 points make 41 nodes, and the centerline is
+// the last segment's 21 points. The slider down to 39 % and back to 100 %
+// gave 10 and then 21 nodes: 100 % asked for the centerline's points, not
+// the whole path. Each move of the slider is -onSliderMove: as it is.
+assisted: do {
+    let points = (makePath(41).nodes as! [NSValue]).map { $0.n3VectorValue() }
+    let segments: [[N3Vector]?] = [Array(points[0...20]), Array(points[20...40])]
+    let assembled = CurvedMPRPathAssistant.assembledPath(segments: segments, userNodes: [points[0], points[20], points[40]])
+    let steps = ControllerSteps(controllerPath(assembled))
+    let whole = steps._curvedPath!.nodes.copy() as! NSArray
+    expect(whole.count == 41, "the assistant's path has \(whole.count) nodes, not 41")
+    steps.centerline = NSMutableArray(array: segments[1]!.map { NSValue(n3Vector: $0)! })
+    var counts: [Int] = []
+    for (percent, expected) in [(39.0, 17), (100.0, 41), (0.0, 3), (60.0, 25), (100.0, 41)] {
+        steps.pathSimplificationSlider?.doubleValue = percent
+        guard aligned(steps, "the assistant's path at \(percent) %", { steps.onSliderMove(nil) }) else { break assisted }
+        let count = steps._curvedPath?.nodes.count ?? 0
+        counts.append(count)
+        expect(count == expected, "the assistant's path at \(percent) %: \(count) nodes, not \(expected)")
+    }
+    expect(steps._curvedPath?.nodes.isEqual(to: whole as! [Any]) ?? false,
+           "the assistant's path back at 100 % is not the path it found: \(counts) nodes")
+    expect(steps.delHistory?.count == 0, "the assistant's path back at 100 %: \(steps.delHistory?.count ?? 0) removals left")
+    expect(steps.shown == 5, "the assistant's path went \(steps.shown) times to the views, not once per move")
+}
+
 for line in timings { print("time: " + line) }
 if !wrong.isEmpty {
     for line in wrong { print("FAIL: " + line) }
@@ -564,7 +607,8 @@ for name, signature in [('costFunction', 'public dynamic func costFunction('),
                         ('restartSimplificationIfNodesChanged', 'private func restartSimplificationIfNodesChanged('),
                         ('sameNodes', 'private static func sameNodes('),
                         ('forgetCenterlineIfNodesChange', 'private func forgetCenterlineIfNodesChange('),
-                        ('onSliderEnabled', 'private dynamic func onSliderEnabled(')]:
+                        ('onSliderEnabled', 'private dynamic func onSliderEnabled('),
+                        ('onSliderMove', 'public dynamic func onSliderMove(')]:
     STEPS[name] = block(controller, signature)
     check(bool(STEPS[name]), f'CPRController.swift: no {signature.strip("(")}')
 # Formerly, -setCurvedPath: left the costs and the history as they were,
@@ -588,6 +632,9 @@ with tempfile.TemporaryDirectory(prefix='horos-cpr-simplification-') as tmp:
     (tmp / 'OperationStubs.swift').write_text(OPERATION_STUBS)
     objects = []
     try:
+        if N3_LIBRARIES:
+            n3_geometry_harness.build(tmp / N3_LIBRARIES, 'debug', headers=tmp)
+            objects += n3_geometry_harness.libraries(tmp / N3_LIBRARIES)
         for path, flags in OBJC_SOURCES:
             name = Path(path).name
             obj = tmp / (Path(path).stem + '.o')
@@ -617,7 +664,9 @@ with tempfile.TemporaryDirectory(prefix='horos-cpr-simplification-') as tmp:
             failures.append('the harness timed out')
 
 slider = block(controller, 'func onSliderMove(')
-check('withPathRebuiltOnce(' in slider, '-onSliderMove: rebuilds the path at each node')
+held, freed = slider.find('holdsPathRebuild = true'), slider.find('holdsPathRebuild = false')
+simplified = slider.find('CurvedMPRPathAssistant.simplify(')
+check(0 <= held < simplified < freed, '-onSliderMove: rebuilds the path at each node')
 check('self.removeNode()' not in slider and 'self.undoLastNodeRemoval()' not in slider,
       '-onSliderMove: shows the path in the views at each node')
 check(slider.count('showCurvedPathInViews()') == 1, '-onSliderMove: does not show the path once')

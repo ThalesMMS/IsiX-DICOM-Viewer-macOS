@@ -38,9 +38,12 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
+import IsiXPreferences
+import IsiXROI
 
 // The "Mouse dragging methods" of DCMView are implemented in Swift:
-// an extension of DCMView, which stays Objective-C, with the same selectors.
+// an extension of DCMView, with the same selectors.
 // Every method is `dynamic`, so the Objective-C and Swift subclasses that
 // override them (OrthogonalMPRView, the MPR and CPR views, plugins) are reached
 // as before, and DCMView's own sends go through objc_msgSend.
@@ -52,7 +55,10 @@ import Cocoa
 // an NSArray result) go through DCMViewDraggingMessages, an @objc protocol that
 // only names the selectors: the message goes to the object as it did, and a
 // message to nil answers nil, NO or 0. Keys and texts are NSString constants.
-// An @try is HorosObjCException.perform.
+// An @try is HorosObjCException.caughtWithoutAllocation, or
+// HorosObjCException.perform. What the repulsor does to the ROIs'
+// points and which ROIs the ROI selector touches are IsiXROI's ROIRepulsor
+// and ROISelectorRegion.
 
 /// The messages of the former Objective-C that go to an id or would bridge a
 /// value in their Swift spelling. The protocol is not checked: an object that
@@ -76,9 +82,6 @@ import Cocoa
     @objc(selectROI:deselectingOther:) func draggingSelectROI(_ roi: ROI?, deselectingOther: Bool)
     // ThickSlabController
     @objc(setLowQuality:) func draggingSetLowQuality(_ q: Bool)
-    // ROI
-    @objc(comments) func draggingComments() -> NSString?
-    @objc(setComments:) func draggingSetComments(_ s: NSString?)
     // Foundation
     @objc(objectAtIndex:) func draggingObjectAtIndex(_ index: Int) -> AnyObject?
     @objc(valueForKey:) func draggingValueForKey(_ key: NSString) -> AnyObject?
@@ -86,7 +89,6 @@ import Cocoa
     @objc(isEqualToString:) func draggingIsEqualToString(_ s: NSString?) -> Bool
     @objc(boolValue) func draggingBoolValue() -> Bool
     @objc(boolForKey:) func draggingBoolForKey(_ key: NSString) -> Bool
-    @objc(integerForKey:) func draggingIntegerForKey(_ key: NSString) -> Int
     @objc(userInfo) func draggingUserInfo() -> NSDictionary?
     @objc(objectForKey:) func draggingObjectForKey(_ key: AnyObject) -> AnyObject?
 }
@@ -115,24 +117,10 @@ private func hasModality(_ file: AnyObject?, _ modality: NSString) -> Bool {
     return msg(msg(file)?.draggingValueForKey(kModality))?.draggingIsEqualToString(modality) ?? false
 }
 
-/// [(NSMutableArray*) array objectAtIndex: i] as the element it holds.
-@inline(__always)
-private func element<T: AnyObject>(_ array: NSArray, _ index: Int, _ type: T.Type) -> T {
-    return unsafeDowncast(array.object(at: index) as AnyObject, to: type)
-}
-
 /// An element of a fast enumeration, as the class the Objective-C typed it.
 @inline(__always)
 private func asROI(_ object: Any) -> ROI {
     return unsafeDowncast(object as AnyObject, to: ROI.self)
-}
-
-/// float min(float a, float b) of DCMView.m: the arguments are converted to
-/// float, and so is the result.
-@inline(__always)
-private func cMin(_ a: CGFloat, _ b: CGFloat) -> Float {
-    let a = Float(a), b = Float(b)
-    if a < b { return a } else { return b }
 }
 
 // Keys and values of the dragging path. NSString is not Sendable, and only
@@ -142,15 +130,8 @@ private func cMin(_ a: CGFloat, _ b: CGFloat) -> Float {
 @MainActor private let kModality: NSString = "modality"
 @MainActor private let kPT: NSString = "PT"
 @MainActor private let kNM: NSString = "NM"
-@MainActor private let kMouseWindowingNM: NSString = "mouseWindowingNM"
-@MainActor private let kPETWindowingMode: NSString = "PETWindowingMode"
-@MainActor private let kPETMinimumValue: NSString = "PETMinimumValue"
 @MainActor private let kMouseClickZoomCentered: NSString = "MouseClickZoomCentered"
-@MainActor private let kXOffset: NSString = "xOffset"
-@MainActor private let kYOffset: NSString = "yOffset"
 @MainActor private let kMove: NSString = "move"
-@MainActor private let kMorphingGenerated: NSString = "morphing generated"
-@MainActor private let kEmpty: NSString = ""
 
 extension DCMView {
 
@@ -158,6 +139,7 @@ extension DCMView {
 
     @objc(mouseDragged:)
     public override dynamic func mouseDragged(with event: NSEvent) {
+        if IsiXPluginHost.shared.takesViewerInput(event, in: self) { return }
         if let lengthClickEvent = self.horos_lengthClickEvent {
             let down = self.convert(lengthClickEvent.locationInWindow, from: nil)
             let now = self.convert(event.locationInWindow, from: nil)
@@ -205,15 +187,14 @@ extension DCMView {
         if self.horos_dcmPixList != nil {
             DCMView.horos_static_drawLock?.lock()
 
-            do {
-                try HorosObjCException.perform {
+            if let e = HorosObjCException.caughtWithoutAllocation({
                     var tool = self.horos_currentMouseEventTool
 
                     self.mouseMoved(with: event)    // Update some variables...
 
                     if self.horos_crossMove >= 0 { tool = .tCross }
 
-                    let rois = (self.horos_curRoiList?.copy() as! NSArray?) ?? NSArray()
+                    let rois = (self.horos_curRoiList?.copy() as? [AnyObject]) ?? []
                     let precise = self.roiTool(tool) && rois.contains { self.preciseDragApplies(to: asROI($0)) }
                     let eventLocation = PreciseDrag.location(of: event, in: self.window,
                                                              anchor: self.convert(self.horos_start, to: nil), precise: precise)
@@ -271,11 +252,8 @@ extension DCMView {
                     if self.is2DViewer() == true {
                         windowControllerOf(self)?.draggingPropagateSettings()
                     }
-                }
-            } catch {
-                if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                    _N2LogExceptionImpl(e, true, "-[DCMView mouseDragged:]")
-                }
+            }) {
+                _N2LogExceptionImpl(e, true, "-[DCMView mouseDragged:]")
             }
 
             DCMView.horos_static_drawLock?.unlock()
@@ -308,7 +286,7 @@ extension DCMView {
         var haveHit = false
 
         // [NSArray arrayWithArray: curRoiList]
-        let rois = (self.horos_curRoiList?.copy() as! NSArray?) ?? NSArray()
+        let rois = (self.horos_curRoiList?.copy() as? [AnyObject]) ?? []
         for object in rois {
             let r = asROI(object)
             if r.locked == false {
@@ -350,7 +328,7 @@ extension DCMView {
                     offset.x = -(self.horos_previous.x - current.x) / CGFloat(self.horos_scaleValue)
                     offset.y = (self.horos_previous.y - current.y) / CGFloat(self.horos_scaleValue)
 
-                    for object in self.horos_curRoiList ?? NSMutableArray() {
+                    for object in self.horos_curRoiList ?? [] {
                         let r = asROI(object)
                         if r.roImode == Int(ROI_selected) {
                             action = true
@@ -374,7 +352,7 @@ extension DCMView {
 
                     self.horos_resizeTotal *= ss
 
-                    for object in self.horos_curRoiList ?? NSMutableArray() {
+                    for object in self.horos_curRoiList ?? [] {
                         let r = asROI(object)
                         if r.roImode == Int(ROI_selected) {
                             action = true
@@ -405,7 +383,7 @@ extension DCMView {
 
                     offset.y /= self.curDCM?.pixelRatio ?? 0
                     // hit test for text box
-                    for object in self.horos_curRoiList ?? NSMutableArray() {
+                    for object in self.horos_curRoiList ?? [] {
                         let r = asROI(object)
                         if r.roImode == Int(ROI_selected) {
                             if r.clickInTextBox { textBoxMove = true }
@@ -413,7 +391,7 @@ extension DCMView {
                     }
                     // Move text Box
                     if textBoxMove {
-                        for object in self.horos_curRoiList ?? NSMutableArray() {
+                        for object in self.horos_curRoiList ?? [] {
                             let r = asROI(object)
                             if r.roImode == Int(ROI_selected) {
                                 if !self.horos_mouseDraggedForROIUndo {
@@ -428,7 +406,7 @@ extension DCMView {
                     }
                     // move ROI
                     else {
-                        for object in self.horos_curRoiList ?? NSMutableArray() {
+                        for object in self.horos_curRoiList ?? [] {
                             let r = asROI(object)
                             if r.roImode == Int(ROI_selected) && r.locked == false && r.type != .tPlain {
                                 if !self.horos_mouseDraggedForROIUndo {
@@ -474,11 +452,11 @@ extension DCMView {
 
     @objc(patientCrosshairChanged:)
     dynamic func patientCrosshairChanged(_ notification: NSNotification!) {
-        if DCMView.horos_static_gDontListenToSyncMessage || !self.is2DViewer() || self.horos_matrix != nil || !self.horosFollowsSync ||
+        if !SliceSyncSettings.listensToMessages || !self.is2DViewer() || self.horos_matrix != nil || !self.horosFollowsSync ||
             self.horos_curImage < 0 || (windowControllerOf(self)?.draggingWindowWillClose() ?? false) { return }
         // Retire the transient legacy marker; the canonical point is projected at draw time.
         self.horos_slicePoint3D[0] = Float.infinity
-        let point = HorosPatientCrosshairForViewer(unsafeBitCast(msg(self)?.draggingWindowController(), to: ViewerController?.self))
+        let point = PatientCrosshairController.shared.point(forViewer: unsafeBitCast(msg(self)?.draggingWindowController(), to: ViewerController?.self))
         if let point,
            msg(msg(msg(notification)?.draggingUserInfo())?.draggingObjectForKey(kMove))?.draggingBoolValue() ?? false,
            PatientCrosshairController.shared.sourceOwner !== msg(self)?.draggingWindowController() {
@@ -488,9 +466,9 @@ extension DCMView {
             }
             if index >= 0 && index != Int32(self.horos_curImage) {
                 if self.horos_listType == CChar(UInt8(ascii: "i")) {
-                    self.setIndex(Int16(truncatingIfNeeded: index))
+                    self.setIndex(Int(truncatingIfNeeded: index))
                 } else {
-                    self.setIndexWithReset(Int16(truncatingIfNeeded: index), true)
+                    self.setIndexWithReset(Int(truncatingIfNeeded: index), true)
                 }
                 windowControllerOf(self)?.draggingAdjustSlider()
             }
@@ -501,7 +479,7 @@ extension DCMView {
     @objc(getPatientCrosshairSliceCoordinates:)
     public dynamic func getPatientCrosshairSliceCoordinates(_ coordinates: UnsafeMutablePointer<Float>!) -> Bool {
         if !self.is2DViewer() || !PatientCrosshairController.shared.isVisible || self.curDCM == nil { return false }
-        let point = HorosPatientCrosshairForViewer(unsafeBitCast(msg(self)?.draggingWindowController(), to: ViewerController?.self))
+        let point = PatientCrosshairController.shared.point(forViewer: unsafeBitCast(msg(self)?.draggingWindowController(), to: ViewerController?.self))
         guard let point, (self.curDCM?.pixelSpacingX ?? 0) > 0, (self.curDCM?.pixelSpacingY ?? 0) > 0 else { return false }
         var patient: (Float, Float, Float) = (Float(point.x), Float(point.y), Float(point.z))
         withUnsafeMutablePointer(to: &patient) {
@@ -509,81 +487,41 @@ extension DCMView {
                 self.curDCM?.convertDICOMCoords($0, toSliceCoords: coordinates, pixelCenter: true)
             }
         }
-        // MAX(fabs(sliceInterval), fabs(sliceThickness)) * 0.5
-        let interval = fabs(self.curDCM?.sliceInterval ?? 0), thickness = fabs(self.curDCM?.sliceThickness ?? 0)
-        let halfSlice: Double = (interval > thickness ? interval : thickness) * 0.5
-        return coordinates[0].isFinite && coordinates[1].isFinite && coordinates[2].isFinite &&
-            fabs(Double(coordinates[2])) <= halfSlice + 0.001 &&
-            coordinates[0] >= 0 && Double(coordinates[0]) < Double(self.curDCM?.pwidth ?? 0) * (self.curDCM?.pixelSpacingX ?? 0) &&
-            coordinates[1] >= 0 && Double(coordinates[1]) < Double(self.curDCM?.pheight ?? 0) * (self.curDCM?.pixelSpacingY ?? 0)
+        let pix = self.curDCM
+        return SliceSynchronizer.crosshairIsOnSlice(SIMD3(coordinates[0], coordinates[1], coordinates[2]),
+                                                    sliceInterval: pix?.sliceInterval ?? 0, sliceThickness: pix?.sliceThickness ?? 0,
+                                                    width: pix?.pwidth ?? 0, height: pix?.pheight ?? 0,
+                                                    pixelSpacingX: pix?.pixelSpacingX ?? 0, pixelSpacingY: pix?.pixelSpacingY ?? 0)
     }
 
-    // Methods for Zooming with mouse Drag
+    // Methods for Zooming with mouse Drag: the scale and the pan from the
+    // drag's start (ViewportState).
     @objc(mouseDraggedZoom:)
     public dynamic func mouseDraggedZoom(_ event: NSEvent!) {
         let current = self.currentPoint(inView: event)
 
-        self.scaleValue = Float(Double(self.horos_startScaleValue) + PreciseMouse.appliedDelta(Double(current.y - self.horos_start.y)) / (80.0 * Double(self.curDCM?.pwidth ?? 0) / 512.0))
+        self.scaleValue = self.viewport.zoomDragScale(delta: PreciseMouse.appliedDelta(Double(current.y - self.horos_start.y)),
+                                                      imageWidth: self.curDCM?.pwidth ?? 0)
 
-        var o = NSMakePoint(0, 0)
-
-        if standardDefaults()?.draggingBoolForKey(kMouseClickZoomCentered) ?? false {
-            var oo = self.convertToBacking(self.horos_start)
-
-            let drawingFrameRect = self.horos_drawingFrameRect
-            let scaleValue = CGFloat(self.horos_scaleValue), startScaleValue = CGFloat(self.horos_startScaleValue)
-            oo.x = (oo.x - drawingFrameRect.size.width / 2.0) - (((oo.x - drawingFrameRect.size.width / 2.0) * scaleValue) / startScaleValue)
-            oo.y = (oo.y - drawingFrameRect.size.height / 2.0) - (((oo.y - drawingFrameRect.size.height / 2.0) * scaleValue) / startScaleValue)
-
-            oo.y = -oo.y
-
-            if self.horos_xFlipped { oo.x = -oo.x }
-            if self.horos_yFlipped { oo.y = -oo.y }
-
-            let angle = Double(self.horos_rotation) * DCMView.horos_static_deg2rad
-            o.x = oo.x * cos(angle) + oo.y * sin(angle)
-            o.y = oo.x * sin(angle) - oo.y * cos(angle)
-        }
-
-        let scaleValue = CGFloat(self.horos_scaleValue), startScaleValue = CGFloat(self.horos_startScaleValue)
-        let originStart = self.horos_originStart
-        self.setOriginX(Float(((originStart.x * scaleValue) / startScaleValue) + o.x),
-                        y: Float(((originStart.y * scaleValue) / startScaleValue) + o.y))
+        let centred = standardDefaults()?.draggingBoolForKey(kMouseClickZoomCentered) ?? false
+        let origin = self.viewport.zoomDragOrigin(click: centred ? self.convertToBacking(self.horos_start) : nil,
+                                                  drawingSize: self.horos_drawingFrameRect.size, deg2rad: DCMView.horos_static_deg2rad)
+        self.setOriginX(origin.x, y: origin.y)
     }
 
     // Method for translating the image while dragging
     @objc(mouseDraggedTranslate:)
     public dynamic func mouseDraggedTranslate(_ event: NSEvent!) {
         let current = self.currentPoint(inView: event)
-        var xmove: Float, ymove: Float, xx: Float, yy: Float
-
-        xmove = Float(current.x - self.horos_start.x)
-        ymove = Float(-(current.y - self.horos_start.y))
-
-        xmove = Float(Double(xmove) * (self.window?.backingScaleFactor ?? 0))
-        ymove = Float(Double(ymove) * (self.window?.backingScaleFactor ?? 0))
-
-        if self.horos_xFlipped { xmove = -xmove }
-        if self.horos_yFlipped { ymove = -ymove }
-
-        let angle = Double(self.horos_rotation) * DCMView.horos_static_deg2rad
-        xx = Float(Double(xmove) * cos(angle) + Double(ymove) * sin(angle))
-        yy = Float(Double(xmove) * sin(angle) - Double(ymove) * cos(angle))
-
-        let originStart = self.horos_originStart
-        self.setOriginX(Float(originStart.x + CGFloat(xx)), y: Float(originStart.y + CGFloat(yy)))
+        let origin = self.viewport.translateDragOrigin(from: self.horos_start, to: current, backingScale: Double(self.window?.backingScaleFactor ?? 0),
+                                                       deg2rad: DCMView.horos_static_deg2rad)
+        self.setOriginX(origin.x, y: origin.y)
 
         //set value for Series Object Presentation State
         if self.is2DViewer() == true && (windowControllerOf(self)?.draggingIsPostprocessed() ?? false) == false {
-            do {
-                try HorosObjCException.perform {
-                    msg(self.seriesObj())?.draggingSetValue(NSNumber(value: Float(self.horos_origin.x)), forKey: kXOffset)
-                    msg(self.seriesObj())?.draggingSetValue(NSNumber(value: Float(self.horos_origin.y)), forKey: kYOffset)
-                }
-            } catch {
-                if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                    _N2LogExceptionImpl(e, false, "-[DCMView mouseDraggedTranslate:]")
-                }
+            HorosObjCException.logged("-[DCMView mouseDraggedTranslate:]") {
+                ImagePresentationStore(series: self.seriesObj(), image: nil)
+                    .storeSeriesOffset(x: Float(self.horos_origin.x), y: Float(self.horos_origin.y))
             }
         }
     }
@@ -596,138 +534,63 @@ extension DCMView {
         current.x -= self.frame.size.width / 2.0
         current.y -= self.frame.size.height / 2.0
 
-        var sign: Float = 1
-
-        if self.horos_xFlipped { sign = -sign }
-        if self.horos_yFlipped { sign = -sign }
-
-        var rot = Float(Double(self.horos_rotationStart) + Double(sign) * atan2(current.x, current.y) / DCMView.horos_static_deg2rad)
-
-        while rot < 0 { rot += 360 }
-        while rot > 360 { rot -= 360 }
-
-        self.rotation = rot
+        self.rotation = self.viewport.rotateDragRotation(fromCentre: current, deg2rad: DCMView.horos_static_deg2rad)
     }
 
     //Scrolling through images with Mouse
     // could be cleaned up by subclassing DCMView
     @objc(mouseDraggedImageScroll:)
     public dynamic func mouseDraggedImageScroll(_ event: NSEvent!) {
-        var previmage: Int16
-        let movie4Dmove = false
         let current = self.currentPoint(inView: event)
         let start = self.horos_start
-        if self.horos_scrollMode == 0 {
-            if abs(start.x - current.x) < abs(start.y - current.y) {
-                if abs(start.y - current.y) > 3 { self.horos_scrollMode = 1 }
-            } else if abs(start.x - current.x) >= abs(start.y - current.y) {
-                if abs(start.x - current.x) > 3 { self.horos_scrollMode = 2 }
+        self.horos_scrollMode = StackNavigation.dragAxis(self.horos_scrollMode, from: start, to: current)
+
+        let previmage = self.horos_curImage
+
+        // The wheel obeyed the reversal preference and the flipped series order
+        // while the drag ignored both, so the two gestures walked the series in
+        // opposite directions as soon as either was in play.
+        guard self.stackNavigation.drag(from: start, to: current, axis: self.horos_scrollMode, size: self.frame.size,
+                                        count: self.horos_dcmPixList?.count ?? 0,
+                                        sign: ScrollDirection.dragSign(flippedData: self.horos_flippedData)) else { return }
+
+        if previmage != self.horos_curImage {
+            if self.horos_listType == CChar(UInt8(ascii: "i")) {
+                self.setIndex(self.horos_curImage)
+            } else {
+                self.setIndexWithReset(self.horos_curImage, true)
             }
-        }
 
-        if movie4Dmove == false {
-            previmage = self.horos_curImage
-
-            let count = self.horos_dcmPixList?.count ?? 0
-            if count == 0 || !current.x.isFinite || !current.y.isFinite { return }
-            let scrollMode = self.horos_scrollMode
-            let extent: CGFloat = scrollMode == 2 ? NSWidth(self.frame) : NSHeight(self.frame)
-            if (scrollMode != 1 && scrollMode != 2) || !extent.isFinite || extent <= 0 { return }
-            var movement: Double = scrollMode == 2 ? current.x - start.x : start.y - current.y
-            // The wheel obeyed the reversal preference and the flipped series order
-            // while the drag ignored both, so the two gestures walked the series in
-            // opposite directions as soon as either was in play.
-            movement *= ScrollDirection.dragSign(flippedData: self.horos_flippedData)
-            let proposedIndex = Double(self.horos_startImage) + movement * Double(count) / (extent / 2.0)
-            if !proposedIndex.isFinite { return }
-            // Clamp in floating point before narrowing to the legacy short index.
-            let lastIndex = min(Double(count) - 1, Double(Int16.max))
-            self.horos_curImage = Int16(fmax(0, fmin(proposedIndex, lastIndex)))
-
-            if previmage != self.horos_curImage {
-                if self.horos_listType == CChar(UInt8(ascii: "i")) {
-                    self.setIndex(self.horos_curImage)
-                } else {
-                    self.setIndexWithReset(self.horos_curImage, true)
-                }
-
-                if let matrix = self.horos_matrix {
-                    var rows = 0, cols = 0; matrix.getNumberOfRows(&rows, columns: &cols); if cols < 1 { cols = 1 }
-                    matrix.selectCell(atRow: Int(self.horos_curImage) / cols, column: Int(self.horos_curImage) % cols)
-                }
-
-                if self.is2DViewer() == true {
-                    windowControllerOf(self)?.draggingAdjustSlider()
-                }
-
-                if self.horos_stringID != nil { windowControllerOf(self)?.draggingAdjustSlider() }
-
-                // SYNCRO
-                self.sendSyncMessage(Int16(truncatingIfNeeded: Int(self.horos_curImage) - Int(previmage)))
-                self.horosShowScrollPreview(atWindowPoint: event?.locationInWindow ?? .zero)
+            if let matrix = self.horos_matrix {
+                var rows = 0, cols = 0; matrix.getNumberOfRows(&rows, columns: &cols); if cols < 1 { cols = 1 }
+                matrix.selectCell(atRow: Int(self.horos_curImage) / cols, column: Int(self.horos_curImage) % cols)
             }
+
+            if self.is2DViewer() == true {
+                windowControllerOf(self)?.draggingAdjustSlider()
+            }
+
+            if self.horos_stringID != nil { windowControllerOf(self)?.draggingAdjustSlider() }
+
+            // SYNCRO
+            self.sendSyncMessage(self.horos_curImage - previmage)
+            self.horosShowScrollPreview(atWindowPoint: event?.locationInWindow ?? .zero)
         }
     }
 
     @objc(mouseDraggedBlending:)
     public dynamic func mouseDraggedBlending(_ event: NSEvent!) {
-        var WWAdapter = Float(Double(self.horos_bdstartWW) / 100.0)
         let current = self.currentPoint(inView: event)
         let start = self.horos_start
-
-        if Double(WWAdapter) < 0.001 * Double(self.curDCM?.slope ?? 0) { WWAdapter = Float(0.001 * Double(self.curDCM?.slope ?? 0)) }
 
         if self.is2DViewer() == true {
             msg(windowControllerOf(self)?.draggingThickSlabController())?.draggingSetLowQuality(true)
         }
 
         let blendingView = self.horos_blending
-        if hasModality(msg(msg(blendingView)?.draggingDcmFilesList())?.draggingObjectAtIndex(0), kPT) ||
-            ((standardDefaults()?.draggingBoolForKey(kMouseWindowingNM) ?? false) == true &&
-             hasModality(msg(msg(blendingView)?.draggingDcmFilesList())?.draggingObjectAtIndex(0), kNM)) {
-            var startlevel: Float
-            var endlevel: Float
-
-            // Uninitialized in the Objective-C when PETWindowingMode is not 0, 1 or 2.
-            var eWW: Float = 0, eWL: Float = 0
-
-            switch standardDefaults()?.draggingIntegerForKey(kPETWindowingMode) ?? 0 {
-            case 0:
-                eWL = Float(Double(self.horos_bdstartWL) + (current.y - start.y) * Double(WWAdapter))
-                eWW = Float(Double(self.horos_bdstartWW) + (current.x - start.x) * Double(WWAdapter))
-
-                if Double(eWW) < 0.1 { eWW = Float(0.1) }
-
-            case 1:
-                endlevel = Float(Double(self.horos_bdstartMax) + (current.y - start.y) * Double(WWAdapter))
-
-                eWL = (endlevel - self.horos_bdstartMin) / 2 + Float(standardDefaults()?.draggingIntegerForKey(kPETMinimumValue) ?? 0)
-                eWW = endlevel - self.horos_bdstartMin
-
-                if Double(eWW) < 0.1 { eWW = Float(0.1) }
-                if eWL - eWW / 2 < 0 { eWL = eWW / 2 }
-
-            case 2:
-                endlevel = Float(Double(self.horos_bdstartMax) + (current.y - start.y) * Double(WWAdapter))
-                startlevel = Float(Double(self.horos_bdstartMin) + (current.x - start.x) * Double(WWAdapter))
-
-                if startlevel < 0 { startlevel = 0 }
-
-                eWL = startlevel + (endlevel - startlevel) / 2
-                eWW = endlevel - startlevel
-
-                if Double(eWW) < 0.1 { eWW = Float(0.1) }
-                if eWL - eWW / 2 < 0 { eWL = eWW / 2 }
-
-            default:
-                break
-            }
-
-            blendingView?.curDCM?.changeWLWW(eWL, eWW)
-        } else {
-            blendingView?.curDCM?.changeWLWW(Float(Double(self.horos_bdstartWL) + (current.y - start.y) * Double(WWAdapter)),
-                                             Float(Double(self.horos_bdstartWW) + (current.x - start.x) * Double(WWAdapter)))
-        }
+        let file = msg(msg(blendingView)?.draggingDcmFilesList())?.draggingObjectAtIndex(0)
+        let window = self.windowLevelDragged(self.fusedWindowLevelDrag, file: file, delta: CGVector(dx: current.x - start.x, dy: current.y - start.y))
+        blendingView?.curDCM?.changeWLWW(window.level, window.width)
 
         if self.is2DViewer() == true {
             let preset = msg(DCMView.self as AnyObject)?.draggingFindWLWWPreset(blendingView?.curDCM?.wl ?? 0, blendingView?.curDCM?.ww ?? 0, self.curDCM)
@@ -744,90 +607,42 @@ extension DCMView {
     public dynamic func mouseDraggedWindowLevel(_ event: NSEvent!) {
         let current = self.currentPoint(inView: event)
         let start = self.horos_start
-        // Not blending
-        //if( !(blendingView != nil))
-        do {
-            var WWAdapter = Float(Double(self.horos_startWW) / 80.00)
 
-            if Double(WWAdapter) < 0.001 * Double(self.curDCM?.slope ?? 0) { WWAdapter = Float(0.001 * Double(self.curDCM?.slope ?? 0)) }
-
-            if self.is2DViewer() == true {
-                msg(windowControllerOf(self)?.draggingThickSlabController())?.draggingSetLowQuality(true)
-            }
-
-            let dcmFilesList = msg(self)?.draggingDcmFilesListIvar()
-            if hasModality(msg(dcmFilesList)?.draggingObjectAtIndex(Int(self.horos_curImage)), kPT) ||
-                ((standardDefaults()?.draggingBoolForKey(kMouseWindowingNM) ?? false) == true &&
-                 hasModality(msg(dcmFilesList)?.draggingObjectAtIndex(Int(self.horos_curImage)), kNM)) {
-                var startlevel: Float
-                var endlevel: Float
-
-                // Uninitialized in the Objective-C when PETWindowingMode is not 0, 1 or 2.
-                var eWW: Float = 0, eWL: Float = 0
-
-                switch standardDefaults()?.draggingIntegerForKey(kPETWindowingMode) ?? 0 {
-                case 0:
-                    eWL = Float(Double(self.horos_startWL) + (current.y - start.y) * Double(WWAdapter))
-                    eWW = Float(Double(self.horos_startWW) + (current.x - start.x) * Double(WWAdapter))
-
-                    if Double(eWW) < 0.1 { eWW = Float(0.1) }
-
-                case 1:
-                    endlevel = Float(Double(self.horos_startMax) + (current.y - start.y) * Double(WWAdapter))
-
-                    eWL = (endlevel - self.horos_startMin) / 2 + Float(standardDefaults()?.draggingIntegerForKey(kPETMinimumValue) ?? 0)
-                    eWW = endlevel - self.horos_startMin
-
-                    if Double(eWW) < 0.1 { eWW = Float(0.1) }
-                    if eWL - eWW / 2 < 0 { eWL = eWW / 2 }
-
-                case 2:
-                    endlevel = Float(Double(self.horos_startMax) + (current.y - start.y) * Double(WWAdapter))
-                    startlevel = Float(Double(self.horos_startMin) + (current.x - start.x) * Double(WWAdapter))
-
-                    if startlevel < 0 { startlevel = 0 }
-
-                    eWL = startlevel + (endlevel - startlevel) / 2
-                    eWW = endlevel - startlevel
-
-                    if Double(eWW) < 0.1 { eWW = Float(0.1) }
-                    if eWL - eWW / 2 < 0 { eWL = eWW / 2 }
-
-                default:
-                    break
-                }
-
-                self.curDCM?.changeWLWW(eWL, eWW)
-            } else {
-                self.curDCM?.changeWLWW(Float(Double(self.horos_startWL) + (current.y - start.y) * Double(WWAdapter)),
-                                        Float(Double(self.horos_startWW) + (current.x - start.x) * Double(WWAdapter)))
-            }
-
-            self.horos_curWW = self.curDCM?.ww ?? 0
-            self.horos_curWL = self.curDCM?.wl ?? 0
-
-            if self.is2DViewer() == true {
-                let preset = msg(DCMView.self as AnyObject)?.draggingFindWLWWPreset(self.horos_curWL, self.horos_curWW, self.curDCM)
-                windowControllerOf(self)?.draggingSetCurWLWWMenu(preset)
-            }
-
-            self.setWLWW(self.horos_curWL, self.horos_curWW)
+        if self.is2DViewer() == true {
+            msg(windowControllerOf(self)?.draggingThickSlabController())?.draggingSetLowQuality(true)
         }
+
+        let file = msg(msg(self)?.draggingDcmFilesListIvar())?.draggingObjectAtIndex(Int(self.horos_curImage))
+        let window = self.windowLevelDragged(self.windowLevelDrag, file: file, delta: CGVector(dx: current.x - start.x, dy: current.y - start.y))
+        self.curDCM?.changeWLWW(window.level, window.width)
+
+        self.windowLevelState.level = self.curDCM?.wl ?? 0
+        self.windowLevelState.width = self.curDCM?.ww ?? 0
+
+        if self.is2DViewer() == true {
+            let preset = msg(DCMView.self as AnyObject)?.draggingFindWLWWPreset(self.windowLevelState.level, self.windowLevelState.width, self.curDCM)
+            windowControllerOf(self)?.draggingSetCurWLWWMenu(preset)
+        }
+
+        self.setWLWW(self.windowLevelState.level, self.windowLevelState.width)
+    }
+
+    /// The window `drag` gives after the mouse moved by `delta`, for an image
+    /// of `file`: the PET windowing preferences are read at each move, so a
+    /// change takes effect during the drag. The step is floored with the slope
+    /// of the view's own image.
+    private func windowLevelDragged(_ drag: WindowLevelDrag, file: AnyObject?, delta: CGVector) -> (level: Float, width: Float) {
+        let preferences = PreferencesSource.process.preferences
+        let petLike = hasModality(file, kPT) || (preferences[VolumeRenderingPreferences.mouseWindowingNM] && hasModality(file, kNM))
+        let settings = petLike ? WindowLevelSettings(preferences: preferences) : WindowLevelSettings()
+        return drag.window(delta: delta, mode: petLike ? settings.petWindowingMode : nil,
+                           petMinimum: settings.petMinimumValue, slope: self.curDCM?.slope ?? 0)
     }
 
     @objc(selectedROIs)
     public dynamic func selectedROIs() -> NSMutableArray! {
-        let selectedRois = NSMutableArray()
-        for object in self.horos_curRoiList ?? NSMutableArray() {
-            let r = asROI(object)
-            let mode = r.roImode
-
-            if mode == Int(ROI_selected) || mode == Int(ROI_selectedModify) || mode == Int(ROI_drawing) {
-                selectedRois.add(r)
-            }
-        }
-
-        return selectedRois
+        // Selected, being modified or being drawn.
+        return NSMutableArray(array: ViewROIEditing.rois(self.horos_curRoiList).filter { ROISelection.isSelected($0.roImode) })
     }
 
     @objc(mouseDraggedRepulsor:)
@@ -838,111 +653,21 @@ extension DCMView {
         self.horos_repulsorPosition = tempPt
         tempPt = self.convert(fromNSView2GL: tempPt)
 
-        var pixSpacingRatio: Float = 1.0
-        if self.pixelSpacingY != 0 && self.pixelSpacingX != 0 {
-            pixSpacingRatio = Float(self.pixelSpacingY / self.pixelSpacingX)
-        }
+        let repulsor = ROIRepulsor(center: tempPt, radius: self.horos_repulsorRadius,
+                                   pixelRatio: ViewInput.pixelRatio(spacingX: self.pixelSpacingX, spacingY: self.pixelSpacingY),
+                                   scale: self.horos_scaleValue)
 
-        let minD = Float(10.0 / Double(self.horos_scaleValue))
-        let maxD = Float(50.0 / Double(self.horos_scaleValue))
-        let maxN = Float(10.0 * Double(self.horos_scaleValue))
-
-        var points: NSMutableArray
-
-        let repulsorRadius = self.horos_repulsorRadius
-        let repulsorRect = NSMakeRect(tempPt.x - CGFloat(repulsorRadius), tempPt.y - CGFloat(repulsorRadius),
-                                      CGFloat(Double(repulsorRadius) * 2.0), CGFloat(Double(repulsorRadius) * 2.0))
-
-        var roiArray: NSArray = self.selectedROIs() ?? NSMutableArray()
-        if roiArray.count == 0 { roiArray = self.horos_curRoiList ?? NSMutableArray() }
-
-        var i: Int32 = 0
-        while Int(i) < roiArray.count {
-            let r = element(roiArray, Int(i), ROI.self)
-
-            if r.type != .tAxis && r.type != .tAngle && r.type != .tArrow && r.type != .tDynAngle && r.type != .tTAGT && r.type != .tPlain && r.locked == false {
-                points = r.points ?? NSMutableArray()
-                var n: Int32 = 0
-                var j: Int32 = 0
-                while Int(j) < points.count {
-                    var pt = element(points, Int(j), MyPoint.self).point
-                    if NSPointInRect(pt, repulsorRect) {
-                        let dx = Float(pt.x - tempPt.x)
-                        let dx2 = dx * dx
-                        let dy = Float((pt.y - tempPt.y) * CGFloat(pixSpacingRatio))
-                        let dy2 = dy * dy
-                        let d = Float(sqrt(Double(dx2 + dy2)))
-
-                        if d < Float(repulsorRadius) {
-                            let moveX = dx / d * Float(repulsorRadius) - dx
-                            let moveY = dy / d * Float(repulsorRadius) - dy
-                            if r.type == .t2DPoint {
-                                r.rect = NSOffsetRect(r.rect, CGFloat(moveX), CGFloat(moveY))
-                            } else {
-                                element(points, Int(j), MyPoint.self).move(moveX, moveY)
-                            }
-
-                            pt.x += CGFloat(dx / d * Float(repulsorRadius) - dx)
-                            pt.y += CGFloat(dy / d * Float(repulsorRadius) - dy)
-
-                            for delta: Int32 in -1...1 {
-                                var k = j + delta
-                                if r.type == .tCPolygon || r.type == .tPencil {
-                                    if k == -1 {
-                                        k = Int32(truncatingIfNeeded: points.count - 1)
-                                    } else if Int(k) == points.count {
-                                        k = 0
-                                    }
-                                }
-
-                                if k != j && k >= 0 && Int(k) < points.count {
-                                    let pt2 = element(points, Int(k), MyPoint.self).point
-                                    let dx = Float(pt2.x - pt.x)
-                                    let dx2 = dx * dx
-                                    let dy = Float((pt2.y - pt.y) * CGFloat(pixSpacingRatio))
-                                    let dy2 = dy * dy
-                                    let d = Float(sqrt(Double(dx2 + dy2)))
-
-                                    if d <= minD && d < Float(repulsorRadius) {
-                                        points.removeObject(at: Int(k))
-                                        if delta == -1 { j -= 1 }
-                                    } else if (d >= maxD || d >= Float(repulsorRadius)) && Float(n) < maxN {
-                                        var pt3 = NSPoint()
-                                        pt3.x = (pt2.x + pt.x) / 2.0
-                                        pt3.y = (pt2.y + pt.y) / 2.0
-                                        let p = MyPoint(point: pt3)
-                                        let index = (delta == -1) ? j : j + 1
-                                        if delta == -1 { j += 1 }
-                                        points.insert(p as Any, at: Int(index))
-                                        n += 1
-                                    }
-                                }
-                            }
-
-                            if r.type == .tMesure {
-                                r.type = .tOPolygon
-                            }
-
-                            r.recompute()
-
-                            if msg(msg(r)?.draggingComments())?.draggingIsEqualToString(kMorphingGenerated) ?? false {
-                                msg(r)?.draggingSetComments(kEmpty)
-                            }
-
-                            NotificationCenter.default.post(name: .OsirixROIChange, object: r, userInfo: nil)
-                        }
-                    }
-                    j += 1
-                }
-            }
-            i += 1
+        let selected = ViewROIEditing.rois(self.selectedROIs())
+        for r in selected.isEmpty ? ViewROIEditing.rois(self.horos_curRoiList) : selected
+            where ROIRepulsor.pushes(type: r.type.rawValue, locked: r.locked) {
+            ViewROIEditing.repulse(r, with: repulsor)
         }
     }
 
     @objc(mouseDraggedROISelector:)
     public dynamic func mouseDraggedROISelector(_ event: NSEvent!) {
         // deselect all ROIs
-        for object in self.horos_curRoiList ?? NSMutableArray() {
+        for object in self.horos_curRoiList ?? [] {
             let r = asROI(object)
             // ROISelectorSelectedROIList contains ROIs that were selected _before_ the click
             if self.horos_ROISelectorSelectedROIList?.contains(r) ?? false { // this will be possible only if shift key is pressed
@@ -958,148 +683,36 @@ extension DCMView {
         tempPt.y = frame.size.height - tempPt.y
         self.horos_ROISelectorEndPoint = tempPt
 
-        // NSPoint polyRect[4]: set, and read, only when the image is rotated.
-        var polyRectStorage: (NSPoint, NSPoint, NSPoint, NSPoint) = (.zero, .zero, .zero, .zero)
+        // The dragged rectangle in the image: a rectangle over an image that is
+        // not rotated, its four corners taken into the image otherwise.
+        let startPoint = self.convertToBacking(self.horos_ROISelectorStartPoint)
+        let endPoint = self.convertToBacking(self.horos_ROISelectorEndPoint)
+        let region: ROISelectorRegion
+        if self.horos_rotation == 0 {
+            region = ROISelectorRegion(area: .rect(ROISelectorRegion.rect(from: self.convert(fromUpLeftView2GL: startPoint),
+                                                                          to: self.convert(fromUpLeftView2GL: endPoint))))
+        } else {
+            region = ROISelectorRegion(area: .quad(ROISelectorRegion.corners(from: startPoint, to: endPoint).map {
+                self.convert(fromUpLeftView2GL: $0)
+            }))
+        }
 
-        // Set, and read, only when the image is not rotated.
-        var rect = NSRect.zero
+        // select ROIs in the selection rectangle
+        // [NSArray arrayWithArray: curRoiList]
+        let geometry = ViewROIEditing.SelectorGeometry()
+        for roi in ViewROIEditing.rois(self.horos_curRoiList?.copy()) {
+            let shape = ViewROIEditing.selectorShape(of: roi, in: region, scale: self.horos_scaleValue)
+            if region.touches(shape, geometry: geometry) {
+                if (event?.modifierFlags ?? []).contains(.shift) { // invert the mode: selected->sleep, sleep->selected
+                    var mode = roi.roImode
+                    if mode == Int(ROI_sleep) { mode = Int(ROI_selected) }
+                    else if mode == Int(ROI_selected) { mode = Int(ROI_sleep) }
 
-        withUnsafeMutablePointer(to: &polyRectStorage) { polyTuple in
-            polyTuple.withMemoryRebound(to: NSPoint.self, capacity: 4) { polyRect in
-                if self.horos_rotation == 0 {
-                    let tempStartPoint = self.convert(fromUpLeftView2GL: self.convertToBacking(self.horos_ROISelectorStartPoint))
-                    let tempEndPoint = self.convert(fromUpLeftView2GL: self.convertToBacking(self.horos_ROISelectorEndPoint))
-
-                    rect = NSMakeRect(CGFloat(cMin(tempStartPoint.x, tempEndPoint.x)), CGFloat(cMin(tempStartPoint.y, tempEndPoint.y)),
-                                      abs(tempStartPoint.x - tempEndPoint.x), abs(tempStartPoint.y - tempEndPoint.y))
-
-                    if rect.size.width < 1 { rect.size.width = 1 }
-                    if rect.size.height < 1 { rect.size.height = 1 }
+                    // set the mode for the ROI and its group (if any)
+                    roi.roImode = mode
+                    windowControllerOf(self)?.draggingSetMode(mode, toROIGroupWithID: roi.groupID)
                 } else {
-                    let tempStartPoint = self.convertToBacking(self.horos_ROISelectorStartPoint)
-                    let tempEndPoint = self.convertToBacking(self.horos_ROISelectorEndPoint)
-
-                    polyRect[0] = self.convert(fromUpLeftView2GL: tempStartPoint)
-                    polyRect[1] = self.convert(fromUpLeftView2GL: NSMakePoint(tempStartPoint.x, tempStartPoint.y - (tempStartPoint.y - tempEndPoint.y)))
-                    polyRect[2] = self.convert(fromUpLeftView2GL: tempEndPoint)
-                    polyRect[3] = self.convert(fromUpLeftView2GL: NSMakePoint(tempStartPoint.x - (tempStartPoint.x - tempEndPoint.x), tempStartPoint.y))
-                }
-
-                // select ROIs in the selection rectangle
-                // [NSArray arrayWithArray: curRoiList]
-                let rois = (self.horos_curRoiList?.copy() as! NSArray?) ?? NSArray()
-                for object in rois {
-                    var points: NSMutableArray
-                    let roi = asROI(object)
-                    var intersected = false
-                    let roiType = roi.type
-
-                    if self.horos_rotation == 0 {
-                        if roiType == .tText {
-                            let w = Float(roi.rect.size.width / CGFloat(self.horos_scaleValue))
-                            let h = Float(roi.rect.size.height / CGFloat(self.horos_scaleValue))
-                            let o = roi.rect.origin
-                            let curROIRect = NSMakeRect(o.x - CGFloat(w) / 2.0, o.y - CGFloat(h) / 2.0, CGFloat(w), CGFloat(h))
-                            intersected = NSIntersectsRect(rect, curROIRect)
-                        } else if roiType == .tROI {
-                            intersected = NSIntersectsRect(rect, roi.rect)
-                        } else if roiType == .t2DPoint {
-                            intersected = NSPointInRect(element(roi.points, 0, MyPoint.self).point, rect)
-                        } else {
-                            points = roi.splinePoints() ?? NSMutableArray()
-
-                            if points.count != 0 {
-                                var p1: NSPoint, p2: NSPoint
-                                var j: Int32 = 0
-                                while Int(j) < points.count - 1 && !intersected {
-                                    p1 = element(points, Int(j), MyPoint.self).point
-                                    p2 = element(points, Int(j) + 1, MyPoint.self).point
-                                    intersected = lineIntersectsRect(p1, p2, rect)
-                                    j += 1
-                                }
-                                // last segment: between last point and first one
-                                if !intersected && roiType != .tMesure && roiType != .tAngle && roiType != .t2DPoint && roiType != .tOPolygon && roiType != .tArrow {
-                                    p1 = unsafeDowncast(points.lastObject! as AnyObject, to: MyPoint.self).point
-                                    p2 = element(points, 0, MyPoint.self).point
-                                    intersected = lineIntersectsRect(p1, p2, rect)
-                                }
-                            }
-                        }
-                    } else {
-                        if roiType == .tText {
-                            let w = Float(roi.rect.size.width / CGFloat(self.horos_scaleValue))
-                            let h = Float(roi.rect.size.height / CGFloat(self.horos_scaleValue))
-                            let o = roi.rect.origin
-                            let curROIRect = NSMakeRect(o.x - CGFloat(w) / 2.0, o.y - CGFloat(h) / 2.0, CGFloat(w), CGFloat(h))
-
-                            if !intersected { intersected = DCMPix.isPoint(NSMakePoint(NSMinX(curROIRect), NSMinY(curROIRect)), inPolygon: polyRect, size: 4) }
-                            if !intersected { intersected = DCMPix.isPoint(NSMakePoint(NSMinX(curROIRect), NSMaxY(curROIRect)), inPolygon: polyRect, size: 4) }
-                            if !intersected { intersected = DCMPix.isPoint(NSMakePoint(NSMaxX(curROIRect), NSMaxY(curROIRect)), inPolygon: polyRect, size: 4) }
-                            if !intersected { intersected = DCMPix.isPoint(NSMakePoint(NSMaxX(curROIRect), NSMinY(curROIRect)), inPolygon: polyRect, size: 4) }
-                        } else if roiType == .t2DPoint {
-                            intersected = DCMPix.isPoint(element(roi.points, 0, MyPoint.self).point, inPolygon: polyRect, size: 4)
-                        } else {
-                            points = roi.splinePoints() ?? NSMutableArray()
-                            var j: Int32 = 0
-                            while Int(j) < points.count && !intersected {
-                                intersected = DCMPix.isPoint(element(points, Int(j), MyPoint.self).point, inPolygon: polyRect, size: 4)
-                                j += 1
-                            }
-
-                            if !intersected {
-                                let p = UnsafeMutablePointer<NSPoint>.allocate(capacity: points.count)
-                                var j: Int32 = 0
-                                while Int(j) < points.count { p[Int(j)] = element(points, Int(j), MyPoint.self).point; j += 1 }
-                                j = 0
-                                while j < 4 && !intersected {
-                                    intersected = DCMPix.isPoint(polyRect[Int(j)], inPolygon: p, size: Int32(truncatingIfNeeded: points.count))
-                                    j += 1
-                                }
-                                p.deallocate()
-                            }
-
-                            if !intersected {
-                                points = roi.splinePoints() ?? NSMutableArray()
-                                if points.count != 0 {
-                                    var p1: NSPoint, p2: NSPoint
-                                    var j: Int32 = 0
-                                    while Int(j) < points.count - 1 && !intersected {
-                                        p1 = element(points, Int(j), MyPoint.self).point
-                                        p2 = element(points, Int(j) + 1, MyPoint.self).point
-                                        if !intersected { intersected = DCMView.intersectionBetweenTwoLinesA1(p1, a2: p2, b1: polyRect[0], b2: polyRect[1], result: nil) }
-                                        if !intersected { intersected = DCMView.intersectionBetweenTwoLinesA1(p1, a2: p2, b1: polyRect[1], b2: polyRect[2], result: nil) }
-                                        if !intersected { intersected = DCMView.intersectionBetweenTwoLinesA1(p1, a2: p2, b1: polyRect[2], b2: polyRect[3], result: nil) }
-                                        if !intersected { intersected = DCMView.intersectionBetweenTwoLinesA1(p1, a2: p2, b1: polyRect[3], b2: polyRect[0], result: nil) }
-                                        j += 1
-                                    }
-
-                                    // last segment: between last point and first one
-                                    if !intersected && roiType != .tMesure && roiType != .tAngle && roiType != .t2DPoint && roiType != .tOPolygon && roiType != .tArrow {
-                                        p1 = unsafeDowncast(points.lastObject! as AnyObject, to: MyPoint.self).point
-                                        p2 = element(points, 0, MyPoint.self).point
-                                        if !intersected { intersected = DCMView.intersectionBetweenTwoLinesA1(p1, a2: p2, b1: polyRect[0], b2: polyRect[1], result: nil) }
-                                        if !intersected { intersected = DCMView.intersectionBetweenTwoLinesA1(p1, a2: p2, b1: polyRect[1], b2: polyRect[2], result: nil) }
-                                        if !intersected { intersected = DCMView.intersectionBetweenTwoLinesA1(p1, a2: p2, b1: polyRect[2], b2: polyRect[3], result: nil) }
-                                        if !intersected { intersected = DCMView.intersectionBetweenTwoLinesA1(p1, a2: p2, b1: polyRect[3], b2: polyRect[0], result: nil) }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if intersected {
-                        if (event?.modifierFlags ?? []).contains(.shift) { // invert the mode: selected->sleep, sleep->selected
-                            var mode = roi.roImode
-                            if mode == Int(ROI_sleep) { mode = Int(ROI_selected) }
-                            else if mode == Int(ROI_selected) { mode = Int(ROI_sleep) }
-
-                            // set the mode for the ROI and its group (if any)
-                            roi.roImode = mode
-                            windowControllerOf(self)?.draggingSetMode(mode, toROIGroupWithID: roi.groupID)
-                        } else {
-                            windowControllerOf(self)?.draggingSelectROI(roi, deselectingOther: false)
-                        }
-                    }
+                    windowControllerOf(self)?.draggingSelectROI(roi, deselectingOther: false)
                 }
             }
         }

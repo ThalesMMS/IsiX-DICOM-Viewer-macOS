@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 
 // The file-level static of the former NavigatorView.m.
 private let deg2rad: Float = Float(Double.pi / 180.0)
@@ -151,13 +152,6 @@ private func setObject(_ dictionary: NSMutableDictionary?, _ object: Any?, _ key
     _ = dictionary?.perform(#selector(NSMutableDictionary.setObject(_:forKey:)), with: object, with: key)
 }
 
-/// [[[AppController sharedAppController] viewerScreens] objectAtIndex: 0],
-/// which raises without a screen as it did.
-@MainActor private func firstViewerScreen() -> NSScreen? {
-    let screens = (AppController.shared()?.viewerScreens() ?? []) as NSArray
-    return screens.object(at: 0) as? NSScreen
-}
-
 /// The view of the Navigator: the thumbnails of every slice (columns) and every
 /// movie frame (rows) of the viewer's series.
 ///
@@ -170,6 +164,9 @@ private func setObject(_ dictionary: NSMutableDictionary?, _ object: Any?, _ key
 /// scroll bars, with the same calls; the canvas is shown over the visible rect.
 @objc(NavigatorView)
 public final class NavigatorView: NSView, NSWindowDelegate {
+    /// The preferences the view reads and writes: those of the process graph.
+    let preferenceStore: any PreferenceStore = PreferencesSource.process.preferences
+
     @objc public private(set) var thumbnailWidth: Int32 = 0
     @objc public private(set) var thumbnailHeight: Int32 = 0
     private var sizeFactor: Float = 0
@@ -214,7 +211,7 @@ public final class NavigatorView: NSView, NSWindowDelegate {
             rect.size.width = n?.window?.maxSize.width ?? 0
             rect.size.height = CGFloat(Int32(v?.maxMovieIndex() ?? 0) * (n?.thumbnailHeight ?? 0))
 
-            let screen = firstViewerScreen()
+            let screen = navigator.firstViewerScreen()
 
             if rect.size.width > (screen?.visibleFrame ?? .zero).size.width { rect.size.width = (screen?.visibleFrame ?? .zero).size.width }
             if rect.size.height > (screen?.visibleFrame ?? .zero).size.height / 2 { rect.size.height = (screen?.visibleFrame ?? .zero).size.height / 2 }
@@ -534,7 +531,7 @@ public final class NavigatorView: NSView, NSWindowDelegate {
             }
         }
 
-        if UserDefaults.standard.integer(forKey: "ANNOTATIONS") > annotNone {
+        if self.preferenceStore[ViewerPreferences.annotations] > annotNone {
             var t: Int32 = 0
             while t < Int32(self.viewer()?.maxMovieIndex() ?? 0) {
                 let pixList = self.viewer()?.pixList(Int(t))
@@ -1183,9 +1180,9 @@ public final class NavigatorView: NSView, NSWindowDelegate {
         if !newWindow { //t == [[self viewer] curMovieIndex] || [[self viewer] isPlaying4D]) // same time line: select the clicked slice
             let view = self.viewer()?.imageView()
             if view?.flippedData ?? false {
-                view?.setIndex(Int16(truncatingIfNeeded: countMinus(self.viewer()?.pixList()?.count ?? 0, z)))
+                view?.setIndex(Int(truncatingIfNeeded: countMinus(self.viewer()?.pixList()?.count ?? 0, z)))
             } else {
-                view?.setIndex(Int16(truncatingIfNeeded: z))
+                view?.setIndex(Int(truncatingIfNeeded: z))
             }
 
             if t != Int32(self.viewer()?.curMovieIndex() ?? 0) {
@@ -1204,9 +1201,9 @@ public final class NavigatorView: NSView, NSWindowDelegate {
                     // select the correct slice
                     let view = selectedViewer?.imageView()
                     if view?.flippedData ?? false {
-                        view?.setIndex(Int16(truncatingIfNeeded: countMinus(self.viewer()?.pixList()?.count ?? 0, z)))
+                        view?.setIndex(Int(truncatingIfNeeded: countMinus(self.viewer()?.pixList()?.count ?? 0, z)))
                     } else {
-                        view?.setIndex(Int16(truncatingIfNeeded: z))
+                        view?.setIndex(Int(truncatingIfNeeded: z))
                     }
                     // sync other viewers
                     view?.sendSyncMessage(0)
@@ -1247,9 +1244,9 @@ public final class NavigatorView: NSView, NSWindowDelegate {
         // select the correct slice
         let view = newViewer?.imageView()
         if self.viewer()?.imageView()?.flippedData ?? false {
-            view?.setIndex(Int16(truncatingIfNeeded: countMinus(self.viewer()?.pixList()?.count ?? 0, z)))
+            view?.setIndex(Int(truncatingIfNeeded: countMinus(self.viewer()?.pixList()?.count ?? 0, z)))
         } else {
-            view?.setIndex(Int16(truncatingIfNeeded: z))
+            view?.setIndex(Int(truncatingIfNeeded: z))
         }
 
         // flippedData must be the same on all viewers

@@ -38,8 +38,7 @@
 #import "OSICustomImageAnnotations.h"
 #import "HorosAlertPanel.h"
 
-// The C part of the Annotations preference pane, which is otherwise Swift
-// since #711.
+// The C part of the Annotations preference pane, which is otherwise Swift.
 
 // Unchanged from the former OSICustomImageAnnotations.m.
 NSComparisonResult  compareViewTags(id firstView, id secondView, void * context)

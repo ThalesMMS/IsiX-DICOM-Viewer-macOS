@@ -26,6 +26,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import process_graph_stand_in  # the Metal sources read their development switches through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -38,11 +39,17 @@ def read(path):
 
 
 failures = []
-bridge = read('Horos/Sources/PlanarHostBridge.m')
+# The snapshot is Swift (DCMView+PlanarSnapshot.swift); its limits are
+# IsiXImaging's PlanarPresentation.
+bridge = read('Horos/Sources/DCMView+PlanarSnapshot.swift')
+presentation = read('Modules/IsiXImaging/Sources/ViewDrawing/PlanarPresentation.swift')
 renderer = read('Horos/Sources/PlanarMetalRenderer.swift')
 pilot = read('Horos/Sources/PlanarMetal4Renderer.swift')
-snapshot = bridge[bridge.index('- (NSDictionary *)horosPlanarSnapshot'):]
-if 'width > 65535 || height > 65535 || count > 2048UL*1024*1024' not in snapshot:
+snapshot = bridge[bridge.index('private func horosPlanarSnapshot(drawnIn host: DCMView)'):]
+if 'PlanarPresentation.accepts(width: width, height: height, planeBytes: count)' not in snapshot \
+        or 'public static let maximumSide = 65535' not in presentation \
+        or 'public static let maximumPlaneBytes = 2048 * 1024 * 1024' not in presentation \
+        or 'width <= maximumSide && height <= maximumSide && planeBytes <= maximumPlaneBytes' not in presentation:
     failures.append('the snapshot still refuses an image past 16384 pixels or 512 MB')
 if 'static let maximumTextureSide = 16384' not in renderer or 'planarBufferFragment' not in renderer:
     failures.append('the renderer has no buffer path for a layer larger than any texture')
@@ -168,7 +175,7 @@ with tempfile.TemporaryDirectory(prefix='horos-planar-large-') as name:
         (directory / source).write_text(read('Horos/Sources/' + source))
     (directory / 'Check.swift').write_text(DRIVER)
     build = subprocess.run(['xcrun', 'swiftc', '-O', '-parse-as-library', '-suppress-warnings',
-                            *[str(directory / source) for source in sources], str(directory / 'Check.swift'),
+                            *[str(directory / source) for source in sources], *process_graph_stand_in.swift_flags(directory / 'isix'), str(directory / 'Check.swift'),
                             '-o', str(directory / 'check')])
     if build.returncode:
         print('FAIL: the planar renderer does not build with the large-image driver')

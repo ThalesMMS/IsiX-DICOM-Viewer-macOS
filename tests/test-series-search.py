@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Exercise the production study predicate against a temporary SQLite Core Data store.
 
--createFilterPredicate is Swift, in BrowserController+Plugins.swift.
-The method is compiled as it is, with xcrun swiftc, inside a double of the
-browser that holds the search string and type, and run over a store of studies
-and series built in the driver.
+-createFilterPredicate is Swift, in BrowserController+Plugins.swift, and
+hands the search to StudySearchRules (IsiXDatabase). The method is compiled as
+it is, with xcrun swiftc, inside a double of the browser that holds the search
+string and type, beside the module's StudySearchRules.swift, and run over a
+store of studies and series built in the driver.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
@@ -12,6 +13,7 @@ import subprocess,sys,tempfile
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
 s=source_text('BrowserController+Plugins')
+rules=Path(__file__).resolve().parents[1]/'Modules/IsiXDatabase/Sources/StudySearchRules.swift'
 a=s.index('    @objc(createFilterPredicate)');method=s[a:s.index('    @objc(databaseSelection)',a)]
 code=r'''
 import CoreData
@@ -52,5 +54,5 @@ print("PASS: case/diacritics, empty/missing/literal terms, complete study contex
 '''.replace('METHOD',method)
 with tempfile.TemporaryDirectory(prefix='horos-series-search-') as tmp:
  p=Path(tmp);(p/'main.swift').write_text(code)
- subprocess.run(['xcrun','swiftc',str(p/'main.swift'),'-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','swiftc',str(p/'main.swift'),str(rules),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test'),str(p/'test.sql')],check=True)

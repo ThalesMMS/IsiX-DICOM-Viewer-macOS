@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXPreferences
 import Metal
 import QuartzCore
 import os
@@ -51,7 +52,7 @@ import os
 /// A refused frame leaves `vr.refusal` or `mpr.refusal` with its `reason`.
 @objc(HorosMetalPerformanceTrace)
 public final class MetalPerformanceTrace: NSObject {
-    @objc public static let enabled = UserDefaults.standard.bool(forKey: "HorosMetalPerformanceTrace")
+    @objc public static let enabled = PreferencesSource.process.preferences[ViewerPreferences.metalPerformanceTrace]
 
     private static let log = OSLog(subsystem: Bundle.main.bundleIdentifier ?? "thalesmms.isis.workstation",
                                    category: "MetalPerformance")

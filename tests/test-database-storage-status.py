@@ -45,6 +45,11 @@ else:
 status_source = (root / 'Horos/Sources/DatabaseStorageStatus.swift').read_text()
 awake = sources[sources.find('func awakeSources()'):]
 awake = awake[:awake.find('\n    }\n')]
+# -awakeSources hands the table to SourceList, which installs the line.
+if 'sourceList.install(helper:' in awake:
+    source_list = (root / 'Horos/Sources/SourceList.swift').read_text()
+    awake = source_list[source_list.find('func install(helper: BrowserSourcesHelper)'):]
+    awake = awake[:awake.find('\n    }\n')].replace('DatabaseStorageStatus.install(in: browser)', 'DatabaseStorageStatus.install(in: self)')
 failures = []
 if 'DatabaseStorageStatus.install(in: self)' not in awake:
     failures.append('the database window must install the storage line when it sets up its sources')

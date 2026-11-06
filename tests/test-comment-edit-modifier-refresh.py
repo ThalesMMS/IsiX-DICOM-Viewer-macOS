@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Execute the real modifier handler: typing Shift must not replace the field editor.
 
-The handler is BrowserController's flagsChanged(with:), in
-BrowserController+Toolbar.swift. The test extracts it verbatim and
-compiles it with swiftc inside a stand-in BrowserController.
+BrowserController's flagsChanged(with:) hands the event to its toolbar,
+BrowserToolbar's modifierFlagsChanged(_:) (BrowserToolbar.swift). The test
+extracts that method verbatim and compiles it with swiftc inside a stand-in
+BrowserController, the browser it reads, as flagsChanged(with:).
 """
 from pathlib import Path
 import re
@@ -14,9 +15,15 @@ import tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text
 
-s = source_text('BrowserController+Toolbar')
-a = s.index('    override func flagsChanged(with event: NSEvent?)')
-method = s[a:s.index('    @objc(setupToolbar)', a)]
+facade = source_text('BrowserController+Toolbar')
+a = facade.index('    override func flagsChanged(with event: NSEvent?)')
+if 'browserToolbar.modifierFlagsChanged(event)' not in facade[a:facade.index('\n    }\n', a)]:
+    sys.exit('FAIL: flagsChanged(with:) no longer hands the event to BrowserToolbar; this test needs a new look')
+s = source_text('BrowserToolbar')
+a = s.index('    func modifierFlagsChanged(_ event: NSEvent?)')
+method = s[a:s.index('    // MARK: - The items', a)]
+method = method.replace('func modifierFlagsChanged(_ event: NSEvent?)', 'override func flagsChanged(with event: NSEvent?)')
+method = method.replace('browser.', 'self.')
 identifiers = set(re.findall(r'\b\w+ToolbarItemIdentifier\b', method))
 constants = '\n'.join(f'let {name} = "{name}"' for name in sorted(identifiers))
 code = r'''

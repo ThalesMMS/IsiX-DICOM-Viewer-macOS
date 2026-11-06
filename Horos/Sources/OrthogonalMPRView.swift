@@ -38,6 +38,8 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
+import IsiXPreferences
 
 // The OpenGL enumerants ROICanvasGL.h names, which Swift cannot import: that
 // header imports Horos-Swift.h.
@@ -117,8 +119,8 @@ private func messages(_ object: Any?) -> OrthogonalMPRViewWindowControllerMessag
 /// -[DCMPix setArrayPix::] sent with the array itself: DCMPix keeps the array
 /// it gets without retaining it, so it must be the list the view keeps, not the
 /// copy that bridging to [Any] would pass.
-private func sendSetArrayPix(_ pix: AnyObject, _ array: NSArray?, _ i: Int16) {
-    typealias Send = @convention(c) (AnyObject, Selector, NSArray?, Int16) -> Void
+private func sendSetArrayPix(_ pix: AnyObject, _ array: NSArray?, _ i: Int) {
+    typealias Send = @convention(c) (AnyObject, Selector, NSArray?, Int) -> Void
     let selector = NSSelectorFromString("setArrayPix::")
     unsafeBitCast((pix as! NSObject).method(for: selector), to: Send.self)(pix, selector, array, i)
 }
@@ -127,8 +129,8 @@ private func sendSetArrayPix(_ pix: AnyObject, _ array: NSArray?, _ i: Int16) {
 /// with the files list itself, which the [Any] Swift imports the parameter as
 /// would have copied.
 private func sendSetPixels(_ view: DCMView, _ pixels: NSMutableArray?, files: NSArray?, rois: NSMutableArray?,
-                           firstImage: Int16, level: CChar, reset: Bool) {
-    typealias Send = @convention(c) (AnyObject, Selector, NSMutableArray?, NSArray?, NSMutableArray?, Int16, CChar, Bool) -> Void
+                           firstImage: Int, level: CChar, reset: Bool) {
+    typealias Send = @convention(c) (AnyObject, Selector, NSMutableArray?, NSArray?, NSMutableArray?, Int, CChar, Bool) -> Void
     let selector = NSSelectorFromString("setPixels:files:rois:firstImage:level:reset:")
     unsafeBitCast(view.method(for: selector), to: Send.self)(view, selector, pixels, files, rois, firstImage, level, reset)
 }
@@ -165,10 +167,13 @@ private func intValueOf(_ object: Any?) -> Int32 {
 /// <Horos/OrthogonalMPRView.h> are those of the former class, the customClass
 /// of the three views of OrthogonalMPR.xib. It is not final:
 /// OrthogonalMPRPETCTView and EndoscopyMPRView subclass it, and its methods
-/// are dynamic, sent through the Objective-C runtime as before. The DCMView
-/// ivars are read and written through DCMView+SwiftIvars.h.
+/// are dynamic, sent through the Objective-C runtime as before. DCMView's
+/// state is read and written through its stored properties.
 @objc(OrthogonalMPRView)
 public class OrthogonalMPRView: DCMView {
+    /// The preferences the view reads and writes: those of the process graph.
+    let preferenceStore: any PreferenceStore = PreferencesSource.process.preferences
+
     // MARK: - The former instance variables
 
     private var _crossPositionX: Float = 0 // coordinate x and Y of the cross
@@ -201,7 +206,7 @@ public class OrthogonalMPRView: DCMView {
         self.blendingPropagate()
     }
 
-    public override dynamic func setIndexWithReset(_ index: Int16, _ sizeToFit: Bool) {
+    public override dynamic func setIndexWithReset(_ index: Int, _ sizeToFit: Bool) {
         super.setIndexWithReset(index, sizeToFit)
         self.blendingPropagate()
     }
@@ -216,7 +221,7 @@ public class OrthogonalMPRView: DCMView {
             if messages(self.windowController())?.windowWillClose() ?? false { return }
         }
 
-        var SelectWindowScrollWheel = UserDefaults.standard.bool(forKey: "SelectWindowScrollWheel")
+        var SelectWindowScrollWheel = self.preferenceStore[ViewerPreferences.selectWindowScrollWheel]
 
         if theEvent.modifierFlags.contains(.capsLock) { // Caps Lock
             SelectWindowScrollWheel = !SelectWindowScrollWheel
@@ -230,9 +235,9 @@ public class OrthogonalMPRView: DCMView {
 
         var deltaX = Float(theEvent.deltaX)
 
-        if UserDefaults.standard.bool(forKey: "ZoomWithHorizonScroll") == false { deltaX = 0 }
+        if self.preferenceStore[ViewerPreferences.zoomWithHorizonScroll] == false { deltaX = 0 }
 
-        if UserDefaults.standard.bool(forKey: "Scroll Wheel Reversed") {
+        if self.preferenceStore[ViewerPreferences.scrollWheelReversed] {
             reverseScrollWheel = -1.0
         } else {
             reverseScrollWheel = 1.0
@@ -338,7 +343,7 @@ public class OrthogonalMPRView: DCMView {
 
     /// DCMView's -initWithFrame: sends this one to self: overridden, unchanged,
     /// so that it stays inherited beside the initializer above.
-    public override init!(frame: NSRect, imageRows rows: Int32, imageColumns columns: Int32) {
+    public override init(frame: NSRect, imageRows rows: Int32, imageColumns columns: Int32) {
         super.init(frame: frame, imageRows: rows, imageColumns: columns)
     }
 
@@ -367,7 +372,7 @@ public class OrthogonalMPRView: DCMView {
             // Prepare pixList for image thick slab - DO IT ONLY FOR NON - PET-CT VIEWER !!!!!!! ROI CRASH - Antoine
             i = 0
             while i < (pix?.count ?? 0) {
-                sendSetArrayPix(pix.object(at: i) as AnyObject, pix, Int16(truncatingIfNeeded: i))
+                sendSetArrayPix(pix.object(at: i) as AnyObject, pix, i)
                 i += 1
             }
         }
@@ -396,10 +401,6 @@ public class OrthogonalMPRView: DCMView {
     @objc(setCurRoiList:)
     public dynamic func setCurRoiList(_ rois: NSMutableArray!) {
         if rois !== self.horos_curRoiList {
-            // The ivar retains its list, as the former [curRoiList release]
-            // and [rois retain] did.
-            if let old = self.horos_curRoiList { Unmanaged.passUnretained(old).release() }
-            if let rois { _ = Unmanaged.passUnretained(rois).retain() }
             self.horos_curRoiList = rois
         }
 
@@ -508,8 +509,8 @@ public class OrthogonalMPRView: DCMView {
     public dynamic func adjustWLWW(_ wl: Float, _ ww: Float) {
         self.curDCM?.changeWLWW(wl, ww)
 
-        self.horos_curWW = self.curDCM?.ww ?? 0
-        self.horos_curWL = self.curDCM?.wl ?? 0
+        self.windowLevelState.width = self.curDCM?.ww ?? 0
+        self.windowLevelState.level = self.curDCM?.wl ?? 0
 
         self.loadTextures()
         self.needsDisplay = true
@@ -764,9 +765,8 @@ public class OrthogonalMPRView: DCMView {
         self.adjustScaleValue(savedScaleValue)
     }
 
-    /// -reshape, which DCMView implements without declaring it.
-    @objc(reshape)
-    private dynamic func reshape() {}
+    /// Nothing: DCMView's reshape is not done for these views.
+    public override dynamic func reshape() {}
 
     @objc(setThickSlabXY::)
     public dynamic func setThickSlabXY(_ newThickSlabX: Int, _ newThickSlabY: Int) {
@@ -992,7 +992,7 @@ public class OrthogonalMPRView: DCMView {
         if controller?.originalView() === self { controller?.originalView()?.needsDisplay = true }
     }
 
-    public override dynamic func is2DViewer() -> Bool {
+    public override nonisolated dynamic func is2DViewer() -> Bool {
         return false
     }
 
@@ -1002,11 +1002,9 @@ public class OrthogonalMPRView: DCMView {
     public override dynamic func actionForHotKey(_ hotKey: NSString!) -> Bool {
         var returnedVal = true
         if (hotKey?.length ?? 0) > 0 {
-            let wlwwDict = UserDefaults.standard.dictionary(forKey: "WLWW3") as NSDictionary?
-            let wwwlValues = (wlwwDict?.allKeys as NSArray?)?.sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as NSArray?
+            let wwwlValues = ReconstructionPreferences.menuNames(ImagePresetPreferences.windowLevelPresets, in: self.preferenceStore)
 
-            let opacityDict = UserDefaults.standard.dictionary(forKey: "OPACITY") as NSDictionary?
-            let opacityValues = (opacityDict?.allKeys as NSArray?)?.sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as NSArray?
+            let opacityValues = ReconstructionPreferences.menuNames(ImagePresetPreferences.opacityTables, in: self.preferenceStore)
 
             let lowercaseHotKey = hotKey.lowercased as NSString
             var key: unichar = lowercaseHotKey.character(at: 0)
@@ -1035,9 +1033,9 @@ public class OrthogonalMPRView: DCMView {
                      Preset7WWWLHotKeyAction.rawValue,
                      Preset8WWWLHotKeyAction.rawValue,
                      Preset9WWWLHotKeyAction.rawValue:
-                    if (wwwlValues?.count ?? 0) > Int(key) - Int(Preset1WWWLHotKeyAction.rawValue) {
-                        let menuString = wwwlValues?.object(at: Int(key) - Int(Preset1WWWLHotKeyAction.rawValue))
-                        windowController?.applyWLWW(forString: menuString as? NSString)
+                    if wwwlValues.count > Int(key) - Int(Preset1WWWLHotKeyAction.rawValue) {
+                        let menuString = wwwlValues[Int(key) - Int(Preset1WWWLHotKeyAction.rawValue)]
+                        windowController?.applyWLWW(forString: menuString as NSString)
                         NotificationCenter.default.post(name: NSNotification.Name.OsirixUpdateWLWWMenu, object: menuString, userInfo: nil)
                     }
 
@@ -1050,7 +1048,7 @@ public class OrthogonalMPRView: DCMView {
                      Preset7OpacityHotKeyAction.rawValue,
                      Preset8OpacityHotKeyAction.rawValue,
                      Preset9OpacityHotKeyAction.rawValue:
-                    if (opacityValues?.count ?? 0) >= Int(key) - Int(Preset1OpacityHotKeyAction.rawValue) {
+                    if opacityValues.count >= Int(key) - Int(Preset1OpacityHotKeyAction.rawValue) {
                         let index = Int32(key) - Int32(Preset1OpacityHotKeyAction.rawValue) - 1
 
                         var opacityMenuString: Any?
@@ -1058,7 +1056,7 @@ public class OrthogonalMPRView: DCMView {
                         if index < 0 {
                             opacityMenuString = NSLocalizedString("Linear Table", comment: "")
                         } else {
-                            opacityMenuString = opacityValues?.object(at: Int(index))
+                            opacityMenuString = opacityValues[Int(index)]
                         }
 
                         windowController?.applyOpacityString(opacityMenuString as? NSString)
@@ -1155,7 +1153,7 @@ public class OrthogonalMPRView: DCMView {
 
     public override dynamic func mouseDraggedBlending(_ event: NSEvent!) {
         super.mouseDraggedBlending(event)
-        self.setWLWW(self.horos_curWL, self.horos_curWW)
+        self.setWLWW(self.windowLevelState.level, self.windowLevelState.width)
         let blendingView = self.horos_blending
         blendingView?.setWLWW(blendingView?.curDCM?.wl ?? 0, blendingView?.curDCM?.ww ?? 0)
     }
@@ -1165,82 +1163,47 @@ public class OrthogonalMPRView: DCMView {
         let start = self.horos_start
 
         if self.horos_blending == nil {
-            var WWAdapter = Float(Double(self.horos_startWW) / 100.0)
-
-            if Double(WWAdapter) < 0.001 { WWAdapter = Float(0.001) }
-
             if self.is2DViewer() == true {
                 messages(messages(self.windowController())?.thickSlabController())?.setLowQuality(true)
             }
 
+            // The drag of the image views, with the step and the fallback of these views.
+            var drag = self.windowLevelDrag
+            drag.variant = .orthogonalMPR
             let dcmFilesList = self.horos_dcmFilesList
-            if hasModality(dcmFilesList?.object(at: 0), "PT") || (UserDefaults.standard.bool(forKey: "mouseWindowingNM") == true && hasModality(dcmFilesList?.object(at: 0), "NM")) {
-                var startlevel: Float
-                var endlevel: Float
+            let petLike = hasModality(dcmFilesList?.object(at: 0), "PT") || (self.preferenceStore[VolumeRenderingPreferences.mouseWindowingNM] && hasModality(dcmFilesList?.object(at: 0), "NM"))
+            let settings = petLike ? WindowLevelSettings(preferences: self.preferenceStore) : WindowLevelSettings()
+            let window = drag.window(delta: CGVector(dx: current.x - start.x, dy: current.y - start.y), mode: petLike ? settings.petWindowingMode : nil,
+                                     petMinimum: settings.petMinimumValue, slope: self.curDCM?.slope ?? 0)
+            self.curDCM?.changeWLWW(window.level, window.width)
 
-                var eWW: Float = 5, eWL: Float = 5
-
-                switch UserDefaults.standard.integer(forKey: "PETWindowingMode") {
-                case 0:
-                    eWL = Float(Double(self.horos_startWL) + Double(current.y - start.y) * Double(WWAdapter))
-                    eWW = Float(Double(self.horos_startWW) + Double(current.x - start.x) * Double(WWAdapter))
-
-                    if Double(eWW) < 0.1 { eWW = Float(0.1) }
-
-                case 1:
-                    endlevel = Float(Double(self.horos_startMax) + Double(current.y - start.y) * Double(WWAdapter))
-
-                    eWL = (endlevel - self.horos_startMin) / 2 + Float(UserDefaults.standard.integer(forKey: "PETMinimumValue"))
-                    eWW = endlevel - self.horos_startMin
-
-                    if Double(eWW) < 0.1 { eWW = Float(0.1) }
-                    if eWL - eWW / 2 < 0 { eWL = eWW / 2 }
-
-                case 2:
-                    endlevel = Float(Double(self.horos_startMax) + Double(current.y - start.y) * Double(WWAdapter))
-                    startlevel = Float(Double(self.horos_startMin) + Double(current.x - start.x) * Double(WWAdapter))
-
-                    if startlevel < 0 { startlevel = 0 }
-
-                    eWL = startlevel + (endlevel - startlevel) / 2
-                    eWW = endlevel - startlevel
-
-                    if Double(eWW) < 0.1 { eWW = Float(0.1) }
-                    if eWL - eWW / 2 < 0 { eWL = eWW / 2 }
-
-                default:
-                    break
-                }
-
-                self.curDCM?.changeWLWW(eWL, eWW)
-            } else {
-                self.curDCM?.changeWLWW(Float(Double(self.horos_startWL) + Double(current.y - start.y) * Double(WWAdapter)),
-                                        Float(Double(self.horos_startWW) + Double(current.x - start.x) * Double(WWAdapter)))
-            }
-
-            self.horos_curWW = self.curDCM?.ww ?? 0
-            self.horos_curWL = self.curDCM?.wl ?? 0
+            self.windowLevelState.width = self.curDCM?.ww ?? 0
+            self.windowLevelState.level = self.curDCM?.wl ?? 0
 
             if self.is2DViewer() == true {
-                messages(self.windowController())?.setCurWLWWMenu(DCMView.findWLWWPreset(self.horos_curWL, self.horos_curWW, self.curDCM) as NSString?)
+                messages(self.windowController())?.setCurWLWWMenu(DCMView.findWLWWPreset(self.windowLevelState.level, self.windowLevelState.width, self.curDCM) as NSString?)
             }
 
             // change Window level
-            self.setWLWW(self.horos_curWL, self.horos_curWW)
+            self.setWLWW(self.windowLevelState.level, self.windowLevelState.width)
 
 
             NotificationCenter.default.post(name: NSNotification.Name.OsirixChangeWLWW, object: self.curDCM, userInfo: nil)
 
-            if (self.curDCM?.suvConverted ?? false) == false {
-                //set value for Series Object Presentation State
-                self.seriesObj()?.setValue(NSNumber(value: self.horos_curWW), forKey: "windowWidth")
-                self.seriesObj()?.setValue(NSNumber(value: self.curDCM?.storedWindowLevel(forCalibratedLevel: self.horos_curWL) ?? 0), forKey: "windowLevel")
-            } else {
-                if self.is2DViewer() == true {
-                    let factorPET2SUV = messages(self.windowController())?.factorPET2SUV() ?? 0
-                    self.seriesObj()?.setValue(NSNumber(value: self.horos_curWW / factorPET2SUV), forKey: "windowWidth")
-                    self.seriesObj()?.setValue(NSNumber(value: self.curDCM?.storedWindowLevel(forCalibratedLevel: self.horos_curWL / factorPET2SUV) ?? 0), forKey: "windowLevel")
+            // The window of the series, in the image's values.
+            HorosObjCException.logged("-[OrthogonalMPRView mouseDraggedWindowLevel:]") {
+                let factor: Float
+                if (self.curDCM?.suvConverted ?? false) == false {
+                    factor = 1
+                } else if self.is2DViewer() == true {
+                    factor = messages(self.windowController())?.factorPET2SUV() ?? 0
+                } else {
+                    return
                 }
+                ImagePresentationStore(series: self.seriesObj(), image: nil)
+                    .storeWindow(width: self.windowLevelState.width / factor,
+                                 storedLevel: self.curDCM?.storedWindowLevel(forCalibratedLevel: self.windowLevelState.level / factor) ?? 0,
+                                 image: .untouched)
             }
         }
         //Blending and OrthogonalMPRVIEW

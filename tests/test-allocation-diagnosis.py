@@ -88,19 +88,19 @@ if offenders['page']:
     failures.append('failures still open the 64-bit download page: %s' % ', '.join(offenders['page']))
 
 # The 3D engine guard is the one that can name the size, and must.
-vr = (root / 'Horos/Sources/VRController.mm').read_bytes().decode('latin1')
-if 'HorosVolumeAllocation' not in vr:
-    failures.append('the 3D engine memory test must ask HorosVolumeAllocation for the size')
-if 'describeMatrixWithWidth' not in vr or 'describeByteCount' not in vr:
+vr = ''.join(path.read_text() for path in sorted((root / 'Horos/Sources').glob('VRController*.swift')))
+if 'VolumeAllocation.byteCount(' not in vr:
+    failures.append('the 3D engine memory test must ask VolumeAllocation for the size')
+if 'VolumeAllocation.describeMatrix(' not in vr or 'VolumeAllocation.describe(byteCount:' not in vr:
     failures.append('the 3D engine diagnosis must name the matrix and the size that was refused')
-if re.search(r'malloc\(\s*\[firstObject pwidth\]\s*\*', vr):
+if re.search(r'malloc\(\s*Int\(firstObject\.pwidth\)\s*\*', vr):
     failures.append('the 3D engine memory test still multiplies the size itself')
 
 # And nothing may be reduced without saying so: every new message says it.
 said = 0
 for tree in trees:
     for path in sorted(tree.rglob('*')):
-        if path.suffix in {'.m', '.mm'}:
+        if path.suffix in {'.m', '.mm', '.swift'}:
             said += path.read_bytes().decode('latin1').count('Nothing was reduced silently')
 if said < 7:
     failures.append('the diagnoses must say that nothing was reduced silently; found %d' % said)

@@ -16,7 +16,9 @@ control:
   failure says what the operator has to do;
 * waiting for a connection slot observes cancellation instead of blocking
   forever;
-* the inbound server, the N2 classes and the other transports are untouched.
+* the inbound server and the other transports are untouched;
+* N2Connection is gone, and the destination information (GETDI), the last
+  request it sent, goes through the same transport.
 
 RemoteDicomDatabase is Swift: without a revision the checks read
 RemoteDicomDatabase.swift, in its spelling; a revision of before is read as the
@@ -55,8 +57,9 @@ if swift:
     send = method(client, 'private func horosSendDatabaseRequest(')
     spelling = {
         'transport': 'DatabaseTransport.sendRequest(',
-        'handler': 'try HorosObjCException.perform { consumed = handler(data as NSData?) }',
-        'request': method(client, '    func synchronousRequest(_ request: NSData?, urgent: Bool, dataHandlerTarget target: AnyObject?, selector sel: Selector?, context: UnsafeMutableRawPointer?) -> NSData? {', '\n    }\n'),
+        'handler': 'if let exception = HorosObjCException.caught({ consumed = handler(data as NSData?) })',
+        # The request of -synchronousRequest:…, which throws.
+        'request': method(client, '    private func sendRequest(_ request: NSData?, urgent: Bool,', '\n    }\n'),
         'legacy': 'N2Connection.sendSynchronousRequest(',
         'classified': 'SharedDatabaseCommand.isRetryable(',
         'guidance': 'SharedDatabaseCommand.actionRequired(for:',
@@ -103,10 +106,17 @@ if 'isCancelled' not in request:
 # The inbound server and the other transports are out of scope.
 # BonjourPublisher is Swift: the inbound server's source, whatever its language.
 publisher_path = str(sources.source_path('BonjourPublisher').relative_to(root))
-for path, forbidden in ((publisher_path, 'N2ConnectionListener'),
-                        ('Nitrogen/Sources/N2Connection.h', 'sendSynchronousRequest:')):
+# Its listener is HorosDatabaseServer, which the publisher starts.
+for path, forbidden in ((publisher_path, 'HorosDatabaseServer('),):
     if forbidden not in read(path):
-        failures.append('%s no longer has %s; the inbound server and N2 API are out of scope' % (path, forbidden))
+        failures.append('%s no longer has %s; the inbound server is out of scope' % (path, forbidden))
+# N2Connection, the stream connection the client used to send through, is gone:
+# the one request left on it, the destination information, goes through the
+# same transport.
+if swift and ((root / 'Nitrogen/Sources/N2Connection.mm').exists() or 'N2Connection.sendSynchronousRequest(' in client):
+    failures.append('the stream connection is still there for a request of the client')
+if swift and 'DatabaseTransport.sendRequest(' not in method(client, '    public class func fetchDicomDestinationInfo(', '\n    }\n'):
+    failures.append('the destination information is not asked through the native transport')
 
 if failures:
     for failure in failures:

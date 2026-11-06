@@ -28,6 +28,8 @@ import sys
 import tempfile
 import threading
 import harness_defaults  # the harness's preferences stay in its own process
+import isix_modules  # the downloader's rules are in IsiXDICOMNetwork
+import ingest_standin  # what the downloader asks of the single entry
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
 from local_http import ThreadingLocalHTTPServer  # a fixture binds without the DNS
 
@@ -42,9 +44,10 @@ from sources import source_text  # noqa: E402
 failures = []
 
 # --- source -----------------------------------------------------------------
-query = (ROOT / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
-retrieve = query[query.index('- (void) WADORetrieve: (DCMTKStudyQueryNode*) study listing:'):]
-retrieve = retrieve[:retrieve.index('\n- (void) WADORetrieve: (DCMTKStudyQueryNode*) study\n')]
+# The query node is Swift; its WADO-URI retrieve is in DCMTKQueryNode+WADO.swift.
+query = (ROOT / 'Horos/Sources/DCMTKQueryNode+WADO.swift').read_text()
+retrieve = query[query.index('    private func wadoDownloader(authorization: String?) -> WADODownload'):]
+retrieve = retrieve[:retrieve.index('\n    func wadoRetrieve(study: DCMTKQueryNode?) {\n')]
 pane = source_text('OSILocationsPreferencePanePref')
 button = pane[pane.index('public func testWADOUrl(_ sender: Any?)'):]
 button = button[:button.index('\n    }\n')]
@@ -53,10 +56,18 @@ for name, text in (('WADORetrieve', retrieve), ('testWADOUrl', button)):
         failures.append(f'{name} still reads a plain WADOPassword from the node')
     if re.search(r'%@:%@@', text):
         failures.append(f'{name} still formats user:password@ into a URL')
+    if name == 'WADORetrieve':
+        # Swift interpolates: scheme://host:port/path, nothing before the host.
+        formats = [line.strip() for line in text.splitlines() if 'requestType=WADO' in line]
+        url = '"\\(`protocol`)://\\(_hostname ?? "(null)"):\\(Self.int32(parameters["WADOPort"]))/\\(wadoSubURL)?requestType=WADO"'
+        if len(formats) != 1 or url not in formats[0]:
+            failures.append(f'{name} builds its WADO URL with {formats}, not scheme://host:port/path')
+        continue
     formats = re.findall(r'"(%@://[^"]*requestType=WADO)"', text)
     if formats != ['%@://%@:%d/%@?requestType=WADO']:
         failures.append(f'{name} builds its WADO URL with {formats}, not scheme://host:port/path')
-if 'downloader.authorization = authorization;' not in retrieve or retrieve.count('[[WADODownload alloc] init]') != retrieve.count('downloader.authorization = authorization;'):
+if 'downloader.authorization = authorization' not in retrieve or retrieve.count('WADODownload()') != 1 \
+        or retrieve.count('wadoDownloader(authorization: authorization)') != 3:
     failures.append('a WADO downloader of WADORetrieve does not carry the credential')
 
 # --- harness ----------------------------------------------------------------
@@ -79,6 +90,16 @@ EXPECTED = 'Basic ' + base64.b64encode(f'{USERNAME}:{PASSWORD}'.encode('utf-8'))
 
 DRIVER = r'''
 import Cocoa
+import IsiXDICOMNetwork
+// The process graph the downloader reads its preferences from.
+final class ProcessGraph: Sendable {
+    static let process = ProcessGraph()
+    var databaseIngest: DatabaseIngest { DatabaseIngest() }
+    var preferences: UserDefaults { UserDefaults.standard }
+    // The browser's network-log switch and database, which LogManager reads.
+    var networkLogsActive: Bool { BrowserController.currentBrowser()?.isNetworkLogsActive() ?? false }
+    var browserDatabase: DicomDatabase? { BrowserController.currentBrowser()?.database }
+}
 final class HorosAlertPanel {
     static func runCritical(title: String?, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) {}
 }
@@ -194,6 +215,7 @@ with tempfile.TemporaryDirectory(prefix='wado-uri-credentials-') as directory:
     (work / 'harness.h').write_text(values['HEADER'])
     (work / 'doubles.m').write_text(values['DOUBLES'] + harness_defaults.OBJC)
     (work / 'driver.swift').write_text(DRIVER)
+    (work / 'ingest.swift').write_text(ingest_standin.SWIFT)
 
     def run(command, **kwargs):
         result = subprocess.run(command, capture_output=True, text=True, timeout=300, **kwargs)
@@ -205,11 +227,12 @@ with tempfile.TemporaryDirectory(prefix='wado-uri-credentials-') as directory:
              str(work / (name + '.m')), '-o', str(work / (name + '.o'))])
     executable = work / 'test'
     run(['xcrun', 'swiftc', '-suppress-warnings', '-swift-version', '5', '-parse-as-library', '-module-name', 'Horos',
-         '-import-objc-header', str(work / 'harness.h'),
+         '-import-objc-header', str(work / 'harness.h'), *isix_modules.module_flags('IsiXDICOMNetwork', work / 'modules'),
+         *isix_modules.log_text_sources(),
          *[str(ROOT / 'Horos/Sources' / name) for name in ('WADODownload.swift', 'ActivityProgressCount.swift', 'IdentityToken.swift', 'WADOCredentials.swift', 'DICOMwebCredentials.swift',
-                                                         'NonInteractiveKeychainRead.swift', 'RetrieveManifest.swift', 'LogManager.swift',
+                                                         'NonInteractiveKeychainRead.swift', 'RetrieveManifest.swift', 'LogManager.swift', 'HorosObjCException+Guards.swift',
                                                          'NodeRequestLimiter.swift', 'RetrievePlan.swift')],
-         str(work / 'driver.swift'), str(work / 'HorosObjCException.o'), str(work / 'doubles.o'),
+         str(work / 'ingest.swift'), str(work / 'driver.swift'), str(work / 'HorosObjCException.o'), str(work / 'doubles.o'),
          '-framework', 'Cocoa', '-framework', 'CoreData', '-o', str(executable)])
 
     servers = [ThreadingLocalHTTPServer(('127.0.0.1', 0), Handler) for _ in range(2)]

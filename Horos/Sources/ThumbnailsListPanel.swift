@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 
 /// The screen each borrowed list was last shown on, keyed by the list's address
 /// (+[NSValue valueWithPointer:]). Created by the first -setThumbnailsView:viewer:.
@@ -73,7 +74,7 @@ public final class ThumbnailsListPanel: NSWindowController {
     @objc public class func fixedWidth() -> Int {
         var w: Float = 0
 
-        switch UserDefaults.standard.integer(forKey: "dbFontSize") {
+        switch PreferencesSource.process.preferences[ViewerPreferences.databaseFontSize] {
         case -1: w = Float(100 * 0.8)
         case 0: w = 100
         case 1: w = Float(100 * 1.3)
@@ -153,7 +154,7 @@ public final class ThumbnailsListPanel: NSWindowController {
         self.window?.safelySetMovable(false)
 
         if self.window == nil {
-            UserDefaults.standard.set(false, forKey: "UseFloatingThumbnailsList")
+            PreferencesSource.process.preferences.set(false, for: ViewerPreferences.useFloatingThumbnailsList)
         }
     }
 
@@ -213,7 +214,7 @@ public final class ThumbnailsListPanel: NSWindowController {
             }
         } else {
             let window = aNotification?.object as? NSWindow
-            if UserDefaults.standard.bool(forKey: "UseFloatingThumbnailsList"),
+            if PreferencesSource.process.preferences[ViewerPreferences.useFloatingThumbnailsList],
                let window = window, let candidate = window.windowController as? ViewerController, window.isVisible,
                AppController.thumbnailsListPanel(for: window.screen) === self {
                 self.setThumbnailsView(candidate.previewMatrixScrollView(), viewer: candidate)
@@ -248,7 +249,7 @@ public final class ThumbnailsListPanel: NSWindowController {
             return
         }
 
-        if UserDefaults.standard.bool(forKey: "UseFloatingThumbnailsList") == false {
+        if PreferencesSource.process.preferences[ViewerPreferences.useFloatingThumbnailsList] == false {
             self.window?.orderOut(self)
             return
         }
@@ -307,7 +308,7 @@ public final class ThumbnailsListPanel: NSWindowController {
 
     @objc(setThumbnailsView:viewer:)
     public func setThumbnailsView(_ list: NSView?, viewer v: ViewerController?) {
-        if UserDefaults.standard.bool(forKey: "UseFloatingThumbnailsList") == false {
+        if PreferencesSource.process.preferences[ViewerPreferences.useFloatingThumbnailsList] == false {
             return
         }
 
@@ -315,7 +316,7 @@ public final class ThumbnailsListPanel: NSWindowController {
 
 
         var tb = list
-        if UserDefaults.standard.bool(forKey: "SeriesListVisible") == false {
+        if PreferencesSource.process.preferences[ViewerPreferences.seriesListVisible] == false {
             tb = nil
         }
 

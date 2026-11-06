@@ -39,38 +39,14 @@
 // WebPortalConnection is implemented in Swift
 // (Horos/Sources/WebPortalConnection.swift). This header keeps
 // <Horos/WebPortalConnection.h>: it brings in the generated interface, which
-// declares the same class name, superclass and selectors.
+// declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
-#import "HTTPConnection.h"
 #import "WebPortalUser.h"
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.
 @class WebPortalConnection;
-@class AsyncSocket, HTTPServer;
-
-// Members of HTTPConnection that its header does not declare, which the Swift
-// class overrides and calls.
-@interface HTTPConnection (Private)
--(BOOL)isAuthenticated;
--(void)replyToHTTPRequest;
--(BOOL)onSocketWillConnect:(AsyncSocket*)sock;
-@end
-
-// HTTPConnection's instance variables, which Swift cannot read, for the Swift
-// class only; defined in WebPortalConnection+CAPI.m.
-@interface HTTPConnection (WebPortalConnectionInstanceVariables)
--(AsyncSocket*)webPortalConnectionAsyncSocket;
--(HTTPServer*)webPortalConnectionServer;
--(CFHTTPMessageRef)webPortalConnectionRequest CF_RETURNS_NOT_RETAINED;
--(UInt64)webPortalConnectionRemainingBodyBytes;
--(void)webPortalConnectionValidateResponse:(CFHTTPMessageRef)message;
-@end
-
-// N2LogStackTrace, which is variadic, with one message; defined in
-// WebPortalConnection+CAPI.m, for the Swift class only.
-void WebPortalConnectionLogStackTrace(NSString* message);
 #else
 #import "Horos-Swift.h"
 #endif

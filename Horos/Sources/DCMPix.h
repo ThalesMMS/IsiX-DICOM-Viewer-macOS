@@ -68,176 +68,24 @@ extern "C"
 
 @class ROI;
 @class ThickSlabController;
-@class DCMObject;
 @class Point3D;
 @class DicomImage;
 @class DicomSeries;
 @class DicomStudy;
-@class DCMWaveform;
 @class DCMTKFileFormat;
 
-/** \brief Represents an image for display */
+/** \brief Represents an image for display
+
+ The class is implemented in Swift: DCMPix.swift is its implementation
+ (@objc @implementation) and holds its state, its initializers and its
+ accessors; each responsibility is in its own file (DCMPix+Loading.swift,
+ DCMPix+FrameLoading.swift, DCMPix+ImageAttributes.swift,
+ DCMPix+Subtraction.swift, DCMPix+SUV.swift, DCMPixSettings.swift, and the
+ extensions declared by the category headers imported at the end). This
+ interface declares it to Objective-C, which can still subclass it; it has no
+ instance variables: key-value coding still answers their former names. */
 
 @interface DCMPix: NSObject <NSCopying>
-{
-    NSString            *_srcFile;  /**< source File */
-    NSString            *URIRepresentationAbsoluteString;
-    BOOL				isBonjour;
-    BOOL                fileTypeHasPrefixDICOM;
-    int                 numberOfFrames;
-    
-    NSArray				*pixArray;
-    NSManagedObjectID	*imageObjectID;	/**< Core data object ID for image */
-    float				*fImage /**< float buffer of image Data */, *fExternalOwnedImage;  /**< float buffer of image Data - provided by another source, not owned by this object, not release by this object */
-    
-    //DICOM TAGS
-    
-    //	orientation
-    BOOL				isOriginDefined;
-    double				originX /**< x position of image origin */ , originY /**< y Position of image origin */ , originZ /**< Z position of image origin*/;
-    double				orientation[ 9];  /**< pointer to orientation vectors  */
-    
-    //	pixel representation
-    BOOL				fIsSigned;
-    short				bitsAllocated, bitsStored;
-    long                height, width;
-    float               slope, offset;
-    
-    //	window level & width
-    float				savedWL, savedWW;
-    
-    //	planar configuration
-    long				fPlanarConf;
-    double				pixelSpacingX, pixelSpacingY, pixelRatio;
-    double              estimatedRadiographicMagnificationFactor;
-    BOOL				pixelSpacingFromUltrasoundRegions;
-    
-    //	photointerpretation
-    BOOL				isRGB, inverseVal;
-    
-    //  US Regions
-    NSMutableArray      *usRegions;
-    
-    //  Waveform data
-    DCMWaveform         *waveform;
-    
-    //  image type
-    NSString*           imageType;
-    
-    //--------------------------------------
-    
-    // DICOM params needed for SUV calculations
-    float				patientsWeight;
-    
-    NSString            *repetitiontime, *echotime, *flipAngle;
-    
-    NSString			*laterality, *viewPosition, *patientPosition, *acquisitionDate, *SOPClassUID, *frameofReferenceUID, *rescaleType;
-    NSString			*missingPixelsReason;
-    BOOL				hasSUV, SUVConverted, displaySUVValue;
-    NSString			*units, *decayCorrection;
-    float				decayFactor, factorPET2SUV, radionuclideTotalDose, radionuclideTotalDoseCorrected;
-    NSDate		*acquisitionTime, *radiopharmaceuticalStartTime;
-    float				halflife, frameReferenceTime, philipsFactor;
-    
-    // DICOM params for Overlays - 0x6000 group
-    BOOL                overlaysChannelON[16];
-    int					oRows[16], oColumns[16], oType[16], oOrigin[16][ 2], oBits[16], oBitPosition[16];
-    unsigned char		*oData[16];
-    
-    //	DSA-subtraction
-    float				*subtractedfImage;
-    NSPoint				subPixOffset, subMinMax;
-    float				subtractedfPercent, subtractedfZ, subtractedfZero, subtractedfGamma;
-    GammaFunction		subGammaFunction;
-    
-    long				maskID;
-    float				maskTime, fImageTime;
-    
-    NSNumber			*positionerPrimaryAngle;
-    NSNumber			*positionerSecondaryAngle;
-    
-    BOOL                shutterEnabled;
-    NSRect              shutterRect;
-    
-    
-    NSPoint             shutterCircular;
-    long				shutterCircular_radius;
-    
-    
-    NSPoint	 			*shutterPolygonal;
-    long				shutterPolygonalSize;
-    
-    //-------------------------------------------------------
-    long				frameNo, serieNo, imID, imTot;
-    char                *baseAddr;
-    
-    //convolution
-    BOOL				convolution, updateToBeApplied;
-    short				kernelsize;
-    float				normalization, kernel[25];
-    float				cineRate;
-    
-    //slice
-    double				sliceInterval, sliceLocation, sliceThickness, spacingBetweenSlices;
-    
-    //stack
-    short				stack, stackMode, pixPos, stackDirection;
-    //thickslab
-    BOOL				thickSlabVRActivated;
-    ThickSlabController *thickSlab;
-    
-    float				countstackMean;
-    float				ww, wl;
-    float				fullww, fullwl;
-    BOOL				fixed8bitsWLWW;
-    float               maxValueOfSeries, minValueOfSeries;
-    
-    BOOL				generated;
-    NSString			*generatedName;
-    NSRecursiveLock		*checking;
-    
-    BOOL				notAbleToLoadImage, VOILUTApplied;
-    int					VOILUT_first;
-    unsigned int		VOILUT_number, VOILUT_depth, *VOILUT_table;
-    
-    unsigned short *shortRed, *shortGreen, *shortBlue;
-    
-    char				blackIndex;
-    
-    NSData				*transferFunction;
-    float				*transferFunctionPtr;
-    
-    /** custom annotations */
-    NSMutableDictionary *annotationsDictionary, *annotationsDBFields;
-    NSString            *yearOld, *yearOldAcquisition;
-    
-    /** 12 bit monitors */
-    BOOL				isLUT12Bit;
-    unsigned char		*LUT12baseAddr;
-    
-    BOOL				needToCompute8bitRepresentation;
-    
-    /** Image metadata and palette lookup tables */
-    
-    NSString			*modalityString;
-    unsigned short		clutEntryR, clutEntryG, clutEntryB;
-    unsigned short		clutDepthR, clutDepthG, clutDepthB;
-    unsigned char		*clutRed, *clutGreen, *clutBlue;
-    BOOL				fSetClut, fSetClut16;
-    
-    int					savedHeightInDB, savedWidthInDB;
-    
-    id					retainedCacheGroup;
-    NSString			*cachedFileKey;		/**< key under which retainedCacheGroup was stored: path plus file revision */
-    id					loadedFileRevision;	/**< HorosFileRevision of srcFile when fImage was decoded from it */
-    
-    // Ophtalmic fundus images
-    
-    NSString            *referencedSOPInstanceUID;
-    float               referenceCoordinates[ 4];
-    
-    DCMTKFileFormat     *dcmtkDcmFileFormat;
-}
 
 @property long frameNo;
 @property(setter=setID:) long ID;
@@ -252,13 +100,6 @@ extern "C"
 /** Is it an RGB image (ARGB) or float image?
  Note setter is different to not break existing usage. :-( */
 @property(nonatomic, setter=setRGB:) BOOL isRGB;
-/// MONOCHROME1 presentation polarity, independent of calibrated fImage values.
-@property(nonatomic) BOOL displayInverted;
-// Database/workspace WL stays in the historical sign domain; pixels and live
-// WL use calibrated values. These adapters are their only boundary.
-- (float) storedWindowLevelForCalibratedLevel:(float) level;
-- (float) calibratedWindowLevelForStoredLevel:(float) level;
-
 /** Pointer to image data */
 @property(setter=setfImage:) float* fImage;
 
@@ -274,11 +115,6 @@ extern "C"
 
 /**  pixel size */
 @property double pixelSpacingX, pixelSpacingY;
-
-- (BOOL) identicalOrientationTo:(DCMPix*) c;
-
-- (void)orientationDouble:(double*) c;
-- (void)setOrientationDouble:(double*) c;
 
 /** Slice location */
 @property(readonly) double originX, originY, originZ;
@@ -300,7 +136,6 @@ extern "C"
 @property(readonly) double spacingBetweenSlices;
 
 /**  8-bit TransferFunction */
-@property(nonatomic, retain) NSData *transferFunction;
 
 @property(nonatomic) NSPoint subPixOffset;
 
@@ -312,13 +147,9 @@ extern "C"
 
 @property(readonly) NSString *laterality, *viewPosition, *patientPosition;
 
-@property char* baseAddr;
-@property unsigned char* LUT12baseAddr;
-
 @property(readonly) long serieNo;
-@property(readonly) NSArray *pixArray;
 @property(readonly) float *transferFunctionPtr;
-@property short pixPos;
+@property NSInteger pixPos;
 @property short stackDirection;
 @property float countstackMean;
 
@@ -337,7 +168,6 @@ extern "C"
 /** Database links */
 @property(retain) NSManagedObjectID *imageObjectID;
 @property(retain) NSString *SOPClassUID;
-@property(retain) NSMutableDictionary *annotationsDictionary, *annotationsDBFields;
 
 // Properties (aka accessors) needed for SUV calculations
 @property(readonly) float philipsFactor;
@@ -359,7 +189,7 @@ extern "C"
 @property BOOL isLUT12Bit;
 
 // Waveform
-@property(readonly,strong) DCMWaveform* waveform;
+@property(readonly,strong) id waveform; // nil: no decoder fills it
 
 // US Regions
 @property(readonly) NSMutableArray *usRegions;
@@ -367,154 +197,18 @@ extern "C"
 
 - (float) appliedFactorPET2SUV;
 - (void) copySUVfrom: (DCMPix*) from;  /**< Copy the SUV from another DCMPic */
-- (float) getPixelValueX: (long) x Y:(long) y;  /**< Get the pixel for a point with x,y coordinates */
 
 - (void) checkSUV; /**< Makes sure all the necessary values for SUV calculation are present */
 
 + (void) checkUserDefaults: (BOOL) update;  /**< Check User Default for needed setting */
 + (void) resetUserDefaults;  /**< Reset the defaults */
-/** Determine if a point is inside a polygon
- * @param x is the NSPoint to check.
- * @param  poly is a pointer to an array of NSPoints.
- * @param count is the number of
- * points in the polygon.
- */
-+ (BOOL) IsPoint:(NSPoint) x inPolygon:(NSPoint*) poly size:(int) count;
-
-- (void) compute8bitRepresentation;
-- (void) changeWLWW:(float)newWL :(float)newWW;  /**< Change window level to window width to the new values */
 - (void) computePixMinPixMax;  /**< Compute the min and max values in the image */
 
-// Compute ROI data
-/** Calculates the cofactor used Calcium scoring.
- * Depends on the threshold used for scoring
- * Threshold is usually 90 or 120 depending on whether the source is
- * Electron Beam or Multislice CT
- */
-- (int)calciumCofactorForROI:(ROI *)roi threshold:(int)threshold;
-
-/** returns calculated values for ROI:
- *  mean, total, deviation, min, max
- */
-- (void) computeROI:(ROI*) roi :(float *)mean :(float *)total :(float *)dev :(float *)min :(float *)max :(float*) skewness :(float*) kurtosis;
-- (void) computeROI:(ROI*) roi :(float *)mean :(float *)total :(float *)dev :(float *)min :(float *)max;
-
-/** Fill a ROI with a value
- * @param roi  Selected ROI
- * @param newVal  The replacement value
- * @param minValue  Lower threshold
- * @param maxValue Upper threshold
- * @param outside  if YES replace outside the ROI
- * @param orientationStack
- * @param stackNo
- * @param restore
- * @param addition
- */
-- (void) fillROI:(ROI*) roi newVal:(float) newVal minValue:(float) minValue maxValue:(float) maxValue outside:(BOOL) outside orientationStack:(long) orientationStack stackNo:(long) stackNo restore:(BOOL) restore addition:(BOOL) addition;
-- (void) fillROI:(ROI*) roi newVal:(float) newVal minValue:(float) minValue maxValue:(float) maxValue outside:(BOOL) outside orientationStack:(long) orientationStack stackNo:(long) stackNo restore:(BOOL) restore addition:(BOOL) addition spline:(BOOL) spline;
-- (void) fillROI:(ROI*) roi newVal :(float) newVal minValue :(float) minValue maxValue :(float) maxValue outside :(BOOL) outside orientationStack :(long) orientationStack stackNo :(long) stackNo restore :(BOOL) restore addition:(BOOL) addition spline:(BOOL) spline clipMin: (NSPoint) clipMin clipMax: (NSPoint) clipMax;
-
-/** Fill a ROI with a value
- * @param roi  Selected ROI
- * @param newVal  The replacement value
- * @param minValue  lower threshold
- * @param maxValue  upper threshold
- * @param outside  if YES replace outside the ROI
- * @param orientationStack  ?
- * @param  stackNo
- * @param  restore
- */
-- (void) fillROI:(ROI*) roi :(float) newVal :(float) minValue :(float) maxValue :(BOOL) outside :(long) orientationStack :(long) stackNo :(BOOL) restore;
-
-/** Fill a ROI with a value
- * @param roi  Selected ROI
- * @param newVal  The replacement value
- * @param minValue  lower threshold
- * @param maxValue  upper threshold
- * @param outside  if YES replace outside the ROI
- * @param orientation
- * @param stackNo
- */
-- (void) fillROI:(ROI*) roi :(float) newVal :(float) minValue :(float) maxValue :(BOOL) outside :(long) orientation :(long) stackNo;
-
-/** Fill a ROI with a value.
- * @param roi Selected ROI
- * @param newVal  The replacement value
- * @param minValue  Lower threshold
- * @param maxValue  Upper threshold
- * @param outside  If YES replace outside the ROI
- */
-- (void) fillROI:(ROI*) roi :(float) newVal :(float) minValue :(float) maxValue :(BOOL) outside;
-
-- (unsigned char*) getMapFromPolygonROI:(ROI*) roi size:(NSSize*) size origin:(NSPoint*) origin; /**< Map from Polygon ROI */
-+ (unsigned char*) getMapFromPolygonROI:(ROI*) roi size:(NSSize*) size origin:(NSPoint*) ROIorigin;
-
-/** Is this Point (pt) in this ROI ? */
-- (BOOL) isInROI:(ROI*) roi :(NSPoint) pt;
-
-/** Returns a pointer with all pixels values contained in the current ROI
- * User must Free the pointer with the free() function
- * Returns reference number of pixels in numberOfValues
- * Returns a pointer to the pixel locations. Each point has the x position followed by the y position
- * Locations is malloced but not freed
- */
-- (float*) getROIValue :(long*) numberOfValues :(ROI*) roi :(float**) locations;
-
-/** Returns a pointer with all pixels values contained in the current ROI
- * User must Free the pointer with the free() function
- * Returns reference number of pixels in numberOfValues
- * Returns a pointer to the pixel locations. Each point has the x position followed by the y position
- * Locations is malloced but not freed
- */
-- (float*) getLineROIValue :(long*) numberOfValues :(ROI*) roi;
 
 
-/** Utility methods to convert user supplied pixel coords to DICOM patient coords float d[3] (in mm)
- * using current slice location and orientation
- */
-- (void) convertPixX: (float) x pixY: (float) y toDICOMCoords: (float*) d;
-- (void) convertPixX: (float) x pixY: (float) y toDICOMCoords: (float*) d pixelCenter: (BOOL) pixelCenter;
-
-- (void) getSliceCenter3DCoords: (float*) center;
-
-/** Utility methods to convert user supplied pixel coords to DICOM patient coords double d[3] (in mm)
- * using current slice location and orientation
- */
-- (void) convertPixDoubleX: (double) x pixY: (double) y toDICOMCoords: (double*) d;
-- (void) convertPixDoubleX: (double) x pixY: (double) y toDICOMCoords: (double*) d pixelCenter: (BOOL) pixelCenter;
-
-/** convert DICOM coordinated to slice coordinates */
-- (void) convertDICOMCoords: (float*) dc toSliceCoords: (float*) sc;
-- (void) convertDICOMCoords: (float*) dc toSliceCoords: (float*) sc pixelCenter:(BOOL) pixelCenter;
-
-/** convert DICOM coordinated to slice coordinates */
-- (void) convertDICOMCoordsDouble: (double*) dc toSliceCoords: (double*) sc;
-- (void) convertDICOMCoordsDouble: (double*) dc toSliceCoords: (double*) sc pixelCenter:(BOOL) pixelCenter;
-
-/** Return index & sliceCoords */
-+(int) nearestSliceInPixelList: (NSArray*)pixlist withDICOMCoords: (float*)dc sliceCoords: (float*) sc;
-
-- (DicomImage*) imageObj;
-- (DicomSeries*) seriesObj;
-- (DicomStudy*) studyObj;
-
-- (BOOL) thickSlabVRActivated; /**< Activate Thick Slab VR */
-
-/** convert to Black and White.
- * @param mode values: 0 Use Red Channel, 1 use Green Channel 2 use Blue Channel  3 Merge and use RGB
- */
-- (void) ConvertToBW:(long) mode;
-
-/** convert to RGB.
- * @param mode values: 0 create Red Channel, 1 create Green Channel 2 create Blue Channel  3 create all channels
- * @param  cwl  = window level to use
- * @param cww = window width to use
- */
-- (void) ConvertToRGB:(long) mode :(long) cwl :(long) cww;
 - (void) setPixelX: (int) x Y:(int) y value:(float) v;
 - (float) cineRate;  /**< Returns the Cine rate */
 + (int) maxProcessors;
-- (NSRect) rectCoordinates;
 // drag-drop subtraction-multiplication between series
 - (void) imageArithmeticMultiplication:(DCMPix*) sub;
 - (float*) multiplyImages :(float*) input :(float*) subfImage;
@@ -535,38 +229,17 @@ extern "C"
 - (long) maskID;
 - (void) maskTime:(float)newMaskTime;
 - (float) maskTime;
-- (void) getDataFromNSImage:(NSImage*) otherImage;
 
 - (void) positionerPrimaryAngle:(NSNumber *)newPositionerPrimaryAngle;
 - (NSNumber*) positionerPrimaryAngle;
 - (void) positionerSecondaryAngle:(NSNumber*)newPositionerSecondaryAngle;
 - (NSNumber*) positionerSecondaryAngle;
 
-+ (NSPoint) originDeltaBetween:(DCMPix*) pix1 And:(DCMPix*) pix2;
-+ (NSPoint) originCorrectedAccordingToOrientation: (DCMPix*) pix1;
-- (void) setBlackIndex:(int) i;
-+ (NSImage*) resizeIfNecessary:(NSImage*) currentImage dcmPix: (DCMPix*) dcmPix;
 
 - (void) computeTotalDoseCorrected;
 - (void) setRGB : (BOOL) val;
-- (void) setConvolutionKernel:(float*)val :(short) size :(float) norm;
-- (void) applyConvolutionOnSourceImage;
-- (void) setArrayPix :(NSArray*) array :(short) i;
 - (BOOL) updateToApply;
 - (id) myinitEmpty;  /**< Returns an Empty object */
-- (float*) kernel;
-- (void) applyShutter;
-- (BOOL) is3DPlane;
-+ (NSPoint) rotatePoint:(NSPoint)pt aroundPoint:(NSPoint)c angle:(float)a;
-- (float) normalization;
-- (short) kernelsize;
-- (DCMPix*) renderWithRotation:(float) r scale:(float) scale xFlipped:(BOOL) xF yFlipped: (BOOL) yF;
-- (DCMPix*) renderWithRotation:(float) r scale:(float) scale xFlipped:(BOOL) xF yFlipped: (BOOL) yF backgroundOffset: (float) bgO;
-- (NSRect) usefulRectWithRotation:(float) r scale:(float) scale xFlipped:(BOOL) xF yFlipped: (BOOL) yF;
-- (DCMPix*) mergeWithDCMPix:(DCMPix*) o offset:(NSPoint) oo;
-- (DCMPix*) renderInRectSize:(NSSize) rectSize atPosition:(NSPoint) oo rotation:(float) r scale:(float) scale xFlipped:(BOOL) xF yFlipped: (BOOL) yF;
-- (DCMPix*) renderInRectSize:(NSSize) rectSize atPosition:(NSPoint) oo rotation:(float) r scale:(float) scale xFlipped:(BOOL) xF yFlipped: (BOOL) yF smartCrop: (BOOL) smartCrop;
-- (NSImage*) renderNSImageInRectSize:(NSSize) rectSize atPosition:(NSPoint) oo rotation:(float) r scale:(float) scale xFlipped:(BOOL) xF yFlipped: (BOOL) yF;
 /**  calls
  * myinit:(NSString*) s :(long) pos :(long) tot :(float*) ptr :(long) f :(long) ss isBonjour:(BOOL) hello imageObj: (NSManagedObject*) iO
  * with hello = NO and iO = nil
@@ -621,34 +294,12 @@ extern "C"
 - (id) initWithImageObj: (DicomImage *) image;
 
 - (id) initWithContentsOfFile: (NSString *)file;
-/** create an NSImage from the current pix
- * @param newWW  window width to use
- * @param newWL window level to use;
- */
-- (NSImage*) generateThumbnailImageWithWW: (float)newWW WL: (float)newWL;
-- (void) allocate8bitRepresentation;
-
-/** create an NSImage from the current pix using the current ww/wl. Full size*/
-- (NSImage*) image;
-
-/** A pointer to the orientation.  9 values in length. 3 for each axis. */
-- (void) orientation:(float*) c;
-
-/** Sets the orientation.  9 values in length. 3 for each axis. */
-- (void) setOrientation:(float*) c;
-
 /** Compute slicelocation according to pixelSpacing values, slice origin and slice orientation: the location is the center of the slice */
 - (void) computeSliceLocation;
 
-/** Releases the current NSImage */
-- (void) kill8bitsImage;
-
-- (void) checkImageAvailble:(float)newWW :(float)newWL;
-
-/** Load the DICOM image using the DCMFramework.
- * There should be no reason to call this. The class will call it when needed. */
+/** Load the DICOM image. There should be no reason to call this. The class will call it when needed. */
 #ifndef OSIRIX_LIGHT
-/** Reads the file through DCMTK (HorosDCMTKObject) and fills the pixels and geometry. */
+/** Reads the file through DCMTK (+[DCMObject objectWithContentsOfFile:]) and fills the pixels and geometry. */
 - (BOOL)loadDICOMWithDCMTK;
 /** The former name of -loadDICOMWithDCMTK, kept for plugins; the DCM Framework parser is no longer behind it. */
 #endif
@@ -656,8 +307,6 @@ extern "C"
 /** Papyrus is no longer part of Horos: always returns NO. Kept for plugins. */
 - (BOOL) loadDICOMPapyrus;
 
-/** Reset the Annotations */
-- (void) reloadAnnotations;
 
 
 /** Parses the file. Extracts necessary data. Load image data.
@@ -684,35 +333,7 @@ extern "C"
 + (unsigned long long) decodedFrameCount;
 + (void) resetDecodedFrameCount;
 
-/** Window Center/Width as the file stores them, or nil when it stores none
-    that is usable. Never computed and never guessed. */
-- (id) dicomPreviewWindow;
-/** The window this frame's own intensities suggest: sampled, with the
-    background the corners agree on and the extreme percentiles excluded.
-    Reads the decoded buffer; writes nothing, so measurements are unchanged.
-    Returns nil when the frame has too few usable samples to guess from. */
-- (id) automaticPreviewWindow;
-/** The range this frame's own values actually occupy, from its minimum and
-    maximum. Used when the sampled calculation has too few usable samples to
-    guess from - a uniform or nearly uniform frame - and before the stored bit
-    range, which describes what the file could contain rather than what it does. */
-- (id) frameRangePreviewWindow;
-/** The range the stored bits can represent, after rescale: the last resort. */
-- (id) storedRangePreviewWindow;
-/** YES for a frame with colour samples, which has no scalar intensity to window. */
-- (BOOL) isColorPreviewFrame;
-
 -(void) CheckLoadFromThread:(NSThread*) loadingThread;
-
-/** Compute the float pointer for the image data */
-- (float*) computefImage;
-/** The same pixels without the presentation convolution: what a measurement reads. */
-- (float*) computefImageForMeasurement;
-/** What is drawn: computefImage, with the MPR's cubic display plane in place of fImage when
-    this pix has one. Measurement and export keep computefImage / computefImageForMeasurement. */
-- (float*) computefImageForDisplay;
-/** The MPR's cubic display plane: `pwidth * pheight` floats, or nil. Only drawn. */
-@property (nonatomic, retain) NSData *horosMPRDisplayPixels;
 
 /** Sets fusion paramaters
  * @param m  stack mode
@@ -730,20 +351,6 @@ extern "C"
 - (void) revert;
 - (void) revert:(BOOL) reloadAnnotations;
 
-/** Sets the ThickSlabController */
-- (void) setThickSlabController:( ThickSlabController*) ts;
-
-
-/** Sets the fixed8bitsWLWW flag */
-- (void) setFixed8bitsWLWW:(BOOL) f;
-
-/** Creates a DCMPix with the original values and places it in the restore cache*/
-- (BOOL) prepareRestore;
-
-
-/** Releases the restored DCMPix from the restoreCache */
-- (void) freeRestore;
-
 /** Sets flag for when OsiriX is running in protected mode */
 + (void) setRunOsiriXInProtectedMode:(BOOL) v;
 
@@ -751,28 +358,42 @@ extern "C"
 + (BOOL) isRunOsiriXInProtectedModeActivated;
 
 /** Releases this image's share of the parsed-file cache */
-- (void) clearCachedDCMFrameworkFiles;
+- (void) releaseParsedFile;
 
 + (void) purgeCachedDictionaries;
 
-+ (double) moment: (float *) x length:(long) length mean: (double) mean order: (int) order;
-+ (double) skewness: (float*) data length: (long) length mean: (double) mean;
-+ (double) kurtosis: (float*) data length: (long) length mean: (double) mean;
 
-#ifndef OSIRIX_LIGHT
-/** create ROIs from RTSTRUCT */
-- (void)createROIsFromRTSTRUCT: (DCMObject*)dcmObject;
-#endif
 
-#ifdef OSIRIX_VIEWER
-/** Custom Annotations */
-- (void)loadCustomImageAnnotationsDBFields: (DicomImage*) imageObj;
-
-- (void)loadCustomImageAnnotationsPapyLink:(int)fileNb DCMLink:(DCMObject*)dcmObject;
-
-- (NSString*) getDICOMFieldValueForGroup:(int)group element:(int)element DCMLink:(DCMObject*)dcmObject;
-#endif
 
 @end
+
+/** The objects these hand in and out are the objects themselves, never copies,
+ so they are Objective-C (DCMPix+CAPI.m): Swift would take and give the [Any]
+ or Data it bridges an NSArray or NSData to. The series the image is in is kept
+ without being retained, since the list holds the image, and a copy of a
+ mutable list would be released at once; the transfer function's table is
+ told apart from another by the object. */
+@interface DCMPix (Unbridged)
+@property(nonatomic, retain) NSData *transferFunction;
+@property(readonly) NSArray *pixArray;
+- (void) setArrayPix :(NSArray*) array :(NSInteger) i;
+@end
+
+// The ROI rasterization, measures, masks and fills, implemented in Swift.
+#import "DCMPix+ROI.h"
+
+// The reading of the formats that are not DICOM, implemented in Swift.
+#import "DCMPix+NonDICOM.h"
+
+// The database links, the custom annotations, the ROIs of an RT STRUCT and the
+// geometry, implemented in Swift.
+#import "DCMPix+Database.h"
+#import "DCMPix+Annotations.h"
+#import "DCMPix+RTStruct.h"
+#import "DCMPix+Geometry.h"
+
+// The display image: the 8-bit picture, the thick slab, the shutter and the
+// thumbnail, implemented in Swift.
+#import "DCMPix+Display.h"
 
 #endif

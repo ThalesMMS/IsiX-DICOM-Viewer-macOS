@@ -53,15 +53,31 @@ enum HotKeyActions {DefaultWWWLHotKeyAction = 0, FullDynamicWWWLHotKeyAction,
     ResliceAxialHotKeyAction, ResliceCoronalHotKeyAction, ResliceSagittalHotKeyAction};
 
 
-/** \brief Sets up user defaults */
-@interface DefaultsOsiriX : NSObject {
+// The factory settings, and what they read of this computer, are the
+// IsiXPreferences module's DefaultPreferences: Swift imports the module. In
+// Objective-C, DefaultsOsiriX names that class (IsiXDefaultPreferences), and
+// HorosDefaultPreferences() builds the defaults of the target being compiled:
+// the application's (OSIRIX_VIEWER) or those of a target without the viewer,
+// those of the Mac App Store build when MACAPPSTORE is defined.
+// __swift__: Swift itself reading the bridging header, which sees the module directly.
+#if !defined(__swift__) && __has_include("IsiXPreferences-Swift.h")
+// Found in GENERATED_MODULEMAP_DIR: these targets compile without clang modules.
+#import "IsiXPreferences-Swift.h"
 
+@compatibility_alias DefaultsOsiriX IsiXDefaultPreferences;
+
+static inline NSMutableDictionary *HorosDefaultPreferences(void)
+{
+#ifdef OSIRIX_VIEWER
+    const BOOL viewer = YES;
+#else
+    const BOOL viewer = NO;
+#endif
+#ifdef MACAPPSTORE
+    const BOOL appStore = YES;
+#else
+    const BOOL appStore = NO;
+#endif
+    return [IsiXDefaultPreferences defaultsForViewer: viewer appStore: appStore];
 }
-
-+ (NSMutableDictionary*) getDefaults;
-+ (NSHost*) currentHost;
-
-+ (mach_vm_size_t) GPUModelVRAMInfo;
-+ (long) vramSize;
-
-@end
+#endif

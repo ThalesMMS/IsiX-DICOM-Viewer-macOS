@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// OSIWebSharingPreferencePanePref is implemented in Swift since #711 (Preference
+// OSIWebSharingPreferencePanePref is implemented in Swift (Preference
 // Panes/OSIWebSharingPreferencePane/OSIWebSharingPreferencePanePref.swift). This header keeps
 // <Horos/OSIWebSharingPreferencePanePref.h>: it brings in the generated interface, which declares the
 // same class name and selectors.

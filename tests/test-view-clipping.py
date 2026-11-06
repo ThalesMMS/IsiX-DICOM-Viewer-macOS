@@ -10,7 +10,7 @@ import re, sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-roots = ['Horos/Sources', 'Nitrogen/Sources', 'Preference Panes', 'DCM Framework', 'DICOMPrint']
+roots = ['Horos/Sources', 'Nitrogen/Sources', 'Preference Panes', 'DICOMPrint']
 # Primitives that turn a rectangle into something drawn on screen.
 primitives = ['NSMakeRect', 'NSRectFill', 'NSRectFillUsingOperation', 'NSFrameRect',
               'bezierPathWithRect:', 'bezierPathWithRoundedRect:', 'bezierPathWithOvalInRect:',

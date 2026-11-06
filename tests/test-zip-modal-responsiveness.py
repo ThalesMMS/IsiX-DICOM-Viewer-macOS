@@ -4,24 +4,62 @@
 It also takes an archive unzip only warned about (status 1) when every entry was
 extracted - an entry under an absolute path, bytes before the archive - and
 still refuses one whose encrypted entries a wrong password left behind, which
-ends with the same status.
+ends with the same status. The password is typed on unzip's terminal, never
+given as -P.
 """
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import zipfile
 
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/BrowserController.m').read_text()
-start = source.index('+ (BOOL) unzipFile: (NSString*) file withPassword: (NSString*) pass destination: (NSString*) destination showGUI: (BOOL) showGUI')
-end = source.index('\n- (int) askForZIPPassword:', start)
-method = source[start:end]
-driver = r'''#import <AppKit/AppKit.h>
-#import "Horos-Swift.h"
-static BOOL responded;
+sys.path.insert(0, str(root / 'tests'))
+import isix_modules  # noqa: E402
+
+# The extraction and the offer to delete the archive are ArchiveImport's
+# (ArchiveImport.swift), behind the browser's +unzipFile: selectors
+# (BrowserController+Files.swift); they are compiled as they are, on a
+# stand-in browser, progress window, preferences and temporary folder.
+archives = (root / 'Horos/Sources/ArchiveImport.swift').read_text()
+start = archives.index('extension ArchiveImport {\n\n    // MARK: Extraction')
+extraction = archives[start:archives.index('\n}\n', start) + 3]
+# The password never goes to unzip as -P, which ps shows to every process:
+# the module's extraction types it on unzip's own terminal.
+if '"-P"' in extraction or 'ProtectedZipArchiver.extract(' not in extraction:
+    raise SystemExit('FAIL: the extraction gives unzip its password on the command line')
+source = (root / 'Horos/Sources/BrowserController+Files.swift').read_text()
+start = source.index('    // MARK: ZIP archives')
+end = source.index('    @objc(askForZIPPassword:destination:)', start)
+extension = ('import AppKit\nimport IsiXPreferences\n\n'
+             '@MainActor final class ArchiveImport {}\n\n'
+             'struct PreferencesSource {\n    static let process = PreferencesSource()\n'
+             '    var preferences: UserDefaults { .standard }\n}\n\n'
+             'extension BrowserController {\n' + source[start:end] + '}\n\n' + extraction)
+# The progress window of an expansion on the main thread, a type of the same file.
+extension += '\n' + archives[archives.index('/// The progress window of an expansion on the main thread'):]
+bridge = r'''#import <AppKit/AppKit.h>
+#import "HorosObjCException.h"
+NS_SWIFT_UI_ACTOR
 @interface WaitRendering : NSWindowController
 - (id)init:(NSString *)title;
 @end
+@interface NSFileManager (TestTemporaryDirectory)
+- (NSString *)tmpDirPath;
+@end
+NS_SWIFT_UI_ACTOR
+@interface BrowserController : NSObject
+@property(nonatomic,retain) NSWindow *window;
++ (BrowserController*)currentBrowser;
+@end
+void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf);
+void DicomDatabaseLogError(const char* function, const char* file, int line, NSString* message);
+'''
+driver = r'''#import "Bridge.h"
+#import "Horos-Swift.h"
+static BOOL responded;
+void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf) { NSLog(@"%s: %@", pf, e); }
+void DicomDatabaseLogError(const char* function, const char* file, int line, NSString* message) { NSLog(@"%s: %@", function, message); }
 @implementation WaitRendering
 - (id)init:(NSString *)title {
     return [super initWithWindow:[[[NSWindow alloc] initWithContentRect:NSMakeRect(0,0,200,60)
@@ -33,21 +71,12 @@ static BOOL responded;
     [[NSRunLoop mainRunLoop] addTimer:timer forMode:NSRunLoopCommonModes];
 }
 @end
-@interface NSFileManager (TestTemporaryDirectory)
-- (NSString *)tmpDirPath;
-@end
 @implementation NSFileManager (TestTemporaryDirectory)
 - (NSString *)tmpDirPath { return NSTemporaryDirectory(); }
 @end
-#define N2LogExceptionWithStackTrace(e) NSLog(@"%@",e)
-@interface BrowserController : NSObject
-@property(nonatomic,retain) NSWindow *window;
-+ (BrowserController*)currentBrowser;
-+ (BOOL)unzipFile:(NSString*)file withPassword:(NSString*)pass destination:(NSString*)destination showGUI:(BOOL)showGUI terminationStatus:(int*)status;
-+ (void)offerToDeleteZIPFile:(NSString*)file;
-@end
 @implementation BrowserController
-''' + method + r'''
+@synthesize window;
++ (BrowserController*)currentBrowser { return nil; }
 @end
 #define check(x) do { if (!(x)) { fprintf(stderr,"FAIL line %d: %s\n",__LINE__,#x); return 1; } } while (0)
 int main(int argc, char **argv) { @autoreleasepool {
@@ -96,12 +125,29 @@ with tempfile.TemporaryDirectory(prefix='horos-zip-modal-') as temporary:
     subprocess.run(['/usr/bin/zip', '-q', str(folder / 'mixed.zip'), 'plain.dcm'], cwd=folder, check=True)
     subprocess.run(['/usr/bin/zip', '-q', '-P', 'secret', str(folder / 'mixed.zip'), 'image.dcm'], cwd=folder, check=True)
     (folder / 'main.m').write_text(driver)
+    (folder / 'Bridge.h').write_text(bridge)
+    (folder / 'Files.swift').write_text(extension)
+    sources = root / 'Horos/Sources'
+    # unzip runs through the module's extraction, which types a password on
+    # unzip's own terminal.
+    # The archiver's ZipCommand is taken alone from its file.
+    export_rules = (root / 'Modules/IsiXDatabase/Sources/ExportRules.swift').read_text()
+    at = export_rules.index('public enum ZipCommand {')
+    (folder / 'ZipCommand.swift').write_text('import Foundation\n' + export_rules[at:export_rules.index('\n}\n', at) + 3])
+    zip_sources = [str(root / 'Modules/IsiXDatabase/Sources' / name) for name in
+                   ('ProtectedZipArchiver.swift', 'ZipPasswordTerminal.swift')] + [str(folder / 'ZipCommand.swift')]
     for command in (
-        ['xcrun', 'swiftc', '-parse-as-library', '-wmo', '-module-name', 'Horos',
+        ['xcrun', 'swiftc', '-parse-as-library', '-wmo', '-swift-version', '6', '-module-name', 'Horos',
+         '-import-objc-header', str(folder / 'Bridge.h'), '-Xcc', '-I', '-Xcc', str(sources),
+         *isix_modules.module_flags('IsiXPreferences', folder / 'modules'),
          '-emit-objc-header-path', str(folder / 'Horos-Swift.h'), '-c',
-         str(root / 'Horos/Sources/ArchiveImportLedger.swift'), '-o', str(folder / 'ledger.o')],
-        ['xcrun', 'clang', '-c', '-fmodules', '-fblocks', '-I', str(folder), str(folder / 'main.m'), '-o', str(folder / 'main.o')],
-        ['xcrun', 'swiftc', str(folder / 'main.o'), str(folder / 'ledger.o'), '-framework', 'AppKit', '-o', str(folder / 'check')],
+         str(sources / 'ArchiveImportLedger.swift'), str(sources / 'BrowserController+DatabaseSupport.swift'),
+         str(sources / 'HorosObjCException+Guards.swift'),
+         *zip_sources, str(folder / 'Files.swift'), '-o', str(folder / 'swift.o')],
+        ['xcrun', 'clang', '-c', '-fobjc-arc', '-I', str(sources), str(sources / 'HorosObjCException.m'), '-o', str(folder / 'exception.o')],
+        ['xcrun', 'clang', '-c', '-fmodules', '-fblocks', '-I', str(folder), '-I', str(sources), str(folder / 'main.m'), '-o', str(folder / 'main.o')],
+        ['xcrun', 'swiftc', str(folder / 'main.o'), str(folder / 'swift.o'), str(folder / 'exception.o'),
+         *isix_modules.module_flags('IsiXPreferences', folder / 'modules'), '-framework', 'AppKit', '-o', str(folder / 'check')],
         [str(folder / 'check'), str(archive), str(folder / 'output'), str(folder / 'invalid.zip'),
          str(folder / 'absolute.zip'), str(folder / 'prefixed.zip'), str(folder / 'mixed.zip')],
     ):

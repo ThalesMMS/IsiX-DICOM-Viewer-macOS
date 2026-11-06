@@ -7,7 +7,7 @@ or split organ both fall outside it. HorosBrushLabelAnchor is compiled and run
 on small textures: a blob gets its centroid, a C shape the piece pixel nearest
 to its centroid, two pieces the larger one, an empty texture nothing.
 
-ROI.m is checked for the rest: a name-only ROI (-textNameOnly, archived from
+The ROI's source is checked for the rest: a name-only ROI (-textNameOnly, archived from
 ROI version 16) shows only its name, computes no statistics, and a brush's
 label and leader line use that anchor.
 """
@@ -62,23 +62,32 @@ with tempfile.TemporaryDirectory(prefix='horos-label-anchor-') as directory:
         if not results.get('c', '').endswith(',inside'):
             failures.append('a C shape is labelled outside it: %r' % results.get('c'))
 
-roi = (root / 'Horos/Sources/ROI.m').read_bytes().decode('latin1')
-header = (root / 'Horos/Sources/ROI.h').read_bytes().decode('latin1')
-if '@property BOOL textNameOnly;' not in header:
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import class_text  # noqa: E402
+
+roi = class_text('ROI')
+if '@objc public dynamic var textNameOnly: Bool' not in roi:
     failures.append('ROI has no textNameOnly property')
-if '#define ROIVERSION 16' not in roi or 'textNameOnly = [ROIArchiveNumber' not in roi \
-        or '[coder encodeObject:[NSNumber numberWithBool: textNameOnly]]' not in roi:
+# The archive format is IsiXROI's: ROI hands its fields over and takes them back.
+archive = (root / 'Modules/IsiXROI/Sources/ROIArchiveCoder.swift').read_text()
+if 'public static let currentVersion = 16' not in archive \
+        or 'if version >= 16 {\n            record.textNameOnly = reader.number()?.boolValue ?? false' not in archive \
+        or 'coder.encode(NSNumber(value: record.textNameOnly))' not in archive \
+        or '_textNameOnly = record.textNameOnly' not in roi or 'record.textNameOnly = _textNameOnly' not in roi:
     failures.append('textNameOnly is not archived in ROI version 16')
-if 'c->textNameOnly = textNameOnly;' not in roi:
+if 'c._textNameOnly = _textNameOnly' not in roi:
     failures.append('a copy loses textNameOnly')
-if 'NSPoint tPt = textNameOnly ? [self textureLabelPoint] : [self lowerRightPoint];' not in roi:
+brush = roi[roi.index('func labelBrush()'):]
+brush = brush[:brush.index('\n    func ', 1)]
+if 'let tPt = _textNameOnly ? textureLabelPoint() : lowerRightPoint()' not in brush:
     failures.append('a name-only brush label is not anchored inside the organ')
-if 'textNameOnly ? [self textureLabelPoint]' not in roi.split('- (void) drawTextualData')[1].split('\n- (')[0]:
+textual = roi[roi.index('public func drawTextualData()'):]
+textual = textual[:textual.index('\n    @objc', 1)]
+if '_textNameOnly ? textureLabelPoint()' not in textual:
     failures.append('the leader line of a name-only brush does not point inside the organ')
-plain = roi[roi.index('NSPoint tPt = textNameOnly'):roi.index('#pragma mark t2DPoint')]
-if plain.index('if( textNameOnly)') > plain.index('computeROI'):
+if brush.index('if _textNameOnly {') > brush.index('computeStatistics'):
     failures.append('a name-only brush still computes its statistics')
-if 'if( ROITEXTNAMEONLY || textNameOnly)' not in roi:
+if 'if ROI.settings.textNameOnly || _textNameOnly { return full }' not in roi:
     failures.append('a name-only ROI still hides statistics by the primary-measurement rule instead of showing its name')
 
 if failures:

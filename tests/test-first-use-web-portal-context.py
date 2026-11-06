@@ -10,9 +10,12 @@ Pass --source <AppController.swift> to check an earlier copy as a negative contr
 import argparse
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+import objc_exception_guards  # noqa: E402
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--source', type=Path, default=root / 'Horos/Sources/AppController.swift')
 args = parser.parse_args()
@@ -135,7 +138,7 @@ require(app.defaultWebPortalManagedObjectContext() === live, "ready portal must 
 fetchUsers(app.defaultWebPortalManagedObjectContext(), expected: 1, scenario: "live portal after setup")
 
 print("PASS: first-use bindings can fetch with missing portal/database/context or exceptions; live context remains usable")
-'''.replace('METHOD', method)
+'''.replace('METHOD', method) + objc_exception_guards.source(log=False)  # the accessor's HorosObjCException.caught
 
 with tempfile.TemporaryDirectory(prefix='isix-first-use-context-') as folder:
     path = Path(folder)

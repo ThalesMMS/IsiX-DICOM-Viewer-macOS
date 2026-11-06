@@ -32,11 +32,13 @@ failures = []
 
 # --- what each Swift class publishes to Objective-C --------------------------
 classes = {}
+supers = {}
 # Classes Swift defines: `@interface Name : Super`. A Swift extension of an
 # AppKit or Foundation class (`@interface NSString (SWIFT_EXTENSION(Horos))`)
 # only adds members; the class's own methods are not in the header.
-for block in re.finditer(r'@interface\s+(\w+)\s*:[^\n]*\n(.*?)\n@end', text, re.S):
-    name, body = block.group(1), block.group(2)
+for block in re.finditer(r'@interface\s+(\w+)\s*:\s*(\w+)[^\n]*\n(.*?)\n@end', text, re.S):
+    name, superclass, body = block.group(1), block.group(2), block.group(3)
+    supers[name] = superclass
     selectors = set()
     for method in re.finditer(r'^\s*\+\s*\([^)]*\)\s*([^;]+);', body, re.M):
         signature = method.group(1)
@@ -68,6 +70,17 @@ for body in category_sources:
             parts = re.findall(r'(\w+):', method.group(1))
             classes[name].add(':'.join(parts) + ':' if parts
                               else method.group(1).strip().split()[0])
+
+# A Swift subclass answers the class methods its Swift superclasses publish:
+# +[DCMTKRootQueryNode queryNodeWithDataset:...] is declared on DCMTKQueryNode.
+def published(name, seen=()):
+    own = set(classes.get(name, ()))
+    parent = supers.get(name)
+    if parent in classes and parent not in seen:
+        own |= published(parent, seen + (name,))
+    return own
+
+classes = {name: published(name) for name in classes}
 
 # NSObject answers these on every class; the generated header does not list them.
 INHERITED = {'alloc', 'new', 'class', 'self', 'superclass', 'load', 'initialize',

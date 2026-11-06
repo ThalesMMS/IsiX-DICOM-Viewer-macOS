@@ -46,7 +46,7 @@ private let frameMargin: Float = 10
 /// CIAPlaceHolder drop areas. It is the xib's custom view, made by
 /// -initWithFrame:.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// CIALayoutView.h are those of the former class.
 @objc(CIALayoutView)
 public final class CIALayoutView: NSControl {

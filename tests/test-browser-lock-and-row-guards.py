@@ -60,7 +60,8 @@ def closing(text, opening):
 
 def method(path, selector):
     text = code(read(path))
-    at = text.find('@objc(%s)' % selector)
+    # A selector, or the signature of a method that has none of its own.
+    at = text.find(selector if selector.startswith('func ') else '@objc(%s)' % selector)
     if at < 0:
         failures.append('%s no longer implements -%s; this test needs a new look' % (path, selector))
         return ''
@@ -75,7 +76,7 @@ def statements(text):
 # The actual helper must carry exceptions out of the context queue before
 # propagating them. Its release belongs to the outer finally, not the block.
 def queue_helper():
-    text = read('Nitrogen/Sources/N2ManagedDatabase.mm')
+    text = read('Nitrogen/Sources/N2ManagedDatabase+CAPI.m')
     at = text.find('void N2ManagedObjectContextPerformAndWait(')
     if at < 0:
         failures.append('the synchronous context helper is absent')
@@ -175,7 +176,8 @@ int main(void) { @autoreleasepool {
 # 1. Unlocked before an exception goes on.
 LOCKED = (
     ('Horos/Sources/BrowserController+Plugins.swift', 'relatedStudiesForStudy:', 'context?'),
-    ('Horos/Sources/BrowserController+DatabaseDragExport.swift', 'isUsingExternalViewer:', 'self.database?'),
+    # -isUsingExternalViewer: is the browser's ViewerOpener's.
+    ('Horos/Sources/ViewerOpener.swift', 'func isUsingExternalViewer(_ item: NSManagedObject?) -> Bool', 'database?'),
 )
 for path, selector, lock in LOCKED:
     body = method(path, selector)
@@ -188,17 +190,17 @@ for path, selector, lock in LOCKED:
         opening = body.index('{', queue.start())
         end = closing(body, opening)
         queued, rest = body[opening:end + 1], body[end + 1:]
-        expected_context = 'context' if selector == 'relatedStudiesForStudy:' else 'self.database?.managedObjectContext'
+        expected_context = 'context' if selector == 'relatedStudiesForStudy:' else 'database?.managedObjectContext'
         if queue.group(1) != expected_context:
             failures.append('-%s uses the wrong managed context queue' % selector)
         if '.lock()' in body or '.unlock()' in body:
             failures.append('-%s still uses the deprecated lock API in its queued operation' % selector)
         if selector == 'relatedStudiesForStudy:':
-            captured = re.search(r'(\w+) = objcTry \{', queued)
+            captured = re.search(r'(\w+) = (?:objcTry|HorosObjCException\.caught) \{', queued)
             if not captured or not re.search(r'if let %s \{ %s\.raise\(\) \}' % (captured.group(1), captured.group(1)), rest):
                 failures.append('-relatedStudiesForStudy: does not rethrow its captured exception after leaving the queue')
         else:
-            captured = re.search(r'let (\w+) = objcTry \{', queued)
+            captured = re.search(r'let (\w+) = (?:objcTry|BrowserObjC\.attempt|HorosObjCException\.caught) \{', queued)
             if not captured or not re.search(r'if let %s \{ %s\.raise\(\) \}' % (captured.group(1), captured.group(1)), queued):
                 failures.append('-isUsingExternalViewer: does not propagate its captured exception to the queue helper')
         continue
@@ -207,10 +209,10 @@ for path, selector, lock in LOCKED:
         failures.append('-%s no longer locks %s; this test needs a new look' % (selector, lock))
         continue
     after = body[at + len(lock + '.lock()'):]
-    guarded = re.search(r'let (\w+) = objcTry \{', after)
+    guarded = re.search(r'let (\w+) = (?:objcTry|HorosObjCException\.caught) \{', after)
     before = statements(after[:guarded.start()] if guarded else after)
     if not guarded or any(not re.fullmatch(r'var \w+: [\w.]+\? = nil', line) for line in before):
-        failures.append('-%s runs %r with %s locked, outside an objcTry' % (selector, (before or ['?'])[0], lock))
+        failures.append('-%s runs %r with %s locked, outside a HorosObjCException.caught' % (selector, (before or ['?'])[0], lock))
         continue
     end = closing(after, after.index('{', guarded.start()))
     rest = statements(after[end + 1:])
@@ -226,28 +228,48 @@ path = 'Horos/Sources/BrowserController+AlbumsTableView.swift'
 tip = method(path, 'tableView:toolTipForCell:rect:tableColumn:row:mouseLocation:')
 if tip and not re.search(r'row >= 0\b.*row < \w+\.count', tip):
     failures.append('the comparative table\'s tool tip reads its studies at a row it does not bound, -1 outside the rows')
-double = method(path, 'doubleClickComparativeStudy:')
-if double:
+# -doubleClickComparativeStudy: forwards to the history list's double click.
+if 'patientHistory.doubleClick()' not in method(path, 'doubleClickComparativeStudy:'):
+    failures.append('-doubleClickComparativeStudy: no longer forwards to PatientHistoryList.doubleClick(); this test needs a new look')
+history = code(read('Horos/Sources/PatientHistoryList.swift'))
+at = history.find('func doubleClick()')
+double = history[history.index('{', at):closing(history, history.index('{', at)) + 1] if at >= 0 else ''
+if not double:
+    failures.append('PatientHistoryList has no doubleClick(); this test needs a new look')
+else:
     if 'object(at: horos_comparativeTable?.selectedRow' in double:
         failures.append('-doubleClickComparativeStudy: reads its studies at the selected row, -1 when none is')
-    elif not re.search(r'row >= 0 && row < \(?\w+\??\.count', double):
+    elif not re.search(r'row >= 0,? (?:&& )?row < \(?\w+\??\.count', double):
         failures.append('-doubleClickComparativeStudy: does not bound the selected row by the studies')
 
-# 3. The export's columns stay in place.
-export = method('Horos/Sources/BrowserController+DatabaseDragExport+Selection.swift', 'exportDBListOnlySelected:')
-if export:
-    tries = [m.start() for m in re.finditer(r'objcTry\(\{', export)]
-    if len(tries) != 2:
-        failures.append('-exportDBListOnlySelected: has %d objcTry, not the header\'s and the column\'s; '
+# 3. The export's columns stay in place: -exportDBListOnlySelected: hands the
+# list to StudyListExport, whose every column gives a cell, empty when reading
+# it raised, and the file rule (StudyMetadataCSV.databaseList) writes a tab
+# between every two cells, whatever they hold.
+if 'StudyListExport(browser: self).databaseList(onlySelected:' not in method('Horos/Sources/BrowserController+DatabaseDragExport+Selection.swift', 'exportDBListOnlySelected:'):
+    failures.append('-exportDBListOnlySelected: no longer hands its work to StudyListExport; this test needs a new look')
+listing = code(read('Horos/Sources/StudyListExport.swift'))
+at = listing.find('func databaseList(onlySelected: Bool) -> String')
+export = listing[listing.index('{', at):closing(listing, listing.index('{', at)) + 1] if at >= 0 else ''
+if not export:
+    failures.append('StudyListExport has no databaseList(onlySelected:); this test needs a new look')
+else:
+    cells = export[export.index('columns.map'):]
+    tries = [m.start() for m in re.finditer(r'(?:BrowserObjC\.attempt|HorosObjCException\.caught)\(\{', cells)]
+    if len(tries) != 1:
+        failures.append('the database list reads its columns under %d HorosObjCException.caught, not one per cell; '
                         'this test needs a new look' % len(tries))
-    for number, start in enumerate(tries, 1):
-        closure = export[start:closing(export, export.index('{', start)) + 1]
-        if 'i += 1' in closure or 'string.append("")' in closure:
-            failures.append('-exportDBListOnlySelected: counts the column or writes its tab inside objcTry #%d, '
-                            'so a column that raises shifts the next ones' % number)
-    if export.count('i += 1') != 2:
-        failures.append('-exportDBListOnlySelected: counts its columns %d times, not once in each loop'
-                        % export.count('i += 1'))
+    else:
+        closure = cells[tries[0]:closing(cells, cells.index('{', tries[0])) + 1]
+        after = cells[tries[0] + len(closure):]
+        if 'return cell' in closure or 'return cell' not in after:
+            failures.append('a column that raises gives no cell, so the next ones shift')
+    if 'StudyMetadataCSV.databaseList(header:' not in export:
+        failures.append('the database list is not written by StudyMetadataCSV.databaseList')
+rule = read('Modules/IsiXDatabase/Sources/StudyMetadataCSV.swift')
+at = rule.find('func databaseList(header: [String], rows: [[String]]) -> String')
+if at < 0 or '$0.joined(separator: "\\t")' not in rule[at:at + 400]:
+    failures.append('the database list does not separate every two cells with a tab')
 
 for failure in failures:
     print('FAIL: %s' % failure)

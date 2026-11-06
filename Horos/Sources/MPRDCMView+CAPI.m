@@ -37,11 +37,11 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
-// The C symbols MPRDCMView.m exported, which stay in Objective-C: VRView.mm
+// The C symbols MPRDCMView.m exported, which stay in Objective-C: VRView
 // and CPRMPRDCMView.m link minimumStep, and arePlanesParallel() keeps its name.
 
 #import <Cocoa/Cocoa.h>
-#import "DCMView+SwiftIvars.h"
+#import "MPRHostMessages.h"
 
 #define CROSS(dest,v1,v2) \
           dest[0]=v1[1]*v2[2]-v1[2]*v2[1]; \

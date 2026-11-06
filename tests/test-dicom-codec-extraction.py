@@ -3,9 +3,16 @@
 from pathlib import Path
 import subprocess,sys,tempfile,zipfile
 if len(sys.argv) < 2:
-    print('skipped: needs the built Decompress helper: HELPER', file=sys.stderr)
+    print('skipped: needs the built Decompress service (a Decompress.xpc) or a helper: HELPER', file=sys.stderr)
     raise SystemExit(2)
 helper=Path(sys.argv[1]).resolve()
+
+# The Decompress XPC service answers through the tests' client, which takes the
+# helper's command line (decompress_service.py).
+if helper.suffix == '.xpc':
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import decompress_service
+    helper = decompress_service.client(helper)
 with tempfile.TemporaryDirectory(prefix='horos-extraction-') as folder:
  root=Path(folder)
  for mode in ('compress','decompressList'):

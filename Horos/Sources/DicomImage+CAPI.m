@@ -37,13 +37,12 @@
 
 // What DicomImage.swift cannot declare: the C functions of <Horos/DicomImage.h>
 // that encode and decode a compressed SOP Instance UID, exported under their C
-// names as before; N2LogStackTrace, a C variadic function Swift cannot call; and
+// names as before; and
 // the setters of the modelled properties date and series, whose getters stay
 // the ones Core Data generates (Swift cannot leave one half of a property to
 // Core Data).
 
 #import "DicomImage.h"
-#import "N2Debug.h"
 
 static inline int charToInt( unsigned char c)
 {
@@ -144,14 +143,6 @@ NSString* sopInstanceUIDDecode( unsigned char *r, int length)
 	NSString *uid = [NSString stringWithCString:str encoding: NSASCIIStringEncoding];
 	free( str);
 	return uid;
-}
-
-// Declared for Swift in DicomImage.h.
-extern void DicomImageLogStackTrace(NSString* message);
-
-void DicomImageLogStackTrace(NSString* message)
-{
-    N2LogStackTrace(@"%@", message);
 }
 
 @interface DicomImage (CoreDataCustomSetters)

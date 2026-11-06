@@ -4,7 +4,14 @@
 The Swift methods are taken as they stand from ViewerController+ROI.swift and
 ViewerController+ROI+Editing.swift, with the files' own helpers, and compiled
 with swiftc as an extension of an Objective-C double of ViewerController, with
-doubles of ROI and MyPoint, beside the real HorosObjCException:
+doubles of ROI and MyPoint, beside the real HorosObjCException. The façades of
+ViewerController+ROI+Editing.swift are compiled with the types they go through
+(ViewerShownROIs, the order of ViewerROISelection, the morphing of
+ViewerROIQueries) and the rules of IsiXROI they use (ROIGroups for the order,
+ROIPropagationPlan for the ranges and the time point). The names a viewer
+offers are ViewerROINames (ViewerController+ROI.swift) over the rule of
+ROINameCatalog (IsiXPreferences), and the layer's bounds are ROIFromMask's
+(IsiXROI), compiled from those modules' files:
 
 - -sendToBackROI: moves an ungrouped ROI to the end of its slice, where it
   removed it, and keeps the order of a group, which it reversed;
@@ -26,11 +33,11 @@ doubles of ROI and MyPoint, beside the real HorosObjCException:
   one past the slab; ThickSlabRange.swift is compiled with it;
 - -roiList: and -setRoiList:array: stay inside the C array when the viewer has
   no movie frame, where maxMovieIndex - 1 made the index -1;
-- -roiLoadFromFiles: gives each file to the importer of its own extension, where
-  the last file's extension chose the importer for all;
-- -createLayerROIFromROI: takes its bounds from the finite points, where a NaN
-  first point made the bitmap nil and the loop wrote through NULL, and gives up
-  when the bitmap has no buffer.
+- -roiLoadFromFiles: gives each file to the importer of its own extension
+  (ViewerROIFiles), where the last file's extension chose the importer for all;
+- -createLayerROIFromROI: takes its bounds from the finite points
+  (ROIFromMask.Layer), where a NaN first point made the bitmap nil and the loop
+  wrote through NULL, and gives up when the bitmap has no buffer.
 
 -loadROI: with an archive holding something else than ROIs is checked by
 test-roi-volume-persistence.py, which runs it with its database doubles.
@@ -62,6 +69,15 @@ def read(name):
     return (root / path).read_text(encoding='utf-8')
 
 
+def read_module(name):
+    """A file of Modules/, or nothing in a revision that does not have it."""
+    path = f'Modules/{name}'
+    if revision:
+        shown = subprocess.run(['git', '-C', str(root), 'show', f'{revision}:{path}'], capture_output=True)
+        return shown.stdout.decode('utf-8') if shown.returncode == 0 else ''
+    return (root / path).read_text(encoding='utf-8')
+
+
 editing = read('ViewerController+ROI+Editing.swift')
 first_half = read('ViewerController+ROI.swift')
 failures = []
@@ -76,53 +92,74 @@ def method(source, selector):
     return source[start:min(ends) + 1]
 
 
-# What stands for a helper the sources lack (an older revision): it answers
-# nothing useful, so its checks fail while the other methods still run.
-STUBS = {
-    'roi2PropagationImages': 'fileprivate func roi2PropagationImages(_ pos: Int, _ imageNumber: Int, _ count: Int, flipped: Bool) -> (start: Int, upTo: Int) { return (-1, -1) }\n',
-    'roi2SlabImages': 'fileprivate func roi2SlabImages(_ pos: Int, _ stack: Int, _ count: Int, flipped: Bool) -> (start: Int, upTo: Int) { return (-1, -1) }\n',
-    'roi2MovieIndex': 'fileprivate func roi2MovieIndex(_ i: Int, _ maxMovieIndex: Int) -> Int { return i }\n',
-    'roiImportGroups': 'fileprivate func roiImportGroups(_ urls: [URL]) -> (json: [String], xml: [String], series: [String], roi: [String]) { return ([], [], [], []) }\n',
-    'roiLayerBounds': 'fileprivate func roiLayerBounds(_ locations: UnsafePointer<Float>, _ count: Int) -> (Float, Float, Float, Float)? { return nil }\n',
-}
-
-
 def helper(source, name):
+    """A fileprivate helper of `source`, or one that answers nothing useful when it is missing."""
     match = re.search(r'(?:@inline\(__always\)\n)?fileprivate func ' + name + r'\b.*?\n}\n', source, re.S)
     if match is None:
         failures.append(f'missing helper {name}')
-        return STUBS[name]
+        return ('fileprivate func roiImportGroups(_ urls: [URL]) -> (json: [String], xml: [String], series: [String], roi: [String]) '
+                '{ return ([], [], [], []) }\n')
     return match.group(0)
 
 
-def member(source, name):
-    match = re.search(r'    func ' + name + r'\(.*?\n    }\n', source, re.S)
-    assert match, f'missing {name}'
+def top_level(source, name):
+    """A top-level function of `source` (fileprivate or not), up to its closing brace."""
+    match = re.search(r'(?:@MainActor )?(?:fileprivate )?func ' + name + r'\b.*?\n}\n', source, re.S)
+    if match is None:
+        failures.append(f'missing function {name}')
+        return ''
     return match.group(0)
+
+
+def type_body(source, declaration):
+    """The type that `declaration` opens, up to its closing brace at the start of a line."""
+    at = source.find(declaration)
+    if at < 0:
+        failures.append(f'missing {declaration}')
+        return ''
+    return source[at:source.index('\n}\n', at) + 3]
+
+
+def static(source, name):
+    """A static function of an enum of `source`, up to its closing brace."""
+    match = re.search(r'\n(    static func ' + name + r'\b.*?\n    }\n)', source, re.S)
+    if match is None:
+        failures.append(f'missing static func {name}')
+        return ''
+    return match.group(1)
 
 
 # Source checks where the method cannot run without the app (a panel, a DCMPix).
 load_files = method(first_half, 'roiLoadFromFiles:')
-if 'lastURL' in load_files or 'roiLoadFiles(panel.urls)' not in load_files:
+choose = static(first_half, 'chooseAndLoad')
+if 'ViewerROIFiles.chooseAndLoad(into: self)' not in load_files or 'lastURL' in choose \
+        or 'load(panel.urls, into: viewer)' not in choose:
     failures.append('-roiLoadFromFiles: must give every chosen file to the importer of its extension')
-dispatch = re.search(r'fileprivate func roiLoadFiles\(.*?\n    }\n', first_half, re.S)
-if dispatch is None or 'roiImportGroups(urls)' not in dispatch.group(0):
+if 'roiImportGroups(urls)' not in static(first_half, r'load(?=\(_ urls)'):
     failures.append('the chosen files must be grouped by roiImportGroups')
-layer = method(first_half, 'createLayerROIFromROI:')
-if 'roiLayerBounds(locations, dataSize)' not in layer:
+layer = static(first_half, 'layer')
+if 'ViewerROICreation.layer(from: roi, in: self)' not in method(first_half, 'createLayerROIFromROI:') \
+        or 'ROIFromMask.Layer(locations: locations, count: count)' not in layer:
     failures.append('-createLayerROIFromROI: must take its bounds from the finite points')
-if 'guard let bitmap, let imageBuffer = bitmap.bitmapData else' not in layer:
+if not re.search(r'guard let bitmap = NSBitmapImageRep\(.*?\n\s*let pixels = bitmap\.bitmapData else \{ return nil \}', layer, re.S):
     failures.append('-createLayerROIFromROI: must not write when the bitmap has no buffer')
+# The ranges of the propagations are ROIPropagationPlan's (IsiXROI): the
+# façades hand them the image number typed in the panel and the far end of the
+# slab the viewer shows.
 propagate = method(editing, 'roiPropagate:')
-if not re.search(r'roi2PropagationImages\(self\.roi2CurImage\(\), Int\(imageNumber\), self\.roi2PixCount\(cur\),\s*'
-                 r'flipped: self\.horos_imageView\?\.flippedData \?\? false\)', propagate) \
-        or 'cInt32(self.horos_roiPropaDest?.floatValue ?? 0)' not in propagate:
-    failures.append('-roiPropagate: must take its range from the typed image number with roi2PropagationImages')
+propagate_sheet = static(editing, r'endSheet(?=\(_ tag: Int, sender: Any\?, in viewer: ViewerController\) \{\n        viewer\.horos_roiPropaWindow)')
+if 'ViewerROIPropagation.endSheet(' not in propagate \
+        or not re.search(r'ROIPropagationPlan\.imageRange\(current: shown\.index, imageNumber: imageNumber, count: count,\s*'
+                         r'flipped: viewer\.horos_imageView\?\.flippedData \?\? false\)', propagate_sheet) \
+        or 'cInt32(viewer.horos_roiPropaDest?.floatValue ?? 0)' not in propagate_sheet:
+    failures.append('-roiPropagate: must take its range from the typed image number with ROIPropagationPlan.imageRange')
 propagate_slab = method(editing, 'roiPropagateSlab:')
-if not re.search(r'\(startImage, upToImage\) = roi2SlabImages\(self\.roi2CurImage\(\), '
-                 r'Int\(self\.roi2Pix\(cur, self\.roi2CurImage\(\)\)\?\.stack \?\? 0\),\s*'
-                 r'self\.roi2PixCount\(cur\), flipped: self\.horos_imageView\?\.flippedData \?\? false\)', propagate_slab):
-    failures.append('-roiPropagateSlab: must take its range from the slab the viewer shows with roi2SlabImages')
+slab = static(editing, 'propagateThroughSlab')
+if 'ViewerROIPropagation.propagateThroughSlab(in: self)' not in propagate_slab \
+        or not re.search(r'ThickSlabRange\.farEndIndex\(currentIndex: shown\.index, stack: stack, count: count,\s*'
+                         r'flippedData: viewer\.horos_imageView\?\.flippedData \?\? false\)', slab) \
+        or 'ROIPropagationPlan.slabRange(current: shown.index, farEnd: farEnd)' not in slab:
+    failures.append('-roiPropagateSlab: must take its range from the slab the viewer shows with ROIPropagationPlan.slabRange')
 
 # -setRoiList:array: stores the array through the retaining setter, which
 # retains the new array before it releases the old one. Released first, the
@@ -130,21 +167,54 @@ if not re.search(r'\(startImage, upToImage\) = roi2SlabImages\(self\.roi2CurImag
 # translation a local strong reference happens to keep it alive, which the
 # optimizer may drop, so the run below cannot show the defect by itself.
 set_roi_list = method(editing, 'setRoiList:array:')
-if 'self.horos_setRoiList(a, at: i)' not in set_roi_list or 'release()' in set_roi_list:
+if 'horos_setRoiList(a, at: ROIPropagationPlan.movieIndex(i, movieCount: Int(horos_maxMovieIndex)))' not in set_roi_list \
+        or 'release()' in set_roi_list:
     failures.append('-setRoiList:array: must store the array through horos_setRoiList')
-ivars = (root / 'Horos/Sources/ViewerController+SwiftIvars.m').read_text(encoding='latin1') if not revision else \
-    subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:Horos/Sources/ViewerController+SwiftIvars.m']).decode('latin1')
-setter = re.search(r'- \(void\)horos_setRoiList:.*?\n}', ivars, re.S)
-if setter is None or not re.search(r'\[value retain\];\s*\[roiList\[index\] release\];', setter.group(0)):
+ivars_path = root / 'Horos/Sources/ViewerController+SwiftIvars.m'
+if revision or ivars_path.exists():
+    ivars = ivars_path.read_text(encoding='latin1') if not revision else \
+        subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:Horos/Sources/ViewerController+SwiftIvars.m']).decode('latin1')
+    setter = re.search(r'- \(void\)horos_setRoiList:.*?\n}', ivars, re.S)
+    retains_first = setter is not None and re.search(r'\[value retain\];\s*\[roiList\[index\] release\];', setter.group(0))
+else:
+    # The class is Swift: horos_setRoiList stores through the manually
+    # retained slots of ViewerControllerStorage.swift.
+    series_state = (root / 'Horos/Sources/ViewerController+SeriesState.swift').read_text()
+    storage = (root / 'Horos/Sources/ViewerControllerStorage.swift').read_text()
+    slot_set = re.search(r'    func set\(_ value: Value\?, at index: Int\) \{\n(.*?)\n    \}', storage, re.S)
+    retains_first = ('func horos_setRoiList(_ value: NSMutableArray?, at index: Int) { seriesState.roiList.set(value, at: index) }' in series_state
+                     and slot_set is not None
+                     and re.search(r'\.retain\(\) \}\n\s*slots\[index\]\?\.release\(\)', slot_set.group(1)))
+if not retains_first:
     failures.append('horos_setRoiList:at: must retain the new array before releasing the old one')
 
+# The façades of the ROI order, the lists and the morphing, with the types
+# they go through (ViewerShownROIs, ViewerROISelection's order, ViewerROIQueries),
+# their helpers, and the rules of IsiXROI (ROIGroups, ROIPropagationPlan),
+# compiled from the module's files.
+undo = read('ViewerController+UndoQueue.swift')
+selection = type_body(editing, '@MainActor enum ViewerROISelection {')
+queries = type_body(editing, '@MainActor enum ViewerROIQueries {')
+
+
+def private_static(source, name):
+    match = re.search(r'\n(    private static func ' + name + r'\b.*?\n    }\n)', source, re.S)
+    if match is None:
+        failures.append(f'missing private static func {name}')
+        return ''
+    return match.group(1)
+
+
 editing_swift = ('import AppKit\n\n'
-                 + ''.join(helper(editing, name) + '\n' for name in (
-                     'objcCast', 'objcObject', 'objcRaiseNilInsertion', 'objcAdd', 'objcInsert', 'objcRemove',
-                     'roi2PropagationImages', 'roi2SlabImages', 'roi2MovieIndex'))
-                 + 'fileprivate extension ViewerController {\n'
-                 + ''.join(member(editing, name) for name in ('roi2CurImage', 'roi2Slice', 'roi2CurrentSlice'))
-                 + '}\n\npublic extension ViewerController {\n'
+                 + top_level(undo, 'viewerRaiseNilInsertion') + '\n'
+                 + top_level(undo, 'viewerArrayAdd') + '\n'
+                 + type_body(editing, '@MainActor struct ViewerShownROIs {') + '\n'
+                 + '@MainActor enum ViewerROISelection {\n' + static(selection, 'bringToFront') + static(selection, 'sendToBack')
+                 + private_static(selection, 'raiseForNil') + '}\n\n'
+                 # The finders by name read DCMPix, which the doubles leave out.
+                 + '@MainActor enum ViewerROIQueries {\n' + static(queries, 'isoContour') + static(queries, 'morphing')
+                 + private_static(queries, 'polygon') + private_static(queries, 'styled') + '}\n'
+                 + '\n@MainActor public extension ViewerController {\n'
                  + ''.join(method(editing, selector) for selector in (
                      'roiList:', 'setRoiList:array:', 'isoContourROI:numberOfPoints:', 'roiMorphingBetween:and:ratio:',
                      'bringToFrontROI:', 'sendToBackROI:'))
@@ -152,24 +222,35 @@ editing_swift = ('import AppKit\n\n'
 @_cdecl("probe_propagation_range")
 func probePropagationRange(_ pos: Int, _ imageNumber: Int, _ count: Int, _ flipped: Bool,
                            _ start: UnsafeMutablePointer<Int>, _ upTo: UnsafeMutablePointer<Int>) {
-    let range = roi2PropagationImages(pos, imageNumber, count, flipped: flipped)
-    start.pointee = range.start
-    upTo.pointee = range.upTo
+    let range = ROIPropagationPlan.imageRange(current: pos, imageNumber: imageNumber, count: count, flipped: flipped)
+    start.pointee = range.lowerBound
+    upTo.pointee = range.upperBound
 }
 
 @_cdecl("probe_slab_range")
 func probeSlabRange(_ pos: Int, _ stack: Int, _ count: Int, _ flipped: Bool,
                     _ start: UnsafeMutablePointer<Int>, _ upTo: UnsafeMutablePointer<Int>) {
-    let range = roi2SlabImages(pos, stack, count, flipped: flipped)
-    start.pointee = range.start
-    upTo.pointee = range.upTo
+    let far = ThickSlabRange.farEndIndex(currentIndex: pos, stack: stack, count: count, flippedData: flipped)
+    let range = ROIPropagationPlan.slabRange(current: pos, farEnd: far)
+    start.pointee = range.lowerBound
+    upTo.pointee = range.upperBound
 }
 ''')
 
-first_half_swift = ('import AppKit\n\nfileprivate var DefaultROINames: NSArray? = ["Liver"]\n\n'
-                    + ''.join(helper(first_half, name) + '\n' for name in (
-                        'objcTry', 'objcROI', 'objcAdd', 'roiImportGroups', 'roiLayerBounds'))
-                    + 'public extension ViewerController {\n' + method(first_half, 'generateROINamesArray') + '}\n' + r'''
+# The names: ViewerROINames over the slice lists, with the default names of a
+# plugin, and the rule of ROINameCatalog; the catalog's keys stay in its module.
+catalog = read_module('IsiXPreferences/Sources/ROINameCatalog.swift')
+names_rule = re.search(r'\n(    public static func names\(.*?\n    }\n)', catalog, re.S)
+if names_rule is None:
+    failures.append('missing ROINameCatalog.names(defaults:found:)')
+state = read('ViewerController+ROIState.swift')
+viewer_names = first_half[first_half.index('@MainActor enum ViewerROINames {'):first_half.index('// MARK: - Files')]
+first_half_swift = ('import AppKit\n\n'
+                    + 'enum ROINameCatalog {\n    static let separator = "-"\n' + (names_rule.group(1) if names_rule else '') + '}\n\n'
+                    + viewer_names.replace('static var defaults: NSArray? = nil', 'static var defaults: NSArray? = ["Liver"]')
+                    + state[state.index('/// The ROI lists of one time point of a viewer'):]
+                    + helper(first_half, 'roiImportGroups') + '\n'
+                    + '@MainActor extension ViewerController {\n' + method(first_half, 'generateROINamesArray') + '}\n' + r'''
 @_cdecl("probe_first_half_helpers")
 func probeFirstHalfHelpers() -> Int32 {
     var failures: Int32 = 0
@@ -186,14 +267,14 @@ func probeFirstHalfHelpers() -> Int32 {
     check(groups.roi == ["/a/four.roi", "/a/six.ROI"], "the .roi files go to the .roi importer")
 
     var nanFirst: [Float] = [.nan, .nan, 2, 3, 5, 7, .infinity, 1]
-    let bounds = roiLayerBounds(&nanFirst, 4)
-    check(bounds != nil && bounds!.0 == 2 && bounds!.1 == 3 && bounds!.2 == 5 && bounds!.3 == 7,
+    let bounds = ROIFromMask.Layer(locations: &nanFirst, count: 4)
+    check(bounds != nil && bounds!.minX == 2 && bounds!.minY == 3 && bounds!.maxX == 5 && bounds!.maxY == 7,
           "the bounds come from the finite points")
     var allNaN: [Float] = [.nan, 1, 2, .nan]
-    check(roiLayerBounds(&allNaN, 2) == nil, "no finite point gives no bounds")
+    check(ROIFromMask.Layer(locations: &allNaN, count: 2) == nil, "no finite point gives no bounds")
     var plain: [Float] = [4, 1, 2, 6, 3, 3]
-    let plainBounds = roiLayerBounds(&plain, 3)
-    check(plainBounds != nil && plainBounds!.0 == 2 && plainBounds!.1 == 1 && plainBounds!.2 == 4 && plainBounds!.3 == 6,
+    let plainBounds = ROIFromMask.Layer(locations: &plain, count: 3)
+    check(plainBounds != nil && plainBounds!.minX == 2 && plainBounds!.minY == 1 && plainBounds!.maxX == 4 && plainBounds!.maxY == 6,
           "finite points keep their bounds")
     return failures
 }
@@ -204,7 +285,7 @@ HEADER = r'''
 #import <Cocoa/Cocoa.h>
 #import "HorosObjCException.h"
 
-// Spelled as in DCMView.h and ROI.h.
+// Spelled as in DCMView.h and the ROI.
 typedef NS_ENUM(short, ToolMode) {
     tWL = 0, tTranslate, tZoom, tRotate, tNext, tMesure, tROI, t3DRotate, tCross, tOval, tOPolygon, tCPolygon,
     tAngle, tText, tArrow, tPencil, t3Dpoint, t3DCut, tCamera3D, t2DPoint, tPlain
@@ -228,6 +309,7 @@ enum { ROI_sleep = 0, ROI_drawing = 1, ROI_selected = 2, ROI_selectedModify = 3 
 @property(assign) BOOL isSpline;
 @property BOOL isAliased;
 @property NSRect rect;
+@property NSInteger roImode;
 - (NSPoint)pointAtIndex:(NSUInteger)index;
 - (void)addPoint:(NSPoint)point;
 - (NSMutableArray*)splinePoints;
@@ -236,7 +318,7 @@ enum { ROI_sleep = 0, ROI_drawing = 1, ROI_selected = 2, ROI_selectedModify = 3 
 @end
 
 @interface ProbeView : NSObject
-@property short curImage;
+@property NSInteger curImage;
 @end
 
 @interface ViewerController : NSObject
@@ -247,7 +329,7 @@ enum { ROI_sleep = 0, ROI_drawing = 1, ROI_selected = 2, ROI_selectedModify = 3 
 @property(assign) short horos_curMovieIndex;
 @property(assign) short horos_maxMovieIndex;
 @property(retain, nullable) ProbeView* horos_imageView;
-@property(retain, nullable) NSMutableArray* horos_ROINamesArray;
+@property(retain, nullable) NSArray<NSString *>* horos_ROINamesArray;
 - (ROI*)horos_unretainedNewROI:(ToolMode)type;
 - (ROI*)convertBrushROItoPolygon:(ROI*)selectedROI numPoints:(int)numPoints;
 - (ROI*)convertPolygonROItoBrush:(ROI*)selectedROI;
@@ -284,7 +366,7 @@ extern int probe_first_half_helpers(void);
 - (id)copyWithZone:(NSZone *)zone { return [[MyPoint point:self.point] retain]; }
 @end
 
-// The parts of ROI.m these methods rely on: a rectangle and an oval compute
+// The parts of the ROI these methods rely on: a rectangle and an oval compute
 // their points from their rect, and ignore -setPoints:; a copy copies the
 // points.
 @implementation ROI {
@@ -444,7 +526,7 @@ int main(void) { @autoreleasepool {
     @try { list = [v generateROINamesArray]; }
     @catch (NSException *e) { fprintf(stderr, "raised %s\n", e.reason.UTF8String); }
     CHECK([[list componentsJoinedByString:@","] isEqual:@"Liver,-,Kidney,Spleen"], "a ROI without a name is skipped");
-    CHECK(v.horos_ROINamesArray == list, "the names are published");
+    CHECK([v.horos_ROINamesArray isEqual:list], "the names are published");
 
     // The range of -roiPropagate:, from the current index (5 of 10) to the
     // image number typed in the panel, as the viewer shows it: "Im: 6/10", or
@@ -509,6 +591,10 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-roi-defects-') as director
     (folder / 'Editing.swift').write_text(editing_swift)
     (folder / 'FirstHalf.swift').write_text(first_half_swift)
     (folder / 'ThickSlabRange.swift').write_text(read('ThickSlabRange.swift'))
+    (folder / 'ROIFromMask.swift').write_text(read_module('IsiXROI/Sources/ROIFromMask.swift'))
+    (folder / 'ROIGroups.swift').write_text(read_module('IsiXROI/Sources/ROIGroups.swift'))
+    (folder / 'ROISelection.swift').write_text(read_module('IsiXROI/Sources/ROISelection.swift'))
+    (folder / 'ROIPropagationPlan.swift').write_text(read_module('IsiXROI/Sources/ROIPropagationPlan.swift'))
     include = ['-I', str(folder), '-I', str(root / 'Horos/Sources')]
     try:
         subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-Wno-deprecated-declarations', *include,
@@ -518,6 +604,8 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-roi-defects-') as director
         subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *include,
                         '-import-objc-header', str(folder / 'Harness.h'),
                         str(folder / 'Editing.swift'), str(folder / 'FirstHalf.swift'), str(folder / 'ThickSlabRange.swift'),
+                        str(folder / 'ROIFromMask.swift'), str(folder / 'ROIGroups.swift'), str(folder / 'ROIPropagationPlan.swift'),
+                        str(folder / 'ROISelection.swift'),
                         str(folder / 'test.o'), str(folder / 'HorosObjCException.o'),
                         '-framework', 'Cocoa', '-o', str(folder / 'test')], check=True)
     except subprocess.CalledProcessError:

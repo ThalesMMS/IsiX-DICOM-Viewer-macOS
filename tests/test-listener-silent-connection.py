@@ -17,12 +17,14 @@ What must stay true:
   acceptor network, since DCMTK reads one process-wide variable in both;
 - the association limit is checked and the association started as one step;
 - the server is not destroyed while a connection is still being read.
+
+The listener is the DCMTK adapter's, IsiXDCMTKQueryRetrieveSCP.mm.
 """
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-server = (root / 'Horos/Sources/HorosQueryRetrieveServer.mm').read_text()
-scp = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.mm').read_bytes().decode('latin1')
+server = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCP.mm').read_text()
+scp = server
 failures = []
 
 
@@ -47,38 +49,39 @@ def check(condition, message):
         failures.append(message)
 
 
-loop = body(server, 'OFCondition HorosQueryRetrieveServer::waitForAssociation(')
-check(loop, 'waitForAssociation not found')
+loop = body(server, '- (void)acceptConnection')
+check(loop, 'acceptConnection not found')
 check('ASC_receiveAssociation(' not in loop.replace('// Only take the connection here. ASC_receiveAssociation', ''),
       'the accepting loop reads the association request itself')
 check('accept(DUL_networkSocket(network->network)' in loop, 'the accepting loop does not take the connection')
 check('poll(' not in loop and 'recv(' not in loop, 'the accepting loop waits on the connection')
-check('detachNewThreadWithBlock' in loop and 'receiveAssociation(network, descriptor' in loop,
+check('detachNewThreadWithBlock' in loop and 'IsiXDCMTKReceiveAssociation(*listener, network, descriptor' in loop,
       'the association request is not read on a thread of its own')
-check('HorosMaximumUnreadConnections' in loop and 'close(descriptor)' in loop,
+check('IsiXDCMTKMaximumUnreadConnections' in loop and 'close(descriptor)' in loop,
       'unread connections are not bounded')
-check(loop.find('++processes_->receiving') < loop.find('detachNewThreadWithBlock') < loop.find('--processes_->receiving'),
+check(loop.find('++listener->processes.receiving') < loop.find('detachNewThreadWithBlock') < loop.find('--listener->processes.receiving'),
       'a connection being read is not counted for its whole thread')
 
-receive = body(server, 'void HorosQueryRetrieveServer::receiveAssociation(')
+# Declared before the class that calls it; its body is the last mention.
+receive = body(server[server.rindex('static void IsiXDCMTKReceiveAssociation('):], 'static void IsiXDCMTKReceiveAssociation(')
 check(receive, 'receiveAssociation not found')
 wait = receive[:receive.find('ASC_receiveAssociation(')]
-check('poll(&waiting, 1, 250)' in wait and 'processes_->stopping' in wait and 'options_.acse_timeout_' in wait,
+check('poll(&waiting, 1, 250)' in wait and 'listener.processes.stopping' in wait and 'options.acse_timeout_' in wait,
       'the wait for the first bytes is not bounded or does not see a stop')
 check('close(descriptor)' in wait and 'sent nothing' in wait, 'a silent peer is not closed and logged')
-adopt = receive[receive.find('HorosDICOMAdoptedSocketMutex()'):receive.find('HorosDIMSEValidateAssociationPDU')]
+adopt = receive[receive.find('IsiXDCMTKAdoptedSocketMutex()'):receive.find('HorosDIMSEValidateAssociationPDU')]
 check(adopt.find('dcmExternalSocketHandle.set(descriptor)') < adopt.find('ASC_receiveAssociation(')
       < adopt.find('dcmExternalSocketHandle.set(DCMNET_INVALID_SOCKET)'),
       'the socket is not handed to DCMTK and withdrawn under the lock')
-start = receive[receive.find('processes_->startMutex'):]
-check('processes_->active.load() >= maximum' in start and 'HorosStartAssociationTask(' in start,
+start = receive[receive.find('listener.processes.startMutex'):]
+check('listener.processes.active.load() >= maximum' in start and 'IsiXDCMTKStartAssociationTask(' in start,
       'the association limit and the start are not one step')
 
-destructor = body(server, 'HorosQueryRetrieveServer::~HorosQueryRetrieveServer()')
-check('processes_->receiving.load()' in destructor, 'the server can be destroyed while a connection is being read')
+destructor = body(server, '- (NSError *)close')
+check('_listener->processes.receiving.load()' in destructor, 'the server can be destroyed while a connection is being read')
 
 network = scp.find('ASC_initializeNetwork(NET_ACCEPTORREQUESTOR')
-check(network > 0 and 'HorosDICOMAdoptedSocketMutex()' in scp[network - 200:network],
+check(network > 0 and 'IsiXDCMTKAdoptedSocketMutex()' in scp[network - 200:network],
       'the acceptor network starts outside the adopted-socket lock')
 
 if failures:

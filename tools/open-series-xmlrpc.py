@@ -10,7 +10,7 @@ The trap is one preference. `_onMainThreadOpenObjectsWithIDs:` starts with
     if( [[NSUserDefaults standardUserDefaults] boolForKey: @"CloseAllWindowsBeforeXMLRPCOpen"])
         [ViewerController closeAllWindows];
 
-and `DefaultsOsiriX.m` registers that key as 1. So with the factory settings
+and the registered defaults (the IsiXPreferences module) set that key to 1. So with the factory settings
 every `DisplaySeries` call closes the viewers already open and you are left with
 exactly one, however many series you ask for - which looks like a viewer being
 reused and is not. The preference is the checkbox "Automatically close all 2D

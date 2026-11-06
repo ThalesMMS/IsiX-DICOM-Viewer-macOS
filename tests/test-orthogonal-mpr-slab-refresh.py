@@ -38,21 +38,25 @@ def read(path):
     return (root / path).read_text()
 
 
-bridge = read('Horos/Sources/PlanarHostBridge.m')
-header = read('Horos/Sources/PlanarHostBridge.h')
+# The planar bridge is Swift: the snapshot (DCMView+PlanarSnapshot.swift) and
+# the view's planar state (DCMView+PlanarHost.swift).
+bridge = read('Horos/Sources/DCMView+PlanarSnapshot.swift')
+header = read('Horos/Sources/DCMView+PlanarHost.swift')
 view = read('Horos/Sources/OrthogonalMPRView.swift')
 reslicer = read('Horos/Sources/OrthogonalReslice.swift')
 
 # The cache is recognised by addresses, so rewritten pixels keep its key.
-assert '[key appendFormat:@"/%p:%p", slice, samples];' in bridge, 'the slab key is no longer made of addresses'
-assert 'objc_getAssociatedObject(view, &slabKeyKey) isEqualToString:key]' in bridge
+assert 'key += Self.address(slice, samples)' in bridge and \
+    'return "/\\(Unmanaged.passUnretained(object).toOpaque()):\\(pixels)"' in bridge, 'the slab key is no longer made of addresses'
+assert 'slab = state.slabKey == key ? state.slabData : nil' in bridge
 
 # The bridge can forget it: key and copy both.
-assert re.search(r'^- \(void\)horosPlanarForgetSlab;$', header, re.M), 'horosPlanarForgetSlab is not declared'
-forget = re.search(r'- \(void\)horosPlanarForgetSlab \{(.*?)\n\}', bridge, re.S)
+assert re.search(r'^    @objc\(horosPlanarForgetSlab\)\n    func horosPlanarForgetSlab\(\) \{$', header, re.M), \
+    'horosPlanarForgetSlab is not declared'
+forget = re.search(r'func horosPlanarForgetSlab\(\) \{(.*?)\n    \}', header, re.S)
 assert forget, 'horosPlanarForgetSlab is not implemented'
-assert 'objc_setAssociatedObject(self, &slabKeyKey, nil,' in forget.group(1)
-assert 'objc_setAssociatedObject(self, &slabDataKey, nil,' in forget.group(1)
+assert 'state.slabKey = nil' in forget.group(1)
+assert 'state.slabData = nil' in forget.group(1)
 
 # The orthogonal view forgets it whenever its images are replaced, before it draws them.
 start = view.index('@objc(setPixList:::)')

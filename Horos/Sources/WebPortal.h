@@ -41,19 +41,12 @@
 // which declares the same class names and selectors.
 
 #import <Cocoa/Cocoa.h>
-// WebPortalServer's superclass, which the generated interface names.
-#import "HTTPServer.h"
 
 #define THREAD_POOL_SIZE 4
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the classes themselves: headers it imports may only name them.
 @class WebPortal, WebPortalServer;
-@class AsyncSocket;
-@interface HTTPServer (WebPortalListener)
--(void)webPortalServerInstallListener:(AsyncSocket *)listener;
--(AsyncSocket *)webPortalServerListener;
-@end
 #else
 #import "Horos-Swift.h"
 #endif

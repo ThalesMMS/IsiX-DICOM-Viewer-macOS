@@ -39,6 +39,7 @@
 
 import Synchronization
 import AppKit
+import IsiXGeometry
 import CoreImage
 
 // NSImage (N2) and N2Image are implemented in Swift. The
@@ -412,7 +413,7 @@ public extension NSImage {
 
     @objc(sizeByScalingProportionallyToSize:)
     func sizeByScalingProportionally(toSize targetSize: NSSize) -> NSSize {
-        N2ProportionallyScaleSize(size, targetSize)
+        size.scaledProportionally(toFit: targetSize)
     }
 
     @objc(sizeByScalingDownProportionallyToSize:)

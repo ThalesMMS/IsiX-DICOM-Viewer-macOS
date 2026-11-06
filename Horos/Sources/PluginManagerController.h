@@ -47,11 +47,6 @@
 
 /** \brief Window Controller for PluginFilter management */
 
-// Orders plugin catalog entries by their "name", case-insensitively: the
-// function the controller passes to -sortedArrayUsingFunction:context:.
-// Defined, and exported as before, by PluginManagerController+CAPI.m.
-FOUNDATION_EXTERN NSInteger sortPluginArrayByName(id _Nonnull plugin1, id _Nonnull plugin2, void * _Nullable context);
-
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the classes themselves: headers it imports may only name them.
 // WebKit stays out of this branch: through the bridging header it would reach

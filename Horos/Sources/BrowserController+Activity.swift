@@ -41,30 +41,12 @@ import AppKit
 
 // BrowserController (Activity) and ThreadsTableView are implemented in Swift,
 // with the selectors and the Objective-C names of the former file.
-// -deallocActivity stays Objective-C, in BrowserController+Activity+CAPI.m,
-// beside the ivars it releases. The instance variables the category used are read
-// through BrowserController (SwiftIvars).
+// The state the category used is the class's (BrowserState.swift and
+// BrowserOutlets.swift), read through its accessors.
 //
-// Every @synchronized on the threads controller is objcSynchronized below, the
-// same recursive lock on the same object.
-
-/// `@synchronized (object) { … }`: the same recursive lock, taken on nothing
-/// when the object is nil, and left before an exception raised inside goes on.
-@inline(__always)
-fileprivate func objcSynchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T {
-    guard let object else { return body() }
-    objc_sync_enter(object)
-    var result: T?
-    var raised: NSException?
-    do {
-        try HorosObjCException.perform { result = body() }
-    } catch {
-        raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    objc_sync_exit(object)
-    if let raised { raised.raise() }
-    return result!
-}
+// Every @synchronized on the threads controller is the same recursive lock on
+// the same object: HorosObjCException.synchronized where KVC, a cell's cleanup
+// or AppKit may raise, objc_sync_enter/objc_sync_exit with defer elsewhere.
 
 /// `[NSArray arrayWithObjects: a, b, …, nil]`: the list ends at the first nil.
 fileprivate func objcArray(_ items: Any?...) -> NSArray {
@@ -86,6 +68,19 @@ public extension BrowserController {
         horos_activityTableView?.dataSource = helper
     }
 
+    /// The first step of the browser's deinit: the activity list lets go of
+    /// its helper before the helper is released. It neither removes an
+    /// observer nor ends the deallocation, which the deinit does.
+    @objc(deallocActivity)
+    func deallocActivity() {
+        let table = windowOutlets.activityTableView
+        if let helper = windowState.activityHelper as AnyObject? {
+            if (table?.delegate as AnyObject?) === helper { table?.delegate = nil }
+            if (table?.dataSource as AnyObject?) === helper { table?.dataSource = nil }
+        }
+        windowState.activityHelper = nil
+    }
+
     @objc(_activityTableView)
     func _activityTableView() -> NSTableView! {
         return horos_activityTableView
@@ -105,14 +100,21 @@ public final class ThreadsTableView: NSTableView {
     public override func selectRowIndexes(_ indexes: IndexSet, byExtendingSelection extend: Bool) {
     }
 
+    /// A click does nothing, except on the row of a retrieve waiting in line
+    /// with others, which the table then lets be dragged to another place.
     public override func mouseDown(with evt: NSEvent) {
-        if evt.modifierFlags.contains(.control) { rightMouseDown(with: evt) }
+        if evt.modifierFlags.contains(.control) { rightMouseDown(with: evt); return }
+        let helper = delegate as? BrowserActivityHelper
+        if helper?.canDragRow(row(at: convert(evt.locationInWindow, from: nil))) == true { super.mouseDown(with: evt) }
     }
 
     /// Only a queued download's line has a menu (HorosRetrieveQueueActivity);
-    /// the list still takes no selection.
+    /// the list still takes no selection. The menu returns once its command
+    /// ran, so a move shows in the rows at once.
     public override func rightMouseDown(with evt: NSEvent) {
-        if let menu = menu(for: evt) { NSMenu.popUpContextMenu(menu, with: evt, for: self) }
+        guard let menu = menu(for: evt) else { return }
+        NSMenu.popUpContextMenu(menu, with: evt, for: self)
+        (delegate as? BrowserActivityHelper)?.arrangeQueue()
     }
 
     public override func menu(for event: NSEvent) -> NSMenu? {
@@ -144,6 +146,8 @@ public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTab
         _browser = browser // no retaining here
         _cells = NSMutableArray()
         super.init()
+        browser?._activityTableView()?.registerForDraggedTypes([Self.queuedRowType])
+        browser?._activityTableView()?.setDraggingSourceOperationMask(.move, forLocal: true)
 
         // we observe the threads array so we can release cells when they're not needed anymore
         ThreadsManager.default().threadsController.addObserver(self, forKeyPath: "arrangedObjects", options: [.new, .old, .initial], context: BrowserActivityHelperContext.pointer)
@@ -160,9 +164,94 @@ public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTab
 
     /// Every bar of the list in its thread's state.
     @objc public func syncProgressIndicators() {
-        objcSynchronized(ThreadsManager.default().threadsController) {
-            for case let cell as ThreadCell in _cells { cell.syncProgressIndicator() }
-        }
+        let lock: NSArrayController = ThreadsManager.default().threadsController
+        objc_sync_enter(lock)
+        defer { objc_sync_exit(lock) }
+        for case let cell as ThreadCell in _cells { cell.syncProgressIndicator() }
+        arrangeQueue()
+    }
+
+    // MARK: - The line of waiting retrieves
+
+    /// What a dragged row carries: its own row number, read back only by this
+    /// list.
+    static let queuedRowType = NSPasteboard.PasteboardType("org.isix.activity.queued-retrieve-row")
+
+    /// A row's place in the line of waiting retrieves, from 1; nil for a
+    /// retrieve under way and for any other task.
+    private func queuePosition(_ cell: ThreadCell) -> Int? {
+        guard let thread = cell.thread, !thread.isFinished, let ticket = RetrieveQueue.ticket(of: thread) else { return nil }
+        let position = RetrieveQueue.shared.position(of: ticket)
+        return position > 0 ? position : nil
+    }
+
+    /// Puts the rows of the waiting retrieves in the order of the line, which
+    /// a move changes without touching the list of threads the rows come from.
+    /// Looked at with the bars, twice a second, and at once after a move made
+    /// here.
+    @objc public func arrangeQueue() {
+        let lock: NSArrayController = ThreadsManager.default().threadsController
+        objc_sync_enter(lock)
+        defer { objc_sync_exit(lock) }
+        let rows = _cells.compactMap { $0 as? ThreadCell }
+        guard rows.count == _cells.count else { return }
+        let arranged = RetrieveQueue.arranged(rows, position: queuePosition)
+        guard !zip(rows, arranged).allSatisfy({ $0 === $1 }) else { return }
+        _cells.setArray(arranged)
+        _browser?._activityTableView()?.reloadData()
+    }
+
+    /// The row this list gives a cell, or nil when it is not in the list.
+    func row(of cell: ThreadCell) -> Int? {
+        let lock: NSArrayController = ThreadsManager.default().threadsController
+        objc_sync_enter(lock)
+        defer { objc_sync_exit(lock) }
+        let row = _cells.indexOfObjectIdentical(to: cell)
+        return row == NSNotFound ? nil : row
+    }
+
+    private func rowCell(_ row: Int) -> ThreadCell? {
+        row >= 0 && row < _cells.count ? _cells.object(at: row) as? ThreadCell : nil
+    }
+
+    /// Whether the row is a retrieve waiting in line with at least another.
+    func canDragRow(_ row: Int) -> Bool {
+        guard let cell = rowCell(row), queuePosition(cell) != nil else { return false }
+        return RetrieveQueue.shared.waitingCount > 1
+    }
+
+    public func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
+        guard canDragRow(row) else { return nil }
+        let item = NSPasteboardItem()
+        item.setString(String(row), forType: Self.queuedRowType)
+        return item
+    }
+
+    /// The row a drag from this list carries, while it still waits in line.
+    private func draggedRow(_ info: NSDraggingInfo, in tableView: NSTableView) -> Int? {
+        guard (info.draggingSource as AnyObject?) === tableView,
+              let row = info.draggingPasteboard.string(forType: Self.queuedRowType).flatMap({ Int($0) }),
+              canDragRow(row) else { return nil }
+        return row
+    }
+
+    /// A waiting retrieve drops between rows, never on one; where it lands in
+    /// the line is counted from the waiting rows above the gap.
+    public func tableView(_ tableView: NSTableView, validateDrop info: NSDraggingInfo, proposedRow row: Int,
+                          proposedDropOperation dropOperation: NSTableView.DropOperation) -> NSDragOperation {
+        guard draggedRow(info, in: tableView) != nil else { return [] }
+        tableView.setDropRow(dropOperation == .on ? row + 1 : row, dropOperation: .above)
+        return .move
+    }
+
+    public func tableView(_ tableView: NSTableView, acceptDrop info: NSDraggingInfo, row: Int,
+                          dropOperation: NSTableView.DropOperation) -> Bool {
+        guard let dragged = draggedRow(info, in: tableView), let thread = rowCell(dragged)?.thread,
+              let ticket = RetrieveQueue.ticket(of: thread) else { return false }
+        let waits = (0..<_cells.count).map { rowCell($0).flatMap(queuePosition) != nil }
+        RetrieveQueue.shared.move(ticket, toIndex: RetrieveQueue.index(ofRow: dragged, droppedAbove: row, waits: waits))
+        arrangeQueue()
+        return true
     }
 
     nonisolated deinit {
@@ -172,14 +261,15 @@ public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTab
 
     @objc(cellForThread:)
     public func cell(for thread: Thread!) -> NSCell! {
-        return objcSynchronized(ThreadsManager.default().threadsController) { () -> NSCell? in
-            for case let cell as ThreadCell in _cells {
-                if cell.thread === thread {
-                    return cell
-                }
+        let lock: NSArrayController = ThreadsManager.default().threadsController
+        objc_sync_enter(lock)
+        defer { objc_sync_exit(lock) }
+        for case let cell as ThreadCell in _cells {
+            if cell.thread === thread {
+                return cell
             }
-            return nil
         }
+        return nil
     }
 
     @objc(_observeValueForKeyPathOfObjectChangeContext:)
@@ -199,7 +289,7 @@ public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTab
 
         if context == BrowserActivityHelperContext.pointer {
             let arrangedObjects = (object as? NSArrayController)?.arrangedObjects as? [Any]
-            objcSynchronized(ThreadsManager.default().threadsController) {
+            HorosObjCException.synchronized(ThreadsManager.default().threadsController) {
                 // we are looking for removed threads
                 let threadsThatHaveCellsToRemove = ((_cells.value(forKey: "thread") as? NSArray)?.mutableCopy() as? NSMutableArray) ?? NSMutableArray()
                 threadsThatHaveCellsToRemove.removeObjects(in: arrangedObjects ?? [])
@@ -247,18 +337,20 @@ public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTab
 
     @objc(tableView:dataCellForTableColumn:row:)
     public func tableView(_ tableView: NSTableView, dataCellFor tableColumn: NSTableColumn?, row: Int) -> NSCell? {
-        return objcSynchronized(ThreadsManager.default().threadsController) { () -> NSCell? in
-            // -objectAtIndex: raised out of range, and the @catch returned NULL.
-            guard row >= 0 && row < _cells.count else { return nil }
-            return _cells.object(at: row) as? NSCell
-        }
+        let lock: NSArrayController = ThreadsManager.default().threadsController
+        objc_sync_enter(lock)
+        defer { objc_sync_exit(lock) }
+        // -objectAtIndex: raised out of range, and the @catch returned NULL.
+        guard row >= 0 && row < _cells.count else { return nil }
+        return _cells.object(at: row) as? NSCell
     }
 
     @objc(numberOfRowsInTableView:)
     public func numberOfRows(in aTableView: NSTableView) -> Int {
-        return objcSynchronized(ThreadsManager.default().threadsController) {
-            _cells.count
-        }
+        let lock: NSArrayController = ThreadsManager.default().threadsController
+        objc_sync_enter(lock)
+        defer { objc_sync_exit(lock) }
+        return _cells.count
     }
 
     @objc(tableView:willDisplayCell:forTableColumn:row:)
@@ -267,7 +359,7 @@ public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTab
         if let tableColumn { frame = tableView.frameOfCell(atColumn: (tableView.tableColumns as NSArray).index(of: tableColumn), row: row) }
         else { frame = tableView.rect(ofRow: row) }
 
-        objcSynchronized(ThreadsManager.default().threadsController) {
+        HorosObjCException.synchronized(ThreadsManager.default().threadsController) {
             if let cell = cellObject as? ThreadCell, _cells.contains(cell) {
                 let activityName = cell.thread?.name ?? NSLocalizedString("Unspecified Task", comment: "")
                 cell.cancelButton?.setAccessibilityElement(true)

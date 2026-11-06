@@ -9,9 +9,9 @@ when the number changes, so two exports of the same viewer whose numbers came
 out equal (10:09 and 09:10, or the same second) wrote the same series: the
 second went into the first, which took its description.
 
-- exporter: -[DICOMExport beginSeriesWithNumber:], copied from DICOMExport.mm
-  with -setSeriesNumber: and compiled with a stand-in of
-  +[DCMObject newSeriesInstanceUID], makes a new UID at each call, also for
+- exporter: -[DICOMExport beginSeriesWithNumber:], copied from DICOMExport.swift
+  (DICOMExport.mm in an earlier revision) with -setSeriesNumber: and compiled
+  with a stand-in of the series UID factory, makes a new UID at each call, also for
   the number already set, and numbers the images of the new series from 1;
   -setSeriesNumber: keeps what plugins know (a new UID only for a new number).
   The case of the report, "CHK876D2" and then "CHK867ALL" both on 5319, gets
@@ -47,6 +47,13 @@ def source(path):
     return data.decode('utf-8' if path.endswith('.swift') else 'latin1')
 
 
+def exists(path):
+    if revision:
+        return subprocess.run(['git', '-C', str(root), 'cat-file', '-e', f'{revision}:{path}'],
+                              capture_output=True).returncode == 0
+    return (root / path).is_file()
+
+
 failures = []
 
 
@@ -56,7 +63,9 @@ def check(condition, what):
 
 
 # ---------------------------------------------------------------- the exporter
-exporter = source('Horos/Sources/DICOMExport.mm')
+# DICOMExport is Swift (an @implementation of DICOMExport.h); an earlier revision has the Objective-C++.
+swift_exporter = exists('Horos/Sources/DICOMExport.swift')
+exporter = source('Horos/Sources/DICOMExport.swift' if swift_exporter else 'Horos/Sources/DICOMExport.mm')
 
 
 def objc_method(text, signature):
@@ -68,10 +77,67 @@ def objc_method(text, signature):
     return text[at + 1:end]
 
 
-set_number = objc_method(exporter, '- (void) setSeriesNumber:')
-begin = objc_method(exporter, '- (void) beginSeriesWithNumber:')
-check(set_number is not None, 'DICOMExport.mm has -setSeriesNumber:')
-check(begin is not None, 'DICOMExport.mm has -beginSeriesWithNumber:, which begins a series whatever the number')
+def swift_exporter_method(text, signature):
+    """The Swift method whose line starts with `signature`, to its closing brace, without its @objc name."""
+    at = text.find('\n    ' + signature)
+    if at < 0:
+        return None
+    return text[at + 1:text.index('\n    }\n', at) + 7]
+
+
+if swift_exporter:
+    set_number = swift_exporter_method(exporter, 'func setSeriesNumber(_ no: Int)')
+    begin = swift_exporter_method(exporter, 'func beginSeries(withNumber no: Int)')
+else:
+    set_number = objc_method(exporter, '- (void) setSeriesNumber:')
+    begin = objc_method(exporter, '- (void) beginSeriesWithNumber:')
+check(set_number is not None, 'DICOMExport has -setSeriesNumber:')
+check(begin is not None, 'DICOMExport has -beginSeriesWithNumber:, which begins a series whatever the number')
+
+# The Swift methods, in a class with the stored values they change, over a
+# stand-in of the adapter's series UID factory.
+SWIFT_HARNESS = r'''
+import Foundation
+nonisolated(unsafe) var made = 0
+enum IsiXDCMTKUIDRoot { case series }
+enum IsiXDCMTKFile {
+    static func generateUID(root: IsiXDCMTKUIDRoot) -> String { made += 1; return "1.2.3.\(made)" }
+}
+final class DICOMExport {
+    var horos_instanceNumber: Int32 = 1
+    var horos_seriesNumber: Int32 = 5000
+    var horos_seriesUID: String? = IsiXDCMTKFile.generateUID(root: .series)
+    // -writeDCMFile: puts these in the file and counts the instance.
+    func uid() -> String { horos_seriesUID ?? "" }
+    func number() -> Int32 { horos_seriesNumber }
+    func write() -> Int32 { defer { horos_instanceNumber += 1 }; return horos_instanceNumber }
+METHODS
+}
+nonisolated(unsafe) var failures = 0
+func check(_ condition: Bool, _ what: String) { if !condition { print("FAIL: " + what); failures += 1 } }
+let e = DICOMExport()
+// The report: two exports of one viewer on 5319 (10:09 and 09:10).
+e.beginSeries(withNumber: 5319)
+let first = e.uid()
+for _ in 0..<4 { _ = e.write() }
+e.beginSeries(withNumber: 5319)
+check(e.uid() != first, "a second export on the same number writes the series of the first (\(first))")
+check(e.number() == 5319, "the series number is the one given, not \(e.number())")
+check(e.write() == 1, "the images of the new series are numbered from 1")
+let second = e.uid()
+check(e.uid() == second && e.write() == 2, "the steps of one export stay in its series")
+// Another number begins a series too.
+e.beginSeries(withNumber: 15319)
+check(e.uid() != second && e.number() == 15319, "another number begins another series")
+// -setSeriesNumber: as plugins know it: a new UID only for a new number.
+let kept = e.uid()
+e.setSeriesNumber(15319)
+check(e.uid() == kept, "-setSeriesNumber: with the number already set keeps the series")
+e.setSeriesNumber(8200)
+check(e.uid() != kept && e.number() == 8200, "-setSeriesNumber: with a new number begins a series")
+if failures > 0 { exit(1) }
+print("PASS: -beginSeriesWithNumber: begins a series at each export, -setSeriesNumber: is as before")
+'''
 
 HARNESS = r'''
 #import <Foundation/Foundation.h>
@@ -136,9 +202,16 @@ if set_number and begin:
         sys.exit(SKIPPED)
     with tempfile.TemporaryDirectory(prefix='horos-export-series-') as folder:
         d = Path(folder)
-        (d / 'test.m').write_text(HARNESS.replace('METHODS', set_number + '\n' + begin))
-        build = subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fsanitize=address', str(d / 'test.m'),
-                                '-framework', 'Foundation', '-o', str(d / 'test')], capture_output=True, text=True)
+        if swift_exporter:
+            methods = '\n'.join(line for line in (set_number + '\n' + begin).splitlines()
+                                if not line.strip().startswith('@objc('))
+            (d / 'main.swift').write_text(SWIFT_HARNESS.replace('METHODS', methods))
+            build = subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-sanitize=address', str(d / 'main.swift'),
+                                    '-o', str(d / 'test')], capture_output=True, text=True)
+        else:
+            (d / 'test.m').write_text(HARNESS.replace('METHODS', set_number + '\n' + begin))
+            build = subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fsanitize=address', str(d / 'test.m'),
+                                    '-framework', 'Foundation', '-o', str(d / 'test')], capture_output=True, text=True)
         if build.returncode != 0:
             failures.append('the exporter harness does not compile:\n' + build.stderr[-3000:])
         else:
@@ -180,21 +253,25 @@ def before(region, names, write):
     return at >= 0 and count_begins(region[:at], names) > 0
 
 
-# The 2D viewer.
-viewer = source('Horos/Sources/ViewerController+Export.swift')
+# The 2D viewer: its exports are ViewerImageExporter's; each branch of the
+# sheet writes through the closure `write`, which begins nothing.
+viewer = source('Horos/Sources/ViewerImageExporter.swift')
 names = begin_calls(viewer)
-sheet = swift_method(viewer, 'func endExportDICOMFileSettings(')
+sheet = swift_method(viewer, 'func endDICOMSheet(')
 check('setSeriesNumber' not in sheet, '2D viewer: the DICOM sheet still sends -setSeriesNumber:')
-current = sheet[:sheet.index('// 4th Dimension')]
-fourth = sheet[sheet.index('// 4th Dimension'):sheet.index('var from: Int32')]
-series = sheet[sheet.index('var from: Int32'):]
-check(before(current, names, 'self.exportDICOMFileInt('), '2D viewer: the current image begins its series')
-check(before(fourth, names, 'while i <') and count_begins(fourth[fourth.index('while i <'):], names) == 0,
+preamble = sheet[:sheet.index('switch ViewerExportRange.DICOMSelection(')]
+current = sheet[sheet.index('case .currentImage:'):sheet.index('case .frames4D:')]
+fourth = sheet[sheet.index('case .frames4D:'):sheet.index('case .range, .keyImagesAndROIs, nil:')]
+series = sheet[sheet.index('case .range, .keyImagesAndROIs, nil:'):]
+check('self.viewer.exportDICOMFileInt(' in preamble and count_begins(preamble, names) == 0,
+      '2D viewer: the write of the sheet begins no series of its own')
+check(before(current, names, 'write()'), '2D viewer: the current image begins its series')
+check(before(fourth, names, 'for frame in') and count_begins(fourth[fourth.index('for frame in'):], names) == 0,
       '2D viewer: the 4D export begins one series before its frames')
-check(before(series, names, 'while i < to') and count_begins(series[series.index('while i < to'):], names) == 0,
+check(before(series, names, 'for i in range.indices') and count_begins(series[series.index('for i in range.indices'):], names) == 0,
       '2D viewer: the series export begins one series before its images')
 all_images = swift_method(viewer, 'func exportAllImages(')
-check('setSeriesNumber' not in all_images and before(all_images, names, 'while Int(i)'),
+check('setSeriesNumber' not in all_images and before(all_images, names, 'for i in 0..<count'),
       '2D viewer: -exportAllImages: begins its series')
 
 # The orthogonal MPR viewer.
@@ -217,7 +294,7 @@ names = begin_calls(petct)
 sheet = swift_method(petct, 'func endExportDICOMFileSettings(')
 check('setSeriesNumber' not in sheet, 'PET-CT: the DICOM sheet still sends -setSeriesNumber:')
 current = sheet[:sheet.index('// all images of the series')]
-one = current[current.index('"export3modalities") == false {'):current.index('} else {')]
+one = current[current.index('ReconstructionPreferences.petCTExportsThreeModalities] == false {'):current.index('} else {')]
 three = current[current.index('} else {'):]
 check(before(one, names, 'self.exportDICOMFileInt('), 'PET-CT: the current image begins its series')
 for view in ('originalView', 'xReslicedView', 'yReslicedView'):
@@ -227,8 +304,8 @@ for view in ('originalView', 'xReslicedView', 'yReslicedView'):
     check(len(writes) == 3 and all(count_begins(branch[a:b], names) == 1 for a, b in zip(starts, writes)),
           f'PET-CT: each of the three current images of the {view} begins its series')
 series = sheet[sheet.index('// all images of the series'):]
-single = series[series.index('"export3modalities") == false {'):series.index('} else {', series.index('"export3modalities") == false {'))]
-check(before(series, names, '"export3modalities") == false {') and count_begins(single, names) == 0,
+single = series[series.index('ReconstructionPreferences.petCTExportsThreeModalities] == false {'):series.index('} else {', series.index('ReconstructionPreferences.petCTExportsThreeModalities] == false {'))]
+check(before(series, names, 'ReconstructionPreferences.petCTExportsThreeModalities] == false {') and count_begins(single, names) == 0,
       'PET-CT: the series export begins one series before its images')
 modalities = series[series.index('for (seriesNumber, seriesView) in'):]
 loop = modalities[:modalities.index('for index in indices')]
@@ -243,10 +320,10 @@ check('setSeriesNumber(9983)' not in common and 'exportDCM?.beginSeries(withNumb
       'MPR: the current image begins its series on the exporter the view keeps')
 
 # The surface renderer: the exporter is kept for the current image.
-surface = source('Horos/Sources/SRView.mm')
-sheet = surface[surface.index('-(IBAction) endDCMExportSettings:'):]
+surface = source('Horos/Sources/SRView+Export.swift')
+sheet = swift_method(surface, 'func endDCMExportSettings(')
 current = sheet[sheet.index('// CURRENT image only'):sheet.index('// A 3D sequence')]
-check('setSeriesNumber' not in current and before(current, ['beginSeriesWithNumber:'], 'writeDCMFile:'),
+check('setSeriesNumber' not in current and before(current, ['beginSeries(withNumber:'], 'writeDCMFile('),
       'surface renderer: the current image begins its series')
 
 # The endoscopy's 3D view: the VR view keeps its exporter.

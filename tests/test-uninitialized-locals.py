@@ -6,7 +6,8 @@ in a place where the wrong value is not obviously wrong to look at: an
 ultrasound unit string, a selected-row index, a NIfTI orientation
 code and a plugin's menu item. The first two have their own behavioural
 checks; this one guards the declarations themselves, so the warnings cannot
-quietly come back.
+quietly come back. The plugin's menu item went with the menus former plugins
+declared in their Info.plist, which nothing builds any more.
 
 Reading declarations is weaker than compiling the code, and is meant to be:
 these are one-line invariants in files far too entangled to extract.
@@ -14,10 +15,9 @@ these are one-line invariants in files far too entangled to extract.
 from pathlib import Path
 import re
 import sys
+from sources import class_text
 
 root = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
 failures = []
 
 
@@ -26,9 +26,16 @@ def source(name):
 
 
 # --- NIfTI orientation: no qform and no sform must not read the stack --------
-pix = source('Horos/Sources/DCMPix.m')
+# DCMPix.m, or the Swift class once it moved.
+pix = source('Horos/Sources/DCMPix.m') if (root / 'Horos/Sources/DCMPix.m').is_file() else class_text('DCMPix')
 orientation = re.search(r'int\s+icod\s*(=[^;]*)?,\s*jcod\s*(=[^;]*)?,\s*kcod\s*(=[^;]*)?;', pix)
-if not orientation:
+if not orientation and 'loadNonDICOMImage' in pix:
+    # DCMPix reads NIfTI in Swift, where a local cannot be read unset; the codes
+    # still start at 0, outside the 1..6 the library returns.
+    swift = source('Horos/Sources/DCMPix+NonDICOM.swift')
+    if 'var i: Int32 = 0, j: Int32 = 0, k: Int32 = 0\n        HorosNIfTIOrientation(' not in swift:
+        failures.append('the NIfTI orientation codes do not start outside the 1..6 the library returns')
+elif not orientation:
     failures.append('the NIfTI orientation codes are gone from DCMPix.m')
 elif not all(orientation.group(i) for i in (1, 2, 3)):
     failures.append('icod/jcod/kcod are declared without values; a NIfTI with neither '
@@ -40,19 +47,6 @@ else:
         if value != '0':
             failures.append('an orientation code starts at %s; it has to be outside the '
                             '1..6 the library returns, so no comparison matches' % value)
-
-# --- a plugin menu item that already exists ---------------------------------
-# PluginManager is Swift, where the local is an optional whose value
-# is still spelled where it is declared.
-plugins = source_text('PluginManager')
-item = re.search(r'var\s+subMenuItem\s*:\s*NSMenuItem\?\s*(=\s*([^\n]+))?\n', plugins)
-if not item:
-    failures.append('subMenuItem is gone from PluginManager.swift')
-elif not item.group(1):
-    failures.append('subMenuItem is declared without a value; a plugin whose menu item '
-                    'already exists then gets setRepresentedObject: through a wild pointer')
-elif item.group(2).strip() != 'nil':
-    failures.append('subMenuItem starts at %s, not nil' % item.group(2).strip())
 
 if failures:
     for entry in failures:

@@ -42,50 +42,48 @@ import Cocoa
 /// FlyThruAdapter for Volume Rendering.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
-/// <Horos/VRFlyThruAdapter.h> are those of the former class. The view's
-/// messages go through FlyThruHostBridge, because VRView.h is C++.
+/// <Horos/VRFlyThruAdapter.h> are those of the former class.
 @objc(VRFlyThruAdapter)
 public final class VRFlyThruAdapter: FlyThruAdapter {
-    /// The parameter is a VRController, a Window3DController subclass whose
-    /// header Swift cannot import.
+    /// The parameter is a VRController.
     @objc(initWithVRController:)
     public convenience init(vrController aVRController: Window3DController?) {
         self.init(window3DController: aVRController)
     }
 
     /// [controller view]; nil without a controller, as the message to nil.
-    private var view: Any? {
+    private var view: VRView? {
         guard let controller = controller else { return nil }
-        return controller.view()
+        return controller.view() as? VRView
     }
 
     public override dynamic func getCurrentCamera() -> Camera? {
-        let cam = FlyThruHostBridge.camera(ofView: view)
+        let cam = view?.camera()
         // The image was rendered even for a nil camera, as the argument of a
         // message to nil.
-        let image = FlyThruHostBridge.image(ofView: view, quality: true)
+        let image = view?.nsimage(true)
         cam?.previewImage = image
         return cam
     }
 
     public override dynamic func setCurrentViewToCamera(_ cam: Camera?) {
-        FlyThruHostBridge.setCamera(cam, ofView: view)
-        (view as? NSView)?.needsDisplay = true
+        view?.setCamera(cam)
+        view?.needsDisplay = true
     }
 
     public override dynamic func setCurrentViewToLowResolutionCamera(_ cam: Camera?) {
-        FlyThruHostBridge.setLowResolutionCamera(cam, ofView: view)
+        view?.setLowResolutionCamera(cam)
     }
 
     public override dynamic func getCurrentCameraImage(_ highQuality: Bool) -> NSImage? {
-        return FlyThruHostBridge.quicktimeImage(ofView: view, renderingMode: highQuality)
+        return view?.nsimageQuicktime(highQuality)
     }
 
     public override dynamic func prepareMovieGenerating() {
-        FlyThruHostBridge.setViewSizeToMatrix3DExport(ofView: view)
+        view?.setViewSizeToMatrix3DExport()
     }
 
     public override dynamic func endMovieGenerating() {
-        FlyThruHostBridge.restoreViewSizeAfterMatrix3DExport(ofView: view)
+        view?.restoreSizeAfterMatrix3DExport()
     }
 }

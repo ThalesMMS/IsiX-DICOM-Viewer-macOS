@@ -32,12 +32,21 @@ BRAND = re.compile(r'(?:(?<![A-Za-z0-9_])|(?<=\\[rnt]))(?:Horos ?Cloud|Horos|Osi
 ALLOWED = {
     # Plugins are installed in this folder, by the user and by plugin installers.
     '(~/Library/Application Support/Horos App/)': 'path on disk',
-    'Use templates at ~/Library/Application Support/Horos/': 'path on disk',
+    # Earlier versions kept their files in Application Support/Horos, which Horos
+    # also uses; importing from it says whose folder it is.
+    'Earlier versions of IsiX DICOM Viewer kept these items in %@, a folder that Horos also uses': 'the other application',
+    'Import from the Horos folder?': 'the other application',
+    '%@: already in %@. That copy was kept, and the one in the Horos folder': 'the other application',
+    'Nothing in the Horos folder was changed.': 'the other application',
+    # At startup, plugins installed for Horos or OsiriX can be copied from those
+    # applications' plugin folders, and the question names the folders they come from.
+    'Copy the plugins found in the Horos or OsiriX folders to your IsiX plugin folders?': 'the other application',
     # Plugins are made for Horos or for OsiriX, and the lists say which.
     'Horos Plugins': 'plugin origin', 'OsiriX Plugins': 'plugin origin',
     'Plugin validated in Horos': 'plugin origin', 'Plugin not validated in Horos': 'plugin origin',
     'No Horos plugin server available.': 'plugin origin',
     'Your Horos Plugin here!': 'plugin origin', 'Not validated OsiriX plugin': 'plugin origin',
+    'This plugin was made for Horos or OsiriX': 'plugin origin',
     # Importing from another application that is installed.
     'Your OsiriX files will not be modified': 'the other application',
     # A Horos database found on the Mac is left alone, and choosing one says what opening it does.
@@ -49,6 +58,11 @@ ALLOWED = {
     '%@ is the database of Horos': 'the other application',
     'Move to IsiX Data opens a database of IsiX DICOM Viewer beside it': 'the other application',
     'Keep Using Horos Data': 'folder name',
+    # File > Import brings in the studies of a data folder of Horos or OsiriX: the command
+    # and its dialogs say whose studies they are, and the chooser names the folders to pick.
+    'Import Studies from Horos or OsiriX': 'the other application',
+    'Choose the Horos Data or OsiriX Data folder': 'folder name',
+    'No Horos or OsiriX database was found in this folder.': 'the other application',
     NAME + ' detected you have OsiriX pre-installed': 'the other application',
     # The XML-RPC warning says the open server behaves as Horos's and OsiriX's do.
     'Without a password, any computer that can reach this machine can list': 'the other application',
@@ -57,7 +71,7 @@ ALLOWED = {
     'Only CLUT created in Horos 1.3.1': 'file format history',
     # Names stored in data or in other applications' files.
     'Horos Screen Captures': 'stored series name',
-    'OsiriXDB.plist': 'file name', 'http://www.dicom.dcm/OsiriXDB.plist': 'file name', 'OsiriX CT - 129': 'stored preset name',
+    'OsiriXDB.plist': 'file name', 'https://www.dicom.dcm/OsiriXDB.plist': 'file name', 'OsiriX CT - 129': 'stored preset name',
 }
 PREFIXES = tuple(ALLOWED)
 

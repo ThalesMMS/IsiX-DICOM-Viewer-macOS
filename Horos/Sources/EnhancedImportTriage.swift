@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXDICOMFile
 
 /// Whether a DICOM object can be handed to the incoming indexer and the
 /// thumbnail stack without a divide-by-zero.
@@ -143,17 +144,18 @@ public final class EnhancedImportTriage: NSObject {
     /// inflates it to Explicit VR Little Endian and puts it back in INCOMING.
     @objc(isDeflatedDICOMAtPath:)
     public static func isDeflatedDICOM(atPath path: String) -> Bool {
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe) else { return false }
-        return DICOMTriageMetadata.transferSyntax(data) == DICOMTriageMetadata.deflatedTransferSyntax
+        DICOMTriageFile(path: path).isDeflated
     }
 
     @objc(assessPath:)
     public static func assessPath(_ path: String) -> EnhancedImportAssessment {
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe),
-              hasDICOMPreamble(data),
-              let parsed = DICOMTriageMetadata.parse(data) else {
-            let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe)
-            if let data, DICOMTriageMetadata.transferSyntax(data) == DICOMTriageMetadata.deflatedTransferSyntax {
+        assess(DICOMTriageFile(path: path))
+    }
+
+    /// The assessment of a file another triage may also be reading.
+    static func assess(_ file: DICOMTriageFile) -> EnhancedImportAssessment {
+        guard let data = file.data, hasDICOMPreamble(data), let parsed = file.parsed else {
+            if file.isDeflated {
                 // DICOM, but not readable here until it is inflated.
                 let text = "is deflated, and is indexed once the decompression helper has inflated it"
                 return EnhancedImportAssessment(
@@ -187,9 +189,12 @@ public final class EnhancedImportTriage: NSObject {
         let samples = max(parsed.int(group: 0x0028, element: 0x0002) ?? 1, 1)
         let spacing = parsed.pixelSpacing
         let pixelBytes = parsed.pixelDataBytes
+        // Native YBR_FULL_422 stores two samples per pixel of the three it declares.
+        let storedSamples = DICOMImportRules.storedSamplesPerPixel(
+            samples, photometricInterpretation: parsed.string(group: 0x0028, element: 0x0004))
         var expected = 1
         var sizeOverflow = false
-        for factor in [rows, columns, frames, bitsAllocated / 8, samples] {
+        for factor in [rows, columns, frames, bitsAllocated / 8, storedSamples] {
             let product = expected.multipliedReportingOverflow(by: factor)
             if product.overflow { sizeOverflow = true; expected = 0; break }
             expected = product.partialValue

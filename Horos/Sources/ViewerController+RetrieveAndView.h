@@ -55,28 +55,4 @@
 // VRController, which needs that interface complete.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift: the former declarations, without their
-// implementation.
-@interface ViewerController (RetrieveAndView)
-
-/** Text the image view draws while the series is being received, ended short or unverified; empty otherwise. */
-- (NSString*) retrieveStatusOverlay;
-/** YES while a retrieve-and-view of this series is still in flight or ended short: no complete volume can be assumed. */
-- (BOOL) isReceivingPartialSeries;
-- (BOOL) updateTilingViewsValue;
-- (void) setUpdateTilingViewsValue:(BOOL) v;
-- (void) requestOpeningScaleToFit;
-- (void) finishOpeningScaleToFit;
-- (void) cancelOpeningScaleToFit;
-- (void) changeImageData:(NSMutableArray*)f :(NSMutableArray*)d :(NSData*) v :(BOOL) applyTransition;
-- (IBAction) exportCroppedSeries: (id) sender;
-- (void) copyVolumeData: (NSData**) vD andDCMPix: (NSMutableArray **) newPixList forMovieIndex: (int) v;
-- (id) viewCinit:(NSMutableArray*)f :(NSMutableArray*) d :(NSData*) v;
-- (void) selectFirstTilingView;
-- (void) startLoadImageThread;
-+ (BOOL) areLoadingViewers;
-- (void) showWindowTransition;
-
-@end
 #endif

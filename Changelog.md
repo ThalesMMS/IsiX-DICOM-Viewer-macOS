@@ -7,6 +7,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+### Plugins: three formats in 6.0
+
+- New plugins use the plugin API version 1: `.isixplugin` bundles built in Swift against `IsiXPluginKit.framework`, the application's public plugin interface. The template, the SDK and its documentation are at [github.com/ThalesMMS/IsiXPluginTemplate](https://github.com/ThalesMMS/IsiXPluginTemplate).
+- Plugins made for Horos or OsiriX (`.horosplugin`, `.osirixplugin`) load as they are, without being rebuilt or changed, beside the `.isixplugin` bundles, and the Plugins Manager installs, lists, activates and deactivates all three formats. The application still provides `Horos.framework` and its aliases `HorosAPI`, `OsiriXAPI`, `OsiriX Headers` and `HorosDCM`, which they link, and the classes, methods and functions of the former SDK they use. A plugin built for another architecture, or renamed to another format's extension, is listed with the reason and not loaded; when one fails to load, its reason names the symbol it could not find.
+- Plugins that draw with OpenGL inside the viewer load, but their drawing does not appear: the viewers draw with Metal.
+
+### Data and folders in 6.0
+
+- On first launch, IsiX offers to copy what earlier versions kept outside its own folders: Web Portal accounts and custom pages and the Weasis customization from `Application Support/Horos`, and active and disabled plugins from the `Horos`, `Horos App` and `OsiriX` folders. Nothing is moved, replaced or removed. A Weasis customization left in `/Library/Application Support/Horos/Weasis` is copied to the user's own folder when the user has none; when both exist, the user's is copied, and an administrator can copy the other to `/Library/Application Support/IsiX/Weasis` for all users.
+- The DICOM print log is written to `~/Library/Logs/IsiXDicomPrint`. Logs of earlier versions stay in `~/Library/Logs/HorosDicomPrint`.
+
 ### Changed
 
 - The application is named IsiX DICOM Viewer and has its own icon and bundle identifier, `thalesmms.isis.workstation`. On first launch it copies the preferences of an installation made as Horos, and opens that installation's database where it is.
@@ -17,6 +28,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- File > Export > Export as Synthetic DWI computes the diffusion-weighted image at a b-value that was not acquired (b1600 from b0, b50 and b800, for instance) and adds it to the study as a new series, which opens in a viewer. The diffusion series is either open in 4D, one b-value per frame, or a single series that holds its b-values at each position. The b-values are read from the files and can be corrected in the dialog; the signal of each voxel is fitted as a mono-exponential decay. The new images carry the computed value as their Diffusion b-value and are marked as derived.
+- With the Sync button locked on series of different studies, panning or zooming into one part of an image takes the other series to the same part, keeping the alignment the series had when locked. Without the lock only the zoom goes across studies, as before.
 - DICOMweb nodes have their own list in Locations, "DICOMweb Nodes for DICOM Query/Retrieve and DICOM Send": address, separate WADO and QIDO paths, name, Q&R, retrieve transfer syntax, authentication (none, username and password, a header and API key, or a bearer token, kept in the Keychain), Send and send transfer syntax, with a Test button that tells network, TLS, timeout, rejected credentials and a wrong path apart. Nodes with Q&R appear in the Query/Retrieve window; nodes with Send appear in Send to and receive the images by STOW-RS, transcoded first when another transfer syntax is chosen, with a result per instance.
 - The DICOMweb client is built on DICOM-Swift's (Apache 2.0), included with its license and listed in the notices.
 
@@ -32,6 +45,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- The Query/Retrieve window lists every study a node answered. With a node that took more than a moment to send its first match, the list of that first match could arrive after the complete list and replace it, so a search showed one study of several until it was repeated; the same happened to Query all studies of this patient.
+- A client that leaves its DICOM association idle no longer produces a "DICOM Listener Error" notice. The listener still closes such an association after its timeout and writes it to the log.
 - DICOM print objects written without DCMTK carry the Secondary Capture class and a UID of their own, a correct file meta group length, and rows and columns in pixels; the color conversion no longer reads past the bitmap of an image below 72 dpi.
 - `OSIROIMask`, `OSIROIFloatPixelData` and `CPRVolumeData`: `-initWithSortedIndexes:` and `-initWithSortedIndexData:` build their runs from the indexes given, without reading past them; `-convexHull` has the right maximum depth; `-volumeDataForSliceAtIndex:` translates the slice by its depth and returns nil past the volume; `-getFloatRun:…` accepts a run that ends at the last column and refuses one that leaves the volume; `-getFloatData:floatCount:` copies at most `floatCount` floats; `-linearInterpolateVolumeVectors:…` interpolates the vectors given, with the out-of-bounds value outside the volume.
 - Anonymization writes a date given for a DT tag as a DICOM date-time with its UTC offset, not as the date's description, and TM without a fraction; it reads and writes files in folders whose names are not Latin. The field of an SL tag accepts negative values.

@@ -40,10 +40,10 @@
 import Cocoa
 
 /// A DICOM attribute offered by the custom annotations pane: its tag and its
-/// dictionary name. PreferencesWindowController+DCMTK.mm builds them from the
+/// dictionary name. PreferencesWindowController+DICOMFields.swift builds them from the
 /// DCMTK data dictionary.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// CIADICOMField.h are those of the former class.
 @objc(CIADICOMField)
 public final class CIADICOMField: NSObject {

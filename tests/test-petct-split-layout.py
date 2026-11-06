@@ -25,7 +25,7 @@ views.
 The shipped PETCT.xib window (en and ja-JP) is compiled with ibtool, with plain
 views in place of the OrthogonalMPRPETCTView panes and a plain NSWindow for
 OSIWindow, and the split views left as the real KFSplitView, built from
-KFSplitView.swift and KFSplitView+CAPI.m. It is loaded by a double of
+KFSplitView.swift. It is loaded by a double of
 OrthogonalMPRPETCTViewer that holds the four split view outlets, the delegate
 methods copied verbatim from the viewer's source (its "NSSplitview's delegate
 methods" section), its -adjustHeightSplitView and -adjustWidthSplitView, which
@@ -50,6 +50,10 @@ import subprocess
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import process_graph_stand_in  # noqa: E402  - the 2D viewer's sources read the catalog's keys through PreferencesSource
+import isix_modules  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -135,8 +139,8 @@ bridge = '''#define HOROS_BRIDGING_HEADER 1
 #import "KFSplitView.h"
 '''
 
-# The Swift viewer's -splitViewWillResizeSubviews: asks the window for this; an
-# NSWindow has none.
+# The Swift viewer of earlier revisions asked the window for this in
+# -splitViewWillResizeSubviews:; an NSWindow has none.
 swift_bridge = bridge + '''
 @interface N2OpenGLViewWithSplitsWindow : NSWindow
 - (void)disableUpdatesUntilFlush;
@@ -219,7 +223,7 @@ static NSUInteger resizes;
 @interface HarnessPane : NSView @end
 @implementation HarnessPane @end
 
-// -splitViewWillResizeSubviews: asks the window for this; an NSWindow has none.
+// Earlier revisions' -splitViewWillResizeSubviews: asked the window for this.
 @interface N2OpenGLViewWithSplitsWindow : NSWindow
 - (void)disableUpdatesUntilFlush;
 @end
@@ -671,7 +675,6 @@ with tempfile.TemporaryDirectory(prefix='horos-petct-split-') as folder:
     }))
     (work / 'KFSplitView.h').write_bytes(read('Horos/Sources/KFSplitView.h'))
     (work / 'KFSplitView.swift').write_bytes(read('Horos/Sources/KFSplitView.swift'))
-    (work / 'KFSplitView+CAPI.m').write_bytes(read('Horos/Sources/KFSplitView+CAPI.m'))
     # The main-actor callbacks the viewer's methods use.
     swift_files = [str(work / 'KFSplitView.swift'), str(root / 'Horos/Sources/MainActorCallbacks.swift')]
     if swift_viewer:
@@ -694,12 +697,11 @@ with tempfile.TemporaryDirectory(prefix='horos-petct-split-') as folder:
     built = (run(['xcrun', 'swiftc', '-parse-as-library', '-module-name', 'PETCTHarness', '-wmo',
                   '-import-objc-header', str(work / 'bridge.h'),
                   '-emit-objc-header-path', str(work / 'PETCTHarness-Swift.h'),
-                  '-c'] + swift_files + ['-o', str(work / 'kf.o')], 'KFSplitView.swift' + (' and the viewer double' if swift_viewer else ''))
-             and run(['xcrun', 'clang', '-c', str(work / 'KFSplitView+CAPI.m'), '-o', str(work / 'capi.o')],
-                     'KFSplitView+CAPI.m')
+                  '-c'] + swift_files + process_graph_stand_in.swift_flags(work / 'isix') + ['-o', str(work / 'kf.o')], 'KFSplitView.swift' + (' and the viewer double' if swift_viewer else ''))
              and run(['xcrun', 'clang', '-fobjc-arc', '-fmodules', '-Wno-deprecated-declarations', '-I', str(work),
                       '-c', str(work / 'harness.m'), '-o', str(work / 'harness.o')], 'the harness')
-             and run(['xcrun', 'swiftc', str(work / 'harness.o'), str(work / 'capi.o'), str(work / 'kf.o'),
+             and run(['xcrun', 'swiftc', str(work / 'harness.o'), str(work / 'kf.o'),
+                      *isix_modules.module_flags('IsiXPreferences', work / 'isix'),
                       '-framework', 'Cocoa', '-o', str(work / 'harness')], 'the harness link'))
     for locale in ('en', 'ja-JP') if built else ():
         xib = work / f'{locale}.xib'

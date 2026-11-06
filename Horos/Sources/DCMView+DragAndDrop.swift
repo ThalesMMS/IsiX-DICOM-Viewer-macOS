@@ -40,18 +40,17 @@
 import Cocoa
 
 // The "Drag and Drop" methods of DCMView are implemented in Swift: an
-// extension of DCMView, which stays Objective-C, with the same selectors. Every
+// extension of DCMView, with the same selectors. Every
 // method is dynamic, so the Objective-C subclasses that override one still get
 // the message. This extension declares the conformance to NSDraggingSource and
-// NSPasteboardItemDataProvider, which DCMView.h no longer lists under the
-// bridging header. The instance variables are reached through the accessors of
-// DCMView (SwiftIvars): a write of one is a write of the ivar, without
-// retain or release, so the explicit ones of the former code are kept.
+// NSPasteboardItemDataProvider. The view's state is its stored properties
+// (DCMView.swift).
 //
 // A message to nil returned nil, NO or 0: it is an optional chain with that
-// default. An @try is HorosObjCException.perform. The Carbon Pasteboard and the
-// URL it copies are Core Foundation objects Swift manages, so the former
-// CFRelease calls are the releases Swift makes when they go out of scope.
+// default. An @try is HorosObjCException.caughtWithoutAllocation. The Carbon
+// Pasteboard and the URL it copies are Core Foundation objects Swift manages,
+// so the former CFRelease calls are the releases Swift makes when they go out
+// of scope.
 
 /// The pasteboard type under which the modifier flags of the drag are looked
 /// for when the promised file is written.
@@ -61,8 +60,7 @@ extension DCMView: NSDraggingSource, NSPasteboardItemDataProvider {
 
     @objc(startDrag:)
     public dynamic func startDrag(_ theTimer: Timer!) {
-        do {
-            try HorosObjCException.perform {
+        if let localException = HorosObjCException.caughtWithoutAllocation({
                 let event = theTimer?.userInfo as? NSEvent
 
                 let image = self.nsimage((event?.modifierFlags.rawValue ?? 0) & NSEvent.ModifierFlags.shift.rawValue != 0)
@@ -84,7 +82,7 @@ extension DCMView: NSDraggingSource, NSPasteboardItemDataProvider {
                                                   series: description)
 
                 let pbi = NSPasteboardItem()
-                for case let pasteboardType as NSString in (DCMView.pasteboardTypes() ?? NSArray()) {
+                for case let pasteboardType as NSString in (DCMView.pasteboardTypes() as? [Any] ?? []) {
                     if pasteboardType.contains(".") {
                         // The address of the view, as the former [NSData dataWithBytes:&self length:sizeof(DCMView *)].
                         var viewAddress = Unmanaged.passUnretained(self).toOpaque()
@@ -105,10 +103,8 @@ extension DCMView: NSDraggingSource, NSPasteboardItemDataProvider {
                 // The timer of -mouseDown: always carries its event.
                 let session = self.beginDraggingSession(with: [fileItem, horosItem], event: event!, source: self)
                 session.animatesToStartingPositionsOnCancelOrFail = true
-            }
-        } catch {
-            let localException = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-            NSLog("Exception while dragging: %@", localException?.description ?? "(null)")
+        }) {
+            NSLog("Exception while dragging: %@", localException.description)
             self.horos__dragInProgress = false
         }
     }
@@ -184,12 +180,12 @@ extension DCMView: NSDraggingSource, NSPasteboardItemDataProvider {
     public dynamic func deleteMouseDownTimer() {
         let mouseDownTimer = self.horos__mouseDownTimer
         mouseDownTimer?.invalidate()
-        if let mouseDownTimer { Unmanaged.passUnretained(mouseDownTimer).release() }
         self.horos__mouseDownTimer = nil
     }
 
     // -draggingSourceOperationMaskForLocal: (part of the former Dragging Source
-    // Protocol, it returns NSDragOperationEvery) stays in Objective-C: Swift
+    // Protocol, it returns NSDragOperationEvery) stays in Objective-C, in
+    // DCMView+CAPI.m: Swift
     // marks it unavailable (deprecated since macOS 10.7), so it can neither
     // override it nor reuse its selector.
 

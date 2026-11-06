@@ -12,9 +12,19 @@ over loopback, with credentials in memory only:
   a secret is in any message;
 - a refusal with a 10 KiB body: the message keeps at most 300 characters of
   it, and the whole sanitized reason (at most 4 KiB) goes to the error's
-  user info and to the log;
+  user info;
+- the log, which every process of the user can read and which travels in
+  sysdiagnose reports, is told the HTTP status, the error code and how long
+  the node's Warning and body were, never their text: a node that refuses a
+  query or an instance may quote the name, the identifier or the date it was
+  sent;
+- the report of the refused send, with a file that is not DICOM and is named
+  after a patient: the alert names the file and says what the node said, and
+  what is written to the log tells the file by its place and the shape of
+  its name, and the refusal by its status;
 - a QIDO answer with a Warning 299, over two pages: the query succeeds, and
-  the log has the Warning once;
+  the log has the Warning once, by its warn-code and which of the standard's
+  warnings it is;
 - the node editor's rule and the client's resolution agree on every sample
   path, and a path with "%41" is stored as written by the editor, resolved
   without being encoded again, and requested at that path.
@@ -103,6 +113,7 @@ DRIVER = r'''
 import Foundation
 import DicomWebClient
 import DicomData
+import IsiXDICOMNetwork
 
 nonisolated(unsafe) var failed = false
 func check(_ ok: Bool, _ what: String) { if !ok { print("FAIL: \(what)"); failed = true } }
@@ -153,6 +164,31 @@ let memory = Memory()
     let fine = DICOMwebSendReport(results: [DICOMwebStoreResult(path: file, sopInstanceUID: "2.25.1", status: .success, reason: "")], cancelled: false)
     check(fine.statusLine == fine.summary, "a complete send shows its summary alone")
 
+    // The same send with a file that is not DICOM, named as people name files:
+    // the alert names it and says what the node said; the log is told neither.
+    check(stored[0].logReason == "HTTP 400.", "the log is told the refused send by its status: \(stored[0].logReason)")
+    let named = URL(fileURLWithPath: file).deletingLastPathComponent().appendingPathComponent("DOE JOHN knee.dcm").path
+    try Data("not DICOM".utf8).write(to: URL(fileURLWithPath: named))
+    let both = DICOMwebSendReport(results: try refusing.store(files: [file, named], cancelled: { false }), cancelled: false)
+    let shown = both.detail(limit: 5), logged = both.logDetail(limit: 5)
+    check(shown.contains("  2.25.1155.9: DICOMweb returned HTTP 400.") && shown.contains("PatientBirthDate must be a date")
+          && shown.contains("  DOE JOHN knee.dcm: Not a DICOM Part 10 file"), "the alert names the file and says what the node said: \(shown)")
+    check(logged == both.summary + "\n  2.25.1155.9: HTTP 400.\n  file 2 <name of 17 characters>: "
+          + "Not a DICOM Part 10 file with File Meta Information. It was not sent.", "the detail for the log: \(logged)")
+    check(both.logDetail(limit: 1) == both.summary + "\n  2.25.1155.9: HTTP 400.\n  … and 1 more", "the detail for the log is bounded")
+    // A result nothing gave a reason for the log is logged by its codes, never by its reason.
+    let bare = DICOMwebSendReport(results: [
+     DICOMwebStoreResult(path: named, sopInstanceUID: "DOE^JOHN", status: .failure, reason: "The node said: DOE^JOHN is unknown", httpStatus: 409),
+     DICOMwebStoreResult(path: named, sopInstanceUID: "2.25.7", status: .failure, reason: "The node said: no", reasonCode: 0x0110, httpStatus: 409),
+     DICOMwebStoreResult(path: named, sopInstanceUID: "2.25.8", status: .warning, reason: "", reasonCode: 0xB000, httpStatus: 202)], cancelled: false)
+    check(bare.logDetail(limit: 5) == bare.summary + "\n  file 1 <name of 17 characters>: Not stored (HTTP 409)."
+          + "\n  2.25.7: Failure reason 0x0110 (processing failure)\n  2.25.8: Warning 0xB000 (coercion of data elements)",
+          "a result without a reason for the log is logged by its codes: \(bare.logDetail(limit: 5))")
+    check(DICOMwebNodeAnswer.logReason(code: "DOE JOHN", warning: "Unknown patient DOE^JOHN", body: " \r\n") == "error code of 8 characters; Warning, 24 characters"
+          && DICOMwebNodeAnswer.logReason(code: nil, warning: "299 - \"There are additional results.\"", body: "x")
+             == "Warning 299 (more results than the node returned), 37 characters; a body of 1 character"
+          && DICOMwebNodeAnswer.logReason(code: " ", warning: nil, body: nil) == nil, "what the node said, as the log may write it")
+
     // A long refusal: a short part in the message, the whole in the user info.
     do { _ = try client("long").query(path: "studies", parameters: [:]); check(false, "the long refusal succeeded") }
     catch {
@@ -184,7 +220,7 @@ let memory = Memory()
   }
   done.wait()
   if failed { exit(1) }
-  print("PASS: what the node said in each error and the send's status line, sanitized and cut short; the QIDO Warning; one path rule with %41")
+  print("PASS: what the node said in each error and the send's status line, sanitized and cut short, and its shape alone for the log; the QIDO Warning; one path rule with %41")
  }
 }
 '''
@@ -211,9 +247,9 @@ try:
     with tempfile.TemporaryDirectory(prefix='horos-dicomweb-diagnostics-') as folder:
         temporary = Path(folder)
         sources = [str(root / 'Horos/Sources' / name) for name in
-                   ('DICOMwebClient.swift', 'DICOMwebNode.swift', 'DICOMwebIntegration.swift', 'DICOMwebCredentials.swift',
+                   ('DICOMwebClient.swift', 'DICOMwebClient+LogText.swift', 'DICOMwebNode.swift', 'DICOMwebIntegration.swift', 'DICOMwebCredentials.swift',
                     'DICOMwebMultipart.swift', 'DicomNodeConfiguration.swift', 'NonInteractiveKeychainRead.swift',
-                    'DICOMwebOIDC.swift')]
+                    'DICOMwebOIDC.swift', 'StoreReport.swift')]
         (temporary / 'check.swift').write_text(DRIVER)
         executable = temporary / 'check'
         build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-suppress-warnings',
@@ -230,11 +266,23 @@ try:
             sys.stdout.write(run.stdout)
             check(run.returncode == 0, 'the client checks\n' + run.stderr[-2000:])
             log = run.stderr
-            check(log.count('DICOMweb query: the node answered with Warning: 299 node "The fuzzymatching parameter is not supported."') == 1,
-                  'the QIDO Warning is logged once: ' + log[-1500:])
-            check('DICOMweb HTTP 400: the node said: error code 1155-bad-date' in log, 'the refusal is logged')
-            reasons = [line for line in log.splitlines() if 'the node said: too long' in line]
-            check(len(reasons) == 1 and len(reasons[0].split('the node said: ')[1]) > 3000, 'the long refusal is logged whole')
+            warning = '299 node "The fuzzymatching parameter is not supported."'
+            check(log.count('DICOMweb query: the node answered with Warning 299 (fuzzy matching not supported), %d characters'
+                            % len(warning)) == 1 and log.count('the node answered with') == 1,
+                  'the QIDO Warning is logged once, by its warn-code and which it is: ' + log[-1500:])
+            body = ('PatientBirthDate must be a date (YYYYMMDD). Authorization: [redacted] Cookie: [redacted] '
+                    'Request seen with token [redacted].')
+            refusal = ('DICOMweb HTTP 400: the node said: error code 1155-bad-date; Warning 299, %d characters; '
+                       'a body of %d characters' % (len('299 node "Invalid date"'), len(body)))
+            check(any(line.endswith(refusal) for line in log.splitlines()),
+                  'the refusal is logged by its status, its error code and the length of what the node said: ' + log[-1500:])
+            reasons = [line.split('the node said: ')[1] for line in log.splitlines() if 'the node said: ' in line and '1155' not in line]
+            check(len(reasons) == 1 and reasons[0].startswith('a body of ') and reasons[0].endswith(' characters')
+                  and 3000 < int(reasons[0].split()[3]) <= 4096, 'the long refusal is logged by its length: %r' % reasons)
+            # None of the node's own words, and no name of a file, in the log.
+            for words in ('PatientBirthDate', 'YYYYMMDD', 'Invalid date', 'fuzzymatching parameter', 'too long', 'redacted',
+                          'DOE', 'JOHN', 'knee'):
+                check(words not in log, 'the log carries %r: %s' % (words, log[-1500:]))
             check(SECRET not in log + run.stdout and 'cookie-SYNTHETIC-1155' not in log + run.stdout, 'no secret in the log')
             check('/paths/a%41b/qido/studies' in paths, 'the %41 path was requested as written: ' + str(paths[-3:]))
             check(not any((temporary / 'tmp').iterdir()), 'the client left nothing in TMPDIR')

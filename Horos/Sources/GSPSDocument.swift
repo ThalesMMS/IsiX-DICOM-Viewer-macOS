@@ -35,7 +35,8 @@ import CoreGraphics
 /// first value column, second row — the same space Horos stores ROI vertices in.
 /// DISPLAY is 0...1 inside the applicable displayed-area rectangle.
 ///
-/// Anything else is listed on `unsupportedFeatures` and is not applied:
+/// Anything else is listed on `unsupportedFeatures` (an unsupported SOP Class
+/// first, then the rest in alphabetical order) and is not applied:
 /// Color / Pseudo-Color / Blending / XA-XRF Softcopy Presentation States,
 /// shutter, mask, overlay, compound graphics, interpolated/bitmap graphics,
 /// a Presentation LUT other than IDENTITY, and a Modality LUT carried on the
@@ -303,6 +304,10 @@ public final class GSPSDocument: NSObject {
         }
     }
 
+    /// The modules and values outside the documented subset, in alphabetical
+    /// order: the document arrives as dictionaries keyed by attribute name,
+    /// which keep no order of their own, so the list is sorted to come out
+    /// the same on every reading.
     private static func scanUnsupported(_ dictionary: [String: Any]) -> [String] {
         var flags: [String] = []
         let keys = [
@@ -346,7 +351,7 @@ public final class GSPSDocument: NSObject {
             }
         }
         walk(dictionary)
-        return flags
+        return flags.sorted()
     }
 }
 

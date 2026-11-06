@@ -46,8 +46,7 @@
 // CSMailMailClient is implemented in Swift
 // (Horos/Sources/CSMailMailClient.swift). This header keeps
 // <Horos/CSMailMailClient.h>: it brings in the generated interface, which
-// declares the same class name and selectors. The feature flags and the
-// exported QuitAndSleep() stay here; QuitAndSleep is in CSMailMailClient+CAPI.m.
+// declares the same class name and selectors. The feature flags stay here.
 
 #import <Cocoa/Cocoa.h>
 
@@ -56,10 +55,6 @@ enum {
   kCSMCMessageConstructionFeature = 0x0002,
   kCSMCConfigureFeature = 0x0004,
 };
-
-/// Sends a Quit Apple event to the application with this bundle identifier,
-/// without waiting for a reply, then sleeps the calling thread.
-extern void QuitAndSleep(NSString* bundleIdentifier, float seconds);
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.

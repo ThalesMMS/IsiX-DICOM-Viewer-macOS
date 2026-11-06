@@ -46,15 +46,4 @@
 // Swift is compiling the extension itself.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift, the Decompress helper: code that only names these
-// selectors compiles there, as it did before, without their implementation.
-@interface NSXMLNode (N2)
-
-+(id)elementWithName:(NSString*)name text:(NSString*)text;
-+(id)elementWithName:(NSString*)name unsignedInt:(NSUInteger)value;
-+(id)elementWithName:(NSString*)name bool:(BOOL)value;
--(NSXMLNode*)childNamed:(NSString*)childName;
-
-@end
 #endif

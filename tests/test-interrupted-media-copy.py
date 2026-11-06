@@ -30,51 +30,55 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
+# The copy is MediaImportJob.swift; its report's wording and the test of a
+# shortfall are IsiXDatabase's ImportShortfall.
+database = (root / 'Horos/Sources/MediaImportJob.swift').read_text()
+rules = (root / 'Modules/IsiXDatabase/Sources/DatabaseImportRules.swift').read_text()
 
-start = database.find('-(void)copyFilesThread:(NSDictionary*)dict\n{')
-if start < 0:
+start = database.find('private struct MediaImportIndexer')
+if start < 0 or 'func copyFilesThread(_ dict: [AnyHashable: Any]!) {' not in database:
     failures.append('-copyFilesThread: is gone')
 else:
     region = re.sub(r'//[^\n]*', '',
-                    database[start:database.find('\n-(void)_notificationImagesAdded:', start)])
+                    database[start:])
 
     # --- what is already copied is indexed ------------------------------------
-    at = region.find('while (queue.operationCount)')
-    if at < 0:
+    # The lane has no way to cancel a batch, and each runs on a thread of its
+    # own: cancelling the copy reaches neither.
+    if 'lane.finishAndWait()' not in region:
         failures.append('the copy no longer waits for its indexing to finish')
-    else:
-        wait = region[at:at + 400]
-        if 'cancelAllOperations' in wait:
-            failures.append('cancelling the copy still throws away the indexing of the files it '
-                            'already copied, leaving them in the database folder with no row '
-                            'pointing at them')
-    if 'cancelAllOperations' in region:
-        failures.append('something still cancels the queued indexing')
+    if 'ActivityThread.runWithoutCancel(' not in region:
+        failures.append('the indexing of a batch could be cancelled, leaving files in the '
+                        'database folder with no row pointing at them')
+    if 'lane.deliver(' not in region or re.search(r'if Thread\.current\.isCancelled[^\n]*\n[^\n]*lane\.deliver', region):
+        failures.append('a batch copied before the cancel is not delivered')
 
     # --- and the two counts are kept and said ---------------------------------
-    for name in ('copiedTotal', 'indexedTotal'):
-        if name not in region:
-            failures.append('the copy does not count how many files were %s'
-                            % ('copied' if name == 'copiedTotal' else 'indexed'))
-    if 'copiedTotal += copiedFiles.count' not in region:
+    for name in ('copied', 'indexed'):
+        if 'var %s = 0' % name not in database:
+            failures.append('the copy does not count how many files were %s' % name)
+    # The files the validation before importing refuses are reported on their
+    # own, so only the accepted ones count as copied and waiting to be indexed.
+    added = '$0.copied += acceptedFiles.count'
+    if added not in region:
         failures.append('the count of copied files is never added up')
-    if 'indexedTotal += objects.count' not in region:
+    if 'counts.indexed += indexed.count' not in region:
         failures.append('the count of indexed files is never added up')
-    at = region.find('copyFilesThread):')
-    if at < 0:
+    at = region.find('ImportShortfall.copyLogLine(')
+    shortfall = rules[rules.find('public static func copyIsIncomplete('):rules.find('public static func alertMessage(')]
+    if at < 0 or 'copyFilesThread):' not in shortfall:
         failures.append('an import that took less than it was given says nothing')
     else:
         line = region[max(0, at - 300):at + 500]
-        if 'copiedTotal != indexedTotal' not in line:
+        if ('ImportShortfall.copyIsIncomplete(failedCopies: failedCopies, copied: counts.copied, indexed: counts.indexed)'
+                not in line or 'copied != indexed' not in shortfall):
             failures.append('the report is only written when a copy failed, so an import cut '
                             'short says nothing')
-        if 'file(s) offered' not in line or 'copied' not in line or 'indexed' not in line:
+        if 'file(s) offered' not in shortfall or 'copied' not in line or 'indexed' not in line:
             failures.append('the report does not give offered, copied and indexed')
     # The counts are added from an operation-queue thread while the copy thread
     # reads them, so they need a lock of their own.
-    if '@synchronized' not in region[region.find('copiedTotal += copiedFiles.count') - 200:
-                                     region.find('copiedTotal += copiedFiles.count')]:
+    if 'tally.counts.withLock' not in region[region.find(added) - 200:region.find(added)]:
         failures.append('the counts are written from the indexing thread without a lock')
 
     # --- a copy that fails still tells the user -------------------------------
@@ -83,13 +87,13 @@ else:
 
 # --- and the scan does not report a stopped copy as a finished one ------------
 scan = re.sub(r'//[^\n]*', '',
-              (root / 'Horos/Sources/DicomDatabase+Scan.mm').read_bytes().decode('latin1'))
-at = scan.find('[timing end: @"copying"')
+              (root / 'Horos/Sources/MediaVolumeScan.swift').read_text(encoding='utf-8'))
+at = scan.find('timing.end("copying"')
 if at < 0:
     failures.append('the copy is no longer timed')
 else:
     window = scan[max(0, at - 400):at + 400]
-    if 'copyFilesThread.isCancelled' not in window:
+    if 'copy.stopped' not in window:
         failures.append('a copy that was stopped part way is still reported as having copied '
                         'every file it was given')
     if 'stopped before it finished' not in scan:

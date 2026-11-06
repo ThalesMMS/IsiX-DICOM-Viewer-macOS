@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>${EXECUTABLE_NAME}</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.example.osirixplugin.${PRODUCT_NAME:rfc1034identifier}</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleVersion</key>
+	<string>2.1</string>
+	<key>NSPrincipalClass</key>
+	<string>SampleFilter</string>
+	<key>pluginType</key>
+	<string>imageFilter</string>
+	<key>MenuTitles</key>
+	<array>
+		<string>Sample One</string>
+		<string>Sample Two</string>
+	</array>
+	<key>ToolbarNames</key>
+	<array>
+		<string>Sample</string>
+	</array>
+	<key>HorosCompatiblePlugin</key>
+	<true/>
+</dict>
+</plist>

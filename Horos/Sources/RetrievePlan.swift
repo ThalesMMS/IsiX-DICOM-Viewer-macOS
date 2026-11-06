@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import Synchronization
 
 /// The order a node's series are asked for in.
 @objc(HorosRetrieveOrder)
@@ -206,8 +207,9 @@ public final class RetrievePlan: NSObject, @unchecked Sendable {
 
     // MARK: Running operations
 
-    nonisolated(unsafe) private static var active: [String: RetrievePlan] = [:]
-    private static let activeLock = NSLock()
+    /// The plan of each operation under way, by endpoint and study: the
+    /// retrieve threads begin and end them, the Query window asks for them.
+    private static let active = Mutex<[String: RetrievePlan]>([:])
 
     private static func key(endpoint: String, study: String) -> String { endpoint + "\n" + study }
 
@@ -215,14 +217,13 @@ public final class RetrievePlan: NSObject, @unchecked Sendable {
     /// until `end`.
     @objc(beginForEndpoint:study:)
     public func begin(endpoint: String, study: String) {
-        Self.activeLock.lock(); Self.active[Self.key(endpoint: endpoint, study: study)] = self; Self.activeLock.unlock()
+        Self.active.withLock { $0[Self.key(endpoint: endpoint, study: study)] = self }
     }
 
     @objc(endForEndpoint:study:)
     public func end(endpoint: String, study: String) {
-        Self.activeLock.lock()
-        if Self.active[Self.key(endpoint: endpoint, study: study)] === self { Self.active[Self.key(endpoint: endpoint, study: study)] = nil }
-        Self.activeLock.unlock()
+        let key = Self.key(endpoint: endpoint, study: study)
+        Self.active.withLock { if $0[key] === self { $0[key] = nil } }
     }
 
     /// Asks a retrieve of `study` from `endpoint` that is running to take
@@ -230,9 +231,7 @@ public final class RetrievePlan: NSObject, @unchecked Sendable {
     /// instead of in a second retrieve of the same instances.
     @objc(prioritizeSeries:ofStudy:endpoint:)
     public static func prioritize(series: String, study: String, endpoint: String) -> Bool {
-        activeLock.lock()
-        let plan = active[key(endpoint: endpoint, study: study)]
-        activeLock.unlock()
+        let plan = active.withLock { $0[key(endpoint: endpoint, study: study)] }
         // A series the running retrieve leaves out is retrieved on its own: asked
         // for explicitly, past the node's rules.
         guard let plan, !plan.isExcluded(series: series) else { return false }

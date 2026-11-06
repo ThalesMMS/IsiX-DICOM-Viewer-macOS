@@ -1,96 +1,72 @@
 #!/usr/bin/env python3
 """Exercise the production cursor gate for all four viewer mouse handlers.
 
--mouseUp:, -mouseMoved:, -mouseDown: and the gate's helper stay in DCMView.m;
--mouseDragged: is Swift, in DCMView+MouseDragging.swift. Its gate
-line is compiled as it is, with xcrun swiftc, in an extension of the same
-Objective-C double the other three handlers run in. A revision given as the
-argument that predates the Swift translation runs its Objective-C -mouseDragged: gate instead.
+-mouseUp:, -mouseDown: and the gate's helper are Swift, in DCMView+Mouse.swift;
+-mouseMoved: in DCMView+MouseTracking.swift; -mouseDragged: in
+DCMView+MouseDragging.swift. Each handler's gate line and the helper are
+compiled as they are, with xcrun swiftc, in a stand-in view, and run for every
+combination of cursor visibility, loupe, view window and event window.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
-import subprocess,sys,tempfile
+import subprocess
+import sys
+import tempfile
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
-root=Path(__file__).resolve().parents[1]
-path='Horos/Sources/DCMView.m'
-s=(subprocess.check_output(['git','show',sys.argv[1]+':'+path],cwd=root) if len(sys.argv)>1 else (root/path).read_bytes()).decode('latin1')
-if len(sys.argv)>1:
- run=subprocess.run(['git','show',sys.argv[1]+':Horos/Sources/DCMView+MouseDragging.swift'],cwd=root,capture_output=True)
- swift=run.stdout.decode('utf-8') if run.returncode==0 else None
-else:
- swift=source_text('DCMView+MouseDragging')
-if len(sys.argv) == 1:
- assert 'CGCursorIsVisible()' not in s, 'production routing must not use unsupported global cursor visibility'
-helper=''
-if '- (BOOL) shouldIgnoreHiddenCursorEvent:' in s:
- a=s.index('- (BOOL) shouldIgnoreHiddenCursorEvent:');b=s.index('- (void)mouseUp:',a);helper=s[a:b]
-handlers=[]
-markers=['- (void)mouseUp:','-(void) mouseMoved:','- (void) mouseDown:']+([] if swift else ['- (void)mouseDragged:'])
-for i,marker in enumerate(markers):
- a=s.index(marker);gate=next(line for line in s[a:].splitlines() if 'CGCursorIsVisible() == NO' in line or 'if( [self shouldIgnoreHiddenCursorEvent:' in line)
- handlers.append(f'-(void)handler{i}:(Event*)event {{Event*theEvent=event;{gate}\n delivered++;}}')
-extension=None
-if swift:
- a=swift.index('    @objc(mouseDragged:)')
- gate=next(line for line in swift[a:].splitlines() if 'if self.shouldIgnoreHiddenCursorEvent(' in line)
- extension=f'''import Foundation
-extension View {{
-    @objc(handler3:) func handler3(_ event: Event) {{
-{gate}
-        self.delivered += 1
-    }}
-}}
-'''
-bridge=r'''
-#import <Foundation/Foundation.h>
-@interface Event:NSObject
-@property(retain) NSObject*window;
-@end
-@interface View:NSObject {
-@public BOOL lensActive;int delivered;
+
+mouse = source_text('DCMView+Mouse')
+tracking = source_text('DCMView+MouseTracking')
+dragging = source_text('DCMView+MouseDragging')
+for text in (mouse, tracking, dragging):
+    assert 'CGCursorIsVisible()' not in text, 'production routing must not use unsupported global cursor visibility'
+
+start = mouse.index('    @objc(shouldIgnoreHiddenCursorEvent:)\n')
+helper = mouse[start:mouse.index('\n    }\n', start) + 7]
+helper = helper.replace('    @objc(shouldIgnoreHiddenCursorEvent:)\n', '').replace('public dynamic func', 'func').replace('NSEvent', 'Event')
+
+handlers = []
+for i, (text, marker) in enumerate(((mouse, '    @objc(mouseUp:)'), (tracking, '    @objc(mouseMoved:)'),
+                                    (mouse, '    @objc(mouseDown:)'), (dragging, '    @objc(mouseDragged:)'))):
+    a = text.index(marker)
+    gate = next(line for line in text[a:].splitlines() if 'if self.shouldIgnoreHiddenCursorEvent(' in line)
+    handlers.append(f'    func handler{i}(_ event: Event) {{\n        let theEvent = event\n        _ = theEvent\n{gate}\n        delivered += 1\n    }}\n')
+
+code = r'''
+import Foundation
+final class Event {
+    var window: NSObject?
 }
-@property(retain) NSObject*window;
-@property int delivered;
-HELPERDECL
-@end
-'''.replace('HELPERDECL','-(BOOL)shouldIgnoreHiddenCursorEvent:(Event*)event;' if swift else '')
-code=r'''
-#import "bridge.h"
-SWIFTHEADER
-@implementation Event
-@end
-#define NSEvent Event
-#define NSWindow NSObject
-static BOOL cursorVisible;
-#define CGCursorIsVisible() cursorVisible
-@implementation View
-@synthesize delivered;
+final class View {
+    var horos_lensActive = false
+    var window: NSObject?
+    var delivered = 0
 HELPER
 HANDLERS
-@end
-#define check(...) do{if(!(__VA_ARGS__)){NSLog(@"FAIL: %s",#__VA_ARGS__);return 1;}}while(0)
-int main(){@autoreleasepool{
- for(int visible=0;visible<2;visible++)for(int lens=0;lens<2;lens++)for(int receiver=0;receiver<2;receiver++)for(int destination=0;destination<3;destination++){
-  View*v=[View new];v.window=receiver?[NSObject new]:nil;
-  Event*e=[Event new];e.window=destination==0?nil:(destination==1?v.window:[NSObject new]);
-  cursorVisible=visible;v->lensActive=lens;
-  BOOL accept=LEGACYVISIBLE lens || (receiver && destination==1);
-  [v handler0:e];[v handler1:e];[v handler2:e];[v handler3:e];
-  check(v->delivered==(accept?4:0));
- }
- NSLog(@"PASS: down/up/move/drag, visible/hidden cursor, local/foreign/missing windows independent of visibility, loupe compatibility");
-}}
-'''.replace('LEGACYVISIBLE','visible ||' if len(sys.argv)>1 else '').replace('SWIFTHEADER','#import "Harness-Swift.h"' if swift else '').replace('HELPER',helper).replace('HANDLERS','\n'.join(handlers))
+}
+var failures = 0
+for visible in [false, true] { for lens in [false, true] { for receiver in [false, true] { for destination in 0..<3 {
+    let v = View()
+    v.window = receiver ? NSObject() : nil
+    let e = Event()
+    e.window = destination == 0 ? nil : (destination == 1 ? v.window : NSObject())
+    v.horos_lensActive = lens
+    // Visibility of the hardware cursor no longer decides anything.
+    _ = visible
+    let accept = lens || (receiver && destination == 1)
+    v.handler0(e); v.handler1(e); v.handler2(e); v.handler3(e)
+    if v.delivered != (accept ? 4 : 0) {
+        print("FAIL: visible \(visible) lens \(lens) receiver \(receiver) destination \(destination): \(v.delivered) delivered")
+        failures += 1
+    }
+} } } }
+if failures > 0 { exit(1) }
+print("PASS: down/up/move/drag, visible/hidden cursor, local/foreign/missing windows independent of visibility, loupe compatibility")
+'''.replace('HELPER', helper).replace('HANDLERS', ''.join(handlers))
+
 with tempfile.TemporaryDirectory(prefix='horos-cursor-events-') as d:
- p=Path(d);(p/'test.m').write_text(code);(p/'bridge.h').write_text(bridge)
- if extension:
-  (p/'dragged.swift').write_text(extension)
-  subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','Harness',
-    '-import-objc-header',str(p/'bridge.h'),'-emit-objc-header','-emit-objc-header-path',str(p/'Harness-Swift.h'),
-    '-c',str(p/'dragged.swift'),'-o',str(p/'dragged.o')],check=True)
-  subprocess.run(['xcrun','clang','-c','-fno-objc-arc','-fsanitize=undefined','-I',str(p),str(p/'test.m'),'-o',str(p/'test.o')],check=True)
-  subprocess.run(['xcrun','swiftc',str(p/'dragged.o'),str(p/'test.o'),'-framework','Foundation','-sanitize=undefined','-o',str(p/'test')],check=True)
- else:
-  subprocess.run(['xcrun','clang','-fno-objc-arc','-fsanitize=undefined','-framework','Foundation','-I',str(p),str(p/'test.m'),'-o',str(p/'test')],check=True)
- subprocess.run([str(p/'test')],check=True)
+    p = Path(d)
+    (p / 'main.swift').write_text(code)
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', str(p / 'main.swift'), '-o', str(p / 'test')], check=True)
+    subprocess.run([str(p / 'test')], check=True, timeout=60)

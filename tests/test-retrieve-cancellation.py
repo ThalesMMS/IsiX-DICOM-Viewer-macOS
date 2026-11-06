@@ -9,9 +9,12 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
-header = (root / 'Horos/Sources/DCMTKQueryNode.h').read_bytes().decode('latin1')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources  # noqa: E402
+# The node is Swift; its DIMSE callbacks are in the DCMTK adapter.
+node = sources.class_text('DCMTKQueryNode')
 code = re.sub(r'//[^\n]*', '', node)
+adapter = re.sub(r'//[^\n]*', '', (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCU.mm').read_text())
 
 
 def body(signature, source):
@@ -33,8 +36,8 @@ def body(signature, source):
 
 # Cancellation belongs to each transport invocation: it must work even when
 # the peer sends no more pending responses, and cannot be duplicated by callbacks.
-for filename, operation in (('HorosDIMSEMove.mm', 'move'), ('HorosDIMSEGet.mm', 'get')):
-    transport = (root / 'Horos/Sources' / filename).read_text(encoding='latin1')
+for filename, operation in (('IsiXDCMTKMoveUser.mm', 'move'), ('IsiXDCMTKGetUser.mm', 'get')):
+    transport = (root / 'Horos/Sources/Adapters/DCMTK' / filename).read_text(encoding='latin1')
     loop = body('HorosDIMSE' + operation.title() + 'User(', transport)
     for required in ('DIMSE_sendCancelRequest', 'isCancelled', '!cancelSent',
                      'cancelDeadline', 'systemUptime', 'cancellation response timed out'):
@@ -44,31 +47,38 @@ for filename, operation in (('HorosDIMSEMove.mm', 'move'), ('HorosDIMSEGet.mm', 
         failures.append(filename + ' has multiple cancel send sites')
     if not (loop.find('const int readable = selectReadable(') < loop.find('DIMSE_sendCancelRequest') < loop.find('DIMSE_receiveCommand')):
         failures.append(filename + ' loses cancellation arriving during its readiness wait')
-    callback = body(operation + 'Callback(void *callbackData', code)
+    callback = body('IsiXDCMTK' + operation.title() + 'Callback(void *data', adapter)
     if 'cancelIfAsked' in callback or 'DIMSE_sendCancelRequest' in callback:
         failures.append(operation + ' callback duplicates the transport cancel')
-    if 'reportRetrieveProgress' not in callback:
+    if 'IsiXDCMTKReportProgress(data, response)' not in callback:
         failures.append(operation + ' callback lost progress')
+    scu = body('private func ' + operation + 'SCU(on association:', code)
+    if 'reportRetrieveProgress(&progress' not in scu:
+        failures.append(operation + ' no longer shows the progress the callback reports')
+if 'DIMSE_sendCancelRequest' in body('static void IsiXDCMTKReportProgress(', adapter):
+    failures.append('the progress callback duplicates the transport cancel')
 
-progress = body('static void reportProgress(', code)
-if not progress:
+progress = body('static func reportProgress(', code)
+rules = (root / 'Modules/IsiXDICOMNetwork/Sources/RetrieveRules.swift').read_text()
+if 'RetrieveProgress.fraction(accounted: accounted, finished: finished)' not in progress:
     failures.append('the progress computation is gone')
-elif 'accounted ?' not in progress:
+elif 'accounted > 0 ?' not in body('public static func fraction(', rules):
     failures.append('a peer that accounts for no sub-operations still divides by zero')
 
-store = (root / 'Horos/Sources/HorosQueryRetrieveServer.mm').read_text(encoding='latin1')
+# The listener's C-STORE is the DCMTK adapter's IsiXDCMTKSCPDatabase.mm.
+store = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKSCPDatabase.mm').read_text()
 callback = body('storeCallback(', store)
 for required in ('isCancelled', 'ASC_closeTransportConnection', '!info->aborted'):
     if required not in callback: failures.append('streaming store cancel lacks ' + required)
 if callback.find('ASC_closeTransportConnection') > callback.find('context->callbackHandler'):
     failures.append('cancelled pixels reach publication before cancellation is handled')
-report = body('- (void) reportRetrieveCancellation:', code)
-for required in ('setStatus:', 'Retrieve Cancelled', 'performSelectorOnMainThread', 'cancellationSummaryWithOperation'):
+report = body('func reportRetrieveCancellation(', code)
+for required in ('Thread.current.status = summary', 'Retrieve Cancelled', 'Self.postNotice(', 'RetrieveCompletion.cancellationSummary('):
     if required not in report: failures.append('cancel feedback lacks ' + required)
+if 'performSelector(onMainThread:' not in body('static func postNotice(', code):
+    failures.append('cancel feedback is not posted on the main thread')
 
 # WADODownload is Swift.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import sources
 wado = sources.source_text('WADODownload')
 if '(self.WADODownloadDictionary?.count ?? 0) >= Int(WADOMaximumConcurrentDownloads)' not in wado:
     failures.append('WADO exceeds its configured concurrent requests')

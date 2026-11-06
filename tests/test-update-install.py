@@ -20,6 +20,9 @@ import subprocess
 import sys
 import tempfile
 
+from isix_modules import module_flags
+import process_graph_stand_in
+
 ROOT = Path(__file__).resolve().parents[1]
 
 DRIVER = r'''
@@ -285,15 +288,18 @@ with tempfile.TemporaryDirectory(prefix='horos-update-install-') as folder:
     digest = hashlib.sha256((folder / 'good.zip').read_bytes()).hexdigest()
 
     bridge = folder / 'Bridge.h'
-    bridge.write_text('#import "HorosBoundedTask.h"\nBOOL PFAddInstalledApplicationToDock(NSString *path);\n')
-    stub = folder / 'stub.m'
-    stub.write_text('#import <Foundation/Foundation.h>\nBOOL PFAddInstalledApplicationToDock(NSString *path) { abort(); }\n')
-    subprocess.run(['xcrun', 'clang', '-c', '-I', str(ROOT / 'Horos/Sources'), str(stub), '-o', str(folder / 'stub.o')], check=True)
+    bridge.write_text('#import "HorosBoundedTask.h"\n')
     (folder / 'Driver.swift').write_text(DRIVER)
+    # The installer decides with IsiXInstallation's rules and calls, from other
+    # app sources, the distribution channel, the original place of a
+    # translocated copy and the Dock tile. Those sources are compiled as they
+    # are; the driver never reaches the Dock, so no preference is written.
     sources = [ROOT / 'Horos/Sources' / name for name in
-               ('UpdateFeedClient.swift', 'UpdateArchive.swift', 'HorosApplicationInstaller.swift')]
+               ('UpdateFeedClient.swift', 'UpdateArchive.swift', 'HorosApplicationInstaller.swift',
+                'HorosApplicationInstaller+Move.swift', 'NSApplication+Dock.swift', 'DistributionChannel.swift')]
+    installation = module_flags('IsiXInstallation', folder / 'modules') + process_graph_stand_in.swift_flags(folder / 'modules')
     subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-parse-as-library', '-import-objc-header', str(bridge),
-                    '-I', str(ROOT / 'Horos/Sources'), *map(str, sources), str(folder / 'Driver.swift'), str(folder / 'stub.o'),
+                    '-I', str(ROOT / 'Horos/Sources'), *installation, *map(str, sources), str(folder / 'Driver.swift'),
                     '-module-name', 'Horos', '-framework', 'AppKit', '-framework', 'Security',
                     '-o', str(folder / 'driver')], check=True)
     release = Path(os.environ.get('HOROS_TEST_RELEASE_APP', '/Applications/IsiX DICOM Viewer.app'))
@@ -302,5 +308,8 @@ with tempfile.TemporaryDirectory(prefix='horos-update-install-') as folder:
         arguments.append(str(release))
     subprocess.run(arguments, check=True, timeout=180)
     if not release.is_dir():
-        print('skipped: no installed Developer ID release at %s (set HOROS_TEST_RELEASE_APP)' % release)
+        # On the error output, after what the administrator script wrote there
+        # when its move was meant to fail: the run reports its last line.
+        print('skipped: no installed Developer ID release at %s (set HOROS_TEST_RELEASE_APP)' % release,
+              file=sys.stderr)
         sys.exit(2)

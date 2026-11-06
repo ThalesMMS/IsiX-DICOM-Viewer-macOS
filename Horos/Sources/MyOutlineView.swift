@@ -73,27 +73,33 @@ fileprivate func objcFloatValue(_ value: Any?) -> Float {
     return 0
 }
 
-/// [[[BrowserController currentBrowser] database] isReadOnly]: NO when there
-/// is no browser or no database, as the messages to nil answered.
-@MainActor fileprivate func currentDatabaseIsReadOnly() -> Bool {
-    return BrowserController.currentBrowser()?.database?.isReadOnly ?? false
-}
-
 /// OutlineView for BrowserController.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/MyOutlineView.h> are those of the former class, and MainMenu.xib
-/// uses the name as customClass. -removeTableColumn: (which logs through the
-/// variadic N2LogStackTrace) and -draggingSourceOperationMaskForLocal: (which
-/// Swift marks unavailable) are a category in MyOutlineView+CAPI.m.
+/// uses the name as customClass.
 @objc(MyOutlineView)
 public final class MyOutlineView: NSOutlineView {
+
+    /// The graph of the database window this outline is in, which hands it
+    /// the browser and the database it shows; nil outside that window.
+    private var browserWindow: BrowserWindowGraph? {
+        PreferencesSource.process.processGraph.browserWindow(of: window)
+    }
+
+    /// Whether the database the window shows is read-only: NO when there is no
+    /// browser or no database, as the messages to nil answered.
+    private func currentDatabaseIsReadOnly() -> Bool {
+        return browserWindow?.database?.isReadOnly ?? false
+    }
 
     public override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         return true
     }
 
     public override func keyDown(with event: NSEvent) {
+        // Option and a digit: the state of that number, in the database list.
+        if StudyStates.applyShortcut(event, in: self.window?.windowController) { return }
         guard let characters = event.characters as NSString?, characters.length > 0 else { return }
 
         let c = characters.character(at: 0)
@@ -205,6 +211,11 @@ public final class MyOutlineView: NSOutlineView {
 
     // MARK: Dragging destination
 
+    /// The study that the images and PDFs of the drop being concluded go
+    /// into (StudyFileImporter), from concludeDragOperation: until
+    /// terminateDrag: takes the files; nil for every other drop.
+    private var studyOfConvertedDrop: DicomStudy?
+
     /// [[sender draggingSource] isEqual:self]
     private func isOwnDrag(_ sender: NSDraggingInfo?) -> Bool {
         return (sender?.draggingSource as? NSObject)?.isEqual(self) ?? false
@@ -296,6 +307,14 @@ public final class MyOutlineView: NSOutlineView {
 
     @objc(terminateDrag:)
     public func terminateDrag(_ fileArray: NSArray?) {
+        if let study = studyOfConvertedDrop {
+            studyOfConvertedDrop = nil
+            if let browser = browserWindow?.browser, let paths = fileArray as? [String] {
+                StudyFileImporter.convert(paths, into: study, browser: browser)
+                return
+            }
+        }
+
         var directory: ObjCBool = false
         var done = false
         let count = fileArray?.count ?? 0
@@ -306,8 +325,8 @@ public final class MyOutlineView: NSOutlineView {
                 if FileManager.default.fileExists(atPath: first.appendingPathComponent("Database.sql")) {
                     // A Horos database is opened only after the user has read
                     // what that does to it; importing or cancelling ends here.
-                    if ForeignDatabaseChoice.confirmOpening(path: first as String) {
-                        BrowserController.currentBrowser()?.database = DicomDatabase(atPath: first.deletingLastPathComponent)
+                    if ForeignDatabaseChoice.confirmOpening(path: first as String, browserWindow: browserWindow) {
+                        browserWindow?.browser.database = DicomDatabase(atPath: first.deletingLastPathComponent)
                     }
                     done = true
                 }
@@ -316,12 +335,12 @@ public final class MyOutlineView: NSOutlineView {
 
         if !done {
             if count == 1, let first, first.pathExtension == "sql" { // It's a database file !
-                guard ForeignDatabaseChoice.confirmOpening(path: first as String) else { return }
-                BrowserController.currentBrowser()?.database = DicomDatabase(atPath: first.deletingLastPathComponent)
+                guard ForeignDatabaseChoice.confirmOpening(path: first as String, browserWindow: browserWindow) else { return }
+                browserWindow?.browser.database = DicomDatabase(atPath: first.deletingLastPathComponent)
             } else if count == 1, let first, first.pathExtension == "albums" { // It's a database albums file !
-                BrowserController.currentBrowser()?.addAlbumsFile(first as String)
+                browserWindow?.browser.addAlbumsFile(first as String)
             } else {
-                BrowserController.currentBrowser()?.addFilesAndFolder(toDatabase: fileArray as? [Any])
+                browserWindow?.browser.addFilesAndFolder(toDatabase: fileArray as? [Any])
             }
         }
     }
@@ -345,6 +364,10 @@ public final class MyOutlineView: NSOutlineView {
             if desiredType == filenamesPboardType {
                 //we have a list of file names in an NSData object
                 let fileArray = paste.propertyList(forType: filenamesPboardType)
+                // Images and PDFs dropped on a study row are converted into that study.
+                studyOfConvertedDrop = StudyFileImporter.study(receivingDropOf: fileArray as? [String] ?? [],
+                                                               at: convert(sender?.draggingLocation ?? .zero, from: nil),
+                                                               in: self, browser: browserWindow?.browser)
 
                 self.perform(#selector(terminateDrag(_:)), with: fileArray, afterDelay: 0.1)
             } else {
@@ -355,7 +378,18 @@ public final class MyOutlineView: NSOutlineView {
         self.needsDisplay = true
     }
 
-    // -draggingSourceOperationMaskForLocal: is in MyOutlineView+CAPI.m.
+    // The former -draggingSourceOperationMaskForLocal:, deprecated since macOS
+    // 10.7 and unavailable in Swift: NSTableView asks it from this method,
+    // which answers in its place.
+    public override func draggingSession(_ session: NSDraggingSession,
+                                         sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+        return context == .withinApplication ? .every : .copy
+    }
+
+    // The browser's columns stay: removing one is a programming error.
+    public override func removeTableColumn(_ tableColumn: NSTableColumn) {
+        N2LogStackTraceMessage("this is not allowed")
+    }
 
     public override func menu(for event: NSEvent) -> NSMenu? {
         //Find which row is under the cursor

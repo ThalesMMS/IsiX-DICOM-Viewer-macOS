@@ -13,7 +13,8 @@
 import Foundation
 
 /// Recovery for inputs left behind by a failed compression/decompression batch.
-/// Database allocation and indexing stay with the existing Objective-C importer.
+/// The caller allocates the destinations and indexes the copies through the
+/// single entry (DatabaseFileConversion, on the worker of the conversion queue).
 @objc(HorosConversionImportFallback)
 public final class ConversionImportFallback: NSObject {
     /// `importFiles` indexes every copy in one call and answers how many image

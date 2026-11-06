@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 import PreferencePanes
 
 /// Preference pane that assigns persistent shortcuts to plugins and reconstructions.
@@ -73,7 +74,7 @@ public final class MenuShortcutPref: NSPreferencePane, NSTableViewDataSource, NS
         }
     }
 
-    @objc private func captureKey(_ event: NSEvent) {
+    private func captureKey(_ event: NSEvent) {
         guard captureTable.selectedRow >= 0, captureTable.selectedRow < commands.count else { return }
         let identifier = commandID(commands[captureTable.selectedRow])
         if event.keyCode == 53 { return }
@@ -101,7 +102,7 @@ public final class MenuShortcutPref: NSPreferencePane, NSTableViewDataSource, NS
             forCommand: identifier,
             currentAssignments: assignments,
             occupiedMenuShortcuts: occupiedMenuShortcuts(),
-            viewerHotKeys: UserDefaults.standard.dictionary(forKey: "HOTKEYS") ?? [:]
+            viewerHotKeys: PreferencesSource.process.preferences[ViewerPreferences.hotKeys]?.mapValues(\.object) ?? [:]
         )
         if result["accepted"] as? Bool == true {
             assignments = result["assignments"] as? [String: [String: Any]] ?? assignments
@@ -115,14 +116,14 @@ public final class MenuShortcutPref: NSPreferencePane, NSTableViewDataSource, NS
     }
 
     private func persistAndApply() {
-        MenuShortcutCatalog.save(assignments, to: .standard)
+        MenuShortcutCatalog.save(assignments, to: PreferencesSource.process.preferences)
         if let menu = NSApp.mainMenu {
             MenuShortcutCatalog.apply(assignments, to: menu)
         }
     }
 
     private func reloadCommands() {
-        assignments = MenuShortcutCatalog.assignments(from: .standard)
+        assignments = MenuShortcutCatalog.assignments(from: PreferencesSource.process.preferences)
         commands = MenuShortcutCatalog.assignableCommands(pluginDescriptors: loadedPluginDescriptors())
     }
 

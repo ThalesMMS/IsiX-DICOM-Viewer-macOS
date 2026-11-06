@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The host's DCMTK JPEG 2000 codec round-trips pixels exactly and fails safely.
 
-Compiles Horos/Sources/HorosJPEG2000Codec.cpp with the DCMTK and OpenJPEG
+Compiles Horos/Sources/Adapters/DCMTK/HorosJPEG2000Codec.cpp with the DCMTK and OpenJPEG
 archives of a current build, then, through DcmDataset::chooseRepresentation:
 
 - encodes native 8/16-bit, signed and unsigned, mono and RGB (both planar
@@ -40,7 +40,6 @@ from dcmtk_build import BUILD, ROOT, dcmtk_flags
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--python', type=Path, help='interpreter with pydicom and pylibjpeg-openjpeg')
-parser.add_argument('--arch', choices=('arm64', 'x86_64'), help='target architecture for the codec driver')
 parser.add_argument('--openjpeg-install', type=Path, help='isolated OpenJPEG archive and headers for focused source validation')
 parser.add_argument('--openjpeg-config', type=Path, help='generated OpenJPEG configuration headers for an isolated source build')
 args = parser.parse_args()
@@ -52,7 +51,7 @@ if not (openjpeg / 'lib/libopenjp2.a').is_file():
 flags = dcmtk_flags()
 
 driver = r'''
-#include "HorosJPEG2000Codec.h"
+#include "HorosJPEG2000Codec.hpp"
 #include <dcmtk/dcmdata/dcfilefo.h>
 #include <dcmtk/dcmdata/dcdatset.h>
 #include <dcmtk/dcmdata/dcdeftag.h>
@@ -498,15 +497,11 @@ with tempfile.TemporaryDirectory() as work:
     work = Path(work)
     (work / 'driver.cpp').write_text(driver)
     subprocess.run(['xcrun', 'clang++', '-std=c++17', '-g', '-fsanitize=address,undefined',
-                    *(['-arch', args.arch] if args.arch else []),
                     '-I' + str(openjpeg / 'include'),
                     *(['-I' + str(args.openjpeg_config)] if args.openjpeg_config else []), *flags[:2],
-                    str(work / 'driver.cpp'), str(ROOT / 'Horos/Sources/HorosJPEG2000Codec.cpp'),
+                    '-I' + str(ROOT / 'Horos/Sources/Adapters/DCMTK'),
+                    str(work / 'driver.cpp'), str(ROOT / 'Horos/Sources/Adapters/DCMTK/HorosJPEG2000Codec.cpp'),
                     str(openjpeg / 'lib/libopenjp2.a'), *flags[2:], '-o', str(work / 'driver')], check=True)
-    if args.arch:
-        actual = subprocess.check_output(['lipo', '-archs', str(work / 'driver')], text=True).strip()
-        if actual != args.arch:
-            raise RuntimeError(f'codec driver architecture {actual}, expected {args.arch}')
     output = work / 'files'
     output.mkdir()
     streams = work / 'htj2k'

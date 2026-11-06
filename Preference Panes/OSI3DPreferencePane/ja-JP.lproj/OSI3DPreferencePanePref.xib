@@ -16,15 +16,15 @@
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <window title="&lt;&lt; do not localize &gt;&gt;" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" deferred="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="12" userLabel="PrefPane">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES"/>
-            <rect key="contentRect" x="0.0" y="0.0" width="724" height="579"/>
+            <rect key="contentRect" x="0.0" y="0.0" width="724" height="531"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
             <value key="minSize" type="size" width="224.66300000000001" height="10"/>
             <view key="contentView" horizontalCompressionResistancePriority="1000" id="6">
-                <rect key="frame" x="0.0" y="0.0" width="724" height="579"/>
+                <rect key="frame" x="0.0" y="0.0" width="724" height="531"/>
                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                 <subviews>
                     <box title="Best Rendering Button" id="298">
-                        <rect key="frame" x="18" y="483" width="689" height="85"/>
+                        <rect key="frame" x="18" y="435" width="689" height="85"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="rLE-2L-VZ6">
                             <rect key="frame" x="2" y="2" width="685" height="68"/>
@@ -70,27 +70,11 @@
                                 <textField verticalHuggingPriority="1" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" id="376">
                                     <rect key="frame" x="14" y="14" width="228" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Ray cast : Super Sampling:" id="379">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="最終レンダリング品質:" id="379">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
-                                </textField>
-                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="377">
-                                    <rect key="frame" x="244" y="14" width="48" height="17"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title=".00" id="378">
-                                        <numberFormatter key="formatter" formatterBehavior="custom10_4" positiveFormat="#.00" negativeFormat="#.00" usesGroupingSeparator="NO" paddingCharacter="*" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="42" minimumFractionDigits="2" maximumFractionDigits="2" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="383">
-                                            <nil key="negativeInfinitySymbol"/>
-                                            <nil key="positiveInfinitySymbol"/>
-                                        </numberFormatter>
-                                        <font key="font" metaFont="system"/>
-                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    </textFieldCell>
-                                    <connections>
-                                        <binding destination="331" name="value" keyPath="values.superSampling" id="382"/>
-                                    </connections>
                                 </textField>
                             </subviews>
                         </view>
@@ -98,7 +82,7 @@
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
                     <box title="Default View Size" id="300">
-                        <rect key="frame" x="18" y="402" width="689" height="77"/>
+                        <rect key="frame" x="18" y="354" width="689" height="77"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="8Wx-I5-utm">
                             <rect key="frame" x="2" y="2" width="685" height="60"/>
@@ -155,7 +139,7 @@
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
                     <box title="Renderer" id="393">
-                        <rect key="frame" x="17" y="260" width="689" height="138"/>
+                        <rect key="frame" x="17" y="212" width="689" height="138"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="NWI-eh-pmm">
                             <rect key="frame" x="2" y="2" width="685" height="121"/>
@@ -225,14 +209,14 @@
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
                     <box title="Misc" id="333">
-                        <rect key="frame" x="18" y="92" width="689" height="164"/>
+                        <rect key="frame" x="18" y="92" width="689" height="116"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="TDo-p0-yzX">
-                            <rect key="frame" x="2" y="2" width="685" height="147"/>
+                            <rect key="frame" x="2" y="2" width="685" height="99"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button id="341">
-                                    <rect key="frame" x="14" y="120" width="665" height="18"/>
+                                    <rect key="frame" x="14" y="72" width="665" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="If there are multiple screens, open the 3D window on a different screen of the 2D Viewer." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="368">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -243,7 +227,7 @@
                                     </connections>
                                 </button>
                                 <button id="347">
-                                    <rect key="frame" x="14" y="100" width="630" height="18"/>
+                                    <rect key="frame" x="14" y="52" width="630" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Auto-Rotate objects after 3 min. in Volume Rendering/MIP viewers." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="369">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -254,7 +238,7 @@
                                     </connections>
                                 </button>
                                 <button id="372">
-                                    <rect key="frame" x="14" y="80" width="295" height="18"/>
+                                    <rect key="frame" x="14" y="32" width="295" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Use Spline for Scissors ROI" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="373">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -264,41 +248,6 @@
                                         <binding destination="331" name="value" keyPath="values.SplineForScissors" id="374"/>
                                     </connections>
                                 </button>
-                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" id="385">
-                                    <rect key="frame" x="14" y="57" width="332" height="17"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="For representing 3D ROIs, use this algorithm:" id="386">
-                                        <font key="font" metaFont="system"/>
-                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    </textFieldCell>
-                                </textField>
-                                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="387">
-                                    <rect key="frame" x="352" y="36" width="107" height="38"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="107" height="18"/>
-                                    <size key="intercellSpacing" width="4" height="2"/>
-                                    <buttonCell key="prototype" type="radio" title="Radio" imagePosition="left" alignment="left" inset="2" id="390">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <cells>
-                                        <column>
-                                            <buttonCell type="radio" title="Iso Countour" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="388">
-                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                                <font key="font" metaFont="system"/>
-                                            </buttonCell>
-                                            <buttonCell type="radio" title="Delaunay" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="389">
-                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                                <font key="font" metaFont="system"/>
-                                            </buttonCell>
-                                        </column>
-                                    </cells>
-                                    <connections>
-                                        <binding destination="331" name="selectedTag" keyPath="values.UseDelaunayFor3DRoi" id="391"/>
-                                    </connections>
-                                </matrix>
                                 <button id="rot-pivot-mouse">
                                     <rect key="frame" x="14" y="12" width="665" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>

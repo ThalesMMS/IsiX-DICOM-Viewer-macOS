@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""The samples the framework hands the viewer are the samples in the file.
+"""The samples the dataset model hands the viewer are the samples in the file.
 
-Reads every instance of a fixture directory twice: once through the built DCM
-framework - the same `-[DCMPixelDataAttribute decodeFrameAtIndex:]` the viewer
-calls - and once with pydicom, which shares no code with it. Every sample has to
+Reads every instance of a fixture directory twice: once through the DCMTK
+reader and the dataset model of IsiXDICOMDataset - the same
+`-[DCMPixelDataAttribute decodeFrameAtIndex:]` the viewer calls - and once with
+pydicom, which shares no code with it. Every sample has to
 match. This is the file-reading half of the path; what DCMPix then makes of
 those samples (rescale, window) is measured elsewhere, against the thumbnails
 and in the 2D window.
@@ -13,11 +14,11 @@ colour spaces - YBR and palette come back as RGB, three samples where the file
 holds one or two - so for a colour object it is not the file's bytes that come
 back and this is not the check to make; `tools/check-colour-thumbnails.py` is.
 
-Neither the framework nor the fixtures are in this repository. Build with
+Neither the build's DCMTK nor the fixtures are in this repository. Build with
 `script/build_and_run.sh`, make fixtures with the generators in `tools/`.
 
 Usage: python test-pixel-reference.py PRODUCTS_DIR FIXTURE_DIR [FIXTURE_DIR...]
-       PRODUCTS_DIR is build/Build/Products/Debug, holding DCM.framework
+       PRODUCTS_DIR is build/Build/Products/Debug, of a build that left its DCMTK
 """
 from pathlib import Path
 import json
@@ -25,12 +26,12 @@ import subprocess
 import sys
 import tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from horos_reader import compile_reader
+from horos_reader import compile_reader, missing
 
 from python_with import prefer  # noqa: E402
 prefer('import numpy', 'import pydicom')
 if len(sys.argv) < 3:
-    print('skipped: needs the built DCM framework and a fixture directory: '
+    print('skipped: needs the dataset model and DCMTK of the Debug build and a fixture directory: '
           'PRODUCTS_DIR FIXTURE_DIR', file=sys.stderr)
     raise SystemExit(2)
 try:
@@ -41,8 +42,8 @@ except ImportError:
     raise SystemExit(2)
 
 products = Path(sys.argv[1]).resolve()
-if not (products / 'DCM.framework').is_dir():
-    print('skipped: no DCM.framework in %s: PRODUCTS_DIR FIXTURE_DIR' % products, file=sys.stderr)
+if missing(products):
+    print('skipped: %s: PRODUCTS_DIR FIXTURE_DIR' % missing(products), file=sys.stderr)
     raise SystemExit(2)
 
 program = r'''
@@ -77,8 +78,6 @@ with tempfile.TemporaryDirectory(prefix='horos-pixel-reference-') as tmp:
     (work / 'bin').mkdir()
     (work / 'Frameworks').symlink_to(products)
     (work / 'read.m').write_text(program)
-    # -w: the framework's own headers use API deprecated since 10.10, and the
-    # notes about it drown the result.
     compile_reader(products, work / 'read.m', work / 'bin/read', work)
 
     for argument in sys.argv[2:]:
@@ -127,7 +126,7 @@ with tempfile.TemporaryDirectory(prefix='horos-pixel-reference-') as tmp:
                 continue
             compared += 1
 
-print('%d uncompressed monochrome instance(s) read through the framework and compared '
+print('%d uncompressed monochrome instance(s) read through the dataset model and compared '
       'with pydicom' % compared)
 for failure in failures:
     print('FAIL: %s' % failure)

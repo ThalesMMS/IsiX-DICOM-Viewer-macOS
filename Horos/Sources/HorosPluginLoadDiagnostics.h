@@ -4,10 +4,16 @@
 static NSMutableDictionary *HorosPluginLoadOutcomes;
 
 // Canonically equivalent Unicode paths share an outcome; case and directories
-// remain distinct. This changes only the cache key, not the filesystem path.
+// remain distinct. Discovery records the bundle's resolved path while the
+// plugins list names it through its folder, and the two differ where a folder
+// is reached through a link: under /tmp (a link to /private/tmp) an isolated
+// development folder is listed as /tmp/... and loaded as /private/tmp/..., so
+// a loaded plugin read as "Not loaded". Links are resolved in the key, which
+// also drops the /private of /private/tmp and /private/var. This changes only
+// the cache key, not the filesystem path.
 static inline NSString *HorosPluginLoadOutcomeKey(NSString *path)
 {
-    return [path precomposedStringWithCanonicalMapping];
+    return [[path stringByResolvingSymlinksInPath] precomposedStringWithCanonicalMapping];
 }
 
 static inline void HorosRecordPluginLoad(NSString *path, NSString *state, NSString *reason)

@@ -81,21 +81,51 @@
     "readOnly": true,
     "sourcePatches": []
   },
-  "CocoaHTTPServer": {
-    "name": "CocoaHTTPServer",
-    "version": "1.0",
-    "upstream": "https://github.com/robbiehanson/CocoaHTTPServer",
-    "revision": "fd15e39ee6e959dae37950874f13f10171821006",
-    "archive": "CocoaHTTPServer-fd15e39ee6e959dae37950874f13f10171821006.tar.gz",
-    "sha256": "3f6de339aba152c23857c71df819a7b28d68dc65eb2609ebfb5cd7fe42ee4882",
-    "url": "https://codeload.github.com/robbiehanson/CocoaHTTPServer/tar.gz/fd15e39ee6e959dae37950874f13f10171821006",
-    "root": "CocoaHTTPServer-fd15e39ee6e959dae37950874f13f10171821006",
-    "license": "LICENSE.txt",
-    "licenseSha256": "8ab69fe63b1ca22c7019a005f111a634e1f61379e7663166bb4ab3827cc10a80",
-    "versionFile": "Info.plist",
+  "DCMTK": {
+    "name": "DCMTK",
+    "version": "3.7.0+",
+    "upstream": "https://github.com/DCMTK/dcmtk",
+    "revision": "414cbd77b01d6f0138ea58a7eca34b2c19157c78",
+    "archive": "dcmtk-414cbd77b01d6f0138ea58a7eca34b2c19157c78.tar.gz",
+    "sha256": "c28fddf2c182702f1186decb2ef90090b2bc2aeb386378ca77369b07ffdcede7",
+    "url": "https://codeload.github.com/DCMTK/dcmtk/tar.gz/414cbd77b01d6f0138ea58a7eca34b2c19157c78",
+    "root": "dcmtk-414cbd77b01d6f0138ea58a7eca34b2c19157c78",
+    "license": "COPYRIGHT",
+    "licenseSha256": "6c8ade56fa8742607397cf1652ce18d04a94c97b2d7d68fe69ebd407b1f214a0",
+    "notices": [
+      {
+        "path": "dcmjpls/docs/License.txt",
+        "sha256": "3e51a52b8e59d240e8f2b8bfd51f7b80e68371b17c04fc1d19c8633cdefa7c65"
+      },
+      {
+        "path": "dcmjpeg/docs/ijg_readme.txt",
+        "sha256": "0e3f0577cec4c376e42b2763a495d3f065ba9a8ea4ea0efffc92e6b41faa3128"
+      }
+    ],
+    "versionFile": "VERSION",
     "versionPatterns": [
-      "<key>CFBundleVersion</key>\\s*<string>([0-9]+)[.][0-9]+</string>",
-      "<key>CFBundleVersion</key>\\s*<string>[0-9]+[.]([0-9]+)</string>"
+      "\\A([0-9]+[.][0-9]+[.][0-9]+[+]?)"
+    ],
+    "readOnly": true,
+    "sourcePatches": []
+  },
+  "OpenSSL": {
+    "name": "OpenSSL",
+    "version": "3.5.9",
+    "upstream": "https://github.com/openssl/openssl",
+    "revision": "45e844fa2a14ec92d146bd8f5778ac130b6625fb",
+    "archiveKind": "release",
+    "archive": "openssl-3.5.9.tar.gz",
+    "sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+    "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz",
+    "root": "openssl-3.5.9",
+    "license": "LICENSE.txt",
+    "licenseSha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+    "versionFile": "VERSION.dat",
+    "versionPatterns": [
+      "(?m)^MAJOR=([0-9]+)$",
+      "(?m)^MINOR=([0-9]+)$",
+      "(?m)^PATCH=([0-9]+)$"
     ],
     "readOnly": true,
     "sourcePatches": []

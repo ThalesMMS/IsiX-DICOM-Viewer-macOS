@@ -43,37 +43,11 @@ import CoreData
 // LogManager is implemented in Swift: the Objective-C name, the
 // selectors and <Horos/LogManager.h> are those of the former class.
 //
-// Synchronization: every @synchronized (self) of the Objective-C is
-// objcSynchronized below, around the same statements. Each @try is a
-// HorosObjCException.perform whose exception is logged as N2LogException did.
-
-/// `@synchronized (object) { … }`: the same recursive lock, left before an
-/// exception raised inside goes on.
-@inline(__always)
-fileprivate func objcSynchronized<T>(_ object: AnyObject, _ body: () -> T) -> T {
-    objc_sync_enter(object)
-    var result: T?
-    var raised: NSException?
-    do {
-        try HorosObjCException.perform { result = body() }
-    } catch {
-        raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    objc_sync_exit(object)
-    if let raised { raised.raise() }
-    return result!
-}
-
-/// `@try { body } @catch (NSException* e) { N2LogException(e); }`.
-fileprivate func tryLoggingException(_ prettyFunction: String, _ body: () -> Void) {
-    do {
-        try HorosObjCException.perform(body)
-    } catch {
-        if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-            _N2LogExceptionImpl(e, false, prettyFunction)
-        }
-    }
-}
+// Synchronization: every @synchronized (self) of the Objective-C locks self
+// around the same statements. Each @try is a HorosObjCException.logged, whose
+// exception is logged as N2LogException did; where everything inside the lock
+// is in one, defer leaves the lock, and where a raise can reach the lock (the
+// nil key of -removeFromCurrentLog:) it is HorosObjCException.synchronized.
 
 /// `[value intValue]`: 0 for nil, and the value's own -intValue otherwise
 /// (NSNumber, NSString); a value without one raises, as the message did.
@@ -106,29 +80,43 @@ fileprivate func setObject(_ dictionary: NSMutableDictionary, _ object: Any, _ k
 /// \brief Managed network logging
 // @unchecked Sendable: the network threads and the browser share
 // +currentLogManager. `_currentLogs`, its only mutable state, is read and
-// changed only inside objcSynchronized(self), as in the Objective-C.
+// changed only inside the @synchronized lock of self, as in the Objective-C.
 @objc(LogManager)
 public final class LogManager: NSObject, @unchecked Sendable {
     /// Made once, by whichever thread asks first: a global `let`. The lazy
     /// `var` it replaces could make two when two network threads asked first.
-    private static let currentLogManagerInstance = LogManager()
+    private static let currentLogManagerInstance = LogManager(processGraph: ProcessGraph.process)
 
     private let _currentLogs = NSMutableDictionary()
+
+    /// The graph of the process, which answers from any thread whether the
+    /// network logs are on and which database the browser shows: the logs are
+    /// written from the network threads as well as from the main thread.
+    private let processGraph: ProcessGraph
 
     @objc(currentLogManager)
     public class func currentLogManager() -> Any! {
         return currentLogManagerInstance
     }
 
-    public override init() {
+    /// -init, the selector of the former class: a manager over the graph of the process.
+    public override convenience init() {
+        self.init(processGraph: ProcessGraph.process)
+    }
+
+    init(processGraph: ProcessGraph) {
+        self.processGraph = processGraph
         super.init()
     }
 
     @objc(resetLogs)
     public func resetLogs() {
-        let db = BrowserController.currentBrowser()?.database
+        let db = processGraph.browserDatabase
 
-        objcSynchronized(self) {
+        // -updateLogDatabase:objectID: logs what its work raises.
+        do {
+            objc_sync_enter(self)
+            defer { objc_sync_exit(self) }
             for case let (uid, _) in _currentLogs {
                 let entry = _currentLogs.object(forKey: uid) as? NSDictionary
                 self.updateLogDatabase(entry?.object(forKey: "dict") as? NSDictionary, objectID: entry?.object(forKey: "objectID") as? NSManagedObjectID)
@@ -137,7 +125,7 @@ public final class LogManager: NSObject, @unchecked Sendable {
             _currentLogs.removeAllObjects()
         }
 
-        tryLoggingException("-[LogManager resetLogs]") {
+        HorosObjCException.logged("-[LogManager resetLogs]") {
             // A message to a nil database answered nil.
             guard let db else { return }
             let array = db.objects(forEntity: db.logEntryEntity(), predicate: NSPredicate(format: "message like[cd] %@", "In Progress"))
@@ -152,10 +140,10 @@ public final class LogManager: NSObject, @unchecked Sendable {
     func updateLogDatabase(_ dict: NSDictionary?, objectID: NSManagedObjectID?) -> Bool {
         var complete = false
 
-        tryLoggingException("-[LogManager updateLogDatabase:objectID:]") {
+        HorosObjCException.logged("-[LogManager updateLogDatabase:objectID:]") {
             // Off the main thread, a private-queue database; the entry is
             // read, changed and saved inside its context's queue.
-            let database = BrowserController.currentBrowser()?.database
+            let database = self.processGraph.browserDatabase
             let worker: DicomDatabase? = Thread.isMainThread ? database : database?.privateQueueIndependentDatabase() as? DicomDatabase
             N2ManagedObjectContextPerformAndWait(worker?.managedObjectContext) {
             var logEntry: NSManagedObject? = nil
@@ -191,7 +179,7 @@ public final class LogManager: NSObject, @unchecked Sendable {
                     logEntry.setValue(logEndTime, forKey: "endTime")
                 }
 
-                tryLoggingException("-[LogManager updateLogDatabase:objectID:]") {
+                HorosObjCException.logged("-[LogManager updateLogDatabase:objectID:]") {
                     try? logEntry.managedObjectContext?.save()
                 }
             }
@@ -203,7 +191,7 @@ public final class LogManager: NSObject, @unchecked Sendable {
 
     @objc(removeFromCurrentLog:)
     func removeFromCurrentLog(_ uid: Any?) {
-        objcSynchronized(self) {
+        HorosObjCException.synchronized(self) {
             if let uid {
                 _currentLogs.removeObject(forKey: uid)
             } else {
@@ -218,64 +206,64 @@ public final class LogManager: NSObject, @unchecked Sendable {
     @objc(addLogLine:)
     public func addLogLine(_ dict: NSDictionary!) {
         autoreleasepool {
-            let browser = BrowserController.currentBrowser()
-            if browser?.isNetworkLogsActive() == true && browser?.database?.isLocal() == true {
-                objcSynchronized(self) {
-                    tryLoggingException("-[LogManager addLogLine:]") {
-                        let message = dict?.value(forKey: "logMessage")
-                        if isString(message, "In Progress") || (isString(message, "Complete") || isString(message, "Cancelled")) || isString(message, "Incomplete") {
-                            let uid = dict?.value(forKey: "logUID")
+            if processGraph.networkLogsActive && processGraph.browserDatabase?.isLocal() == true {
+                // What the line's work raises is logged inside the lock.
+                objc_sync_enter(self)
+                defer { objc_sync_exit(self) }
+                HorosObjCException.logged("-[LogManager addLogLine:]") {
+                    let message = dict?.value(forKey: "logMessage")
+                    if isString(message, "In Progress") || (isString(message, "Complete") || isString(message, "Cancelled")) || isString(message, "Incomplete") {
+                        let uid = dict?.value(forKey: "logUID")
 
-                            if object(_currentLogs, uid) == nil {
-                                let database = BrowserController.currentBrowser()?.database
-                                // Off the main thread, a private-queue database, used inside its queue.
-                                let worker: DicomDatabase? = Thread.isMainThread ? database : database?.privateQueueIndependentDatabase() as? DicomDatabase
-                                let context = worker?.managedObjectContext
+                        if object(_currentLogs, uid) == nil {
+                            let database = self.processGraph.browserDatabase
+                            // Off the main thread, a private-queue database, used inside its queue.
+                            let worker: DicomDatabase? = Thread.isMainThread ? database : database?.privateQueueIndependentDatabase() as? DicomDatabase
+                            let context = worker?.managedObjectContext
 
-                                // A nil context raised in
-                                // +insertNewObjectForEntityForName:inManagedObjectContext:,
-                                // which left the @try here.
-                                guard let context else { return }
-                                N2ManagedObjectContextPerformAndWait(context) {
-                                let logEntry = NSEntityDescription.insertNewObject(forEntityName: "LogEntry", into: context)
+                            // A nil context raised in
+                            // +insertNewObjectForEntityForName:inManagedObjectContext:,
+                            // which left the @try here.
+                            guard let context else { return }
+                            N2ManagedObjectContextPerformAndWait(context) {
+                            let logEntry = NSEntityDescription.insertNewObject(forEntityName: "LogEntry", into: context)
 
-                                logEntry.setValue(dict?.value(forKey: "logStartTime"), forKey: "startTime")
-                                logEntry.setValue(dict?.value(forKey: "logType"), forKey: "type")
-                                logEntry.setValue(dict?.value(forKey: "logCallingAET"), forKey: "originName")
-                                logEntry.setValue(dict?.value(forKey: "logCalledAET"), forKey: "destinationName")
-                                logEntry.setValue(dict?.value(forKey: "logPatientName"), forKey: "patientName")
-                                logEntry.setValue(dict?.value(forKey: "logStudyDescription"), forKey: "studyName")
+                            logEntry.setValue(dict?.value(forKey: "logStartTime"), forKey: "startTime")
+                            logEntry.setValue(dict?.value(forKey: "logType"), forKey: "type")
+                            logEntry.setValue(dict?.value(forKey: "logCallingAET"), forKey: "originName")
+                            logEntry.setValue(dict?.value(forKey: "logCalledAET"), forKey: "destinationName")
+                            logEntry.setValue(dict?.value(forKey: "logPatientName"), forKey: "patientName")
+                            logEntry.setValue(dict?.value(forKey: "logStudyDescription"), forKey: "studyName")
 
-                                tryLoggingException("-[LogManager addLogLine:]") {
-                                    try? logEntry.managedObjectContext?.save()
-                                }
-
-                                setObject(_currentLogs, NSDictionary(objects: [logEntry.objectID, dict!, NSNumber(value: 0)],
-                                                                    forKeys: ["objectID" as NSString, "dict" as NSString, "lastSave" as NSString]), uid)
-                                }
+                            HorosObjCException.logged("-[LogManager addLogLine:]") {
+                                try? logEntry.managedObjectContext?.save()
                             }
 
-                            if let current = object(_currentLogs, uid) as? NSDictionary {
-                                let previousDict = current.mutableCopy() as! NSMutableDictionary
+                            setObject(_currentLogs, NSDictionary(objects: [logEntry.objectID, dict!, NSNumber(value: 0)],
+                                                                forKeys: ["objectID" as NSString, "dict" as NSString, "lastSave" as NSString]), uid)
+                            }
+                        }
 
-                                previousDict.setObject(dict!, forKey: "dict" as NSString)
+                        if let current = object(_currentLogs, uid) as? NSDictionary {
+                            let previousDict = current.mutableCopy() as! NSMutableDictionary
 
-                                let lastSave = (previousDict.object(forKey: "lastSave") as? NSNumber)?.doubleValue ?? 0
-                                if Date.timeIntervalSinceReferenceDate - lastSave > 5 || isString(message, "Complete") || isString(message, "Cancelled") || isString(message, "Incomplete") {
-                                    // This line, not the entry's previous "dict": a caller that passes a
-                                    // new dictionary per line had the Complete line never saved.
-                                    if self.updateLogDatabase(dict, objectID: current.object(forKey: "objectID") as? NSManagedObjectID) {
-                                        NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(self.removeFromCurrentLog(_:)), object: uid)
-                                        self.perform(#selector(self.removeFromCurrentLog(_:)), with: uid, afterDelay: 5)
-                                    }
+                            previousDict.setObject(dict!, forKey: "dict" as NSString)
 
-                                    previousDict.setObject(NSNumber(value: Date.timeIntervalSinceReferenceDate), forKey: "lastSave" as NSString)
+                            let lastSave = (previousDict.object(forKey: "lastSave") as? NSNumber)?.doubleValue ?? 0
+                            if Date.timeIntervalSinceReferenceDate - lastSave > 5 || isString(message, "Complete") || isString(message, "Cancelled") || isString(message, "Incomplete") {
+                                // This line, not the entry's previous "dict": a caller that passes a
+                                // new dictionary per line had the Complete line never saved.
+                                if self.updateLogDatabase(dict, objectID: current.object(forKey: "objectID") as? NSManagedObjectID) {
+                                    NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(self.removeFromCurrentLog(_:)), object: uid)
+                                    self.perform(#selector(self.removeFromCurrentLog(_:)), with: uid, afterDelay: 5)
                                 }
 
-                                setObject(_currentLogs, previousDict, uid)
-                            } else {
-                                NSLog("********** [_currentLogs objectForKey:uid] == nil")
+                                previousDict.setObject(NSNumber(value: Date.timeIntervalSinceReferenceDate), forKey: "lastSave" as NSString)
                             }
+
+                            setObject(_currentLogs, previousDict, uid)
+                        } else {
+                            NSLog("********** [_currentLogs objectForKey:uid] == nil")
                         }
                     }
                 }

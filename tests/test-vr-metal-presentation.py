@@ -66,21 +66,40 @@ FORBIDDEN = ('NSOpenGL', 'openGLContext', 'CGLContextObj', 'OpenGL/', 'vtkCocoa'
 failures = []
 
 header = code(read('Horos/Sources/VRView.h'))
-if not re.search(r'@interface VRView\s*:\s*NSView\b', header):
+# The class is Swift (VRView.swift) where VRView.m is gone; a revision that
+# still has VRView.m is checked the former way.
+view = code(read('Horos/Sources/VRView.m'))
+swift_class = '' if view else code(read('Horos/Sources/VRView.swift'))
+if not re.search(r'@interface VRView\s*:\s*NSView\b', header) and not re.search(r'public class VRView: NSView\b', swift_class):
     failures.append('VRView is not an NSView')
-for name in ('horosRenderWindow', 'horosRenderer', 'horosPresenter'):
-    if name not in header:
-        failures.append('VRView has no %s' % name)
+if 'horosPresenter' not in header + swift_class:
+    failures.append('VRView has no horosPresenter')
+# The view's window and renderer are its VTK adapter's (IsiXVTKVolumeView).
+volume_objects = code(read('Horos/Sources/Adapters/VTK/IsiXVTKVolumeViewInternal.hpp'))
+for name in ('HorosVRRenderWindow *horosRenderWindow', 'HorosVRRenderer *horosRenderer'):
+    if name not in volume_objects:
+        failures.append('VRView has no %s' % name.split('*')[1])
 
-presentation = code(read('Horos/Sources/VRPresentation.h'))
+# The window and the renderer are the VTK adapter's.
+presentation = code(read('Horos/Sources/Adapters/VTK/IsiXVTKVolumePresentation.hpp'))
 if not re.search(r'class HorosVRRenderWindow\s*:\s*public vtkRenderWindow\b', presentation):
     failures.append('the 3D view does not render through a window of its own on vtkRenderWindow')
 if not re.search(r'class HorosVRRenderer\s*:\s*public vtkRenderer\b', presentation):
     failures.append('the 3D view does not render with a renderer of its own on vtkRenderer')
 
-sources = ['Horos/Sources/VRView.mm', 'Horos/Sources/VRView.h', 'Horos/Sources/VRPresetPreview.mm',
-           'Horos/Sources/EndoscopyVRView.mm', 'Horos/Sources/VRView+Overlay.mm', 'Horos/Sources/VRInteraction.mm',
-           'Horos/Sources/VRInteraction.h', 'Horos/Sources/VRPresentation.mm', 'Horos/Sources/VRPresentation.h']
+# The preset previews and the endoscopy's view are Swift subclasses of VRView;
+# the fly-through curves and the ROI volumes' actors reach VTK through the adapter.
+class_sources = ['Horos/Sources/VRView.m'] if view else ['Horos/Sources/VRView.swift', 'Horos/Sources/VRView+CAPI.m']
+sources = [*class_sources, 'Horos/Sources/VRView.h', 'Horos/Sources/VRView+Render.swift',
+           'Horos/Sources/VRView+Capture.swift', 'Horos/Sources/VRPresetPreview.swift',
+           'Horos/Sources/EndoscopyVRView.swift', 'Horos/Sources/Adapters/VTK/IsiXVTKOverlay.mm',
+           'Horos/Sources/Adapters/VTK/IsiXVTKCurves.mm', 'Horos/Sources/Adapters/VTK/IsiXVTKRendererProps.mm',
+           'Horos/Sources/Adapters/VTK/IsiXVTKVolumeInteraction.mm', 'Horos/Sources/Adapters/VTK/IsiXVTKVolumeInteraction.hpp',
+           'Horos/Sources/Adapters/VTK/IsiXVTKVolumePresentation.mm', 'Horos/Sources/Adapters/VTK/IsiXVTKVolumePresentation.hpp',
+           'Horos/Sources/Adapters/VTK/IsiXVTKVolumeScene.mm', 'Horos/Sources/Adapters/VTK/IsiXVTKVolumeView.mm',
+           'Horos/Sources/Adapters/VTK/IsiXVTKVolumeViewInternal.hpp', 'Horos/Sources/Adapters/VTK/IsiXVTKVolumePipeline.mm',
+           'Horos/Sources/Adapters/VTK/IsiXVTKVolumeCamera.mm', 'Horos/Sources/Adapters/VTK/IsiXVTKVolumeCrop.mm',
+           'Horos/Sources/Adapters/VTK/IsiXVTKVolumeActors.mm']
 for path in sources:
     text = code(read(path))
     if not text:
@@ -95,23 +114,47 @@ for path in sources:
         if token in text:
             failures.append('%s still uses %s' % (path, token))
 
-view = code(read('Horos/Sources/VRView.mm'))
-init = block(view, '-(id)initWithFrame:(NSRect)frame')
-if 'HorosVRRenderWindow::New()' not in init or 'HorosVRRenderer::New()' not in init or 'wantsLayer' not in init:
+
+def swift_block(text, signature):
+    """A method of a Swift extension of VRView: to the line that closes it at
+    the extension's indentation; '' when absent."""
+    at = text.find(signature)
+    return text[at:text.index('\n    }\n', at)] if at >= 0 else ''
+
+if view:
+    init = block(view, '-(id)initWithFrame:(NSRect)frame')
+    makes, layer = '[IsiXVTKVolumeView volumeViewWithError: &error]', 'wantsLayer'
+else:
+    init = swift_block(swift_class, 'public override init(frame: NSRect)')
+    makes, layer = 'try IsiXVTKVolumeView.make()', 'wantsLayer = true'
+volume_view = code(read('Horos/Sources/Adapters/VTK/IsiXVTKVolumeView.mm'))
+made = block(volume_view, '+ (instancetype)volumeViewWithError:(NSError **)error')
+if makes not in init or 'HorosVRRenderWindow::New()' not in made or \
+        'HorosVRRenderer::New()' not in made or layer not in init:
     failures.append('VRView does not make its own window and renderer and a layer')
-draw = block(view, '- (void) drawRect:(NSRect)aRect')
+# The frame and its layer are Swift (VRView+Render.swift), an extension of VRView.
+view_render = code(read('Horos/Sources/VRView+Render.swift'))
+draw = swift_block(view_render, 'public override func draw(_ aRect: NSRect)')
 # drawRect: renders through -horosRenderFrame, under its frame cycle.
-render = block(view, '- (BOOL) horosRenderFrame')
-if '[self horosRenderFrame]' not in draw or 'horosRenderWindow->Render()' not in render or '[super drawRect:' in draw:
+render = swift_block(view_render, 'func horosRenderFrame() -> Bool')
+if 'self.horosRenderFrame()' not in draw or 'self.horos_vtk.renderWindow()' not in render or \
+        'o->horosRenderWindow->Render()' not in block(volume_view, '- (BOOL)renderWindowWithError:') or 'super.draw(' in draw:
     failures.append('drawRect: does not render through the view\'s own window')
-if 'CAMetalLayer' not in block(view, '- (CAMetalLayer *) horosPictureLayer') or 'presentsWithTransaction' not in view:
+if 'CAMetalLayer()' not in swift_block(view_render, 'func horosPictureLayer() -> CAMetalLayer?') or \
+        'presentsWithTransaction = true' not in view_render:
     failures.append('the frame is not shown in a CAMetalLayer with the overlay\'s transaction')
-if 'drawnEngineFor:' not in block(view, '- (void) setEngine: (long) newEngine showWait:(BOOL) showWait'):
+# The engines are Swift (VRView+Engine.swift), an extension of VRView.
+view_engine = code(read('Horos/Sources/VRView+Engine.swift'))
+if 'drawnEngineFor:' not in block(view, '- (void) setEngine: (long) newEngine showWait:(BOOL) showWait') and \
+        'VRInteractionGeometry.drawnEngine(for:' not in swift_block(view_engine, 'func setEngine(_ newEngine: Int, showWait: Bool)'):
     failures.append('an engine other than Metal can still be asked to draw on screen')
-if 'horosPick3DPointAtX:' not in block(view, '- (void) horosVTKKeyDown:(NSEvent *) event'):
+# The keys VTK's interactor answered are Swift (VRView+Gestures.swift).
+view_gestures = code(read('Horos/Sources/VRView+Gestures.swift'))
+if 'horosPick3DPointAtX:' not in block(view, '- (void) horosVTKKeyDown:(NSEvent *) event') and \
+        'horosPick3DPointAt(x:' not in swift_block(view_gestures, 'func horosVTKKeyDown(_ event: NSEvent)'):
     failures.append('the \'p\' key does not pick 3D points by ray')
 
-renderer = code(read('Horos/Sources/VRPresentation.mm'))
+renderer = code(read('Horos/Sources/Adapters/VTK/IsiXVTKVolumePresentation.mm'))
 device = block(renderer, 'void HorosVRRenderer::DeviceRender()')
 for needle, what in (('RenderVolumetricGeometry', 'cast the volumes'), ('DrawVolumeImage', 'draw the ray-cast images'),
                      ('DrawActor', 'draw the surfaces'), ('CreateLight', 'make VTK\'s headlight'),
@@ -123,7 +166,7 @@ if 'readDepthWithX:' not in block(renderer, 'int HorosVRRenderWindow::GetZbuffer
 if 'readPixelsWithX:' not in block(renderer, 'NSData *HorosVRRenderWindow::Read('):
     failures.append('pixel reads are not the presenter\'s frame')
 
-mapper = code(read('Horos/Sources/vtkHorosFixedPointVolumeRayCastMapper.cxx'))
+mapper = code(read('Horos/Sources/Adapters/VTK/vtkHorosFixedPointVolumeRayCastMapper.cxx'))
 if 'RenderTexture' in block(mapper, 'void vtkHorosFixedPointVolumeRayCastMapper::DisplayRenderedImage('):
     failures.append('the ray-cast mapper still draws its image in OpenGL')
 

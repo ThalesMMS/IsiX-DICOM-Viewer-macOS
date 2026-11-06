@@ -40,6 +40,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from sources import class_text
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -97,8 +98,8 @@ image = read('Horos/Sources/DicomImage.swift')
 header = read('Horos/Sources/DicomStudy.h')
 capi = read('Horos/Sources/DicomImage+CAPI.m')
 nodes = read('Horos/Sources/RemoteDataNodeIdentifier.swift')
-browser = read('Horos/Sources/BrowserController.m')
-dcmtk = read('Horos/Sources/DicomFileDCMTKCategory.mm')
+browser = class_text('BrowserController')
+dcmtk = read('Horos/Sources/DicomFile+DICOMReading.swift')
 
 # --- 1, 4 and 8: the Swift, compiled ----------------------------------------
 helpers = []
@@ -166,7 +167,7 @@ default:
                 failures.append('%s: %r' % (failure, result.stdout.strip()))
 
 # --- 1: the Objective-C callers -----------------------------------------------
-for name, text in (('BrowserController.m', browser), ('DicomFileDCMTKCategory.mm', dcmtk)):
+for name, text in (('BrowserController', browser), ('DicomFile+DICOMReading.swift', dcmtk)):
     if re.search(r'unarchiveObjectWithData:\s*\[SRAnnotation roiFromDICOM:', code(text)):
         failures.append('%s sends +[SRAnnotation roiFromDICOM:] to NSUnarchiver unchecked' % name)
 
@@ -207,7 +208,10 @@ if annotation is None or 'primitiveValue(forKey:' in annotation or '"values"' in
 
 # --- 10: the C code, under AddressSanitizer -------------------------------------
 start = capi.find('static inline int charToInt')
+# Revisions that kept the stack-trace wrapper here end the C code before it.
 end = capi.find('// Declared for Swift in DicomImage.h.')
+if end < 0:
+    end = capi.find('@interface DicomImage (CoreDataCustomSetters)')
 if start < 0 or end < 0:
     failures.append('the UID encoding is gone from DicomImage+CAPI.m')
 else:

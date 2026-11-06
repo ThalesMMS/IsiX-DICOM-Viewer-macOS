@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 
 /// Window Controller for FlyThru.
 ///
@@ -45,10 +46,13 @@ import Cocoa
 /// <Horos/FlyThruController.h> are those of the former class, the File's
 /// Owner of FlyThru.xib, whose controls bind to flyThru, curMovieIndex, the
 /// hide… flags, exportFormat, levelOfDetailType, dcmSeriesName and tabIndex.
-/// What the export reads from the 3D view goes through FlyThruHostBridge,
-/// because VRView.h is C++.
+/// What the export reads from the 3D view, a VRView or an SRView, is sent
+/// through FlyThruViewMessages.
 @objc(FlyThruController)
 public final class FlyThruController: NSWindowController, NSWindowDelegate {
+    /// The preferences the window reads and writes: those of the process graph.
+    let preferenceStore: any PreferenceStore = PreferencesSource.process.preferences
+
     @IBOutlet private var LOD: NSMatrix?
     @IBOutlet private var boxPlay: NSBox?
     @IBOutlet private var boxExport: NSBox?
@@ -442,21 +446,21 @@ public final class FlyThruController: NSWindowController, NSWindowDelegate {
                     var width = 0, height = 0, spp = 0, bpp = 0
 
                     let view = controller3D?.view()
-                    let dataPtr = FlyThruHostBridge.rawPixels(ofView: view, width: &width, height: &height, spp: &spp, bpp: &bpp)
+                    let dataPtr = flyThruView(view)?.getRawPixels(&width, &height, &spp, &bpp, true, true)
                     var o = [Float](repeating: 0, count: 9)
 
                     if let dataPtr = dataPtr {
                         dcmSequence.setPixelData(dataPtr, samplesPerPixel: Int32(truncatingIfNeeded: spp), bitsPerSample: Int32(truncatingIfNeeded: bpp), width: width, height: height)
 
-                        FlyThruHostBridge.getOrientation(&o, ofView: controller3D?.view())
+                        flyThruView(controller3D?.view())?.getOrientation(&o)
 
-                        if UserDefaults.standard.bool(forKey: "exportOrientationIn3DExport") {
+                        if self.preferenceStore[VolumeRenderingPreferences.exportOrientationIn3DExport] {
                             dcmSequence.setOrientation(&o)
                         }
 
                         let isVRController = NSClassFromString("VRController").map { controller3D?.isKind(of: $0) ?? false } ?? false
                         if isVRController { //||  [controller3D isKindOfClass: [VRPROController class]])
-                            let resolution = Float(FlyThruHostBridge.resolution(ofView: controller3D?.view()))
+                            let resolution = Float(flyThruView(controller3D?.view())?.getResolution?() ?? 0)
 
                             if resolution != 0 {
                                 dcmSequence.setPixelSpacing(resolution, resolution)
@@ -477,24 +481,7 @@ public final class FlyThruController: NSWindowController, NSWindowDelegate {
             progress?.close()
 
             if producedFiles.count > 0 {
-                let database = BrowserController.currentBrowser()?.database
-                var objects = database?.addFiles(atPaths: producedFiles.value(forKey: "file") as? [Any],
-                                                 postNotifications: true,
-                                                 dicomOnly: true,
-                                                 rereadExistingItems: true,
-                                                 generatedByOsiriX: true)
-
-                objects = BrowserController.currentBrowser()?.database?.objects(withIDs: objects)
-
-                if UserDefaults.standard.bool(forKey: "afterExportSendToDICOMNode") {
-                    BrowserController.currentBrowser()?.selectServer(objects)
-                }
-
-                if UserDefaults.standard.bool(forKey: "afterExportMarkThemAsKeyImages") {
-                    for case let im as NSManagedObject in (objects as NSArray?) ?? NSArray() {
-                        im.setValue(NSNumber(value: true), forKey: "isKeyImage")
-                    }
-                }
+                GeneratedSeriesImport.process.add(producedFiles.value(forKey: "file") as? [Any] ?? [])
             }
         }
 

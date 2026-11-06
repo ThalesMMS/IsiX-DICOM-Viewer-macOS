@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 import Synchronization
 
 /// Chooses a storage location before the first database is opened. Existing
@@ -19,23 +20,20 @@ import Synchronization
 /// at the same point of the start, to move to a database of its own.
 @objc(HorosDatabaseFirstUse)
 public final class DatabaseFirstUse: NSObject {
-    static let completedKey = "DatabaseLocationChoiceCompleted"
-    static let pendingKey = "DatabaseLocationChoicePending"
     /// The data directory of an installation, as it is called now and as it
     /// was called in earlier versions, newest first. `Horos Data` is not one:
     /// it belongs to Horos, unless this installation already used it.
     static let dataDirectoryNames = [DatabaseLocation.dataDirectoryName] + DatabaseLocation.previousDataDirectoryNames
 
     static func needsChoice(defaults: UserDefaults, documents: URL) -> Bool {
-        let arguments = defaults.volatileDomain(forName: UserDefaults.argumentDomain)
-        if arguments["DATABASELOCATION"] != nil || arguments["DEFAULT_DATABASELOCATION"] != nil ||
-            arguments["DATABASELOCATIONURL"] != nil || arguments["DEFAULT_DATABASELOCATIONURL"] != nil {
+        if DatabasePreferences.location.isGivenAsLaunchArgument(in: defaults)
+            || DatabasePreferences.defaultLocation.isGivenAsLaunchArgument(in: defaults) {
             return false
         }
-        if defaults.bool(forKey: completedKey) || defaults.integer(forKey: "DEFAULT_DATABASELOCATION") != 0 {
+        if defaults[DatabasePreferences.databaseLocationChoiceCompleted] || defaults[DatabasePreferences.defaultDatabaseLocation] != 0 {
             return false
         }
-        if defaults.bool(forKey: pendingKey) { return true }
+        if defaults[DatabasePreferences.databaseLocationChoicePending] { return true }
         // Even a damaged or partially created database belongs to an existing
         // installation. Location setup must not redirect it to a new empty one.
         if dataDirectoryNames.contains(where: { FileManager.default.fileExists(atPath: documents.appendingPathComponent($0).path) }) {
@@ -101,7 +99,7 @@ public final class DatabaseFirstUse: NSObject {
         guard alternateDefault.map({ !FileManager.default.fileExists(atPath: $0) }) ?? true,
               let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
         if needsChoice(defaults: .standard, documents: documents) {
-            UserDefaults.standard.set(true, forKey: pendingKey)
+            PreferencesSource.process.preferences.set(true, for: DatabasePreferences.databaseLocationChoicePending)
             pendingDocuments.withLock { $0 = documents }
             pendingChoice.store(true, ordering: .releasing)
         } else if let horos = horosDatabaseToOpen(defaults: .standard, documents: documents) {
@@ -114,6 +112,14 @@ public final class DatabaseFirstUse: NSObject {
     }
 
     @objc public static var hasPendingChoice: Bool { pendingChoice.load(ordering: .acquiring) }
+
+    /// What had to wait for the database of the first use: the portal made
+    /// before it opened, and the studies of a Horos database the user chose to
+    /// import.
+    @MainActor static func databaseDidOpen() {
+        WebPortal.adoptOpenedDatabase()
+        ForeignDatabaseChoice.startPendingImport()
+    }
 
     // Present after class initialization, when AppKit can service accessibility
     // and window events, but before the browser opens its database.
@@ -191,10 +197,9 @@ public final class DatabaseFirstUse: NSObject {
             }
             // Store Documents explicitly too: subsequent launches reopen the
             // same selected folder through the existing location contract.
-            defaults.set(location.path, forKey: "DEFAULT_DATABASELOCATIONURL")
-            defaults.set(1, forKey: "DEFAULT_DATABASELOCATION")
-            defaults.set(true, forKey: completedKey)
-            defaults.removeObject(forKey: pendingKey)
+            defaults.set(.folder(location.path), for: DatabasePreferences.defaultLocation)
+            defaults.set(true, for: DatabasePreferences.databaseLocationChoiceCompleted)
+            defaults.remove(DatabasePreferences.databaseLocationChoicePending)
             defaults.synchronize()
             return true
         }
@@ -202,22 +207,17 @@ public final class DatabaseFirstUse: NSObject {
 
     // MARK: An installation still on the Horos database
 
-    /// The `Horos Data` directories whose user chose to keep using them without
-    /// being asked again at each start.
-    static let keptHorosDirectoriesKey = "KeptHorosDataDirectories"
-
     /// The Horos database the start is about to open, or `nil`: the configured
     /// location resolves to a `Horos Data` directory, because this installation
     /// adopted it or because the location names it. A location given on the
     /// command line is opened as given, as it skips first use.
     static func horosDatabaseToOpen(defaults: UserDefaults, documents: URL) -> String? {
-        let arguments = defaults.volatileDomain(forName: UserDefaults.argumentDomain)
-        if ["DATABASELOCATION", "DEFAULT_DATABASELOCATION", "DATABASELOCATIONURL", "DEFAULT_DATABASELOCATIONURL"]
-            .contains(where: { arguments[$0] != nil }) {
+        if DatabasePreferences.location.isGivenAsLaunchArgument(in: defaults)
+            || DatabasePreferences.defaultLocation.isGivenAsLaunchArgument(in: defaults) {
             return nil
         }
-        let folder = defaults.integer(forKey: "DEFAULT_DATABASELOCATION") == 1
-            ? defaults.string(forKey: "DEFAULT_DATABASELOCATIONURL") : documents.path
+        let location = defaults[DatabasePreferences.defaultLocation]
+        let folder = location.usesFolder ? location.folder : documents.path
         let adopted = DatabaseLocation.adoptedHorosDirectories(defaults)
         guard let folder, !folder.isEmpty,
               let resolved = DatabaseLocation.baseDirectory(forPath: folder, horosDataAdopted: { DatabaseLocation.isAdopted($0, in: adopted) }),
@@ -238,7 +238,7 @@ public final class DatabaseFirstUse: NSObject {
     }
 
     static func keepsWithoutAsking(horosDirectory: String, defaults: UserDefaults) -> Bool {
-        return DatabaseLocation.isAdopted(horosDirectory, in: defaults.stringArray(forKey: keptHorosDirectoriesKey) ?? [])
+        return DatabaseLocation.isAdopted(horosDirectory, in: defaults[DatabasePreferences.keptHorosDirectories] ?? [])
     }
 
     struct HorosDatabaseAnswer {
@@ -272,15 +272,14 @@ public final class DatabaseFirstUse: NSObject {
                                          defaults: UserDefaults, startImport: (String) -> Void) {
         if answer.move {
             DatabaseLocation.unadoptHorosDirectory(horosDirectory, defaults: defaults)
-            defaults.set((horosDirectory as NSString).deletingLastPathComponent, forKey: "DEFAULT_DATABASELOCATIONURL")
-            defaults.set(1, forKey: "DEFAULT_DATABASELOCATION")
+            defaults.set(.folder((horosDirectory as NSString).deletingLastPathComponent), for: DatabasePreferences.defaultLocation)
             defaults.synchronize()
             NSLog("Database: moving from the Horos database %@ to a database of this application beside it", horosDirectory)
             startImport(DatabaseLocation.importFolder(forDataDirectory: horosDirectory))
         } else if answer.doNotAskAgain && !upgrade {
-            var kept = defaults.stringArray(forKey: keptHorosDirectoriesKey) ?? []
+            var kept = defaults[DatabasePreferences.keptHorosDirectories] ?? []
             if !DatabaseLocation.isAdopted(horosDirectory, in: kept) { kept.append(horosDirectory) }
-            defaults.set(kept, forKey: keptHorosDirectoriesKey)
+            defaults.set(kept, for: DatabasePreferences.keptHorosDirectories)
         }
     }
 }

@@ -45,10 +45,14 @@ def read(path):
 
 
 failures = []
-header = read('Horos/Sources/vtkHorosFixedPointVolumeRayCastMapper.h')
-mapper = read('Horos/Sources/vtkHorosFixedPointVolumeRayCastMapper.cxx')
-bridge = read('Horos/Sources/VRHostBridge.mm')
-mpr = read('Horos/Sources/MPRHostBridge.m')
+header = read('Horos/Sources/Adapters/VTK/vtkHorosFixedPointVolumeRayCastMapper.h')
+mapper = read('Horos/Sources/Adapters/VTK/vtkHorosFixedPointVolumeRayCastMapper.cxx')
+# The host is Swift over the VTK adapter, with its rules in IsiXVolumeRendering.
+bridge = read('Horos/Sources/VRView+VolumeHost.swift')
+scene = read('Horos/Sources/Adapters/VTK/IsiXVTKVolumeScene.mm')
+planes = read('Modules/IsiXVolumeRendering/Sources/VolumeCropPlanes.swift')
+view = read('Horos/Sources/VRView.swift')
+mpr = read('Horos/Sources/MPRDCMView+MetalPlane.swift')  # the MPR's Metal plane, Swift
 renderer = read('Horos/Sources/VolumeMetalRenderer.swift')
 trace = read('Horos/Sources/MetalPerformanceTrace.swift')
 
@@ -69,49 +73,61 @@ for cause in ('GeometryNoInput', 'GeometryNoViewport', 'GeometryClippingPlane', 
         failures.append('the geometry never records ' + cause)
 
 # The VR hook and snapshot.
-hook = bridge[bridge.index('- (BOOL)horosRenderMetalImageForMapper:'):bridge.index('- (NSArray *)horosRayCastImageRegion')]
-if 'PrepareMPRGeometry(renderer, renderVolume, true)' not in hook:
+hook = bridge[bridge.index('private func renderMetalImage(in scene: IsiXVTKVolumeScene, fused: Bool) -> Bool {'):
+              bridge.index('private static func geometryRefusalReason(')]
+if 'try scene.prepareGeometry(acceptingClippingPlanes: true)' not in hook or \
+        'mapper->PrepareMPRGeometry(renderer, volume, accept)' not in scene:
     failures.append('the VR hook still refuses a crop')
-if 'mapper->GetCropping()' in hook:
+if 'sampling.cropping' in hook or 'readSampling' in hook:
     failures.append('the VR hook still refuses VTK cropping regions')
 if 'clipRangeActivated' in hook:
     failures.append('the VR hook still refuses the clipping range')
-if 'BOOL projection = renderingMode != 0;' not in bridge:
+if 'projection: renderingMode != 0)' not in bridge:
     failures.append('a projection under the clipping range is not sampled from the camera\'s own range')
-if '[HorosMetalPerformanceTrace recordRefusal:fused ? @"vr.fusion.refusal" : @"vr.refusal" reason:reason]' not in hook:
+if 'MetalPerformanceTrace.recordRefusal(fused ? "vr.fusion.refusal" : "vr.refusal", reason: reason)' not in hook:
     failures.append('a refused VR frame leaves no reason in the trace')
-# The planes are read by a helper both volumes share.
-planes = bridge[bridge.index('static NSArray *HorosCuttingPlanes('):bridge.index('- (NSDictionary *)horosVolumeSnapshot {')]
-snapshot = bridge[bridge.index('- (NSDictionary *)horosVolumeSnapshot {'):]
-for needle, why in [('GetVoxelClippingPlanes(&voxelPlanes)', 'the snapshot does not read VTK\'s voxel planes'),
-                    ('cuts = distance < -1e-4;', 'the snapshot passes planes that do not cut the voxel centres'),
-                    ('mapper->GetCroppingRegionFlags() != VTK_CROP_SUBVOLUME', 'a set of cropping regions that is not one box is not refused'),
-                    ('double low = (bounds[2 * axis] - origin[axis]) / spacing[axis], high = (bounds[2 * axis + 1] - origin[axis]) / spacing[axis];',
+# The planes are read by a helper both volumes share; the rule is the module's.
+helper = bridge[bridge.index('private static func cuttingPlanes('):bridge.index('private static func shading(')]
+snapshot = bridge[bridge.index('@objc func horosVolumeSnapshot() -> NSDictionary {'):]
+for needle, why in [('try scene.voxelClippingPlanes()', 'the snapshot does not read VTK\'s voxel planes'),
+                    ('VolumeCropPlanes.cuttingPlanes(voxelPlanes: planes, cropping: cropping', 'the snapshot does not keep only the cutting planes')]:
+    if needle not in helper:
+        failures.append(why)
+for needle, why in [('mapper->GetVoxelClippingPlanes(&values)', 'the adapter does not read VTK\'s voxel planes'),
+                    ('sampling->croppingSubvolume = mapper->GetCroppingRegionFlags() == VTK_CROP_SUBVOLUME ? YES : NO;',
+                     'the adapter does not say whether the cropping regions are one box')]:
+    if needle not in scene:
+        failures.append(why)
+for needle, why in [('cuts = distance < -1e-4', 'the snapshot passes planes that do not cut the voxel centres'),
+                    ('guard cropping.subvolume else { throw .regionsNotSubvolume }', 'a set of cropping regions that is not one box is not refused'),
+                    ('let low = (cropping.planes[2 * axis] - origin[axis]) / spacing[axis]',
                      'a subvolume\'s bounds are not turned into voxel index planes')]:
     if needle not in planes:
         failures.append(why)
-for needle, why in [('HorosCuttingPlanes(volumeMapper, first.pwidth, first.pheight, pix.count, &planeError)', 'the snapshot does not read VTK\'s voxel planes'),
-                    ('if (planeError) return @{@"error": planeError};', 'a set of cropping regions the renderer cannot draw is drawn anyway'),
-                    ('maximumClippingPlanes]', 'the snapshot does not bound the planes it passes'),
-                    ('@"clippingPlanes": clippingPlanes', 'the snapshot does not carry the planes')]:
+for needle, why in [('try Self.cuttingPlanes(scene, sampling: sampling, width: first.pwidth, height: first.pheight, depth: pix.count)',
+                     'the snapshot does not read VTK\'s voxel planes'),
+                    ('case .failure(let refusal): return ["error": refusal.reason]', 'a set of cropping regions the renderer cannot draw is drawn anyway'),
+                    ('VolumeRendererBridge.maximumClippingPlanes', 'the snapshot does not bound the planes it passes'),
+                    ('"clippingPlanes": Self.numbers(clippingPlanes)', 'the snapshot does not carry the planes')]:
     if needle not in snapshot:
         failures.append(why)
-if 'getCroppingBox:' in snapshot:
+if 'getCroppingBox' in snapshot:
     failures.append('the snapshot still reads the box widget\'s axis-aligned bounds, which a turned box does not have')
-if 'clippingPlanes:snapshot[@"clippingPlanes"]' not in bridge:
+if 'clippingPlanes: snapshot["clippingPlanes"] as? [NSNumber]' not in read('Horos/Sources/VRController+VolumeMetal.swift'):
     failures.append('the render does not receive the crop planes')
 for reason in ('The crop uses the original renderer.', 'The ray caster has no rows to cast.', 'The view has no size yet.'):
     if reason not in bridge:
         failures.append('a geometry refusal has no reason of its own: ' + reason)
 
 # The MPR plane: its own reasons, and still no crop.
-if '[vrView horosMPRGeometryRefusalWidth:width height:height]' not in mpr:
+if 'vrView.horosMPRGeometryRefusalWidth(width, height: height)' not in mpr:
     failures.append('the MPR plane does not say why its geometry is refused')
-if '[HorosMetalPerformanceTrace recordRefusal:@"mpr.refusal" reason:reason]' not in mpr:
+if 'MetalPerformanceTrace.recordRefusal("mpr.refusal", reason: reason)' not in mpr:
     failures.append('a refused MPR plane leaves no reason in the trace')
-refusal = bridge[bridge.index('- (NSString *)horosMPRGeometryRefusalWidth:'):bridge.index('- (NSDictionary *)horosVolumeSnapshot {')] \
-    if '- (NSString *)horosMPRGeometryRefusalWidth:' in bridge else ''
-if 'PrepareMPRGeometry(aRenderer, volume))' not in refusal:
+refusal = bridge[bridge.index('@objc public func horosMPRGeometryRefusalWidth('):bridge.index('@objc public func horosMPRFusedGeometryRefusalWidth(')]
+plane = bridge[bridge.index('private func preparedPlane('):bridge.index('@objc public func horosMPRFusedVolume(')]
+if 'return preparedPlane(scene, width: width, height: height)' not in refusal or \
+        'try scene.prepareGeometry(acceptingClippingPlanes: false)' not in plane:
     failures.append('the MPR plane takes a crop its reslice does not clip')
 
 # The renderer and the trace.

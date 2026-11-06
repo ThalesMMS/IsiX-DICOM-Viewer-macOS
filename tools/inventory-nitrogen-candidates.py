@@ -29,7 +29,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SEARCH = ["Horos", "Nitrogen", "Preference Panes", "Decompress", "FinderPreview", "DICOMPrint",
-          "API", "DCM Framework", "MSRG", "LetsMoveAndDock", "cocoahttpserver", "FeedbackReporter", "NSFont_OpenGL"]
+          "API", "DCM Framework", "MSRG", "NSFont_OpenGL"]
 PROJECTS = ["Horos.xcodeproj/project.pbxproj", "Nitrogen/Nitrogen.xcodeproj/project.pbxproj"]
 SUFFIXES = {".h", ".m", ".mm", ".swift", ".xib", ".pch", ".c", ".cpp", ".html", ".js", ".plist", ".py", ".sh",
             ".applescript"}

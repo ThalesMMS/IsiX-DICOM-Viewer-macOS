@@ -1,30 +1,24 @@
 #!/usr/bin/env python3
 """SMTPClient sends its first command to a server that greets at once.
 
-SMTPClient opens an input and an output stream to the server and answers the
-220 greeting from the input stream's callback. A server that greets as soon as
-it accepts the connection, as a relay on the same machine or the same network
-does, can have its greeting read before the output stream has reported
-.hasSpaceAvailable. The HELO was then written anyway: -write:maxLength: on an
-output stream without room blocks the session thread, and the event that
-would free it is delivered by the run loop that thread was running. The server
-never got a command and nothing was sent, in about half of the sessions.
+A server that greets as soon as it accepts the connection, as a relay on the
+same machine or the same network does, can have its greeting read before the
+client's side of the connection is ready to write. The stream-based client
+wrote its HELO anyway and blocked the thread that would have delivered the
+event freeing it: in about half of the sessions the server never got a
+command. Over Network.framework the client writes through the connection's
+own queue; the case stays, against the same immediate greeting.
 
-The session now only writes when the output stream has room; otherwise the
-command waits in the buffer until the .hasSpaceAvailable event, or the second
-.openCompleted, sends it.
-
-SMTPClient.swift, SMTPClient+CAPI.m and HorosObjCException.m are compiled as
-they are with a driver that sends one message to a fake SMTP server this
-script runs on 127.0.0.1; nothing leaves the machine and nothing reads the
-user's Mail accounts or Keychain (the driver runs with CFFIXED_USER_HOME in a
-temporary folder). Each session must reach QUIT:
+SMTPClient.swift and SMTPConnection.swift are compiled as they are, with the
+IsiXMail module, and a driver that sends one message to a fake SMTP server
+this script runs on 127.0.0.1; nothing leaves the machine and nothing reads
+the user's Mail accounts or Keychain (the driver runs with CFFIXED_USER_HOME
+in a temporary folder). Each session must reach QUIT:
 - IMMEDIATE_RUNS sessions whose server greets the moment it accepts;
-- DELAYED_RUNS sessions whose server waits 0.3 s first (control: the order of
-  the stream events that worked before).
+- DELAYED_RUNS sessions whose server waits 0.3 s first (control).
 
-`<git revision>` as an optional argument reads SMTPClient.swift from that
-revision, the negative control.
+The comparison with the stream-based client of an earlier revision is
+tests/test-smtp-network-framework.py.
 
 The real NSData/NSString N2 categories also verify MD5/SHA-256 known vectors
 and SDK selectors. Four authenticated local sessions check CRAM-MD5
@@ -52,21 +46,16 @@ DELAYED_RUNS = 3
 SESSION_TIMEOUT = 4.0
 
 root = Path(__file__).resolve().parents[1]
-revision = sys.argv[1] if len(sys.argv) > 1 else None
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402
 
 if shutil.which('xcrun') is None:
     print('skipped: needs xcrun (swiftc, clang)', file=sys.stderr)
     sys.exit(SKIPPED)
 
 
-def smtp_source():
-    path = 'Nitrogen/Sources/SMTPClient.swift'
-    if revision:
-        return subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:{path}'])
-    return (root / path).read_bytes()
-
-
-OBJC_SOURCES = ['Horos/Sources/HorosObjCException.m', 'Nitrogen/Sources/SMTPClient+CAPI.m']
+OBJC_SOURCES = ['Horos/Sources/HorosObjCException.m']
+SMTP_SOURCES = ['SMTPClient.swift', 'SMTPConnection.swift']
 
 SHIM_H = r'''
 #import <Foundation/Foundation.h>
@@ -176,7 +165,8 @@ class FakeSMTPServer:
                 self.commands.append(line)
                 if awaiting_auth:
                     challenge = b'<1896.697170952@postoffice.reston.mci.net>'
-                    digest = hmac.new(self.secret.encode(), challenge, hashlib.md5).hexdigest().upper()
+                    # RFC 2195 writes the digest in lower-case hexadecimal.
+                    digest = hmac.new(self.secret.encode(), challenge, hashlib.md5).hexdigest()
                     self.authenticated = base64.b64decode(line).decode() == 'tim ' + digest
                     reply('235 authenticated' if self.authenticated else '535 invalid response')
                     awaiting_auth = False
@@ -218,7 +208,8 @@ def run(command):
 
 with tempfile.TemporaryDirectory(prefix='horos-smtp-809-') as tmp:
     tmp = Path(tmp)
-    (tmp / 'SMTPClient.swift').write_bytes(smtp_source())
+    for name in SMTP_SOURCES:
+        (tmp / name).write_bytes((root / 'Nitrogen/Sources' / name).read_bytes())
     for name in ('NSData+N2.swift', 'NSString+N2.swift', 'NSMutableString+N2.swift'):
         (tmp / name).write_bytes((root / 'Nitrogen/Sources' / name).read_bytes())
     for path in OBJC_SOURCES:
@@ -236,8 +227,10 @@ with tempfile.TemporaryDirectory(prefix='horos-smtp-809-') as tmp:
             run(['xcrun', 'clang', '-c', '-w', '-fno-objc-arc', '-DHOROS_BRIDGING_HEADER=1',
                  '-iquote', str(tmp), *includes, str(tmp / name), '-o', str(obj)])
             objects.append(str(obj))
-        run(['xcrun', 'swiftc', '-module-name', 'Horos', '-import-objc-header', str(tmp / 'Bridging.h'),
-             *includes, str(tmp / 'SMTPClient.swift'), str(tmp / 'NSData+N2.swift'),
+        target = ['-target', 'arm64-apple-macos15.0']
+        run(['xcrun', 'swiftc', '-module-name', 'Horos', *target, '-import-objc-header', str(tmp / 'Bridging.h'),
+             *includes, *isix_modules.module_flags('IsiXMail', tmp / 'modules', target),
+             *[str(tmp / name) for name in SMTP_SOURCES], str(tmp / 'NSData+N2.swift'),
              str(tmp / 'NSString+N2.swift'), str(tmp / 'NSMutableString+N2.swift'), str(tmp / 'main.swift'), *objects,
              '-framework', 'Cocoa', '-o', str(harness)])
     except subprocess.CalledProcessError as e:

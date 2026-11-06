@@ -46,28 +46,4 @@
 @class MyPoint;
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift, the Decompress helper: DCMPix.m and the headers it
-// shares with the app name MyPoint there, as they did, without its
-// implementation.
-
-/** \brief Wrapper for NSPoint */
-
-@interface MyPoint : NSObject<NSCoding> {
-	NSPoint pt;
-}
-
-@property(assign) NSPoint point;
-@property(readonly) float x, y;
-
-+ (MyPoint*)point:(NSPoint)a;
-- (id)initWithPoint:(NSPoint)a;
-
-- (void)setPoint:(NSPoint)a;
-- (void)move:(float)x :(float)y;
-
-- (BOOL)isEqualToPoint:(NSPoint)a;
-- (BOOL)isNearToPoint:(NSPoint)a :(float)scale :(float)ratio;
-
-@end
 #endif

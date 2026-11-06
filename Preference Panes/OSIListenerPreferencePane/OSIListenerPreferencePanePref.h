@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// OSIListenerPreferencePanePref is implemented in Swift since #711 (Preference
+// OSIListenerPreferencePanePref is implemented in Swift (Preference
 // Panes/OSIListenerPreferencePane/OSIListenerPreferencePanePref.swift). This header
 // keeps its path: it brings in the generated interface, which declares the same
 // class name and selectors.

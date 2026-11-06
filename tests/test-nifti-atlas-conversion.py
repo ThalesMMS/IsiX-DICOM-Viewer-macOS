@@ -23,14 +23,17 @@ def check(condition, message):
 
 source = root / 'Horos/Sources/NiftiAtlasConversion.swift'
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
-volume_view = (root / 'Horos/Sources/ROIVolumeView.mm').read_bytes().decode('latin1')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources  # noqa: E402
+database = sources.class_text('DicomDatabase')  # DicomDatabase is Swift
+import default_preferences  # noqa: E402
+defaults = default_preferences.registered()
+volume_view = (root / 'Horos/Sources/ROIVolumeView.swift').read_text(encoding='utf-8')
 
 check(source.is_file(), 'NiftiAtlasConversion.swift is missing')
 check('NiftiAtlasConversion.swift' in pbx,
       'NiftiAtlasConversion.swift is not in the app target')
-check('isNIfTIFile:srcPath' in database,
+check('DicomFile.isNIfTIFile(srcPath)' in database,
       'general NIfTI import must stay on DicomDatabase; atlas conversion is not a substitute')
 check('NiftiAtlasConversion' not in database,
       'atlas conversion must not be wired as the incoming-folder NIfTI indexer')
@@ -40,13 +43,13 @@ check('NiftiAtlasConversion' not in database,
 # being silently rewritten to iso-contour: Power Crust is a tag in
 # ROIVolume.xib whose VTK path is not built, and quietly reconstructing with a
 # different algorithm would hand back a surface the user did not ask for.
-check('setObject:@"0" forKey:@"UseDelaunayFor3DRoi"' in defaults,
+check(defaults.get('UseDelaunayFor3DRoi') == '0',
       'UseDelaunayFor3DRoi must default to iso-contour, not Delaunay')
-check('[HorosROISurfaceAlgorithm resolvePreference:' in volume_view,
+check('ROISurfaceAlgorithm.resolvePreference(' in volume_view,
       'ROIVolumeView no longer asks the surface-algorithm helper before VTK')
 check('choice.available' in volume_view and 'choice.diagnosis' in volume_view,
       'an unavailable algorithm must be refused with its diagnosis, not reconstructed')
-check('setInteger:0 forKey:@"UseDelaunayFor3DRoi"' not in volume_view,
+check('set(0, forKey: "UseDelaunayFor3DRoi")' not in volume_view,
       'an unavailable algorithm must not be silently rewritten to iso-contour')
 check('ROIVolumeGeometry.swift' in pbx,
       'closed-surface volume still needs the host trapezoid helper (A247)')

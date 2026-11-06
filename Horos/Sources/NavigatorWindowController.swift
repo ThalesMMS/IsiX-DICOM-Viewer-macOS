@@ -39,13 +39,6 @@
 
 import Cocoa
 
-/// [[[AppController sharedAppController] viewerScreens] objectAtIndex: 0],
-/// which raises without a screen as it did.
-@MainActor private func firstViewerScreen() -> NSScreen? {
-    let screens = (AppController.shared()?.viewerScreens() ?? []) as NSArray
-    return screens.object(at: 0) as? NSScreen
-}
-
 /// Window Controller for the Navigator. The Navigator provides a unrolled view
 /// of the selected series (in 3D and in 4D).
 ///
@@ -59,6 +52,9 @@ public final class NavigatorWindowController: NSWindowController {
     private static unowned(unsafe) var nav: NavigatorWindowController? = nil
 
     @objc public private(set) var viewerController: ViewerController?
+    /// The process's dependencies, set by init(viewer:) right after it makes
+    /// the controller, before the nib loads and the window is sized.
+    private(set) var processGraph: ProcessGraph!
     @IBOutlet @objc public private(set) var navigatorView: NavigatorView?
     @IBOutlet private var scrollview: NSScrollView?
     private var dontReEnter = false
@@ -74,6 +70,7 @@ public final class NavigatorWindowController: NSWindowController {
     @objc(initWithViewer:)
     public convenience init(viewer: ViewerController?) {
         self.init(windowNibName: "Navigator")
+        processGraph = ProcessGraph.process
 
         NavigatorWindowController.nav = self
 
@@ -164,7 +161,7 @@ public final class NavigatorWindowController: NSWindowController {
         self.window?.setFrame(r, display: true)
 
         if r.size.height != CGFloat(height) && withTiling == true {
-            AppController.shared()?.tileWindows(nil)
+            processGraph.appController?.tileWindows(nil)
         }
 
         dontReEnter = false
@@ -207,8 +204,15 @@ public final class NavigatorWindowController: NSWindowController {
         viewerController = nil
         // The former code sent these after [super dealloc]; Swift runs
         // NSWindowController's dealloc after this body.
-        AppController.shared()?.tileWindows(nil)
+        processGraph.appController?.tileWindows(nil)
         ThumbnailsListPanel.checkScreenParameters()
+    }
+
+    /// [[[AppController sharedAppController] viewerScreens] objectAtIndex: 0],
+    /// which raises without a screen as it did.
+    func firstViewerScreen() -> NSScreen? {
+        let screens = (processGraph.appController?.viewerScreens() ?? []) as NSArray
+        return screens.object(at: 0) as? NSScreen
     }
 
     @objc(computeMinAndMaxSize)

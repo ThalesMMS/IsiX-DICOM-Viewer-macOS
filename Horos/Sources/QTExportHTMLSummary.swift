@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXDICOMFile
 
 // The former code relied on Objective-C's messages to nil and on Foundation
 // raising NSExceptions (a template without its markers, an empty series
@@ -170,6 +171,10 @@ public final class QTExportHTMLSummary: NSObject {
     private var uniqueSeriesID: Int32 = 0
     private let dateFormat = DateFormatter()
     private let timeFormat = DateFormatter()
+    /// Where the database the browser shows is read, whose folder holds the
+    /// templates: the browser's export and the plugins make the summary
+    /// without a viewer, from any thread, so through the graph of the process.
+    private let databases = BrowserDatabaseSource.process
 
     @objc public var imagePathsDictionary: NSMutableDictionary!
 
@@ -201,8 +206,8 @@ public final class QTExportHTMLSummary: NSObject {
 
     @objc(readTemplates)
     public func readTemplates() {
-        let database = BrowserController.currentBrowser()?.database
-        database?.checkForHtmlTemplates()
+        let database = databases.browserDatabase
+        DatabaseTemplateInstaller(database: database).install()
         let directory = database?.htmlTemplatesDirPath()
         func template(_ name: String) -> NSString? {
             guard let path = htmlAppendingPathComponent(directory, name) else { return nil }
@@ -368,7 +373,7 @@ public final class QTExportHTMLSummary: NSObject {
                 var ext = (imagesCount > 1) ? "mp4" : "jpg"
 
                 let sopClassUID = htmlValue(current, forKey: "seriesSOPClassUID") as? String
-                if DCMAbstractSyntaxUID.isPDF(sopClassUID) {
+                if DICOMSOPClass.isPDF(sopClassUID) {
                     ext = "pdf"
                     let tempPdfPath = imagePathForSeriesId(htmlIntValue(iId), kind: ext)
                     if let tempPdfPath { // tempPdfPath is in patient/study/series format, should be study/series
@@ -378,7 +383,7 @@ public final class QTExportHTMLSummary: NSObject {
                     }
                     htmlReplace(tempListItemTemplate, "%series_i_file%", QTExportHTMLSummary.nonNil(fileName))
 
-                } else if DCMAbstractSyntaxUID.isStructuredReport(sopClassUID) {
+                } else if DICOMSOPClass.isStructuredReport(sopClassUID) {
                     ext = "pdf"
                     let tempPdfPath = imagePathForSeriesId(htmlIntValue(iId), kind: ext)
                     if let tempPdfPath { // tempPdfPath is in patient/study/series format, should be study/series
@@ -515,7 +520,7 @@ public final class QTExportHTMLSummary: NSObject {
         // series.name: the -name message the former code sent.
         let name = series?.perform(NSSelectorFromString("name"))?.takeUnretainedValue()
         // +replaceNotAdmitted: edited this mutable string in place and returns it.
-        let seriesStr: NSMutableString = BrowserController.replaceNotAdmitted(htmlMutableString(QTExportHTMLSummary.nonNil(htmlFilenameString(name))) as String)
+        let seriesStr: NSMutableString = BrowserController.replaceNotAdmitted(htmlMutableString(QTExportHTMLSummary.nonNil(htmlFilenameString(name))) as String as NSString)
 
         let fileName = NSMutableString(format: "./%@_%@", seriesStr, htmlFormatArgument(htmlValue(series, forKey: "id")))
 
@@ -588,7 +593,7 @@ public final class QTExportHTMLSummary: NSObject {
 
     @objc(createHTMLExtraDirectory)
     public func createHTMLExtraDirectory() {
-        let htmlExtraDirectory = htmlAppendingPathComponent(BrowserController.currentBrowser()?.database?.htmlTemplatesDirPath(), "html-extra")
+        let htmlExtraDirectory = htmlAppendingPathComponent(databases.browserDatabase?.htmlTemplatesDirPath(), "html-extra")
         let destination = htmlAppendingPathComponent(rootPath, "html-extra")
         // -copyItemAtPath:toPath:error: raised for a nil path.
         guard let htmlExtraDirectory else {

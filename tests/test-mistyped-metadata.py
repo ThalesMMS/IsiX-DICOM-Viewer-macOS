@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """A mistyped attribute is refused by name, and the image still decodes.
 
-Runs the production metadata guards against the built DCM framework on a file
-whose value representations do not match its elements, and checks that each one
-either produces a value the declared type can hold or is refused with the tag
-named - never a value of the wrong class assigned to a typed slot.
+Runs the production metadata guards - the IsiXImaging module's, reached the way
+DCMPix reaches them, through the parsed object's attribute source - against the
+dataset model of the Debug build on a file whose value representations do not match its
+elements, and checks that each one either produces a value the declared type
+can hold or is refused with the tag named - never a value of the wrong class
+assigned to a typed slot.
 
 Usage: python test-mistyped-metadata.py PRODUCTS_DIR MISTYPED_FIXTURE_DIR
-       PRODUCTS_DIR is build/Build/Products/Debug, holding DCM.framework
+       PRODUCTS_DIR is build/Build/Products/Debug, of a build that left its DCMTK
 """
 from pathlib import Path
 import re
@@ -18,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from horos_reader import compile_reader
 
 if len(sys.argv) < 3:
-    print('skipped: needs the built DCM framework and a mistyped-metadata fixture: '
+    print('skipped: needs the dataset model and DCMTK of the Debug build and a mistyped-metadata fixture: '
           'PRODUCTS_DIR MISTYPED_FIXTURE_DIR', file=sys.stderr)
     raise SystemExit(2)
 
@@ -26,28 +28,37 @@ root = Path(__file__).resolve().parents[1]
 products = Path(sys.argv[1]).resolve()
 fixture = Path(sys.argv[2]).resolve()
 
-source = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
-start = source.index('static id horosNumberValue')
-guards = source[start:source.index('- (void) dcmFrameworkLoad0x0018', start)]
-guards = guards[:guards.rindex('}') + 1]
+# The parsed object answers the module's attribute source: DCMObject adopts it
+# in the dataset model (IsiXDICOMDataset), as the application links it.
+guards = r'''
+static NSString *horosStringValue( DCMObject *dcmObject, NSString *name, NSString *file)
+{
+    return [IsiXDICOMAttributeValues stringValueOf: dcmObject name: name file: file];
+}
+static NSNumber *horosNumberObject( DCMObject *dcmObject, NSString *name, NSString *file)
+{
+    return [IsiXDICOMAttributeValues numberObjectOf: dcmObject name: name file: file];
+}
+'''
 
-# Every ivar whose type the file can break has to go through a guard.
-loader = source[source.index('- (void) dcmFrameworkLoad0x0018'):]
-loader = loader[:loader.index('- (void) dcmFrameworkLoad0x0028')]
-for ivar in ('repetitiontime', 'echotime', 'flipAngle', 'viewPosition',
-             'patientPosition', 'laterality'):
-    assignment = re.search(r'\b' + ivar + r' = \[?(\w+)\(', loader)
-    assert assignment and assignment.group(1) == 'horosStringValue', (
-        f'{ivar} is declared NSString* and is not read through horosStringValue')
-for ivar in ('positionerPrimaryAngle', 'positionerSecondaryAngle'):
-    assignment = re.search(r'\b' + ivar + r' = \[?(\w+)\(', loader)
-    assert assignment and assignment.group(1) == 'horosNumberObject', (
-        f'{ivar} is declared NSNumber* and is not read through horosNumberObject')
+# Every field whose type the file can break has to go through a guard.
+reader = (root / 'Modules/IsiXImaging/Sources/ImageAttributeReader.swift').read_text()
+loader = reader[reader.index('public mutating func readAcquisition(from item:'):]
+loader = loader[:loader.index('// MARK: - group 0028')]
+for field in ('repetitionTime', 'echoTime', 'flipAngle', 'viewPosition', 'patientPosition', 'laterality'):
+    assignment = re.search(r'\.' + field + r' = (\w+(?:\.\w+)?)\(', loader)
+    assert assignment and assignment.group(1) in ('text', 'Values.stringValue'), (
+        f'{field} is held as text and is not read through the string guard')
+for field in ('positionerPrimaryAngle', 'positionerSecondaryAngle'):
+    assignment = re.search(r'\.' + field + r' = (\w+(?:\.\w+)?)\(', loader)
+    assert assignment and assignment.group(1) == 'Values.numberObject', (
+        f'{field} is held as a number and is not read through the number guard')
 
 program = r'''
 #import <Foundation/Foundation.h>
 #import <DCM/DCM.h>
 #import "HorosDCMTKObject.h"
+#import "IsiXImaging-Swift.h"
 extern "C" void HorosTestRegisterDecoders(void);
 
 GUARDS
@@ -109,9 +120,11 @@ int main(int argc, char **argv) { @autoreleasepool {
 with tempfile.TemporaryDirectory(prefix='horos-mistyped-metadata-') as tmp:
     p = Path(tmp)
     (p / 'bin').mkdir()
-    (p / 'Frameworks').symlink_to(products)
     (p / 'read.m').write_text(program)
-    compile_reader(products, p / 'read.m', p / 'bin/read', p)
+    # IsiXImaging (the guards) and IsiXDICOMFile come with the reader's
+    # modules, built for the application's deployment target in p / 'modules'.
+    sdk = subprocess.run(['xcrun', '--show-sdk-path'], capture_output=True, text=True, check=True).stdout.strip()
+    compile_reader(products, p / 'read.m', p / 'bin/read', p, extra=['-L' + sdk + '/usr/lib/swift'])
 
     files = sorted(fixture.glob('*.dcm'))
     assert files, f'no files in {fixture}'

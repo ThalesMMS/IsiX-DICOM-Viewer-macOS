@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// OSIDatabasePreferencePanePref is implemented in Swift since #711
+// OSIDatabasePreferencePanePref is implemented in Swift
 // (OSIDatabasePreferencePane/OSIDatabasePreferencePanePref.swift). This header keeps its name for the
 // Objective-C that imports it: it brings in the generated interface, which declares the same class
 // name and selectors.

@@ -16,37 +16,54 @@ import re
 import subprocess
 import sys
 import tempfile
+from sources import class_text
 
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-fill = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
-controller = (root / 'Horos/Sources/VRController.mm').read_bytes().decode('latin1')
+fill = class_text('DCMPix')
+# VRController is Swift; its scissors and undo are in VRController+Editing.swift.
+controller = (root / 'Horos/Sources/VRController+Editing.swift').read_text(encoding='utf-8')
 
-fill_roi = fill[fill.find('- (void) fillROI:(ROI*) roi newVal :(float) newVal minValue :(float) minValue maxValue :(float) maxValue outside :(BOOL) outside orientationStack :(long) orientationStack stackNo :(long) stackNo restore :(BOOL) restore addition:(BOOL) addition spline:(BOOL) spline clipMin:'):]
-if 'HorosVRScissorBounds planWithWidth:' not in fill_roi[:2500]:
-    failures.append('fillROI writes before asking the sanitizer')
-if 'textureInsideColumns:' not in fill_roi:
-    failures.append('a brush that hangs off the slice still forms a pointer first')
-if 'ptsInt && no > 0' not in fill_roi and 'ptsInt != nil && no > 0' not in fill_roi:
-    failures.append('an empty polygon still reads ptsInt[0] for the outside fill')
+if 'void ras_FillPolygon(' in fill:
+    fill_roi = fill[fill.find('- (void) fillROI:(ROI*) roi newVal :(float) newVal minValue :(float) minValue maxValue :(float) maxValue outside :(BOOL) outside orientationStack :(long) orientationStack stackNo :(long) stackNo restore :(BOOL) restore addition:(BOOL) addition spline:(BOOL) spline clipMin:'):]
+    if 'HorosVRScissorBounds planWithWidth:' not in fill_roi[:2500]:
+        failures.append('fillROI writes before asking the sanitizer')
+    if 'textureInsideColumns:' not in fill_roi:
+        failures.append('a brush that hangs off the slice still forms a pointer first')
+    if 'ptsInt && no > 0' not in fill_roi and 'ptsInt != nil && no > 0' not in fill_roi:
+        failures.append('an empty polygon still reads ptsInt[0] for the outside fill')
 
-draw = fill[fill.find('static inline void DrawRuns('):fill.find('void ras_FillPolygon(')]
-if 'orientation == 0' not in draw or 'h' not in draw:
-    failures.append('DrawRuns still clamps a sagittal run to the image width')
-if re.search(r'if\(\s*start >= w\)\s*start = w', draw) and 'runLimit' not in draw:
-    failures.append('DrawRuns clamps every orientation to width, including sagittal rows')
+    draw = fill[fill.find('static inline void DrawRuns('):fill.find('void ras_FillPolygon(')]
+    if 'orientation == 0' not in draw or 'h' not in draw:
+        failures.append('DrawRuns still clamps a sagittal run to the image width')
+    if re.search(r'if\(\s*start >= w\)\s*start = w', draw) and 'runLimit' not in draw:
+        failures.append('DrawRuns clamps every orientation to width, including sagittal rows')
+else:
+    # The fill is a Swift extension of DCMPix and the runs are IsiXROI's.
+    swift = (root / 'Horos/Sources/DCMPix+ROIFill.swift').read_text(encoding='utf-8')
+    fill_roi = swift[swift.find('@objc(fillROI:newVal:minValue:maxValue:outside:orientationStack:stackNo:restore:addition:spline:clipMin:clipMax:)'):]
+    first_write = min(i for i in (fill_roi.find('.paint('), fill_roi.find('fillBrush('), fill_roi.find('ROIPolygonFill.fill(')) if i >= 0)
+    if 'VRScissorBounds.plan(' not in fill_roi[:first_write]:
+        failures.append('fillROI writes before asking the sanitizer')
+    if 'VRScissorBounds.textureInside(' not in swift:
+        failures.append('a brush that hangs off the slice still forms a pointer first')
+    if 'if let first = vertices.first' not in fill_roi:
+        failures.append('an empty polygon still reads its first vertex for the outside fill')
+    plane = (root / 'Modules/IsiXROI/Sources/Rasterization/ROIPolygonFill.swift').read_text(encoding='utf-8')
+    if 'orientation == 0 ? height : width' not in plane or 'let limit = plane.rowLength' not in plane:
+        failures.append('a run is not clamped to the plane row: a sagittal row is as long as the image height')
 
-apply_at = controller.find('- (void) applyScissor')
-apply = controller[apply_at:controller.find('- (void) prepareUndo', apply_at)]
-if 'HorosVRScissorBounds planWithWidth:' not in apply:
+apply_at = controller.find('    public nonisolated final func applyScissor(')
+apply = controller[apply_at:controller.find('    public final func prepareUndo()', apply_at)]
+if 'VRScissorBounds.plan(width:' not in apply:
     failures.append('applyScissor still picks a pixList index before the sanitizer')
-if 'plan.accepted' not in apply and 'accepted]' not in apply:
+if 'if !plan.accepted { return }' not in apply:
     failures.append('applyScissor does not refuse a geometry it cannot use')
 
-undo_at = controller.find('- (void) prepareUndo')
-undo = controller[undo_at:controller.find('- (IBAction) undo:', undo_at)]
-if 'undoByteCountForWidth:' not in undo:
+undo_at = controller.find('    public final func prepareUndo()')
+undo = controller[undo_at:controller.find('    public override final func undo(', undo_at)]
+if 'VRScissorBounds.undoByteCount(width:' not in undo:
     failures.append('prepareUndo still multiplies the undo size without a checked count')
 
 for failure in failures:

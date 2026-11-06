@@ -42,7 +42,9 @@
 //   in Swift;
 // - random(), unavailable in Swift, for the letters +scrambleString: shuffles.
 
-#import <DCM/DCMCalendarDate.h>
+// The DICOM value types; found in GENERATED_MODULEMAP_DIR, because this
+// target compiles without clang modules.
+#import "IsiXDICOMFile-Swift.h"
 #import "DicomStudy.h"
 
 // The header declares them only for Swift.

@@ -21,7 +21,7 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 colors = (root / 'Horos/Sources/SeriesListColors.swift').read_text()
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
+viewer = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
 cell = (root / 'Horos/Sources/ThumbnailCell.swift').read_text()
 
 DRIVER = r'''
@@ -71,18 +71,58 @@ with tempfile.TemporaryDirectory(prefix='horos-series-colors-') as directory:
         if run.returncode:
             failures.append('a title is below 4.5:1 on its background\n' + run.stderr[-800:])
 
-for gone in ('_fusionedItemColor', '_differentStudyColor'):
-    if gone in viewer:
-        failures.append('the fixed colour %s is still used' % gone)
-preview = viewer[viewer.index('- (void) buildMatrixPreview: (BOOL) showSelected'):]
-preview = preview[:preview.index('\n- ', 1)]
-fills = [line.strip() for line in preview.splitlines() if 'setBackgroundColor' in line]
-fixed = [line for line in fills if 'HorosSeriesListColors.' not in line and 'setBackgroundColor: nil' not in line and 'setBackgroundColor:nil' not in line]
-if fixed or len(fills) < 8:
+if '- (void) buildMatrixPreview: (BOOL) showSelected' in viewer:
+    for gone in ('_fusionedItemColor', '_differentStudyColor'):
+        if gone in viewer:
+            failures.append('the fixed colour %s is still used' % gone)
+    preview = viewer[viewer.index('- (void) buildMatrixPreview: (BOOL) showSelected'):]
+    preview = preview[:preview.index('\n- ', 1)]
+    fills = [line.strip() for line in preview.splitlines() if 'setBackgroundColor' in line]
+    fixed = [line for line in fills if 'HorosSeriesListColors.' not in line and 'setBackgroundColor: nil' not in line and 'setBackgroundColor:nil' not in line]
+    least = 8
+    popup = viewer[viewer.index('- (void) buildSeriesPopup'):]
+    popup = popup[:popup.index('\n- ', 1)]
+    menu_colours = 'HorosSeriesListColors.shown forKey: NSBackgroundColorAttributeName' in popup and 'HorosSeriesListColors.fused forKey: NSBackgroundColorAttributeName' in popup
+else:
+    # The list and the menu are Swift: the list is built by
+    # ViewerController+SeriesThumbnails.swift, or by SeriesListPresenter.swift
+    # since it moved there; the menu by +SeriesPopup.swift.
+    thumbnails = (root / 'Horos/Sources/ViewerController+SeriesThumbnails.swift').read_text()
+    presenter_path = root / 'Horos/Sources/SeriesListPresenter.swift'
+    presenter = presenter_path.read_text() if presenter_path.is_file() else ''
+    menu = (root / 'Horos/Sources/ViewerController+SeriesPopup.swift').read_text()
+    for gone in ('_fusionedItemColor', '_differentStudyColor'):
+        if gone in viewer + thumbnails + presenter + menu:
+            failures.append('the fixed colour %s is still used' % gone)
+    if presenter:
+        # Every cell takes nil or the colour of a tint of the list's model,
+        # and each tint is a colour of SeriesListColors.
+        preview = presenter[presenter.index('// MARK: - Building the list'):]
+        fills = [line.strip() for line in preview.splitlines() if 'backgroundColor =' in line]
+        fixed = [line for line in fills if not line.endswith('backgroundColor = nil') and 'backgroundColor = Self.color(of: ' not in line]
+        tints = presenter[presenter.index('private static func color(of tint: SeriesListModel.Tint)'):]
+        tints = tints[:tints.index('\n    }\n')]
+        for tint, colour in (('none', 'nil'), ('otherStudy', 'SeriesListColors.otherStudy'), ('shown', 'SeriesListColors.shown'),
+                             ('fused', 'SeriesListColors.fused')):
+            if 'case .%s: return %s' % (tint, colour) not in tints:
+                fixed.append('the tint %s is not %s' % (tint, colour))
+        # The cell resets, the study, its hidden series, the series and its
+        # colour, the placeholder.
+        least = 6
+    else:
+        preview = thumbnails[thumbnails.index('func buildMatrixPreview(_ showSelected: Bool)'):thumbnails.index('func matrixPreviewSelectCurrentSeries()')]
+        fills = [line.strip() for line in preview.splitlines() if 'backgroundColor =' in line]
+        fixed = [line for line in fills if 'SeriesListColors.' not in line and not line.endswith('backgroundColor = nil')]
+        least = 8
+    if 'private func fill(_ menu: NSMenu?, from model: SeriesMenuModel' in menu:
+        # SeriesMenuPresenter fills the menu from the highlights of its model.
+        popup = menu[menu.index('private func fill(_ menu: NSMenu?, from model: SeriesMenuModel'):menu.index('private func newItem()')]
+    else:
+        popup = menu[menu.index('func buildSeriesPopup()'):menu.index('func loadSelectedSeries(')]
+    menu_colours = 'attributes[.backgroundColor] = SeriesListColors.shown' in popup and 'attributes[.backgroundColor] = SeriesListColors.fused' in popup
+if fixed or len(fills) < least:
     failures.append('the series list cells do not all take the appearance\'s colours: %r' % fixed)
-popup = viewer[viewer.index('- (void) buildSeriesPopup'):]
-popup = popup[:popup.index('\n- ', 1)]
-if 'HorosSeriesListColors.shown forKey: NSBackgroundColorAttributeName' not in popup or 'HorosSeriesListColors.fused forKey: NSBackgroundColorAttributeName' not in popup:
+if not menu_colours:
     failures.append('the series menu does not take the appearance\'s colours')
 if 'backgroundColor.usingColorSpace(.genericRGB)' not in cell:
     failures.append('the thumbnail cell reads the components of an unresolved dynamic colour')

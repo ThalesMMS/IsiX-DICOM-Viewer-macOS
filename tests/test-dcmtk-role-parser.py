@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """ASan regression for the actual pinned upstream role parser compiled into Horos."""
 from pathlib import Path
-import subprocess, tempfile, sys
+import subprocess, tempfile
+from dcmtk_build import dcmtk_source
 root=Path(__file__).resolve().parents[1]
-path='DCMTK/dcmnet/libsrc/dulparse.cc'
-s=(subprocess.check_output(['git','show',sys.argv[1]+':'+path]).decode() if len(sys.argv)>1 else (root/path).read_text())
+# The parser and the structures it fills come from the same pinned original
+# source the recipe compiles, so the extracted code matches its own layout.
+dcmtk=dcmtk_source()
+s=(dcmtk/'dcmnet/libsrc/dulparse.cc').read_text()
 a=s.index('static OFCondition\nparseSCUSCPRole',s.index('/* parseSCUSCPRole'))
 b=s.index('\n/* parseExtNeg',a)
-header=(root/'DCMTK/dcmnet/include/dcmtk/dcmnet/dulstruc.h').read_text()
+header=(dcmtk/'dcmnet/include/dcmtk/dcmnet/dulstruc.h').read_text()
 end=header.index('}   PRV_SCUSCPROLE;')+len('}   PRV_SCUSCPROLE;')
 struct=header[header.rfind('typedef struct {',0,end):end]
 max_start=s.index('static OFCondition\nparseMaxPDU',s.index('/* parseMaxPDU'))

@@ -13,6 +13,7 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
+import isix_modules  # noqa: E402
 from sources import source_text  # noqa: E402
 source = source_text('OSILocationsPreferencePanePref')
 
@@ -30,10 +31,13 @@ commit = commit.replace(persistence, '')
 failures = []
 
 # The TLS keys the DIMSE association reads, from the code that reads them.
-users = [root / 'Horos/Sources/QueryController.mm',
-         root / 'Horos/Sources/DCMTKStoreSCU.mm',
-         root / 'Horos/Sources/DCMTKServiceClassUser.mm']
-reads_tls = any('TLSEnabled' in path.read_bytes().decode('latin1') for path in users)
+# The send and the query nodes read a node's TLS settings through
+# IsiXDICOMNetwork's TLSNodeSettings and DCMTKQueryNode.swift, the Query
+# window's echo in QueryController+Network.swift.
+users = [root / 'Horos/Sources/QueryController+Network.swift',
+         root / 'Horos/Sources/DCMTKQueryNode.swift',
+         root / 'Modules/IsiXDICOMNetwork/Sources/TLSNodeSettings.swift']
+reads_tls = any('TLSEnabled' in path.read_bytes().decode('latin1') for path in users if path.is_file())
 if not reads_tls:
     failures.append('no DIMSE client reads TLSEnabled any more; this test is stale')
 
@@ -159,7 +163,9 @@ with tempfile.TemporaryDirectory() as directory:
     # WADOCredentials.
     sources = [root / 'Horos/Sources' / name for name in ('NodeRequestLimiter.swift', 'RetrievePlan.swift', 'WADOCredentials.swift',
                                                           'DICOMwebCredentials.swift', 'NonInteractiveKeychainRead.swift')]
+    # WADOCredentials takes its rules from IsiXDICOMNetwork.
     build = subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', str(path / 'main.swift'), *map(str, sources),
+                            *isix_modules.module_flags('IsiXDICOMNetwork', path / 'modules'),
                             '-o', str(path / 'test')], capture_output=True, text=True)
     if build.returncode != 0:
         print(build.stderr)

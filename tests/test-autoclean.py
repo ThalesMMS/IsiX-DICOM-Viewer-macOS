@@ -3,17 +3,38 @@
 Pass a git revision to demonstrate the old failures. Filesystem capacity is injected;
 actual image files, Core Data deletion validation, saves and rollbacks are exercised.
 
-DicomDatabase (Clean) is Swift: the harness below then compiles
-DicomDatabase+Clean.swift against the same stand-ins, and runs the same checks.
-A revision given on the command line is read as the Objective-C of that time.
+The cleanup is Swift: DicomDatabase+Clean.swift, its selectors, and
+DatabaseCleanupService.swift are compiled against the stand-ins of
+tests/autoclean_harness.py, and run the same checks, with the real
+N2ManagedObjectContext. A revision given on the command line is read as the
+Objective-C of that time, N2ManagedDatabase.mm included.
+
+Two scenarios only the Swift has:
+- remote-overrides: the forwarders of a database that overrides what
+  RemoteDicomDatabase overrides reach those overrides, and nothing is deleted;
+- space-synchronous: -cleanForFreeSpace deletes on the calling thread, reads the
+  free space again after the deletion, and returns while the actor of the
+  scheduler is held busy, as it must for an import that holds the writer gate.
 """
 from pathlib import Path
 import subprocess, sys, tempfile
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_path  # noqa: E402
+import autoclean_harness  # noqa: E402
 import harness_defaults  # the harness's preferences stay in its own process
 revision = sys.argv[1] if len(sys.argv) > 1 else None
+# Deleting a series asks VRController for the file of its scissors state on the
+# thread of the context, and Swift stops a main-actor method called from there.
+if revision is None and 'public nonisolated static func getUniqueFilenameScissorState(' not in (root / 'Horos/Sources/VRController+State.swift').read_text():
+    raise SystemExit('FAILED: the state file of a series is not reachable from the thread that deletes it')
+# The modal loop of a warning serves neither the main queue nor the main actor
+# when it runs inside one of their blocks, so the warnings come from the run loop.
+if revision is None:
+    service = (root / 'Horos/Sources/DatabaseCleanupService.swift').read_text()
+    for warning in ('showLimitSoonReachedWarning', 'showNoStudiesToDeleteWarning'):
+        if f'onMainRunLoop {{ Self.{warning}(processGraph) }}' not in service:
+            raise SystemExit(f'FAILED: {warning} does not come from the main run loop')
 def source(path):
     return (subprocess.check_output(['git', 'show', f'{revision}:{path}']).decode()
             if revision else (root / path).read_text())
@@ -22,10 +43,12 @@ if not swift:
     clean = source('Horos/Sources/DicomDatabase+Clean.mm')
     clean = (clean[clean.index('// Both the preview') if '// Both the preview' in clean else clean.index('-(void)cleanOldStuff'):(clean.index('static BOOL _showingClean') if 'static BOOL _showingClean' in clean else clean.index('-(void)cleanForFreeSpace {'))] +
              clean[clean.index('-(void)cleanForFreeSpaceMB:'):clean.rindex('@end')])
-context = source('Nitrogen/Sources/N2ManagedDatabase.mm')
-# The queue helper the methods call comes along with them.
-context = (context[context.index('void N2ManagedObjectContextPerformAndWait'):context.index('@implementation N2ManagedObjectContext')] +
-           context[context.index('- (void)performAfterSuccessfulSave:'):context.index('-(NSManagedObject*)existingObjectWithID:')])
+context = ''
+if not swift:
+    # The context of that revision, with the queue helper its methods call.
+    context = source('Nitrogen/Sources/N2ManagedDatabase.mm')
+    context = (context[context.index('void N2ManagedObjectContextPerformAndWait'):context.index('@implementation N2ManagedObjectContext')] +
+               context[context.index('- (void)performAfterSuccessfulSave:'):context.index('-(NSManagedObject*)existingObjectWithID:')])
 harness = r'''
 #import <Cocoa/Cocoa.h>
 #import <CoreData/CoreData.h>
@@ -173,7 +196,7 @@ int main(int argc, char **argv) { @autoreleasepool {
     NSPersistentStoreCoordinator *psc=[[NSPersistentStoreCoordinator alloc] initWithManagedObjectModel:model];
     check([psc addPersistentStoreWithType:NSSQLiteStoreType configuration:nil URL:[NSURL fileURLWithPath:[fixtureDirectory stringByAppendingPathComponent:@"index.sqlite"]] options:nil error:NULL]!=nil,@"create SQLite");
     N2ManagedObjectContext *ctx=[[N2ManagedObjectContext alloc] initWithConcurrencyType:NSConfinementConcurrencyType];ctx.persistentStoreCoordinator=psc;
-    DicomDatabase *db=[DicomDatabase new];db.managedObjectContext=ctx;db.dataBaseDirPath=fixtureDirectory;
+    DicomDatabase *db=[mode isEqual:@"remote-overrides"]?[NSClassFromString(@"RemoteStandIn") new]:[DicomDatabase new];db.managedObjectContext=ctx;db.dataBaseDirPath=fixtureDirectory;
     int count=[mode hasSuffix:@"batch"]?55:3;
     NSMutableArray *paths=[NSMutableArray array];
     for(int i=0;i<count;i++) {
@@ -207,10 +230,10 @@ int main(int argc, char **argv) { @autoreleasepool {
     [defaults setBool:!dateMode forKey:@"AUTOCLEANINGSPACE"];
     [defaults setObject:@"100" forKey:@"AUTOCLEANINGSPACESIZE"];
     rejectEligibility=[mode isEqual:@"date-eligibility-failure"];
-    capacityMode=[mode isEqual:@"space-failure"]?1:([mode isEqual:@"target"]?2:0);
+    capacityMode=[mode isEqual:@"space-failure"]?1:([mode isEqual:@"target"]?2:([mode isEqual:@"space-synchronous"]?3:0));
     if ([mode hasSuffix:@"dirty"]) [[db objectsForEntity:@"Study"][0] setComment:@"unrelated pending edit"];
     db.isReadOnly=[mode isEqual:@"readonly"];
-    db.isLocal=![mode isEqual:@"remote"];
+    db.isLocal=![mode isEqual:@"remote"] && ![mode isEqual:@"remote-overrides"];
     __block int notifications=0;
     id token=[NSNotificationCenter.defaultCenter addObserverForName:_O2AddToDBAnywayNotification object:db queue:nil usingBlock:^(NSNotification *n){notifications++;}];
     if ([db respondsToSelector:@selector(cleanupThresholdForAttributes:)]) {
@@ -231,16 +254,25 @@ int main(int argc, char **argv) { @autoreleasepool {
             check([[NSData dataWithContentsOfFile:path] isEqual:[@"original pixels" dataUsingEncoding:NSUTF8StringEncoding]],@"preview preserves all originals");
         if (![mode hasSuffix:@"dirty"]) {
             int expectedPreview = [mode hasSuffix:@"batch"] ? 50 : 3;
-            if ([mode hasSuffix:@"protected"] || [mode isEqual:@"readonly"] || [mode isEqual:@"remote"] ||
+            if ([mode isEqual:@"space-limit-soon"]) capacityMode=0; // the preview still sees no free space
+            if ([mode hasSuffix:@"protected"] || [mode isEqual:@"readonly"] || [mode isEqual:@"remote"] || [mode isEqual:@"remote-overrides"] ||
                 [mode isEqual:@"date-disabled"] || [mode isEqual:@"date-recent"] ||
                 [mode isEqual:@"date-group-recent"] || [mode isEqual:@"date-eligibility-failure"]) expectedPreview=0;
             check([preview[@"rows"] count]==expectedPreview,@"preview candidates match active production eligibility");
         }
         measurements=0; // The preview's capacity read must not consume the injected cleanup failure.
     }
-    if (dateMode) [db cleanOldStuff]; else [db cleanForFreeSpaceMB:100];
-    int deleted=([mode isEqual:@"batch"]?50:([mode isEqual:@"target"]||[mode isEqual:@"space-failure"]?1:0));
-    if (dateMode) deleted=[mode isEqual:@"date-batch"]?50:([mode isEqual:@"date-success"]||[mode isEqual:@"date-keep-linked"]?count:0);
+    if ([mode isEqual:@"remote-overrides"]) {
+        REMOTE_CHECKS
+    } else if ([mode isEqual:@"space-synchronous"]) {
+        SYNCHRONOUS_CHECKS
+    } else if ([mode isEqual:@"space-limit-soon"]) {
+        LIMIT_CHECKS
+    } else if ([mode isEqual:@"date-initiated"]) {
+        INITIATED_CHECKS
+    } else if (dateMode) [db cleanOldStuff]; else [db cleanForFreeSpaceMB:100];
+    int deleted=([mode isEqual:@"batch"]?50:([mode isEqual:@"target"]||[mode isEqual:@"space-failure"]||[mode isEqual:@"space-synchronous"]?1:0));
+    if (dateMode) deleted=[mode isEqual:@"date-batch"]?50:([mode isEqual:@"date-success"]||[mode isEqual:@"date-initiated"]||[mode isEqual:@"date-keep-linked"]?count:0);
     NSManagedObjectContext *reader=[[NSManagedObjectContext alloc] initWithConcurrencyType:NSConfinementConcurrencyType];reader.persistentStoreCoordinator=psc;
     check([reader countForFetchRequest:[NSFetchRequest fetchRequestWithEntityName:@"Study"] error:NULL]==count-deleted,@"durable study count");
     int remaining=0;for(NSString *p in paths) if([NSFileManager.defaultManager fileExistsAtPath:p]) { remaining++; check([[NSData dataWithContentsOfFile:p] isEqual:[@"original pixels" dataUsingEncoding:NSUTF8StringEncoding]],@"preserved bytes unchanged"); }
@@ -253,221 +285,62 @@ int main(int argc, char **argv) { @autoreleasepool {
 '''
 # The Swift category is compiled against the same stand-ins, declared in a header
 # Swift imports. The checks and the fixture (main, below) are the same text.
-SWIFT_HEADER = r'''
-#import <Cocoa/Cocoa.h>
-#import <CoreData/CoreData.h>
-#import "HorosObjCException.h"
-#import "HorosAlertPanel.h"
-extern NSString *const _O2AddToDBAnywayNotification, *const _O2AddToDBAnywayCompleteNotification, *const OsirixAddToDBNotification, *const OsirixAddToDBCompleteNotification;
-#ifdef __cplusplus
-extern "C" {
-#endif
-void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void (NS_NOESCAPE ^block)(void));
-void harness_main(int argc, char **argv);
-void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf);
-#ifdef __cplusplus
-}
-#endif
-@interface AppController : NSObject
-+ (AppController *)sharedAppController;
-@property BOOL isSessionInactive;
-@end
-@interface PreferencesWindowController : NSObject
-+ (PreferencesWindowController *)sharedPreferencesWindowController NS_SWIFT_NAME(sharedPreferencesWindowController());
-- (void)showWindow:(id)sender;
-- (void)setCurrentContextWithResourceName:(NSString *)name NS_SWIFT_NAME(setCurrentContext(withResourceName:));
-@end
-@interface NSThread (TestOperations)
-@property CGFloat progress;
-@property(retain) NSString *status;
-- (void)enterOperation;
-- (void)enterOperationIgnoringLowerLevels;
-- (void)exitOperation;
-@end
-@interface N2ManagedObjectContext : NSManagedObjectContext {
-    NSMutableArray *_afterSuccessfulSaveActions, *_nextSuccessfulSaveActions, *_discardedChangesActions;
-    BOOL _defersSaves, _atomicChangesCancelled;
-}
-@property(readonly) BOOL defersSaves;
-- (BOOL)performAtomicChanges:(BOOL (^)(NSError **))changes error:(NSError **)error;
-@end
-@interface DicomStudy : NSManagedObject
-@property(retain) NSNumber *lockedStudy;
-@property(retain) NSString *comment, *comment2, *comment3, *comment4, *studyName, *patientID, *patientUID;
-@property(retain) NSDate *date, *dateAdded, *dateOpened;
-@property(retain) NSSet *series;
-@property(readonly) NSSet *albums;
-@property(readonly) NSString *studyInstanceUID;
-- (NSString *)type;
-@end
-@interface DicomSeries : NSManagedObject
-@property(retain) NSSet *images;
-@end
-@interface DicomImage : NSManagedObject
-- (NSString *)completePath;
-- (void)setCompletePath:(NSString *)completePath;
-@property(retain) NSNumber *inDatabaseFolder;
-@end
-@interface DicomDatabase : NSObject { NSRecursiveLock *_cleanLock; BOOL _isLocal; }
-@property(retain) N2ManagedObjectContext *managedObjectContext;
-@property(retain) NSString *dataBaseDirPath;
-@property BOOL isReadOnly;
-+ (NSArray *)allDatabases;
-- (BOOL)isLocal;
-- (void)setIsLocal:(BOOL)isLocal;
-- (BOOL)isMainDatabase;
-- (id)mainDatabase;
-- (id)independentDatabase;
-- (id)privateQueueIndependentDatabase;
-- (void)performBlockAndWait:(void (^)(void))block;
-- (id)studyEntity;
-- (id)logEntryEntity;
-- (NSArray *)objectsForEntity:(id)entity;
-- (NSArray *)objectsForEntity:(id)entity predicate:(NSPredicate *)predicate;
-- (BOOL)tryLock;
-- (void)lock;
-- (void)unlock;
-- (void)updateStorageAvailabilityWarning;
-@end
-@interface DicomDatabase (SwiftIvars)
-@property(nonatomic, retain) NSRecursiveLock *cleanLock;
-@end
+REMOTE_CHECKS = r'''
+        [db cleanForFreeSpace];
+        check(remoteSpaceCleans==1,@"-cleanForFreeSpace reaches the override of -cleanForFreeSpaceMB:");
+        [db cleanOldStuff];
+        check(remoteOldStuffCleans==1,@"-cleanOldStuff reaches its override");
+        [db initiateCleanUnlessAlreadyCleaning];
+        check(remoteInitiations==1,@"-initiateCleanUnlessAlreadyCleaning reaches its override");
+        [db cleanForFreeSpaceMB:100];
+        check(remoteSpaceCleans==2,@"-cleanForFreeSpaceMB: reaches its override");
 '''
-SWIFT_IMPL = r'''
-#import "harness.h"
-#import <objc/runtime.h>
-#include <unistd.h>
-#include <errno.h>
-NSString *const _O2AddToDBAnywayNotification=@"refresh1", *const _O2AddToDBAnywayCompleteNotification=@"refresh2", *const OsirixAddToDBNotification=@"refresh3", *const OsirixAddToDBCompleteNotification=@"refresh4";
-static BOOL rejectDeletion, rejectEligibility;
-static int measurements, capacityMode;
-static NSString *fixtureDirectory;
-static void check(BOOL ok, NSString *message) { if (!ok) { NSLog(@"FAIL: %@",message); exit(1); } }
-void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf) { NSLog(@"Exception: %@", e); }
-@interface NSFileManager (CapacityFixture)
-- (NSDictionary *)fixtureAttributes:(NSString *)path error:(NSError **)error;
-@end
-@implementation NSFileManager (CapacityFixture)
-- (NSDictionary *)fixtureAttributes:(NSString *)path error:(NSError **)error {
-    if (![path isEqual:fixtureDirectory]) return [self fixtureAttributes:path error:error];
-    measurements++;
-    if (capacityMode==1 && measurements>1) return nil;
-    return @{NSFileSystemSize:@(1000ULL*1024*1024), NSFileSystemFreeSize:@((capacityMode==2 && measurements>1 ? 200ULL:0ULL)*1024*1024)};
-}
-@end
-@implementation AppController
-@synthesize isSessionInactive;
-+ (AppController *)sharedAppController { static id app; if (!app) app=[self new]; return app; }
-@end
-@implementation PreferencesWindowController
-+ (PreferencesWindowController *)sharedPreferencesWindowController { static id controller; if (!controller) controller=[self new]; return controller; }
-- (void)showWindow:(id)sender {}
-- (void)setCurrentContextWithResourceName:(NSString *)name {}
-@end
-@implementation HorosAlertPanel
-+ (NSInteger)defaultResponse { return HorosAlertDefaultResponse; }
-+ (NSInteger)alternateResponse { return HorosAlertAlternateResponse; }
-+ (NSInteger)otherResponse { return HorosAlertOtherResponse; }
-+ (NSInteger)runWithTitle:(NSString *)t message:(NSString *)m defaultButton:(NSString *)d alternateButton:(NSString *)a otherButton:(NSString *)o { return NSAlertDefaultReturn; }
-+ (NSInteger)runInformationalWithTitle:(NSString *)t message:(NSString *)m defaultButton:(NSString *)d alternateButton:(NSString *)a otherButton:(NSString *)o { return NSAlertDefaultReturn; }
-+ (NSInteger)runCriticalWithTitle:(NSString *)t message:(NSString *)m defaultButton:(NSString *)d alternateButton:(NSString *)a otherButton:(NSString *)o { return NSAlertDefaultReturn; }
-@end
-@implementation NSThread (TestOperations)
-- (void)enterOperation {} - (void)enterOperationIgnoringLowerLevels {} - (void)exitOperation {}
-- (CGFloat)progress { return 0; } - (void)setProgress:(CGFloat)p {}
-- (NSString *)status { return nil; } - (void)setStatus:(NSString *)s {}
-@end
-@implementation N2ManagedObjectContext
-CONTEXT
-@end
-@interface DicomStudy ()
-@end
-@implementation DicomStudy
-@dynamic lockedStudy, comment, comment2, comment3, comment4, studyName, patientID, patientUID, date, dateAdded, dateOpened, series;
-- (id)valueForKey:(NSString *)key {
-    if (rejectEligibility && [key isEqual:@"comment"] && [self.patientUID isEqual:@"patient0002"])
-        [NSException raise:@"FixtureEligibilityFailure" format:@"Cannot evaluate study comments"];
-    return [super valueForKey:key];
-}
-- (NSString *)type { return @"Study"; }
-- (NSString *)studyInstanceUID { return self.patientUID; }
-- (NSSet *)albums { return [self.patientID isEqual:@"album"] ? [NSSet setWithObject:@1] : [NSSet set]; }
-- (BOOL)validateForDelete:(NSError **)error {
-    if (rejectDeletion) { if (error) *error=[NSError errorWithDomain:@"Fixture" code:1 userInfo:nil]; return NO; }
-    return [super validateForDelete:error];
-}
-@end
-@implementation DicomSeries
-@dynamic images;
-@end
-@interface DicomImage ()
-@property(retain) NSString *completePath;
-@end
-@implementation DicomImage
-@dynamic completePath, inDatabaseFolder;
-@end
-@interface DicomDatabase (UnderTest)
-- (void)cleanForFreeSpaceMB:(NSInteger)mb;
-- (void)cleanOldStuff;
-- (NSDictionary *)automaticCleanupPreview;
-- (NSInteger)cleanupThresholdForAttributes:(NSDictionary *)attributes;
-- (void)cleanForFreeSpace;
-@end
-@implementation DicomDatabase
-@synthesize managedObjectContext, dataBaseDirPath, isReadOnly;
-- (id)init { if ((self=[super init])) { _cleanLock=[NSRecursiveLock new]; self.isLocal=YES; } return self; }
-+ (NSArray *)allDatabases { return @[]; }
-- (BOOL)isLocal { return _isLocal; }
-- (void)setIsLocal:(BOOL)isLocal { _isLocal=isLocal; }
-- (BOOL)isMainDatabase { return YES; }
-- (id)mainDatabase { return self; }
-- (id)independentDatabase { return self; }
-- (id)privateQueueIndependentDatabase { return self; }
-- (void)performBlockAndWait:(void (^)(void))block { N2ManagedObjectContextPerformAndWait(self.managedObjectContext, block); }
-- (void)lock { [self.managedObjectContext lock]; }
-- (BOOL)tryLock { return [self.managedObjectContext tryLock]; }
-- (void)unlock { [self.managedObjectContext unlock]; }
-- (id)logEntryEntity { return @"LogEntry"; }
-- (NSArray *)objectsForEntity:(id)entity predicate:(NSPredicate *)predicate { return @[]; }
-- (id)studyEntity { return @"Study"; }
-- (NSArray *)objectsForEntity:(id)entity { return [self.managedObjectContext executeFetchRequest:[NSFetchRequest fetchRequestWithEntityName:entity] error:NULL]; }
-- (void)updateStorageAvailabilityWarning {}
-@end
-@implementation DicomDatabase (SwiftIvars)
-- (NSRecursiveLock *)cleanLock { return _cleanLock; }
-- (void)setCleanLock:(NSRecursiveLock *)cleanLock { [_cleanLock autorelease]; _cleanLock=[cleanLock retain]; }
-@end
+SYNCHRONOUS_CHECKS = r'''
+        [defaults setObject:@"100" forKey:@"AUTOCLEANINGSPACESIZE"];
+        measurements=0;
+        deletedStudies=[NSMutableArray array];
+        harness_hold_scheduler();
+        [db cleanForFreeSpace];
+        check(deletedStudies.count==1,@"the study is deleted before -cleanForFreeSpace returns, with the scheduler busy");
+        check(deletingThread==[NSThread currentThread],@"the study is deleted on the calling thread");
+        check(measurements==3,@"the free space is read again after the deletion");
+        harness_release_scheduler();
+'''
+LIMIT_CHECKS = r'''
+        capacityOverride=^NSDictionary *{ return @{NSFileSystemSize:@(1000ULL*1024*1024), NSFileSystemFreeSize:@(110ULL*1024*1024)}; };
+        harness_hold_scheduler();
+        [db cleanForFreeSpace];
+        harness_release_scheduler();
+'''
+INITIATED_CHECKS = r'''
+        [db initiateCleanUnlessAlreadyCleaning];
+        NSManagedObjectContext *watcher=[[NSManagedObjectContext alloc] initWithConcurrencyType:NSConfinementConcurrencyType];watcher.persistentStoreCoordinator=psc;
+        for (int wait=0; wait<1000 && [watcher countForFetchRequest:[NSFetchRequest fetchRequestWithEntityName:@"Study"] error:NULL]>0; wait++) usleep(10000);
+        usleep(100000);
 '''
 if swift:
     main = harness[harness.index('static NSAttributeDescription *attr('):].replace('int main(int argc, char **argv)', 'void harness_main(int argc, char **argv)', 1)
     assert 'void harness_main(' in main
-    harness = SWIFT_IMPL.replace('CONTEXT', context) + main
+    # The real context is made for no database.
+    main = main.replace('[[N2ManagedObjectContext alloc] initWithConcurrencyType:', '[[N2ManagedObjectContext alloc] initWithDatabase:nil concurrencyType:', 1)
+    main = main.replace('REMOTE_CHECKS', REMOTE_CHECKS).replace('SYNCHRONOUS_CHECKS', SYNCHRONOUS_CHECKS).replace('LIMIT_CHECKS', LIMIT_CHECKS).replace('INITIATED_CHECKS', INITIATED_CHECKS)
 else:
     harness = harness.replace('CONTEXT', context).replace('CLEAN\n', clean+'\n')
+    harness = harness.replace('REMOTE_CHECKS', '').replace('SYNCHRONOUS_CHECKS', '').replace('LIMIT_CHECKS', '').replace('INITIATED_CHECKS', '')
 with tempfile.TemporaryDirectory(prefix='horos-autoclean-') as tmp:
-    path=Path(tmp); (path/'test.mm').write_text(harness + harness_defaults.OBJC)
+    path=Path(tmp)
     if swift:
-        for name in ('HorosObjCException.h', 'HorosObjCException.m', 'HorosAlertPanel.h'):
-            (path/name).write_bytes((root/'Horos/Sources'/name).read_bytes())
-        (path/'harness.h').write_text(SWIFT_HEADER)
-        # The application's ProtectedMode and the main-thread post of Nitrogen are not
-        # in the harness: protected mode is off, and the post is synchronous.
-        (path/'main.swift').write_text('import Foundation\n'
-            'enum ProtectedMode { static var isActive: Bool { false }; static func skip(_ what: String) {} }\n'
-            'extension NotificationCenter { func postNotificationOnMainThread(name: NSString, object: Any?, userInfo: NSDictionary?) '
-            '{ post(name: Notification.Name(name as String), object: object, userInfo: userInfo as? [AnyHashable: Any]) } }\n'
-            'harness_main(CommandLine.argc, CommandLine.unsafeArgv)\nexit(0)\n')
-        subprocess.run(['xcrun','clang++','-DNDEBUG','-fblocks','-fobjc-exceptions','-Wno-deprecated-declarations','-iquote',str(path),'-c',str(path/'test.mm'),'-o',str(path/'test.o')],check=True)
-        subprocess.run(['xcrun','clang','-x','objective-c','-fobjc-exceptions','-iquote',str(path),'-c',str(path/'HorosObjCException.m'),'-o',str(path/'exception.o')],check=True)
-        subprocess.run(['xcrun','swiftc','-module-name','Horos','-import-objc-header',str(path/'harness.h'),'-Xcc','-iquote','-Xcc',str(path),
-                        str(source_path('DicomDatabase+Clean')),str(path/'main.swift'),str(path/'test.o'),str(path/'exception.o'),
-                        '-lc++','-framework','Cocoa','-framework','CoreData','-o',str(path/'test')],check=True)
+        library, archives = autoclean_harness.library(path)
+        autoclean_harness.compile_objc(path, main + harness_defaults.OBJC, library)
+        autoclean_harness.compile_swift(path, autoclean_harness.CURRENT_SOURCES, library, archives,
+                                        main=autoclean_harness.SWIFT_MAIN + autoclean_harness.HOLD_SCHEDULER)
     else:
+        (path/'test.mm').write_text(harness + harness_defaults.OBJC)
         subprocess.run(['xcrun','clang++','-DNDEBUG','-fblocks','-fobjc-exceptions','-Wno-deprecated-declarations','-framework','Cocoa','-framework','CoreData',str(path/'test.mm'),'-o',str(path/'test')],check=True)
     failures=[]
-    for mode in ['save-failure','space-failure','target','batch','protected','dirty','readonly','remote','date-save-failure','date-success','date-disabled','date-protected','date-dirty','date-recent','date-group-recent','date-keep-linked','date-batch','date-eligibility-failure']:
+    for mode in ['save-failure','space-failure','target','batch','protected','dirty','readonly','remote','date-save-failure','date-success','date-disabled','date-protected','date-dirty','date-recent','date-group-recent','date-keep-linked','date-batch','date-eligibility-failure'] + (['remote-overrides','space-synchronous','space-limit-soon','date-initiated'] if swift else []):
         folder=path/mode;folder.mkdir()
-        result=subprocess.run([str(path/'test'),mode,str(folder)],capture_output=True,text=True)
+        result=subprocess.run([str(path/'test'),mode,str(folder)],capture_output=True,text=True,timeout=60)
         print(mode, result.returncode, '\n'.join(result.stderr.splitlines()[-3:]))
         if result.returncode: failures.append(mode)
     if failures: raise SystemExit('FAILED: '+', '.join(failures))

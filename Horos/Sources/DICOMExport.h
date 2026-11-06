@@ -39,68 +39,14 @@
 
 #import <Cocoa/Cocoa.h>
 
-@class DCMObject;
 @class DCMExportPlugin;
 
-
-#ifdef __cplusplus
-
-#ifdef OSIRIX_VIEWER
-#include "HorosDCMTKCompatibility.h"
-#include <dcmtk/config/osconfig.h>
-#include <dcmtk/dcmdata/dcfilefo.h>
-#include <dcmtk/dcmdata/dcdeftag.h>
-#include <dcmtk/ofstd/ofstd.h>
-
-#include <dcmtk/dcmdata/dctk.h>
-#include "HorosDCMTKCompatibility.h"
-#include <dcmtk/dcmdata/cmdlnarg.h>
-#include <dcmtk/ofstd/ofconapp.h>
-#include <dcmtk/dcmdata/dcuid.h>       /* for dcmtk version name */
-#else
-// Plugins only need the opaque C++ type; match the DCMTK object facade.
-class DcmFileFormat;
-#endif
-
-#else
-typedef char* DcmFileFormat;
-#endif
-
-/** \brief Export image as DICOM  */
+/** \brief Export image as DICOM: a secondary capture, or an image of the
+ * source's class, written by DCMTK through the adapter (IsiXDCMTKFile). The
+ * export is Swift (DICOMExport.swift); its rules are SecondaryCaptureExport
+ * in the IsiXDICOMFile module.
+ */
 @interface DICOMExport : NSObject
-{
-		NSString			*dcmSourcePath;
-		
-		DCMObject			*dcmDst;
-		DcmFileFormat		*dcmtkFileFormat;
-		
-		// Raw data support
-		unsigned char		*data, *localData;
-		long				width, height, spp, bps;
-		BOOL				isSigned, modalityAsSource, rotateRawDataBy90degrees, triedToDecompress;
-		int					offset;
-		
-		// NSImage support
-		NSImage				*image;
-		NSBitmapImageRep	*imageRepresentation;
-		unsigned char		*imageData;
-		BOOL				freeImageData;
-		
-		int					exportInstanceNumber, exportSeriesNumber;
-		NSString			*exportSeriesUID;
-		NSString			*exportSeriesDescription;
-		
-		long				ww, wl;
-		float				spacingX, spacingY, slope;
-		float				sliceThickness;
-		float				sliceInterval;
-		float				orientation[ 6];
-		float				position[ 3];
-		float				slicePosition;
-		BOOL				positionSet, slicePositionSet;
-    
-        NSMutableDictionary *metaDataDict;
-}
 @property( readonly) NSMutableDictionary *metaDataDict;
 @property BOOL rotateRawDataBy90degrees;
 

@@ -7,8 +7,6 @@
     <objects>
         <customObject id="-2" userLabel="File's Owner" customClass="PreferencesWindowController">
             <connections>
-                <outlet property="authButton" destination="743" id="747"/>
-                <outlet property="authView" destination="754" id="755"/>
                 <outlet property="panesListView" destination="iNA-ea-kTn" id="iZ4-Nw-hBM"/>
                 <outlet property="window" destination="19" id="449"/>
             </connections>
@@ -26,12 +24,6 @@
                     <customView id="iNA-ea-kTn" customClass="PreferencesView">
                         <rect key="frame" x="0.0" y="0.0" width="554" height="432"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                        <subviews>
-                            <customView hidden="YES" id="754" customClass="SFHorosAuthorizationView">
-                                <rect key="frame" x="389" y="372" width="165" height="60"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                            </customView>
-                        </subviews>
                     </customView>
                 </subviews>
             </view>
@@ -78,29 +70,29 @@
                         </button>
                     </toolbarItem>
                     <toolbarItem implicitItemIdentifier="NSToolbarFlexibleSpaceItem" id="606"/>
-                    <toolbarItem implicitItemIdentifier="A9FB2C16-102A-4508-B57E-3A3E5D2040DD" label="Authentication" paletteLabel="Authentication" image="NSLockUnlockedTemplate" id="745">
+                    <toolbarItem implicitItemIdentifier="5C1B7E2A-6D4F-4B8E-9A33-21F0C7AA1839" label="" paletteLabel="" id="sF1-0x-cTl">
                         <nil key="toolTip"/>
-                        <size key="minSize" width="40" height="25"/>
-                        <size key="maxSize" width="40" height="25"/>
-                        <button key="view" verticalHuggingPriority="750" id="743">
-                            <rect key="frame" x="22" y="14" width="40" height="25"/>
+                        <size key="minSize" width="120" height="25"/>
+                        <size key="maxSize" width="220" height="25"/>
+                        <searchField key="view" verticalHuggingPriority="750" id="sF2-0x-cTl">
+                            <rect key="frame" x="0.0" y="14" width="180" height="25"/>
                             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                            <buttonCell key="cell" type="roundTextured" bezelStyle="texturedRounded" image="NSLockUnlockedTemplate" imagePosition="overlaps" alignment="center" borderStyle="border" inset="2" id="744">
-                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                            <searchFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" borderStyle="bezel" usesSingleLineMode="YES" bezelStyle="round" sendsSearchStringImmediately="YES" id="sF3-0x-cTl">
                                 <font key="font" metaFont="system"/>
-                            </buttonCell>
+                                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                            </searchFieldCell>
                             <connections>
-                                <action selector="authAction:" target="-2" id="753"/>
-                                <binding destination="728" name="enabled" keyPath="values.AUTHENTICATION" id="751"/>
+                                <action selector="searchAction:" target="-2" id="sF4-0x-cTl"/>
                             </connections>
-                        </button>
+                        </searchField>
                     </toolbarItem>
                 </allowedToolbarItems>
                 <defaultToolbarItems>
                     <toolbarItem reference="622"/>
                     <toolbarItem reference="626"/>
                     <toolbarItem reference="606"/>
-                    <toolbarItem reference="745"/>
+                    <toolbarItem reference="sF1-0x-cTl"/>
                 </defaultToolbarItems>
             </toolbar>
             <point key="canvasLocation" x="586" y="277"/>

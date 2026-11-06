@@ -26,29 +26,35 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-parser = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
+# DicomDatabase is Swift: the import is DicomFileIndexer.swift. The DICOM
+# reading is Swift too (DicomFile+DICOMReading.swift).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources  # noqa: E402
+database = sources.class_text('DicomDatabase')
+parser = sources.class_text('DicomFile')
 
 # --- the precedence, in order ------------------------------------------------
-at = parser.find('//Acquistion Date')
-end = parser.find('//Series Description', at) if at >= 0 else -1
+at = parser.find('private final func readStudyDate(')
+end = parser.find('private final func readPixelDataProblem(', at) if at >= 0 else -1
 window = parser[at:end] if at >= 0 and end > at else ''
 if not window:
     failures.append('the block that chooses the study date is gone')
 else:
-    order = [tag for tag in re.findall(r'DCM_(AcquisitionDate|ContentDate|SeriesDate|StudyDate)', window)]
+    order = [tag[0].upper() + tag[1:] for tag in
+             re.findall(r'DicomFileTag\.(acquisitionDate|contentDate|seriesDate|studyDate)\b', window)]
     if order != ['AcquisitionDate', 'ContentDate', 'SeriesDate', 'StudyDate']:
         failures.append('the date precedence changed: %s' % ' then '.join(order))
-    times = [tag for tag in re.findall(r'DCM_(AcquisitionTime|ContentTime|SeriesTime|StudyTime)', window)]
+    times = [tag[0].upper() + tag[1:] for tag in
+             re.findall(r'DicomFileTag\.(acquisitionTime|contentTime|seriesTime|studyTime)\b', window)]
     if times != ['AcquisitionTime', 'ContentTime', 'SeriesTime', 'StudyTime']:
         failures.append('the time precedence does not match the date precedence: %s'
                         % ' then '.join(times))
-    if 'dateWithYear:1901' not in window:
+    if 'date(withYear: 1901' not in window:
         failures.append('a study with no date no longer gets the marker the importer knows to '
                         'refuse, so it will be filed under whatever is left')
     # How DA and TM are read together is tested by running it, in
     # test-calendar-date-modernization.py; here, only that the importer uses it.
-    if '[DCMCalendarDate dicomDate:studyDate time:studyTime]' not in window:
+    if 'DICOMCalendarDate.dicomDate(studyDate as String, time: studyTime as String?)' not in window:
         failures.append('the importer no longer reads the date and the time as DICOM DA and TM, so a '
                         'time with a fraction of a second leaves the study without a date')
     if 'could not be read' not in window:
@@ -56,19 +62,29 @@ else:
                         'is indistinguishable from a study that never carried one')
 
 # --- and the marker must never reach the database ----------------------------
-if 'isEqualToDate: defaultDate] == NO' not in database:
+# The study takes the date through IsiXDatabase's ImportMatching, which never
+# takes the marker (the undefined date).
+matching = (root / 'Modules/IsiXDatabase/Sources/DatabaseImportRules.swift').read_text()
+if ('ImportMatching.takesStudyDate(studyDate, over: study?.date, undefined: defaultDate)' not in database
+        or 'guard let arriving, arriving != undefined else { return false }' not in matching):
     failures.append('the importer no longer refuses the no-date marker, so studies would be filed '
                     'under 1901')
-if '[importedDate isEqualToDate:defaultDate]) importedDate = nil;' not in database:
+if 'if importedDate == defaultDate { importedDate = nil }' not in database:
     failures.append('the importer does not discard the marker for series and images')
 for entity in ('seriesTable', 'image'):
-    if f'[{entity} setValue:importedDate forKey:@"date"]' not in database:
+    if f'{entity}?.setValue(importedDate, forKey: "date")' not in database:
         failures.append(f'{entity} does not store the normalized clinical date')
 
 # --- databases filed by builds that could not read fractional times ----------
 # Opening a local database reads again the headers of its undated images, once.
-if '[self repairDatesLostToFractionalTimesUnlessDone];' not in database:
+if 'repairDatesLostToFractionalTimesUnlessDone()' not in database:
     failures.append('opening a database no longer gives back the dates lost to fractional times')
+# On a thread of its own, which Activity lists only once there is something to read.
+repairs = (root / 'Horos/Sources/DatabaseStartupRepairs.swift').read_text()
+if 'ActivityThread.startUnlisted(' not in repairs or 'listInActivity' not in repairs:
+    failures.append('the repair of the dates does not start unlisted')
+if 'guard !undated.isEmpty else { return 0 }\n        found()' not in repairs:
+    failures.append('Activity lists the repair of the dates before it knows there is work')
 
 # --- no clinical date may come from the file system --------------------------
 code = re.sub(r'//[^\n]*', '', parser)

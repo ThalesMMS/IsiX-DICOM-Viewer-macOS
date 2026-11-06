@@ -7,10 +7,11 @@ import tempfile
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import vtk_pattern_window
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/VRView.mm').read_bytes().decode('latin1')
+# The projection is the VTK adapter's, which draws the view's 2D actors.
+source = (root / 'Horos/Sources/Adapters/VTK/IsiXVTKVolumeActors.mm').read_bytes().decode('latin1')
 try:
     functions = source[source.index('static bool HorosProjectPatientPoints'):
-                       source.index('// Each inactive overlay')]
+                       source.index('static IsiXVTKStoredLine *IsiXVTKNewStoredLine')]
 except ValueError:
     print('FAIL: HorosProjectPatientPoints is missing', file=sys.stderr)
     sys.exit(1)
@@ -87,7 +88,7 @@ with tempfile.TemporaryDirectory(prefix='horos-vr-angle-proj-') as d:
     # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.
     libs = [install / 'wlib' / 'libVTK.a']
     subprocess.run(['xcrun', 'clang++', '-std=c++17', '-I' + str(install / 'include'),
-                    str(p/'test.cxx'),str(root/'Horos/Sources/SceneFactory.cxx'),*[str(x) for x in libs], '-lz',
+                    str(p/'test.cxx'),str(root/'Horos/Sources/Adapters/VTK/SceneFactory.cxx'),*[str(x) for x in libs], '-lz',
                     '-framework', 'Cocoa', '-o', str(p / 'test')],
                    check=True)
     subprocess.run([str(p / 'test')], check=True)

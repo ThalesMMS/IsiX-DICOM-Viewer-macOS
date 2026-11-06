@@ -7,7 +7,7 @@ does not walk the Pages→PDF conversion path.
 """
 from pathlib import Path
 import xml.etree.ElementTree as ET
-from sources import source_text
+from sources import source_text, class_text
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -30,23 +30,34 @@ for needle, reason in (
     if needle not in swift:
         failures.append(reason)
 
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+browser = class_text('BrowserController')
+# The action is the browser's (BrowserController+ReportImport.swift), declared
+# for the Objective-C callers by the generated interface, which
+# BrowserController.h imports; it forwards to StudyReports, which inserts the
+# images and renders them.
+report_import = (root / 'Horos/Sources/BrowserController+ReportImport.swift').read_text()
+reports = (root / 'Horos/Sources/StudyReports.swift').read_text()
 header = (root / 'Horos/Sources/BrowserController.h').read_bytes().decode('latin1')
-if 'insertSelectedImagesIntoReport:' not in header:
-    failures.append('BrowserController.h does not expose the insertion action')
-if '- (IBAction)insertSelectedImagesIntoReport:' not in browser:
+if '#import "Horos-Swift.h"' not in header:
+    failures.append('BrowserController.h does not expose the Swift actions')
+if '@objc(insertSelectedImagesIntoReport:)' not in report_import:
     failures.append('BrowserController does not implement the insertion action')
-start = browser.find('- (IBAction)insertSelectedImagesIntoReport:')
-action = browser[start:browser.find('\n#endif', start)] if start >= 0 else ''
-if 'HorosReportImageInsertion' not in action:
+start = report_import.find('@objc(insertSelectedImagesIntoReport:)')
+if start < 0 or 'reports.insertSelectedImages()' not in report_import[start:report_import.find('\n    }\n', start)]:
+    failures.append('the insertion action does not reach StudyReports')
+start = reports.find('    func insertSelectedImages()')
+action = reports[start:reports.find('    // MARK: The toolbar item', start)] if start >= 0 else ''
+if 'ReportImageInsertion.insert(' not in action:
     failures.append('the action does not call the Swift inserter')
 if 'lastErrorMessage' not in action:
     failures.append('a failed insert does not show the captured AppleScript error')
-if 'nsimage:NO' not in action:
+if 'nsimage(false)' not in action:
     failures.append('a front viewer does not contribute the displayed image')
-if 'filesForDatabaseMatrixSelection' not in action:
+if 'files(forDatabaseMatrixSelection:' not in action:
     failures.append('database thumbnails are not the selected images when no viewer is open')
-if 'selector(insertSelectedImagesIntoReport:)' not in browser:
+# -validateMenuItem: hands the browser's commands to BrowserToolbar.
+menus = (root / 'Horos/Sources/BrowserToolbar.swift').read_text()
+if '#selector(BrowserController.insertSelectedImagesIntoReport(_:))' not in menus or 'ReportImageInsertion.kind(ofReportPath: report) != .unsupported' not in menus:
     failures.append('validateMenuItem does not know the new action')
 
 # Stay off the Pages→PDF files and the conversion selectors.
@@ -55,7 +66,7 @@ if 'selector(insertSelectedImagesIntoReport:)' not in browser:
 report_mm = source_text('DicomStudy+Report')
 if 'ReportImageInsertion' in report_mm or 'insertSelectedImagesIntoReport' in report_mm:
     failures.append('image insertion was wired through DicomStudy+Report, the Pages→PDF path')
-if 'convertReportToPDF' in browser[browser.find('- (IBAction)insertSelectedImagesIntoReport:'):browser.find('- (IBAction)insertSelectedImagesIntoReport:')+2500]:
+if 'convertReportToPDF' in action:
     failures.append('insertion calls the PDF converter')
 
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text()

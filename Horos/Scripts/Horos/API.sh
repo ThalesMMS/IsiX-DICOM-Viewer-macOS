@@ -1,11 +1,31 @@
 #!/bin/sh
 
-# A failure here used to be invisible: the aliases would be missing or half
-# built and the build would carry on to sign the application around them.
-set -eu
-set -x
+# The frameworks a plugin made for Horos or OsiriX names in its load commands.
+#
+# The application's executable defines and exports the classes, functions and
+# constants of the former plugin API; a plugin built with -undefined
+# dynamic_lookup finds them there. Its load commands also name the framework of
+# the SDK it was built with, and dyld refuses a plugin whose framework is
+# missing. Horos.framework was that SDK, and plugins were linked over the years
+# against the names it had: HorosAPI, OsiriXAPI, OsiriX Headers and HorosDCM.
+# Each of the five carries only version numbers (API/HorosAPI.c) and keeps the
+# install name of Horos.framework, as the copies the former SDK target made did.
+#
+# The App Store version loads no plugins and carries none of them.
 
-framework_path="$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/Horos.framework"
+set -eu
+
+frameworks="$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH"
+names="Horos HorosAPI OsiriXAPI OsiriX_Headers HorosDCM"
+# "OsiriX Headers" has a space: it is written OsiriX_Headers in the list above.
+framework_name() { [ "$1" = OsiriX_Headers ] && echo "OsiriX Headers" || echo "$1"; }
+
+if [ "${ISIS_BUILD_CHANNEL:-github}" = "appstore" ]; then
+    for name in $names; do
+        rm -Rf "$frameworks/$(framework_name "$name").framework"
+    done
+    exit 0
+fi
 
 # codesign is given the identity Xcode resolved for this build, or ad hoc when
 # there is none. EXPANDED_CODE_SIGN_IDENTITY is the identity itself; the _NAME
@@ -14,70 +34,53 @@ identity="${EXPANDED_CODE_SIGN_IDENTITY:-${CODE_SIGN_IDENTITY:--}}"
 [ -n "$identity" ] || identity="-"
 signing_allowed="${CODE_SIGNING_ALLOWED:-YES}"
 
-# Classes implemented in Swift keep <Horos/Name.h> as a header that imports the
-# generated Horos-Swift.h. The API
-# target publishes the other headers before this target compiles Swift, so the
-# generated one is added here, to the framework in the application and to the
-# one in the build products, and the application's copy is sealed again below.
-swift_header="$DERIVED_FILE_DIR/Horos-Swift.h"
-[ -f "$swift_header" ] || { echo "error: $swift_header was not generated" >&2; exit 1; }
-# The generated header imports the bridging header by its path on this machine;
-# the published copy imports a Horos-Bridging-Header.h published beside it.
-source_root="${SRCROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}"
-/usr/bin/python3 "$source_root/Horos/Scripts/Horos/publish-swift-header.py" "$source_root" "$swift_header" \
-    "$framework_path/Versions/A/Headers" \
-    "${BUILT_PRODUCTS_DIR:-$TARGET_BUILD_DIR}/Horos.framework/Versions/A/Headers"
-if [ "$signing_allowed" != "NO" ]; then
-    /usr/bin/codesign --force --sign "$identity" --options runtime "$framework_path"
-fi
+work="$DERIVED_FILE_DIR/FormerPluginFrameworks"
+rm -Rf "$work"
+mkdir -p "$work" "$frameworks"
+arch_flags=""
+for arch in $ARCHS; do arch_flags="$arch_flags -arch $arch"; done
+# shellcheck disable=SC2086
+xcrun clang -dynamiclib $arch_flags -isysroot "$SDKROOT" -mmacosx-version-min="$MACOSX_DEPLOYMENT_TARGET" \
+    -fvisibility=default -install_name "@executable_path/../Frameworks/Horos.framework/Versions/A/Horos" \
+    -compatibility_version 1.0.0 -current_version 1.0.0 \
+    "$SRCROOT/API/HorosAPI.c" -o "$work/binary"
 
-# many plugins are hard-linked to the API framework, and its name changed over time
-
-alts=( HorosAPI OsiriXAPI 'OsiriX Headers' HorosDCM)
-if [ "${ISIS_BUILD_CHANNEL:-github}" = "appstore" ]; then
-    # Compatibility aliases are only used by external plugins.
-    for alt in "${alts[@]}"; do
-        rm -Rf "$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/$alt.framework"
-    done
-    exit 0
-fi
-for alt in "${alts[@]}"; do
-    alt_framework_path="$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/$alt.framework"
-    rm -Rf "$alt_framework_path"
-    cp -R "$framework_path" "$alt_framework_path"
-    # cp -R brings Horos.framework's signature along, and everything below - the
-    # renamed binary, the dropped headers, the rewritten identifier - happens
-    # underneath it. The copy then declares a seal over content that is no longer
-    # there, which is why codesign --verify --deep --strict rejected the whole
-    # application with "invalid Info.plist (plist or signature have been
-    # modified)" and named one of these frameworks as the subcomponent. Drop the
-    # inherited seal here and sign the alias for what it actually contains, once
-    # the edits are done.
-    rm -Rf "$alt_framework_path/Versions/A/_CodeSignature"
-    mv "$alt_framework_path/Versions/A/Horos" "$alt_framework_path/Versions/A/$alt"
-    rm -f "$alt_framework_path/Horos"
-    rm -f "$alt_framework_path/Headers"
-    rm -Rf "$alt_framework_path/Versions/A/Headers"
-    ( cd "$alt_framework_path" && ln -s "Versions/Current/$alt" )
-    sed -i '' "s/Horos/$alt/" "$alt_framework_path/Versions/A/Resources/Info.plist"
-    sed -i '' "s/thalesmms.isis.workstation.api/thalesmms.isis.workstation.$alt/" "$alt_framework_path/Versions/A/Resources/Info.plist"
+for name in $names; do
+    framework="$(framework_name "$name")"
+    path="$frameworks/$framework.framework"
+    rm -Rf "$path"
+    mkdir -p "$path/Versions/A/Resources"
+    cp "$work/binary" "$path/Versions/A/$framework"
+    # The identifiers the former SDK target gave them; the space is left out.
+    if [ "$name" = Horos ]; then suffix=api; else suffix="$(echo "$name" | tr -d _)"; fi
+    cat > "$path/Versions/A/Resources/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>$framework</string>
+	<key>CFBundleIdentifier</key>
+	<string>${PRODUCT_BUNDLE_IDENTIFIER}.$suffix</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+</dict>
+</plist>
+PLIST
+    ln -s A "$path/Versions/Current"
+    ln -s "Versions/Current/$framework" "$path/$framework"
+    ln -s Versions/Current/Resources "$path/Resources"
+    if [ "$signing_allowed" != "NO" ]; then
+        /usr/bin/codesign --force --sign "$identity" --options runtime "$path"
+    fi
 done
-
-#exception since this is temporary
-sed -i '' "s/thalesmms.isis.workstation.OsiriX\ Headers/thalesmms.isis.workstation.OsiriXHeaders/" \
-    "$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/OsiriX Headers.framework/Versions/A/Resources/Info.plist"
-
-# Sealed last, so the identifier codesign records is the one the edits above
-# left in the Info.plist rather than Horos.framework's. This phase runs before
-# Xcode signs the application, which seals the frameworks by their signatures;
-# nothing here needs a --force --deep pass over the finished bundle.
-if [ "$signing_allowed" != "NO" ]; then
-    for alt in "${alts[@]}"; do
-        /usr/bin/codesign --force --sign "$identity" --options runtime \
-            "$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/$alt.framework"
-    done
-else
-    echo "note: code signing is disabled; leaving the API aliases unsigned"
-fi
 
 exit 0

@@ -22,7 +22,7 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
+from sources import source_text, class_text  # noqa: E402
 failures = []
 
 
@@ -58,24 +58,29 @@ def swift_block(text, at):
     return ''
 
 
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-header = (root / 'Horos/Sources/BrowserController.h').read_bytes().decode('latin1')
-rpc = (root / 'Horos/Sources/XMLRPCMethods.mm').read_bytes().decode('latin1')
+browser = class_text('BrowserController')
+# The XML-RPC interface is Swift: XMLRPCInterface.swift and its extensions.
+rpc = class_text('XMLRPCInterface')
 # AppController is Swift.
-application = source_text('AppController')
+application = class_text('AppController')
 
 # --- the browser records a reason rather than a bare NO -----------------------
-if '@property(copy) NSString *lastStudyNotOpenedReason;' not in header:
+# The class is Swift: the property is BrowserController.swift's, kept with the
+# state of opening viewers.
+if '@objc public nonisolated dynamic var lastStudyNotOpenedReason: String! {' not in browser \
+        or '@objc var lastStudyNotOpenedReason: String?' not in (root / 'Horos/Sources/BrowserState.swift').read_text():
     failures.append('the browser has nowhere to record why the last study did not open')
 
-select = strip(browser)
-at = select.find('- (BOOL) selectThisStudy: (NSManagedObject*)study')
-body = select[at:] if at >= 0 else ''
+# The study selection is BrowserController+DatabaseSwitching.swift.
+switching = strip((root / 'Horos/Sources/BrowserController+DatabaseSwitching.swift').read_text())
+at = switching.find('@objc(selectThisStudy:)')
+end = switching.find('private func rowOfListedStudy(', at)
+body = switching[at:end] if at >= 0 and end > at else ''
 if not body:
     failures.append('selectThisStudy: is gone')
 else:
-    body = body[:body.index('\n}') + 2]
-    bare = re.findall(r'return NO;', body)
+    # selectThisStudy: and the listing step it delegates to.
+    bare = re.findall(r'return false\b', body)
     if bare:
         failures.append('selectThisStudy: still has %d silent refusal(s)' % len(bare))
     for reason in ('reasonForNoDatabase', 'reasonForNoStudy', 'reasonForUnknownDatabase',
@@ -88,13 +93,14 @@ else:
     if 'lastStudyNotOpenedReason = nil' not in body:
         failures.append('a study that does open leaves the previous reason in place')
 
-if 'NSLog' not in strip(browser)[select.find('- (BOOL) refuseToSelectStudy:'):][:600]:
+refuse = switching.find('@objc(refuseToSelectStudy:reason:)')
+if refuse < 0 or 'NSLog' not in switching[refuse:refuse + 400]:
     failures.append('the refusal is recorded on the browser and never logged')
 
 # --- the XML-RPC opener acts on the answer -----------------------------------
 for entry in ('_onMainThreadOpenObjectsWithIDs:', '_onMainThreadSelectObjectsWithIDs:'):
-    at = strip(rpc).find('-(void)%s' % entry)
-    opener = strip(rpc)[at:at + 1500] if at >= 0 else ''
+    at = strip(rpc).find('@objc(%s)' % entry)
+    opener = strip(rpc)[at:at + 2500] if at >= 0 else ''
     if not opener:
         failures.append('%s is gone' % entry)
         continue
@@ -103,12 +109,13 @@ for entry in ('_onMainThreadOpenObjectsWithIDs:', '_onMainThreadSelectObjectsWit
     # A reason left over from an older refusal would silence this one.
     if 'lastStudyNotOpenedReason = nil' not in opener:
         failures.append('%s does not clear the previous reason before trying' % entry)
-    if not re.search(r'if\(\s*\[\[BrowserController currentBrowser\] displayStudy:', opener):
+    if not re.search(r'if browser\?\.display\(study, object: object, command: "\w+"\) \?\? false \{', opener):
         failures.append('%s still discards the answer from displayStudy:' % entry)
 
 # --- and the link handler stops claiming success before it has it ------------
-# From the image handler's flag to the end of getUrl:withReplyEvent:.
-get_url_at = application.find('@objc(getUrl:withReplyEvent:) func getUrl(')
+# From the image handler's flag to its end: getUrl:withReplyEvent: hands an
+# image= link to ExternalRequestHandler.openImage (ExternalRequestHandler.swift).
+get_url_at = application.find('    private func openImage(_ imageSpecifier: String) {')
 get_url = swift_block(application, get_url_at) if get_url_at >= 0 else ''
 at = get_url.find('var succeeded = false')
 handler = get_url[at:] if at >= 0 else ''
@@ -118,14 +125,14 @@ else:
     if re.search(r'succeeded = true\b', handler):
         failures.append('the link handler still records success before asking whether the study '
                         'opened, which also skips the whole-database search that follows')
-    if handler.count('succeeded = BrowserController.currentBrowser()?.display(') != 2:
+    if handler.count('succeeded = self.browser?.display(') != 2:
         failures.append('the link handler does not take its answer from displayStudy: in both '
                         'searches')
     if 'HorosAlertPanel.run(' not in handler or 'lastStudyNotOpenedReason' not in handler:
         failures.append('somebody who clicked a link is still told nothing when no viewer opens')
     # Nothing may have matched at all, in which case the browser was never asked
     # and logged nothing: this line has to carry the reason and what was asked for.
-    if not re.search(r'NSLog\([^\n]*\breason\b[^\n]*\bsopinstanceuid\b', handler):
+    if not re.search(r'NSLog\([^\n]*\breason\b[^\n]*\bsopInstanceUID\b', handler):
         failures.append('the line the link handler logs does not carry both the reason and the '
                         'image the link asked for')
     if handler.count('lastStudyNotOpenedReason = nil') != 1:

@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from dcmtk_build import dcmtk_dictionary
 
 if len(sys.argv) < 3:
     print('skipped: needs DCMTK_INSTALL_DIR SEQUENCE_FIXTURE', file=sys.stderr)
@@ -30,6 +31,9 @@ if any(not path.is_file() for path in required) or not args.fixture.is_file():
 if subprocess.run([args.python, '-c', 'import pydicom'], capture_output=True).returncode:
     print('skipped: independent Python needs pydicom', file=sys.stderr)
     raise SystemExit(2)
+# The external dictionary of the pinned DCMTK source archive, the file the build
+# ships beside the executables.
+dictionary = dcmtk_dictionary()
 
 program = r'''
 #include "HorosDCMTKTagEditing.h"
@@ -174,7 +178,7 @@ with tempfile.TemporaryDirectory(prefix='horos-sequence-edit-') as folder:
     subprocess.run(['xcrun', 'clang++', '-std=c++17', '-I' + str(install / 'include'),
                     '-I' + str(root / 'Horos/Sources'), str(source), *map(str, required[1:]),
                     '-lz', '-liconv', '-o', str(binary)], check=True)
-    env = dict(os.environ, DCMDICTPATH=str(root / 'DCMTK/dcmdata/data/dicom.dic'))
+    env = dict(os.environ, DCMDICTPATH=str(dictionary))
     subprocess.run([str(binary), str(work)], check=True, env=env)
     subprocess.run([args.python, '-c', verify, str(before), str(work)], check=True)
 assert original == args.fixture.read_bytes(), 'original fixture was modified'

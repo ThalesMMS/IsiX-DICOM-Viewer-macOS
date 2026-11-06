@@ -27,6 +27,17 @@
 NSErrorDomain const HorosObjCExceptionErrorDomain = @"HorosObjCExceptionErrorDomain";
 NSString * const HorosObjCExceptionKey = @"HorosObjCException";
 
+NSException *HorosObjCPerformFunction(void (*function)(void *context), void *context)
+{
+    @try {
+        function(context);
+        return nil;
+    }
+    @catch (NSException *exception) {
+        return exception;
+    }
+}
+
 @implementation HorosObjCException
 
 + (BOOL)performBlock:(NS_NOESCAPE void (^)(void))block error:(NSError **)error

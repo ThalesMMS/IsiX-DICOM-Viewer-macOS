@@ -48,38 +48,62 @@ def read(path):
     return data.decode('utf-8')
 
 
-def network_python():
-    common = subprocess.run(['git', '-C', str(root), 'rev-parse', '--path-format=absolute', '--git-common-dir'],
-                            capture_output=True, text=True).stdout.strip()
-    checkouts = [root] + ([Path(common).parent] if common else [])
-    candidates = [Path(sys.executable)]
-    for checkout in checkouts:
-        for venv in ('fixture-venv', 'dcmtk-venv', 'venv'):
-            candidates.append(checkout / 'local-validation' / venv / 'bin' / 'python')
-    for candidate in candidates:
-        if candidate.is_file() and subprocess.run([str(candidate), '-c', 'import pydicom, pynetdicom'],
-                                                  capture_output=True).returncode == 0:
-            return str(candidate)
-    return None
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from python_with import interpreter_or_skip  # noqa: E402
 
-
-python = network_python()
-if python is None:
-    print('skipped: needs local-validation/fixture-venv with pydicom and pynetdicom', file=sys.stderr)
-    sys.exit(2)
+python = interpreter_or_skip('import pydicom', 'import pynetdicom', need='the destination needs',
+                             packages="'pydicom>=3,<4' pynetdicom")
 
 nodes = read('Horos/Sources/RemoteDataNodeIdentifier.swift')
 base = read('Horos/Sources/DataNodeIdentifier.m')
 header = read('Horos/Sources/DataNodeIdentifier.h')
-copy = read('Horos/Sources/BrowserController+Sources+Copy.swift')
 
-thread = copy[copy.index('func copyRemoteImagesToRemoteBrowserSourceThread'):]
-start = thread.index('if let destination = destination as? DicomNodeIdentifier {')
-end = thread.index('thread.status = String(format: NSLocalizedString("Sending SCU request...', start)
-destination_part = thread[start:end]
-# The helper the part reads its ports with, where the file has it.
-helper_start = copy.find('fileprivate func copyIntegerValue(')
-copy_helper = copy[helper_start:copy.index('\n}\n', helper_start) + 3] if helper_start >= 0 else ''
+
+def braced(text, start):
+    """From `start` to the brace that closes the first one after it."""
+    at = text.index(start)
+    depth = 0
+    for index in range(text.index('{', at), len(text)):
+        depth += {'{': 1, '}': -1}.get(text[index], 0)
+        if depth == 0:
+            return text[at:index + 1]
+    raise ValueError(start)
+
+
+try:
+    # The copy is SourceCopyJob's: the main thread reads where a DICOM node
+    # receives with forwardTarget(of:), and the thread forwards only to a
+    # complete target.
+    job = read('Horos/Sources/SourceCopyJob.swift')
+except subprocess.CalledProcessError:
+    job = None
+if job is not None:
+    forward = braced(job, 'static func forwardTarget(of destination: DataNodeIdentifier?) -> ForwardTarget {')
+    copy_helper = (braced(job, 'struct ForwardTarget: Sendable, Equatable {') + '\n'
+                   + braced(job, 'private func integerValue(_ value: Any?) -> Int {') + '\n' + forward.replace('static func', 'func', 1))
+    forwarding = braced(job, 'private func forwardFromSharedDatabase() {')
+    if 'guard target.isComplete else {\n                thread.status = NSLocalizedString("Error: destination is unavailable", comment: "")' not in forwarding:
+        failures.append('the copy forwards to a destination without an address, a port or an AE title')
+    destination_part = '''let target = forwardTarget(of: destination)
+if target.isComplete {
+    dstAddress = target.address as NSString?
+    dstPort = target.port
+    dstAET = target.aeTitle as NSString?
+    dstSyntax = target.transferSyntax
+} else {
+    thread.status = "Error: destination is unavailable"
+    return
+}
+'''
+else:
+    copy = read('Horos/Sources/BrowserController+Sources+Copy.swift')
+    thread = copy[copy.index('func copyRemoteImagesToRemoteBrowserSource'):]
+    start = thread.index('if let destination = destination as? DicomNodeIdentifier {')
+    end = thread.index('thread.status = String(format: NSLocalizedString("Sending SCU request...', start)
+    destination_part = thread[start:end]
+    # The helper the part reads its ports with, where the file has it.
+    helper_start = copy.find('fileprivate func copyIntegerValue(')
+    copy_helper = copy[helper_start:copy.index('\n}\n', helper_start) + 3] if helper_start >= 0 else ''
 
 # What DataNodeIdentifier.m and .h import, with only what they use.
 STUBS = {

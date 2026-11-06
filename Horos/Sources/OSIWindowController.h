@@ -39,6 +39,12 @@
 *
 *Root class for the Viewer Window Controllers such as ViewerController
 *and Window3DController
+*
+* The class is implemented in Swift: OSIWindowController.swift is its
+* implementation (@objc @implementation), with the magnetic windows in
+* OSIWindowController+MagneticWindows.swift. This interface declares it to
+* Objective-C, which still subclasses it (Window3DController); it has no
+* instance variables.
 */
 
 #import <Cocoa/Cocoa.h>
@@ -55,15 +61,6 @@ enum OsiriXBlendingTypes {BlendingPlugin = -1, BlendingFusion = 1, BlendingSubtr
 @class DicomImage, DicomSeries, DicomStudy;
 
 @interface OSIWindowController : NSWindowController
-{
-	int _blendingType;
-	
-	BOOL magneticWindowActivated;
-	BOOL windowIsMovedByTheUserO;
-	NSRect savedWindowsFrameO;
-	
-	DicomDatabase* _database;
-}
 
 @property(nonatomic,retain) DicomDatabase* database;
 -(void)refreshDatabase:(NSArray*)newImages;
@@ -78,6 +75,8 @@ enum OsiriXBlendingTypes {BlendingPlugin = -1, BlendingFusion = 1, BlendingSubtr
 - (NSMutableArray*) pixList;
 - (void) addToUndoQueue:(NSString*) what;
 - (int)blendingType;
+/// Sets the fusion's type -blendingType answers, as a subclass stores it.
+- (void)horosSetBlendingType:(int)blendingType;
 
 - (IBAction) redo:(id) sender;
 - (IBAction) undo:(id) sender;

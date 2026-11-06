@@ -270,6 +270,37 @@ with tempfile.TemporaryDirectory(prefix='horos-update-feed-') as directory:
         invalid[invalid.index(option) + 1] = str(value)
         refused = subprocess.run(invalid, capture_output=True, text=True)
         assert refused.returncode != 0 and not (p/label).exists(), label
+    # The plugin SDK zip goes in under its own name and in Verification.txt;
+    # one named for another tag, with AppleDouble entries or without the
+    # porting kit is refused.
+    def sdk_zip(name, top=None, extra=(), without=None):
+        top = top or name[:-len('.zip')]
+        (p/'sdk').mkdir(exist_ok=True)
+        path = Path(tempfile.mkdtemp(dir=p/'sdk'))/name
+        with zipfile.ZipFile(path, 'w') as bundle:
+            for entry in ('SDK.json', 'IsiXPluginKit.framework/Versions/A/IsiXPluginKit',
+                          'LegacyPorting/PORTING.json', *extra):
+                if entry != without:
+                    bundle.writestr(top + '/' + entry, 'synthetic\n')
+        return path
+    sdk = sdk_zip('IsiXPluginKit-SDK-4.0.0-test.zip')
+    with_sdk = p/'release-assets-sdk'
+    subprocess.run(prepare[:prepare.index('--release-assets')] + ['--release-assets', str(with_sdk), '--sdk-zip', str(sdk)]
+                   + prepare[prepare.index('--release-assets') + 2:], check=True, stdout=subprocess.DEVNULL)
+    assert (with_sdk/sdk.name).read_bytes() == sdk.read_bytes()
+    listed = (with_sdk/'Verification.txt').read_text()
+    assert sdk.name in listed and len(listed.splitlines()) == 7, listed
+    subprocess.run(['shasum', '-a', '256', '-c', 'Verification.txt'], cwd=with_sdk, check=True, stdout=subprocess.DEVNULL)
+    for label, bad, reason in (('sdk-other-tag', sdk_zip('IsiXPluginKit-SDK-4.0.1.zip'), 'named'),
+                               ('sdk-appledouble', sdk_zip('IsiXPluginKit-SDK-4.0.0-test.zip', extra=('._SDK.json',)),
+                                'AppleDouble'),
+                               ('sdk-without-porting', sdk_zip('IsiXPluginKit-SDK-4.0.0-test.zip',
+                                                               without='LegacyPorting/PORTING.json'), 'PORTING.json'),
+                               ('sdk-other-top', sdk_zip('IsiXPluginKit-SDK-4.0.0-test.zip', top='SDK'), 'under')):
+        invalid = prepare[:prepare.index('--release-assets')] + ['--release-assets', str(p/label), '--sdk-zip', str(bad)] \
+            + prepare[prepare.index('--release-assets') + 2:]
+        refused = subprocess.run(invalid, capture_output=True, text=True)
+        assert refused.returncode != 0 and reason in refused.stderr and not (p/label).exists(), (label, refused.stderr)
     # Refused: a bad tag, an empty zip, two archives of one slice, a universal
     # application, an x86_64 archive alone, and archives of different builds.
     refusals = [(['v4.0.0 test', arm], 'tag'), (['v4.0.0-test', p/'empty.zip'], 'zip'),

@@ -21,12 +21,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def french_palette():
     """Read the named reference palette, independently of captured GL output."""
-    text = (ROOT/'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
-    end = text.index('forKey:@"French"')
-    start = text.rfind('int r[ 256]',0,end)
-    tables = [np.fromstring(re.search(r'int '+channel+r'\[ 256\] = \{([^}]+)',text[start:end])[1],sep=',',dtype=np.uint8)
-              for channel in ('b','g','r')]
-    # The source deliberately assigns b[] to Red and r[] to Blue.
+    text = (ROOT/'Modules/IsiXPreferences/Sources/DefaultPreferences+ImagePresets.swift').read_text(encoding='utf-8')
+    tables = [np.fromstring(re.search(r'private static let french'+channel+r' = \[([^\]]+)\]',text)[1],sep=',',dtype=np.uint8)
+              for channel in ('Blue','Green','Red')]
+    # The table is stored with its blue array as Red and its red array as Blue.
     return np.column_stack(tables)
 
 

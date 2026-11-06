@@ -21,8 +21,15 @@ is closed, as the user closes the 3D window, and:
 - the renderer must be released exactly once: when -windowWillClose: drops it,
   or with the controller's associated objects, not twice.
 
-In the sources: VRController.mm's -windowWillClose: drops the Metal
-renderers, and VRView's -prepareForRelease, which -[VRController dealloc]
+The renderers are Swift now (VRController+VolumeMetal.swift): its lines are
+checked to be the ones the probe runs - the renderer kept as the controller's
+associated object, no observer of the window, both renderers dropped - and the
+probe runs their Objective-C equivalent; a revision that still has
+VRHostBridge.mm is compiled as it was.
+
+In the sources: VRController's -windowWillClose: (Swift, VRController.swift)
+drops the Metal renderers and gives back the reference its creator handed to
+the window, and VRView's -prepareForRelease, which the controller's deinit
 sends, invalidates the auto-rotation timers. Those timers retain the view and
 were invalidated only by the view's -windowWillClose:, which a window never
 shown does not post: the endoscopy viewer's, when its initializer fails.
@@ -70,25 +77,53 @@ if shutil.which('xcrun') is None:
     print('skipped: needs xcrun (clang)', file=sys.stderr)
     sys.exit(SKIPPED)
 
-bridge = read('Horos/Sources/VRHostBridge.mm')
-controller = read('Horos/Sources/VRController.mm')
-view = read('Horos/Sources/VRView.mm')
+controller = read('Horos/Sources/VRController.swift')
+try:
+    bridge = read('Horos/Sources/VRHostBridge.mm')
+except (FileNotFoundError, subprocess.CalledProcessError):
+    bridge = None
 
-# What the bridge runs once it made a renderer.
-made = re.search(r'renderer = \[HorosVolumeRenderer makeAndReturnError:&failure\];\s*if \(renderer\) \{(.*?)\n\s*\} else reason',
-                 bridge, re.S)
-if not made:
-    print('VRHostBridge.mm no longer makes its renderer as this test expects; it needs a new look', file=sys.stderr)
-    sys.exit(1)
-on_renderer = made.group(1)
+if bridge is not None:
+    # What the bridge runs once it made a renderer.
+    made = re.search(r'renderer = \[HorosVolumeRenderer makeAndReturnError:&failure\];\s*if \(renderer\) \{(.*?)\n\s*\} else reason',
+                     bridge, re.S)
+    if not made:
+        print('VRHostBridge.mm no longer makes its renderer as this test expects; it needs a new look', file=sys.stderr)
+        sys.exit(1)
+    on_renderer = made.group(1)
+else:
+    # The Swift host keeps a renderer it made as the controller's associated
+    # object, and nothing else: no observer of the window.
+    bridge = read('Horos/Sources/VRController+VolumeMetal.swift') + read('Horos/Sources/VRView+VolumeHost.swift')
+    made = re.search(r'let made = try VolumeRendererBridge\.make\(\)\s*VolumeMetalSlots\.set\(self, rendererSlot, made\)\s*renderer = made\s*\}', bridge)
+    if not made:
+        print('VRController+VolumeMetal.swift no longer makes its renderer as this test expects; it needs a new look', file=sys.stderr)
+        sys.exit(1)
+    for observer in ('NotificationCenter', 'NSWindowWillCloseNotification', 'willCloseNotification', 'removeObserver'):
+        if observer in re.sub(r'//[^\n]*', '', bridge):
+            failures.append('the Swift host observes the window (%s)' % observer)
+    swift_drop = body(bridge, '    @objc func horosVolumeMetalDropRenderers()') or ''
+    if 'horosVolumeMetalRelease()' not in swift_drop or \
+            'VolumeMetalSlots.set(self, VolumeMetalSlots.key(&VolumeMetalSlots.renderer), nil)' not in swift_drop or \
+            'VolumeMetalSlots.set(self, VolumeMetalSlots.key(&VolumeMetalSlots.fusedRenderer), nil)' not in swift_drop:
+        failures.append('-horosVolumeMetalDropRenderers does not drop both renderers')
+    on_renderer = 'objc_setAssociatedObject(self, rendererSlot, renderer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);'
 
-closing = body(controller, '- (void)windowWillClose:(NSNotification *)notification')
+closing = body(controller, '    public override func windowWillClose(_ notification: Notification)')
 if closing is None:
-    print('VRController.mm has no -windowWillClose:; this test needs a new look', file=sys.stderr)
+    print('VRController.swift has no -windowWillClose:; this test needs a new look', file=sys.stderr)
     sys.exit(1)
-drops_on_close = '[self horosVolumeMetalDropRenderers];' in closing
+drops_on_close = 'horosVolumeMetalDropRenderers()' in closing
+# The probe's [self autorelease]: the reference the creator handed over.
+if '_ = Unmanaged.passUnretained(self).autorelease()' not in closing:
+    failures.append('-[VRController windowWillClose:] does not give back the reference its creator handed over')
 drop = body(bridge, '- (void)horosVolumeMetalDropRenderers') or ''
 handler = body(bridge, '- (void)horosVolumeMetalWindowWillClose:(NSNotification *)note') or ''
+if not drop and 'VolumeMetalSlots' in bridge:
+    # The Swift drop, line for line.
+    drop = ('[self horosVolumeMetalRelease];\n'
+            '    objc_setAssociatedObject(self, &rendererKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);\n'
+            '    objc_setAssociatedObject(self, &fusedRendererKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);')
 
 PROBE = r'''
 #import <AppKit/AppKit.h>
@@ -206,11 +241,15 @@ if drop and ('rendererKey, nil' not in drop or 'fusedRendererKey, nil' not in dr
 if re.search(r'removeObserver:\s*self\s+name:\s*NSWindowWillCloseNotification', bridge):
     failures.append('VRHostBridge.mm still removes the controller\'s registrations for NSWindowWillCloseNotification')
 
-release = body(view, '- (void) prepareForRelease')
-if release is None or '[autoRotate invalidate];' not in release or '[startAutoRotate invalidate];' not in release:
+# -prepareForRelease is Swift (VRView+State.swift), an extension of VRView: to
+# the line that closes it at the extension's indentation.
+state = read('Horos/Sources/VRView+State.swift')
+release = state[state.find('    func prepareForRelease() {'):]
+release = release[:release.find('\n    }\n')] if '    func prepareForRelease() {' in state else None
+if release is None or 'horos_autoRotate?.invalidate()' not in release or 'horos_startAutoRotate?.invalidate()' not in release:
     failures.append('-[VRView prepareForRelease] does not invalidate the auto-rotation timers, which retain the view')
-dealloc = body(controller, '-(void) dealloc') or ''
-if '[view prepareForRelease];' not in dealloc:
+dealloc = body(controller, '    isolated deinit') or ''
+if 'vrView?.prepareForRelease()' not in dealloc:
     failures.append('-[VRController dealloc] no longer sends -prepareForRelease to its view')
 
 if failures:

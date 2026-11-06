@@ -56,7 +56,8 @@ check('SendWhatFilter.swift in Sources' in project,
 # Swift in the Horos module sees SendWhatFilter without Horos-Swift.h.
 check(is_swift('SendController'), 'SendController is expected in Swift')
 
-init_body = body(live, 'init(files: [Any]!)')
+# The initializer that the convenience initWithFiles: calls with the process graph.
+init_body = body(live, 'init(files: [Any]!, processGraph: ProcessGraph)')
 check(init_body, 'initWithFiles: is missing')
 check('SendWhatFilter.resolvedIndex(' in init_body,
       'initWithFiles: must resolve lastSendWhat through HorosSendWhatFilter')

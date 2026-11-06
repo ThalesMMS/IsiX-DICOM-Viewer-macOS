@@ -33,7 +33,8 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 reason = root / 'Horos/Sources/MissingFileReason.swift'
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+# The browser opens viewers through ViewerSeriesLoader.swift.
+browser = (root / 'Horos/Sources/ViewerSeriesLoader.swift').read_text()
 
 DRIVER = '''
 import Foundation
@@ -110,12 +111,13 @@ if results:
 
 # --- and the browser says it, in the log and in the alert ---------------------
 code = re.sub(r'//[^\n]*', '', browser)
-if 'HorosMissingFileReason' not in code:
+if 'MissingFileReason.reason(forPath:' not in code:
     failures.append('the browser still says only "not readable"')
 else:
     if 'not readable: %@' in code:
         failures.append('the old message is still there, so which one appears depends on the path')
-    if code.count('HorosMissingFileReason') < 2:
+    # One reason, computed once, goes to the log and to the alert.
+    if 'NSLog("---- %@", reason)' not in code or 'missingFileReason = reason' not in code:
         failures.append('the reason reaches the log but not the alert, or the other way round')
     at = code.find('Files not available (readable)')
     window = code[max(at - 200, 0):at + 800] if at >= 0 else ''

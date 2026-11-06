@@ -40,9 +40,7 @@
 
 typedef uint8_t N2Alignment;
 
-extern const N2Alignment N2Top;
-extern const N2Alignment N2Bottom;
-extern const N2Alignment N2Left;
-extern const N2Alignment N2Right;
-
-extern NSRect NSRectCenteredInRect(NSRect r, NSRect r2);
+static const N2Alignment N2Top = 1<<0;
+static const N2Alignment N2Bottom = 1<<1;
+static const N2Alignment N2Left = 1<<2;
+static const N2Alignment N2Right = 1<<3;

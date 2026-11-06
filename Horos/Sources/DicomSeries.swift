@@ -39,39 +39,10 @@
 
 import Cocoa
 import CoreData
+import IsiXDICOMFile
+import IsiXPreferences
 
 // MARK: - Objective-C semantics the class relies on
-
-/// `@synchronized (object) { … }`: the same recursive lock (objc_sync_enter).
-/// An NSException raised inside leaves the lock and goes on to the caller, as
-/// it did through @synchronized.
-@inline(__always)
-fileprivate func dicomSeriesSynchronized<T>(_ object: AnyObject, _ body: () -> T) -> T {
-    objc_sync_enter(object)
-    var result: T?
-    var raised: NSException?
-    do {
-        try HorosObjCException.perform { result = body() }
-    } catch {
-        raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    objc_sync_exit(object)
-    if let raised = raised {
-        raised.raise()
-    }
-    return result!
-}
-
-/// `@try { body } @catch (NSException *e) { … }`: the exception caught, or nil.
-@discardableResult
-fileprivate func dicomSeriesTry(_ body: () -> Void) -> NSException? {
-    do {
-        try HorosObjCException.perform(body)
-        return nil
-    } catch {
-        return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-}
 
 /// -[NSString isEqualToString:] of a string that may be nil (a message to nil
 /// answered NO).
@@ -217,7 +188,7 @@ public final class DicomSeries: NSManagedObject {
             let image = files?.object(at: files!.count / 2) as? DicomImage
 
             var found: Any? = nil
-            dicomSeriesTry {
+            HorosObjCException.caught {
                 let value = image?.value(forKey: key)
                 if value != nil {
                     found = value
@@ -240,7 +211,7 @@ public final class DicomSeries: NSManagedObject {
     public func dcmodifyThread(_ dict: NSDictionary!) {
         autoreleasepool {
             DicomStudy.dbModifyLock()?.lock()
-            if let e = dicomSeriesTry({
+            if let e = HorosObjCException.caught({
                 let tagAndValues = NSMutableArray()
 
                 let value = dict?.object(forKey: "value")
@@ -257,7 +228,7 @@ public final class DicomSeries: NSManagedObject {
                 }
 
                 // [NSArray arrayWithObjects: tag, value, nil] ends at the first nil.
-                let tag = DCMAttributeTag(tagString: dict?.object(forKey: "field") as? String)
+                let tag: DICOMAttributeTag? = DICOMAttributeTag(tagString: dict?.object(forKey: "field") as? String)
                 let tagAndValue = NSMutableArray()
                 if value == nil || valueLength == 0 {
                     if let tag = tag { tagAndValue.add(tag) }
@@ -298,9 +269,9 @@ public final class DicomSeries: NSManagedObject {
     public func horosSetComment(_ c: String!) {
         var c = c
 
-        if let e = dicomSeriesTry({
+        if let e = HorosObjCException.caught({
             if (self.study?.hasDICOM?.boolValue ?? false) == true
-                && UserDefaults.standard.bool(forKey: "savedCommentsAndStatusInDICOMFiles")
+                && PreferencesSource.process.preferences[DatabasePreferences.savedCommentsAndStatusInDICOMFiles]
                 && (DicomDatabase(for: self.managedObjectContext)?.isLocal() ?? false) {
                 if c == nil {
                     c = ""
@@ -386,7 +357,7 @@ public final class DicomSeries: NSManagedObject {
     /// -setDate: also clears the cached dicomTime.
     @objc(horos_setDate:)
     public func horosSetDate(_ date: NSDate!) {
-        dicomSeriesSynchronized(self) {
+        HorosObjCException.synchronized(self) {
             _dicomTime = nil
 
             self.willChangeValue(forKey: "date")
@@ -398,7 +369,7 @@ public final class DicomSeries: NSManagedObject {
     /// Older imports stored the parser's no-date marker in series rows.
     /// Use the study date for display without changing the stored clinical data.
     @objc public var displayDate: Date? {
-        let missingDate = DCMCalendarDate.date(withYear: 1901, month: 1, day: 1,
+        let missingDate = DICOMCalendarDate.date(withYear: 1901, month: 1, day: 1,
                                                hour: 0, minute: 0, second: 0, timeZone: nil) as? Date
         if let date = self.date, date != missingDate { return date }
         guard let date = self.study?.date, date != missingDate else { return nil }
@@ -407,9 +378,9 @@ public final class DicomSeries: NSManagedObject {
 
     /// Read-only in the former header.
     @objc public var dicomTime: NSNumber! {
-        return dicomSeriesSynchronized(self) { () -> NSNumber? in
+        return HorosObjCException.synchronized(self) { () -> NSNumber? in
             if _dicomTime == nil {
-                _dicomTime = (DCMCalendarDate.dicomTime(with: self.date) as? DCMCalendarDate)?.timeAsNumber()
+                _dicomTime = (DICOMCalendarDate.dicomTime(with: self.date))?.timeAsNumber()
             }
             return _dicomTime
         }
@@ -425,12 +396,12 @@ public final class DicomSeries: NSManagedObject {
             var thumbnailData: NSData? = nil
 
             N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
-            if dicomSeriesTry({
+            if HorosObjCException.caught({
                 thumbnailData = self.primitiveValue(forKey: "thumbnail") as? NSData
 
                 if thumbnailData == nil {
                     autoreleasepool {
-                        if let e = dicomSeriesTry({
+                        if let e = HorosObjCException.caught({
                             let files = self.sortedImagesArray()
                             if (files?.count ?? 0) != 0 {
                                 let image = files?.object(at: files!.count / 2) as? DicomImage
@@ -460,19 +431,19 @@ public final class DicomSeries: NSManagedObject {
                                     var thumbnail: NSImage? = nil
                                     let seriesSOPClassUID = self.seriesSOPClassUID
 
-                                    if dicomSeriesIsEqual(DCMAbstractSyntaxUID.rtStructureSetStorage(), seriesSOPClassUID) {
+                                    if dicomSeriesIsEqual(DICOMSOPClass.rtStructureSetStorage(), seriesSOPClassUID) {
                                         thumbnail = NSImage(named: "RTStructIcon.jpg")
                                         thumbnailData = thumbnail?.tiffRepresentation as NSData?
-                                    } else if DCMAbstractSyntaxUID.isSpectroscopy(seriesSOPClassUID) {
+                                    } else if DICOMSOPClass.isSpectroscopy(seriesSOPClassUID) {
                                         thumbnail = NSImage(named: "SpectroIcon.jpg")
                                         thumbnailData = thumbnail?.tiffRepresentation as NSData?
-                                    } else if DCMAbstractSyntaxUID.isStructuredReport(seriesSOPClassUID) || DCMAbstractSyntaxUID.isPDF(seriesSOPClassUID) {
+                                    } else if DICOMSOPClass.isStructuredReport(seriesSOPClassUID) || DICOMSOPClass.isPDF(seriesSOPClassUID) {
                                         let icon = NSWorkspace.shared.icon(for: .plainText)
 
                                         thumbnail = dicomSeriesSquareThumbnail(icon)
 
                                         thumbnailData = thumbnail?.tiffRepresentation as NSData?
-                                    } else if DCMAbstractSyntaxUID.isImageStorage(seriesSOPClassUID) || DCMAbstractSyntaxUID.isRadiotherapy(seriesSOPClassUID) || dicomSeriesLength(seriesSOPClassUID) == 0 {
+                                    } else if DICOMSOPClass.isImageStorage(seriesSOPClassUID) || DICOMSOPClass.isRadiotherapy(seriesSOPClassUID) || dicomSeriesLength(seriesSOPClassUID) == 0 {
                                         // A Volcano-shaped IVUS that the pixel stack cannot
                                         // load used to die here on every launch (series icon
                                         // -> loadDICOMDCMFramework). Ask before CheckLoad and
@@ -552,7 +523,7 @@ public final class DicomSeries: NSManagedObject {
         var local = true
 
         N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
-        if let e = dicomSeriesTry({
+        if let e = HorosObjCException.caught({
             let obj = self.horosImages()?.anyObject() as AnyObject?
             local = (obj?.value(forKey: "inDatabaseFolder") as? NSNumber)?.boolValue ?? false
         }) {
@@ -571,7 +542,7 @@ public final class DicomSeries: NSManagedObject {
         var no: NSNumber? = nil
 
         N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
-        if let e = dicomSeriesTry({
+        if let e = HorosObjCException.caught({
             let v = dicomSeriesIntValue((self.horosImages()?.anyObject() as AnyObject?)?.value(forKey: "numberOfFrames"))
 
             if v > 1 {
@@ -613,16 +584,16 @@ public final class DicomSeries: NSManagedObject {
         var returned = false
 
         N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
-        if let exception = dicomSeriesTry({
+        if let exception = HorosObjCException.caught({
             let n = dicomSeriesIntValue(self.primitiveValue(forKey: "numberOfImages"))
 
             if n == 0 {
                 var no: NSNumber? = nil
 
-                if let e = dicomSeriesTry({
+                if let e = HorosObjCException.caught({
                     let sopClassUID = self.seriesSOPClassUID
 
-                    if DCMAbstractSyntaxUID.isStructuredReport(sopClassUID) == false && DCMAbstractSyntaxUID.isPresentationState(sopClassUID) == false && DCMAbstractSyntaxUID.isSupportedPrivateClasses(sopClassUID) == false {
+                    if DICOMSOPClass.isStructuredReport(sopClassUID) == false && DICOMSOPClass.isPresentationState(sopClassUID) == false && DICOMSOPClass.isSupportedPrivateClasses(sopClassUID) == false {
                         let v = dicomSeriesIntValue((self.horosImages()?.anyObject() as AnyObject?)?.value(forKey: "numberOfFrames"))
 
                         let count = Int32(truncatingIfNeeded: self.horosImages()?.count ?? 0)
@@ -729,7 +700,7 @@ public final class DicomSeries: NSManagedObject {
         var result: NSSet? = nil
 
         N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
-        if let e = dicomSeriesTry({
+        if let e = HorosObjCException.caught({
             result = self.value(forKeyPath: "images.completePath") as? NSSet
         }) {
             _N2LogExceptionImpl(e, true, "-[DicomSeries paths]")
@@ -748,7 +719,7 @@ public final class DicomSeries: NSManagedObject {
         var result: NSSet? = nil
 
         N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
-        if let e = dicomSeriesTry({
+        if let e = HorosObjCException.caught({
             result = self.value(forKeyPath: "images.completePathWithNoDownloadAndLocalOnly") as? NSSet
         }) {
             _N2LogExceptionImpl(e, true, "-[DicomSeries pathsForForkedProcess]")
@@ -763,7 +734,7 @@ public final class DicomSeries: NSManagedObject {
         var result: NSSet? = nil
 
         N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
-        if let e = dicomSeriesTry({
+        if let e = HorosObjCException.caught({
             let imageArray = self.horosImages()?.allObjects as NSArray?
             let predicate = NSPredicate(format: "isKeyImage == YES")
             result = NSSet(array: imageArray?.filtered(using: predicate) ?? [])
@@ -781,7 +752,7 @@ public final class DicomSeries: NSManagedObject {
     }
 
     @objc public func sortDescriptorsForImages() -> [Any]! {
-        let sortSeriesBySliceLocation = Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "sortSeriesBySliceLocation"))
+        let sortSeriesBySliceLocation = Int32(truncatingIfNeeded: PreferencesSource.process.preferences[DatabasePreferences.sortSeriesBySliceLocation])
 
         let sortDate = NSSortDescriptor(key: "date", ascending: (sortSeriesBySliceLocation > 0) ? true : false)
         let sortInstance = NSSortDescriptor(key: "instanceNumber", ascending: true)
@@ -806,7 +777,7 @@ public final class DicomSeries: NSManagedObject {
     public func sortedImagesArray() -> NSArray! {
         var result: NSArray? = nil
 
-        if let e = dicomSeriesTry({
+        if let e = HorosObjCException.caught({
             result = (self.horosImages()?.allObjects as NSArray?)?.sortedArray(using: (self.sortDescriptorsForImages() as? [NSSortDescriptor]) ?? []) as NSArray?
         }) {
             _N2LogExceptionImpl(e, true, "-[DicomSeries sortedImages]")
@@ -834,7 +805,7 @@ public final class DicomSeries: NSManagedObject {
         }
         let delete = failure == nil
 
-        dicomSeriesSynchronized(self) {
+        HorosObjCException.synchronized(self) {
             if delete {
                 // +[VRController getUniqueFilenameScissorStateFor:]: VRController.h is C++.
                 let vrFile = (NSClassFromString("VRController") as AnyObject?)?

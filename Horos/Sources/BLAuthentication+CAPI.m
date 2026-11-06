@@ -50,6 +50,22 @@
 #import <Security/AuthorizationTags.h>
 #include <sys/stat.h>
 
+// The shell command that runs the tool, given which pipes the caller wants.
+// "echo $$" first gives the shell's pid on stdout. Without an error pipe the
+// tool's stderr is left as it is; with one pipe for both streams it joins
+// stdout (2>&1); with a separate error pipe it goes to the fifo whose path the
+// template receives. A bare 2>1 would instead have the root shell write a
+// file named "1" in its current directory (and, in a read-only directory, the
+// failed redirection would keep the tool from running).
+static const char *IsiXPrivilegedCommandTemplate(int wantsErrorPipe, int sharesOnePipe)
+{
+    if (!wantsErrorPipe)
+        return "echo $$; \"$@\"";
+    if (sharesOnePipe)
+        return "echo $$; \"$@\" 2>&1";
+    return "echo $$; \"$@\" 2>%s";
+}
+
 OSStatus AuthorizationExecuteWithPrivilegesStdErrAndPid (
                                                          AuthorizationRef authorization, 
                                                          const char *pathToTool, 
@@ -60,18 +76,16 @@ OSStatus AuthorizationExecuteWithPrivilegesStdErrAndPid (
                                                          pid_t* processid
                                                          )
 {
-    // The user's own temporary folder: in /tmp another user could take the
-    // fifo's name between mkstemps, unlink and mkfifo.
-    [[NSFileManager defaultManager] changeCurrentDirectoryPath: NSTemporaryDirectory()];
-    
+    // The fifo lives in the user's own temporary folder, by absolute path: in
+    // /tmp another user could take its name between mkstemps, unlink and
+    // mkfifo. Nothing here depends on the process's current directory, which
+    // is left as it is.
     char stderrpath[PATH_MAX];
     strlcpy( stderrpath, [[NSTemporaryDirectory() stringByAppendingPathComponent: @"AuthorizationExecuteWithPrivilegesStdErrXXXXXXX.err"] fileSystemRepresentation], sizeof( stderrpath));
-	const char* commandtemplate = "echo $$; \"$@\" 2>%s" ;
-    if (communicationsPipe == errPipe) {
-        commandtemplate = "echo $$; \"$@\" 2>1";
-    } else if (errPipe == 0) {
-        commandtemplate = "echo $$; \"$@\"";
-    }
+    // A separate error stream needs its own fifo; one pipe for both, or none,
+    // does not, and a fifo nobody writes would block its open below.
+    const int separateErrorPipe = errPipe != 0 && errPipe != communicationsPipe;
+	const char* commandtemplate = IsiXPrivilegedCommandTemplate(errPipe != 0, errPipe != 0 && errPipe == communicationsPipe);
 	char command[1024];
 	char ** args = nil;
 	OSStatus result;
@@ -82,7 +96,7 @@ OSStatus AuthorizationExecuteWithPrivilegesStdErrAndPid (
 	
 	/* Create temporary file for stderr */
     
-    if (errPipe) {
+    if (separateErrorPipe) {
         stderrfd = mkstemps (stderrpath, strlen(".err")); 
         
         /* create a pipe on that path */ 
@@ -148,7 +162,7 @@ OSStatus AuthorizationExecuteWithPrivilegesStdErrAndPid (
 		}
 	}
 	
-	if (errPipe) {
+	if (separateErrorPipe) {
         stderrfd = open(stderrpath, O_RDONLY, 0);
         *errPipe = fdopen(stderrfd, "r");
         /* Now it's safe to unlink the stderr file, as the opened handle will be still valid */
@@ -161,8 +175,6 @@ OSStatus AuthorizationExecuteWithPrivilegesStdErrAndPid (
 	} else {
 		fclose (commPipe);
 	}
-    
-    [[NSFileManager defaultManager] removeItemAtPath: [[[NSFileManager defaultManager] currentDirectoryPath] stringByAppendingPathComponent: @"1"] error: nil];
     
     if( args)
         free( args);

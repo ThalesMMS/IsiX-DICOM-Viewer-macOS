@@ -7,11 +7,12 @@ unchanged, for a cancelled preparation and for a failed one: a page that could
 not be written must not reach a printer as a blank cell. --source permits
 proving the regression against an earlier source.
 
--endPrint: is Swift, in ViewerController+Export+PrintMovie.swift:
-the dispatch is taken from there as it stands and compiled with swiftc inside a
-method of a Swift double of the viewer; printView, NSPrintInfo and
-NSPrintOperation are module-local doubles that count what the block asks of
-them. --source takes a Swift source of that method.
+The print of the 2D viewer is ViewerPrintJob (ViewerPrintJob.swift), which
+-endPrint: of the viewer makes: its finish(pages:settings:cancelled:failed:)
+is taken from there as it stands and compiled with swiftc inside a Swift
+double of the job; printView, NSPrintInfo, NSPrintOperation and the settings
+are module-local doubles that count what the method asks of them. --source
+takes a Swift source of that type.
 """
 import argparse
 from pathlib import Path
@@ -22,28 +23,24 @@ import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from sources import source_path
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--source', type=Path, default=source_path('ViewerController+Export+PrintMovie'))
+parser.add_argument('--source', type=Path, default=source_path('ViewerPrintJob'))
 args = parser.parse_args()
 source = args.source.read_text(encoding='utf-8')
-method = source[source.index('    @objc(endPrint:)'):source.index('    @objc(printSlider:)')]
-start = method.rindex('            self.adjustSlider()') + len('            self.adjustSlider()')
-end = method.rindex('        } else {\n            self.restoreWindowsAfterPrint()')
-dispatch = method[start:end]
+dispatch = source[source.index('    func finish(pages:'):source.index('    /// The end of the print operation')]
 
 code = r'''
 import Foundation
 var operations = 0, submittedFiles = 0, restored = 0, discarded = 0, reported = 0
 var spoolToDiscard: String?, submittedTitle: String?
-final class ProbeWait: NSObject {
-    var cancelled = false
-    func aborted() -> Bool { cancelled }
-    func close() {}
+struct PropertyListValue { var object: Any }
+struct ViewerPrintSettings {
+    var propertyList: [String: PropertyListValue] { ["format": PropertyListValue(object: 0)] }
 }
 final class NSPrintInfo: NSObject {
     static var shared: NSPrintInfo? { nil }
 }
 final class printView: NSObject {
-    init(viewer: Any!, settings: Any!, files: NSArray!, printInfo info: NSPrintInfo!) {
+    init(viewer: Any!, settings: NSDictionary!, files: NSArray!, printInfo info: NSPrintInfo!) {
         submittedFiles = files.count
         super.init()
     }
@@ -54,20 +51,19 @@ final class NSPrintOperation: NSObject {
     var jobTitle: String? { didSet { submittedTitle = jobTitle } }
     func runModal(for window: NSObject, delegate: Any?, didRun selector: Selector?, contextInfo: UnsafeMutableRawPointer?) {}
 }
-final class Viewer: NSObject {
+final class ViewerController: NSObject {
     var window: NSObject? { nil }
-    func restoreWindowsAfterPrint() { restored += 1 }
-    func discardPrintSpoolDirectory() { try? FileManager.default.removeItem(atPath: spoolToDiscard!); discarded += 1 }
-    func presentPrintPreparationFailure() { reported += 1 }
     @objc func printOperationDidRun(_ printOperation: NSPrintOperation!, success: Bool, contextInfo info: UnsafeMutableRawPointer!) {}
-    func finish(_ splash: ProbeWait, files: NSMutableArray, folder tmpFolder: String, failed preparationFailed: Bool) {
-        let settings = NSMutableDictionary()
-        spoolToDiscard = tmpFolder
+}
+final class ViewerPrintJob {
+    let viewer = ViewerController()
+    func restoreWindows() { restored += 1 }
+    func discardSpoolDirectory() { try? FileManager.default.removeItem(atPath: spoolToDiscard!); discarded += 1 }
+    func presentPreparationFailure() { reported += 1 }
 ''' + dispatch + r'''
-    }
 }
 autoreleasepool {
-    let viewer = Viewer()
+    let job = ViewerPrintJob()
     for failed in [false, true] {
         for cancel in [true, false] {
             for scenario in 0...3 {
@@ -75,17 +71,16 @@ autoreleasepool {
                 let folder = (NSTemporaryDirectory() as NSString).appendingPathComponent(UUID().uuidString)
                 let fm = FileManager.default
                 precondition((try? fm.createDirectory(atPath: folder, withIntermediateDirectories: false)) != nil, "fixture directory")
-                let files = NSMutableArray()
+                var files: [String] = []
                 for i in 0..<count {
                     let path = (folder as NSString).appendingPathComponent("\(i)")
                     precondition(fm.createFile(atPath: path, contents: "synthetic prepared image".data(using: .utf8)), "prepared fixture")
-                    files.add(path)
+                    files.append(path)
                 }
-                let wait = ProbeWait() // production tail autoreleases it
-                wait.cancelled = cancel
+                spoolToDiscard = folder
                 operations = 0; submittedFiles = 0; restored = 0; discarded = 0; reported = 0
                 submittedTitle = nil
-                viewer.finish(wait, files: files, folder: folder, failed: failed)
+                job.finish(pages: files, settings: ViewerPrintSettings(), cancelled: cancel, failed: failed)
                 let dispatchExpected = !cancel && !failed && count > 0
                 let passed = operations == (dispatchExpected ? 1 : 0) && submittedFiles == (dispatchExpected ? count : 0)
                     && restored == (dispatchExpected ? 0 : 1) && discarded == (dispatchExpected ? 0 : 1)

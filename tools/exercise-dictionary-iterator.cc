@@ -1,5 +1,5 @@
 // Traverse a small hash dictionary from begin() to end() and stop.
-#include "HorosDictionaryLookup.h"
+#include "HorosDictionaryLookup.hpp"
 #include <dcmtk/dcmdata/dchashdi.h>
 #include <dcmtk/dcmdata/dcdicent.h>
 #include <cstdio>

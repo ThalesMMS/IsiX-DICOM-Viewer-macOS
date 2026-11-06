@@ -7,7 +7,8 @@ with the factors VRInteractionGeometry gives, at the interactive level of
 detail while the gesture lasts and at the selected one when it ends.
 
 The factors are executed from the production Swift source; the handlers are
-checked in VRView.mm, which needs VTK and a render window to run.
+checked in VRView+Gestures.swift (Swift extensions of VRView), which need VTK and
+a render window to run.
 """
 from pathlib import Path
 import re
@@ -52,32 +53,32 @@ with tempfile.TemporaryDirectory(prefix='horos-vr-gestures-') as d:
         ran = subprocess.run([str(p / 'test')], capture_output=True, text=True, timeout=60)
         require(ran.returncode == 0 and 'factors ok' in ran.stdout, 'the gesture factors are wrong: ' + ran.stderr[-400:])
 
-view = (root / 'Horos/Sources/VRView.mm').read_text(errors='replace')
+view = (root / 'Horos/Sources/VRView+Gestures.swift').read_text()
 
 
-def method(name):
-    start = view.index('-(void) %s:(NSEvent *)event' % name)
-    return view[start:view.index('\n}\n', start)]
+def method(signature):
+    start = view.index(signature)
+    return view[start:view.index('\n    }\n', start)]
 
 
-magnify, rotate = method('magnifyWithEvent'), method('rotateWithEvent')
-shared = view[view.index('- (void) horosTrackpadGesture:(NSEvent *)event changedCamera:(BOOL) changed'):]
-shared = shared[:shared.index('\n}\n')]
+magnify = method('public override func magnify(with event: NSEvent)')
+rotate = method('public override func rotate(with event: NSEvent)')
+shared = method('func horosTrackpadGesture(_ event: NSEvent, changedCamera changed: Bool)')
 for name, body in (('magnify', magnify), ('rotate', rotate)):
-    require('eventToPlugins:event' in body.split('\n')[2], '%s no longer offers the event to plugins first' % name)
-    require('[drawLock lock]' in body and '[drawLock unlock]' in body, '%s changes the camera outside the draw lock' % name)
-    require('horosTrackpadGesture: event changedCamera:' in body, '%s does not go through the shared rendering step' % name)
-require('zoomFactorForMagnification: [event magnification]' in magnify and 'aCamera->Zoom( factor)' in magnify,
+    require('if eventToPlugins(event) { return }' in body.split('\n')[1], '%s no longer offers the event to plugins first' % name)
+    require('drawLock?.lock()' in body and 'drawLock?.unlock()' in body, '%s changes the camera outside the draw lock' % name)
+    require('horosTrackpadGesture(event, changedCamera:' in body, '%s does not go through the shared rendering step' % name)
+require('VRInteractionGeometry.zoomFactor(forMagnification: event.magnification)' in magnify and 'vtk.cameraZoom(factor)' in magnify,
         'a pinch does not zoom the camera by the production factor')
-require('projectionMode != 2' in magnify and 'aCamera->Dolly( factor)' in magnify,
+require('projectionMode != 2' in magnify and 'vtk.cameraDolly(factor)' in magnify,
         'a pinch in endoscopy does not move the camera along its view')
-require('rollDegreesForRotation: [event rotation]' in rotate and 'aCamera->Roll( degrees)' in rotate,
+require('VRInteractionGeometry.rollDegrees(forRotation: event.rotation)' in rotate and 'vtk.cameraRoll(degrees)' in rotate,
         'a rotation does not roll the camera by the production angle')
-require(re.search(r'if\( finished == NO\)\s*\[self setLODLow: YES\]', shared) is not None,
+require(re.search(r'if !finished \{\s*setLODLow\(true\)', shared) is not None,
         'the gesture does not render at the interactive level of detail')
-require(re.search(r'if\( finished\)\s*\[self setLODLow: NO\]', shared) is not None,
+require(re.search(r'if finished \{\s*setLODLow\(false\)', shared) is not None,
         'the end of the gesture does not restore the selected level of detail')
-require('OsirixVRCameraDidChangeNotification' in shared, 'the gesture does not announce the camera change')
+require('.OsirixVRCameraDidChange' in shared, 'the gesture does not announce the camera change')
 # The buttons and the wheel are untouched by the gesture handlers.
 require('scrollInStack' not in magnify + rotate and 'InvokeEvent' not in magnify + rotate,
         'a gesture handler drives the mouse tools')

@@ -2,6 +2,7 @@
 """Physical Length JSON uses version 2 and series/phase identity, never coplanarity."""
 from pathlib import Path
 import subprocess,tempfile
+import isix_modules  # noqa: E402  - ROIInterchange.swift writes IsiXROI's ROIInterchangeDocument
 root=Path(__file__).resolve().parents[1]
 code=r'''
 import Foundation
@@ -34,5 +35,5 @@ print("PASS: archive BOOL normalization, version 2, endpoints, identity/phase, n
 '''.replace('precondition(try ROIInterchange.decode(legacy).images[0].rois[0].volumeLength==nil)','let oldDecoded=try ROIInterchange.decode(legacy);precondition(oldDecoded.images[0].rois[0].volumeLength==nil)')
 with tempfile.TemporaryDirectory(prefix='horos-length-json-') as d:
  p=Path(d);(p/'main.swift').write_text(code)
- subprocess.run(['xcrun','swiftc',*[str(root/'Horos/Sources'/n) for n in ['ROIIntersliceGeometry.swift','ROIInterchange.swift','ROIArchiveFormat.swift','ROIAssociation.swift']],str(p/'main.swift'),'-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','swiftc',*isix_modules.module_flags('IsiXROI',p/'modules'),*[str(root/'Horos/Sources'/n) for n in ['ROIIntersliceGeometry.swift','ROIInterchange.swift','ROIArchiveFormat.swift','ROIAssociation.swift']],str(p/'main.swift'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

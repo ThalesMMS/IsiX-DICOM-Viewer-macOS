@@ -44,19 +44,22 @@ import native_app  # noqa: E402
 HIGHER = []
 
 
-def generate(fixture: Path, batches: int, folders: int, files: int):
-    """Unique studies, one per folder, so a batch imports folders x files images."""
+def generate(fixture: Path, batches: int, folders: int, files: int, same_study: bool = False):
+    """Unique studies, one per folder, so a batch imports folders x files images.
+    With same_study every batch adds new instances to the same studies and series,
+    as a study arriving over several C-STORE or DICOMweb passes does."""
     import numpy
     from pydicom.dataset import Dataset, FileMetaDataset
     from pydicom.uid import CTImageStorage, ExplicitVRLittleEndian, generate_uid
     manifest = {}
+    shared = {}
     pixels = numpy.arange(32 * 32, dtype=numpy.uint16).reshape(32, 32).tobytes()
     for batch in range(batches):
         uids = []
         for folder in range(folders):
             directory = fixture / f"batch-{batch}" / f"study-{folder:03d}"
             directory.mkdir(parents=True)
-            study, series = generate_uid(), generate_uid()
+            study, series = shared.setdefault(folder, (generate_uid(), generate_uid())) if same_study else (generate_uid(), generate_uid())
             for number in range(1, files + 1):
                 ds = Dataset()
                 ds.file_meta = FileMetaDataset()
@@ -64,9 +67,9 @@ def generate(fixture: Path, batches: int, folders: int, files: int):
                 ds.SOPClassUID = CTImageStorage
                 ds.SOPInstanceUID = generate_uid()
                 ds.StudyInstanceUID, ds.SeriesInstanceUID = study, series
-                ds.PatientName, ds.PatientID = f"SYNTHETIC^IMPORT{batch}", f"SYN-627-{batch}-{folder:03d}"
+                ds.PatientName, ds.PatientID = f"SYNTHETIC^IMPORT{0 if same_study else batch}", f"SYN-627-{0 if same_study else batch}-{folder:03d}"
                 ds.StudyDate, ds.StudyTime, ds.StudyID = "20260916", "120000", "627"
-                ds.Modality, ds.SeriesNumber, ds.InstanceNumber = "CT", 1, number
+                ds.Modality, ds.SeriesNumber, ds.InstanceNumber = "CT", 1, number + batch * files
                 ds.Rows = ds.Columns = 32
                 ds.SamplesPerPixel, ds.PhotometricInterpretation = 1, "MONOCHROME2"
                 ds.BitsAllocated = ds.BitsStored = 16
@@ -171,6 +174,7 @@ def main():
     parser.add_argument("--batches", type=int, default=3)
     parser.add_argument("--folders", type=int, default=200)
     parser.add_argument("--files", type=int, default=3)
+    parser.add_argument("--same-study", action="store_true", help="every batch adds to the same studies and series")
     parser.add_argument("--limit", action="append", default=[])
     parser.add_argument("--out", type=Path)
     arguments = parser.parse_args()
@@ -186,7 +190,7 @@ def main():
     fixture = out / "fixture"
     if fixture.exists():
         shutil.rmtree(fixture)
-    generate(fixture, arguments.batches, arguments.folders, arguments.files)
+    generate(fixture, arguments.batches, arguments.folders, arguments.files, arguments.same_study)
     dylib = out / "probe-app-resources.dylib"
     subprocess.run(["xcrun", "clang", "-dynamiclib", "-O2", "-fno-objc-arc", "-framework", "Foundation",
                     str(ROOT / "tools/probe-app-resources.m"), "-o", str(dylib)], check=True)

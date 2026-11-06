@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXPreferences
 import Metal
 
 /// The submission the MPR and VR compute engines use.
@@ -28,9 +29,15 @@ public enum MetalComputeBackend: Int, Sendable {
 
     /// What the host asks for on `device`: `HorosMetal4Compute` YES or NO when set, else `standard`; Metal 4 only
     /// where the device supports it, with the reason when it does not.
-    public static func host(device: MTLDevice, defaults: UserDefaults = .standard) -> (backend: MetalComputeBackend, reason: String?) {
-        let wanted: MetalComputeBackend = defaults.object(forKey: "HorosMetal4Compute") == nil
-            ? standard : (defaults.bool(forKey: "HorosMetal4Compute") ? .metal4 : .metal3)
+    public static func host(device: MTLDevice) -> (backend: MetalComputeBackend, reason: String?) {
+        host(device: device, defaults: PreferencesSource.process.preferences)
+    }
+
+    /// The same choice, read from `defaults`.
+    public static func host(device: MTLDevice, defaults: any PreferenceStore) -> (backend: MetalComputeBackend, reason: String?) {
+        // Absent is not NO: the key read as a switch would give false, so its presence is asked first.
+        let wanted: MetalComputeBackend = defaults.object(forKey: ViewerPreferences.metal4Compute.name) == nil
+            ? standard : (defaults[ViewerPreferences.metal4Compute] ? .metal4 : .metal3)
         guard wanted == .metal4 else { return (.metal3, nil) }
         guard #available(macOS 26.0, *) else { return (.metal3, "This system has no Metal 4 submission.") }
         return Metal4ComputeSubmitter.isSupported(device) ? (.metal4, nil) : (.metal3, "This device has no Metal 4 submission.")

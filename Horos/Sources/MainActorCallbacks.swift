@@ -49,10 +49,50 @@ func onMainActor(_ body: @escaping @MainActor @Sendable () -> Void) {
     }
 }
 
+/// Runs `body` from the main run loop, not from the main queue or a main-actor
+/// task: a modal loop inside a block of that queue serves neither the queue nor
+/// the main actor, so everything waiting for them would stop until someone
+/// answers it, on an unattended Mac too.
+func onMainRunLoop(_ body: @escaping @MainActor @Sendable () -> Void) {
+    let mainRunLoop = CFRunLoopGetMain()
+    CFRunLoopPerformBlock(mainRunLoop, CFRunLoopMode.commonModes.rawValue) {
+        MainActor.assumeIsolated(body)
+    }
+    CFRunLoopWakeUp(mainRunLoop)
+}
+
+/// What `onMainRunLoopSync` hands from the main thread to the thread that waits.
+private final class MainRunLoopAnswer<Value: Sendable>: @unchecked Sendable {
+    let given = DispatchSemaphore(value: 0)
+    /// Written before `given` is signalled and read after it, once each.
+    var value: Value?
+}
+
+/// Runs `body` from the main run loop and waits for its result: now when called
+/// on the main thread. For a modal that code off the main thread has to show and
+/// whose answer it needs, as `onMainRunLoop` explains; `onMainActorSync` would
+/// hold the main queue until someone answers. The caller must not hold anything
+/// the main thread may be waiting for, a context's queue above all.
+func onMainRunLoopSync<Value: Sendable>(_ body: @escaping @MainActor @Sendable () -> Value) -> Value {
+    if Thread.isMainThread {
+        return MainActor.assumeIsolated(body)
+    }
+    let answer = MainRunLoopAnswer<Value>()
+    onMainRunLoop {
+        answer.value = body()
+        answer.given.signal()
+    }
+    answer.given.wait()
+    return answer.value!
+}
+
 /// Runs `body` on the main actor and waits for its result: now when called on
-/// the main thread, through the main queue otherwise. For a modal alert that
-/// code off the main thread has to show and whose answer it needs, or for what
-/// a plugin asks of a window from any thread. The caller must not hold anything
+/// the main thread, through the main queue otherwise. For what code off the
+/// main thread reads or changes in the UI, or what a plugin asks of a window
+/// from any thread. Never for a modal: off the main thread `body` runs inside a
+/// block of the main queue, which the modal loop does not serve, so everything
+/// waiting for that queue would stop until someone answers; a modal whose answer
+/// is needed goes through `onMainRunLoopSync`. The caller must not hold anything
 /// the main thread may be waiting for.
 func onMainActorSync<Result>(_ body: @MainActor @Sendable () throws -> Result) rethrows -> Result {
     // Unsafe only for the compiler: the caller waits, so the result is handed

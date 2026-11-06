@@ -40,37 +40,60 @@
 import CFNetwork
 import CoreData
 import Foundation
+import IsiXPreferences
+import Synchronization
+import IsiXHTTPServer
+import IsiXDICOMFile
+import IsiXDICOMNetwork
 
-// TODO: NSUserDefaults access for keys @"logWebServer", @"notificationsEmailsSender" and @"lastNotificationsDate" must be replaced with WebPortal properties
 
 /// The plugins that answer -httpResponseForPath:forConnection:, gathered by
 /// the first request that needs them, for the life of the application.
 /// Requests run on several connection threads, so the list is gathered and
-/// read under `pluginWithHTTPResponsesLock`, and published only once full.
-private let pluginWithHTTPResponsesLock = NSLock()
-// nonisolated(unsafe): read and written only inside
-// `pluginWithHTTPResponsesLock.withLock`; the array is not changed once set.
-nonisolated(unsafe) private var pluginWithHTTPResponses: NSArray?
+/// read under the Mutex, and published only once full.
+private let pluginWithHTTPResponses = Mutex<NSArray?>(nil)
 
 private let SessionDicomCStorePortKey = "DicomCStorePort" // NSNumber (int)
 
-// From HTTPConnection.m.
-private let WRITE_ERROR_TIMEOUT: TimeInterval = 240
-private let HTTP_RESPONSE = 30
-
 /// DLog of N2Debug.h: NSLog in a DEBUG build, otherwise only while N2Debug is
 /// active.
-private func webPortalConnectionDLog(_ format: String, _ arguments: CVarArg...) {
+private func webPortalConnectionDLog(_ format: StaticString, _ arguments: CVarArg...) {
     #if DEBUG
-    withVaList(arguments) { NSLogv(format, $0) }
+    unifiedLogv(format, arguments)
     #else
-    if N2Debug.isActive() { withVaList(arguments) { NSLogv(format, $0) } }
+    if N2Debug.isActive() { unifiedLogv(format, arguments) }
     #endif
 }
 
 /// The NSException an HorosObjCException error carries.
 private func caughtException(_ error: Error) -> NSException? {
     return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
+}
+
+/// Why a page of the portal failed: an exception that Core Data, KVC or
+/// Foundation raised under a guard, or an argument the page's own code refuses
+/// where the Foundation method it replaced raised. The connection answers 500.
+/// It is thrown and caught on the connection's own thread, and an exception is
+/// not changed once raised, hence the unchecked conformance.
+enum WebPortalPageError: Error, @unchecked Sendable, CustomStringConvertible {
+    case raised(NSException)
+    case invalidArgument(String)
+
+    /// The exception the page raised before its failures were thrown: what the
+    /// log shows, and what an Objective-C caller of the page receives.
+    var exception: NSException {
+        switch self {
+        case .raised(let exception): return exception
+        case .invalidArgument(let reason): return NSException(name: .invalidArgumentException, reason: reason, userInfo: nil)
+        }
+    }
+
+    var description: String { exception.description }
+
+    static func exception(for error: Error) -> NSException {
+        return (error as? WebPortalPageError)?.exception
+            ?? NSException(name: .genericException, reason: (error as NSError).localizedDescription, userInfo: nil)
+    }
 }
 
 // MARK: - Objective-C messaging
@@ -108,12 +131,23 @@ private func messagePercentEscaped(_ object: Any) -> String {
 
 /// -setObject:forKey:, which raised NSInvalidArgumentException on a nil object.
 private func setObject(_ object: Any?, forKey key: Any, in dictionary: NSMutableDictionary) {
-    dictionary.perform(#selector(NSMutableDictionary.setObject(_:forKey:)), with: object, with: key)
+    guard let object else { raiseInvalidArgument("*** -[__NSDictionaryM setObject:forKey:]: object cannot be nil (key: \(key))") }
+    guard let key = key as AnyObject as? NSCopying else { raiseInvalidArgument("*** -[__NSDictionaryM setObject:forKey:]: key cannot be nil") }
+    dictionary.setObject(object, forKey: key)
 }
 
 /// -addObject:, which raised NSInvalidArgumentException on a nil object.
 private func addObject(_ object: Any?, to array: NSMutableArray) {
-    array.perform(#selector(NSMutableArray.add(_:)), with: object)
+    guard let object else { raiseInvalidArgument("*** -[__NSArrayM insertObject:atIndex:]: object cannot be nil") }
+    array.add(object)
+}
+
+/// The exception a Foundation method raises for an argument it refuses, such
+/// as nil, which the request's caller catches: the web portal's connections
+/// keep the Objective-C semantics their code was written for.
+func raiseInvalidArgument(_ reason: String, name: NSExceptionName = .invalidArgumentException) -> Never {
+    NSException(name: name, reason: reason, userInfo: nil).raise()
+    fatalError(reason)
 }
 
 /// A connection of the web portal: it reads the request, finds the session and
@@ -122,16 +156,16 @@ private func addObject(_ object: Any?, to array: NSMutableArray) {
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/WebPortalConnection.h> are those of the former class. The pages
-/// themselves are in the (Data) extension. HTTPConnection, the cocoahttpserver
-/// superclass, stays Objective-C: the Swift class reads its instance variables
-/// through WebPortalConnection+CAPI.m, and overrides the -isAuthenticated and
-/// -replyToHTTPRequest its header does not declare.
+/// themselves are in the (Data) extension. The HTTP exchange itself (reading
+/// the request, its body in pieces, ranges, keep-alive) is the
+/// HTTPConnectionEngine the server gives it, over SwiftNIO; the connection is
+/// its delegate and answers each step of a request on its worker thread.
 ///
 /// The properties were atomic and are not: they are written and read on the
 /// connection's own thread; the threads the connection starts only use
 /// -portal.
 @objc(WebPortalConnection)
-public final class WebPortalConnection: HTTPConnection {
+public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
     private let sendLock: NSLock
     private var sessionValue: WebPortalSession?
 
@@ -155,7 +189,7 @@ public final class WebPortalConnection: HTTPConnection {
     /// The other local databases the federated search includes, one
     /// private-queue database each for this connection, keyed by path.
     private func connectionFederatedDatabases() -> [String: DicomDatabase] {
-        let localPaths = UserDefaults.standard.object(forKey: "localDatabasePaths") as? [[String: Any]]
+        let localPaths = PreferencesSource.process.preferences[DatabasePreferences.localDatabaseSources]?.propertyList.object as? [[String: Any]]
         let included = FederatedSearch.includedPaths(fromLocalDatabasePaths: localPaths,
                                                      defaultPath: DicomDatabase.default()?.baseDirPath,
                                                      defaultIncluded: FederatedSearch.isDefaultDatabaseIncluded)
@@ -179,10 +213,19 @@ public final class WebPortalConnection: HTTPConnection {
     @objc public var GETParams: String!
     @objc public var requestedPath: String!
 
-    @objc(initWithAsyncSocket:forServer:)
-    public override init!(asyncSocket newSocket: AsyncSocket!, for myServer: HTTPServer!) {
+    /// The exchange this connection answers; set by the server.
+    weak var engine: HTTPConnectionEngine?
+    private weak var serverValue: WebPortalServer?
+
+    init(server: WebPortalServer) {
         sendLock = NSLock()
-        super.init(asyncSocket: newSocket, for: myServer)
+        serverValue = server
+        super.init()
+    }
+
+    /// The connection is open: no upload is under way.
+    func connectionDidOpen() {
+        resetPOST()
     }
 
     deinit {
@@ -297,7 +340,7 @@ public final class WebPortalConnection: HTTPConnection {
 
         if let database = independentDicomDatabaseValue {
             if Thread.current !== independentDicomDatabaseThread {
-                WebPortalConnectionLogStackTrace("***************** [NSThread currentThread] != _independentDicomDatabaseThread")
+                N2LogStackTraceMessage("***************** [NSThread currentThread] != _independentDicomDatabaseThread")
             }
 
             return database
@@ -382,17 +425,17 @@ public final class WebPortalConnection: HTTPConnection {
     }
 
     @objc public var server: WebPortalServer! {
-        // The former cast: the server is the WebPortalServer that made the connection.
-        guard let server = webPortalConnectionServer() else { return nil }
-        return Unmanaged<WebPortalServer>.fromOpaque(Unmanaged.passUnretained(server).toOpaque()).takeUnretainedValue()
+        return serverValue
     }
 
-    @objc public var asyncSocket: AsyncSocket! {
-        return webPortalConnectionAsyncSocket()
+    /// The IP address of the peer, as the log shows it.
+    @objc public var peerAddress: String! {
+        return engine?.remoteHost
     }
 
+    /// The header of the request being answered.
     @objc public func request() -> CFHTTPMessage! {
-        return webPortalConnectionRequest()
+        return engine?.request
     }
 
     @objc public func portalURL() -> String! {
@@ -415,13 +458,11 @@ public final class WebPortalConnection: HTTPConnection {
     @objc public func guessDicomCStorePort() -> Int32 {
         webPortalConnectionDLog("Trying to guess DICOM C-Store Port...")
 
-        for case let node as NSDictionary in DCMNetServiceDelegate.dicomServersListSendOnly(true, qrOnly: false) ?? [] {
-            // NSString *dicomNodeAddress = NotNil([node objectForKey:@"Address"]);
-            let port = node.object(forKey: "Port")
-            let dicomNodePort = (port as? NSNumber)?.int32Value ?? (port as? NSString)?.intValue ?? 0
+        for node in DICOMNodeService.dicomNodes(sendOnly: true, queryRetrieveOnly: false) {
+            let dicomNodePort = node.associationPort
 
             var service = sockaddr_in()
-            let hostName = (node.value(forKey: "Address") as? NSString)?.utf8String
+            let hostName = (node.address as NSString?)?.utf8String
 
             service.sin_family = sa_family_t(AF_INET)
 
@@ -441,7 +482,7 @@ public final class WebPortalConnection: HTTPConnection {
                 var buffer = [CChar](repeating: 0, count: 256)
                 if inet_ntop(AF_INET, &service.sin_addr, &buffer, socklen_t(buffer.count)) != nil {
                     // TODO: this may fail because of comparaisons between ipv6 and ipv4 addys
-                    if let connectedHost = asyncSocket?.connectedHost(),
+                    if let connectedHost = peerAddress,
                        NSString(utf8String: buffer)?.isEqual(to: connectedHost) == true {
                         webPortalConnectionDLog("\tFound! %@:%d", connectedHost, dicomNodePort)
                         return dicomNodePort
@@ -464,7 +505,7 @@ public final class WebPortalConnection: HTTPConnection {
     }
 
     @objc(isPasswordProtected:)
-    public override func isPasswordProtected(_ path: String!) -> Bool {
+    public func isPasswordProtected(_ path: String!) -> Bool {
         let p = path as NSString?
         if p?.hasPrefix("/wado") == true
             || p?.hasPrefix("/images/") == true
@@ -495,71 +536,31 @@ public final class WebPortalConnection: HTTPConnection {
         return portal?.authenticationRequired ?? false
     }
 
-    public override func useDigestAccessAuthentication() -> Bool {
+    @objc public func useDigestAccessAuthentication() -> Bool {
         return false
     }
 
-    public override func realm() -> String! {
+    @objc public func realm() -> String! {
         return "Enter your username and password."
     }
 
+    /// The pieces an upload is handed over in (HTTPConnectionEngine).
     @objc public func requestBodyChunkSize() -> UInt32 {
-        return 1024 * 2048
+        return UInt32(HTTPServerLimits.portalRequestBodyPiece)
     }
 
+    /// How long a response header, or an error response, may take to be
+    /// written before the connection is closed; body writes have no deadline.
     @objc public func responseHeaderTimeout() -> TimeInterval {
-        return 240
+        return HTTPServerLimits.portalHeaderWriteDeadline
     }
 
     @objc public func errorResponseTimeout() -> TimeInterval {
-        return 240
+        return HTTPServerLimits.portalHeaderWriteDeadline
     }
 
-    // The original HTTP core starts header/error writes with a 30 s timeout.
-    // AsyncSocket's documented delegate hook extends that deadline once to the
-    // portal budget; body writes retain their unlimited timeout.
-    @objc(onSocket:shouldTimeoutWriteWithTag:elapsed:bytesDone:)
-    public func onSocket(_ socket: AsyncSocket!, shouldTimeoutWriteWithTag tag: Int,
-                         elapsed: TimeInterval, bytesDone: UInt) -> TimeInterval {
-        guard tag == 25 || tag == 30 || tag == 45 else { return 0 }
-        return max(0, responseHeaderTimeout() - elapsed)
-    }
-
-    // Overrides HTTPConnection's method
-    public override func isSecureServer() -> Bool {
+    @objc public func isSecureServer() -> Bool {
         return portal?.usesSSL ?? false
-    }
-
-    /*
-     * Overrides HTTPConnection's method
-     *
-     * This method is expected to return an array appropriate for use in kCFStreamSSLCertificates SSL Settings.
-     * It should be an array of SecCertificateRefs except for the first element in the array, which is a SecIdentityRef.
-     */
-    public override func sslIdentityAndCertificates() -> [Any]! {
-        //	NSArray *result = [DDKeychain SSLIdentityAndCertificates];
-        let keyUse = Int32(bitPattern: UInt32(CSSM_KEYUSE_ANY))
-        var identity = DDKeychain.keychainAccessPreferredIdentity(forName: "org.horosproject.horoswebserver", keyUse: keyUse)?.takeRetainedValue()
-        if identity == nil {
-            DDKeychain.createNewIdentity()
-            identity = DDKeychain.keychainAccessPreferredIdentity(forName: "org.horosproject.horoswebserver", keyUse: keyUse)?.takeRetainedValue()
-        }
-
-        // +arrayWithObject: raised NSInvalidArgumentException on a nil identity.
-        let array = NSMutableArray()
-        addObject(identity, to: array)
-
-        // We add the chain of certificates that validates the chosen certificate.
-        // This way we don't have to install the intermediate certificates on the clients systems. Yay!
-        let certificateChain = DDKeychain.keychainAccessCertificateChain(for: identity)
-        array.addObjects(from: certificateChain ?? [])
-
-        return NSArray(array: array) as? [Any]
-    }
-
-    public override func preprocessResponse(_ message: CFHTTPMessage!) -> Data! {
-        webPortalConnectionValidateResponse(message)
-        return super.preprocessResponse(message)
     }
 
     @objc(FormatParams:)
@@ -627,7 +628,11 @@ public final class WebPortalConnection: HTTPConnection {
         }
     }
 
-    public override func httpResponse(forMethod method: String!, uri path: String!) -> (NSObjectProtocol & HTTPResponse)! {
+    func httpServerResponse(forMethod method: String, uri path: String) -> HTTPServerResponse? {
+        return httpResponse(forMethod: method, uri: path)
+    }
+
+    @objc public func httpResponse(forMethod method: String!, uri path: String!) -> WebPortalResponse! {
         let url = requestURL()
         let urlComponents = url.flatMap { URLComponents(string: $0) }
 
@@ -639,12 +644,12 @@ public final class WebPortalConnection: HTTPConnection {
         // GET params
         // -addEntriesFromDictionary: of the dictionary itself, so the entries go in
         // in the same order, and the parameters enumerate in the same order.
-        params.perform(#selector(NSMutableDictionary.addEntries(from:)), with: WebPortalConnection.ExtractParams(self.GETParams))
+        WebPortalConnection.ExtractParams(self.GETParams).map { params.addEntries(from: $0 as? [AnyHashable: Any] ?? [:]) }
         // POST params
         if (method as NSString?)?.isEqual(to: "POST") == true, multipartData?.count == 1 {
             let data = multipartData?.lastObject as? NSData
             let POSTParams = data.flatMap { NSString(bytes: $0.bytes, length: $0.length, encoding: String.Encoding.utf8.rawValue) }
-            params.perform(#selector(NSMutableDictionary.addEntries(from:)), with: WebPortalConnection.ExtractParams(POSTParams as String?))
+            WebPortalConnection.ExtractParams(POSTParams as String?).map { params.addEntries(from: $0 as? [AnyHashable: Any] ?? [:]) }
         }
         self.parameters = params
         if let parameters = parameters {
@@ -694,7 +699,7 @@ public final class WebPortalConnection: HTTPConnection {
             }
             if !assigned {
                 // The bundled distribution contains a weasis/ subdirectory.
-                let path = HorosWebFilePath(AppController.shared()?.weasisBasePath(), self.requestedPath)
+                let path = HorosWebFilePath((Bundle.main.resourcePath as NSString?)?.appendingPathComponent("weasis"), self.requestedPath)
                 if let path = path {
                     response?.data = NSData(contentsOfFile: path) as Data?
                 }
@@ -710,8 +715,8 @@ public final class WebPortalConnection: HTTPConnection {
                 try HorosObjCException.perform {
                     // Maybe a plugin has an answer ?
                     let selector = NSSelectorFromString("httpResponseForPath:forConnection:")
-                    let responders = pluginWithHTTPResponsesLock.withLock { () -> NSArray in
-                        if let gathered = pluginWithHTTPResponses { return gathered }
+                    let responders = pluginWithHTTPResponses.withLock { gathered -> NSArray in
+                        if let gathered { return gathered }
                         let plugins = NSMutableArray()
                         for case let (key, _) in PluginManager.plugins() ?? NSMutableDictionary() {
                             let plugin = PluginManager.plugins()?.object(forKey: key) as? NSObject
@@ -720,7 +725,7 @@ public final class WebPortalConnection: HTTPConnection {
                                 plugins.add(plugin as Any)
                             }
                         }
-                        pluginWithHTTPResponses = plugins
+                        gathered = plugins
                         return plugins
                     }
 
@@ -742,8 +747,8 @@ public final class WebPortalConnection: HTTPConnection {
 
             if !handledByPlugin {
                 do {
-                    try HorosObjCException.perform {
-                        self.route(currentPath)
+                    try HorosObjCException.throwing(WebPortalPageError.raised) {
+                        try self.route(currentPath)
 
                         if (self.response?.data?.count ?? 0) == 0 && (self.response?.statusCode() ?? 0) == 0 {
                             self.response?.setStatusCode(404)
@@ -751,7 +756,7 @@ public final class WebPortalConnection: HTTPConnection {
                     }
                 } catch {
                     response?.setStatusCode(500)
-                    NSLog("Error: [WebPortalConnection httpResponseForMethod:URI:] %@", caughtException(error) ?? (error as NSError))
+                    NSLog("Error: [WebPortalConnection httpResponseForMethod:URI:] %@", WebPortalPageError.exception(for: error))
                 }
             }
         }
@@ -763,8 +768,19 @@ public final class WebPortalConnection: HTTPConnection {
         }
     }
 
+    /// A page called from Objective-C, as a plugin may call it: its failure
+    /// reaches the caller as the exception the page raised before it threw.
+    func raisingForObjectiveC<T>(_ page: () throws -> T) -> T {
+        do {
+            return try page()
+        } catch {
+            WebPortalPageError.exception(for: error).raise()
+            fatalError("an exception was raised")
+        }
+    }
+
     /// The pages, in the former order; each test reads the path again.
-    private func route(_ currentPath: () -> NSString?) {
+    private func route(_ currentPath: () -> NSString?) throws {
         func equals(_ s: String) -> Bool { return currentPath()?.isEqual(to: s) == true }
         func prefix(_ s: String) -> Bool { return currentPath()?.hasPrefix(s) == true }
         func suffix(_ s: String) -> Bool { return currentPath()?.hasSuffix(s) == true }
@@ -772,25 +788,25 @@ public final class WebPortalConnection: HTTPConnection {
         if equals("/") || prefix("/index") {
             processIndexHtml()
         } else if equals("/main") {
-            processMainHtml()
+            try mainPage()
         } else if equals("/logs") {
-            processLogsListHtml()
+            try logsListPage()
         } else if equals("/studyList") {
-            processStudyListHtml()
+            try studyListPage()
         } else if equals("/studyList.json") {
             processStudyListJson()
         } else if equals("/study") {
-            processStudyHtml()
+            try studyPage()
         } else if equals("/wado") {
-            processWado()
+            try wadoPage()
         } else if equals("/thumbnail") {
-            processThumbnail()
+            try thumbnailPage()
         } else if equals("/series.pdf") {
-            processSeriesPdf()
+            try seriesPdfPage()
         } else if equals("/series") {
-            processSeriesHtml()
+            try seriesPage()
         } else if equals("/keyroisimages") {
-            processKeyROIsImagesHtml()
+            try keyROIsImagesPage()
         } else if equals("/series.json") {
             processSeriesJson()
         } else if prefix("/report") {
@@ -798,11 +814,11 @@ public final class WebPortalConnection: HTTPConnection {
         } else if suffix(".zip") || suffix(".osirixzip") {
             processZip()
         } else if prefix("/image.") {
-            processImage()
+            try imagePage()
         } else if prefix("/imageAsScreenCapture.") {
-            processImageAsScreenCapture(true)
+            try imageAsScreenCapturePage(true)
         } else if equals("/movie.mov") || equals("/movie.m4v") || equals("/movie.mp4") {
-            processMovie()
+            try moviePage()
         } else if equals("/password_forgotten") {
             processPasswordForgottenHtml()
         } else if equals("/account") {
@@ -814,11 +830,11 @@ public final class WebPortalConnection: HTTPConnection {
         } else if suffix("weasis.jnlp") {
             processWeasisJnlp()
         } else if equals("/weasis.xml") {
-            processWeasisXml()
+            try weasisXmlPage()
         } else if equals("/admin/") || equals("/admin/index") {
-            processAdminIndexHtml()
+            try adminIndexPage()
         } else if equals("/admin/user") {
-            processAdminUserHtml()
+            try adminUserPage()
         } else if equals("/quitOsiriX") && (user?.isAdmin?.boolValue ?? false) {
             exit(0)
         } else if equals("/testdbalive") {
@@ -846,11 +862,8 @@ public final class WebPortalConnection: HTTPConnection {
         }
     }
 
-    public override func supportsMethod(_ method: String!, atPath relativePath: String!) -> Bool {
-        if (method as NSString?)?.isEqual(to: "POST") == true {
-            return true
-        }
-        return super.supportsMethod(method, atPath: relativePath)
+    @objc public func supportsMethod(_ method: String!, atPath relativePath: String!) -> Bool {
+        return method == "POST" || method == "GET" || method == "HEAD"
     }
 
     /// Where uploads are written and unzipped: the user's own temporary folder.
@@ -967,15 +980,20 @@ public final class WebPortalConnection: HTTPConnection {
 
         let idatabase = self.independentDicomDatabase
         let filesAccumulator = NSMutableArray()
+        var uploadIsTheOnlyCopy = false
         // We want to find this file after db insert: get studyInstanceUID, patientUID and instanceSOPUID
         for case let oFile as String in filesArray {
             let f = DicomFile(oFile, dicomOnly: true)
 
             if let f = f {
-                file = BrowserController.currentBrowser()?.database?.uniquePathForNewDataFile(withExtension: "dcm")
+                // The folder of the database that indexes it; what did not reach
+                // that folder is not indexed, or the index would name no file.
+                file = idatabase?.uniquePathForNewDataFile(withExtension: "dcm")
 
-                if let file = file {
-                    try? FileManager.default.moveItem(atPath: oFile, toPath: file)
+                guard let file, (try? FileManager.default.moveItem(atPath: oFile, toPath: file)) != nil else {
+                    NSLog("****** the upload %@ could not be moved into the database folder and stays there", oFile)
+                    uploadIsTheOnlyCopy = true
+                    continue
                 }
 
                 addObject(file, to: filesAccumulator)
@@ -989,8 +1007,7 @@ public final class WebPortalConnection: HTTPConnection {
                 }
 
                 if !sameStudy || messageCompare(patientUID, previousPatientUID) != .orderedSame {
-                    _ = idatabase?.addFiles(atPaths: filesAccumulator as? [Any], postNotifications: true, dicomOnly: true,
-                                            rereadExistingItems: true, generatedByOsiriX: true, importedFiles: true, returnArray: false)
+                    if let idatabase { DatabaseIngest.process.index(filesAccumulator as? [Any], preset: .upload, in: idatabase) }
 
                     filesAccumulator.removeAllObjects()
 
@@ -1003,7 +1020,7 @@ public final class WebPortalConnection: HTTPConnection {
                                 self.addUploadedStudy(studyInstanceUID: studyInstanceUID, patientUID: patientUID, database: idatabase)
                             }
                         } catch {
-                            WebPortalConnectionLogStackTrace(String(format: "********* WebPortalConnection closeFileHandleAndClean exception : %@",
+                            N2LogStackTraceMessage(String(format: "********* WebPortalConnection closeFileHandleAndClean exception : %@",
                                                                     caughtException(error) ?? (error as NSError)))
                         }
                         ///
@@ -1014,14 +1031,15 @@ public final class WebPortalConnection: HTTPConnection {
             }
         }
 
-        _ = idatabase?.addFiles(atPaths: filesAccumulator as? [Any], postNotifications: true, dicomOnly: true,
-                                rereadExistingItems: true, generatedByOsiriX: true, importedFiles: true, returnArray: false)
+        if let idatabase { DatabaseIngest.process.index(filesAccumulator as? [Any], preset: .upload, in: idatabase) }
 
         // What was not imported: the unzipped folder, and an upload that is not
         // DICOM, which used to stay in the temporary folder.
-        try? FileManager.default.removeItem(atPath: unzipFolder)
-        if let name = POSTfilename {
-            try? FileManager.default.removeItem(atPath: name)
+        if !uploadIsTheOnlyCopy {
+            try? FileManager.default.removeItem(atPath: unzipFolder)
+            if let name = POSTfilename {
+                try? FileManager.default.removeItem(atPath: name)
+            }
         }
 
         multipartData = nil
@@ -1079,13 +1097,15 @@ public final class WebPortalConnection: HTTPConnection {
                 }) ?? NSNotFound
                 if uidIndex == NSNotFound || patientIndex == NSNotFound {
                     // +insertNewObjectForEntityForName:inManagedObjectContext: raised on a nil context.
-                    let studyLink = (NSEntityDescription.self as AnyObject)
-                        .perform(#selector(NSEntityDescription.insertNewObject(forEntityName:into:)), with: "Study", with: user?.managedObjectContext)?
-                        .takeUnretainedValue() as! NSManagedObject
+                    guard let context = user?.managedObjectContext else {
+                        raiseInvalidArgument("+entityForName: nil is not a legal NSManagedObjectContext parameter searching for entity name 'Study'",
+                                             name: .internalInconsistencyException)
+                    }
+                    let studyLink = NSEntityDescription.insertNewObject(forEntityName: "Study", into: context)
 
                     studyLink.setValue((studyUID as? NSObject)?.copy(), forKey: "studyInstanceUID")
                     studyLink.setValue((studyPatientUID as? NSObject)?.copy(), forKey: "patientUID")
-                    studyLink.setValue(Date(timeIntervalSinceReferenceDate: UserDefaults.standard.double(forKey: "lastNotificationsDate")), forKey: "dateAdded")
+                    studyLink.setValue(Date(timeIntervalSinceReferenceDate: PreferencesSource.process.preferences[WebPortalPreferences.lastNotificationsDate]), forKey: "dateAdded")
 
                     studyLink.setValue(user, forKey: "user")
 
@@ -1105,7 +1125,7 @@ public final class WebPortalConnection: HTTPConnection {
             }
         }
 
-        if user?.name != nil && UserDefaults.standard.bool(forKey: "WebServerTagUploadedStudiesWithUsername") {
+        if user?.name != nil && PreferencesSource.process.preferences[NetworkPreferences.webServerTagUploadedStudiesWithUsername] {
             for case let study as NSManagedObject in studies ?? [] {
                 var comment = study.value(forKey: "comment") as? String
 
@@ -1123,7 +1143,7 @@ public final class WebPortalConnection: HTTPConnection {
 
     // A request body the portal cannot parse must not end the connection thread:
     // only four serve the portal, so four such requests would stop it.
-    public override func processDataChunk(_ postDataChunk: Data!) {
+    public func processDataChunk(_ postDataChunk: Data!) {
         do {
             try HorosObjCException.perform {
                 self.processDataChunkUnguarded(postDataChunk)
@@ -1262,7 +1282,8 @@ public final class WebPortalConnection: HTTPConnection {
                 let path = root.appendingPathComponent(String(format: "WebPortal Upload %d", inc)) as NSString
                 inc += 1
                 // -stringByAppendingPathExtension: raised NSInvalidArgumentException on a nil extension.
-                POSTfilename = path.perform(#selector(NSString.appendingPathExtension(_:)), with: fileExtension)?.takeUnretainedValue() as? String
+                guard let fileExtension else { raiseInvalidArgument("*** -[NSPathStore2 stringByAppendingPathExtension:]: nil argument") }
+                POSTfilename = path.appendingPathExtension(fileExtension)
             } while POSTfilename.map { FileManager.default.fileExists(atPath: $0) } ?? false
 
             var fileDataRange = NSRange(location: Int(dataStartIndex),
@@ -1292,36 +1313,6 @@ public final class WebPortalConnection: HTTPConnection {
     }
 
     // MARK: Session, custom authentication
-
-    public override func onSocketWillConnect(_ sock: AsyncSocket!) -> Bool {
-        resetPOST()
-
-        guard isSecureServer() else { return true }
-        // Acceptance runs on the listener thread. Configure TLS synchronously
-        // on this connection's owning portal thread before opening the socket.
-        guard let sock, let thread = portal?.thread(forRunLoopRef: sock.runLoopRef().takeUnretainedValue()) else {
-            return false
-        }
-        if Thread.current === thread {
-            startTLSThread()
-        } else {
-            perform(#selector(startTLSThread), on: thread, with: nil, waitUntilDone: true)
-        }
-        return true
-    }
-
-    public override func startTLSThread() {
-        autoreleasepool {
-            guard let certificates = sslIdentityAndCertificates(), !certificates.isEmpty else { return }
-            let settings: [String: Any] = [
-                kCFStreamSSLIsServer as String: true,
-                kCFStreamSSLCertificates as String: certificates,
-                kCFStreamSSLLevel as String: kCFStreamSocketSecurityLevelNegotiatedSSL,
-                kCFStreamSSLValidatesCertificateChain as String: true
-            ]
-            asyncSocket?.startTLS(settings)
-        }
-    }
 
     @objc public func fillSessionAndUserVariables() {
         let method = request().flatMap { CFHTTPMessageCopyRequestMethod($0)?.takeRetainedValue() } as NSString?
@@ -1383,7 +1374,7 @@ public final class WebPortalConnection: HTTPConnection {
 
                 var authenticatedByPlugin = false
 
-                if UserDefaults.standard.bool(forKey: "AllowPluginAuthenticationForWebPortal") { // Authentication through a plugin? For example, add an LDAP plugin...
+                if PreferencesSource.process.preferences[NetworkPreferences.allowPluginAuthenticationForWebPortal] { // Authentication through a plugin? For example, add an LDAP plugin...
                     let selector = NSSelectorFromString("authenticateConnection:parameters:")
                     for case let (key, _) in PluginManager.plugins() ?? NSMutableDictionary() {
                         let plugin = PluginManager.plugins()?.object(forKey: key) as? NSObject
@@ -1401,7 +1392,7 @@ public final class WebPortalConnection: HTTPConnection {
                                 self.session.deleteChallenge()
                                 portal?.updateLogEntry(forStudy: nil,
                                                        withMessage: String(format: "Successful login (plugin) for user name: %@", self.user.name ?? "(null)"),
-                                                       forUser: nil, ip: asyncSocket?.connectedHost())
+                                                       forUser: nil, ip: peerAddress)
                             }
                         }
                     }
@@ -1425,7 +1416,7 @@ public final class WebPortalConnection: HTTPConnection {
                         self.session.deleteChallenge()
                         portal?.updateLogEntry(forStudy: nil,
                                                withMessage: String(format: "Successful login for user name: %@", username),
-                                               forUser: nil, ip: asyncSocket?.connectedHost())
+                                               forUser: nil, ip: peerAddress)
                     } else {
                         Thread.sleep(forTimeInterval: 2) // To avoid brute-force attacks
 
@@ -1442,7 +1433,7 @@ public final class WebPortalConnection: HTTPConnection {
                             entry = String(format: "Unsuccessful login attempt for user name: %@ - the name is registered as \"%@\", and the password is bound to that spelling, so it has to be typed the same way", username, name)
                         }
 
-                        portal?.updateLogEntry(forStudy: nil, withMessage: entry, forUser: nil, ip: asyncSocket?.connectedHost())
+                        portal?.updateLogEntry(forStudy: nil, withMessage: entry, forUser: nil, ip: peerAddress)
                     }
                 }
 
@@ -1461,13 +1452,19 @@ public final class WebPortalConnection: HTTPConnection {
         if let session = sessionValue,
            session.object(forKey: SessionUsernameKey) != nil,
            let userID = session.object(forKey: SessionUserIDKey) {
-            // -objectWithID: of whatever the session holds, as the former message was.
-            self.user = independentWebDatabase?.managedObjectContext?
-                .perform(#selector(NSManagedObjectContext.object(with:)), with: userID)?
-                .takeUnretainedValue() as? WebPortalUser
+            // -objectWithID: of what the session holds, which raised for
+            // anything but an object ID.
+            if let context = independentWebDatabase?.managedObjectContext {
+                guard let objectID = userID as? NSManagedObjectID else {
+                    raiseInvalidArgument("*** -[NSManagedObjectContext objectWithID:]: \(type(of: userID)) is not an object ID")
+                }
+                self.user = context.object(with: objectID) as? WebPortalUser
+            } else {
+                self.user = nil
+            }
 
             if let lastActivity = session.object(forKey: SessionLastActivityDateKey) as? Date {
-                if Date().timeIntervalSince(lastActivity) > Double(UserDefaults.standard.integer(forKey: "WebServerTimeOut")) {
+                if Date().timeIntervalSince(lastActivity) > Double(PreferencesSource.process.preferences[NetworkPreferences.webServerTimeOut]) {
                     self.session.setObject(nil, forKey: SessionUserIDKey) // logout
                     self.session.setObject(nil, forKey: SessionUsernameKey) // logout
                     self.user = nil
@@ -1500,7 +1497,7 @@ public final class WebPortalConnection: HTTPConnection {
         return portal?.session(forUsername: username, token: token, doConsume: false) as? WebPortalSession
     }
 
-    public override func replyToHTTPRequest() {
+    public func replyToHTTPRequest() {
         // A request the portal cannot parse (invalid UTF-8 in a parameter, a token
         // or username without a value or given twice) used to raise out of here and
         // end the connection thread; four of them stopped the portal. It now
@@ -1533,7 +1530,7 @@ public final class WebPortalConnection: HTTPConnection {
                 if let exception = caughtException(error) {
                     _N2LogExceptionImpl(exception, false, "-[WebPortalConnection replyToHTTPRequest]")
                 }
-                asyncSocket?.disconnect()
+                engine?.closeConnection()
             }
         }
     }
@@ -1543,7 +1540,7 @@ public final class WebPortalConnection: HTTPConnection {
 
         fillSessionAndUserVariables()
 
-        var webPortalDefaultTitle = UserDefaults.standard.string(forKey: "WebPortalTitle")
+        var webPortalDefaultTitle = PreferencesSource.process.preferences[WebPortalPreferences.title]
 
         if (webPortalDefaultTitle as NSString?)?.length ?? 0 == 0 {
             webPortalDefaultTitle = NSLocalizedString("IsiX DICOM Viewer Web Portal", comment: "Web Portal, general default title")
@@ -1557,14 +1554,15 @@ public final class WebPortalConnection: HTTPConnection {
         if let session = sessionValue {
             response?.tokens.setObject(session, forKey: "Session" as NSString)
         }
-        response?.tokens.setObject(UserDefaults.standard, forKey: "Defaults" as NSString)
+        // The templates read any preference by name through %Defaults.<key>%.
+        response?.tokens.setObject(PreferencesSource.process.preferences, forKey: "Defaults" as NSString)
 
-        super.replyToHTTPRequest()
+        engine?.replyWithResponse()
 
         //NSLog(@"User: %X (R: %@)", user, response.httpHeaders);
     }
 
-    public override func isAuthenticated() -> Bool {
+    public func isAuthenticated() -> Bool {
         let sessionUser = sessionValue?.object(forKey: SessionUsernameKey)
         if sessionUser != nil {
             if self.user != nil {
@@ -1577,39 +1575,26 @@ public final class WebPortalConnection: HTTPConnection {
         return false
     }
 
-    public override func handleAuthenticationFailed() {
+    public func handleAuthenticationFailed() {
         //NSLog(@"handleAuthenticationFailed user %@", user);
-
-        //	HTTPAuthenticationRequest* auth = [[[HTTPAuthenticationRequest alloc] initWithRequest:request] autorelease];
-        //	if (auth.username)
-        //		[self.portal updateLogEntryForStudy:nil withMessage:[NSString stringWithFormat:@"Wrong password for user %@", auth.username] forUser:NULL ip:asyncSocket.connectedHost];
 
         processLoginHtml()
 
-        let bodyData = self.response?.data as NSData?
-        // Status Code 401 - Unauthorized
-        let resp = CFHTTPMessageCreateResponse(kCFAllocatorDefault, 401, nil, kCFHTTPVersion1_1).takeRetainedValue()
-        CFHTTPMessageSetHeaderFieldValue(resp, "Content-Length" as CFString,
-                                         String(Int32(truncatingIfNeeded: bodyData?.length ?? 0)) as CFString)
-        for case let (key, value) in response?.mutableHTTPHeaders ?? NSMutableDictionary() {
-            // The former casts to CFStringRef.
-            CFHTTPMessageSetHeaderFieldValue(resp, unsafeBitCast(key as AnyObject, to: CFString.self),
-                                             unsafeBitCast(value as AnyObject, to: CFString.self))
+        // Status Code 401 - Unauthorized: the login page, with the headers of
+        // the portal's response (its session cookie).
+        let bodyData = self.response?.data
+        var headers = [("Content-Length", String(Int32(truncatingIfNeeded: bodyData?.count ?? 0)))]
+        for case let (key as String, value as String) in response?.mutableHTTPHeaders ?? NSMutableDictionary() {
+            headers.append((key, value))
         }
-        if let bodyData = bodyData {
-            CFHTTPMessageSetBody(resp, bodyData as CFData)
-        }
-
-        asyncSocket?.write(preprocessErrorResponse(resp), withTimeout: WRITE_ERROR_TIMEOUT, tag: HTTP_RESPONSE)
+        engine?.sendErrorResponse(status: 401, headers: headers, body: bodyData, closeAfter: false)
     }
 
-    public override func handleResourceNotFound() { // also other errors, actually
+    public func handleResourceNotFound() { // also other errors, actually
         var status = response?.statusCode() ?? 0
         if status == 0 {
             status = 404
         }
-
-        let resp = CFHTTPMessageCreateResponse(kCFAllocatorDefault, CFIndex(status), nil, kCFHTTPVersion1_1).takeRetainedValue()
 
         let title = String(format: "HTTP error %d", status)
         let data = response?.data as NSData?
@@ -1617,11 +1602,12 @@ public final class WebPortalConnection: HTTPConnection {
         let text: String = data.map { NSString(data: $0 as Data, encoding: String.Encoding.utf8.rawValue).map { $0 as String } ?? "(null)" } ?? ""
         let bodyData = String(format: "<html><head><title>%@</title></head><body><h1>%@</h1>%@</body></html>", title, title, text).data(using: .utf8)!
 
-        CFHTTPMessageSetHeaderFieldValue(resp, "Content-Length" as CFString, String(Int32(truncatingIfNeeded: bodyData.count)) as CFString)
-        CFHTTPMessageSetBody(resp, bodyData as CFData)
+        engine?.sendErrorResponse(status: Int(status), headers: [("Content-Length", String(Int32(truncatingIfNeeded: bodyData.count)))],
+                                  body: bodyData, closeAfter: false)
+    }
 
-        let responseData = preprocessErrorResponse(resp)
-        asyncSocket?.write(responseData, withTimeout: WRITE_ERROR_TIMEOUT, tag: HTTP_RESPONSE)
+    /// The connection is closed: the server lets it go.
+    func connectionDidDie() {
     }
 }
 

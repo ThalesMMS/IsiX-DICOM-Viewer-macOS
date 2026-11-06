@@ -18,9 +18,8 @@ from pathlib import Path
 import re
 
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/AppController.swift').read_text()
-start = source.index('@objc(runPreferencesUpdateCheck:) public func runPreferencesUpdateCheck(')
-check = source[start:source.index('\n    }\n', source.index('v.needsDisplayUpdate()', start))]
+marks = (root / 'Modules/IsiXPreferences/Sources/PreferenceChange.swift').read_text()
+responder = (root / 'Horos/Sources/PreferenceChangeResponder.swift').read_text()
 
 
 def fail(message):
@@ -28,24 +27,28 @@ def fail(message):
     raise SystemExit(1)
 
 
-if 'v.needsDisplayUpdate()' not in check:
+def code(text):
+    return '\n'.join(line for line in text.splitlines() if not line.strip().startswith('//'))
+
+
+if not re.search(r'if change\.viewerRefresh \|\| change\.viewerReload \{[^}]*viewer\.needsDisplayUpdate\(\)', responder, re.S):
     fail('the preferences check no longer refreshes the viewers at all')
-for line in check.splitlines():
-    if line.strip().startswith('//'):
-        continue
-    if re.search(r'forKey:\s*"COPYSETTINGS"', line):
-        fail('the preferences check still reacts to COPYSETTINGS: ' + line.strip())
-for line in check.splitlines():
-    if re.search(r'previousDefaults\?\.value\(forKey: [^)]*\) as\? NSNumber', line):
-        fail('a numeric preference is read with a typed cast, nil when registered as text: ' + line.strip())
-for key in ('LengthPresentation.unitKey', 'LengthPresentation.decimalsKey', 'ROILabelContrast.backgroundOpacityKey', '"LabelFONTSIZE"'):
-    if f'numberChanged({key})' not in check:
+for text, name in ((marks, 'PreferenceChange'), (responder, 'PreferenceChangeResponder')):
+    if re.search(r'COPYSETTINGS|\.copySettings\b', code(text)):
+        fail(f'{name} still reacts to COPYSETTINGS')
+if re.search(r'previous\[[^\]]*\] as\? NSNumber', marks):
+    fail('a numeric preference is read with a typed cast, nil when registered as text')
+for key in ('roiLengthUnit', 'roiLengthDecimals', 'roiLabelBackgroundOpacity', 'labelFONTSIZE'):
+    if f'numberChanged(ViewerPreferences.{key})' not in marks:
         fail(f'{key} is not compared by value')
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_text(encoding='latin1')
-if '[defaultValues setObject:@"0" forKey:@"ROILengthUnit"]' not in defaults:
+import sys  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+if default_preferences.registered().get('ROILengthUnit') != '0':
     print('note: ROILengthUnit is no longer registered as text; the comparison by value still holds')
-for key in ('NOINTERPOLATION', 'SOFTWAREINTERPOLATION', 'ROITEXTNAMEONLY'):
-    block = check[check.index(f'forKey: "{key}"'):]
-    if 'refreshViewer = true' not in block[:block.index('}')]:
+refresh = marks[marks.index('viewerRefresh = compared'):]
+refresh = refresh[:refresh.index('viewerRedraw =')]
+for key in ('noInterpolation', 'softwareInterpolation', 'roiTextNameOnly'):
+    if f'ViewerPreferences.{key})' not in refresh:
         fail(f'{key} no longer refreshes the viewers')
 print('ok: COPYSETTINGS and unchanged numeric preferences leave the viewers alone; drawn preferences still refresh them')

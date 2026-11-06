@@ -69,10 +69,11 @@ with tempfile.TemporaryDirectory(prefix='horos-interval-') as directory:
         elif not float(values[3]) < 0.035:
             failures.append('the tilted stack is %s mm off its grid' % values[3])
 
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-at = viewer.index('- (void) displayAWarningIfNonTrueVolumicData')
-body = viewer[at:viewer.index('\n- (', at + 10)]
-if 'HorosSliceIntervalRegularity regularityOfOrigins:' not in body:
+# -displayAWarningIfNonTrueVolumicData is Swift (ViewerController+SliceInterval.swift).
+viewer = (root / 'Horos/Sources/ViewerController+SliceInterval.swift').read_text()
+at = viewer.index('    @objc(displayAWarningIfNonTrueVolumicData)')
+body = viewer[at:viewer.index('    @objc(', at + 10)]
+if 'SliceIntervalRegularity.regularity(origins:' not in body:
     failures.append('the warning does not use the regularity check')
 if '* 100.' in body:
     failures.append('the warning still compares intervals to 0.01 mm')

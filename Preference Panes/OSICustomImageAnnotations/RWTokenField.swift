@@ -43,7 +43,7 @@ import Cocoa
 /// reported tokenization through an undocumented NSTokenFieldCell method; the
 /// class adds nothing to NSTokenField. The xib uses NSTokenField itself.
 ///
-/// Implemented in Swift since #711: the Objective-C name and
+/// Implemented in Swift: the Objective-C name and
 /// RWTokenField.h are those of the former class.
 @objc(RWTokenField)
 public final class RWTokenField: NSTokenField {

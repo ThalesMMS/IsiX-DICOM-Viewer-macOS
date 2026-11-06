@@ -2,18 +2,19 @@
 """The app's own filters have menu items.
 
 `+[PluginManager setMenus::::]` makes the plugin menu items from the loaded
-bundles' Info.plist. T2 Fit Map and ROI Enhancement are filters the app registers
-itself, with no bundle: they were in `plugins` and in no menu, so nothing in the
-interface could run them.
+bundles' Info.plist. T1 Fit Map, T2 Fit Map and ROI Enhancement are filters the app
+registers itself, with no bundle: they were in `plugins` and in no menu, so nothing
+in the interface could run them.
 
-`HorosNativeFilterMenus` adds their items - T2 Fit Map to the image filters, ROI
-Enhancement to the ROI tools, each sending -executeFilter: to the first responder.
+`HorosNativeFilterMenus` adds their items - T1 and T2 Fit Map to the image filters,
+ROI Enhancement to the ROI tools, each sending -executeFilter: to the first responder.
 Compiled here with stand-in filters of the same class names:
 
 * both registered: one item each, in its menu, with the action and no target;
 * made again: no second item;
 * a bundle that declares the title, in a submenu of its own: no second item;
 * another filter registered under the title (a compatible external bundle): no item;
+* the former T1 Fit Map plugin, of the same title, loaded with its own item: no second item;
 * nothing registered: no item.
 
 The source checks that `setMenus::::` adds them before it decides a menu is empty,
@@ -45,6 +46,8 @@ driver = r'''
 import AppKit
 
 @objc(T2FitMapFilter) final class T2FitMapFilter: NSObject {}
+@objc(IsiXT1FitMapFilter) final class T1FitMapFilter: NSObject {}
+@objc(MappingT1FitFilter) final class MappingT1FitFilter: NSObject {}
 @objc(ROIEnhancementFilter) final class ROIEnhancementFilter: NSObject {}
 @objc(ExternalT2Filter) final class ExternalT2Filter: NSObject {}
 
@@ -56,14 +59,15 @@ func items(_ menu: NSMenu, _ title: String) -> [NSMenuItem] {
     menu.items.filter { $0.title == title } + menu.items.compactMap { $0.submenu }.flatMap { items($0, title) }
 }
 
-let natives: NSDictionary = ["T2 Fit Map": T2FitMapFilter(), "ROI Enhancement": ROIEnhancementFilter()]
+let natives: NSDictionary = ["T1 Fit Map": T1FitMapFilter(), "T2 Fit Map": T2FitMapFilter(), "ROI Enhancement": ROIEnhancementFilter()]
 var filters = NSMenu(title: "Image Filters"), rois = NSMenu(title: "ROI Tools")
 let added = NativeFilterMenus.addItems(for: natives, filtersMenu: filters, roisMenu: rois)
-expect(added.count == 2, "two items added, not \(added.count)")
-let t2 = items(filters, "T2 Fit Map"), roi = items(rois, "ROI Enhancement")
-expect(t2.count == 1 && roi.count == 1, "one item each: T2 \(t2.count), ROI \(roi.count)")
+expect(added.count == 3, "three items added, not \(added.count)")
+let t1 = items(filters, "T1 Fit Map"), t2 = items(filters, "T2 Fit Map"), roi = items(rois, "ROI Enhancement")
+expect(t1.count == 1 && t2.count == 1 && roi.count == 1, "one item each: T1 \(t1.count), T2 \(t2.count), ROI \(roi.count)")
+expect(items(rois, "T1 Fit Map").isEmpty, "T1 Fit Map is an image filter")
 expect(items(rois, "T2 Fit Map").isEmpty && items(filters, "ROI Enhancement").isEmpty, "each item in its own menu")
-for item in t2 + roi {
+for item in t1 + t2 + roi {
     expect(item.action == NSSelectorFromString("executeFilter:"), "\(item.title) sends \(String(describing: item.action))")
     expect(item.target == nil, "\(item.title) goes to the first responder")
 }
@@ -83,6 +87,13 @@ filters = NSMenu(title: "Image Filters"); rois = NSMenu(title: "ROI Tools")
 let external: NSDictionary = ["T2 Fit Map": ExternalT2Filter(), "ROI Enhancement": ROIEnhancementFilter()]
 NativeFilterMenus.addItems(for: external, filtersMenu: filters, roisMenu: rois)
 expect(items(filters, "T2 Fit Map").isEmpty, "another filter registered under the title gets no native item")
+
+// The former T1 Fit Map plugin declares the same title: loaded, it is the filter registered under
+// the title and its bundle has its own item, so the native one gives way.
+filters = NSMenu(title: "Image Filters"); rois = NSMenu(title: "ROI Tools")
+filters.addItem(NSMenuItem(title: "T1 Fit Map", action: NSSelectorFromString("executeFilter:"), keyEquivalent: ""))
+NativeFilterMenus.addItems(for: ["T1 Fit Map": MappingT1FitFilter()] as NSDictionary, filtersMenu: filters, roisMenu: rois)
+expect(items(filters, "T1 Fit Map").count == 1, "an installed T1 Fit Map plugin keeps the only item of its title")
 
 filters = NSMenu(title: "Image Filters"); rois = NSMenu(title: "ROI Tools")
 expect(NativeFilterMenus.addItems(for: NSDictionary(), filtersMenu: filters, roisMenu: rois).isEmpty
@@ -107,4 +118,5 @@ if not failures:
 if failures:
     print('\n'.join('FAIL: ' + f if not f.startswith('FAIL') else f for f in failures))
     raise SystemExit(1)
-print('native filters: T2 Fit Map and ROI Enhancement items, once each, to the first responder')
+print('PASS: native filters: T1 Fit Map, T2 Fit Map and ROI Enhancement items, once each, to the first responder; '
+      'an installed plugin of the same title keeps its own')

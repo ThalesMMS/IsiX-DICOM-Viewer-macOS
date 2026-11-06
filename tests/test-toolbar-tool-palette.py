@@ -64,7 +64,10 @@ for language in ('Base', 'ja-JP'):
     assert pane.count('name="selectedTag" keyPath="values.ToolPaletteSelectionStyle"') == 1, language
     popup = pane[pane.index('id="tool-style-popup"'):pane.index('</popUpButton>', pane.index('id="tool-style-popup"'))]
     assert 'id="tool-style-framed"' in popup and 'tag="1" id="tool-style-circle"' in popup, language
-assert 'setObject: @"0" forKey: @"ToolPaletteSelectionStyle"' in (root / 'Horos/Sources/DefaultsOsiriX.m').read_text()
+import sys  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+assert default_preferences.registered().get('ToolPaletteSelectionStyle') == '0'
 
 code = r'''
 import AppKit

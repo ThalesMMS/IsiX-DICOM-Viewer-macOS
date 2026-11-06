@@ -41,11 +41,9 @@ import AppKit
 
 // NSAttributedString (Geometrics) and NSString (Geometrics) are implemented in
 // Swift; the selectors and <Horos/NS(Attributed)String+Geometrics.h>
-// are those of the former categories. The global
-// gNSStringGeometricsTypesetterBehavior stays a C variable, defined in
-// NS(Attributed)String+Geometrics+CAPI.m; its header explains how it is used.
-
-fileprivate let latestTypesetterBehavior = Int32(NSLayoutManager.TypesetterBehavior.latestBehavior.rawValue)
+// are those of the former categories. The layout manager measures with its
+// default typesetter behavior, the latest one; the global variable that could
+// change it, which nothing changed, is gone.
 
 public extension NSAttributedString {
 
@@ -64,21 +62,10 @@ public extension NSAttributedString {
             layoutManager.addTextContainer(textContainer)
             textStorage.addLayoutManager(layoutManager)
             layoutManager.usesDefaultHyphenation = false
-            if gNSStringGeometricsTypesetterBehavior != latestTypesetterBehavior,
-               let behavior = NSLayoutManager.TypesetterBehavior(rawValue: Int(gNSStringGeometricsTypesetterBehavior)) {
-                layoutManager.typesetterBehavior = behavior
-            }
             // NSLayoutManager is lazy, so we need the following kludge to force layout:
             _ = layoutManager.glyphRange(for: textContainer)
 
             answer = layoutManager.usedRect(for: textContainer).size
-
-            // In case we changed it above, set typesetterBehavior back
-            // to the default value. Only then: an unchanged value is not
-            // rewritten, so concurrent measurements only read it.
-            if gNSStringGeometricsTypesetterBehavior != latestTypesetterBehavior {
-                gNSStringGeometricsTypesetterBehavior = latestTypesetterBehavior
-            }
         }
 
         return answer

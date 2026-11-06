@@ -9,21 +9,23 @@ Y range and the calcium scoring overlap test compares Y between ROIs, so a
 constant Y is a wrong bitmap and a wrong overlap rather than a visible error.
 
 This links the object file the application itself is built from, so it measures
-the shipped filler and not a copy of it.
+the shipped filler and not a copy of it. Since the filler left DCMPix.m for the
+IsiXROI module (ROIPolygonFill.sample, which -getROIValue::: calls), the module
+is built from this checkout and run with the same polygon and the same checks.
 """
 from pathlib import Path
-import re
+import json
 import subprocess
 import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-objects = [root / 'build/Build/Intermediates.noindex/Horos.build' / configuration /
-           'Horos.build/Objects-normal/arm64/DCMPix.o'
-           for configuration in ('Debug', 'Release')]
-obj = next((o for o in objects if o.is_file()), None)
+sys.path.insert(0, str(root / 'tests'))
+import app_object_probe  # noqa: E402
+
+obj = app_object_probe.built_object('DCMPix')
 if obj is None:
-    print('needs a built DCMPix.o in %s' % ' or '.join(str(o) for o in objects), file=sys.stderr)
+    print('needs a built DCMPix.o: build Debug or Release once', file=sys.stderr)
     raise SystemExit(2)
 
 # The polygon is a rectangle, so every covered pixel's row is known in advance
@@ -95,63 +97,56 @@ int main(){ @autoreleasepool {
 }}
 ''' % dict(left=LEFT, right=RIGHT, top=TOP, bottom=BOTTOM, width=WIDTH, height=HEIGHT)
 
-FRAMEWORKS = ['Foundation', 'AppKit', 'AVFoundation', 'CoreData', 'CoreMedia', 'CoreVideo']
+SWIFT_DRIVER = '''
+import Foundation
+import IsiXROI
 
+let left = %(left)d, right = %(right)d, top = %(top)d, bottom = %(bottom)d, width = %(width)d, height = %(height)d
+var result: [String: [Float]] = [:]
+for rgb in [false, true] {
+    // Four bytes per pixel either way: the RGB loop reads this buffer as bytes.
+    let pixels = UnsafeMutablePointer<Float>.allocate(capacity: width * height)
+    pixels.initialize(repeating: 0, count: width * height)
+    let values = UnsafeMutablePointer<Float>.allocate(capacity: width * height)
+    let locations = UnsafeMutablePointer<Float>.allocate(capacity: width * height * 2)
+    let polygon = [ROIPixelPoint(x: left, y: top), ROIPixelPoint(x: right, y: top),
+                   ROIPixelPoint(x: right, y: bottom), ROIPixelPoint(x: left, y: bottom)]
+    let count = ROIPolygonFill.sample(polygon, image: pixels, width: width, height: height, isRGB: rgb,
+                                      values: values, locations: locations, capacity: width * height)
+    result[rgb ? "rgb" : "grey"] = Array(UnsafeBufferPointer(start: locations, count: count * 2))
+}
+print(String(data: try! JSONSerialization.data(withJSONObject: result), encoding: .utf8)!)
+''' % dict(left=LEFT, right=RIGHT, top=TOP, bottom=BOTTOM, width=WIDTH, height=HEIGHT)
 
-def objectiveCStubs():
-    """Classes DCMPix.m names that no linked framework defines.
-
-    The runtime fixes class references up when the image loads, so these need a
-    real class and not a placeholder address. A class the project declares is
-    one the frameworks cannot supply.
-    """
-    listing = subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
-    names = sorted({m.group(1) for m in re.finditer(r'_OBJC_CLASS_\$_(\w+)', listing)})
-    sources = root / 'Horos/Sources'
-    declared = set()
-    for name in names:
-        if list(sources.glob(name + '.h')) or list(sources.glob(name + '.mm')) or (sources / (name + '.m')).is_file():
-            declared.add(name)
-    return ''.join('@interface %s : NSObject @end\n@implementation %s @end\n' % (n, n) for n in sorted(declared))
-
-
-def link(directory, placeholders):
-    """Link the probe, listing `placeholders` as bare addresses.
-
-    Symbols the application resolves from its own other objects and from
-    vendored archives are never reached by the filler, so an address is enough
-    and the test does not have to track their signatures.
-    """
-    assembly = ''.join('.globl %s\n%s: .quad 0\n' % (s, s) for s in sorted(placeholders))
-    (directory / 'placeholders.s').write_text('.data\n' + assembly if placeholders else '.data\n')
-    command = ['xcrun', 'clang++', '-std=c++11', '-fobjc-arc',
-               str(directory / 'probe.mm'), str(directory / 'stubs.mm'),
-               str(directory / 'placeholders.s'), str(obj),
-               '-Wl,-undefined,dynamic_lookup', '-o', str(directory / 'probe')]
-    for framework in FRAMEWORKS:
-        command += ['-framework', framework]
-    subprocess.run(command, check=True, capture_output=True)
-
+listing = subprocess.run(['nm', '-g', '--defined-only', str(obj)], capture_output=True, text=True).stdout
+if '_ras_FillPolygon' not in listing:
+    from isix_modules import module_flags
+    with tempfile.TemporaryDirectory(prefix='horos-roi-scanline-') as name:
+        directory = Path(name)
+        (directory / 'driver.swift').write_text(SWIFT_DRIVER)
+        subprocess.run(['xcrun', 'swiftc', str(directory / 'driver.swift'),
+                        *module_flags('IsiXROI', directory / 'modules'), '-o', str(directory / 'driver')],
+                       check=True, capture_output=True)
+        sampled = json.loads(subprocess.run([str(directory / 'driver')], capture_output=True, text=True, check=True).stdout)
+    grey, rgb = sampled['grey'], sampled['rgb']
+    expected = [float(c) for y in range(TOP, BOTTOM + 1) for x in range(LEFT, RIGHT + 1) for c in (x, y)]
+    failures = []
+    if not grey or len(grey) != len(rgb):
+        failures.append('%d greyscale points and %d RGB points' % (len(grey) // 2, len(rgb) // 2))
+    for name, points in (('greyscale', grey), ('RGB', rgb)):
+        if points != expected:
+            failures.append('%s coordinates are %r, expected %r' % (name, points[:16], expected[:16]))
+    for failure in failures:
+        print('FAIL: ' + failure, file=sys.stderr)
+    if failures:
+        raise SystemExit(1)
+    print('PASS: %d scanline coordinates identical and correct in both pixel formats' % (len(grey) // 2))
+    raise SystemExit(0)
 
 with tempfile.TemporaryDirectory(prefix='horos-roi-scanline-') as name:
     directory = Path(name)
     (directory / 'probe.mm').write_text(PROBE)
-    (directory / 'stubs.mm').write_text('#import <Foundation/Foundation.h>\n' + objectiveCStubs())
-    placeholders = set()
-    # dyld names one missing symbol per attempt, so collect them by running.
-    for _ in range(200):
-        link(directory, placeholders)
-        run = subprocess.run([str(directory / 'probe')], capture_output=True, text=True)
-        missing = re.search(r"symbol not found in flat namespace '([^']+)'", run.stderr)
-        if not missing:
-            break
-        if missing.group(1) in placeholders:
-            print('cannot satisfy %s' % missing.group(1), file=sys.stderr)
-            raise SystemExit(1)
-        placeholders.add(missing.group(1))
-    else:
-        print('too many unresolved symbols in %s' % obj, file=sys.stderr)
-        raise SystemExit(1)
+    run = app_object_probe.link_and_run(directory, [directory / 'probe.mm'], [obj], flags=['-fobjc-arc'])
     sys.stdout.write(run.stdout)
     sys.stderr.write(run.stderr)
     raise SystemExit(run.returncode)

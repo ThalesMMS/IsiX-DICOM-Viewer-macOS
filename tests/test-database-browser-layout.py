@@ -8,6 +8,8 @@ import tempfile
 import plistlib
 import xml.etree.ElementTree as ET
 
+import process_graph_stand_in  # the layout reads the preferences through the process graph
+
 root = Path(__file__).resolve().parents[1]
 code = r'''
 import AppKit
@@ -184,6 +186,6 @@ with tempfile.TemporaryDirectory(prefix='horos-database-browser-') as folder:
     swift = work / 'Test.swift'
     swift.write_text(code)
     binary = work / 'test'
-    subprocess.run(['xcrun', 'swiftc', str(root / 'Horos/Sources/DatabaseBrowserLayout.swift'),
-                    str(swift), '-o', str(binary)], check=True)
+    subprocess.run(['xcrun', 'swiftc', *process_graph_stand_in.swift_flags(work / 'isix'),
+                    str(root / 'Horos/Sources/DatabaseBrowserLayout.swift'), str(swift), '-o', str(binary)], check=True)
     subprocess.run([str(binary), *map(str, nibs)], check=True)

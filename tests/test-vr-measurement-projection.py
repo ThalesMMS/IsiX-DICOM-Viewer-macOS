@@ -7,8 +7,9 @@ import tempfile
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import vtk_pattern_window
 root=Path(__file__).resolve().parents[1]
-source=(root/'Horos/Sources/VRView.mm').read_bytes().decode('latin1')
-functions=source[source.index('static bool HorosCaptureLineProjection'):source.index('// Each inactive overlay')]
+# The projections are the VTK adapter's, which draws the view's 2D actors.
+source=(root/'Horos/Sources/Adapters/VTK/IsiXVTKVolumeActors.mm').read_bytes().decode('latin1')
+functions=source[source.index('static bool HorosCaptureLineProjection'):source.index('static IsiXVTKStoredLine *IsiXVTKNewStoredLine')]
 install=root/'build/Build/Intermediates.noindex/Horos.build/Release/VTK.build/Install'
 if not (install/'lib').is_dir():
     print('needs built VTK libraries in', install, file=sys.stderr)
@@ -62,5 +63,5 @@ with tempfile.TemporaryDirectory(prefix='horos-vr-projection-') as d:
     p=Path(d);(p/'test.cxx').write_text(code);(p/'vtk_pattern_scene.h').write_text(vtk_pattern_window.WINDOW+vtk_pattern_window.SCENE)
     # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.
     libs = [install / 'wlib' / 'libVTK.a']
-    subprocess.run(['xcrun','clang++','-std=c++17','-I'+str(install/'include'),str(p/'test.cxx'),str(root/'Horos/Sources/SceneFactory.cxx'),*[str(x) for x in libs],'-lz','-framework','Cocoa','-o',str(p/'test')],check=True)
+    subprocess.run(['xcrun','clang++','-std=c++17','-I'+str(install/'include'),str(p/'test.cxx'),str(root/'Horos/Sources/Adapters/VTK/SceneFactory.cxx'),*[str(x) for x in libs],'-lz','-framework','Cocoa','-o',str(p/'test')],check=True)
     subprocess.run([str(p/'test')],check=True)

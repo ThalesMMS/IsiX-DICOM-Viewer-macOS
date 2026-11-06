@@ -2,8 +2,8 @@
 """Validate native C-GET/C-MOVE retrieval using only synthetic loopback peers.
 
 Use a Python with pydicom, pynetdicom and numpy, after --verify. The empty output
-must be outside the checkout under local-validation. This signs/launches only
-HorosDevelopment.app with a private database, and stops that instance on exit.
+must be under local-validation. This signs/launches only HorosDevelopment.app (or
+the copy given by --app) with a private database, and stops that instance on exit.
 The probe invokes the actual QueryController backend; it is not UI-click proof.
 """
 from pathlib import Path
@@ -13,10 +13,11 @@ root=Path(__file__).resolve().parents[1];os.chdir(root)
 parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('output',type=Path)
 parser.add_argument('--protocol',choices=['get','move'],default='get')
 parser.add_argument('--mode',choices=['complete','failure','cancel','cancel-before-first'],default='complete')
+parser.add_argument('--app',type=Path,default=root/'build/Development/HorosDevelopment.app')
 options=parser.parse_args();mode=options.mode;move=options.protocol=='move';run=options.output.resolve()
-assert 'local-validation' in run.parts and not run.is_relative_to(root)
+assert 'local-validation' in run.parts
 run.mkdir(parents=True,exist_ok=True);assert not any(run.iterdir()), 'Use an empty output directory'
-app=root/'build/Development/HorosDevelopment.app';exe=app/'Contents/MacOS/IsiX DICOM Viewer'
+app=options.app.resolve();exe=app/'Contents/MacOS/IsiX DICOM Viewer'
 # Only the already isolated development app is stopped and re-signed.
 for line in subprocess.check_output(['/bin/ps','-axo','pid=,comm='],text=True).splitlines():
  fields=line.strip().split(None,1)
@@ -45,7 +46,13 @@ config=run/'servers.json';config.write_text(json.dumps([{'Address':'127.0.0.1','
 env={**os.environ,'DYLD_INSERT_LIBRARIES':str(probe),'HOROS_CGET_INDEPENDENT_PROBE':str(config),'TMPDIR':subprocess.check_output(['/usr/bin/getconf','DARWIN_USER_TEMP_DIR'],text=True).strip()}
 if mode.startswith('cancel'):
  env['HOROS_CGET_CANCEL']='1';env['HOROS_CGET_CANCEL_AFTER_SECONDS']='4' if mode=='cancel' else '2'
-args=[str(exe),'-DATABASELOCATION','1','-DATABASELOCATIONURL',str(run/'db'),'-DEFAULT_DATABASELOCATION','1','-DEFAULT_DATABASELOCATIONURL',str(run/'db'),'-WebPortalDatabasePath',str(run/'web.sql')]
+args=[str(exe),'-DATABASELOCATION','1','-DATABASELOCATIONURL',str(run/'db'),'-DEFAULT_DATABASELOCATION','1','-DEFAULT_DATABASELOCATIONURL',str(run/'db'),'-WebPortalDatabasePath',str(run/'web.sql'),
+ # As script/build_and_run.sh launches it: the user's plugins folders are never read or written.
+ '-IsolatedPluginsFolder',str(run/'Isolated Plugins'),'-moveToApplicationsFolderAlertSuppress','YES']
+# The query window the probe builds needs the node, or it raises a modal panel. XML,
+# because an old-style list would turn the numbers (the port, the retrieve mode) into strings.
+servers_xml=plistlib.dumps(json.loads(config.read_text()),fmt=plistlib.FMT_XML).decode()
+args+=['-SERVERS',servers_xml[servers_xml.index('<array>'):servers_xml.rindex('</array>')+len('</array>')]]
 for key,value in {'AUTOCLEANINGSPACE':'NO','AUTOCLEANINGDATE':'NO','AUTOROUTINGACTIVATED':'NO','STORESCP':'YES' if move else 'NO','USESTORESCP':'YES' if move else 'NO','TLSStoreSCP':'NO','SingleProcessMultiThreadedListener':'YES','activateCFINDSCP':'YES','activateCGETSCP':'YES','syncDICOMNodes':'NO','publishDICOMBonjour':'NO','searchDICOMBonjour':'NO','httpXMLRPCServer':'NO','checkForUpdatesPlugins':'NO','SUEnableAutomaticChecks':'NO','AETITLE':'HOROSDEV','AEPORT':str(listener_port),'DICOMTimeout':'8','DICOMConnectionTimeout':'5'}.items():args+=['-'+key,value]
 with (run/'peer.log').open('w') as peerlog,(run/'horos.log').open('w') as applog:
  peer=subprocess.Popen(server,stdout=peerlog,stderr=subprocess.STDOUT)

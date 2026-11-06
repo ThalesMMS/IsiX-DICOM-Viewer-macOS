@@ -39,11 +39,12 @@
 
 import AppKit
 import ObjectiveC
+import IsiXDICOMFile
+import IsiXPreferences
 
 /// The class methods of Anonymization (Anonymization.h) that the anonymization
-/// interface calls, sent by their Objective-C selectors. The collections go
-/// through as the Foundation objects they are: bridged to a Swift dictionary,
-/// a template's keys would enumerate in another order.
+/// interface calls, sent by their Objective-C selectors, as the interface
+/// always sent them. The collections cross as objects.
 enum AnonymizationSelectorCalls {
     private static var anonymization: AnyClass {
         return NSClassFromString("Anonymization")!
@@ -56,24 +57,24 @@ enum AnonymizationSelectorCalls {
     }
 
     /// +[Anonymization tagsValuesArrayFromDictionary:]
-    static func tagsValuesArray(fromDictionary dic: AnyObject?) -> NSArray? {
+    static func tagsValuesArray(fromDictionary dic: AnyObject?) -> [Any]? {
         typealias Function = @convention(c) (AnyClass, Selector, AnyObject?) -> Unmanaged<AnyObject>?
         let (selector, function) = implementation("tagsValuesArrayFromDictionary:", as: Function.self)
-        return function(anonymization, selector, dic)?.takeUnretainedValue() as? NSArray
+        return function(anonymization, selector, dic)?.takeUnretainedValue() as? [Any]
     }
 
     /// +[Anonymization tagsValuesDictionaryFromArray:]
-    static func tagsValuesDictionary(fromArray arr: NSArray?) -> NSDictionary? {
-        typealias Function = @convention(c) (AnyClass, Selector, NSArray?) -> Unmanaged<AnyObject>?
+    static func tagsValuesDictionary(fromArray arr: [Any]?) -> [String: Any]? {
+        typealias Function = @convention(c) (AnyClass, Selector, AnyObject?) -> Unmanaged<AnyObject>?
         let (selector, function) = implementation("tagsValuesDictionaryFromArray:", as: Function.self)
-        return function(anonymization, selector, arr)?.takeUnretainedValue() as? NSDictionary
+        return function(anonymization, selector, arr.map { $0 as AnyObject })?.takeUnretainedValue() as? [String: Any]
     }
 
     /// +[Anonymization tagsValues:isEqualTo:]
-    static func tagsValues(_ a1: NSArray?, isEqualTo a2: NSArray?) -> Bool {
-        typealias Function = @convention(c) (AnyClass, Selector, NSArray?, NSArray?) -> ObjCBool
+    static func tagsValues(_ a1: [Any]?, isEqualTo a2: [Any]?) -> Bool {
+        typealias Function = @convention(c) (AnyClass, Selector, AnyObject?, AnyObject?) -> ObjCBool
         let (selector, function) = implementation("tagsValues:isEqualTo:", as: Function.self)
-        return function(anonymization, selector, a1, a2).boolValue
+        return function(anonymization, selector, a1.map { $0 as AnyObject }, a2.map { $0 as AnyObject }).boolValue
     }
 
     /// +[Anonymization templateDicomFile]
@@ -96,17 +97,16 @@ func anonymizationCaseInsensitiveCompare(_ lhs: String?, _ rhs: String?) -> Int 
     return (lhs as NSString).caseInsensitiveCompare(rhs).rawValue
 }
 
-/// CompareArraysByNameOfDCMAttributeTagAtIndexZero (kept, with its C++ name, in
-/// AnonymizationViewController+CAPI.mm): Swift cannot name a C++ function, so
-/// the array is sorted by the same NSArray method with this equivalent.
+/// The comparator of the former CompareArraysByNameOfDCMAttributeTagAtIndexZero,
+/// for the same NSArray sort.
 private let compareArraysByNameOfDCMAttributeTagAtIndexZero: @convention(c) (Any, Any, UnsafeMutableRawPointer?) -> Int = { arg1, arg2, _ in
-    let name1 = ((arg1 as! NSArray).object(at: 0) as? DCMAttributeTag)?.name
-    let name2 = ((arg2 as! NSArray).object(at: 0) as? DCMAttributeTag)?.name
+    let name1 = ((arg1 as! NSArray).object(at: 0) as? DICOMAttributeTag)?.name
+    let name2 = ((arg2 as! NSArray).object(at: 0) as? DICOMAttributeTag)?.name
     return anonymizationCaseInsensitiveCompare(name1, name2)
 }
 
 /// The tags an anonymization replaces, each with a check box and a value, and
-/// the templates (the "anonymizeTemplate" user default) that fill them.
+/// the saved templates that fill them.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/AnonymizationViewController.h> are those of the former class.
@@ -148,15 +148,18 @@ public final class AnonymizationViewController: NSViewController {
         return tagsView.map { Unmanaged.passUnretained($0).toOpaque() }
     }
 
-    private var tagList: NSArray {
-        return tags ?? NSArray()
+    private var tagList: [Any] {
+        return (tags as? [Any]) ?? []
     }
 
-    /// -[NSUserDefaultsController dictionaryForKey:] (NSUserDefaultsController+N2)
-    /// for "anonymizeTemplate", as the NSDictionary it returns.
-    private static func anonymizeTemplates() -> NSDictionary? {
-        let selector = #selector(NSUserDefaultsController.dictionary(forKey:))
-        return NSUserDefaultsController.shared.perform(selector, with: "anonymizeTemplate")?.takeUnretainedValue() as? NSDictionary
+    /// The saved templates; nil when none was ever saved.
+    private static func anonymizeTemplates() -> AnonymizationTemplates? {
+        return PreferencesSource.process.preferences[DatabasePreferences.anonymizationTemplates]
+    }
+
+    /// A template as the selectors of Anonymization take it: its values as objects.
+    private static func templateObject(_ template: AnonymizationFieldValues?) -> AnyObject? {
+        return template.map { $0.values.mapValues(\.object) as AnyObject }
     }
 
     /// What -[NSMutableDictionary setObject:forKey:] and -removeObjectForKey:
@@ -166,26 +169,25 @@ public final class AnonymizationViewController: NSViewController {
                     reason: "*** -[__NSDictionaryM \(selector)]: key or object cannot be nil", userInfo: nil).raise()
     }
 
-    @objc class func basicTags() -> NSArray {
-        let tags = NSMutableArray()
+    @objc class func basicTags() -> [Any] {
+        var tags: [Any] = []
         for name in ["PatientsName", "PatientsSex", "PatientID", "PatientsWeight", "PatientsAge"] {
             // +arrayWithObjects: stopped at the first nil.
-            guard let tag = DCMAttributeTag.tag(withName: name) else {
+            guard let tag = DICOMAttributeTag.tag(withName: name) else {
                 break
             }
-            tags.add(tag)
+            tags.append(tag)
         }
-        return tags.copy() as! NSArray
+        return tags
     }
 
     @objc func refreshTemplatesList() {
         templatesPopup.removeAllItems()
-        let templates = AnonymizationViewController.anonymizeTemplates()
-        let names = (templates?.allKeys as NSArray?)?.sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) ?? []
-        for case let name as String in names {
+        let names = AnonymizationViewController.anonymizeTemplates()?.names ?? []
+        for name in names.sorted(by: { $0.caseInsensitiveCompare($1) == .orderedAscending }) {
             templatesPopup.addItem(withTitle: name)
         }
-        templatesPopup.isEnabled = (templates?.count ?? 0) > 0
+        templatesPopup.isEnabled = !names.isEmpty
     }
 
     /// -initWithNibName:@"AnonymizationView" bundle:NULL; the view is loaded here.
@@ -212,14 +214,14 @@ public final class AnonymizationViewController: NSViewController {
 
         // tags
 
-        let dcmTagsToShow = (shownDcmTags as NSArray?)?.mutableCopy() as? NSMutableArray
-
-        if (dcmTagsToShow?.count ?? 0) == 0 {
-            dcmTagsToShow?.addObjects(from: AnonymizationViewController.basicTags() as! [Any])
-        }
-
-        for tag in dcmTagsToShow ?? NSMutableArray() {
-            addTag(tag as? DCMAttributeTag)
+        // No list shows no field; an empty one, the basic fields.
+        if var dcmTagsToShow = shownDcmTags {
+            if dcmTagsToShow.isEmpty {
+                dcmTagsToShow = AnonymizationViewController.basicTags()
+            }
+            for tag in dcmTagsToShow {
+                addTag(tag as? DICOMAttributeTag)
+            }
         }
 
         setTagsValues(values)
@@ -236,7 +238,7 @@ public final class AnonymizationViewController: NSViewController {
     }
 
     @objc(addTag:)
-    public func addTag(_ tag: DCMAttributeTag!) {
+    public func addTag(_ tag: DICOMAttributeTag!) {
         guard let tag = tag else {
             return
         }
@@ -258,7 +260,7 @@ public final class AnonymizationViewController: NSViewController {
     }
 
     @objc(removeTag:)
-    public func removeTag(_ tag: DCMAttributeTag!) {
+    public func removeTag(_ tag: DICOMAttributeTag!) {
         guard let tag = tag, tags.contains(tag) else {
             return
         }
@@ -275,15 +277,16 @@ public final class AnonymizationViewController: NSViewController {
     }
 
     @objc func nameOfCurrentMatchingTemplate() -> String? {
-        let currentTagsValues = tagsValues() as NSArray?
+        let currentTagsValues = tagsValues()
 
         var matchName: String?
         if let templates = AnonymizationViewController.anonymizeTemplates() {
-            // In the dictionary's own order: the last match wins, as before.
-            for (name, template) in templates {
-                let named = AnonymizationSelectorCalls.tagsValuesArray(fromDictionary: template as AnyObject)
+            // The last match wins, as before; two templates that match alike
+            // were and stay in no particular order.
+            for (name, template) in templates.templates {
+                let named = AnonymizationSelectorCalls.tagsValuesArray(fromDictionary: AnonymizationViewController.templateObject(template))
                 if AnonymizationSelectorCalls.tagsValues(currentTagsValues, isEqualTo: named) {
-                    matchName = name as? String
+                    matchName = name
                 }
             }
         }
@@ -331,7 +334,7 @@ public final class AnonymizationViewController: NSViewController {
 
     isolated deinit {
         while let tags = tags, tags.count > 0 {
-            removeTag(tags.object(at: tags.count - 1) as? DCMAttributeTag)
+            removeTag(tags.object(at: tags.count - 1) as? DICOMAttributeTag)
         }
 
         tags = nil
@@ -339,7 +342,7 @@ public final class AnonymizationViewController: NSViewController {
 
     @objc(tagsValues)
     public func tagsValues() -> [Any]! {
-        let out = NSMutableArray()
+        var out: [Any] = []
 
         for tag in tagList {
             if let checkBox = tagsView.checkBox(forObject: tag), checkBox.state.rawValue != 0 {
@@ -349,14 +352,14 @@ public final class AnonymizationViewController: NSViewController {
 
                 // +arrayWithObjects: stopped at a nil value.
                 if let value = value {
-                    out.add(NSArray(objects: tag, value))
+                    out.append([tag, value] as [Any])
                 } else {
-                    out.add(NSArray(object: tag))
+                    out.append([tag] as [Any])
                 }
             }
         }
 
-        return (out.copy() as! NSArray) as? [Any]
+        return out
     }
 
     @objc(setTagsValues:)
@@ -369,12 +372,12 @@ public final class AnonymizationViewController: NSViewController {
         // this removes all previous tags
         if (tagsValues?.count ?? 0) > 0 {
             while let tags = tags, tags.count > 0 {
-                removeTag(tags.object(at: 0) as? DCMAttributeTag)
+                removeTag(tags.object(at: 0) as? DICOMAttributeTag)
             }
         }
 
         for case let tagValue as NSArray in tagsValues ?? [] {
-            let tag = tagValue.object(at: 0) as? DCMAttributeTag
+            let tag = tagValue.object(at: 0) as? DICOMAttributeTag
             addTag(tag)
             let value: Any? = tagValue.count > 1 ? tagValue.object(at: 1) : nil
             let checkBox = tagsView.checkBox(forObject: tag)
@@ -409,26 +412,29 @@ public final class AnonymizationViewController: NSViewController {
 
         /* UGLY HOTFIX / WORKAROUND UNTIL REVIEWING N2AdaptiveBox
          ------------------------------------------------------ */
-        if let browserWindow = BrowserController.currentBrowser()?.window {
-            var frame = browserWindow.frame
+        // The database window of the process, whichever window the panel is a sheet of.
+        if let databaseWindow = PreferencesSource.process.processGraph.browserWindow?.browser.window {
+            var frame = databaseWindow.frame
             frame.size.width -= 1
-            browserWindow.setFrame(frame, display: true)
+            databaseWindow.setFrame(frame, display: true)
             frame.size.width += 1
-            browserWindow.setFrame(frame, display: true)
+            databaseWindow.setFrame(frame, display: true)
         }
         /* ---------------------------------------------------- */
     }
 
     @objc(saveTemplate:withName:)
     func saveTemplate(_ templ: [Any]!, withName name: String!) {
-        let dic = (AnonymizationViewController.anonymizeTemplates()?.mutableCopy() as? NSMutableDictionary) ?? NSMutableDictionary()
-
-        guard let template = AnonymizationSelectorCalls.tagsValuesDictionary(fromArray: templ as NSArray?), let name = name else {
+        guard let template = AnonymizationSelectorCalls.tagsValuesDictionary(fromArray: templ), let name = name else {
             AnonymizationViewController.raiseNilArgument("setObject:forKey:")
             return
         }
-        dic.setObject(template, forKey: name as NSString)
-        UserDefaults.standard.set(dic, forKey: "anonymizeTemplate")
+        guard let fields = PropertyListValue(template).flatMap(AnonymizationFieldValues.init(propertyList:)) else {
+            NSLog("Anonymization: a value of the template %@ is not one the preferences can keep; it was not saved", name)
+            return
+        }
+        let templates = (AnonymizationViewController.anonymizeTemplates() ?? AnonymizationTemplates()).setting(fields, named: name)
+        PreferencesSource.process.preferences.set(templates, for: DatabasePreferences.anonymizationTemplates)
 
         refreshTemplatesList()
         observeValue(forKeyPath: nil, of: nil, change: nil, context: tagsViewContext)
@@ -437,9 +443,9 @@ public final class AnonymizationViewController: NSViewController {
     @objc(templatesPopupAction:)
     func templatesPopupAction(_ sender: NSPopUpButton) {
         let name = sender.selectedItem?.title
-        let dic = name.flatMap { AnonymizationViewController.anonymizeTemplates()?.object(forKey: $0) }
-        let arr = AnonymizationSelectorCalls.tagsValuesArray(fromDictionary: dic as AnyObject?)
-        setTagsValues(arr as? [Any])
+        let template = name.flatMap { AnonymizationViewController.anonymizeTemplates()?[$0] }
+        let arr = AnonymizationSelectorCalls.tagsValuesArray(fromDictionary: AnonymizationViewController.templateObject(template))
+        setTagsValues(arr)
         // backwards compatibility: prefs might contain NSStrings, which might not match with the corresponding objects, so if no match is found we autosave
         let match = nameOfCurrentMatchingTemplate()
         if !(name != nil && match != nil && (name! as NSString).isEqual(to: match!)) {
@@ -449,7 +455,7 @@ public final class AnonymizationViewController: NSViewController {
 
     @IBAction @objc(saveTemplateAction:)
     public func saveTemplateAction(_ sender: Any!) {
-        let panelController = AnonymizationTemplateNamePanelController(replaceValues: AnonymizationViewController.anonymizeTemplates()?.allKeys)
+        let panelController = AnonymizationTemplateNamePanelController(replaceValues: AnonymizationViewController.anonymizeTemplates()?.names)
         // The sheet's delegate releases the controller.
         let context = Unmanaged.passRetained(panelController).toOpaque()
         view.window!.beginSheet(panelController.window!) { response in
@@ -475,16 +481,16 @@ public final class AnonymizationViewController: NSViewController {
     @IBAction @objc(deleteTemplateAction:)
     public func deleteTemplateAction(_ sender: Any!) {
         let name = (templatesPopup.cell as? N2CustomTitledPopUpButtonCell)?.displayedTitle
-        let dic = AnonymizationViewController.anonymizeTemplates()?.mutableCopy() as? NSMutableDictionary
+        var templates = AnonymizationViewController.anonymizeTemplates()
 
-        if let dic = dic {
+        if let current = templates {
             guard let name = name else {
                 AnonymizationViewController.raiseNilArgument("removeObjectForKey:")
                 return
             }
-            dic.removeObject(forKey: name)
+            templates = current.removing(named: name)
         }
-        UserDefaults.standard.set(dic, forKey: "anonymizeTemplate")
+        PreferencesSource.process.preferences.set(templates, for: DatabasePreferences.anonymizationTemplates)
 
         refreshTemplatesList()
         observeValue(forKeyPath: nil, of: nil, change: nil, context: tagsViewContext)

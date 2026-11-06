@@ -45,22 +45,34 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-scan = (root / 'Horos/Sources/DicomDatabase+Scan.mm').read_bytes().decode('latin1')
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
-dicomfile = (root / 'Horos/Sources/DicomFile.mm').read_bytes().decode('latin1')
+scan = (root / 'Horos/Sources/MediaVolumeScan.swift').read_text(encoding='utf-8')
+rules = (root / 'Modules/IsiXDatabase/Sources/MediaScanRules.swift').read_text(encoding='utf-8')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+defaults = default_preferences.registered()
+# The readers were Objective-C in DicomFile.mm; they are Swift since
+# (DicomFile+<category>.swift), the DICOM one in DicomFile+Formats.swift.
+legacy = root / 'Horos/Sources/DicomFile.mm'
+if legacy.exists():
+    dicomfile = legacy.read_bytes().decode('latin1')
+    marker = '-(short) getDicomFile\n'
+else:
+    dicomfile = ''.join(path.read_text() for path in sorted((root / 'Horos/Sources').glob('DicomFile+*.swift')))
+    marker = '    func getDicomFile() -> Int16 {\n'
 code = re.sub(r'//[^\n]*', '', scan)
 
 # --- a disc is read by the parser that is still here --------------------------
-at = dicomfile.find('-(short) getDicomFile\n')
+at = dicomfile.find(marker)
 if at < 0:
     failures.append('-[DicomFile getDicomFile] is gone')
 else:
     body = re.sub(r'//[^\n]*', '', dicomfile[at:at + 1200])
-    body = body[:body.find('\n}') + 2]
+    body = body[:body.find('\n}' if legacy.exists() else '\n    }') + 2]
     if 'getDicomFilePapyrus' in body:
         failures.append('a file can still be handed to the Papyrus stub, which answers -1 for '
                         'every file it is given')
-    if 'getDicomFileDCMTK' not in body:
+    # The DCMTK category method is -getDicomFileDCMTK, getDCMTK() in Swift.
+    if ('getDicomFileDCMTK' if legacy.exists() else 'getDCMTK()') not in body:
         failures.append('DCMTK no longer reads the file')
 live = re.sub(r'//[^\n]*', '', dicomfile)
 if 'getDicomFilePapyrus' in live:
@@ -75,39 +87,39 @@ for pane in root.glob('Preference Panes/OSIGeneralPreferencePane/*.lproj/'
         failures.append('%s still offers a checkbox bound to it' % pane.parent.name)
 
 # --- the wait -----------------------------------------------------------------
-at = code.find('copyFilesThread')
+# The copy runs on the scan's thread: what follows it runs when it has ended,
+# and no thread can be left to wait for, or given up on.
+at = code.find('let copy = copying(paths)')
 if at < 0:
-    failures.append('the copy no longer runs on its own thread')
+    failures.append('the copy is no longer waited for where it is started')
 else:
-    if 'threadHung' in code:
-        failures.append('the wait still gives up one second after finding the thread not yet '
-                        'executing, and the disc is ejected after it')
-    if 'copyFilesThread.isFinished == NO' not in code:
-        failures.append('the wait no longer waits for the copy to finish')
-    if 'waitedForStart' not in code:
-        failures.append('nothing bounds how long the copy may take to start')
-    eject = code.find('CDDVDEjectAfterAutoCopy')
+    if '.run()' not in code[code.find('func copying('):code.find('func eject(')]:
+        failures.append('the copy does not run on the thread of the scan')
+    if 'Thread.performBlock(' in code or 'Thread {' in code or 'Thread(target' in code:
+        failures.append('the copy runs on another thread, and the scan can go on before it ends')
+    eject = code.find('DatabasePreferences.ejectsMediaAfterAutoCopy')
     if eject < 0:
         failures.append('the eject is gone')
     elif eject < at:
         failures.append('the medium is ejected before the copy is started')
     else:
         condition = code[eject - 200:eject + 300]
-        if 'isFinished' not in condition:
-            failures.append('the medium is ejected without checking that the copy finished')
-        if 'isCancelled' not in condition:
+        if 'copyStopped: copy.stopped' not in condition or 'MediaScanRules.ejectsAfterCopy(' not in condition:
             failures.append('a cancelled copy would still eject the medium')
+    if 'isVolume && ejectPreference && !copyStopped' not in rules:
+        failures.append('the rule of the eject no longer looks at the copy having ended')
 
 # --- reading past the index ---------------------------------------------------
-if 'ScanDiskBeyondDICOMDIR' not in code:
+if 'DatabasePreferences.scanDiskBeyondDICOMDIR' not in code:
     failures.append('a DICOMDIR that names part of the medium is still taken as naming all of it')
 else:
-    at = code.find('BOOL doScan')
+    at = code.find('let doScan')
     window = code[at:at + 600] if at >= 0 else ''
-    if 'usedDicomdir' not in window or 'scanBeyondDicomdir' not in window:
+    rule = rules[rules.find('func readsMedium('):rules.find('func trustsParseOverEntries(')]
+    if 'readBeyondIndex: preferences[DatabasePreferences.scanDiskBeyondDICOMDIR]' not in window or 'namedByIndex != 0 && readBeyondIndex' not in rule:
         failures.append('the decision to read the medium does not consider the index being '
                         'incomplete')
-    if 'ScanDiskIfDICOMDIRZero' not in window:
+    if 'DatabasePreferences.scanDiskIfDICOMDIRZero' not in window or 'namedByIndex == 0 && readIfIndexIsEmpty' not in rule:
         failures.append('the case of an index that names nothing is no longer handled')
     if 'indexedPaths' not in code:
         failures.append('the files the index already named are not skipped, so they would be '

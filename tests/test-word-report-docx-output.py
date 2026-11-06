@@ -44,6 +44,12 @@ final class NSWorkspace {
     static let shared = NSWorkspace()
     @discardableResult func openDocument(atPath path: String, applicationIdentifiers: [String]) -> Bool { true }
 }
+// The failure of a script, which the merge reports; this Word never fails.
+enum StudyDocumentError: Error {
+    static func exception(of error: Error) -> NSException {
+        return NSException(name: .genericException, reason: (error as NSError).localizedDescription, userInfo: nil)
+    }
+}
 PRELUDE
 final class Reports: NSObject {
     let templateNameStorage = NSMutableString(string: "")
@@ -55,7 +61,11 @@ final class Reports: NSObject {
     class func resolvedDatabaseWordTemplatesDirPath() -> String! { templates }
     // Word, as far as the report sees it: the merge writes the output it is given.
     class func _runAppleScript(_ source: String!, withArguments args: NSArray!) -> Any! {
+        return try! runAppleScript(source, withArguments: args as? [Any])
+    }
+    class func runAppleScript(_ source: String?, withArguments args: [Any]?) throws -> Any? {
         let arguments = args as! [String]
+        let source = source ?? ""
         precondition(source.contains("file format format document add to recent files false"), "docx branch")
         precondition(source.contains("file format format document97 add to recent files false"), "doc branch")
         formats.append(arguments[3])

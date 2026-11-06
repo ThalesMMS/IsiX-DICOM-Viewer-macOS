@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Upgrading an index of an older model neither replaces it with an incomplete copy nor loses studies in silence.
 
--upgradeSqlFileFromModelVersion: copies Database.sql, opened with the former
-model, into Database3.sql, and renames Database3.sql to Database.sql.
+-upgradeSqlFileFromModelVersion: (DatabaseModelUpgrade) copies Database.sql,
+opened with the former model, into Database3.sql, and renames Database3.sql to
+Database.sql.
 
 1. When the former index did not open, the error was only logged: the fetches
    returned nothing, and an empty index replaced Database.sql without a word.
@@ -34,6 +35,9 @@ model, into Database3.sql, and renames Database3.sql to Database.sql.
    the same name took the studies of both while the second stayed empty.
    Each copy is now found by the identity of the former album, through object
    identifiers that stay valid when the contexts are reset between hundreds.
+8. The activity history is copied in batches, and a batch that does not save stops
+   neither the others nor the upgrade: the failure is logged, with how many entries
+   stayed behind in the former index, and the new index has nothing pending.
 
 The helpers run compiled from the source with xcrun swiftc, against a real
 SQLite store; the upgrade method itself needs the application around it, so
@@ -49,13 +53,19 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 failures = []
-SOURCE = 'Horos/Sources/DicomDatabase+Other.swift'
+SOURCE = 'Horos/Sources/DatabaseModelUpgrade.swift'
+# Where the upgrade was until it became a type of its own.
+FORMER_SOURCE = 'Horos/Sources/DicomDatabase+Other.swift'
 
 
-def read(path):
+def read():
     if revision:
-        return subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:{path}']).decode('utf-8')
-    return (root / path).read_text()
+        for path in (SOURCE, FORMER_SOURCE):
+            shown = subprocess.run(['git', '-C', str(root), 'show', f'{revision}:{path}'], capture_output=True)
+            if shown.returncode == 0:
+                return shown.stdout.decode('utf-8')
+        raise SystemExit('FAIL: %s has neither %s nor %s' % (revision, SOURCE, FORMER_SOURCE))
+    return (root / SOURCE).read_text()
 
 
 def private_function(text, name):
@@ -72,16 +82,20 @@ def catch_after(text, marker):
     return match.group(1) if match else None
 
 
-text = read(SOURCE)
-start = text.find('@objc(upgradeSqlFileFromModelVersion:)')
-end = text.find('@objc(', start + 1)
-upgrade = text[start:end] if start >= 0 and end > start else ''
+text = read()
+start = text.find('func run(fromModelVersion')
+if start >= 0:
+    upgrade = text[start:]
+else:
+    start = text.find('@objc(upgradeSqlFileFromModelVersion:)')
+    end = text.find('@objc(', start + 1)
+    upgrade = text[start:end] if start >= 0 and end > start else ''
 if not upgrade:
     failures.append('-upgradeSqlFileFromModelVersion: is not in %s' % SOURCE)
 
 # --- 1. what cannot be read or written stops the upgrade ----------------------
 if upgrade:
-    rename = upgrade.find('moveUpgradedIndex(self.sqlFilePath')
+    rename = upgrade.find('moveUpgradedIndex(')
     if rename < 0:
         failures.append('the upgrade no longer renames the index; this test needs a new look')
     for store, marker in (('the former index', 'try oldPersistentStoreCoordinator.addPersistentStore('),
@@ -101,7 +115,7 @@ if upgrade:
         failures.append('albums that do not save do not stop the upgrade')
     handler = upgrade.find('if let e = exception')
     tail = upgrade[handler:]
-    if handler < 0 or 'HorosAlertPanel.run(' not in tail or 'self.rebuild(true)' not in tail:
+    if handler < 0 or 'HorosAlertPanel.run(' not in tail or '.rebuild(true)' not in tail:
         failures.append('the error path of the upgrade no longer warns and rebuilds; this test needs a new look')
 
 failure = private_function(text, 'upgradeFailure')
@@ -126,7 +140,7 @@ leftovers = private_function(text, 'removeLeftoverUpgradeIndex')
 if leftovers is None:
     failures.append('nothing removes what an earlier upgrade left of Database3.sql')
 elif upgrade:
-    remove = upgrade.find('removeLeftoverUpgradeIndex(self.baseDirPath)')
+    remove = upgrade.find('removeLeftoverUpgradeIndex(')
     opened = upgrade.find('try newPersistentStoreCoordinator.addPersistentStore(')
     if remove < 0 or opened < 0 or remove > opened:
         failures.append('the leftovers of Database3.sql are not removed before it is opened')
@@ -176,7 +190,7 @@ if upgrade:
     if fetched is None or '.raise()' not in fetched:
         failures.append('a fetch of the albums of the new index that fails does not stop the upgrade')
     copy_start = upgrade.find('func copyStudy(')
-    study_try = upgrade.find('if let e = DicomDatabaseObjC.attempt({', copy_start)
+    study_try = upgrade.find('newStudyTable = insert("Study")', copy_start)
     fetch_call = upgrade.find('fetchNewAlbums()', copy_start)
     if copy_start < 0 or study_try < 0 or fetch_call < 0 or fetch_call > study_try:
         failures.append('the albums of the new index are fetched inside the study\'s @try, whose handler only lists the study')
@@ -194,6 +208,21 @@ if upgrade:
 DOUBLES = '''
 import CoreData
 import Foundation
+
+// The guards of HorosObjCException+Guards.swift, running each body.
+enum HorosObjCException {
+    @discardableResult
+    static func caught(_ body: () -> Void) -> NSException? { body(); return nil }
+    static func caught(_ body: () -> Void, catch handler: (NSException) -> Void) { body() }
+    static func caughtWithoutAllocation(_ body: () -> Void) -> NSException? { body(); return nil }
+    @discardableResult
+    static func logged(_ function: String, stack: Bool = false, _ body: () -> Void) -> Bool { body(); return false }
+    @discardableResult
+    static func synchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T { body() }
+    @discardableResult
+    static func raisingToCaller<T>(_ body: () -> T) -> T { body() }
+    static func throwing<T, Failure: Error>(_ failure: (NSException) -> Failure, _ body: () throws -> T) throws -> T { try body() }
+}
 
 enum DicomDatabaseObjC {
     static func attempt(_ body: () -> Void) -> NSException? { body(); return nil }
@@ -640,6 +669,115 @@ if albums_results or (add_to_albums is not None and copy_albums is not None):
     if not any('Lost' in line for line in albums_logged):
         failures.append('the album that was not found in the new index was not logged')
 
+HISTORY_DRIVER = '''
+import CoreData
+import Foundation
+
+func emit(_ key: String, _ value: String) { print("\\(key)\\t\\(value)") }
+
+func logEntryModel(messageRequired: Bool) -> NSManagedObjectModel {
+    let entry = NSEntityDescription()
+    entry.name = "LogEntry"
+    let message = NSAttributeDescription()
+    message.name = "message"
+    message.attributeType = .stringAttributeType
+    message.isOptional = !messageRequired
+    let number = NSAttributeDescription()
+    number.name = "numberImages"
+    number.attributeType = .integer32AttributeType
+    number.isOptional = true
+    entry.properties = [message, number]
+    let model = NSManagedObjectModel()
+    model.entities = [entry]
+    return model
+}
+
+func context(_ model: NSManagedObjectModel, _ url: URL) -> NSManagedObjectContext {
+    let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+    try! coordinator.addPersistentStore(ofType: NSSQLiteStoreType, configurationName: nil, at: url, options: nil)
+    let context = NSManagedObjectContext()
+    context.persistentStoreCoordinator = coordinator
+    context.undoManager = nil
+    return context
+}
+
+let folder = URL(fileURLWithPath: CommandLine.arguments[1])
+
+// Three batches of two, and the second does not save: in the new index the
+// message is required, and one entry has none.
+let old = context(logEntryModel(messageRequired: false), folder.appendingPathComponent("former.sql"))
+for n in 0..<6 {
+    let row = NSEntityDescription.insertNewObject(forEntityName: "LogEntry", into: old)
+    row.setValue(n == 2 ? nil : "entry \\(n)", forKey: "message")
+    row.setValue(n, forKey: "numberImages")
+}
+try! old.save()
+old.reset()
+
+let new = context(logEntryModel(messageRequired: true), folder.appendingPathComponent("upgraded.sql"))
+copyUpgradeLogEntries(from: old, to: new, batchSize: 2)
+emit("pending", "\\(new.hasChanges)")
+
+let check = NSManagedObjectContext()
+check.persistentStoreCoordinator = new.persistentStoreCoordinator
+let request = NSFetchRequest<NSManagedObject>(entityName: "LogEntry")
+emit("saved", "\\(((try? check.fetch(request)) ?? []).count)")
+
+// A former model without the entity has nothing to copy.
+let none = NSManagedObjectModel()
+let bare = NSPersistentStoreCoordinator(managedObjectModel: none)
+let bareContext = NSManagedObjectContext()
+bareContext.persistentStoreCoordinator = bare
+copyUpgradeLogEntries(from: bareContext, to: new)
+emit("end", "reached")
+'''
+
+history_helper = private_function(text, 'copyUpgradeLogEntries')
+attribute_names = private_function(text, 'attributeNames')
+history = {}
+history_logged = []
+if history_helper is None or attribute_names is None:
+    failures.append('the activity history is not copied by a helper of its own')
+else:
+    if upgrade:
+        copied = upgrade.find('copyUpgradeLogEntries(from: oldContext, to: newContext)')
+        closed = upgrade.find('closeUpgradeStores(openedContexts', copied)
+        last_batch = upgrade.rfind('saveBatch()', 0, copied)
+        renamed = upgrade.find('moveUpgradedIndex(')
+        if copied < 0 or last_batch < 0 or closed < 0 or not last_batch < copied < closed < renamed:
+            failures.append('the activity history is not copied after the studies and before the stores close')
+    with tempfile.TemporaryDirectory(prefix='horos-upgrade-history-') as directory:
+        directory = Path(directory)
+        (directory / 'doubles.swift').write_text(DOUBLES)
+        helpers = (attribute_names + '\n' + history_helper).replace('private func ', 'func ')
+        (directory / 'helpers.swift').write_text('import CoreData\nimport Foundation\n\n' + helpers)
+        (directory / 'main.swift').write_text(HISTORY_DRIVER)
+        binary = directory / 'upgrade-history'
+        built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-o', str(binary),
+                                str(directory / 'doubles.swift'), str(directory / 'helpers.swift'),
+                                str(directory / 'main.swift')], capture_output=True, text=True)
+        if built.returncode != 0:
+            failures.append('the history helper does not compile:\n%s' % built.stderr[-1500:])
+        else:
+            store = directory / 'store'
+            store.mkdir()
+            run = subprocess.run([str(binary), str(store)], capture_output=True, text=True, timeout=60)
+            if run.returncode != 0:
+                failures.append('the history driver failed: %s' % run.stderr[-800:])
+            for line in run.stdout.splitlines():
+                key, _, value = line.partition('\t')
+                if key == 'logged':
+                    history_logged.append(value)
+                else:
+                    history[key] = value
+    if history or not failures:
+        # The batches of 0 and 1, and of 4 and 5; the batch of 2 and 3 stays behind.
+        for key, want in {'saved': '4', 'pending': 'false', 'end': 'reached'}.items():
+            if history.get(key) != want:
+                failures.append('history, %s: %r, expected %r' % (key, history.get(key), want))
+        if not any('lacks 2 activity entries' in line for line in history_logged):
+            failures.append('the entries that stayed behind were not logged: %r' % history_logged[-3:])
+
 for failure in failures:
     print('FAIL: %s' % failure)
 if failures:
@@ -647,5 +785,5 @@ if failures:
 print('ok: an index that cannot be read or written stops the upgrade before the rename, a batch that '
       'does not save is saved study by study with the others kept, the leftovers of Database3.sql go, '
       'each study is copied once a hundred at a time, a rename that fails puts Database.sql back, '
-      'and a study keeps the copies of its own albums, found by identity even when two share a name, '
-      'while an album not found is logged')
+      'a study keeps the copies of its own albums, found by identity even when two share a name, '
+      'while an album not found is logged, and a batch of the activity history that does not save is logged and stops nothing')

@@ -2,18 +2,20 @@
 """Activating the app re-checks open reports only when their files changed.
 
 Each time the app becomes active, BrowserController.syncReportsIfNecessary
-checks every report opened in the session against its archived DICOM SR. The
-check extracts the SR and compares contents on the main thread, which costs
-milliseconds per megabyte of every report. It now runs only when the
-ReportFileSignature of the report and its SR differs from the one recorded at
-the last successful check.
+(StudyReports.synchronizeOpenReports) checks every report opened in the session
+against its archived DICOM SR. The check extracts the SR and compares contents
+on the main thread, which costs milliseconds per megabyte of every report. It
+now runs only when the ReportFileSignature of the report and its SR differs
+from the one recorded at the last successful check: the rule is
+ReportSyncRules of IsiXDatabase, whose module tests run it.
 
 Compiles the production ReportFileSignature.swift and verifies that the
 signature is stable while nothing changes and differs after an edit that keeps
 the modification date, after a change inside a document package, after an
-atomic save and after a new SR, and that the browser skips the extraction only
-on an equal signature. `<git revision>` as an optional argument reads the
-sources from that revision, the negative control.
+atomic save and after a new SR, and that the browser takes the signature and
+hands the extraction to the rule, which skips it only on an equal signature.
+`<git revision>` as an optional argument reads the sources from that revision,
+the negative control.
 """
 from pathlib import Path
 import os
@@ -48,16 +50,28 @@ def body(text, signature):
 
 
 source = read('Horos/Sources/ReportFileSignature.swift')
-reports = read('Horos/Sources/BrowserController+Reports.swift') or ''
+reports = read('Horos/Sources/StudyReports.swift') or ''
+rules = read('Modules/IsiXDatabase/Sources/ReportSyncRules.swift') or ''
 project = read('Horos.xcodeproj/project.pbxproj') or ''
 
-sync = body(reports, 'func syncReportsIfNecessary()')
+# The browser takes the signature and hands the extraction to the rule.
+sync = body(reports, 'func synchronizeOpenReports()')
 skip = sync.find('ReportFileSignature.signature(')
-extract = sync.find('extractReportSR(')
-if skip < 0 or extract < 0 or skip > extract or 'continue' not in sync[skip:extract]:
-    failures.append('syncReportsIfNecessary extracts every report SR without checking its signature first')
-if 'forKey: "signature"' not in sync or '!archived' not in sync:
-    failures.append('syncReportsIfNecessary does not record the signature of a verified report')
+check = sync.find('ReportSyncRules.check(')
+if skip < 0 or check < 0 or skip > check or 'extractReportSR(' in sync[:check]:
+    failures.append('the activation extracts a report SR before the rule has seen its signature')
+if 'matchesArchive:' not in sync[check:] or 'openReports.record(' not in sync[check:]:
+    failures.append('the activation does not let the rule compare the report and keep what it found')
+if 'extractReportSR(' not in body(reports, 'func report(_ file: String?, matchesTheSROf study: DicomStudy)'):
+    failures.append('the comparison does not read the archived SR')
+# The rule compares only when the signature differs, and records it only when no archive was written.
+ruled = body(rules, 'public static func check(')
+needs = ruled.find('needsComparison(record, signature: signature)')
+compare = ruled.find('matchesArchive()')
+if needs < 0 or compare < 0 or needs > compare or 'return record' not in ruled[needs:compare]:
+    failures.append('ReportSyncRules reads every report SR without checking its signature first')
+if 'archived ? nil : signature' not in ruled:
+    failures.append('ReportSyncRules does not record the signature of a verified report')
 if 'ReportFileSignature.swift in Sources' not in project:
     failures.append('ReportFileSignature.swift is not compiled into the app')
 

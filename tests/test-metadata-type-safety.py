@@ -21,14 +21,19 @@ NSMutableData receiving floatValue - names no attribute.
 Every one of those reads now goes through a guard that answers only when the
 value can answer for a number, and names the file and the attribute when it
 cannot. The attribute is then treated as absent rather than as zero-by-accident.
+
+The reading and its guards are now the IsiXImaging module's
+(AttributeValueCoercion, ImageAttributeReader); what is left of DCMPix.m must
+still not ask a value for a number around them.
 """
 from pathlib import Path
 import re
 import sys
+from sources import class_text
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
+pix = class_text('DCMPix')
 code = re.sub(r'//[^\n]*', '', pix)
 
 
@@ -49,19 +54,28 @@ def body(signature, source):
     return ''
 
 
+module = root / 'Modules/IsiXImaging/Sources'
+guards = re.sub(r'//[^\n]*', '', (module / 'AttributeValueCoercion.swift').read_text())
+reader = re.sub(r'//[^\n]*', '', (module / 'ImageAttributeReader.swift').read_text())
+
+
+def swift_body(signature, source):
+    at = source.find(signature)
+    return body(signature, source) if at >= 0 else ''
+
+
 # --- the guards exist and say what went wrong ---------------------------------
-for name in ('horosNumberValue', 'horosNumberInArray'):
-    guard = body('static %s' % name if name == 'horosNumberValue' else
-                 'static double %s' % name, code)
-    if not guard:
-        guard = body(name + '(', code)
+for name, asks in (('static func numberValue(', 'responds(to:'), ('static func number(in values:', 'as? NSNumber')):
+    guard = swift_body(name, guards)
     if not guard:
         failures.append('%s is gone, so a value that is not a number is asked for one' % name)
         continue
-    if 'respondsToSelector' not in guard:
+    if asks not in guard:
         failures.append('%s does not ask whether the value can answer for a number' % name)
-    if 'NSStringFromClass' not in guard or 'NSLog' not in guard:
+    if 'className(' not in guard or 'NSLog' not in guard:
         failures.append('%s does not name what the value actually is' % name)
+if 'NSStringFromClass' not in guards:
+    failures.append('a refused value is not named by its class')
 
 # --- and nothing reads a number around them -----------------------------------
 direct = re.findall(r'\[\[dcmObject attributeValueWithName:@"[A-Za-z0-9]+"\] '
@@ -71,22 +85,22 @@ if direct:
     failures.append('%d attribute(s) are still asked for a number without a guard, starting with '
                     '%s' % (len(direct), direct[0]))
 
-# The three group loaders are where the geometry comes from.
+# The group loaders are where the geometry comes from.
 for signature, attributes in (
-        ('- (void) dcmFrameworkLoad0x0020:', ('ImagePositionPatient', 'ImageOrientationPatient')),
-        ('- (void) dcmFrameworkLoad0x0028:', ('PixelSpacing',))):
-    loader = body(signature, code)
+        ('public mutating func readPlane(from item:', ('ImagePositionPatient', 'ImageOrientationPatient')),
+        ('public mutating func readPixelDescription(from item:', ('PixelSpacing',))):
+    loader = swift_body(signature, reader)
     if not loader:
         failures.append('%s is gone' % signature)
         continue
-    if 'horosNumberInArray' not in loader:
+    if 'Values.number(in:' not in loader and 'readSpacing(' not in loader and 'readCosines(' not in loader:
         failures.append('%s still reads its arrays without a guard' % signature)
     for attribute in attributes:
         if attribute not in loader:
             failures.append('%s no longer reads %s' % (signature, attribute))
-    for unguarded in re.findall(r'\[\[(?:ipp|ipv|iop|iov|pixelSpacing) objectAtIndex:[^\]]*\] '
-                                r'doubleValue\]', loader):
-        failures.append('%s still reads %s without a guard' % (signature, unguarded))
+for helper in ('mutating func readSpacing(', 'mutating func readCosines('):
+    if 'AttributeValueCoercion.number(in:' not in swift_body(helper, reader):
+        failures.append('%s reads its values without a guard' % helper)
 
 for failure in failures:
     print('FAIL: %s' % failure)

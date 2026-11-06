@@ -3,6 +3,10 @@
 from pathlib import Path
 import subprocess
 import tempfile
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import process_graph_stand_in  # the 2D viewer's sources read the catalog's keys through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 code = r'''
@@ -140,6 +144,7 @@ with tempfile.TemporaryDirectory(prefix='horos-annotation-presentation-') as dir
         str(root / 'Horos/Sources/AnnotationPresentation.swift'),
         str(root / 'Horos/Sources/LengthPresentation.swift'),
         str(path / 'main.swift'),
+        *process_graph_stand_in.swift_flags(path / 'isix'),
         '-o', str(path / 'test')
     ], check=True)
     subprocess.run([str(path / 'test')], check=True)

@@ -38,17 +38,17 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXDICOMDataset
+import IsiXDICOMFile
 
-/// CompareDCMAttributeTagNames and CompareDCMAttributeTagStringValues (kept,
-/// with their C++ names, in AnonymizationTagsPopUpButton+CAPI.mm): Swift
-/// cannot name a C++ function, so the tags are sorted by the same NSArray
-/// method with these equivalents.
+/// The comparators of the former CompareDCMAttributeTagNames and
+/// CompareDCMAttributeTagStringValues, for the same NSArray sort.
 private let compareDCMAttributeTagNames: @convention(c) (Any, Any, UnsafeMutableRawPointer?) -> Int = { lsp, rsp, _ in
-    return anonymizationCaseInsensitiveCompare((lsp as? DCMAttributeTag)?.name, (rsp as? DCMAttributeTag)?.name)
+    return anonymizationCaseInsensitiveCompare((lsp as? DICOMAttributeTag)?.name, (rsp as? DICOMAttributeTag)?.name)
 }
 
 private let compareDCMAttributeTagStringValues: @convention(c) (Any, Any, UnsafeMutableRawPointer?) -> Int = { lsp, rsp, _ in
-    return anonymizationCaseInsensitiveCompare((lsp as? DCMAttributeTag)?.stringValue, (rsp as? DCMAttributeTag)?.stringValue)
+    return anonymizationCaseInsensitiveCompare((lsp as? DICOMAttributeTag)?.stringValue, (rsp as? DICOMAttributeTag)?.stringValue)
 }
 
 /// What %@ wrote for a string, nil included.
@@ -61,13 +61,12 @@ private func formatted(_ string: String?) -> String {
 /// Custom...
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
-/// <Horos/AnonymizationTagsPopUpButton.h> are those of the former class. Its
-/// -selectedTag and -setSelectedTag:, whose getter has the selector of
-/// NSPopUpButton's -selectedTag, are a category in
-/// AnonymizationTagsPopUpButton+CAPI.mm.
+/// <Horos/AnonymizationTagsPopUpButton.h> are those of the former class. The
+/// selected tag is `selectedAttributeTag`; the former -selectedTag, which
+/// Objective-C could not call, left with its override of NSPopUpButton's.
 @objc(AnonymizationTagsPopUpButton)
 public final class AnonymizationTagsPopUpButton: NSPopUpButton {
-    private var selectedDCMAttributeTagStorage: DCMAttributeTag?
+    private var selectedAttributeTagStorage: DICOMAttributeTag?
 
     @objc(tagsMenu)
     public class func tagsMenu() -> NSMenu! {
@@ -81,7 +80,7 @@ public final class AnonymizationTagsPopUpButton: NSPopUpButton {
         }
 
         // A file DCMTK cannot read gave no attributes, so an empty list.
-        let dcmObject = HorosDCMTKObject(contentsOfFile: dicomFile)
+        let dcmObject = DCMObject.object(contentsOfFile: dicomFile)
         let attributes = dcmObject?.attributes
 
         let sortedKeys = (attributes?.allKeys as NSArray?)?.sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) ?? []
@@ -117,16 +116,17 @@ public final class AnonymizationTagsPopUpButton: NSPopUpButton {
                             }
                         }
 
+                        let attributeTag = tag.attrTag
                         let description: String
 
                         if !valDescription.isEmpty {
-                            description = "\(formatted(tag.attrTag?.stringValue)) - \(formatted(tag.attrTag?.name)) -\(valDescription)"
+                            description = "\(formatted(attributeTag?.stringValue)) - \(formatted(attributeTag?.name)) -\(valDescription)"
                         } else {
-                            description = "\(formatted(tag.attrTag?.stringValue)) - \(formatted(tag.attrTag?.name))"
+                            description = "\(formatted(attributeTag?.stringValue)) - \(formatted(attributeTag?.name))"
                         }
 
                         let item = NSMenuItem(title: description, action: action, keyEquivalent: "")
-                        item.representedObject = tag.attrTag
+                        item.representedObject = attributeTag
                         item.target = target
                         tagsOfTheDICOMFile.addItem(item)
                     }
@@ -138,10 +138,10 @@ public final class AnonymizationTagsPopUpButton: NSPopUpButton {
             }
         }
 
-        let tagDictionary = DCMTagDictionary.sharedTagDictionary() as? NSDictionary
+        let tagDictionary = DICOMTagDictionary.sharedTagDictionary()
         let dcmTags = NSMutableArray(capacity: tagDictionary?.count ?? 0)
         for case let dcmTagsKey as String in tagDictionary?.allKeys ?? [] {
-            if let tag = DCMAttributeTag.tag(withTagString: dcmTagsKey) {
+            if let tag = DICOMAttributeTag.tag(withTagString: dcmTagsKey) {
                 dcmTags.add(tag)
             }
         }
@@ -150,7 +150,7 @@ public final class AnonymizationTagsPopUpButton: NSPopUpButton {
         let tagsSortedByNameMenuItem = NSMenuItem(title: NSLocalizedString("Sorted by Name", comment: ""), action: nil, keyEquivalent: "")
         tagsSortedByNameMenuItem.submenu = tagsSortedByNameMenu
         tagsMenu.addItem(tagsSortedByNameMenuItem)
-        for case let tag as DCMAttributeTag in dcmTags.sortedArray(compareDCMAttributeTagNames, context: nil) {
+        for case let tag as DICOMAttributeTag in dcmTags.sortedArray(compareDCMAttributeTagNames, context: nil) {
             let item = NSMenuItem(title: "\(formatted(tag.name)) - \(formatted(tag.stringValue))", action: action, keyEquivalent: "")
             item.representedObject = tag
             item.target = target
@@ -161,7 +161,7 @@ public final class AnonymizationTagsPopUpButton: NSPopUpButton {
         let tagsSortedByStringValueMenuItem = NSMenuItem(title: NSLocalizedString("Sorted by Value", comment: ""), action: nil, keyEquivalent: "")
         tagsSortedByStringValueMenuItem.submenu = tagsSortedByStringValueMenu
         tagsMenu.addItem(tagsSortedByStringValueMenuItem)
-        for case let tag as DCMAttributeTag in dcmTags.sortedArray(compareDCMAttributeTagStringValues, context: nil) {
+        for case let tag as DICOMAttributeTag in dcmTags.sortedArray(compareDCMAttributeTagStringValues, context: nil) {
             let item = NSMenuItem(title: "\(formatted(tag.stringValue)) - \(formatted(tag.name))", action: action, keyEquivalent: "")
             item.representedObject = tag
             item.target = target
@@ -184,7 +184,7 @@ public final class AnonymizationTagsPopUpButton: NSPopUpButton {
         extraItem.target = self
         menu?.addItem(extraItem)
 
-        selectedDCMAttributeTag = nil
+        selectedAttributeTag = nil
     }
 
     public required init?(coder: NSCoder) {
@@ -194,7 +194,7 @@ public final class AnonymizationTagsPopUpButton: NSPopUpButton {
     @objc(customMenuItemAction:)
     func customMenuItemAction(_ sender: Any?) {
         let panelController = AnonymizationCustomTagPanelController()
-        panelController.attributeTag = selectedDCMAttributeTag
+        panelController.attributeTag = selectedAttributeTag
         // The sheet's delegate releases the controller.
         let context = Unmanaged.passRetained(panelController).toOpaque()
         window!.beginSheet(panelController.window!) { response in
@@ -211,7 +211,7 @@ public final class AnonymizationTagsPopUpButton: NSPopUpButton {
         let panelController = Unmanaged<AnonymizationCustomTagPanelController>.fromOpaque(contextInfo).takeRetainedValue()
 
         if returnCode == NSApplication.ModalResponse.stop.rawValue {
-            selectedDCMAttributeTag = panelController.attributeTag
+            selectedAttributeTag = panelController.attributeTag
         }
 
         panel.close()
@@ -219,19 +219,19 @@ public final class AnonymizationTagsPopUpButton: NSPopUpButton {
 
     @objc(tagsMenuItemSelectedAction:)
     func tagsMenuItemSelectedAction(_ menuItem: NSMenuItem) {
-        selectedDCMAttributeTag = menuItem.representedObject as? DCMAttributeTag
+        selectedAttributeTag = menuItem.representedObject as? DICOMAttributeTag
     }
 
     /// Retained and nonatomic in the former header. `dynamic`, so that KVO's
     /// automatic notifications wrap the setter as before; the explicit
     /// -didChangeValueForKey: calls are the former setter's.
-    @objc public dynamic var selectedDCMAttributeTag: DCMAttributeTag! {
+    @objc public dynamic var selectedAttributeTag: DICOMAttributeTag! {
         get {
-            return selectedDCMAttributeTagStorage
+            return selectedAttributeTagStorage
         }
         set {
             let tag = newValue
-            selectedDCMAttributeTagStorage = tag
+            selectedAttributeTagStorage = tag
 
             didChangeValue(forKey: "title")
 
@@ -245,7 +245,7 @@ public final class AnonymizationTagsPopUpButton: NSPopUpButton {
             }
 
             let displayedTitle: String?
-            if let selected = selectedDCMAttributeTagStorage {
+            if let selected = selectedAttributeTagStorage {
                 displayedTitle = selected.name != nil ? "\(formatted(selected.name)) - \(formatted(selected.stringValue))" : selected.stringValue
             } else {
                 displayedTitle = NSLocalizedString("Select a DICOM tag...", comment: "")
@@ -253,7 +253,7 @@ public final class AnonymizationTagsPopUpButton: NSPopUpButton {
             (cell as? N2CustomTitledPopUpButtonCell)?.displayedTitle = displayedTitle
             needsDisplay = true
 
-            didChangeValue(forKey: "selectedDCMAttributeTag")
+            didChangeValue(forKey: "selectedAttributeTag")
         }
     }
 
@@ -263,9 +263,9 @@ public final class AnonymizationTagsPopUpButton: NSPopUpButton {
         let v = s?.anonymizationViewController
 
         var found = false
-        let represented = menuItem.representedObject as? DCMAttributeTag
+        let represented = menuItem.representedObject as? DICOMAttributeTag
         let mg = represented?.group ?? 0, me = represented?.element ?? 0
-        for case let t as DCMAttributeTag in (v?.tags as NSArray?) ?? NSArray() {
+        for case let t as DICOMAttributeTag in (v?.tags as NSArray?) ?? NSArray() {
             if t.group == mg && t.element == me {
                 found = true
                 break

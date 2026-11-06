@@ -20,8 +20,21 @@ def method(source, name):
     return source[at:source.index('\n}', at) + 2]
 
 
-view = strip((root / 'Horos/Sources/SRView.mm').read_bytes().decode('latin1'))
-header = (root / 'Horos/Sources/SRView.h').read_bytes().decode('latin1')
+def swift_method(source, name):
+    at = source.find(name)
+    if at < 0:
+        return ''
+    return source[at:source.index('\n    }\n', at) + 6]
+
+
+# SRView is Swift, split by responsibility (SRView+Points.swift picks and
+# places the points, SRView+Mouse.swift takes the click); the pick itself is
+# the VTK adapter's (IsiXVTKScene, IsiXVTKSceneActors.mm builds the surfaces).
+sys.path.insert(0, str(root / 'tests'))
+import sources  # noqa: E402
+view = strip(sources.class_text('SRView'))
+scene = strip((root / 'Horos/Sources/Adapters/VTK/IsiXVTKScene.mm').read_text())
+actors = strip((root / 'Horos/Sources/Adapters/VTK/IsiXVTKSceneActors.mm').read_text())
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_bytes().decode('latin1')
 helper = root / 'Horos/Sources/SRSurfacePointGeometry.swift'
 
@@ -29,49 +42,45 @@ if not helper.is_file():
     failures.append('Horos/Sources/SRSurfacePointGeometry.swift is missing')
 if 'SRSurfacePointGeometry.swift' not in project:
     failures.append('project.pbxproj does not compile SRSurfacePointGeometry.swift')
-if 'Horos-Swift.h' not in (root / 'Horos/Sources/SRView.mm').read_bytes().decode('latin1'):
-    failures.append('SRView.mm does not import Horos-Swift.h')
 
-throw = method(view, '- (void) throw3DPointOnSurface')
+throw = swift_method(view, 'func throw3DPointOnSurface(')
 if not throw:
     failures.append('throw3DPointOnSurface is gone')
 else:
-    if 'vtkWorldPointPicker' in throw:
+    if 'WorldPointPicker' in throw:
         failures.append('throw3DPointOnSurface still uses vtkWorldPointPicker, which lands on the focal plane')
-    if 'vtkCellPicker' not in throw and 'pickSurfaceAtDisplayX' not in throw:
+    if 'pickSurface(atDisplayX:' not in throw:
         failures.append('throw3DPointOnSurface does not pick the iso surface')
     if 'add3DPoint' not in throw or 'add2DPoint' not in throw:
         failures.append('a hit no longer writes both the 3D actor and the exported 2D point')
 
-pick = method(view, '- (BOOL) pickSurfaceAtDisplayX')
-if not pick:
-    failures.append('pickSurfaceAtDisplayX is gone')
-else:
-    if 'vtkCellPicker' not in pick:
-        failures.append('the surface pick does not use vtkCellPicker')
-    if 'PickableOn' not in pick and 'setSurfaceActorsPickable: YES' not in pick and 'setSurfaceActorsPickable:YES' not in pick:
-        failures.append('iso actors stay PickableOff during the pick, so CellPicker cannot hit them')
-    if 'PickableOff' not in pick and 'setSurfaceActorsPickable: NO' not in pick and 'setSurfaceActorsPickable:NO' not in pick:
-        failures.append('iso actors are left pickable, so the 3D-point tool would select the surface instead of a sphere')
+pick = swift_method(view, 'func pickSurface(atDisplayX x: Double, y: Double, world: inout IsiXVTKPoint)')
+picker = scene[scene.find('- (BOOL)pickActors:'):scene.find('\n}\n', scene.find('- (BOOL)pickActors:')) + 3]
+if 'scene.pick(surfaces' not in pick:
+    failures.append('the surface pick does not go through the scene with the surfaces')
+if 'vtkCellPicker' not in picker:
+    failures.append('the surface pick does not use vtkCellPicker')
+if 'PickableOn()' not in picker:
+    failures.append('iso actors stay PickableOff during the pick, so CellPicker cannot hit them')
+if 'SetPickable(wasPickable' not in picker:
+    failures.append('iso actors are left pickable, so the 3D-point tool would select the surface instead of a sphere')
 
-convert = method(view, '- (void) convert3Dto2Dpoint')
-if 'HorosSRSurfacePointGeometry' not in convert:
+convert = swift_method(view, 'func convert3Dto2Dpoint(')
+if 'SRSurfacePointGeometry.voxel(' not in convert:
     failures.append('convert3Dto2Dpoint no longer uses SRSurfacePointGeometry for the exported voxel')
 
-change = method(view, '- (void) changeActor:')
-if 'PickableOff' not in change:
-    failures.append('changeActor no longer leaves iso actors unpickable after reconstruction')
+surface = actors[actors.find('- (IsiXVTKActor *)surfaceAtValue:'):]
+if 'actor->PickableOff();' not in surface[:surface.find('\n}\n')]:
+    failures.append('the surfaces are no longer built unpickable')
 
-for source, label in ((view, 'SRView.mm'),):
-    if 'throw3DPointOnSurface' not in source:
-        failures.append('%s no longer places a 3D point' % label)
-        continue
-    at = source.find('throw3DPointOnSurface')
-    window = source[max(0, at - 500):at + 80]
-    if 'HorosVRInteractionGeometry backingPoint' not in window:
-        failures.append('%s throws a 3D point from view points, not VTK backing pixels' % label)
-    if 'vtkWorldPointPicker' in method(source, '- (void)mouseDown:'):
-        failures.append('%s mouseDown still uses vtkWorldPointPicker for the surface click' % label)
+at = view.find('throw3DPointOnSurface(pick.x, pick.y)')
+if at < 0:
+    failures.append('SRView no longer places a 3D point at the click')
+else:
+    if 'VRInteractionGeometry.backingPoint' not in view[max(0, at - 500):at]:
+        failures.append('SRView throws a 3D point from view points, not VTK backing pixels')
+if 'WorldPointPicker' in swift_method(view, 'override func mouseDown('):
+    failures.append('mouseDown still uses vtkWorldPointPicker for the surface click')
 
 if failures:
     print('FAIL:', *failures, sep='\n', file=sys.stderr)

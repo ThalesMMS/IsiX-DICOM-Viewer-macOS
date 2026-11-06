@@ -38,7 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 // The "Other" methods of DicomDatabase are implemented in Swift
-// (DicomDatabase+Other.swift): a Swift extension of the class, which stays
+// (DicomDatabase+Maintenance.swift): a Swift extension of the class, which stays
 // Objective-C, with the same selectors. DicomDatabase.h imports this header, so
 // that whoever imports it, plugins included, still sees them: the generated
 // interface declares them.
@@ -49,25 +49,4 @@
 // Swift is compiling the extension itself.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift, the Decompress helper: DCMPix.m imports
-// DicomDatabase.h. The former declarations, without their implementation.
-@interface DicomDatabase (Other)
-
-+(void)recomputePatientUIDsInContext:(NSManagedObjectContext*)context;
-
--(BOOL)rebuildAllowed;
-// some of these methods should be private, but is declared because called from deprecated api
--(void)rebuild;
--(void)rebuild:(BOOL)complete;
--(void)checkForExistingReportForStudy:(NSManagedObject*)study;
--(void)checkReportsConsistencyWithDICOMSR;
--(void)rebuildSqlFile;
--(void)checkForHtmlTemplates;
-
-// methods to overload when one needs to ask for confirmation about autorouting
--(BOOL)allowAutoroutingWithPostNotifications:(BOOL)postNotifications rereadExistingItems:(BOOL)rereadExistingItems;
--(void)alertToApplyRoutingRules:(NSArray*)routingRules toImages:(NSArray*)images;
-
-@end
 #endif

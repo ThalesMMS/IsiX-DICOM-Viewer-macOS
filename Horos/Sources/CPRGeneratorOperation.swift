@@ -83,7 +83,7 @@ open class CPRGeneratorOperation: Operation, @unchecked Sendable {
     }
 
     /// -init of NSOperation left the request and the volume nil, as this does.
-    @objc public override convenience init() {
+    public override convenience init() {
         self.init(request: nil, volumeData: nil)
     }
 

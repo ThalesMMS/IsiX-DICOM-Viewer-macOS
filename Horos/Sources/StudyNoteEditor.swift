@@ -12,6 +12,7 @@
 
 import AppKit
 import CoreData
+import IsiXPreferences
 
 // The note of a study: free text kept in the `note` attribute of the Study
 // entity (model 2.6), edited in a window of its own. The «Note» item of the 2D
@@ -74,6 +75,7 @@ public final class StudyNoteEditor: NSWindowController, NSWindowDelegate {
             }
         }
 
+    private let processGraph: ProcessGraph
     private let study: DicomStudy
     private let studyID: NSManagedObjectID
     private let readOnly: Bool
@@ -84,18 +86,26 @@ public final class StudyNoteEditor: NSWindowController, NSWindowDelegate {
     @objc(showEditorForStudy:)
     @discardableResult
     public class func showEditor(for study: DicomStudy) -> StudyNoteEditor {
+        showEditor(for: study, processGraph: ProcessGraph.process)
+    }
+
+    /// Opens the editor of `study` over `processGraph` (a viewer's), or brings
+    /// forward the one already open.
+    @discardableResult
+    class func showEditor(for study: DicomStudy, processGraph: ProcessGraph) -> StudyNoteEditor {
         if let open = editors[study.objectID] {
             open.showWindow(nil)
             return open
         }
         _ = terminationObserver
-        let editor = StudyNoteEditor(study: study)
+        let editor = StudyNoteEditor(study: study, processGraph: processGraph)
         editors[editor.studyID] = editor
         editor.showWindow(nil)
         return editor
     }
 
-    private init(study: DicomStudy) {
+    private init(study: DicomStudy, processGraph: ProcessGraph) {
+        self.processGraph = processGraph
         self.study = study
         self.studyID = study.objectID
         let database = study.managedObjectContext.flatMap { DicomDatabase(for: $0) }
@@ -157,7 +167,7 @@ public final class StudyNoteEditor: NSWindowController, NSWindowDelegate {
         cancel.target = self
         save.target = self
         window.delegate = self
-        window.title = StudyNoteEditor.title(for: study, readOnly: readOnly)
+        window.title = StudyNoteEditor.title(for: study, readOnly: readOnly, preferences: processGraph.preferences)
         window.setFrameAutosaveName("HorosStudyNoteEditor")
         window.initialFirstResponder = textView
         if !window.setFrameUsingName("HorosStudyNoteEditor") { window.center() }
@@ -167,8 +177,8 @@ public final class StudyNoteEditor: NSWindowController, NSWindowDelegate {
         fatalError("init(coder:) is not used")
     }
 
-    private static func title(for study: DicomStudy, readOnly: Bool) -> String {
-        let name = UserDefaults.standard.bool(forKey: "HIDEPATIENTNAME") ? nil : study.name
+    private static func title(for study: DicomStudy, readOnly: Bool, preferences: UserDefaults) -> String {
+        let name = preferences[DatabasePreferences.hidesPatientName] ? nil : study.name
         let parts = [name, study.studyName].compactMap { $0 }.filter { !$0.isEmpty }
         var title = parts.isEmpty ? NSLocalizedString("Note", comment: "the note of a study") :
             String(format: NSLocalizedString("Note: %@", comment: "title of the note editor of a study"), parts.joined(separator: " - "))
@@ -216,7 +226,7 @@ public final class StudyNoteEditor: NSWindowController, NSWindowDelegate {
                 } else if let database {
                     saved = database.save(&saveError) && saveError == nil
                 }
-                BrowserController.currentBrowser()?.databaseOutline?.reloadData()
+                BrowserStudyAnnotations(processGraph: self.processGraph).reloadStudies()
             }
         } catch {
             failed((error as NSError).localizedDescription, text)
@@ -241,6 +251,6 @@ public extension ViewerController {
     @objc(showStudyNoteEditor:)
     func showStudyNoteEditor(_ sender: Any?) {
         guard let study = self.currentStudy() else { return }
-        StudyNoteEditor.showEditor(for: study)
+        StudyNoteEditor.showEditor(for: study, processGraph: sessionGraph.processGraph)
     }
 }

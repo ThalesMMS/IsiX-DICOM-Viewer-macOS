@@ -50,22 +50,13 @@ void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void 
 }
 #endif
 
-@interface N2ManagedDatabase : NSObject {
-	@protected
-    NSString* _sqlFilePath;
-	@private
-	NSManagedObjectContext* _managedObjectContext;
-    id _mainDatabase;
-    volatile BOOL _isDeallocating;
-    
-#ifndef NDEBUG
-    NSThread *associatedThread;
-#endif
-}
+// N2ManagedDatabase and N2ManagedObjectContext are implemented in Swift
+// (N2ManagedDatabase.swift and its extensions, N2ManagedObjectContext.swift);
+// the CAPI categories in Objective-C (N2ManagedDatabase+CAPI.m).
+@interface N2ManagedDatabase : NSObject
 
-#ifndef NDEBUG
+// Debug builds: the thread that set the context. Nil in a Release build.
 @property(readonly) NSThread* associatedThread;
-#endif
 
 @property(readonly,retain) NSString* sqlFilePath;
 @property(readonly) NSManagedObjectModel* managedObjectModel;
@@ -74,28 +65,20 @@ void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void 
 @property(readonly,retain) id mainDatabase; // for independentDatabases
 -(BOOL)isMainDatabase;
 
-// SDK compatibility only: these lock the context, for the plug-ins and callers
-// that still pair them around their work. A lock does not make an access from
-// outside the context's queue safe: the work itself runs inside
-// -performBlockAndWait: (or on the main thread, for the UI's main-queue context).
--(void)lock;
+// SDK compatibility only: -lockBeforeDate: and the locks of the CAPI category
+// lock the context, for the plug-ins and callers that still pair them around
+// their work. A lock does not make an access from outside the context's queue
+// safe: the work itself runs inside -performBlockAndWait: (or on the main
+// thread, for the UI's main-queue context).
 -(BOOL)lockBeforeDate:(NSDate*) date;
--(BOOL)tryLock;
--(void)unlock;
-#ifndef NDEBUG
-// Debug: says when a main-queue context is used off the main thread.
+// Debug builds say when a main-queue context is used off the main thread; in a
+// Release build these do nothing.
 -(void) checkForCorrectContextThread;
 -(void) checkForCorrectContextThread: (NSManagedObjectContext*) c;
-#endif
-// write locking uses writeLock member
-//-(void)writeLock;
-//-(BOOL)tryWriteLock;
-//-(void)writeUnlock;
 
 +(NSString*) modelName;
 -(BOOL) deleteSQLFileIfOpeningFailed;
 -(NSManagedObjectModel*)managedObjectModel;
-//-(NSMutableDictionary*)persistentStoreCoordinatorsDictionary;
 -(BOOL)migratePersistentStoresAutomatically; // default implementation returns YES
 
 -(id)initWithPath:(NSString*)sqlFilePath;
@@ -123,11 +106,10 @@ void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void 
 -(NSManagedObjectContext*)privateQueueIndependentContext;
 -(id)privateQueueIndependentDatabase;
 
-// Runs block on the queue of this database's context and waits: on the
-// calling thread for a private-queue context, on the main thread for the UI's
-// main-queue context. An exception raised in block is raised again here, off
-// the queue.
--(void)performBlockAndWait:(void (NS_NOESCAPE ^)(void))block;
+@end
+
+// N2ManagedDatabase+Objects.swift
+@interface N2ManagedDatabase (Objects)
 
 -(NSEntityDescription*)entityForName:(NSString*)name;
 
@@ -137,18 +119,17 @@ void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void 
 // in these methods, e can be an NSEntityDescription* or an NSString*
 -(NSArray*)objectsForEntity:(id)e;
 -(NSArray*)objectsForEntity:(id)e predicate:(NSPredicate*)p;
--(NSArray*)objectsForEntity:(id)e predicate:(NSPredicate*)p error:(NSError**)err;
 -(NSArray*)objectsForEntity:(id)e predicate:(NSPredicate*)p error:(NSError**)error fetchLimit:(NSUInteger)fetchLimit sortDescriptors:(NSArray*)sortDescriptors;
 -(NSUInteger)countObjectsForEntity:(id)e;
 -(NSUInteger)countObjectsForEntity:(id)e predicate:(NSPredicate*)p;
 -(NSUInteger)countObjectsForEntity:(id)e predicate:(NSPredicate*)p error:(NSError**)err;
--(id)newObjectForEntity:(id)e;
 
 -(BOOL)save;
 -(BOOL)save:(NSError**)err;
 
 @end
 
+// N2ManagedDatabase+Store.swift
 @interface N2ManagedDatabase (Protected)
 
 - (Class)NSManagedObjectContextClass;
@@ -158,23 +139,32 @@ void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void 
 
 @end
 
-@interface N2ManagedObjectContext : NSManagedObjectContext {
-	N2ManagedDatabase* _database;
-    NSMutableArray *_afterSuccessfulSaveActions;
-    NSMutableArray *_nextSuccessfulSaveActions;
-    NSMutableArray *_discardedChangesActions;
-    BOOL _defersSaves;
-    BOOL _atomicChangesCancelled;
-}
+// N2ManagedDatabase+CAPI.m
+@interface N2ManagedDatabase (CAPI)
 
-@property(readonly) N2ManagedDatabase* database;
-
-// Legacy SDK adapters retain the receiver once per successful acquisition.
-// Recursive lock/tryLock calls require matching unlock calls. They do not move
-// work to the context queue; internal code uses N2ManagedObjectContextPerformAndWait.
 -(void)lock;
 -(BOOL)tryLock;
 -(void)unlock;
+
+// in these methods, e can be an NSEntityDescription* or an NSString*
+-(NSArray*)objectsForEntity:(id)e predicate:(NSPredicate*)p error:(NSError**)err;
+
+// Runs block on the queue of this database's context and waits: on the
+// calling thread for a private-queue context, on the main thread for the UI's
+// main-queue context. An exception raised in block is raised again here, off
+// the queue.
+-(void)performBlockAndWait:(void (NS_NOESCAPE ^)(void))block;
+
+// Answers an autoreleased object although its name puts it in the new family:
+// without the annotation Swift and ARC would take over a +1 that is not there
+// and release the object once too often.
+-(id)newObjectForEntity:(id)e NS_RETURNS_NOT_RETAINED;
+
+@end
+
+@interface N2ManagedObjectContext : NSManagedObjectContext
+
+@property(readonly) N2ManagedDatabase* database;
 
 // Validation callbacks may schedule side effects only during an active save.
 // Failed saves discard these actions; standalone validation has no side effects.
@@ -192,5 +182,17 @@ void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void 
 
 - (instancetype)initWithDatabase:(N2ManagedDatabase *)db concurrencyType:(NSManagedObjectContextConcurrencyType)ct NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithConcurrencyType:(NSManagedObjectContextConcurrencyType)ct NS_UNAVAILABLE;
+
+@end
+
+// N2ManagedDatabase+CAPI.m
+@interface N2ManagedObjectContext (CAPI)
+
+// Legacy SDK adapters retain the receiver once per successful acquisition.
+// Recursive lock/tryLock calls require matching unlock calls. They do not move
+// work to the context queue; internal code uses N2ManagedObjectContextPerformAndWait.
+-(void)lock;
+-(BOOL)tryLock;
+-(void)unlock;
 
 @end

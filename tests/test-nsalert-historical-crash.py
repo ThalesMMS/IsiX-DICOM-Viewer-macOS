@@ -45,7 +45,7 @@ info = (root / 'Horos/Info.plist').read_bytes().decode('latin1')
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
-app = sources.source_text('AppController')
+app = sources.class_text('AppController')
 capi = sources.source_text('AppController+CAPI')
 # NSPanel (N2) is Swift; the assertions read its Swift spelling.
 panel = sources.source_text('NSPanel+N2')
@@ -78,7 +78,18 @@ start = app.find('class func initializeAppController()')
 if 'initializeAppController' not in forwarder or start < 0:
     failures.append('+[AppController initialize] is gone')
 else:
+    # The Swift method hands its body to ApplicationLifecycle.initializeProcess(),
+    # whose volume waits are DatabaseVolumeWait's (ApplicationLifecycle.swift).
     body = braced(app, start)
+    if 'ApplicationLifecycle.initializeProcess()' in body:
+        at = app.find('    static func initializeProcess() {')
+        body = braced(app, at) if at >= 0 else ''
+        if 'waitForDatabaseVolumes(' in body:
+            at = app.find('    private static func waitForDatabaseVolumes(')
+            body += braced(app, at) if at >= 0 else ''
+        if 'DatabaseVolumeWait(' in body:
+            at = app.find('@MainActor struct DatabaseVolumeWait {')
+            body += braced(app, at) if at >= 0 else ''
     if 'NSPanel.alert(withTitle:' not in body or 'DatabaseLocation.dataDirectoryName' not in body:
         failures.append('+initialize no longer raises the volume-wait panel during MainMenu load')
     if 'HorosAlertPanel.run' in body and 'Plugins Installation' in body:

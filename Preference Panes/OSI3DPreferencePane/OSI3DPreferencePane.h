@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// OSI3DPreferencePanePref is implemented in Swift since #711 (Preference
+// OSI3DPreferencePanePref is implemented in Swift (Preference
 // Panes/OSI3DPreferencePane/OSI3DPreferencePane.swift). This header keeps
 // OSI3DPreferencePane.h: it brings in the generated interface, which declares the same
 // class name and selectors.

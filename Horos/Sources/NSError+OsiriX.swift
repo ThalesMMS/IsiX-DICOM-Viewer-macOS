@@ -40,9 +40,12 @@
 import Foundation
 
 // NSError (OsiriX) is implemented in Swift; the selectors and
-// <Horos/NSError+OsiriX.h> are those of the former category. The two
-// ...Format:... methods take a variable argument list, which Swift cannot
-// declare: they stay in NSError+OsiriX+CAPI.m, with OsirixErrorDomain.
+// <Horos/NSError+OsiriX.h> are those of the former category, without the two
+// ...Format:... methods, which took a variable argument list and which
+// nothing sent any more.
+
+/// The error domain of the errors made here.
+public let OsirixErrorDomain = "OsiriXDomain"
 
 public extension NSError {
 

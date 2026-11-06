@@ -48,18 +48,4 @@
 #else
 #import "Horos-Swift.h"
 
-@class DCMAttributeTag;
-
-// The former -selectedTag and -setSelectedTag:. The getter has the selector of
-// NSPopUpButton's -selectedTag, which Swift cannot redeclare with another
-// type: this category, implemented in AnonymizationTagsPopUpButton+CAPI.mm,
-// keeps them. As before, Objective-C code may not call them by this name.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wincompatible-property-type"
-@interface AnonymizationTagsPopUpButton (SelectedTag)
-
-@property(retain,nonatomic) DCMAttributeTag* selectedTag NS_UNAVAILABLE;
-
-@end
-#pragma clang diagnostic pop
 #endif

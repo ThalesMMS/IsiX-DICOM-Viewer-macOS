@@ -125,7 +125,7 @@ private func debugAssert(_ condition: @autoclosure () -> Bool) {
 
 /// -[DCMPix setArrayPix::], sent with the NSArray itself: Swift imports the
 /// parameter as [Any], whose bridging would hand each pix a copy of the list.
-private typealias SetArrayPixIMP = @convention(c) (AnyObject, Selector, NSArray?, Int16) -> Void
+private typealias SetArrayPixIMP = @convention(c) (AnyObject, Selector, NSArray?, Int) -> Void
 
 /// The private helper class of the former CPRStretchedView.m: a run of
 /// consecutive pixel columns and, for each one, the distance in mm from the
@@ -151,9 +151,9 @@ private func bezierPathWithCPRStretchedViewPlaneRun(_ planeRun: _CPRStretchedVie
     while UInt(bitPattern: i) < UInt(bitPattern: NSMaxRange(planeRun.range)) {
         let distance = (planeRun.distances.object(at: i - planeRun.range.location) as! NSNumber).doubleValue
         if i == planeRun.range.location {
-            mutableBezierPath?.move(to: N3VectorMake(CGFloat(i), CGFloat(distance) * pixelsPerMm, 0))
+            mutableBezierPath.move(to: N3VectorMake(CGFloat(i), CGFloat(distance) * pixelsPerMm, 0))
         } else {
-            mutableBezierPath?.line(to: N3VectorMake(CGFloat(i), CGFloat(distance) * pixelsPerMm, 0))
+            mutableBezierPath.line(to: N3VectorMake(CGFloat(i), CGFloat(distance) * pixelsPerMm, 0))
         }
         i += 1
     }
@@ -167,8 +167,9 @@ private func bezierPathWithCPRStretchedViewPlaneRun(_ planeRun: _CPRStretchedVie
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRStretchedView.h> are those of the former class, the customClass of
-/// the stretched view of CPR.xib. Its superclass, DCMView, stays in
-/// Objective-C; the ivars it reads of it go through DCMView+SwiftIvars.h.
+/// the stretched view of CPR.xib. 
+/// Its superclass, DCMView, is Swift too; the state it reads of it is DCMView's
+/// stored properties.
 @objc(CPRStretchedView)
 public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
     // MARK: - The former instance variables
@@ -308,9 +309,8 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         return _curvedVolumeData
     }
 
-    /// The readwrite redeclaration of the class extension: -setCurvedVolumeData:.
-    @objc(setCurvedVolumeData:)
-    private dynamic func setCurvedVolumeData(_ curvedVolumeData: CPRVolumeData?) {
+    /// The private setter of curvedVolumeData, which only this view writes.
+    private func setCurvedVolumeData(_ curvedVolumeData: CPRVolumeData?) {
         _curvedVolumeData = curvedVolumeData
     }
 
@@ -395,14 +395,12 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
 
     // The properties of the class extension.
 
-    @objc(lastRequest)
-    private dynamic var lastRequest: CPRStretchedGeneratorRequest? {
+    private var lastRequest: CPRStretchedGeneratorRequest? {
         get { return _lastRequest }
         set { _lastRequest = newValue }
     }
 
-    @objc(drawAllNodes)
-    private dynamic var drawAllNodes: Bool {
+    private var drawAllNodes: Bool {
         get { return _drawAllNodes }
         set {
             let drawAllNodes = newValue
@@ -413,8 +411,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         }
     }
 
-    @objc(centerlinePath)
-    private dynamic var centerlinePath: N3BezierPath? {
+    private var centerlinePath: N3BezierPath? {
         get { return _centerlinePath }
         set { _centerlinePath = newValue }
     }
@@ -563,7 +560,6 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
 
     // MARK: - DCMView
 
-    @objc(mouseDraggedWindowLevel:)
     public override dynamic func mouseDraggedWindowLevel(_ event: NSEvent!) {
         super.mouseDraggedWindowLevel(event)
 
@@ -589,7 +585,6 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         }
     }
 
-    @objc(drawTextualData::)
     public override dynamic func drawTextualData(_ size: NSRect, _ annotations: Int) {
         if _displayTransverseLines {
             var length = Float(_curvedPath?.bezierPath?.length() ?? 0)
@@ -669,7 +664,6 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         }
     }
 
-    @objc(positionWithoutRotation:)
     public override dynamic func positionWithoutRotation(_ tPt: NSPoint) -> NSPoint {
         var tPt = tPt
         let scaleValue = self.horos_scaleValue
@@ -700,7 +694,6 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         return tPt
     }
 
-    @objc(subDrawRect:)
     public override dynamic func subDraw(_ rect: NSRect) {
         var pixToSubdrawRectOpenGLTransform = [Double](repeating: 0, count: 16)
         var i: Int
@@ -991,7 +984,6 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         roiDisable(GL_BLEND)
     }
 
-    @objc(updatePresentationStateFromSeriesOnlyImageLevel:)
     public override dynamic func updatePresentationState(fromSeriesOnlyImageLevel onlyImage: Bool) {
     }
 
@@ -1070,7 +1062,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
             i = 0
             while i < UInt(pixArray.count) {
                 let pix = pixArray.object(at: Int(i)) as AnyObject
-                unsafeBitCast(pix.method(for: setArrayPixSelector), to: SetArrayPixIMP.self)(pix, setArrayPixSelector, pixArray, Int16(truncatingIfNeeded: i))
+                unsafeBitCast(pix.method(for: setArrayPixSelector), to: SetArrayPixIMP.self)(pix, setArrayPixSelector, pixArray, Int(truncatingIfNeeded: i))
                 i += 1
             }
 
@@ -1367,14 +1359,8 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
             if _isDraggingNode == false {
                 var clickCount = 1
 
-                do {
-                    try HorosObjCException.perform {
-                        if event.type == .leftMouseDown || event.type == .rightMouseDown || event.type == .leftMouseUp || event.type == .rightMouseUp {
-                            clickCount = event.clickCount
-                        }
-                    }
-                } catch {
-                    clickCount = 1
+                if event.type == .leftMouseDown || event.type == .rightMouseDown || event.type == .leftMouseUp || event.type == .rightMouseUp {
+                    clickCount = event.clickCount
                 }
 
                 if clickCount == 2 {
@@ -1387,21 +1373,21 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
 
                     if self.roiTool(tool) && self.click(inROI: tempPt) != nil {
                         self.cprController?.roiGetInfo(self)
-                    } else if frameZoomed.boolValue == false {
-                        splitPosition.0 = cInt32(Double((windowController?.mprView1?.frame.origin.x ?? 0) + (windowController?.mprView1?.frame.size.width ?? 0))) // vert
-                        splitPosition.1 = cInt32(Double((windowController?.mprView1?.frame.origin.y ?? 0) + (windowController?.mprView1?.frame.size.height ?? 0))) // hori12
-                        splitPosition.2 = cInt32(Double((windowController?.mprView3?.frame.origin.y ?? 0) + (windowController?.mprView3?.frame.size.height ?? 0))) // horiz2
+                    } else if cprFrameZoomed.boolValue == false {
+                        cprSplitPosition.0 = cInt32(Double((windowController?.mprView1?.frame.origin.x ?? 0) + (windowController?.mprView1?.frame.size.width ?? 0))) // vert
+                        cprSplitPosition.1 = cInt32(Double((windowController?.mprView1?.frame.origin.y ?? 0) + (windowController?.mprView1?.frame.size.height ?? 0))) // hori12
+                        cprSplitPosition.2 = cInt32(Double((windowController?.mprView3?.frame.origin.y ?? 0) + (windowController?.mprView3?.frame.size.height ?? 0))) // horiz2
 
-                        frameZoomed = ObjCBool(true)
+                        cprFrameZoomed = ObjCBool(true)
 
                         windowController?.verticalSplit?.setPosition(windowController?.verticalSplit?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
                         windowController?.horizontalSplit1?.setPosition(windowController?.horizontalSplit1?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
                         windowController?.horizontalSplit2?.setPosition(windowController?.horizontalSplit2?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
                     } else {
-                        frameZoomed = ObjCBool(false)
-                        windowController?.verticalSplit?.setPosition(CGFloat(splitPosition.0), ofDividerAt: 0)
-                        windowController?.horizontalSplit1?.setPosition(CGFloat(splitPosition.1), ofDividerAt: 0)
-                        windowController?.horizontalSplit2?.setPosition(CGFloat(splitPosition.2), ofDividerAt: 0)
+                        cprFrameZoomed = ObjCBool(false)
+                        windowController?.verticalSplit?.setPosition(CGFloat(cprSplitPosition.0), ofDividerAt: 0)
+                        windowController?.horizontalSplit1?.setPosition(CGFloat(cprSplitPosition.1), ofDividerAt: 0)
+                        windowController?.horizontalSplit2?.setPosition(CGFloat(cprSplitPosition.2), ofDividerAt: 0)
 
                         windowController?.mprView1?.restoreCamera()
                         windowController?.mprView1?.camera?.forceUpdate = true
@@ -1592,8 +1578,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
 
     // MARK: - Private
 
-    @objc(_fusionModeForCPRViewClippingRangeMode:)
-    private dynamic class func _fusionModeForCPRViewClippingRangeMode(_ clippingRangeMode: CPRViewClippingRangeMode) -> Int {
+    private class func _fusionModeForCPRViewClippingRangeMode(_ clippingRangeMode: CPRViewClippingRangeMode) -> Int {
         switch clippingRangeMode {
         case CPRViewClippingRangeMode(CPRViewClippingRangeVRMode.rawValue):
             return 0 // not supported
@@ -1609,8 +1594,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         }
     }
 
-    @objc(_sendWillEditCurvedPath)
-    private dynamic func _sendWillEditCurvedPath() {
+    private func _sendWillEditCurvedPath() {
         if _editingCurvedPathCount == 0 {
             if _delegate?.responds(to: #selector(CPRViewDelegate.cprViewWillEditCurvedPath(_:))) ?? false {
                 _delegate?.cprViewWillEditCurvedPath?(self)
@@ -1619,15 +1603,13 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         _editingCurvedPathCount += 1
     }
 
-    @objc(_sendDidUpdateCurvedPath)
-    private dynamic func _sendDidUpdateCurvedPath() {
+    private func _sendDidUpdateCurvedPath() {
         if _delegate?.responds(to: #selector(CPRViewDelegate.cprViewDidUpdateCurvedPath(_:))) ?? false {
             _delegate?.cprViewDidUpdateCurvedPath?(self)
         }
     }
 
-    @objc(_sendDidEditCurvedPath)
-    private dynamic func _sendDidEditCurvedPath() {
+    private func _sendDidEditCurvedPath() {
         _editingCurvedPathCount -= 1
         if _editingCurvedPathCount == 0 {
             if _delegate?.responds(to: #selector(CPRViewDelegate.cprViewDidEditCurvedPath(_:))) ?? false {
@@ -1636,22 +1618,19 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         }
     }
 
-    @objc(_sendWillEditDisplayInfo)
-    private dynamic func _sendWillEditDisplayInfo() {
+    private func _sendWillEditDisplayInfo() {
         if _delegate?.responds(to: #selector(CPRViewDelegate.cprViewWillEditDisplayInfo(_:))) ?? false {
             _delegate?.cprViewWillEditDisplayInfo?(self)
         }
     }
 
-    @objc(_sendDidEditDisplayInfo)
-    private dynamic func _sendDidEditDisplayInfo() {
+    private func _sendDidEditDisplayInfo() {
         if _delegate?.responds(to: #selector(CPRViewDelegate.cprViewDidEditDisplayInfo(_:))) ?? false {
             _delegate?.cprViewDidEditDisplayInfo?(self)
         }
     }
 
-    @objc(_sendNewRequest)
-    private dynamic func _sendNewRequest() {
+    private func _sendNewRequest() {
         let request: CPRStretchedGeneratorRequest
 //      N3Vector curveDirection;
 //      N3Vector baseNormal;
@@ -1699,15 +1678,13 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         self.needsDisplay = true
     }
 
-    @objc(_sendNewRequestIfNeeded)
-    private dynamic func _sendNewRequestIfNeeded() {
+    private func _sendNewRequestIfNeeded() {
         if _needsNewRequest {
             self._sendNewRequest()
         }
     }
 
-    @objc(_updateGeneratedHeight)
-    private dynamic func _updateGeneratedHeight() {
+    private func _updateGeneratedHeight() {
         let newGeneratedHeight: CGFloat
 
         newGeneratedHeight = ((_curvedPath?.bezierPath?.length() ?? 0) / NSWidth(self.bounds)) * NSHeight(self.bounds)
@@ -1720,8 +1697,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         }
     }
 
-    @objc(_projectedBezierPathFromStretchedGeneratorRequest:)
-    private dynamic func _projectedBezierPath(fromStretchedGeneratorRequest generatorRequest: CPRStretchedGeneratorRequest?) -> N3BezierPath? {
+    private func _projectedBezierPath(fromStretchedGeneratorRequest generatorRequest: CPRStretchedGeneratorRequest?) -> N3BezierPath? {
         let pixelsWide: Int
         let pixelsHigh: Int
         var numVectors: UInt
@@ -1800,8 +1776,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         return centerlinePath
     }
 
-    @objc(_drawVerticalLines:)
-    private dynamic func _drawVerticalLines(_ verticalLines: NSArray?) {
+    private func _drawVerticalLines(_ verticalLines: NSArray?) {
         var lineStart: N3Vector
         var lineEnd: N3Vector
         var pixToSubdrawRectOpenGLTransform = [Double](repeating: 0, count: 16)
@@ -1822,8 +1797,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         roiPopMatrix()
     }
 
-    @objc(_drawVerticalLines:length:)
-    private dynamic func _drawVerticalLines(_ verticalLines: NSArray?, length: CGFloat) {
+    private func _drawVerticalLines(_ verticalLines: NSArray?, length: CGFloat) {
         var relativePostion: CGFloat
         var centerlineVector: N3Vector
         var lineStart: N3Vector
@@ -1849,8 +1823,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         roiPopMatrix()
     }
 
-    @objc(_drawPlaneRuns:)
-    private dynamic func _drawPlaneRuns(_ planeRuns: NSArray?) {
+    private func _drawPlaneRuns(_ planeRuns: NSArray?) {
         let pixelsPerMm: CGFloat
         var i: Int
         var planePointVector: N3Vector
@@ -1883,8 +1856,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         roiPopMatrix()
     }
 
-    @objc(_limitedRunForRelativePosition:verticalLineIndex:lengthFromCenterline:)
-    private dynamic func _limitedRun(forRelativePosition relativePosition: CGFloat, verticalLineIndex verticalLinePointer: UnsafeMutablePointer<UInt>?, lengthFromCenterline length: CGFloat) -> _CPRStretchedViewPlaneRun? {
+    private func _limitedRun(forRelativePosition relativePosition: CGFloat, verticalLineIndex verticalLinePointer: UnsafeMutablePointer<UInt>?, lengthFromCenterline length: CGFloat) -> _CPRStretchedViewPlaneRun? {
         var length = length
         var transversePlane = N3Plane()
         let mmPerPixel: CGFloat
@@ -2092,8 +2064,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         return planeRun
     }
 
-    @objc(_runsForPlane:verticalLineIndexes:)
-    private dynamic func _runs(forPlane plane: N3Plane, verticalLineIndexes verticalLinesHandle: AutoreleasingUnsafeMutablePointer<NSArray?>?) -> NSArray {
+    private func _runs(forPlane plane: N3Plane, verticalLineIndexes verticalLinesHandle: AutoreleasingUnsafeMutablePointer<NSArray?>?) -> NSArray {
         var numVectors: Int
         var i: Int
         var topPointAbove: Bool
@@ -2236,8 +2207,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
     }
 
     /// This will modify _mousePlanePointsInPix and _displayInfo.
-    @objc(_updateMousePlanePointsForViewPoint:)
-    private dynamic func _updateMousePlanePoints(forViewPoint point: NSPoint) {
+    private func _updateMousePlanePoints(forViewPoint point: NSPoint) {
         var lineDistance: CGFloat
         var runDistance: CGFloat
         var linePixVector: N3Vector
@@ -2277,8 +2247,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
 
     /// point and distance are in view coordinates, vector is in patient
     /// coordinates closestPoint is in pixCoordinates.
-    @objc(_distanceToPoint:onVerticalLines:pixVector:volumeVector:)
-    private dynamic func _distance(to point: NSPoint, onVerticalLines verticalLines: NSArray?, pixVector closestPixVectorPtr: N3VectorPointer?, volumeVector volumeVectorPtr: N3VectorPointer?) -> CGFloat {
+    private func _distance(to point: NSPoint, onVerticalLines verticalLines: NSArray?, pixVector closestPixVectorPtr: N3VectorPointer?, volumeVector volumeVectorPtr: N3VectorPointer?) -> CGFloat {
         let pixToViewTransform: N3AffineTransform
         let pixPointVector: N3Vector
         var pixVector: N3Vector
@@ -2319,8 +2288,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
 
     /// point and distance are in view coordinates, vector is in patient
     /// coordinates closestPoint is in pixCoordinates.
-    @objc(_distanceToPoint:onPlaneRuns:pixVector:volumeVector:)
-    private dynamic func _distance(to point: NSPoint, onPlaneRuns planeRuns: NSArray?, pixVector closestPixVectorPtr: N3VectorPointer?, volumeVector volumeVectorPtr: N3VectorPointer?) -> CGFloat {
+    private func _distance(to point: NSPoint, onPlaneRuns planeRuns: NSArray?, pixVector closestPixVectorPtr: N3VectorPointer?, volumeVector volumeVectorPtr: N3VectorPointer?) -> CGFloat {
         let pixelsPerMm: CGFloat
         var closeVector = N3Vector()
         var closestVector: N3Vector
@@ -2363,8 +2331,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         return minDistance
     }
 
-    @objc(_buildVerticalLinesAndPlaneRunsForPlaneFullName:)
-    private dynamic func _buildVerticalLinesAndPlaneRuns(forPlaneFullName planeFullName: String) {
+    private func _buildVerticalLinesAndPlaneRuns(forPlaneFullName planeFullName: String) {
         let planeFullName = planeFullName as NSString
         let planeName: NSString
         var plane: N3Plane
@@ -2399,8 +2366,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         }
     }
 
-    @objc(_clearAllPlanes)
-    private dynamic func _clearAllPlanes() {
+    private func _clearAllPlanes() {
         _verticalLines?.removeAllObjects()
         _planeRuns?.removeAllObjects()
     }
@@ -2505,8 +2471,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         return _planeColors?.value(forKey: planeName as String) as? NSColor
     }
 
-    @objc(_buildTransverseVerticalLinesAndPlaneRuns)
-    private dynamic func _buildTransverseVerticalLinesAndPlaneRuns() {
+    private func _buildTransverseVerticalLinesAndPlaneRuns() {
         var verticalLine: UInt = 0
         var planeRun: _CPRStretchedViewPlaneRun?
 
@@ -2536,14 +2501,12 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         }
     }
 
-    @objc(_clearTransversePlanes)
-    private dynamic func _clearTransversePlanes() {
+    private func _clearTransversePlanes() {
         _transverseVerticalLines?.removeAllObjects()
         _transversePlaneRuns?.removeAllObjects()
     }
 
-    @objc(_centerlinePixVectorForRelativePosition:)
-    private dynamic func _centerlinePixVector(forRelativePosition relativePosition: CGFloat) -> N3Vector {
+    private func _centerlinePixVector(forRelativePosition relativePosition: CGFloat) -> N3Vector {
         let relativePositionPlane: N3Plane
         let intersections: [Any]?
         let relativePositionIntersection: N3Vector
@@ -2570,8 +2533,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         return relativePositionIntersection
     }
 
-    @objc(_relativePositionForIndex:)
-    private dynamic func _relativePosition(forIndex index: Int) -> CGFloat {
+    private func _relativePosition(forIndex index: Int) -> CGFloat {
         let plane: N3Plane
         let intersections: [Any]?
 
@@ -2585,8 +2547,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         return ((intersections![0] as? NSValue)?.n3VectorValue() ?? N3Vector()).z
     }
 
-    @objc(_relativePositionForPixPoint:)
-    private dynamic func _relativePosition(forPixPoint pixPoint: NSPoint) -> CGFloat {
+    private func _relativePosition(forPixPoint pixPoint: NSPoint) -> CGFloat {
         var pixLine = N3Line()
         var closestVector: N3Vector
 
@@ -2603,8 +2564,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         return cMIN(cMAX(closestVector.z, 0.0), 1.0)
     }
 
-    @objc(_vectorForPixPoint:)
-    private dynamic func _vector(forPixPoint pixPoint: NSPoint) -> N3Vector {
+    private func _vector(forPixPoint pixPoint: NSPoint) -> N3Vector {
         let intersectionPlane: N3Plane
         let intersections: [Any]?
         let intersectionVector: N3Vector
@@ -2631,8 +2591,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
         return N3VectorAdd(vector, N3VectorScalarMultiply(projectionNormal, mmDistance))
     }
 
-    @objc(_pushBezierPath:)
-    private dynamic func _pushBezierPath(_ distance: CGFloat) {
+    private func _pushBezierPath(_ distance: CGFloat) {
         var i: Int
         var relativePosition: CGFloat
         var tangent: N3Vector

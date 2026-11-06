@@ -264,7 +264,7 @@ if 'let all' in petct_jpeg or 'if all' in petct_jpeg:
     failures.append('OrthogonalMPRPETCTViewer: -exportJPEG: keeps its dead single-image branch')
 
 # OPENVIEWER opens the first image the PET-CT JPEG series wrote.
-opened = petct_jpeg[petct_jpeg.find('if UserDefaults.standard.bool(forKey: "OPENVIEWER") {'):]
+opened = petct_jpeg[petct_jpeg.find('preferenceStore[ReconstructionPreferences.opensViewer] {'):]
 if 'if let url = panel.url {' in opened or 'if let url = firstImage {' not in opened \
         or 'NSWorkspace.shared.open(url)' not in opened:
     failures.append('OrthogonalMPRPETCTViewer: the JPEG series opens the name of the panel, which it never writes')
@@ -274,7 +274,7 @@ if 'write(to: url, atomically: true) ?? false, firstImage == nil' not in written
 
 # Cancelling the three-modality series stops all three.
 petct_series = source[source.find('func endExportDICOMFileSettings('):source.find('func exportDICOMFile(', source.find('func endExportDICOMFileSettings('))]
-three = petct_series[petct_series.find('export3modalities") == false {'):]
+three = petct_series[petct_series.find('petCTExportsThreeModalities] == false {'):]
 if three.count('for index in indices {') != 2 or 'for (seriesNumber, seriesView) in [(nCT, viewCT), (nPETCT, viewPETCT), (nPET, viewPET)]' not in three:
     failures.append('OrthogonalMPRPETCTViewer: the three-modality series are not one loop')
 elif 'aborted = true' not in three or '                                    if aborted {\n                                        break' not in three:
@@ -296,9 +296,12 @@ reslice = method(controller_source, 'public override dynamic func reslice(')
 if 'var blendingFactor: Float = originalView?.blendingFactor' not in reslice:
     failures.append('the first reslice of the fused row sets a fusion factor no view held')
 
-writer = (root / 'Horos/Sources/DICOMExport.mm').read_bytes().decode('latin1')
-pos_block = writer[writer.find('delete dataset->remove( DCM_ImagePositionPatient'):writer.find('delete dataset->remove( DCM_SliceLocation')]
-if 'positionSet' not in writer or 'position[ 0] != 0' in pos_block:
+# DICOMExport is Swift; what it writes is SecondaryCaptureExport, in the IsiXDICOMFile module.
+writer = (root / 'Horos/Sources/DICOMExport.swift').read_text()
+rules = (root / 'Modules/IsiXDICOMFile/Sources/SecondaryCaptureExport.swift').read_text()
+pos_block = rules[rules.find('edits.append(.remove(0x0020_0032))'):rules.find('edits.append(.remove(0x0020_1041))')]
+if 'position: horos_positionSet ? horos_position : nil' not in writer or 'if let p = image.position {' not in pos_block \
+        or '!= 0' in pos_block:
     failures.append('Image Position (Patient) is omitted when the fused origin is at 0,0,0')
 
 for failure in failures:

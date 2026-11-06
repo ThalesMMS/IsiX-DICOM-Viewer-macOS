@@ -1,28 +1,32 @@
 #!/usr/bin/env python3
-"""The Decompress helper asks for character sets only where they are answered.
+"""The Decompress service asks for character sets only where they are answered.
 
 `NSString (DICOMToNSString)` is implemented in Swift, in the application.
-The Decompress helper has no Swift, yet it compiles DicomFile.mm and
-DicomFileDCMTKCategory.mm, which asked `+[NSString encodingForDICOMCharacterSet:]`;
+The Decompress helper, now an XPC service whose Swift does not include the
+application's, once compiled the DicomFile
+sources (since converted to Swift), which asked `+[NSString encodingForDICOMCharacterSet:]`;
 the header declared the selectors for the helper without an implementation, so
 reaching those lines there ended in an unrecognized selector exception.
-Those sources now ask `DCMCharacterSet`, from DCM.framework, which the helper
-links and which is the table the Swift category forwards to.
+Those sources asked `DCMCharacterSet`, from DCM.framework, which the helper
+links and which is the table the Swift category forwards to; the helper no
+longer compiles them (it never used the class), and the sources it compiles
+are checked the same way.
 
 Checked:
 
 1. the sources the Decompress target compiles, read from its Sources phase in
    Horos.xcodeproj, send none of the category's selectors to NSString unless
-   the target compiles an implementation, and DICOMToNSString.h no longer
-   declares the category for a target without Swift;
-2. in each built helper, every `encodingForDICOMCharacterSet:` (and
+   the target compiles an implementation, and DICOMToNSString.h declares
+   nothing for a target without Swift (it no longer has such a branch);
+2. in each built service, every `encodingForDICOMCharacterSet:` (and
    `...DICOMEncoding:`) call site, traced back from the disassembly to the
    class loaded as its receiver, goes to a class that implements it in the
-   helper or in the DCM.framework next to it. Skipped (exit 2) when no helper
-   is built; `--helper PATH` checks another one.
+   service (or, for a helper built before the dataset model moved into it,
+   in the DCM.framework next to it). Skipped (exit 2) when no service
+   is built; `--helper PATH` checks another executable.
 
 `<git revision>` as an optional argument reads the sources from that revision;
-the helper check always reads the built products.
+the binary check always reads the built products.
 """
 from pathlib import Path
 import re
@@ -79,7 +83,7 @@ for phase in re.findall(r'([0-9A-F]{24})', re.search(r'buildPhases = \((.*?)\);'
     block = re.search(r'\t\t' + phase + r' /\* Sources \*/ = \{(.*?)\n\t\t\};', project, re.S)
     if block:
         sources += re.findall(r'/\* (.+?) in Sources \*/', block.group(1))
-if 'Decompress.mm' not in sources or 'DicomFileDCMTKCategory.mm' not in sources:
+if 'CodecService.swift' not in sources or 'HorosDCMTKObject.mm' not in sources:
     failures.append('the Decompress Sources phase was not read: %s' % sources)
 
 vendored = ('DCMTK/', 'ITK/', 'VTK/', 'Binaries/', 'OpenJPEG/', 'build/')
@@ -116,7 +120,7 @@ print('Decompress compiles %d sources; %d send the category to NSString, %d with
 header = uncommented(read('Horos/Sources/DICOMToNSString.h'))
 fallback = header.split('#elif __has_include("Horos-Swift.h")', 1)[-1].split('#else', 1)
 if len(fallback) < 2:
-    failures.append('DICOMToNSString.h has no branch for a target without Swift; this test is stale')
+    print('DICOMToNSString.h has no branch for a target without Swift')
 elif '@interface' in fallback[1].split('#endif', 1)[0]:
     failures.append('DICOMToNSString.h declares the category for a target without Swift, '
                     'which has no implementation of it')
@@ -125,15 +129,16 @@ else:
 
 # ----------------------------------------------------- 2. the built helpers
 if not helpers:
-    helpers = [p for p in (root / 'build/Build/Products/Debug/IsiX DICOM Viewer.app/Contents/Resources/Decompress',
-                           root / 'build/Development/HorosDevelopment.app/Contents/Resources/Decompress')
+    service = 'Contents/XPCServices/Decompress.xpc/Contents/MacOS/Decompress'
+    helpers = [p for p in (root / 'build/Build/Products/Debug/IsiX DICOM Viewer.app' / service,
+                           root / 'build/Development/HorosDevelopment.app' / service)
                if p.is_file()]
     if not helpers:
         for failure in failures:
             print('FAIL: %s' % failure)
         if failures:
             sys.exit(1)
-        print('skip: no Decompress helper is built (build/Build/Products/Debug, build/Development); '
+        print('skip: no Decompress service is built (build/Build/Products/Debug, build/Development); '
               'pass --helper PATH')
         sys.exit(2)
 
@@ -247,14 +252,14 @@ for helper in helpers:
     if not helper.is_file():
         failures.append('%s is not built' % helper)
         continue
-    label = helper.parents[3].name if len(helper.parents) > 3 else str(helper)   # Debug, Development...
+    label = helper.parents[6].name if len(helper.parents) > 6 else str(helper)   # Debug, Development...
     framework = helper.parent.parent / 'Frameworks/DCM.framework/Versions/A/DCM'
     known = implementations(helper)
+    # A helper built before the dataset model moved into it loads the model
+    # from DCM.framework beside it.
     if framework.is_file():
         for cls, selectors in implementations(framework).items():
             known.setdefault(cls, set()).update(selectors)
-    else:
-        failures.append('%s: no DCM.framework next to it' % helper)
     listing = list(functions(helper))
     pool = {}
     for _, body in listing:
@@ -279,7 +284,7 @@ for helper in helpers:
             cls = symbol.replace('_OBJC_CLASS_$_', '').replace('_OBJC_METACLASS_$_', '')
             checked.append((name, cls, selector))
             if selector not in known.get(cls, set()):
-                failures.append('%s helper: %s sends %s to %s, which implements no such method there'
+                failures.append('%s service: %s sends %s to %s, which implements no such method there'
                                 % (label, name, selector, cls))
     if not checked and not unresolved:
         print('%s: sends none of the category\'s selectors' % helper)

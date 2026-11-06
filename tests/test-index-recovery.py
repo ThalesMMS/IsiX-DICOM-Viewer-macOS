@@ -23,7 +23,8 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 recovery = root / 'Horos/Sources/IndexRecovery.swift'
-managed = (root / 'Nitrogen/Sources/N2ManagedDatabase.mm').read_bytes().decode('latin1')
+# The store of N2ManagedDatabase, which opens the index, is Swift.
+managed = (root / 'Nitrogen/Sources/N2ManagedDatabase+Store.swift').read_text(encoding='utf-8')
 
 DRIVER = '''
 import CoreData
@@ -120,21 +121,21 @@ if results:
         failures.append('a corrupted index and one that cannot be read are reported identically')
 
 # --- and the database has to act on it ---------------------------------------
-if 'HorosIndexRecovery' not in managed:
+if 'IndexRecovery.' not in managed:
     failures.append('the store failure path does not consult the recovery policy')
-at = managed.find('if (!pStore && i == 1)')
+at = managed.find('if pStore == nil && i == 1 {')
 window = managed[at:at + 3000] if at >= 0 else ''
 if not window:
     failures.append('the branch that handles a store that will not open is gone')
 else:
-    if 'removeItemAtPath:sqlFilePath' in window:
+    if 'removeItem(atPath: sqlFilePath' in window:
         failures.append('the index is still deleted when it will not open')
-    if 'moveItemAtPath:sqlFilePath' not in window:
+    if 'moveItem(atPath: sqlFilePath' not in window:
         failures.append('the index that will not open is not kept anywhere')
-    if 'indexCanBeSetAsideForError' not in window:
+    if 'indexCanBeSetAside(forError:' not in window:
         failures.append('every cause is treated as a damaged file, so an intact index behind a '
                         'permission or availability problem is replaced')
-    if 'recoverableFileCountBesideIndexAtPath' not in window:
+    if 'recoverableFileCount(besideIndexAtPath:' not in window:
         failures.append('nothing counts what a rebuild would have to work from, and that count '
                         'can only be taken before the index is replaced')
 

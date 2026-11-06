@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// OSIPETPreferencePane is implemented in Swift since #711 (Preference
+// OSIPETPreferencePane is implemented in Swift (Preference
 // Panes/OSIPETPreferencePane/OSIPETPreferencePane.swift). This header keeps
 // OSIPETPreferencePane.h: it brings in the generated interface, which declares the same
 // class name and selectors.

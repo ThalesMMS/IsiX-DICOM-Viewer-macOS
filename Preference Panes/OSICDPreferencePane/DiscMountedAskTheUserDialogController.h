@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// DiscMountedAskTheUserDialogController is implemented in Swift since #711 (Preference
+// DiscMountedAskTheUserDialogController is implemented in Swift (Preference
 // Panes/OSICDPreferencePane/DiscMountedAskTheUserDialogController.swift). This header keeps
 // DiscMountedAskTheUserDialogController.h: it brings in the generated interface, which declares the same
 // class name and selectors.

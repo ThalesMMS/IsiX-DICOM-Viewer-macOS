@@ -58,7 +58,7 @@ private func isEqualString(_ a: Any?, _ b: Any?) -> Bool {
 
 /// The DICOM Print preference pane.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors,
+/// Implemented in Swift: the Objective-C name, the selectors,
 /// the xib outlets and <Horos/AYDicomPrintPref.h> are those of the former
 /// class.
 // Main actor: a preferences pane, which the preferences window creates, shows

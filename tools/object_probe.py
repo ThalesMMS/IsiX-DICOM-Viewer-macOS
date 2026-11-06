@@ -255,10 +255,11 @@ def link_probe(probe_source: Path, objects: list[Path], output: Path, *, extra_s
 
 
 def swift_dylib(sources: list[Path], objects: list[Path], output: Path, *, bridging_header: Path,
-                include_dirs=(), frameworks=("Foundation",)) -> Path:
+                include_dirs=(), frameworks=("Foundation",), flags=()) -> Path:
     """Swift sources of the app and the Objective-C objects they call, as a loadable image.
 
     The sources are compiled as module Horos, so their @objc names are the application's.
+    `flags` go to swiftc as they are, for instance the ones that import an internal module.
     """
     argv = ["xcrun", "swiftc", "-emit-library", "-O", "-module-name", "Horos", "-target", "arm64-apple-macos26.0",
             "-import-objc-header", str(bridging_header), "-Xlinker", "-undefined", "-Xlinker", "dynamic_lookup",
@@ -267,7 +268,12 @@ def swift_dylib(sources: list[Path], objects: list[Path], output: Path, *, bridg
         argv += ["-I", str(directory)]
     for framework in frameworks:
         argv += ["-framework", framework]
-    argv += [str(s) for s in sources + module_support_sources()] + [str(o) for o in objects] + ["-o", str(output)]
+    argv += list(flags)
+    support = module_support_sources()
+    given = [Path(flags[i + 1]) for i, flag in enumerate(flags[:-1]) if flag == "-I"]
+    argv += module_support_flags(support, output.parent / f"{output.stem}-support", "arm64-apple-macos26.0",
+                                 already_built=given)
+    argv += [str(s) for s in sources + support] + [str(o) for o in objects] + ["-o", str(output)]
     subprocess.run(argv, check=True)
     return output
 
@@ -280,6 +286,84 @@ def module_support_sources(root: Path = ROOT) -> list[Path]:
     """
     source = root / "Horos/Sources/UnifiedLogNSLog.swift"
     return [source] if source.is_file() else []
+
+
+# The single entry reaches most of the application through the process graph, so
+# an object under test that indexes through it gets this one: a type of module
+# Horos, under the names the object calls, that passes the options of the preset
+# to the database double, where the probe records them.
+INGEST_STAND_IN = """
+import Foundation
+import IsiXContracts
+
+struct DatabaseIngest {
+    private let graph: AnyObject
+    static let process = DatabaseIngest(graph: NSObject())
+
+    @discardableResult
+    func index(_ paths: [Any]?, preset: IngestPreset, in database: DicomDatabase) -> [Any]? {
+        let options = preset.options
+        return database.addFiles(atPaths: paths, postNotifications: options.postNotifications, dicomOnly: options.dicomOnly.resolved(preference: false),
+                                 rereadExistingItems: options.rereadExistingItems, generatedByOsiriX: options.generatedByOsiriX)
+    }
+}
+"""
+INGEST_STAND_IN_HEADER = """
+#import <Foundation/Foundation.h>
+@interface DicomDatabase : NSObject
+- (NSArray *)addFilesAtPaths:(NSArray *)paths postNotifications:(BOOL)postNotifications dicomOnly:(BOOL)dicomOnly rereadExistingItems:(BOOL)rereadExistingItems generatedByOsiriX:(BOOL)generatedByOsiriX;
+@end
+"""
+
+
+def _isix_modules():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("isix_modules", ROOT / "tests/isix_modules.py")
+    isix_modules = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(isix_modules)
+    return isix_modules
+
+
+def build_internal_module(name: str, folder: Path, target: str) -> Path:
+    """The static library of an internal module, for `target`, in `folder`."""
+    return _isix_modules().build_module(name, folder, ["-target", target])
+
+
+def ingest_stand_in(work: Path, modules: Path, target: str | None = None) -> Path:
+    """The object of INGEST_STAND_IN, with IsiXContracts built in `modules`, for
+    `target`, or for the target the modules already there were built for."""
+    target_flags = ["-target", target] if target else []
+    flags = _isix_modules().module_flags("IsiXContracts", modules, target_flags)
+    source, header, output = work / "DatabaseIngestStandIn.swift", work / "DatabaseIngestStandIn.h", work / "DatabaseIngestStandIn.o"
+    source.write_text(INGEST_STAND_IN)
+    header.write_text(INGEST_STAND_IN_HEADER)
+    subprocess.run(["xcrun", "swiftc", "-module-name", "Horos", "-parse-as-library", "-suppress-warnings", "-wmo", "-c", *target_flags,
+                    "-import-objc-header", str(header), *flags[:2], str(source), "-o", str(output)], check=True)
+    return output
+
+
+def module_support_flags(support: list[Path], folder: Path, target: str, already_built=()) -> list[str]:
+    """swiftc flags for the internal modules the support sources import.
+
+    UnifiedLogNSLog.swift writes through IsiXLogging's unifiedLogv, which is
+    built here, for `target`, and linked statically. A module the caller's own
+    flags already import, from a folder in `already_built`, is not built again:
+    two module maps may not declare the same module.
+    """
+    imported = sorted({name for source in support
+                       for name in re.findall(r"^import (IsiX\w+)$", source.read_text(), re.M)
+                       if not any((Path(folder_given) / f"{name}.swiftmodule").exists()
+                                  for folder_given in already_built)})
+    if not imported:
+        return []
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("isix_modules", ROOT / "tests/isix_modules.py")
+    isix_modules = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(isix_modules)
+    flags = []
+    for name in imported:
+        flags += isix_modules.module_flags(name, folder, ["-target", target])
+    return flags
 
 
 def link_dylib(obj: Path | list[Path], output: Path, frameworks=("Foundation",)) -> Path:

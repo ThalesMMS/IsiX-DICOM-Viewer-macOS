@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// The threads importing the INCOMING folder, as quitting needs to know them.
+/// The imports of the INCOMING folder, as quitting needs to know them.
 ///
 /// The process's exit destroys DCMTK's data dictionary and loggers, and an
 /// import still reading a file then reads freed memory. Quitting used to stop
@@ -22,31 +22,57 @@ import Foundation
 /// started just before Quit was never cancelled and was still reading when
 /// `exit()` ran. Every import passes through here instead: quitting refuses new
 /// ones, cancels those inside, and waits for them to leave.
+///
+/// An import holds an admission: what admits it names the thread to cancel,
+/// and leaving takes the admission back from wherever the import ended, with no
+/// need of being on that thread.
 @objc(HorosIncomingImportGate)
 public final class IncomingImportGate: NSObject, @unchecked Sendable {
     @objc public static let shared = IncomingImportGate()
 
-    private let condition = NSCondition()
-    /// One entry per admission: a thread can import again from inside an import.
-    private var importing: [Thread] = []
-    private var stopped = false
-
-    /// Admits the calling thread to an import, or refuses it once quitting has
-    /// begun. An admitted thread calls `leave()` when its import is over.
-    @objc public func enter() -> Bool {
-        condition.lock()
-        defer { condition.unlock() }
-        if stopped { return false }
-        importing.append(Thread.current)
-        return true
+    /// One import inside the gate. An import can start from inside another,
+    /// and each has an admission of its own.
+    public struct Admission: Hashable, Sendable {
+        fileprivate let number: UInt64
     }
 
-    @objc public func leave() {
+    private let condition = NSCondition()
+    /// What is inside, with the thread that checks for cancellation between files.
+    private var admitted: [Admission: Thread] = [:]
+    private var nextNumber: UInt64 = 0
+    private var stopped = false
+
+    /// Admits an import, or refuses it once quitting has begun. Quitting
+    /// cancels `thread`, which the import checks between files. An admitted
+    /// import gives the admission back with `leave(_:)` when it is over.
+    public func admit(cancelling thread: Thread) -> Admission? {
         condition.lock()
         defer { condition.unlock() }
-        if let index = importing.lastIndex(where: { $0 === Thread.current }) {
-            importing.remove(at: index)
-        }
+        if stopped { return nil }
+        nextNumber += 1
+        let admission = Admission(number: nextNumber)
+        admitted[admission] = thread
+        return admission
+    }
+
+    /// Admits a part of an import that is inside and waits for it, on a thread
+    /// of its own: never refused, since what the import has already done would
+    /// be lost, and quitting waits for it too. Quitting cancels `thread` only if
+    /// it comes after the part: one that starts once quitting has begun runs to
+    /// its end, within the time quitting gives the imports.
+    public func admitPart(cancelling thread: Thread) -> Admission {
+        condition.lock()
+        defer { condition.unlock() }
+        nextNumber += 1
+        let admission = Admission(number: nextNumber)
+        admitted[admission] = thread
+        return admission
+    }
+
+    public func leave(_ admission: Admission) {
+        condition.lock()
+        defer { condition.unlock() }
+        admitted[admission] = nil
         condition.broadcast()
     }
 
@@ -56,13 +82,12 @@ public final class IncomingImportGate: NSObject, @unchecked Sendable {
         return stopped
     }
 
-    /// Refuses every import from now on and cancels those under way; the import
-    /// checks its thread's cancellation between files.
+    /// Refuses every import from now on and cancels those under way.
     @objc public func stop() {
         condition.lock()
         defer { condition.unlock() }
         stopped = true
-        for thread in importing {
+        for thread in admitted.values {
             thread.cancel()
         }
     }
@@ -73,9 +98,9 @@ public final class IncomingImportGate: NSObject, @unchecked Sendable {
     public func waitUntilIdle(before deadline: Date) -> Bool {
         condition.lock()
         defer { condition.unlock() }
-        while !importing.isEmpty {
+        while !admitted.isEmpty {
             if !condition.wait(until: deadline) {
-                return importing.isEmpty
+                return admitted.isEmpty
             }
         }
         return true

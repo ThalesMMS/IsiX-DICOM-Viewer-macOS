@@ -84,32 +84,14 @@
  For these reasons, using a wrapped NSTextField to render multiline text is
  therefore discouraged in favor of using an NSTextView.
  
- * THE GLOBAL VARIABLE gNSStringGeometricsTypesetterBehavior
- 
+ * THE TYPESETTER BEHAVIOR
+
  The estimate of line spacing is controlled by the NSTypesetterBehavior
- setting in NSLayoutManager used in these methods.  Therefore, you must
- specify the NSTypsetterBehavior you desire when using one of these methods
- to get a measurement.
- 
- Rather than providing a 'typsetterBehavior' argument in each of the methods in
- this category, which would make them really messy just to support a
- discouraged usage, a global variable, gNSStringGeometricsTypesetterBehavior, is
- initialized with the value NSTypesetterLatestBehavior.  This value is 
- appropriate to estimating height of text to be rendered in an NSTextView.
- This is also the default behavior in NSLayoutManager.
- 
- Therefore, if you want to get measurements for text to be rendered in an
- NSTextView, these methods will "just work".
- 
- Also, if you want to get the dimensions for text which will render in a
- single line, even in NSTextField, these methods will "just work".
- 
- However, if you want to get dimensions of a string as rendered in the
- discouraged NSTextField with line wrapping, set the global variable
- gNSStringGeometricsTypesetterBehavior to 
- NSTypesetterBehavior_10_2_WithCompatibility before invoking these methods.
- Invoking any of these methods will automatically set it back to the
- default value of NSTypesetterLatestBehavior.
+ setting in the NSLayoutManager these methods use. They use its default,
+ NSTypesetterLatestBehavior, appropriate to text rendered in an NSTextView or
+ on a single line. The former global variable gNSStringGeometricsTypesetterBehavior,
+ which could ask for the behavior of a wrapping NSTextField, is gone: Horos
+ never changed it.
  
  * ARGUMENTS width and height
  
@@ -164,14 +146,6 @@
  */
 
 #import <Cocoa/Cocoa.h>
-
-#ifndef NS_SWIFT_NONISOLATED_UNSAFE
-#define NS_SWIFT_NONISOLATED_UNSAFE
-#endif
-// Swift sees it as nonisolated(unsafe): Horos never changes it from
-// NSTypesetterLatestBehavior, and the measurement writes it back only after a
-// caller changed it, so the threads that measure text only read it.
-extern int gNSStringGeometricsTypesetterBehavior NS_SWIFT_NONISOLATED_UNSAFE;
 
 #ifndef HOROS_BRIDGING_HEADER
 #import "Horos-Swift.h"

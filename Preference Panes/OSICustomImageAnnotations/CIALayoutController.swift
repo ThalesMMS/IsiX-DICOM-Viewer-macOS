@@ -67,7 +67,7 @@ private func isEqualTo(_ object: Any?, _ other: Any?) -> Bool {
 /// The group or element of a DICOM_group_element token: the whole component
 /// in hexadecimal, "0x" allowed, as the pane writes it (0x%04x). A component
 /// that only starts with hex digits, as "Foo" and "Bar" in DICOM_Foo_Bar,
-/// names no tag (#748).
+/// names no tag.
 private func hexTagComponent(_ component: String) -> UInt32? {
     let scanner = Scanner(string: component)
     scanner.charactersToBeSkipped = nil
@@ -83,7 +83,7 @@ private let placeHolderKeys = ["LowerLeft", "LowerMiddle", "LowerRight", "Middle
 /// pane and saves them, per modality, in the CUSTOM_IMAGE_ANNOTATIONS default
 /// that DCMPix reads.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// CIALayoutController.h are those of the former class.
 // Main actor: the layout editor of the Annotations pane, a nib object.
 @MainActor
@@ -728,7 +728,7 @@ public final class CIALayoutController: NSWindowController, NSTokenFieldDelegate
         let sortedSeries = sortedAttributes("Series", removing: "thumbnail")
         let sortedImages = sortedAttributes("Image", removing: nil)
 
-        // Replaced, not appended (#748): the pane calls -awakeFromNib, and so
+        // Replaced, not appended: the pane calls -awakeFromNib, and so
         // this, each time it is selected, and the database menu and the token
         // completions listed every field once more per selection.
         databaseStudyFieldsArray.setArray(sortedStudies)
@@ -993,7 +993,7 @@ public final class CIALayoutController: NSWindowController, NSTokenFieldDelegate
                         let fieldDict = NSMutableDictionary()
 
                         if currentField.hasPrefix("DICOM_") {
-                            // Per token, and saved only when known (#748): a
+                            // Per token, and saved only when known: a
                             // DICOM_ token that named no known field and did not
                             // read as DICOM_group_element was saved with the
                             // previous DICOM_ token's group and element, so the
@@ -1042,7 +1042,7 @@ public final class CIALayoutController: NSWindowController, NSTokenFieldDelegate
                         } else if currentField.hasPrefix("DB_") {
                             // Without a dot the token names no level and field:
                             // it is left out, as an empty DB_ token, instead of
-                            // raising NSRangeException (#748).
+                            // raising NSRangeException.
                             let rangeOfDot = currentField.range(of: ".")
                             if currentField.length > 3 && rangeOfDot.location != NSNotFound {
                                 fieldDict.setObject("DB", forKey: "type" as NSString)

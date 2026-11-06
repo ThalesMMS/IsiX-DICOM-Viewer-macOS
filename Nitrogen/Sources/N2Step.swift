@@ -43,7 +43,7 @@ import Cocoa
 ///
 /// Implemented in Swift: the Objective-C name, the selectors
 /// and `<Horos/N2Step.h>` are those of the former class. The notification
-/// names stay in N2Step+CAPI.m.
+/// names are constants of N2Step.h.
 @available(*, deprecated)
 @objc(N2Step)
 public final class N2Step: NSObject {

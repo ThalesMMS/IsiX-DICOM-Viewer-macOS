@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// OSIViewerPreferencePanePref is implemented in Swift since #711 (Preference
+// OSIViewerPreferencePanePref is implemented in Swift (Preference
 // Panes/OSIViewerPreferencePane/OSIViewerPreferencePanePref.swift). This header keeps
 // <Horos/OSIViewerPreferencePanePref.h>: it brings in the generated interface, which declares the
 // same class name and selectors.

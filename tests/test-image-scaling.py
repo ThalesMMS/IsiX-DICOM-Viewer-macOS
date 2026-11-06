@@ -37,6 +37,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import object_probe  # noqa: E402
+import isix_modules  # noqa: E402
 
 SOURCE = "Nitrogen/Sources/NSImage+N2.mm"  # --revision/--source-file: the former Objective-C
 parser = argparse.ArgumentParser()
@@ -67,28 +68,29 @@ if arguments.revision or arguments.source_file:
     obj = work / "NSImage+N2.o"
     object_probe.compile_source(command, source, obj)
 else:
-    # NSImage (N2) is Swift: its source and the toolbar helper it
-    # names are compiled into a library with the Objective-C objects they call.
-    helpers = [object_probe.app_object(name, arguments.configuration) for name in ("HorosObjCException",)]
-    if any(h is None for h in helpers) or not support:
-        print("needs a built application (N2Debug.o, HorosObjCException.o): script/build_and_run.sh", file=sys.stderr)
+    # NSImage (N2) is Swift: its source and the toolbar helper it names are
+    # compiled into a library, with the Swift N2Debug and NSException (N2) they
+    # log through, IsiXGeometry for the proportional scaling, and the
+    # Objective-C objects they call.
+    helpers = [object_probe.app_object(name, arguments.configuration) for name in ("HorosObjCException", "N2Debug+CAPI")]
+    if any(h is None for h in helpers):
+        print("needs a built application (N2Debug+CAPI.o, HorosObjCException.o): script/build_and_run.sh", file=sys.stderr)
         raise SystemExit(2)
     bridging = work / "bridging.h"
-    bridging.write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n#import "NS(Attributed)String+Geometrics.h"\n#import "N2Debug.h"\n#import "N2Operators.h"\n'
-                        '#import "HorosObjCException.h"\n')
-    geometrics = work / "GeometricsCAPI.o"
-    subprocess.run(["xcrun", "clang", "-c", "-target", "arm64-apple-macos26.0", "-DHOROS_BRIDGING_HEADER=1", "-I", str(ROOT / "Nitrogen/Sources"),
-                    str(ROOT / "Nitrogen/Sources/NS(Attributed)String+Geometrics+CAPI.m"), "-o", str(geometrics)], check=True)
-    support = [o for o in support if o.stem != "NSColor+N2"] + [geometrics]
+    bridging.write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n#import "NS(Attributed)String+Geometrics.h"\n'
+                        '#import "N2Debug.h"\n#import "NSException+N2.h"\n#import "HorosObjCException.h"\n')
     obj = object_probe.swift_dylib([ROOT / "Nitrogen/Sources/NSImage+N2.swift",
                                    ROOT / "Nitrogen/Sources/NSColor+N2.swift",
                                    ROOT / "Nitrogen/Sources/NS(Attributed)String+Geometrics.swift", ROOT / "Horos/Sources/ToolbarImage.swift",
                                    ROOT / "Horos/Sources/PieChartImage.swift",
                                    ROOT / "Nitrogen/Sources/N2ImageButtonCell.swift",
-                                   ROOT / "Nitrogen/Sources/N2HighlightImageButtonCell.swift"],
-                                   support + helpers, work / "libNSImageN2.dylib", bridging_header=bridging,
+                                   ROOT / "Nitrogen/Sources/N2HighlightImageButtonCell.swift",
+                                   ROOT / "Nitrogen/Sources/N2Debug.swift", ROOT / "Nitrogen/Sources/NSException+N2.swift"],
+                                   helpers, work / "libNSImageN2.dylib", bridging_header=bridging,
                                    include_dirs=(ROOT / "Nitrogen/Sources", ROOT / "Horos/Sources"),
-                                   frameworks=("Cocoa", "CoreImage", "QuartzCore", "Accelerate"))
+                                   frameworks=("Cocoa", "CoreImage", "QuartzCore", "Accelerate"),
+                                   flags=isix_modules.module_flags("IsiXGeometry", work / "modules",
+                                                                   ["-target", "arm64-apple-macos26.0"]))
     support = []
 probe = object_probe.link_probe(ROOT / "tools/probe-image-scaling.m", [obj] + support, work / "probe",
                                 frameworks=("Cocoa", "CoreImage", "QuartzCore", "Accelerate"),

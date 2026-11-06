@@ -32,6 +32,9 @@ import subprocess
 import sys
 import tempfile
 import time
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402  - the retrieve modes are IsiXDICOMNetwork's
+import process_graph_stand_in  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -117,12 +120,22 @@ with tempfile.TemporaryDirectory(prefix='horos-servers-argument-') as folder:
     folder = Path(folder)
     (folder / 'DICOMNodeService.swift').write_bytes(read('Horos/Sources/DICOMNodeService.swift'))
     (folder / 'DICOMwebNode.swift').write_bytes(read('Horos/Sources/DICOMwebNode.swift'))
+    # The node service's Bonjour discovery, which it starts.
+    discovery = [folder / 'DICOMBonjourDiscovery.swift', folder / 'BonjourDiscovery.swift']
+    for path in discovery:
+        path.write_bytes(read('Horos/Sources/' + path.name))
     (folder / 'Credentials.swift').write_text(CREDENTIALS)
+    # The process graph the node service reads its preferences from, as the app's hands out
+    # UserDefaults.standard, and PreferencesSource, which the Bonjour discovery reads them from.
+    graph = process_graph_stand_in.source(folder)
     (folder / 'main.swift').write_text(DRIVER)
     executable = folder / UNIQUE
-    built = subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(folder / 'module-cache'),
+    network = isix_modules.module_flags('IsiXDICOMNetwork', folder / 'modules')
+    built = subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(folder / 'module-cache'), *network,
                             str(folder / 'DICOMNodeService.swift'), str(folder / 'DICOMwebNode.swift'),
-                            str(folder / 'Credentials.swift'), str(folder / 'main.swift'), '-o', str(executable)],
+                            str(folder / 'Credentials.swift'), str(graph), *map(str, discovery), *isix_modules.log_text_sources(),
+                            str(folder / 'main.swift'),
+                            '-o', str(executable)],
                            capture_output=True, text=True)
     if built.returncode != 0:
         failures.append('the node sources do not compile:\n%s' % built.stderr[-3000:])
@@ -144,9 +157,11 @@ with tempfile.TemporaryDirectory(prefix='horos-servers-argument-') as folder:
             # observer must have entered before the old nonrecursive lock hangs.
             old = (folder / 'DICOMNodeService.swift').read_text().replace('listLock = NSRecursiveLock()', 'listLock = NSLock()')
             (folder / 'DICOMNodeService.swift').write_text(old)
-            subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(folder / 'module-cache'),
+            subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(folder / 'module-cache'), *network,
                             str(folder / 'DICOMNodeService.swift'), str(folder / 'DICOMwebNode.swift'),
-                            str(folder / 'Credentials.swift'), str(folder / 'main.swift'), '-o', str(executable)],
+                            str(folder / 'Credentials.swift'), str(graph), *map(str, discovery), *isix_modules.log_text_sources(),
+                            str(folder / 'main.swift'),
+                            '-o', str(executable)],
                            check=True, capture_output=True)
             try:
                 old_run = subprocess.run([str(executable), 'reentrant'], capture_output=True, text=True, timeout=2)
@@ -186,11 +201,18 @@ if results:
             failures.append('%s: %r, expected %r' % (key, results.get(key), want))
 
 send = read('Horos/Sources/SendController.swift').decode('utf-8')
-start = send.find('if keyPath == "values.SendControllerConcurrentThreads"')
+start = send.find('if keyPath == NetworkPreferences.controllerKeyPath(NetworkPreferences.sendControllerConcurrentThreads)')
 if start < 0:
     failures.append('the Send sheet no longer writes the nodes when its threads change; this test needs a new look')
-elif 'volatileDomain(forName: UserDefaults.argumentDomain)["SERVERS"] == nil' not in send[start:send.find('{', start)]:
-    failures.append('the Send sheet writes a list given as an argument to the preferences when its threads change')
+else:
+    # The guard reads the argument domain itself, or asks the node store,
+    # whose preferences read it (NodePreferences, in DICOMNodeService.swift).
+    guard = send[start:send.find('{', start)]
+    service = read('Horos/Sources/DICOMNodeService.swift').decode('utf-8')
+    asks_store = ('!store.dicomNodesGivenAsArgument' in guard
+                  and 'defaults.volatileDomain(forName: UserDefaults.argumentDomain)[key] != nil' in service)
+    if 'volatileDomain(forName: UserDefaults.argumentDomain)["SERVERS"] == nil' not in guard and not asks_store:
+        failures.append('the Send sheet writes a list given as an argument to the preferences when its threads change')
 
 for failure in failures:
     print('FAIL: %s' % failure)

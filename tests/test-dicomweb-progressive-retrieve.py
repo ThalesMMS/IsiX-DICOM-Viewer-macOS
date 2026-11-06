@@ -355,23 +355,35 @@ func uid(_ file:String)->String {
 '''
 
 failures = []
-retrieve = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_text()
-start = retrieve.index('- (BOOL)retrieveDICOMweb')
-body = retrieve[start:retrieve.index('\n}\n', start)]
-handler = body[body.index('^NSString *(NSString *file)'):body.index('return nil;\n        };')]
-move = handler.index('moveItemAtPath:file')
-for what, needle in [('study', 'DCM_StudyInstanceUID'), ('series', 'DCM_SeriesInstanceUID'), ('SOP instance', 'DCM_SOPInstanceUID'),
-                     ('expected UID', 'expectedUID isEqualToString:objectUID'), ('duplicate', '[unique containsObject:objectUID]'),
-                     ('transfer syntax', 'DCM_TransferSyntaxUID')]:
+# The query node is Swift: the session that takes each object of a DICOMweb
+# retrieve is in DCMTKQueryNode+DICOMweb.swift, and reads each file through its
+# DCMTK adapter.
+retrieve = (root / 'Horos/Sources/DCMTKQueryNode+DICOMweb.swift').read_text()
+start = retrieve.index('func take(_ request: DICOMwebRetrieveRequest) -> DICOMwebRequestFailure?')
+body = retrieve[start:retrieve.index('\n    }\n', start)]
+handler = body[body.index('let handler: (String) -> String? = {'):body.index('let requestFailure = queue.perform(')]
+move = handler.index('ingest.publish(fileAt: file')
+for what, needle in [('study', 'utf8Value(.studyInstanceUID)'), ('series', 'utf8Value(.seriesInstanceUID)'),
+                     ('SOP instance', 'utf8Value(.sopInstanceUID)'),
+                     ('identifiers asked for and not repeated', 'DICOMwebRetrieveQueue.belongs(study: study, series: series, request: request'),
+                     ('transfer syntax', 'client.accepts(retrievedTransferSyntax:')]:
     if needle not in handler or handler.index(needle) > move:
         failures.append(f'retrieveDICOMweb checks the {what} before queueing an object')
-if handler.index('recordUID:objectUID') < move:
+# What an object must be is the module queue's rule.
+queue = (root / 'Modules/IsiXDICOMNetwork/Sources/DICOMwebRetrieveQueue.swift').read_text()
+for what, needle in [('expected UID', 'request.uid == objectUID'), ('duplicate', '!seen.contains(objectUID)')]:
+    if needle not in queue:
+        failures.append(f'retrieveDICOMweb checks the {what} before queueing an object')
+if handler.index('inventory.record(uid: objectUID') < move:
     failures.append('the inventory records an object once it is queued')
-if 'importNudgeWantedForStudyUID:study' not in handler or handler.index('importNudgeWantedForStudyUID') < move:
+if 'RetrieveViewing.shared.importNudgeWanted(studyUID: study' not in handler or handler.index('importNudgeWanted') < move:
     failures.append('a queued object nudges the importer while a viewer waits for the study')
-if 'objectHandler:queue' not in body:
+if 'queue.perform(request, with: client, stagingDirectory: staging, handler: handler)' not in body:
     failures.append('retrieveDICOMweb hands the handler to the client')
-if not re.search(r'dicom\.loadFileUntilTag\(\[file fileSystemRepresentation\],[^;]*DCM_PixelData\)', handler) or 'dicom.loadFile(' in handler:
+dataset = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKDataset.mm').read_text()
+if 'IsiXDCMTKDataset.dataset(ofFileAtPath: file, transferSyntax: &syntax)' not in handler \
+        or not re.search(r'file\.loadFileUntilTag\(path\.fileSystemRepresentation,[^;]*DCM_PixelData\)', dataset) \
+        or 'file.loadFile(' in dataset:
     failures.append('retrieveDICOMweb reads each object only up to its Pixel Data to validate it')
 
 with tempfile.TemporaryDirectory(prefix='horos-progressive-') as tmp:
@@ -381,7 +393,8 @@ with tempfile.TemporaryDirectory(prefix='horos-progressive-') as tmp:
     (p / 'check.swift').write_text(source.replace('@main struct Check {\n static func main() {',
         '@main struct Check {\n static func main() {\n  if NonInteractiveKeychainRead.runHelperIfRequested() { exit(0) }'))
     sources = [str(root / n) for n in ('Horos/Sources/DICOMwebCredentials.swift', 'Horos/Sources/DICOMwebMultipart.swift',
-                                         'Horos/Sources/DICOMwebClient.swift', 'Horos/Sources/DICOMwebNode.swift',
+                                         'Horos/Sources/DICOMwebClient.swift', 'Horos/Sources/DICOMwebClient+LogText.swift',
+                                         'Horos/Sources/DICOMwebNode.swift',
                                          'Horos/Sources/NonInteractiveKeychainRead.swift')]
     flags = swift_flags(p)
     subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-suppress-warnings', *sources, str(p / 'check.swift'),

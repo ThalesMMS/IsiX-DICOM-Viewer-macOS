@@ -22,6 +22,7 @@ payload, and a response ended by closing the connection. What it checks:
 """
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
@@ -250,7 +251,11 @@ if not failures:
         server = Path(tmp) / 'server.py'
         server.write_text(SERVER)
         binary = Path(tmp) / 'driver'
-        build = subprocess.run(['xcrun', 'swiftc', '-O', str(source), str(root / 'Horos/Sources/SharedDatabaseAuthorization.swift'),
+        # The authorization framing is IsiXDICOMNetwork's, which the app's class imports.
+        sys.path.insert(0, str(root / 'tests'))
+        import isix_modules
+        modules = isix_modules.module_flags('IsiXDICOMNetwork', Path(tmp) / 'modules')
+        build = subprocess.run(['xcrun', 'swiftc', '-O', *modules, str(source), str(root / 'Horos/Sources/SharedDatabaseAuthorization.swift'),
                                 str(driver), '-o', str(binary)], capture_output=True, text=True)
         if build.returncode != 0:
             failures.append('driver did not compile:\n' + build.stderr[-3000:])

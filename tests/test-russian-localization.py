@@ -90,8 +90,8 @@ UI_TECHNICAL = {' (TLS)', 'DatabaseAlbums.albums', '3D MIP', '3D SR', 'AE Title:
     '3D VR', '3D MPR', 'OsiriX CT - 129', 'Mail.app', 'ROI 1', 'CLUT:', 'TRUEPREDICATE',
     'UTF8 (Unicode): ISO_IR 192', 'SQL', 'Microsoft Word (.doc)', 'LibreOffice (.odt)',
     'RGB ->BW', 'HTTPS', 'TLS', 'DICOM 1', 'DICOMDIR:', 'URL:', 'github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS',
-    'http://www.dicom.dcm/OsiriXDB.plist', 'http://www.dicom.dcm/dicomNodes.plist',
-    'http://www.preferences-server.com/preferences.plist',
+    'https://www.dicom.dcm/OsiriXDB.plist', 'https://www.dicom.dcm/dicomNodes.plist',
+    'https://www.preferences-server.com/preferences.plist',
 }
 for key, translated in ru.items():
     original = en.get(key, key)

@@ -28,6 +28,7 @@ needed_pbx = [
     'NOTICE in Resources',
     'LICENSE in Resources',
     'COPYING.LESSER in Resources',
+    'COPYING in Resources',
     'Splash in Resources',
 ]
 missing = [item for item in needed_pbx if item not in pbx]
@@ -50,7 +51,12 @@ if 'DICOM-Swift-LICENSE.txt' not in licenses:
     fail('licenses.html does not link to the bundled DICOM-Swift license')
 if 'DICOM-Swift' not in notice or 'Apache-2.0' not in notice:
     fail('NOTICE does not cite DICOM-Swift and its license')
-if (root / 'Binaries/Splash/OpenSSL-LICENSE.txt').read_bytes() != (root / 'OpenSSL/upstream/LICENSE.txt').read_bytes():
+# OpenSSL is compiled from its pinned release archive, which the repository does
+# not carry; the bundled license must be the exact text that declaration names.
+import hashlib
+import json
+openssl_pin = json.loads((root / 'Horos/Scripts/external-sources.json').read_text())['OpenSSL']
+if hashlib.sha256((root / 'Binaries/Splash/OpenSSL-LICENSE.txt').read_bytes()).hexdigest() != openssl_pin['licenseSha256']:
     fail('the bundled OpenSSL license differs from the pinned upstream text')
 
 for name in ('Horos Project', 'OsiriX', 'Yves Starreveld',
@@ -111,19 +117,35 @@ for link in re.findall(r'href="([^"]+)"', index_text):
     path = index.parent / link
     if not path.is_file() or not path.read_bytes().strip():
         fail('third-party license link has no readable full text: ' + link)
-for component in ('FeedbackReporter', 'cocoahttpserver', 'dicom3tools', 'Weasis', 'KFSplitView', 'FlyAssistant', 'Provenance.json'):
+for component in ('cocoahttpserver', 'dicom3tools', 'Weasis', 'KFSplitView', 'FlyAssistant', 'Provenance.json',
+                  'SwiftNIO/swift-nio/NOTICE.txt'):
     if component not in index_text:
         fail('third-party license index omits ' + component)
 if 'ThirdParty/licenses.html' not in licenses:
     fail('About license catalog does not link the full third-party texts')
 if 'https://github.com/nroduit/Weasis/tree/v3.6.0' not in index_text:
     fail('portable Weasis lacks its corresponding source location')
-# Check byte preservation of native primary texts, including the runtime CharLS copy.
-for source in ('DCMTK/COPYRIGHT',
-               'FeedbackReporter/LICENSE.txt',
-               'cocoahttpserver/LICENSE.txt', 'DCMTK/dcmjpls/docs/License.txt'):
-    if (index.parent / 'Native' / source).read_bytes() != (root / source).read_bytes():
-        fail('native license text was changed: ' + source)
+# Check byte preservation of native primary texts, including the runtime CharLS
+# copy: DCMTK is compiled from its pinned original archive, so the bundled
+# copyright and the notices of the code it carries must be the texts that
+# declaration names.
+import hashlib
+import json
+dcmtk_pin = json.loads((root / 'Horos/Scripts/external-sources.json').read_text())['DCMTK']
+dcmtk_texts = [(dcmtk_pin['license'], dcmtk_pin['licenseSha256'])]
+dcmtk_texts += [(notice['path'], notice['sha256']) for notice in dcmtk_pin.get('notices', [])]
+for required in ('COPYRIGHT', 'dcmjpls/docs/License.txt', 'dcmjpeg/docs/ijg_readme.txt'):
+    if required not in dict(dcmtk_texts):
+        fail('DCMTK source declaration does not name ' + required)
+for source, expected in dcmtk_texts:
+    if hashlib.sha256((index.parent / 'Native/DCMTK' / source).read_bytes()).hexdigest() != expected:
+        fail('native license text was changed: DCMTK/' + source)
+# CocoaHTTPServer is no longer in the tree; its Deusty text stays as its
+# archive had it.
+import hashlib
+if hashlib.sha256((index.parent / 'Native/cocoahttpserver/LICENSE.txt').read_bytes()).hexdigest() != \
+        '8ab69fe63b1ca22c7019a005f111a634e1f61379e7663166bb4ab3827cc10a80':
+    fail('the CocoaHTTPServer Deusty license text was changed')
 # The source archive is no longer versioned; its untouched license remains in
 # Splash, independently checkable without downloading optional build inputs.
 import hashlib
@@ -183,7 +205,7 @@ with tempfile.TemporaryDirectory(prefix='horos-notice-audit-') as scratch:
     resources = bundle / 'Contents/Resources'
     resources.mkdir(parents=True)
     (bundle / 'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier': 'test.notices'}))
-    for name in ('LICENSE', 'COPYING.LESSER', 'NOTICE'):
+    for name in ('LICENSE', 'COPYING.LESSER', 'COPYING', 'NOTICE'):
         shutil.copyfile(root / name, resources / name)
     shutil.copytree(root / 'Binaries/Splash', resources / 'Splash')
     command = [sys.executable, str(root / 'tools/audit-release-bundle.py'), str(bundle), '--notices']

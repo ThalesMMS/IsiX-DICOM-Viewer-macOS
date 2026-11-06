@@ -22,16 +22,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dcmtk_build import ROOT, dcmtk_flags  # noqa: E402
 
 failures = []
-server = (ROOT / 'Horos/Sources/HorosQueryRetrieveServer.mm').read_bytes().decode('latin1')
+# The listener's C-STORE is the DCMTK adapter's IsiXDCMTKSCPDatabase.mm.
+server = (ROOT / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKSCPDatabase.mm').read_text()
 callback = server[server.find('void storeCallback('):]
-callback = callback[:callback.find('\nclass ')]
+callback = callback[:callback.find('\n}\n')]
 if not re.search(r'HorosDataSetLacksDeclaredPixels\(\*dataset\)\)\s*\{\s*context->setStatus\(STATUS_STORE_Error_DataSetDoesNotMatchSOPClass\)',
                  callback):
     failures.append('the store callback does not refuse an image with empty Pixel Data')
 if callback.find('HorosDataSetLacksDeclaredPixels') > callback.find('context->callbackHandler('):
     failures.append('the refusal comes after the file is written')
-inventory = (ROOT / 'Horos/Sources/RetrieveInventory.swift').read_text()
-if 'else if status != 0 { data.rejected[uid' not in inventory:
+inventory = (ROOT / 'Modules/IsiXDICOMNetwork/Sources/RetrieveInventoryState.swift').read_text()
+if 'record.rejected[uid, default: []].append(status)' not in inventory:
     failures.append('the retrieve inventory no longer records a refused store as rejected')
 
 DRIVER = r'''

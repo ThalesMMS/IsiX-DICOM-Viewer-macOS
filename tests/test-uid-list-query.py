@@ -25,7 +25,11 @@ from sources import is_swift, source_text
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-controller = (root / 'Horos/Sources/QueryController.mm').read_bytes().decode('latin1')
+# The Query window is Swift; the path from its fields and from the other
+# windows' queries to the query nodes is in these files.
+controller = '\n'.join((root / 'Horos/Sources' / name).read_text(encoding='utf-8') for name in (
+    'QueryController.swift', 'QueryController+Query.swift', 'QueryController+Network.swift',
+    'QueryController+Filters.swift'))
 # QueryArrayController is Swift.
 assert is_swift('QueryArrayController'), 'QueryArrayController is expected in Swift'
 array = source_text('QueryArrayController')
@@ -95,15 +99,15 @@ if re.search(r'componentsSeparatedByString:\s*@"\\\\\\\\"', code) or \
                     'which turns a list of UIDs into separate queries or into nothing')
 
 # --- and the trim must stay a whitespace trim --------------------------------
-at = controller.find('+ (NSArray*) queryStudyInstanceUID:(NSString*) an server: (NSDictionary*) aServer showErrors:')
+at = controller.find('public nonisolated class func queryStudyInstanceUID(_ an: String!, server aServer: [AnyHashable: Any]!, showErrors: Bool)')
 window = controller[at:at + 900] if at >= 0 else ''
 if not window:
     failures.append('+queryStudyInstanceUID:server:showErrors: is gone')
 else:
-    if 'whitespaceAndNewlineCharacterSet' not in window:
+    if '.trimmingCharacters(in: .whitespacesAndNewlines)' not in window:
         failures.append('the trim applied to a study UID filter is no longer a whitespace trim; '
                         'anything wider would eat the separator')
-    if 'addFilter:filterValue forDescription:@"StudyInstanceUID"' not in window:
+    if 'qm.addFilter(filterValue, forDescription: "StudyInstanceUID")' not in window:
         failures.append('the value is no longer passed through as one filter')
 
 # --- the filter has to reach the query unchanged -----------------------------

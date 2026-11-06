@@ -17,7 +17,7 @@ import Foundation
 /// DICOM dropped the possessive from a family of names in 2011: `PatientsName`
 /// became `PatientName`, `ReferringPhysiciansName` became
 /// `ReferringPhysicianName`, and so on. DCMTK answers to the modern names; the
-/// DCM Framework's dictionaries, now built from DCMTK (`DICOMDataDictionary.mm`),
+/// DCM Framework's dictionaries, now built from DCMTK (`IsiXDCMTKDictionary`),
 /// keep the old ones as well. A keyword is still looked up twice so a caller
 /// that kept either spelling keeps working.
 @objc(HorosDICOMKeyword)

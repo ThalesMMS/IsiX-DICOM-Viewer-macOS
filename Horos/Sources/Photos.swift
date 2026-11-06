@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Foundation
+import IsiXPreferences
 
 /// Import into Photos.
 ///
@@ -45,6 +46,9 @@ import Foundation
 /// <Horos/Photos.h> are those of the former class.
 @objc(Photos)
 public final class Photos: NSObject {
+
+    /// Where the album's name is read: the preferences of the process.
+    private let preferences: any PreferenceStore = PreferencesSource.process.preferences
 
     /// "%@" of an object, "(null)" for nil, as the former format strings wrote them.
     private func formatted(_ object: Any?) -> NSString {
@@ -54,7 +58,7 @@ public final class Photos: NSObject {
 
     @objc(scriptBody:)
     func scriptBody(_ files: [Any]!) -> String! {
-        let albumNameStr = UserDefaults.standard.string(forKey: "ALBUMNAME")
+        let albumNameStr = preferences[DatabasePreferences.albumName]
         let albumName = formatted(albumNameStr)
 
         let s = NSMutableString(capacity: 1000)

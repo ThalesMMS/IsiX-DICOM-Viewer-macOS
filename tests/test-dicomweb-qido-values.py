@@ -68,10 +68,12 @@ import Foundation
 '''
 
 failures = []
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_text()
-query = node[node.index('- (BOOL)queryDICOMwebWithDataset'):]
-query = query[:query.index('\n}\n')]
-if '[HorosDICOMwebQueryRecord stringValuesOfRecord:record]' not in query or 'componentsJoinedByString:@"\\\\"' not in query:
+sys.path.insert(0, str(root / 'tests'))
+from sources import class_text  # noqa: E402
+node = class_text('DCMTKQueryNode')
+query = node[node.index('func queryDICOMweb(_ identifier: DICOMQueryIdentifier)'):]
+query = query[:query.index('\n    }\n')]
+if 'DICOMwebQueryRecord.stringValues(of: record)' not in query or 'values.joined(separator: "\\\\")' not in query:
     failures.append('the query node reads each QIDO-RS result with DICOMwebQueryRecord and joins its values with backslashes')
 if '"Alphabetic"' in query or '"Value"' in query:
     failures.append('the query node leaves the DICOM JSON rules to DICOMwebQueryRecord')

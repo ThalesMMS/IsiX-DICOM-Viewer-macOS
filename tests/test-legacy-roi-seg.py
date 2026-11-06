@@ -19,7 +19,10 @@ seg = root / 'Horos/Sources/DicomSEG.swift'
 interchange = root / 'Horos/Sources/ROIInterchange.swift'
 archive = root / 'Horos/Sources/ROIArchiveFormat.swift'
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources  # noqa: E402
+import isix_modules  # noqa: E402  - ROIInterchange.swift writes IsiXROI's ROIInterchangeDocument
+database = sources.class_text('DicomDatabase')  # DicomDatabase is Swift
 failures = []
 
 if not source.is_file():
@@ -197,6 +200,7 @@ with tempfile.TemporaryDirectory(prefix='horos-legacy-roi-seg-') as tmp:
     built = subprocess.run(
         ['xcrun', '--sdk', 'macosx', 'swiftc',
          '-o', str(path / 'test'),
+         *isix_modules.module_flags('IsiXROI', path / 'modules'),
          str(source), str(seg), str(interchange), str(archive),
          str(path / 'main.swift')],
         capture_output=True, text=True)

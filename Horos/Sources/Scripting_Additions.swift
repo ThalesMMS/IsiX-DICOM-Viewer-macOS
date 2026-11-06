@@ -67,6 +67,11 @@ public final class OsiriXScripts: NSScriptCommand {
         return nil
     }
 
+    /// The browser, from the graph of the process; nil before the application has made it.
+    private var browser: BrowserController? {
+        PreferencesSource.process.processGraph.browserWindow?.browser
+    }
+
     public override func performDefaultImplementation() -> Any? {
         return assumeMainActor(self) { $0.performDefaultImplementationOnMainActor() }
     }
@@ -81,9 +86,9 @@ public final class OsiriXScripts: NSScriptCommand {
             if let convertedPath = posixStylePath(fromHfsPath: arguments?["FileName"] as? String, isDirectory: false) {
                 NSLog("%@", convertedPath)
 
-                BrowserController.currentBrowser()?.addFilesAndFolder(toDatabase: [convertedPath])
+                browser?.addFilesAndFolder(toDatabase: [convertedPath])
 
-                if BrowserController.currentBrowser()?.findAndSelectFile(convertedPath, image: nil, shouldExpand: true) == true {
+                if browser?.findAndSelectFile(convertedPath, image: nil, shouldExpand: true) == true {
                     NSLog("done!")
                 }
             }
@@ -93,24 +98,25 @@ public final class OsiriXScripts: NSScriptCommand {
             // +[NSURL URLWithString:], which parses as it did before.
             guard let url = (arguments?["URL"] as? String).flatMap({ NSURL(string: $0) }) else {
                 scriptErrorNumber = Int(errOSAGeneralError)
-                scriptErrorString = "Invalid URL."
+                scriptErrorString = NSLocalizedString("Invalid URL.", comment: "")
                 return nil
             }
             suspendExecution()
-            BrowserController.currentBrowser()?.importURLs([url], completion: { files, report, succeeded in
+            let browser = browser
+            browser?.importURLs([url], completion: { files, report, succeeded in
                 if (files?.count ?? 0) == 0 || !succeeded {
                     self.scriptErrorNumber = Int(errOSAGeneralError)
                     self.scriptErrorString = report ?? NSLocalizedString("Nothing could be downloaded from that URL.", comment: "")
                 } else {
-                    _ = BrowserController.currentBrowser()?.findAndSelectFile(files?[0] as? String, image: nil, shouldExpand: false)
+                    _ = browser?.findAndSelectFile(files?[0] as? String, image: nil, shouldExpand: false)
                 }
                 self.resumeExecution(withResult: files)
             })
             return nil
         }
 
-        if command == "OpenViewerForSelected" { BrowserController.currentBrowser()?.viewerDICOM(self) }
-        if command == "DeleteSelected" { BrowserController.currentBrowser()?.delItem(self) }
+        if command == "OpenViewerForSelected" { browser?.viewerDICOM(self) }
+        if command == "DeleteSelected" { browser?.delItem(self) }
 
         /*
          * Code added by Kanteron Systems
@@ -138,7 +144,7 @@ public final class OsiriXScripts: NSScriptCommand {
             // The XMLRPC method is the direct parameter in AppleScript
             let xmlrpcMethodName = directParameter as? String
 
-            ASReply = try? AppController.shared()?.xmlrpcServer?.methodCall(xmlrpcMethodName, parameters: parameters)
+            ASReply = try? PreferencesSource.process.processGraph.appController?.xmlrpcServer?.methodCall(xmlrpcMethodName, parameters: parameters)
         }
         return ASReply
     }

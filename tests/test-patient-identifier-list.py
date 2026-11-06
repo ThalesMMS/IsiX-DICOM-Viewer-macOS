@@ -23,7 +23,7 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 parser = root / 'Horos/Sources/PatientIdentifierList.swift'
-controller = (root / 'Horos/Sources/QueryController.mm').read_bytes().decode('latin1')
+controller = (root / 'Horos/Sources/QueryController+Network.swift').read_text(encoding='utf-8')
 
 DRIVER = r'''
 import Foundation
@@ -99,32 +99,32 @@ if results:
         failures.append('a repeat is not reported: %r' % results.get('repeatSummary'))
 
 # --- the query -----------------------------------------------------------------
-at = controller.find('+ (NSMutableArray*) queryStudiesForFilters:')
+at = controller.find('public nonisolated class func queryStudies(forFilters filters:')
 if at < 0:
     failures.append('queryStudiesForFilters: is gone')
 else:
     body = controller[at:at + 3000]
     for expected, missing in (
-            ('HorosPatientIdentifierList namesSeveralIdentifiers:',
+            ('PatientIdentifierList.namesSeveral(',
              'the field is not tested for being a list'),
-            ('HorosPatientIdentifierList identifiersInText:',
+            ('PatientIdentifierList.identifiers(in:',
              'the list is not split into identifiers'),
-            ('QueryController queryStudiesForFilters: one servers:',
+            ('QueryController.queryStudies(forFilters: one as? [AnyHashable: Any], servers:',
              'the identifiers are not queried one at a time'),
-            ('mergeStudies: found into: combined',
+            ('mergeStudies(found as? [Any], into: combined)',
              'the results of the several queries are not combined'),
             ('isCancelled', 'a list of identifiers cannot be cancelled part way')):
         if expected not in body:
             failures.append(missing)
     # The single-identifier query must be exactly that: one key, one value.
-    if 'removeObjectForKey: PatientID' not in body or 'removeObjectForKey: @"patientID"' not in body:
+    if 'one.removeObject(forKey: "PatientID")' not in body or 'one.removeObject(forKey: "patientID")' not in body:
         failures.append('the per-identifier query can carry the whole list as well')
 
 # One merge, used by both the per-server loop and the per-identifier loop, so a
 # study found twice is one row either way.
-if controller.count('+ (void) mergeStudies:') != 1:
+if controller.count('nonisolated class func mergeStudies(') != 1:
     failures.append('there is not exactly one place that merges duplicate studies')
-if controller.count('QueryController mergeStudies:') != 2:
+if controller.count('QueryController.mergeStudies(') != 2:
     failures.append('the merge is not shared between the server loop and the identifier loop')
 
 for failure in failures:

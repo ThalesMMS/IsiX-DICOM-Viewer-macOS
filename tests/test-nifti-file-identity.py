@@ -19,26 +19,46 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-reader = (root / 'Horos/Sources/DicomFile.mm').read_bytes().decode('latin1')
+legacy = root / 'Horos/Sources/DicomFile.mm'
+if legacy.exists():
+    reader = legacy.read_bytes().decode('latin1')
 
+    def method(signature):
+        begin = reader.index(signature)
+        return reader[begin:reader.index('\n}\n', begin)]
 
-def method(signature):
-    begin = reader.index(signature)
-    return reader[begin:reader.index('\n}\n', begin)]
+    for label, signature in (('NIfTI', '-(short) getNIfTI'), ('Analyze', '-(short) getAnalyze')):
+        body = method(signature)
+        if 'NSString *fileKey = [HorosFileIdentity keyForPath: filePath];' not in body:
+            failures.append('%s: the identifiers do not take a key of the file\'s path' % label)
+        for what in ('studyID = [[NSString alloc] initWithFormat:@"%@-%@", name, fileKey];',
+                     'self.serieID = [NSString stringWithFormat:@"%@-%@", [[filePath lastPathComponent] stringByDeletingPathExtension], fileKey];',
+                     'imageID = [[NSString alloc] initWithFormat:@"%@-%@", name, fileKey];'):
+            if what not in body:
+                failures.append('%s: %s is still made from the name alone' % (label, what.split(' =')[0]))
+    analyze = method('-(short) getAnalyze')
+    if '#ifndef DECOMPRESS_APP\n                NSString *fileKey = [HorosFileIdentity keyForPath: filePath];\n#else' not in analyze:
+        failures.append('getAnalyze, also built into the Decompress helper, asks Swift for the key there too')
+else:
+    # The readers are Swift (getNIfTI in DicomFile+Formats.swift, readAnalyze in
+    # DicomFile+NonDICOMReaders.swift), and only the application builds them.
+    swift = {name: (root / 'Horos/Sources' / name).read_text()
+             for name in ('DicomFile+Formats.swift', 'DicomFile+NonDICOMReaders.swift')}
 
+    def method(name, signature):
+        text = swift[name]
+        begin = text.index(signature)
+        return text[begin:text.index('\n    }\n', begin)]
 
-for label, signature in (('NIfTI', '-(short) getNIfTI'), ('Analyze', '-(short) getAnalyze')):
-    body = method(signature)
-    if 'NSString *fileKey = [HorosFileIdentity keyForPath: filePath];' not in body:
-        failures.append('%s: the identifiers do not take a key of the file\'s path' % label)
-    for what in ('studyID = [[NSString alloc] initWithFormat:@"%@-%@", name, fileKey];',
-                 'self.serieID = [NSString stringWithFormat:@"%@-%@", [[filePath lastPathComponent] stringByDeletingPathExtension], fileKey];',
-                 'imageID = [[NSString alloc] initWithFormat:@"%@-%@", name, fileKey];'):
-        if what not in body:
-            failures.append('%s: %s is still made from the name alone' % (label, what.split(' =')[0]))
-analyze = method('-(short) getAnalyze')
-if '#ifndef DECOMPRESS_APP\n                NSString *fileKey = [HorosFileIdentity keyForPath: filePath];\n#else' not in analyze:
-    failures.append('getAnalyze, also built into the Decompress helper, asks Swift for the key there too')
+    for label, name, signature in (('NIfTI', 'DicomFile+Formats.swift', '    func getNIfTI() -> Int16 {'),
+                                   ('Analyze', 'DicomFile+NonDICOMReaders.swift', '    func readAnalyze() -> Bool {')):
+        body = method(name, signature)
+        if 'let fileKey = FileIdentity.key(forPath: path)' not in body:
+            failures.append('%s: the identifiers do not take a key of the file\'s path' % label)
+        for what in ('studyID: "\\(name)-\\(fileKey)"', 'serieID = "\\(stem)-\\(fileKey)"',
+                     'sopUID: "\\(name)-\\(fileKey)", imageID: "\\(name)-\\(fileKey)"'):
+            if what not in body:
+                failures.append('%s: %s is still made from the name alone' % (label, what.split(':')[0].split(' =')[0]))
 
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 if project.count('/* FileIdentity.swift in Sources */') != 2 or 'path = "FileIdentity.swift";' not in project:

@@ -142,7 +142,7 @@ public final class N2ColumnLayout: N2Layout {
 
         // widths[span-1][from] constrains the cells that span `span` columns
         // from the column `from`.
-        var widths = Array(repeating: Array(repeating: ConstrainedFloat(value: 0, constraint: makeMinMax()),
+        var widths = Array(repeating: Array(repeating: ConstrainedFloat(value: 0, constraint: .unconstrained),
                                             count: colsCount),
                            count: colsCount)
         for row in rows {
@@ -150,7 +150,7 @@ public final class N2ColumnLayout: N2Layout {
             for cell in row {
                 let span = Int(cell.colSpan)
 
-                widths[span-1][colNumber].constraint = composeMinMax(widths[span-1][colNumber].constraint, cell.widthConstraints)
+                widths[span-1][colNumber].constraint = widths[span-1][colNumber].constraint.composed(with: cell.widthConstraints)
                 widths[span-1][colNumber].value = max(widths[span-1][colNumber].value, cell.optimalSize().width)
 
                 colNumber += span
@@ -171,14 +171,14 @@ public final class N2ColumnLayout: N2Layout {
                     var targetWidth = ConstrainedFloat(value: -sep.width, constraint: N2MinMax(min: -sep.width, max: -sep.width))
                     for i in from..<from+span {
                         targetWidth.value += widths[0][i].value + sep.width
-                        targetWidth.constraint = addMinMax(addMinMax(targetWidth.constraint, widths[0][i].constraint), sep.width)
+                        targetWidth.constraint = targetWidth.constraint + widths[0][i].constraint + sep.width
                     }
 
                     let currentWidth = targetWidth.value
 
                     targetWidth.value = max(widths[span-1][from].value, targetWidth.value)
-                    targetWidth.constraint = composeMinMax(widths[span-1][from].constraint, targetWidth.constraint)
-                    targetWidth.value = constrainedValue(targetWidth.constraint, targetWidth.value)
+                    targetWidth.constraint = widths[span-1][from].constraint.composed(with: targetWidth.constraint)
+                    targetWidth.value = targetWidth.constraint.constrained(targetWidth.value)
                     widths[span-1][from] = targetWidth
 
                     if span == 1 { break }
@@ -494,44 +494,6 @@ public final class N2ColumnLayout: N2Layout {
 private struct ConstrainedFloat {
     var value: CGFloat
     var constraint: N2MinMax
-}
-
-// The N2MinMax functions and operators of N2MinMax.mm are C++, which Swift
-// cannot call; these do the same arithmetic.
-
-/// N2MakeMinMax()
-private func makeMinMax() -> N2MinMax {
-    N2MinMax(min: N2NoMin, max: N2NoMax)
-}
-
-/// N2ComposeMinMax
-private func composeMinMax(_ mm1: N2MinMax, _ mm2: N2MinMax) -> N2MinMax {
-    N2MinMax(min: max(mm1.min, mm2.min), max: min(mm1.max, mm2.max))
-}
-
-/// N2MinMaxConstrainedValue
-private func constrainedValue(_ mm: N2MinMax, _ value: CGFloat) -> CGFloat {
-    var val = value
-    if val < mm.min { val = mm.min }
-    if val > mm.max { val = mm.max }
-    return val
-}
-
-/// N2InfinityAwareSum: CGFLOAT_MAX and CGFLOAT_MIN absorb the other term.
-private func infinityAwareSum(_ f1: CGFloat, _ f2: CGFloat) -> CGFloat {
-    if f1 == CGFloat.greatestFiniteMagnitude || f2 == CGFloat.greatestFiniteMagnitude { return CGFloat.greatestFiniteMagnitude }
-    if f1 == CGFloat.leastNormalMagnitude || f2 == CGFloat.leastNormalMagnitude { return CGFloat.leastNormalMagnitude }
-    return f1+f2
-}
-
-/// operator+(const N2MinMax&, const N2MinMax&)
-private func addMinMax(_ mm1: N2MinMax, _ mm2: N2MinMax) -> N2MinMax {
-    N2MinMax(min: infinityAwareSum(mm1.min, mm2.min), max: infinityAwareSum(mm1.max, mm2.max))
-}
-
-/// operator+(const N2MinMax&, const CGFloat&)
-private func addMinMax(_ mm: N2MinMax, _ f: CGFloat) -> N2MinMax {
-    N2MinMax(min: infinityAwareSum(mm.min, f), max: infinityAwareSum(mm.max, f))
 }
 
 /// The former `NSUInteger(value)` conversion, as arm64 performs it: NaN and

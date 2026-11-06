@@ -14,14 +14,15 @@ label is translated in every host catalog.
 
 A check of the Viewers pane, ShowPreviousExamLabel (on by default), turns it
 off: the label is drawn only while it is on, and a change redraws the open
-viewers without touching their images. The check is made in code in the free
-place under "Only display images of the same patient", which every localized
-copy of the pane has, and its title fits there in every language.
+viewers without touching their images. The check is in the pane's nib, once
+in each of its copies, in the group of "Only display images of the same
+patient", and its title fits its frame in every language.
 """
 from pathlib import Path
 import plistlib
 import subprocess
 import tempfile
+import process_graph_stand_in  # the 2D viewer's sources read the catalog's keys through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 
@@ -72,7 +73,8 @@ with tempfile.TemporaryDirectory() as folder:
     binary = Path(folder) / 'check'
     subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', '-module-cache-path', str(Path(folder) / 'modules'),
                     str(root / 'Horos/Sources/PreviousStudyMark.swift'), str(root / 'Horos/Sources/AnnotationOverlay.swift'),
-                    str(root / 'Horos/Sources/ROICanvas.swift'), str(main), '-o', str(binary)], check=True)
+                    str(root / 'Horos/Sources/ROICanvas.swift'), str(main),
+                    *process_graph_stand_in.swift_flags(Path(folder) / 'isix'), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
 
@@ -81,12 +83,16 @@ def fail(message):
     raise SystemExit(1)
 
 
-view = (root / 'Horos/Sources/DCMView.m').read_text()
-compute = view[view.index('- (void) computeColor'):view.index('- (void) reapplyWindowLevel')]
-if 'previousIndicesForPatients:' not in compute or 'setPrevious:' not in compute:
+# -computeColor is Swift (DCMView+Geometry.swift).
+geometry = (root / 'Horos/Sources/DCMView+Geometry.swift').read_text()
+compute = geometry[geometry.index('    private func computeStudyColours() {'):]
+compute = compute[:compute.index('\n    }\n')]
+if 'PreviousStudyMark.previousIndices(' not in compute or 'PreviousStudyMark.setPrevious(' not in compute:
     fail('computeColor does not record the previous exams')
-if compute.index('previousIndicesForPatients:') > compute.index('if( studiesArray.count)'):
+if compute.index('PreviousStudyMark.previousIndices(') > compute.index('guard !colouredStudies.isEmpty else { return }'):
     fail('the mark is recorded only when there are studies to colour')
+if 'computeStudyColours()' not in geometry[geometry.index('    @objc(computeColor)'):geometry.index('    private func computeStudyColours() {')]:
+    fail('computeColor does not compute the study colours')
 
 text = (root / 'Horos/Sources/DCMView+WindowLevel+Coordinates.swift').read_text()
 draw = text[text.index('public dynamic func drawTextualData(_ size: NSRect, annotationsLevel'):]
@@ -99,28 +105,23 @@ if draw.index('PreviousStudyMark.isPrevious(') < draw.index('} else if annotatio
 if 'PreviousStudyMark.isEnabled' not in draw[:draw.index('PreviousStudyMark.isPrevious(')] or \
         draw.index('PreviousStudyMark.isEnabled') < draw.index('} else if annotations > annotGraphics {'):
     fail('the label is drawn whatever the Viewers pane says')
-defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_text(encoding='latin1')
-if '[defaultValues setObject:@YES forKey:@"ShowPreviousExamLabel"];' not in defaults:
+import sys  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import default_preferences  # noqa: E402
+if default_preferences.registered().get('ShowPreviousExamLabel') is not True:
     fail('ShowPreviousExamLabel is not on by default')
 mark = (root / 'Horos/Sources/PreviousStudyMark.swift').read_text()
-if 'defaultsKey = "ShowPreviousExamLabel"' not in mark:
+if 'defaultsKey = ViewerPreferences.showPreviousExamLabel.name' not in mark \
+        or 'PreferencesSource.process.preferences[ViewerPreferences.showPreviousExamLabel]' not in mark:
     fail('the mark does not read ShowPreviousExamLabel')
-app = (root / 'Horos/Sources/AppController.swift').read_text()
-check = app[app.index('@objc(runPreferencesUpdateCheck:)'):]
-check = check[check.index('PreviousStudyMark.defaultsKey'):]
-check = check[:check.index('\n                if ')]
-if 'needsDisplay = true' not in check or 'refreshViewer' in check:
+marks = (root / 'Modules/IsiXPreferences/Sources/PreferenceChange.swift').read_text()
+responder = (root / 'Horos/Sources/PreferenceChangeResponder.swift').read_text()
+redraw = responder[responder.index('if change.viewerRedraw {'):]
+redraw = redraw[:redraw.index('\n        if ')]
+if 'viewerRedraw = compared.switchChanged(ViewerPreferences.showPreviousExamLabel)' not in marks \
+        or 'showPreviousExamLabel' in marks[marks.index('viewerRefresh = compared'):marks.index('viewerRedraw = compared')] \
+        or 'needsDisplay = true' not in redraw or 'needsDisplayUpdate' in redraw:
     fail('a change of the check does not redraw the viewers, or reloads their images')
-pane = (root / 'Preference Panes/OSIViewerPreferencePane/OSIViewerPreferencePanePref.swift').read_text()
-if 'addPreviousExamCheck()' not in pane[pane.index('private func finishInitOnMainActor()'):pane.index('self.mainViewDidLoad()')]:
-    fail('the Viewers pane does not add the check')
-builder = pane[pane.index('private func addPreviousExamCheck()'):]
-builder = builder[:builder.index('\n    }\n')]
-for piece in ('"values.onlyDisplayImagesOfSamePatient"', 'anchor.frame.minY - 20', 'PreviousStudyMark.defaultsKey',
-              'Show \\"Previous\\" on older studies', 'intersects(place)'):
-    if piece not in builder:
-        fail(f'the check is not built as expected: {piece}')
-
 import xml.etree.ElementTree as ET
 nibs = sorted(root.glob('Horos/Resources/*.lproj/OSIViewerPreferencePanePref.xib'))
 nibs += sorted(root.glob('Preference Panes/OSIViewerPreferencePane/*.lproj/OSIViewerPreferencePanePref.xib'))
@@ -129,21 +130,17 @@ if len(nibs) < 10:
 width = None
 for nib in nibs:
     tree = ET.parse(nib).getroot()
-    box = next(b for b in tree.iter('box') if any((x.get('keyPath') or '') == 'values.onlyDisplayImagesOfSamePatient' for x in b.iter('binding')))
-    views = []
-    for element in box.find('view').find('subviews'):
-        rect = element.find('rect'); binding = element.find('.//binding[@name="value"]')
-        if rect is None:
-            continue
-        views.append((float(rect.get('x')), float(rect.get('y')), float(rect.get('width')), float(rect.get('height')),
-                      binding.get('keyPath') if binding is not None else element.tag))
-    anchor = next(v for v in views if v[4] == 'values.onlyDisplayImagesOfSamePatient')
-    place = (anchor[0], anchor[1] - 20, anchor[2], anchor[3])
-    taken = [v[4] for v in views if not (v[0] >= place[0] + place[2] or v[0] + v[2] <= place[0] or
-                                         v[1] >= place[1] + place[3] or v[1] + v[3] <= place[1])]
-    if taken:
-        fail(f'{nib.parent.name}: the place of the check is taken by {taken}')
-    width = anchor[2] if width is None else min(width, anchor[2])
+    checks = [button for button in tree.iter('button')
+              if button.find('.//binding[@name="value"][@keyPath="values.ShowPreviousExamLabel"]') is not None]
+    if len(checks) != 1:
+        fail(f'{nib.parent.name}: {len(checks)} checks bound to ShowPreviousExamLabel')
+        continue
+    anchors = [box for box in tree.iter('box')
+               if box.find('.//binding[@keyPath="values.onlyDisplayImagesOfSamePatient"]') is not None]
+    if not anchors or checks[0] not in list(anchors[0].iter('button')):
+        fail(f'{nib.parent.name}: the check is not in the group of "Only display images of the same patient"')
+    rect = checks[0].find('rect')
+    width = float(rect.get('width')) if width is None else min(width, float(rect.get('width')))
 
 titles = []
 for catalog in sorted((root / 'Horos/Resources').glob('*.lproj/Localizable.strings')):

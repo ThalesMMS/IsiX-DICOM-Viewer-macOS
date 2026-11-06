@@ -33,7 +33,7 @@ if not references:
 checked = 0
 for encoding_id, _quote, path in references:
     matches = sorted(root.glob('**/' + path))
-    matches = [m for m in matches if 'build/' not in str(m.relative_to(root))]
+    matches = [m for m in matches if not {'build', 'local-validation'} & set(m.relative_to(root).parts)]
     if not matches:
         failures.append('%s is declared in the project but missing from the checkout' % path)
         continue

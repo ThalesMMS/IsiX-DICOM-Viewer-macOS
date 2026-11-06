@@ -43,7 +43,7 @@ import Cocoa
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/SRFlyThruAdapter.h> are those of the former class. The view's
-/// messages go through FlyThruHostBridge, because SRView.h is C++.
+/// messages are named by FlyThruViewMessages, because SRView.h is C++.
 @objc(SRFlyThruAdapter)
 public final class SRFlyThruAdapter: FlyThruAdapter {
     /// The parameter is an SRController, a Window3DController subclass whose
@@ -60,29 +60,29 @@ public final class SRFlyThruAdapter: FlyThruAdapter {
     }
 
     public override dynamic func getCurrentCamera() -> Camera? {
-        let cam = FlyThruHostBridge.camera(ofView: view)
+        let cam = flyThruView(view)?.camera()
         // The image was rendered even for a nil camera, as the argument of a
         // message to nil.
-        let image = FlyThruHostBridge.image(ofView: view, quality: true)
+        let image = flyThruView(view)?.nsimage(true)
         cam?.previewImage = image
         return cam
     }
 
     public override dynamic func setCurrentViewToCamera(_ cam: Camera?) {
-        FlyThruHostBridge.setCamera(cam, ofView: view)
+        flyThruView(view)?.setCamera(cam)
         (view as? NSView)?.needsDisplay = true
     }
 
     /// The quality is not used: SRView has a single QuickTime image.
     public override dynamic func getCurrentCameraImage(_ notUsed: Bool) -> NSImage? {
-        return FlyThruHostBridge.quicktimeImage(ofView: view)
+        return flyThruView(view)?.nsimageQuicktime?()
     }
 
     public override dynamic func prepareMovieGenerating() {
-        FlyThruHostBridge.setViewSizeToMatrix3DExport(ofView: view)
+        flyThruView(view)?.setViewSizeToMatrix3DExport()
     }
 
     public override dynamic func endMovieGenerating() {
-        FlyThruHostBridge.restoreViewSizeAfterMatrix3DExport(ofView: view)
+        flyThruView(view)?.restoreViewSizeAfterMatrix3DExport()
     }
 }

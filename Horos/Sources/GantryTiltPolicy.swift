@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 
 /// Whether to correct a gantry tilt before a 3D viewer opens, and the mark
 /// the 3D views draw when it was corrected.
@@ -20,7 +21,7 @@ import AppKit
 /// policy, which the 3D preferences show and reset.
 @objc(HorosGantryTiltPolicy)
 public final class GantryTiltPolicy: NSObject {
-    @objc public static let defaultsKey = "GantryTiltCorrectionPolicy"
+    @objc public static let defaultsKey = ViewerPreferences.gantryTiltCorrectionPolicy.name
 
     @objc public enum Policy: Int {
         case ask = 0
@@ -29,7 +30,7 @@ public final class GantryTiltPolicy: NSObject {
     }
 
     @objc public static var policy: Policy {
-        Policy(rawValue: UserDefaults.standard.integer(forKey: defaultsKey)) ?? .ask
+        Policy(rawValue: PreferencesSource.process.preferences[ViewerPreferences.gantryTiltCorrectionPolicy]) ?? .ask
     }
 
     /// The policy an answer leaves: the answer itself when it is to be kept.
@@ -58,7 +59,7 @@ public final class GantryTiltPolicy: NSObject {
         alert.suppressionButton?.title = NSLocalizedString("Do not ask again", comment: "")
         let correct = alert.runModal() == .alertFirstButtonReturn
         let next = policy(afterCorrecting: correct, remember: alert.suppressionButton?.state == .on, current: .ask)
-        if next != .ask { UserDefaults.standard.set(next.rawValue, forKey: defaultsKey) }
+        if next != .ask { PreferencesSource.process.preferences.set(next.rawValue, for: ViewerPreferences.gantryTiltCorrectionPolicy) }
         return correct
     }
 
@@ -70,6 +71,14 @@ public final class GantryTiltPolicy: NSObject {
     @objc(setCorrectedDegrees:forViewer:)
     public static func setCorrected(degrees: Float, for viewer: AnyObject) {
         corrected.setObject(NSNumber(value: degrees), forKey: viewer)
+    }
+
+    /// Forgets the correction of a viewer whose series is read from its files
+    /// again: the slices are tilted as they were, and the mark of the 3D
+    /// views opened from it would go on saying they are not.
+    @objc(clearCorrectionOfViewer:)
+    public static func clearCorrection(of viewer: AnyObject) {
+        corrected.removeObject(forKey: viewer)
     }
 
     /// The degrees a viewer's series was corrected by, while it still is: a

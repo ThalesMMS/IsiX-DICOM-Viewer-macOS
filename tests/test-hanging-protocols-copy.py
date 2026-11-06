@@ -37,6 +37,7 @@ sys.path.insert(0, str(root / "tools"))
 sys.path.insert(0, str(root / "tests"))
 import object_probe  # noqa: E402
 from sources import source_path  # noqa: E402
+import process_graph_stand_in  # noqa: E402  - the layouts read the catalog's keys through PreferencesSource
 
 failures = []
 with tempfile.TemporaryDirectory(prefix="horos-hanging-protocols-") as temporary:
@@ -44,12 +45,13 @@ with tempfile.TemporaryDirectory(prefix="horos-hanging-protocols-") as temporary
     # As the app's bridging header: WindowLayoutManager.h only names the class
     # that WindowLayoutManager.swift declares. AppController is Swift:
     # under HOROS_BRIDGING_HEADER its header only names the class, which the app
-    # compiles into the same module as the pane and this library does not. It is
-    # imported first, without HOROS_BRIDGING_HEADER and without a Horos-Swift.h,
-    # so that it declares the class with its former interface (the branch the
-    # Decompress helper reads) - the selectors AppController.swift keeps - and
-    # the probe's stub is what the pane reaches.
-    bridging.write_text('#import <Cocoa/Cocoa.h>\n#import "AppController.h"\n#define HOROS_BRIDGING_HEADER 1\n'
+    # compiles into the same module as the pane and this library does not. The
+    # header declares no interface without Horos-Swift.h, so the two selectors
+    # the pane sends, which AppController.swift keeps under these names, are
+    # declared here; the probe's stub is what the pane reaches.
+    bridging.write_text('#import <Cocoa/Cocoa.h>\n#import "AppController.h"\n'
+                        '@interface AppController : NSObject\n+ (AppController *)sharedAppController;\n'
+                        '- (NSMenu *)imageTilingMenu;\n@end\n#define HOROS_BRIDGING_HEADER 1\n'
                         '#import "WindowLayoutManager.h"\n#import "HorosObjCException.h"\n#import "N2Debug.h"\n')
     # WindowLayoutManager logs through N2LogException, which the pane's calls never reach.
     log_stub = Path(temporary) / "log_stub.m"
@@ -68,7 +70,9 @@ with tempfile.TemporaryDirectory(prefix="horos-hanging-protocols-") as temporary
                                          source_path("NSWindow+N2")], objects,
                                         Path(temporary) / "libHangingPane.dylib", bridging_header=bridging,
                                         include_dirs=(root / "Horos/Sources", root / "Nitrogen/Sources"),
-                                        frameworks=("Cocoa", "PreferencePanes"))
+                                        frameworks=("Cocoa", "PreferencePanes"),
+                                        flags=process_graph_stand_in.swift_flags(Path(temporary) / "isix",
+                                                                                 ["-target", "arm64-apple-macos26.0"]))
     except subprocess.CalledProcessError as error:
         print(f"the pane does not compile: {error}")
         raise SystemExit(1)

@@ -21,24 +21,29 @@ and on, and then after the separate, deliberate
 """
 from pathlib import Path
 import re
-import subprocess
 import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-objects = [root / 'build/Build/Intermediates.noindex/Horos.build' / configuration /
-           'Horos.build/Objects-normal/arm64/DCMPix.o'
-           for configuration in ('Debug', 'Release')]
-obj = next((o for o in objects if o.is_file()), None)
+sys.path.insert(0, str(root / 'tests'))
+import app_object_probe  # noqa: E402
+import roi_harness  # noqa: E402
+from sources import class_text
+
+obj = app_object_probe.built_object('DCMPix')
 if obj is None:
-    print('needs a built DCMPix.o in %s' % ' or '.join(str(o) for o in objects), file=sys.stderr)
+    print('needs a built DCMPix.o: build Debug or Release once', file=sys.stderr)
     raise SystemExit(2)
 
 failures = []
 
-pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
+pix = class_text('DCMPix')
 
-measurement = re.search(r'- \(float\*\)computefImageForMeasurement\s*\{(.*?)\n\}', pix, re.S)
+# The display source is in DCMPix+DisplaySource.swift once it left DCMPix.m.
+source_swift = (root / 'Horos/Sources/DCMPix+DisplaySource.swift')
+source_swift = source_swift.read_text(encoding='utf-8') if source_swift.is_file() else ''
+measurement = (re.search(r'- \(float\*\)computefImageForMeasurement\s*\{(.*?)\n\}', pix, re.S)
+               or re.search(r'func computefImageForMeasurement\(\)[^{]*\{(.*?)\n    \}', source_swift, re.S))
 if not measurement:
     failures.append('-computefImageForMeasurement is missing')
 else:
@@ -48,22 +53,30 @@ else:
         failures.append('the measurement source must still follow the thick slab: it is the image '
                         'the ROI was drawn on')
 
-display = re.search(r'- \(float\*\)computefImage\s*\{(.*?)\n\}', pix, re.S)
+display = (re.search(r'- \(float\*\)computefImage\s*\{(.*?)\n\}', pix, re.S)
+           or re.search(r'func computefImage\(\)[^{]*\{(.*?)\n    \}', source_swift, re.S))
 if not display:
     failures.append('-computefImage is missing')
-elif 'applyConvolutionOnImage' not in display.group(1):
+elif 'applyConvolutionOnImage' not in display.group(1) and 'applyConvolution(onImage' not in display.group(1):
     failures.append('-computefImage must still apply the filter: the display is what it is for')
 
-getter = pix[pix.find('- (float*) getROIValue:'):]
-getter = getter[:getter.find('\n- (')]
+if '- (float*) getROIValue:' in pix:
+    getter = pix[pix.find('- (float*) getROIValue:'):]
+    getter = getter[:getter.find('\n- (')]
+else:
+    # -getROIValue::: is a Swift extension of DCMPix.
+    measure = (root / 'Horos/Sources/DCMPix+ROIMeasure.swift').read_text(encoding='utf-8')
+    getter = measure[measure.find('@objc(getROIValue:::)'):]
+    getter = getter[:getter.find('@objc(', len('@objc(getROIValue:::)'))]
 if 'computefImageForMeasurement' not in getter:
     failures.append('getROIValue must read the measurement source')
-if re.search(r'\[self computefImage\]', getter):
+if re.search(r'\[self computefImage\]|\.computefImage\(\)', getter):
     failures.append('getROIValue still reads the filtered pixels')
 
 PROBE = r'''
 #import <Foundation/Foundation.h>
 #import "DCMPix.h"
+// PIX_IVARS
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
@@ -79,10 +92,10 @@ static const int kSide = 64;
 - (void) applyShutter {}
 - (void) prepareRamp
 {
-    width = height = kSide; isRGB = NO; thickSlabVRActivated = NO;
-    fImage = (float*) calloc( kSide * kSide, sizeof( float));
-    baseAddr = (char*) calloc( kSide * kSide, 4);
-    pixArray = [[NSArray arrayWithObject: [NSNull null]] retain];
+    PIX_IVAR( self, long, width) = PIX_IVAR( self, long, height) = kSide; PIX_IVAR( self, BOOL, isRGB) = NO; PIX_IVAR( self, BOOL, thickSlabVRActivated) = NO;
+    float *fImage = PIX_IVAR( self, float*, fImage) = (float*) calloc( kSide * kSide, sizeof( float));
+    PIX_IVAR( self, char*, baseAddr) = (char*) calloc( kSide * kSide, 4);
+    PIX_IVAR( self, NSArray*, pixArray) = [[NSArray arrayWithObject: [NSNull null]] retain];
     // Not a flat field: a convolution over constant pixels would change nothing
     // and the test would pass without measuring anything.
     for( int y = 0; y < kSide; y++)
@@ -202,52 +215,12 @@ int main(){ @autoreleasepool {
 }}
 '''
 
-FRAMEWORKS = ['Foundation', 'AppKit', 'AVFoundation', 'CoreData', 'CoreMedia', 'CoreVideo', 'Accelerate']
-
-
-def objectiveCStubs():
-    listing = subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
-    names = sorted({m.group(1) for m in re.finditer(r'_OBJC_CLASS_\$_(\w+)', listing)})
-    sources = root / 'Horos/Sources'
-    declared = [n for n in names
-                if n != 'ROI' and ((sources / (n + '.h')).is_file() or (sources / (n + '.m')).is_file()
-                                   or (sources / (n + '.mm')).is_file())]
-    return ''.join('@interface %s : NSObject @end\n@implementation %s @end\n' % (n, n) for n in declared)
-
-
-def link(directory, placeholders):
-    assembly = ''.join('.globl %s\n%s: .quad 0\n' % (s, s) for s in sorted(placeholders))
-    (directory / 'placeholders.s').write_text('.data\n' + assembly)
-    command = ['xcrun', 'clang++', '-std=c++11', '-Wno-deprecated-declarations',
-               '-I' + str(root / 'Horos/Sources'),
-               str(directory / 'probe.mm'), str(directory / 'stubs.mm'),
-               str(directory / 'placeholders.s'), str(obj),
-               '-Wl,-undefined,dynamic_lookup', '-o', str(directory / 'probe')]
-    for framework in FRAMEWORKS:
-        command += ['-framework', framework]
-    subprocess.run(command, check=True, capture_output=True)
-
-
 measured = ''
 if not failures:
     with tempfile.TemporaryDirectory(prefix='horos-filter-measure-') as name:
         directory = Path(name)
-        (directory / 'probe.mm').write_text(PROBE)
-        (directory / 'stubs.mm').write_text('#import <Foundation/Foundation.h>\n' + objectiveCStubs())
-        placeholders = set()
-        for _ in range(200):
-            link(directory, placeholders)
-            run = subprocess.run([str(directory / 'probe')], capture_output=True, text=True)
-            missing = re.search(r"symbol not found in flat namespace '([^']+)'", run.stderr)
-            if not missing:
-                break
-            if missing.group(1) in placeholders:
-                print('cannot satisfy %s' % missing.group(1), file=sys.stderr)
-                raise SystemExit(1)
-            placeholders.add(missing.group(1))
-        else:
-            print('too many unresolved symbols in %s' % obj, file=sys.stderr)
-            raise SystemExit(1)
+        (directory / 'probe.mm').write_text(PROBE.replace('// PIX_IVARS\n', roi_harness.PIX_IVARS))
+        run = app_object_probe.link_and_run(directory, [directory / 'probe.mm'], [obj], probe_classes=('ROI',))
         if run.returncode:
             sys.stderr.write(run.stderr)
             failures.append('a presentation filter still moves the measured values')

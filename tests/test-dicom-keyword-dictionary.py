@@ -2,7 +2,7 @@
 """PatientName resolves against the dictionary the application actually loads.
 
 getDicomField: looks a keyword up in dcmDataDict. The table that object holds is
-not the vendored DCMTK/dcmdata/data/dicom.dic and not the copy in the application
+not the external dcmdata/data/dicom.dic of the DCMTK source and not the copy in the application
 bundle: Horos and Decompress compile Binaries/dcmtk-source/dcmdata/dcdictbi.cc
 (generated 2005-11-15). That table calls (0010,0010) PatientsName, so a lookup
 of PatientName does not find the public tag.
@@ -12,47 +12,58 @@ This builds the same dictionary sources the application compiles, then runs the
 same resolve path getDicomField: uses. It fails if PatientName is not (0010,0010).
 """
 from pathlib import Path
-from dcmtk_build import dcmtk_flags
+from dcmtk_build import dcmtk_dictionary, dcmtk_flags
 import subprocess
 import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-dcmtk = root / 'DCMTK'
-vendored = root / 'DCMTK/dcmdata/data/dicom.dic'
 driver = root / 'tools/exercise-dicom-keyword-dictionary.mm'
-implementation = root / 'Horos/Sources/DICOMDataDictionary.mm'
-header = root / 'Horos/Sources/DICOMDataDictionary.h'
-getter = root / 'Horos/Sources/DicomFileDCMTKCategory.mm'
+adapters = root / 'Horos/Sources/Adapters/DCMTK'
+implementation = adapters / 'IsiXDCMTKDictionary.mm'
+header = adapters / 'IsiXDCMTKDictionary.h'
+resolver = root / 'Horos/Sources/DICOMKeyword+Dictionary.swift'
+getter = root / 'Horos/Sources/DicomFile+DCMTKFields.swift'
 failures = []
 
-if not dcmtk.exists():
-    print('skipped: needs the compiled-in DCMTK: %s' % dcmtk)
-    sys.exit(2)
-if not vendored.exists():
-    print('skipped: needs the vendored dicom.dic: %s' % vendored)
-    sys.exit(2)
-for path in (driver, implementation, header):
+# The helper links the DCMTK archives of a current build (a missing build skips
+# here, before anything is compiled) and overlays the external dicom.dic of the
+# pinned DCMTK source archive, the file the build ships beside the executables.
+flags = dcmtk_flags('dcmnet')
+external = dcmtk_dictionary()
+for path in (driver, implementation, header, resolver):
     if not path.exists():
         failures.append('%s is gone' % path.name)
 
 # The application path has to call the resolver. A source that only greps for
 # PatientName would still compile if getDicomField: went back to findEntry alone.
 source = getter.read_bytes().decode('latin1') if getter.exists() else ''
-if 'HorosResolveDicomKeyword' not in source:
-    failures.append('getDicomField:forFile: no longer asks HorosResolveDicomKeyword, so a '
+getter_body = source[source.find('class func getDicomField(_ field: String!'):]
+if 'DICOMKeyword.standardTag(for: field)' not in getter_body[:600]:
+    failures.append('getDicomField:forFile: no longer asks DICOMKeyword.standardTag, so a '
                     'modern name can miss the tag again')
 
-if driver.exists() and implementation.exists() and header.exists():
+if driver.exists() and implementation.exists() and header.exists() and resolver.exists():
     with tempfile.TemporaryDirectory(prefix='horos-dicom-keyword-') as directory:
         binary = Path(directory) / 'keywords'
-        build = subprocess.run(
-            ['xcrun', 'clang++', '-std=c++11', '-fobjc-arc', str(driver), str(implementation), *dcmtk_flags(), '-framework', 'Foundation', '-o', str(binary)],
+        # The application's resolver, Swift over the adapter, as the tool calls it.
+        (Path(directory) / 'bridge.h').write_text('#import "IsiXDCMTKDictionary.h"\n')
+        swift = subprocess.run(
+            ['xcrun', 'swiftc', '-swift-version', '6', '-parse-as-library', '-c', '-wmo', '-module-name', 'Keywords',
+             '-import-objc-header', str(Path(directory) / 'bridge.h'), '-Xcc', '-I' + str(adapters),
+             str(root / 'Horos/Sources/DICOMKeyword.swift'), str(resolver), '-o', str(Path(directory) / 'resolver.o')],
+            capture_output=True, text=True)
+        toolchain = Path(subprocess.check_output(['xcrun', '--find', 'swiftc'], text=True).strip()).parents[1]
+        build = swift if swift.returncode else subprocess.run(
+            ['xcrun', 'clang++', '-std=c++17', '-fobjc-arc', '-I' + str(adapters), str(driver), str(implementation),
+             str(adapters / 'IsiXDCMTKError.mm'), str(Path(directory) / 'resolver.o'), *flags,
+             '-L/usr/lib/swift', '-L' + str(toolchain / 'lib/swift/macosx'),
+             '-framework', 'Foundation', '-o', str(binary)],
             capture_output=True, text=True)
         if build.returncode != 0:
             failures.append('the dictionary helper does not compile:\n%s' % build.stderr[-2000:])
         else:
-            run = subprocess.run([str(binary), str(vendored)],
+            run = subprocess.run([str(binary), str(external)],
                                  capture_output=True, text=True, timeout=120)
             out = run.stdout
             print(out.strip())
@@ -68,8 +79,8 @@ if driver.exists() and implementation.exists() and header.exists():
                     answers[key.strip()] = value.strip()
 
             # What the process compiles, before any overlay. This is the
-            # measurement the issue asked for: not an assumption from the
-            # vendored tree.
+            # measurement itself, not an assumption read from the source
+            # tree.
             if answers.get('builtin DCMTK') != '3.7.0+':
                 failures.append('the driver did not link the pinned current dictionary')
             if answers.get('builtin DCMDICTPATH') != '(unset)':
@@ -89,7 +100,7 @@ if driver.exists() and implementation.exists() and header.exists():
 
             # After the same overlay and spelling fallback the application uses.
             if answers.get('loaded (0010,0010)', '').split()[0] != 'PatientName':
-                failures.append('after loading the vendored dicom.dic, (0010,0010) is %s, not PatientName'
+                failures.append('after loading the external dicom.dic, (0010,0010) is %s, not PatientName'
                                 % answers.get('loaded (0010,0010)'))
             for keyword, tag in (
                     ('PatientName', '0010,0010'),
@@ -107,8 +118,8 @@ if driver.exists() and implementation.exists() and header.exists():
             if run.returncode != 0:
                 failures.append('the helper exited %d' % run.returncode)
 
-# The Swift spelling rule is what Horos itself calls. The helper above uses the
-# Objective-C copy so Decompress, which has no Swift, stays able to resolve.
+# The Swift spelling rule is what Horos itself calls, and what the helper above
+# resolves with; here it is checked alone, without the dictionary.
 swiftc = subprocess.run(['xcrun', '--sdk', 'macosx', '-f', 'swiftc'], capture_output=True, text=True)
 if swiftc.returncode != 0:
     failures.append('swiftc is not available')

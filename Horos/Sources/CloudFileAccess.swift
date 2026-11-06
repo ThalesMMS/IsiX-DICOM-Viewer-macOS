@@ -13,6 +13,7 @@
 import AppKit
 import Darwin
 import Foundation
+import IsiXPreferences
 
 /// Presence and coordinated I/O for on-demand cloud files (OneDrive and others).
 ///
@@ -40,7 +41,7 @@ public final class CloudFileAccess: NSObject {
     /// File Provider / ubiquitous status and allocated-size placeholders.
     @objc public static let fixturePresenceAttribute = "horos.cloud.presence"
 
-    @objc public static let ignoredWarningDefaultsKey = "CLOUD_ACTIVE_DATABASE_WARNING_IGNORED"
+    @objc public static let ignoredWarningDefaultsKey = DatabasePreferences.cloudActiveDatabaseWarningIgnored.name
 
     /// Provider label for a path, or nil when it is ordinary local storage.
     @objc(providerNameForPath:)
@@ -114,42 +115,31 @@ public final class CloudFileAccess: NSObject {
     /// Refuse a copy that would publish an unhydrated source. Coordinates
     /// provider I/O when the path is in a known cloud container.
     @objc(prepareCopyFromPath:toPath:error:)
-    public static func prepareCopy(fromPath source: String, toPath destination: String, error: NSErrorPointer) -> Bool {
+    public static func prepareCopy(fromPath source: String, toPath destination: String) throws {
         let sourcePresence = presence(ofPath: source)
         if sourcePresence == presencePlaceholder || sourcePresence == presenceOffline {
-            if let error {
-                error.pointee = hydrationError(presence: sourcePresence, path: source)
-            }
-            return false
+            throw hydrationError(presence: sourcePresence, path: source)
         }
 
         if providerName(forPath: source) != nil {
-            if !coordinateReading(path: source, error: error) {
-                return false
-            }
+            try coordinateReading(path: source)
             let after = presence(ofPath: source)
             if after == presencePlaceholder || after == presenceOffline {
-                if let error {
-                    error.pointee = hydrationError(presence: after, path: source)
-                }
-                return false
+                throw hydrationError(presence: after, path: source)
             }
         }
 
         if providerName(forPath: destination) != nil {
             let directory = (destination as NSString).deletingLastPathComponent
-            if !coordinateWriting(path: directory, error: error) {
-                return false
-            }
+            try coordinateWriting(path: directory)
         }
-        return true
     }
 
     @objc(shouldWarnAboutActiveDatabaseAtPath:)
     public static func shouldWarnAboutActiveDatabase(atPath path: String?) -> Bool {
         guard let path, providerName(forPath: path) != nil else { return false }
         if path.contains(".nosync") { return false }
-        if UserDefaults.standard.bool(forKey: ignoredWarningDefaultsKey) { return false }
+        if PreferencesSource.process.preferences[DatabasePreferences.cloudActiveDatabaseWarningIgnored] { return false }
         return true
     }
 
@@ -172,7 +162,7 @@ public final class CloudFileAccess: NSObject {
     }
 
     @objc public static func resetIgnoredWarningForTests() {
-        UserDefaults.standard.removeObject(forKey: ignoredWarningDefaultsKey)
+        PreferencesSource.process.preferences.remove(DatabasePreferences.cloudActiveDatabaseWarningIgnored)
     }
 
     @objc(setFixturePresence:atPath:error:)
@@ -245,7 +235,9 @@ public final class CloudFileAccess: NSObject {
         ])
     }
 
-    private static func coordinateReading(path: String, error: NSErrorPointer) -> Bool {
+    /// A coordinated read of `path`, which the provider makes available first;
+    /// throws what the coordination refused.
+    private static func coordinateReading(path: String) throws {
         let url = URL(fileURLWithPath: path)
         let coordinator = NSFileCoordinator(filePresenter: nil)
         var coordinatorError: NSError?
@@ -253,14 +245,11 @@ public final class CloudFileAccess: NSObject {
         coordinator.coordinate(readingItemAt: url, options: [], error: &coordinatorError) { _ in
             ok = true
         }
-        if let coordinatorError {
-            if let error { error.pointee = wrapCoordination(coordinatorError, path: path) }
-            return false
-        }
-        return ok
+        try coordinated(ok, coordinatorError, path: path)
     }
 
-    private static func coordinateWriting(path: String, error: NSErrorPointer) -> Bool {
+    /// A coordinated write into `path`; throws what the coordination refused.
+    private static func coordinateWriting(path: String) throws {
         let url = URL(fileURLWithPath: path)
         let coordinator = NSFileCoordinator(filePresenter: nil)
         var coordinatorError: NSError?
@@ -268,11 +257,19 @@ public final class CloudFileAccess: NSObject {
         coordinator.coordinate(writingItemAt: url, options: [.forMerging], error: &coordinatorError) { _ in
             ok = true
         }
+        try coordinated(ok, coordinatorError, path: path)
+    }
+
+    /// The outcome of a coordination: its error, wrapped, or, when the
+    /// accessor never ran without one, the failure Cocoa gives an error it
+    /// does not describe, as a NO with no error read.
+    private static func coordinated(_ ok: Bool, _ coordinatorError: NSError?, path: String) throws {
         if let coordinatorError {
-            if let error { error.pointee = wrapCoordination(coordinatorError, path: path) }
-            return false
+            throw wrapCoordination(coordinatorError, path: path)
         }
-        return ok
+        if !ok {
+            throw NSError(domain: NSCocoaErrorDomain, code: NSFileReadUnknownError, userInfo: nil)
+        }
     }
 
     @MainActor private static func presentWarningOnMain(_ message: String, attemptsLeft: Int) {
@@ -286,7 +283,7 @@ public final class CloudFileAccess: NSObject {
         if let window = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible }) {
             alert.beginSheetModal(for: window) { response in
                 if response == .alertSecondButtonReturn {
-                    UserDefaults.standard.set(true, forKey: ignoredWarningDefaultsKey)
+                    PreferencesSource.process.preferences.set(true, for: DatabasePreferences.cloudActiveDatabaseWarningIgnored)
                 }
             }
             return

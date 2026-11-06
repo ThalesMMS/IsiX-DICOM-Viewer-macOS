@@ -8,7 +8,7 @@ indexed as another study. The study stayed without its SR, so every report
 synchronization archived again into a new file, and each of those became one
 more study with one more copy of the report.
 
-Compiles the production HorosStructuredReportBridge.cpp against the project's
+Compiles the production HorosStructuredReportBridge.cpp (in the DCMTK adapter) against the project's
 DCMTK and checks that a canonical and a legacy UID come out identical after
 creating, writing and reading an SR, that malformed values are refused, and
 that SRAnnotation does not write an SR whose study UID is missing or refused.
@@ -21,14 +21,14 @@ from dcmtk_build import ROOT, dcmtk_flags
 
 failures = []
 
-annotation = (ROOT / 'Horos/Sources/SRAnnotation.mm').read_text(encoding='utf-8', errors='replace')
-write = annotation[annotation.find('- (BOOL)writeToFileAtPath:'):]
-create = write.find('createNewSeriesInStudy(')
-if create < 0 or 'return NO;' not in write[create:create + 400] or 'studyUID.length == 0' not in write[:create]:
+annotation = (ROOT / 'Horos/Sources/SRAnnotation.swift').read_text(encoding='utf-8', errors='replace')
+write = annotation[annotation.find('func writeToFile(atPath'):]
+create = write.find('createNewSeries(inStudy:')
+if create < 0 or 'return false' not in write[create:create + 500] or 'studyUID.length > 0' not in write[:create]:
     failures.append('SRAnnotation writes the SR even when the study UID is missing or refused')
 
 code = r'''
-#include "HorosStructuredReportBridge.h"
+#include "HorosStructuredReportBridge.hpp"
 #include <dcmtk/dcmdata/dctk.h>
 #include <cstdio>
 #include <cstring>
@@ -87,7 +87,8 @@ with tempfile.TemporaryDirectory(prefix='horos-sr-legacy-uid-') as directory:
     work = Path(directory)
     (work / 'main.cc').write_text(code)
     built = subprocess.run(['xcrun', 'clang++', '-std=c++17', str(work / 'main.cc'),
-                            str(ROOT / 'Horos/Sources/HorosStructuredReportBridge.cpp'),
+                            str(ROOT / 'Horos/Sources/Adapters/DCMTK/HorosStructuredReportBridge.cpp'),
+                            '-I' + str(ROOT / 'Horos/Sources/Adapters/DCMTK'),
                             *dcmtk_flags('dcmsr', 'dcmjpeg', 'dcmimage', 'dcmimgle', 'ijg8', 'ijg12', 'ijg16'),
                             '-lxml2', '-o', str(work / 'check')], capture_output=True, text=True)
     if built.returncode != 0:

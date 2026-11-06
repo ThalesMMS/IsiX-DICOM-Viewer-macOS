@@ -16,7 +16,7 @@
 #include "HorosDCMTKSeekableInput.h"
 #include <cstring>
 #include <sys/resource.h>
-#include "../Horos/Sources/HorosDICOMProbe.h"
+#include "../Horos/Sources/Adapters/DCMTK/HorosDICOMProbe.h"
 #ifdef HOROS_TEST_DICOM_METHODS
 #import <Foundation/Foundation.h>
 @interface DicomFile : NSObject

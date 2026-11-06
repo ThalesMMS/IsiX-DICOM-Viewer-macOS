@@ -49,17 +49,4 @@
 // Swift is compiling the extension itself.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift, the Decompress helper: DCMPix.m imports
-// DicomDatabase.h. The former declarations, without their implementation.
-@interface DicomDatabase (Albums)
-
--(void)addDefaultAlbums;
--(NSArray*)albums;
-+(NSPredicate*)predicateForSmartAlbumFilter:(NSString*)string;
--(void) saveAlbumsToPath:(NSString*) path;
--(void) loadAlbumsFromPath:(NSString*) path;
--(void)addStudies:(NSArray*)dicomStudies toAlbum:(DicomAlbum*)dicomAlbum;
-
-@end
 #endif

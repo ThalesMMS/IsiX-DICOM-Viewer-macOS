@@ -11,12 +11,41 @@
 #include "dcmtk/dcmdata/dcfilefo.h"
 #include "dcmtk/oflog/configrt.h"
 #include "dcmtk/dcmpstat/dvpsdef.h"
+#include "dcmtk/oflog/appender.h"
+#include "dcmtk/oflog/spi/logevent.h"
+#include <cstdlib>
 #include <memory>
 
 namespace {
+// DVPSStoredPrint turns every refusal into EC_IllegalCall, and its message
+// handler writes each response only to the dcmpstat dump logger, at debug
+// level. This appender takes that logger's messages, reads the status line of
+// each incoming response and keeps the last failure, so the helper can say
+// which status the printer answered with. The dumps go nowhere else: the
+// logger stops passing them to the print log, which keeps its usual level.
+class ResponseStatusAppender : public dcmtk::log4cplus::Appender {
+public:
+    int failure = 0;
+    ~ResponseStatusAppender() { destructorImpl(); }
+    void close() {}
+protected:
+    void append(const dcmtk::log4cplus::spi::InternalLoggingEvent &event) {
+        const OFString &message = event.getMessage();
+        if (message.find("INCOMING DIMSE MESSAGE") == OFString_npos) return;
+        const size_t label = message.find("DIMSE Status");
+        if (label == OFString_npos) return;
+        const size_t value = message.find("0x", label);
+        if (value == OFString_npos) return;
+        const unsigned long status = std::strtoul(message.c_str() + value + 2, nullptr, 16);
+        // Success is 0x0000 and warnings are 0xBxxx; DCMTK accepts both.
+        if (status != 0 && (status & 0xF000) != 0xB000) failure = static_cast<int>(status & 0xFFFF);
+    }
+};
+
 struct PrintContext {
     DVInterface interface;
     OFString printer;
+    ResponseStatusAppender *responses = nullptr;
     PrintContext(const char *config, const char *name): interface(config), printer(name) {}
 };
 
@@ -33,6 +62,11 @@ void *HorosStoredPrintOpen(const char *config, const char *logger, const char *p
     if (logger && *logger) dcmtk::log4cplus::PropertyConfigurator::doConfigure(logger);
     else OFLog::configure(OFLogger::INFO_LOG_LEVEL);
     std::unique_ptr<PrintContext> context(new PrintContext(config, printer));
+    context->responses = new ResponseStatusAppender();
+    dcmtk::log4cplus::Logger dump = OFLog::getLogger("dcmtk.dcmpstat.dump");
+    dump.setAdditivity(false);
+    dump.setLogLevel(dcmtk::log4cplus::DEBUG_LOG_LEVEL);
+    dump.addAppender(dcmtk::log4cplus::SharedAppenderPtr(context->responses));
     DVInterface &dvi = context->interface;
     if (report(dvi.setCurrentPrinter(printer), "printer configuration")) return nullptr;
     if (!dvi.getTargetHostname(printer) || !dvi.getTargetAETitle(printer) ||
@@ -53,12 +87,14 @@ void *HorosStoredPrintOpen(const char *config, const char *logger, const char *p
 }
 
 HorosStoredPrintResult HorosStoredPrintSend(void *opaque, const char *filename) {
-    HorosStoredPrintResult outcome = {0, 0, 0, 0};
+    HorosStoredPrintResult outcome = {0, 0, 0, 0, HorosStoredPrintStageNone, 0};
     if (!opaque || !filename || !*filename) {
         outcome.operationStatus = report(EC_IllegalCall, "missing Stored Print");
+        outcome.failedStage = HorosStoredPrintStageLoad;
         return outcome;
     }
     PrintContext &context = *static_cast<PrintContext *>(opaque);
+    if (context.responses) context.responses->failure = 0;
     DVInterface &dvi = context.interface;
     const char *printer = context.printer.c_str();
     DVPSStoredPrint &stored = dvi.getPrintHandler();
@@ -67,6 +103,7 @@ HorosStoredPrintResult HorosStoredPrintSend(void *opaque, const char *filename) 
     if (operation.good()) operation = stored.read(*file.getDataset());
     if (operation.bad()) {
         outcome.operationStatus = report(operation, "load Stored Print");
+        outcome.failedStage = HorosStoredPrintStageLoad;
         return outcome;
     }
 
@@ -81,9 +118,11 @@ HorosStoredPrintResult HorosStoredPrintSend(void *opaque, const char *filename) 
         dvi.getTargetImplicitOnly(printer));
     if (operation.bad()) {
         outcome.operationStatus = report(operation, "negotiate printer");
+        outcome.failedStage = HorosStoredPrintStageConnect;
         return outcome;
     }
 
+    int stage = HorosStoredPrintStageJob;
     const OFBool lutInSession = dvi.getTargetPrinterPresentationLUTinFilmSession(printer);
     // Keep DCMTK's explicit success/warning policy inside its public print APIs.
     if (operation.good()) operation = stored.printSCUgetPrinterInstance(connection);
@@ -97,14 +136,14 @@ HorosStoredPrintResult HorosStoredPrintSend(void *opaque, const char *filename) 
         const char *study = nullptr, *series = nullptr, *instance = nullptr;
         operation = stored.getImageReference(index, study, series, instance);
         if (operation.bad()) break;
-        if (!study || !series || !instance) { operation = EC_IllegalCall; break; }
+        if (!study || !series || !instance) { operation = EC_IllegalCall; stage = HorosStoredPrintStageLoad; break; }
         const char *reference = dvi.getFilename(study, series, instance);
         // releaseDatabase invalidates the pointer returned by getFilename.
         const OFString path = reference ? reference : "";
         dvi.releaseDatabase();
-        if (path.empty()) { operation = EC_IllegalCall; break; }
+        if (path.empty()) { operation = EC_IllegalCall; stage = HorosStoredPrintStageLoad; break; }
         DicomImage image(path.c_str());
-        if (image.getStatus() != EIS_Normal) { operation = EC_IllegalCall; break; }
+        if (image.getStatus() != EIS_Normal) { operation = EC_IllegalCall; stage = HorosStoredPrintStageLoad; break; }
         operation = stored.printSCUsetBasicImageBox(connection, index, image, OFFalse);
     }
     for (size_t index = 0; operation.good() && index < stored.getNumberOfAnnotations(); ++index)
@@ -114,6 +153,10 @@ HorosStoredPrintResult HorosStoredPrintSend(void *opaque, const char *filename) 
         outcome.printAccepted = operation.good();
     }
     outcome.operationStatus = report(operation, "print operation");
+    if (operation.bad()) {
+        outcome.failedStage = stage;
+        if (context.responses) outcome.dimseStatus = context.responses->failure;
+    }
     // Match the upstream cleanup sequence, keeping it separate from printing.
     if (operation.good()) outcome.cleanupStatus = report(stored.printSCUdelete(connection), "delete print objects");
     outcome.releaseStatus = report(connection.releaseAssociation(), "release printer");

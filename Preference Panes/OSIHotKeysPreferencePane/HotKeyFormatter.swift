@@ -41,7 +41,7 @@ import Cocoa
 
 /// Shows a hot key in capitals, and the double-click assignments in words.
 ///
-/// Implemented in Swift since #711.
+/// Implemented in Swift.
 @objc(HotKeyFormatter)
 public final class HotKeyFormatter: Formatter {
     public override func isPartialStringValid(_ partialString: String, newEditingString newString: AutoreleasingUnsafeMutablePointer<NSString?>?, errorDescription error: AutoreleasingUnsafeMutablePointer<NSString?>?) -> Bool {

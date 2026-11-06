@@ -41,14 +41,13 @@ import Foundation
 
 // NSString (N2) and NSAttributedString (N2) are implemented in Swift.
 // The selectors and <Horos/NSString+N2.h> are those of the former
-// categories. N2NonNullString, a C function exported with its C++ name, stays
-// in NSString+N2+CAPI.mm.
+// categories.
 //
 // The former -stringByConditionallyResolvingSymlink and
 // -stringByConditionallyResolvingAlias of this category are not here: the
-// application also links NSString (SymlinksAndAliases) of LetsMoveAndDock,
-// which defines both selectors and is the implementation the runtime used
-// (the linker put its methods first in the merged NSString category). Callers,
+// application also links the path alias resolution of IsiXStorage
+// (PathAliasResolution.swift), which defines both selectors and whose
+// Objective-C category was the implementation the runtime used. Callers,
 // NSFileManager+N2 among them, keep getting that one.
 
 /// The C conversion of a floating-point value to an unsigned integer as it

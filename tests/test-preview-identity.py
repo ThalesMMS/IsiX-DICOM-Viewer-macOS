@@ -4,16 +4,20 @@
 Object level: `HorosPreviewIdentity` refuses to reuse pixels loaded elsewhere
 unless the file, the frame, the series and the size all match; refuses to
 preview an instance that carries no frame (SR, SEG, presentation state,
-encapsulated PDF); and refuses a whole-series preview that would mix series,
-sizes or repeat a frame.
+encapsulated CDA); and refuses a whole-series preview that would mix series,
+sizes or repeat a frame. An encapsulated PDF is previewed: its pages are its
+frames, whatever its modality says, DOC included.
 
 Source level: the browser matches a loaded frame by path *and* frame number —
 it used to take any frame of the file when frame 0 was requested — and every
 call that reuses a loaded frame passes the identity it expects. The lookup
-stays in BrowserController.m; the preview calls that pass the identity are in
-BrowserController+Preview.swift.
+is the database preview's, BrowserPreviewPane.swift (the match itself
+IsiXDatabase's PreviewReuse), behind the selectors of
+BrowserController+Thumbnails.swift; the preview calls that pass the identity
+are in BrowserPreviewPane.swift and ThumbnailLoader.swift.
 """
 from pathlib import Path
+from sources import class_text
 import subprocess
 import sys
 import tempfile
@@ -51,7 +55,13 @@ expect(PreviewIdentity.refusalForPreviewing(frame("/a/seg.dcm", 0, modality: "SE
 expect(PreviewIdentity.refusalForPreviewing(frame("/a/sr.dcm", 0, sop: "1.2.840.10008.5.1.4.1.1.88.11"))?.contains("SOP class") == true, "SR by SOP class")
 expect(PreviewIdentity.refusalForPreviewing(frame("/a/seg.dcm", 0, sop: "1.2.840.10008.5.1.4.1.1.66.4"))?.contains("SOP class") == true, "SEG by SOP class")
 expect(PreviewIdentity.refusalForPreviewing(frame("/a/ps.dcm", 0, sop: "1.2.840.10008.5.1.4.1.1.11.1"))?.contains("SOP class") == true, "presentation state")
-expect(PreviewIdentity.refusalForPreviewing(frame("/a/pdf.dcm", 0, sop: "1.2.840.10008.5.1.4.1.1.104.1"))?.contains("SOP class") == true, "encapsulated PDF")
+let pdf = "1.2.840.10008.5.1.4.1.1.104.1"
+expect(PreviewIdentity.isPreviewable(frame("/a/pdf.dcm", 0, sop: pdf, modality: "DOC", rows: 842, columns: 595, count: 2)), "a page of an encapsulated PDF")
+expect(PreviewIdentity.isPreviewable(frame("/a/pdf.dcm", 1, sop: pdf, modality: "OT", rows: 842, columns: 595, count: 2)), "its second page, modality OT")
+expect(PreviewIdentity.refusalForPreviewing(frame("/a/pdf.dcm", 2, sop: pdf, modality: "DOC", count: 2))?.contains("outside") == true, "a page past the end")
+expect(PreviewIdentity.refusalForPreviewing(frame("/a/pdf.dcm", 0, sop: pdf, modality: "DOC", rows: 0, columns: 0))?.contains("no dimensions") == true, "a PDF that could not be rendered")
+expect(PreviewIdentity.refusalForPreviewing(frame("/a/cda.dcm", 0, sop: "1.2.840.10008.5.1.4.1.1.104.2", modality: "DOC"))?.contains("no displayable frame") == true, "encapsulated CDA")
+expect(PreviewIdentity.refusalForPreviewing(frame("/a/doc.dcm", 0, modality: "DOC"))?.contains("no displayable frame") == true, "DOC of another class")
 expect(PreviewIdentity.refusalForPreviewing(frame("/a/ct.dcm", 0, rows: 0))?.contains("no dimensions") == true, "a frame without dimensions")
 expect(PreviewIdentity.refusalForPreviewing(frame("/a/multi.dcm", 16, count: 16))?.contains("outside") == true, "a frame past the end")
 
@@ -70,7 +80,7 @@ expect(PreviewIdentity.refusalForSeriesPreview(withSEG)?.contains("no displayabl
 let multiframe = (0..<16).map { frame("/a/multi.dcm", $0, count: 16) }
 expect(PreviewIdentity.refusalForSeriesPreview(multiframe) == nil, "every frame of one multiframe file is one series")
 
-print("PASS: preview reuse needs file, frame, series and size; SR/SEG/PS/PDF carry no frame; a series preview may not mix series, sizes or repeat a frame")
+print("PASS: preview reuse needs file, frame, series and size; SR/SEG/PS/CDA carry no frame, a PDF page is one; a series preview may not mix series, sizes or repeat a frame")
 '''
 with tempfile.TemporaryDirectory(prefix='horos-preview-identity-') as folder:
     tmp = Path(folder)
@@ -79,22 +89,30 @@ with tempfile.TemporaryDirectory(prefix='horos-preview-identity-') as folder:
                     '-o', str(tmp / 'test')], check=True)
     subprocess.run([str(tmp / 'test')], check=True)
 
-# -getDCMPixFromViewerIfAvailable:frameNumber:expectedFrame: and the thread
-# cancel stay in BrowserController.m; its callers in the preview window policy
-# block (-previewSliderAction:, -matrixLoadIcons:) are the Swift extension
-# BrowserController+Preview.swift, which builds the
-# expected identity through +horos_previewFrameForImage:frame:, the
-# BrowserController.m wrapper of HorosPreviewFrameForImage.
-objc = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-swift = sources.source_text('BrowserController+Preview')
-browser = objc + swift
+# -getDCMPixFromViewerIfAvailable:frameNumber:expectedFrame: and
+# +horos_previewFrameForImage:frame:, which builds the expected identity from
+# the database row, are BrowserController+Thumbnails.swift; the first hands the
+# lookup to the database preview (BrowserPreviewPane.swift), whose slider and
+# whose thumbnail loader (ThumbnailLoader.swift) are the callers; a new
+# selection cancels the load in progress there.
+objc = class_text('BrowserController')
+thumbnails = (root / 'Horos/Sources/BrowserController+Thumbnails.swift').read_text()
+pane = (root / 'Horos/Sources/BrowserPreviewPane.swift').read_text()
+loader = (root / 'Horos/Sources/ThumbnailLoader.swift').read_text()
+callers = pane + loader
+browser = objc + thumbnails + pane + loader
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 assert 'if( frameNumber == 0)\n                    i = [[vFileList valueForKey: @"completePath"] indexOfObject: pathToFind];' not in objc, \
     'frame 0 must not match on the path alone'
-assert browser.count('expectedFrame') >= 6, 'every reuse site must pass the identity it expects'
-assert 'refusalForReusing: loaded asRequested: expectedFrame' in objc, 'the reuse must go through HorosPreviewIdentity'
-assert 'HorosPreviewFrameForImage' in objc and 'expectedFrame: BrowserController.horos_previewFrame(for:' in swift \
-    and 'return HorosPreviewFrameForImage( image, frame);' in objc, 'the expected identity is built from the database row'
-assert '[matrixLoadIconsThread cancel]' in objc, 'a new selection must cancel the running icon thread'
+assert 'BrowserPreviewPane.lentFrame(path: pathToFind, frame: frameNumber, expected: expectedFrame)' in thumbnails, \
+    'the selector must hand the identity it was given to the lookup'
+assert callers.count('expected: BrowserController.horos_previewFrame(for:') >= 4, 'every reuse site must pass the identity it expects'
+assert 'PreviewReuse.index(count:' in pane and 'pathToFind: pathToFind, frameNumber: frameNumber)' in pane, \
+    'the loaded frame must be matched by path and frame number'
+assert 'PreviewIdentity.refusalForReusing(loaded, asRequested: expected)' in pane, 'the reuse must go through HorosPreviewIdentity'
+assert '@objc(horos_previewFrameForImage:frame:)' in thumbnails and 'return previewFrame(of: image, frame: frame)' in thumbnails, \
+    'the expected identity is built from the database row'
+assert 'browser.horos_matrixLoadIconsThread?.cancel()' in pane and 'func cancel() {\n        task.cancel()' in loader, \
+    'a new selection must cancel the running thumbnail load'
 assert sum('PreviewIdentity.swift' in line for line in project.splitlines()) == 4, 'PreviewIdentity.swift is not fully registered in the Xcode project'
-print('preview wiring: frame-exact reuse through the shared identity, expected identity at every call, icon thread cancelled on selection')
+print('preview wiring: frame-exact reuse through the shared identity, expected identity at every call, thumbnail load cancelled on selection')

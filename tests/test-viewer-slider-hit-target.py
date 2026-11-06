@@ -15,6 +15,7 @@ the probe does not need the whole app linked in) and then instantiated for real:
 the check is the laid-out frame, not the XML.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
+import isix_modules
 import re
 import subprocess
 import tempfile
@@ -85,6 +86,13 @@ owner_source = '''
 
 code = r'''
 import AppKit
+import IsiXPreferences
+
+/// The process graph of the application, which hands the preferences to the thick-slab slider.
+final class ProcessGraph: Sendable {
+    static let process = ProcessGraph()
+    var preferences: UserDefaults { UserDefaults.standard }
+}
 
 func fail(_ message: String) -> Never {
     print("FAIL: \(message)")
@@ -229,8 +237,9 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-slider-hit-') as folder:
         'xcrun', 'swiftc', '-swift-version', '5',
         '-import-objc-header', str(folder / 'Owner.h'),
         str(helper), str(navigation), str(root / 'Horos/Sources/ThickSlabSliderScale.swift'),
-        str(root / 'Horos/Sources/HorosThickSlabSlider.swift'), str(folder / 'Owner.m'), str(folder / 'main.swift'),
-        '-framework', 'AppKit',
+        str(root / 'Horos/Sources/HorosThickSlabSlider.swift'), str(root / 'Horos/Sources/PreferencesSource.swift'),
+        str(folder / 'Owner.m'), str(folder / 'main.swift'),
+        '-framework', 'AppKit', *isix_modules.module_flags('IsiXPreferences', folder / 'modules'),
         '-o', str(folder / 'test'),
     ], check=True)
     subprocess.run([str(folder / 'test'), *[str(n) for n in nibs]], check=True)

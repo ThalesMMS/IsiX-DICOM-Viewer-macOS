@@ -46,8 +46,8 @@ import Cocoa
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OrthogonalMPRPETCTView.h> are those of the former class, the
 /// customClass of the views of PETCT.xib. Its superclass, OrthogonalMPRView,
-/// is Swift too; the blendingFactor ivar of DCMView is written
-/// through DCMView+SwiftIvars.h.
+/// is Swift too; the blendingFactor of DCMView is written to
+/// its stored property.
 @objc(OrthogonalMPRPETCTView)
 public final class OrthogonalMPRPETCTView: OrthogonalMPRView {
     public override dynamic func drawTextualData(_ size: NSRect, annotationsLevel annotations: Int, fullText: Bool, onlyOrientation: Bool) {
@@ -67,7 +67,7 @@ public final class OrthogonalMPRPETCTView: OrthogonalMPRView {
 
     /// DCMView's -initWithFrame: sends this one to self: overridden, unchanged,
     /// so that it stays inherited beside the initializer above.
-    public override init!(frame: NSRect, imageRows rows: Int32, imageColumns columns: Int32) {
+    public override init(frame: NSRect, imageRows rows: Int32, imageColumns columns: Int32) {
         super.init(frame: frame, imageRows: rows, imageColumns: columns)
     }
 

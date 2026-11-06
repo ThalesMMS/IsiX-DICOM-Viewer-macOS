@@ -41,12 +41,11 @@ import AppKit
 import UniformTypeIdentifiers
 
 // The "NSSplitViewDelegate" block of BrowserController is implemented in Swift:
-// an extension of BrowserController, which stays Objective-C, with
-// the same selectors. The instance variables it reads are reached through
-// BrowserController (SwiftIvars), and the file-scope contextual menus of
-// BrowserController.m through BrowserController (SwiftStatics): their retain
-// setters keep the menus for the life of the application, as the former
-// statics did.
+// an extension of BrowserController, with the same selectors. The state it
+// reads is reached through the class's accessors
+// (BrowserController+StateAccess.swift), and the contextual menus through
+// the class's statics (BrowserController+ClassState.swift), which keep them
+// for the life of the application, as the former statics did.
 //
 // An outlet is nil until the nib is loaded: a message to it is an optional
 // chain, and what a message to nil returned (nil, NO, 0, a zero rect) is the
@@ -54,35 +53,6 @@ import UniformTypeIdentifiers
 // out of range raises the same NSRangeException. An @try is
 // HorosObjCException.perform. The branches of WITH_BANNER, which is not
 // defined, are left out.
-
-/// `@synchronized (object) { … }`: the same recursive lock, taken on nothing
-/// when the object is nil, and left before an exception raised inside goes on.
-@inline(__always)
-fileprivate func objcSynchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T {
-    guard let object else { return body() }
-    objc_sync_enter(object)
-    var result: T?
-    var raised: NSException?
-    do {
-        try HorosObjCException.perform { result = body() }
-    } catch {
-        raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    objc_sync_exit(object)
-    if let raised { raised.raise() }
-    return result!
-}
-
-/// Runs `body` as an @try block: the NSException it raises is returned.
-@inline(__always)
-fileprivate func objcTry(_ body: () -> Void) -> NSException? {
-    do {
-        try HorosObjCException.perform(body)
-    } catch {
-        return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    return nil
-}
 
 /// `[[split subviews] objectAtIndex:index]`: nil for a nil split view, an
 /// NSRangeException for an index out of range.
@@ -225,11 +195,8 @@ public extension BrowserController {
         //    if( starting)
         //        return;
 
-        let window = self.window // N2OpenGLViewWithSplitsWindow
-
-        if window?.responds(to: NSSelectorFromString("disableUpdatesUntilFlush")) == true {
-            _ = window?.perform(NSSelectorFromString("disableUpdatesUntilFlush"))
-        }
+        // The whole window redraws while the split view resizes its panes.
+        self.window?.contentView?.needsDisplay = true
     }
 
     @objc(splitViewDidResizeSubviews:)
@@ -421,8 +388,8 @@ public extension BrowserController {
 
         if let cells, aFile != nil {
             for cell in cells {
-                if cell.isEnabled == true {
-                    let curObj = (horos_matrixViewArray as NSArray?)?.object(at: cell.tag) as? NSManagedObject
+                if cell.isEnabled == true, let row = ViewerOpener.thumbnailRow(cell, of: horos_matrixViewArray) {
+                    let curObj = row as? NSManagedObject
 
                     if (curObj?.value(forKey: "type") as? NSString)?.isEqual(to: "Image") == true {
                         return curObj as? DicomImage
@@ -449,12 +416,12 @@ public extension BrowserController {
 
         N2ManagedObjectContextPerformAndWait(context) {
 
-        if let e = objcTry({
+        if let e = HorosObjCException.caught({
             if let cells, aFile != nil {
                 for cell in cells {
                     autoreleasepool {
-                        if cell.isEnabled == true {
-                            let curObj = (self.horos_matrixViewArray as NSArray?)?.object(at: cell.tag) as? NSManagedObject
+                        if cell.isEnabled == true, let row = ViewerOpener.thumbnailRow(cell, of: self.horos_matrixViewArray) {
+                            let curObj = row as? NSManagedObject
 
                             if (curObj?.value(forKey: "type") as? NSString)?.isEqual(to: "Image") == true {
                                 objcAdd(correspondingManagedObjects, curObj)

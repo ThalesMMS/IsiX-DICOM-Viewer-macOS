@@ -19,24 +19,43 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-if 'HorosImportedFileNames rememberName: lastPathComponent forPath: dstPath' not in database:
+# DicomDatabase is Swift (DicomDatabase.swift and its DicomDatabase+*.swift
+# extensions); the assertions read its Swift spelling.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources as dicom_database_sources  # noqa: E402
+database = dicom_database_sources.class_text('DicomDatabase')
+if 'ImportedFileNames.remember(lastPathComponent, forPath: dstPath)' not in database:
     failures.append('the name a non-DICOM file arrived with is not kept')
-if 'if (isDicomFile == NO)\n' not in database:
+if 'if isDicomFile == false {\n' not in database:
     failures.append('the name is kept for DICOM files too, which do not need it')
 
-reader = (root / 'Horos/Sources/DicomFile.mm').read_bytes().decode('latin1')
-block = reader[reader.index('-(short) getImageFile'):]
-block = block[:block.index('fileType = [@"IMAGE" retain];')]
-if 'HorosImportedFileNames nameForPath: filePath' not in block:
-    failures.append('the reader does not ask for the name the file arrived with')
-if '[filePath lastPathComponent]' in block.replace(
-        'importedName = [filePath lastPathComponent];', ''):
-    failures.append('the identity is still made out of the stored name somewhere')
-for what in ('studyID = [[NSString alloc] initWithString:importedName]',
-             'self.serieID = importedName',
+legacy_reader = root / 'Horos/Sources/DicomFile.mm'
+if legacy_reader.exists():
+    reader = legacy_reader.read_bytes().decode('latin1')
+    block = reader[reader.index('-(short) getImageFile'):]
+    block = block[:block.index('fileType = [@"IMAGE" retain];')]
+    asked, fallback, stored = ('HorosImportedFileNames nameForPath: filePath', 'importedName = [filePath lastPathComponent];',
+                               '[filePath lastPathComponent]')
+    taken = ('studyID = [[NSString alloc] initWithString:importedName]', 'self.serieID = importedName',
              'name = [[NSString alloc] initWithString:importedName]',
-             'study = [[NSString alloc] initWithString:importedName]'):
+             'study = [[NSString alloc] initWithString:importedName]')
+else:
+    # The image reader is Swift (DicomFile+NonDICOMReaders.swift); the identifiers
+    # of a name are IsiXDICOMFile's (ImportFormats.identifiers), which the module's
+    # tests and the equivalence test cover.
+    reader = (root / 'Horos/Sources/DicomFile+NonDICOMReaders.swift').read_text()
+    block = reader[reader.index('    func readImageFile() -> Bool {'):]
+    block = block[:block.index('if ImportFormats.movieExtensions.contains(fileExtension)')]
+    asked, fallback, stored = ('ImportedFileNames.name(forPath: path)',
+                               'if importedName.isEmpty { importedName = (path as NSString).lastPathComponent }',
+                               'lastPathComponent')
+    taken = ('fullName: importedName)', 'ImportFormats.identifiers(ofName: (importedName as NSString).deletingPathExtension',
+             'study: importedName', 'name: importedName')
+if asked not in block:
+    failures.append('the reader does not ask for the name the file arrived with')
+if stored in block.replace(fallback, ''):
+    failures.append('the identity is still made out of the stored name somewhere')
+for what in taken:
     if what not in block:
         failures.append('%s is not taken from the name it arrived with' % what.split(' =')[0])
 

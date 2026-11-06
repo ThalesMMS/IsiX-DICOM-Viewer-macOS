@@ -34,6 +34,8 @@ def label(path, scale, text='Length: 5.501 cm', cut=0):
     """A light label over a dark image, the way the viewer draws one."""
     face = font(12 * scale)
     if face is None:
+        print('skipped: needs Arial, Helvetica or Geneva in /System/Library/Fonts to draw the label with',
+              file=sys.stderr)
         raise SystemExit(2)
     image = Image.new('RGB', (400 * scale, 60 * scale), (12, 12, 12))
     draw = ImageDraw.Draw(image)

@@ -37,6 +37,7 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
+import IsiXImaging
 import AppKit
 import UniformTypeIdentifiers
 
@@ -46,16 +47,6 @@ import UniformTypeIdentifiers
 private func objcEqualStrings(_ a: String?, _ b: String?) -> Bool {
     guard let a = a, let b = b else { return false }
     return (a as NSString).isEqual(to: b)
-}
-
-/// The NSException that HorosObjCException caught.
-private func caughtException(_ error: Error) -> NSException {
-    let nsError = error as NSError
-    if let exception = nsError.userInfo[HorosObjCExceptionKey] as? NSException {
-        return exception
-    }
-    return NSException(name: NSExceptionName(rawValue: nsError.localizedFailureReason ?? NSExceptionName.genericException.rawValue),
-                       reason: nsError.localizedDescription, userInfo: nil)
 }
 
 /// Window Controller for ROI
@@ -219,8 +210,9 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
         recalibrateWindow.orderOut(nil)
         if result == 0 { return }
 
-        var requestedLength: Float = 0
-        var valid = HorosCalibrationFloat(recalibrateValue.stringValue, NSLocale.current, &requestedLength) && requestedLength > 0
+        let parsed = CalibrationNumber.parse(recalibrateValue.stringValue, locale: Locale.current)
+        let requestedLength = parsed ?? 0
+        var valid = parsed != nil && requestedLength > 0
         let resolution = Double(requestedLength) * 10.0 / Double(pixels) // Entered length is in cm; spacing is in mm.
         valid = valid && resolution.isFinite && resolution > 0 && resolution <= Double(Float.greatestFiniteMagnitude) && Float(resolution) > 0
         let images = curController?.pixList() ?? NSMutableArray()
@@ -271,31 +263,20 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
         return allWithSameNameButton?.state == .on
     }
 
-    /// Stores the fields in the ROI, as the former @try did; returns what
-    /// was raised, the ROI keeping its previous name and comments.
-    private func storeNameAndComments() -> NSException? {
-        let editedROI = roi
-        do {
-            try HorosObjCException.perform {
-                // stringWithString is very important - see NSText string !
-                // The String -string returns still wraps the text view's
-                // storage, and bridges back to it: NSString(string:) copies it.
-                editedROI?.comments = NSString(string: self.comments.string) as String
-                editedROI?.name = self.name.stringValue
-            }
-            return nil
-        } catch {
-            return caughtException(error)
-        }
+    /// Stores the fields in the ROI.
+    private func storeNameAndComments() {
+        // stringWithString is very important - see NSText string !
+        // The String -string returns still wraps the text view's
+        // storage, and bridges back to it: NSString(string:) copies it.
+        roi?.comments = NSString(string: comments.string) as String
+        roi?.name = name.stringValue
     }
 
     @objc(setROI::)
     public func setROI(_ iroi: ROI!, _ c: ViewerController!) {
         if roi === iroi { return }
 
-        if let e = storeNameAndComments() {
-            NSLog("ROIWindow setROI: keeping previous name/comments after exception: %@ %@", e.name.rawValue, e.reason ?? "(null)")
-        }
+        storeNameAndComments()
 
         NotificationCenter.default.post(name: NSNotification.Name.OsirixROIChange, object: roi, userInfo: nil)
 
@@ -361,9 +342,7 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
 
         ROI.saveDefaultSettings()
 
-        if let e = storeNameAndComments() {
-            NSLog("ROIWindow windowWillClose: keeping previous name/comments after exception: %@ %@", e.name.rawValue, e.reason ?? "(null)")
-        }
+        storeNameAndComments()
         roi = nil
         curController = nil
 
@@ -378,51 +357,24 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
         setAllMatchingROIsToSameParams(as: iROI, matchingName: iROI?.name, withNewName: newName)
     }
 
-    /// Raises, as the former method rethrew, what failed after restoring the
-    /// names it had changed.
     @objc(setAllMatchingROIsToSameParamsAs:matchingName:withNewName:)
     func setAllMatchingROIsToSameParams(as iROI: ROI!, matchingName: String!, withNewName newName: String!) {
-        do {
-            try applyToMatchingROIs(as: iROI, matchingName: matchingName, withNewName: newName)
-        } catch {
-            caughtException(error).raise()
-        }
-    }
-
-    /// The former method's body. What its @try caught is thrown to Swift
-    /// callers, after the renames already applied are undone.
-    private func applyToMatchingROIs(as iROI: ROI!, matchingName: String!, withNewName newName: String!) throws {
         let roiSeriesList = curController?.roiList() ?? NSMutableArray()
-        let oldName = matchingName
-        let renamed = NSMutableArray()
 
-        do {
-            try HorosObjCException.perform {
-                for case let roiImageList as NSArray in roiSeriesList {
-                    for case let candidate as ROI in roiImageList {
-                        if candidate === self.roi { continue }
+        for case let roiImageList as NSArray in roiSeriesList {
+            for case let candidate as ROI in roiImageList {
+                if candidate === roi { continue }
 
-                        if objcEqualStrings(candidate.name, oldName) {
-                            candidate.rgbcolor = iROI?.rgbcolor ?? RGBColor()
-                            candidate.thickness = iROI?.thickness ?? 0
-                            candidate.opacity = iROI?.opacity ?? 0
-                            if newName != nil {
-                                candidate.name = newName
-                                renamed.add(candidate)
-                            }
-                            NotificationCenter.default.post(name: NSNotification.Name.OsirixROIChange, object: candidate, userInfo: nil)
-                        }
+                if objcEqualStrings(candidate.name, matchingName) {
+                    candidate.rgbcolor = iROI?.rgbcolor ?? RGBColor()
+                    candidate.thickness = iROI?.thickness ?? 0
+                    candidate.opacity = iROI?.opacity ?? 0
+                    if newName != nil {
+                        candidate.name = newName
                     }
+                    NotificationCenter.default.post(name: NSNotification.Name.OsirixROIChange, object: candidate, userInfo: nil)
                 }
             }
-        } catch {
-            // A failure (typically NSMallocException under memory pressure) must not leave the series with
-            // two names for the same structure: undo the renames already applied, then let the caller report.
-            for case let roi as ROI in renamed {
-                do { try HorosObjCException.perform { roi.name = oldName } }
-                catch { NSLog("ROIWindow: unable to restore name of %@: %@", roi, caughtException(error).reason ?? "(null)") }
-            }
-            throw error
         }
     }
 
@@ -474,22 +426,9 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
         let previous = roi?.name
         let edited = roi
 
-        do {
-            try HorosObjCException.perform { edited?.name = newName }
-
-            if allWithSameName() {
-                do {
-                    try applyToMatchingROIs(as: edited, matchingName: previous, withNewName: newName)
-                } catch {
-                    // The matching ROIs were restored by the callee; restore the edited ROI as well.
-                    do { try HorosObjCException.perform { edited?.name = previous } }
-                    catch { NSLog("ROIWindow: unable to restore name of %@: %@", edited.map { $0 as CVarArg } ?? ("(null)" as NSString), caughtException(error).reason ?? "(null)") }
-                    throw error
-                }
-            }
-        } catch {
-            presentRenameFailure(caughtException(error), previousName: previous)
-            return
+        edited?.name = newName
+        if allWithSameName() {
+            setAllMatchingROIsToSameParams(as: edited, matchingName: previous, withNewName: newName)
         }
 
         NotificationCenter.default.post(name: NSNotification.Name.OsirixROIChange, object: roi, userInfo: nil)

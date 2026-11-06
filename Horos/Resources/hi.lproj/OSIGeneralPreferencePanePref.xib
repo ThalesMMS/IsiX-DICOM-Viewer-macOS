@@ -18,113 +18,21 @@
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <window title="&lt;&lt; do not localize &gt;&gt;" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" deferred="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="12" userLabel="PrefPane">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES"/>
-            <rect key="contentRect" x="0.0" y="0.0" width="722" height="566"/>
+            <rect key="contentRect" x="0.0" y="0.0" width="722" height="365"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
             <view key="contentView" horizontalCompressionResistancePriority="1000" id="6">
-                <rect key="frame" x="0.0" y="0.0" width="722" height="566"/>
+                <rect key="frame" x="0.0" y="0.0" width="722" height="365"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
-                    <box horizontalCompressionResistancePriority="1000" title="संस्करण की जाँच करें" id="129">
-                        <rect key="frame" x="17" y="233" width="688" height="74"/>
+                    <box horizontalCompressionResistancePriority="1000" title="परिनियोजन" id="dpl-box-001">
+                        <rect key="frame" x="17" y="16" width="688" height="86"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <view key="contentView" id="JLD-he-7q7">
-                            <rect key="frame" x="2" y="2" width="684" height="57"/>
+                        <view key="contentView" id="dpl-view-01">
+                            <rect key="frame" x="2" y="0.0" width="684" height="69"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button toolTip="IsiX DICOM Viewer से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" horizontalCompressionResistancePriority="1000" id="101">
-                                    <rect key="frame" x="15" y="11" width="650" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="स्टार्टअप समय पर IsiX DICOM Viewer एप्लिकेशन अपडेट के लिए स्वचालित रूप से जाँच करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="178">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="167" name="value" keyPath="values.CheckHorosUpdates" id="NOe-ZC-Skx"/>
-                                        <binding destination="167" name="hidden" keyPath="values.MACAPPSTORE" id="392"/>
-                                    </connections>
-                                </button>
-                                <button toolTip="IsiX DICOM Viewer से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" horizontalCompressionResistancePriority="1000" id="191">
-                                    <rect key="frame" x="15" y="31" width="615" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="स्टार्टअप समय पर स्वचालित रूप से इंस्टॉल किए गए प्लगइन्स अपडेट की जांच करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="192">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="167" name="value" keyPath="values.checkForUpdatesPlugins" id="193"/>
-                                    </connections>
-                                </button>
-                            </subviews>
-                        </view>
-                        <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
-                        <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
-                    </box>
-                    <box horizontalCompressionResistancePriority="1000" title="वैश्विक" id="157">
-                        <rect key="frame" x="17" y="400" width="688" height="157"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <view key="contentView" id="rBx-In-YYz">
-                            <rect key="frame" x="2" y="2" width="684" height="140"/>
-                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                            <subviews>
-                                <button toolTip="IsiX DICOM Viewer से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" horizontalCompressionResistancePriority="1000" id="159">
-                                    <rect key="frame" x="15" y="83" width="580" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="प्राथमिकताएँ सेटिंग संशोधित करने के लिए 'प्रशासक' प्रमाणीकरण की आवश्यकता है" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" enabled="NO" inset="2" id="183">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="167" name="value" keyPath="values.AUTHENTICATION" id="343"/>
-                                        <binding destination="167" name="hidden" keyPath="values.MACAPPSTORE" id="391"/>
-                                    </connections>
-                                </button>
-                                <button toolTip="IsiX DICOM Viewer से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" id="BXs-xj-ZZ5">
-                                    <rect key="frame" x="15" y="11" width="416" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="सूचनाएं प्रदर्शित करें (ग्रोवल आवश्यक)" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="eOV-F7-aFg">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="167" name="hidden" keyPath="values.MACAPPSTORE" id="eL0-yS-EcF"/>
-                                        <binding destination="167" name="value" keyPath="values.displayGrowlNotification" id="02o-xj-aMf"/>
-                                    </connections>
-                                </button>
-                                <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="341">
-                                    <rect key="frame" x="11" y="102" width="202" height="32"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="प्राथमिकताएँ रीसेट करें" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="342">
-                                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <action selector="resetPreferences:" target="-2" id="344"/>
-                                    </connections>
-                                </button>
-                                <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="539">
-                                    <rect key="frame" x="240" y="102" width="203" height="32"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="प्राथमिकताएँ सहेजें..." bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="540">
-                                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <action selector="savePreferences:" target="-2" id="549"/>
-                                    </connections>
-                                </button>
-                                <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="542">
-                                    <rect key="frame" x="470" y="102" width="203" height="32"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="प्राथमिकताएँ लोड करें..." bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="543">
-                                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <action selector="loadPreferences:" target="-2" id="550"/>
-                                    </connections>
-                                </button>
                                 <button toolTip="IsiX DICOM Viewer से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" id="535">
-                                    <rect key="frame" x="15" y="63" width="395" height="18"/>
+                                    <rect key="frame" x="15" y="43" width="395" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="इस यूआरएल के साथ स्टार्टअप पर प्राथमिकताओं को सिंक्रनाइज़ करें:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="536">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -136,9 +44,9 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" id="545">
-                                    <rect key="frame" x="57" y="35" width="467" height="22"/>
+                                    <rect key="frame" x="57" y="15" width="467" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" state="on" borderStyle="bezel" title="http://www.preferences-server.com/preferences.plist" drawsBackground="YES" id="548">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" state="on" borderStyle="bezel" title="https://www.preferences-server.com/preferences.plist" drawsBackground="YES" id="548">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -149,7 +57,7 @@
                                     </connections>
                                 </textField>
                                 <button verticalHuggingPriority="750" id="546">
-                                    <rect key="frame" x="535" y="33" width="20" height="25"/>
+                                    <rect key="frame" x="535" y="13" width="20" height="25"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="roundTextured" title="बटन" bezelStyle="texturedRounded" image="NSRefreshTemplate" imagePosition="only" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="547">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -165,8 +73,77 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
+                    <box horizontalCompressionResistancePriority="1000" title="संस्करण की जाँच करें" id="129">
+                        <rect key="frame" x="17" y="164" width="688" height="54"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <view key="contentView" id="JLD-he-7q7">
+                            <rect key="frame" x="2" y="2" width="684" height="37"/>
+                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                            <subviews>
+                                <button toolTip="IsiX DICOM Viewer से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" horizontalCompressionResistancePriority="1000" id="101">
+                                    <rect key="frame" x="15" y="11" width="650" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="स्टार्टअप समय पर IsiX DICOM Viewer एप्लिकेशन अपडेट के लिए स्वचालित रूप से जाँच करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="178">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="167" name="value" keyPath="values.CheckHorosUpdates" id="NOe-ZC-Skx"/>
+                                        <binding destination="167" name="hidden" keyPath="values.MACAPPSTORE" id="392"/>
+                                    </connections>
+                                </button>
+                            </subviews>
+                        </view>
+                        <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
+                        <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
+                    </box>
+                    <box horizontalCompressionResistancePriority="1000" title="वैश्विक" id="157">
+                        <rect key="frame" x="17" y="291" width="688" height="65"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <view key="contentView" id="rBx-In-YYz">
+                            <rect key="frame" x="2" y="2" width="684" height="48"/>
+                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                            <subviews>
+                                <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="341">
+                                    <rect key="frame" x="11" y="10" width="202" height="32"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="push" title="प्राथमिकताएँ रीसेट करें" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="342">
+                                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <action selector="resetPreferences:" target="-2" id="344"/>
+                                    </connections>
+                                </button>
+                                <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="539">
+                                    <rect key="frame" x="240" y="10" width="203" height="32"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="push" title="प्राथमिकताएँ सहेजें..." bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="540">
+                                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <action selector="savePreferences:" target="-2" id="549"/>
+                                    </connections>
+                                </button>
+                                <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="542">
+                                    <rect key="frame" x="470" y="10" width="203" height="32"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="push" title="प्राथमिकताएँ लोड करें..." bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="543">
+                                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <action selector="loadPreferences:" target="-2" id="550"/>
+                                    </connections>
+                                </button>
+                            </subviews>
+                        </view>
+                        <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
+                        <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
+                    </box>
                     <box horizontalCompressionResistancePriority="1000" title="DICOM संपादन" id="169">
-                        <rect key="frame" x="17" y="175" width="688" height="54"/>
+                        <rect key="frame" x="17" y="106" width="688" height="54"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="esv-ec-tVO">
                             <rect key="frame" x="2" y="2" width="684" height="37"/>
@@ -188,103 +165,15 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box horizontalCompressionResistancePriority="1000" title="बोली" id="397">
-                        <rect key="frame" x="17" y="16" width="688" height="155"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <view key="contentView" id="SpO-6g-3zy">
-                            <rect key="frame" x="2" y="2" width="684" height="138"/>
-                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                            <subviews>
-                                <scrollView autohidesScrollers="YES" horizontalLineScroll="18" horizontalPageScroll="10" verticalLineScroll="18" verticalPageScroll="10" usesPredominantAxisScrolling="NO" id="517">
-                                    <rect key="frame" x="17" y="10" width="368" height="121"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <clipView key="contentView" id="x1m-RD-rMc">
-                                        <rect key="frame" x="1" y="0.0" width="366" height="120"/>
-                                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                                        <subviews>
-                                            <tableView verticalHuggingPriority="750" allowsExpansionToolTips="YES" columnAutoresizingStyle="lastColumnOnly" columnSelection="YES" multipleSelection="NO" autosaveColumns="NO" rowHeight="16" headerView="520" id="518">
-                                                <rect key="frame" x="0.0" y="0.0" width="366" height="97"/>
-                                                <autoresizingMask key="autoresizingMask"/>
-                                                <size key="intercellSpacing" width="3" height="2"/>
-                                                <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
-                                                <tableColumns>
-                                                    <tableColumn width="68.39453125" minWidth="40" maxWidth="1000" id="522">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="सक्षम">
-                                                            <font key="font" metaFont="smallSystem"/>
-                                                            <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
-                                                            <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
-                                                        </tableHeaderCell>
-                                                        <buttonCell key="dataCell" type="check" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="526">
-                                                            <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                                            <font key="font" metaFont="smallSystem"/>
-                                                        </buttonCell>
-                                                        <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
-                                                        <connections>
-                                                            <binding destination="433" name="value" keyPath="arrangedObjects.active" id="529"/>
-                                                        </connections>
-                                                    </tableColumn>
-                                                    <tableColumn width="291.5" minWidth="40" maxWidth="1000" id="523">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="भाषा">
-                                                            <font key="font" metaFont="smallSystem"/>
-                                                            <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
-                                                            <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
-                                                        </tableHeaderCell>
-                                                        <textFieldCell key="dataCell" controlSize="small" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="टेक्स्ट सेल" id="524">
-                                                            <font key="font" metaFont="smallSystem"/>
-                                                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                                                            <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                        </textFieldCell>
-                                                        <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
-                                                        <connections>
-                                                            <binding destination="433" name="value" keyPath="arrangedObjects.language" id="528"/>
-                                                        </connections>
-                                                    </tableColumn>
-                                                </tableColumns>
-                                                <connections>
-                                                    <binding destination="433" name="content" keyPath="arrangedObjects" id="532"/>
-                                                </connections>
-                                            </tableView>
-                                        </subviews>
-                                        <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                    </clipView>
-                                    <scroller key="horizontalScroller" hidden="YES" verticalHuggingPriority="750" horizontal="YES" id="519">
-                                        <autoresizingMask key="autoresizingMask"/>
-                                    </scroller>
-                                    <scroller key="verticalScroller" hidden="YES" verticalHuggingPriority="750" horizontal="NO" id="521">
-                                        <rect key="frame" x="224" y="17" width="15" height="102"/>
-                                        <autoresizingMask key="autoresizingMask"/>
-                                    </scroller>
-                                    <tableHeaderView key="headerView" id="520">
-                                        <rect key="frame" x="0.0" y="0.0" width="366" height="23"/>
-                                        <autoresizingMask key="autoresizingMask"/>
-                                    </tableHeaderView>
-                                </scrollView>
-                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" id="533">
-                                    <rect key="frame" x="396" y="72" width="273" height="56"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" id="534">
-                                        <font key="font" metaFont="smallSystem"/>
-                                        <string key="title">परिवर्तनों को लागू करने के लिए IsiX DICOM Viewer को पुनरारंभ करें।
-यदि एकाधिक भाषाएँ सक्षम हैं, तो प्रयुक्त भाषा को MacOS सेटिंग्स के अनुसार चुना जाएगा।</string>
-                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    </textFieldCell>
-                                </textField>
-                            </subviews>
-                        </view>
-                        <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
-                        <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
-                    </box>
                     <box verticalHuggingPriority="249" horizontalCompressionResistancePriority="1000" title="JPEG संपीड़न" id="357">
-                        <rect key="frame" x="17" y="311" width="688" height="85"/>
+                        <rect key="frame" x="17" y="222" width="688" height="65"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="Reb-OR-1Q5">
-                            <rect key="frame" x="2" y="2" width="684" height="68"/>
+                            <rect key="frame" x="2" y="2" width="684" height="48"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="364">
-                                    <rect key="frame" x="20" y="35" width="132" height="22"/>
+                                    <rect key="frame" x="20" y="15" width="132" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="संपीड़न स्तर:" id="374">
                                         <font key="font" metaFont="system"/>
@@ -293,7 +182,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <button verticalHuggingPriority="750" id="366">
-                                    <rect key="frame" x="160" y="30" width="141" height="32"/>
+                                    <rect key="frame" x="160" y="10" width="141" height="32"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="कॉन्फ़िगर" bezelStyle="rounded" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="372">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -303,55 +192,6 @@
                                         <action selector="editCompressionSettings:" target="-2" id="375"/>
                                     </connections>
                                 </button>
-                                <button horizontalCompressionResistancePriority="1000" id="166">
-                                    <rect key="frame" x="21" y="11" width="659" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="रंग JPEG DICOMs के लिए, DICOM फोटोमेट्रिक मान के बजाय JPEG फोटोमेट्रिक मान का उपयोग करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="181">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="167" name="value" keyPath="values.UseJPEGColorSpace" id="168"/>
-                                    </connections>
-                                </button>
-                            </subviews>
-                        </view>
-                        <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
-                        <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
-                    </box>
-                    <box hidden="YES" horizontalCompressionResistancePriority="1000" title="DICOM टूलकिट" id="133">
-                        <rect key="frame" x="17" y="-85" width="688" height="97"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <view key="contentView" id="Jyb-7l-RTl">
-                            <rect key="frame" x="2" y="2" width="684" height="80"/>
-                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                            <subviews>
-                                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="141">
-                                    <rect key="frame" x="26" y="35" width="175" height="38"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="173" height="18"/>
-                                    <size key="intercellSpacing" width="4" height="2"/>
-                                    <buttonCell key="prototype" type="radio" title="रेडियो" imagePosition="left" alignment="left" inset="2" id="185">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <cells>
-                                        <column>
-                                            <buttonCell type="radio" title="पेपिरस" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="163">
-                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                                <font key="font" metaFont="system"/>
-                                            </buttonCell>
-                                            <buttonCell type="radio" title="डीसीएमटीके (अनुशंसित)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="164">
-                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                                <font key="font" metaFont="system"/>
-                                            </buttonCell>
-                                        </column>
-                                    </cells>
-                                    <connections>
-                                        <binding destination="167" name="selectedTag" keyPath="values.TOOLKITPARSER4" id="394"/>
-                                    </connections>
-                                </matrix>
                             </subviews>
                         </view>
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
@@ -633,15 +473,6 @@ Gw
                         <integer key="NSHandlesContentAsCompoundValue" value="1"/>
                     </dictionary>
                 </binding>
-            </connections>
-        </arrayController>
-        <arrayController id="433" userLabel="languagesController">
-            <declaredKeys>
-                <string>language</string>
-                <string>active</string>
-            </declaredKeys>
-            <connections>
-                <binding destination="-2" name="contentArray" keyPath="self.languages" id="447"/>
             </connections>
         </arrayController>
     </objects>

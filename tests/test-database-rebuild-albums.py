@@ -27,13 +27,19 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from isix_modules import former_models, module_flags  # noqa: E402
+
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 failures = []
 ALBUMS = 'Horos/Sources/DicomDatabase+Albums.swift'
-OTHER = 'Horos/Sources/DicomDatabase+Other.swift'
+# -rebuild: and the upgrade were one file until they became types of their own.
+FORMER_FILE = 'Horos/Sources/DicomDatabase+Other.swift'
+SERVICE = 'Horos/Sources/DatabaseRebuildService.swift'
+UPGRADE = 'Horos/Sources/DatabaseModelUpgrade.swift'
 MODEL = root / 'Horos/Models/OsiriXDB_DataModel.xcdatamodeld'
-FORMER = root / 'Binaries/DB_Previous_Models/OsiriXDB_Previous_DataModel2.4.mom'
+FORMER_NAME = 'OsiriXDB_Previous_DataModel2.4.mom'
 
 
 def read(path):
@@ -60,45 +66,51 @@ def block(source, start):
 
 
 albums = read(ALBUMS)
-other = read(OTHER)
+service = read(SERVICE)
+upgrade_source = read(UPGRADE)
+if service and upgrade_source:
+    rebuild = block(service, service.find('func rebuild(complete: Bool)'))
+    upgrade = block(upgrade_source, upgrade_source.find('func run(fromModelVersion'))
+else:
+    former = read(FORMER_FILE)
+    rebuild = block(former, former.find('@objc(rebuild:)'))
+    upgrade = block(former, former.find('@objc(upgradeSqlFileFromModelVersion:)'))
 
 # --- where -rebuild: and the upgrade use the reader ---------------------------
-rebuild = block(other, other.find('@objc(rebuild:)'))
 if not rebuild:
-    failures.append('-rebuild: is not in %s' % OTHER)
+    failures.append('-rebuild: is not in %s' % SERVICE)
 else:
-    save = rebuild.find('self.saveAlbums(toPath: savedAlbumsPath)')
+    save = rebuild.find('.saveAlbums(toPath: savedAlbumsPath)')
     reader = rebuild.find('albumsFileEntries(ofIndexAtPath:', save)
     if save < 0 or reader < 0:
         failures.append('-rebuild: does not read the albums from the verified copy when it saves them')
     else:
         window = rebuild[save:reader]
-        if 'self.managedObjectContext == nil' not in window:
-            failures.append('-rebuild: does not read the copy when there is no context to save the albums from')
+        if '.managedObjectContext == nil' not in window and '!indexIsOpen' not in window:
+            failures.append('-rebuild: does not read the copy when there is no store to save the albums from')
         if 'lastPathComponent' not in window or 'recoveryFolder' not in window:
             failures.append('-rebuild: does not read the albums from the copy in its recovery folder')
-        moved = rebuild.find('self.managedObjectContext = nil')
+        moved = rebuild.find('.managedObjectContext = nil')
         if moved >= 0 and moved < reader:
             failures.append('-rebuild: reads the copy after it has let go of the context')
     restore = rebuild.find('//Restore albums')
-    defaults = re.search(r'if albumsLost \{\s*self\.addDefaultAlbums\(\)\s*\}', rebuild[restore:] if restore >= 0 else '')
+    defaults = re.search(r'if albumsLost \{\s*\w+\.addDefaultAlbums\(\)\s*\}', rebuild[restore:] if restore >= 0 else '')
     if restore < 0 or not defaults:
         failures.append('-rebuild: does not create the default albums again when those of the index are lost')
     told = re.search(r'if albumsLost, let recoveryFolder \{(.*?)\n            \}', rebuild, re.S)
-    if not told or 'presentError' not in told.group(1) or 'recoveryFolder' not in told.group(1):
+    if not told or not re.search(r'presentError|present\(', told.group(1)) or 'recoveryFolder' not in told.group(1):
         failures.append('-rebuild: does not tell the person where the copy is when the albums are lost')
 
-upgrade = block(other, other.find('@objc(upgradeSqlFileFromModelVersion:)'))
 unknown = upgrade.find('cannot understand the model')
-unknown_rebuild = upgrade.find('self.rebuild(true)', unknown)
+unknown_rebuild = upgrade.find('.rebuild(true)', unknown)
 if unknown < 0 or unknown_rebuild < 0:
     failures.append('the upgrade that finds no model for the index no longer rebuilds it; this test needs a new look')
-elif 'removeItem(atPath: path)' in upgrade[unknown:unknown_rebuild].replace(
-        'if let path = self.loadingFilePath() { try? FileManager.default.removeItem(atPath: path) }', ''):
+elif 'removeItem(atPath: path)' in re.sub(r'if let path = \w+\.loadingFilePath\(\) \{ try\? FileManager\.default\.removeItem\(atPath: path\) \}', '',
+                                          upgrade[unknown:unknown_rebuild]):
     failures.append('the upgrade that finds no model still deletes the index before the rebuild, which then keeps no copy')
 
 # --- the reader, against real stores ------------------------------------------
-entry = block(albums, albums.find('private func albumsFileEntry('))
+entry = block(albums, albums.find('func albumsFileEntry('))
 reader = block(albums, albums.find('func albumsFileEntries(ofIndexAtPath'))
 if not reader:
     failures.append('there is nothing that reads the albums of an index the database has not opened')
@@ -108,6 +120,21 @@ if not entry:
 DOUBLES = '''
 import CoreData
 import Foundation
+
+// The guards of HorosObjCException+Guards.swift, running each body.
+enum HorosObjCException {
+    @discardableResult
+    static func caught(_ body: () -> Void) -> NSException? { body(); return nil }
+    static func caught(_ body: () -> Void, catch handler: (NSException) -> Void) { body() }
+    static func caughtWithoutAllocation(_ body: () -> Void) -> NSException? { body(); return nil }
+    @discardableResult
+    static func logged(_ function: String, stack: Bool = false, _ body: () -> Void) -> Bool { body(); return false }
+    @discardableResult
+    static func synchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T { body() }
+    @discardableResult
+    static func raisingToCaller<T>(_ body: () -> T) -> T { body() }
+    static func throwing<T, Failure: Error>(_ failure: (NSException) -> Failure, _ body: () throws -> T) throws -> T { try body() }
+}
 
 enum DicomDatabaseObjC {
     static func attempt(_ body: () -> Void) -> NSException? { body(); return nil }
@@ -217,11 +244,14 @@ if reader and entry:
         else:
             (directory / 'doubles.swift').write_text(DOUBLES)
             # File-private in the app; the driver is another file.
-            (directory / 'reader.swift').write_text('import CoreData\nimport Foundation\n\n' + entry.replace('private func ', 'func ', 1)
+            # The entry is IsiXDatabase's AlbumsFileEntry, built from the album.
+            (directory / 'reader.swift').write_text('import CoreData\nimport Foundation\nimport IsiXDatabase\n\n' + entry
                                                     + '\n\n' + reader + '\n')
             (directory / 'main.swift').write_text(DRIVER)
             binary = directory / 'rebuild-albums'
-            built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-o', str(binary), str(directory / 'doubles.swift'),
+            built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-target', 'arm64-apple-macos15.0',
+                                    *module_flags('IsiXDatabase', directory / 'modules', ['-target', 'arm64-apple-macos15.0']),
+                                    '-o', str(binary), str(directory / 'doubles.swift'),
                                     str(directory / 'reader.swift'), str(directory / 'main.swift')],
                                    capture_output=True, text=True)
             if built.returncode != 0:
@@ -229,7 +259,7 @@ if reader and entry:
             else:
                 stores = directory / 'stores'
                 stores.mkdir()
-                run = subprocess.run([str(binary), str(momd), str(FORMER), str(stores)], capture_output=True, text=True)
+                run = subprocess.run([str(binary), str(momd), str(former_models(directory / 'former-models') / FORMER_NAME), str(stores)], capture_output=True, text=True)
                 if run.returncode != 0:
                     failures.append('the driver failed: %s' % run.stderr[-800:])
                 for line in run.stdout.splitlines():

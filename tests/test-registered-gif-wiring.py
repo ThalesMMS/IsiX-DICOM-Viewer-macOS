@@ -6,7 +6,7 @@ Source-level contract:
 - the companion is the fused series from `blendingController`, the product of
   the Fusion dialog, and the blend is the host's own blend slider — no second
   renderer, no second registration and no viewer picked by name or order;
-- the blend the user had is restored in a `@finally`, so a capture that fails
+- the blend the user had is restored in a `defer`, so a capture that fails
   part-way leaves the viewer where it was;
 - captures that arrive after the comparison moved are refused, not encoded;
 - the animation reaches the clipboard as data through the shared policy: no
@@ -21,72 +21,84 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
-bridge = (root / 'Horos/Sources/RegisteredGIFHostBridge.m').read_text()
-header = (root / 'Horos/Sources/RegisteredGIFHostBridge.h').read_text()
+from sources import source_text, class_text  # noqa: E402
+# The viewer keeps the menu item and the selectors (ViewerController+RegisteredGIF.swift);
+# the captures are its movie export's (the GIF part of ViewerMovieExport.swift); the
+# slider value of a blend is IsiXImaging's FusionComparison.
+bridge = (root / 'Horos/Sources/ViewerController+RegisteredGIF.swift').read_text()
+movie = (root / 'Horos/Sources/ViewerMovieExport.swift').read_text()
+gif = movie[movie.index('// MARK: - The registered comparison GIF'):]
+fusion = (root / 'Modules/IsiXImaging/Sources/ViewerFusion/FusionComparison.swift').read_text()
 policy = (root / 'Horos/Sources/RegisteredGIFExport.swift').read_text()
-# AppController is Swift: it calls the installer in Swift, and sees
-# the bridge's header through the bridging header.
-app = source_text('AppController')
-bridging = (root / 'Horos/Sources/Horos-Bridging-Header.h').read_text()
+# AppController is Swift: it calls the installer in Swift.
+app = class_text('AppController')
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 italian = (root / 'Horos/Resources/it-IT.lproj/Localizable.strings').read_text()
 spanish = (root / 'Horos/Resources/es.lproj/Localizable.strings').read_text()
 
 # The comparison is the host's fusion, not a second one.
-assert 'ViewerController *fused = [self blendingController];' in bridge, \
+assert 'let companion = viewer.blending()?.horosSeriesDICOMUID() ?? ""' in gif, \
     'the companion must be the fused series of the Fusion dialog'
-assert '[self horosRegistrationSession]' in bridge, 'the session is the one the longitudinal registration publishes'
+assert 'viewer.horosRegistrationSession()' in gif, 'the session is the one the longitudinal registration publishes'
 for forbidden in ('get2DViewers', 'patientName', 'BrowserController', 'CGContext', 'MTLDevice', 'vtk'):
-    assert forbidden not in bridge, 'the bridge must not reach for ' + forbidden
-assert '[[self imageView] nsimage:NO]' in bridge, 'the frames are the captures the viewer already draws'
-assert 'NSSlider *slider = [self blendingSlider];' in bridge and 'sliderFusion' not in bridge, \
+    assert forbidden not in bridge and forbidden not in gif, 'the comparison must not reach for ' + forbidden
+assert 'viewer.imageView()?.nsimage(false)' in gif, 'the frames are the captures the viewer already draws'
+assert 'let slider = viewer.blendingSlider()' in gif and 'sliderFusion' not in gif \
+    and 'FusionComparison.sliderValue(stop: blend, minimum: low, maximum: high)' in gif \
+    and 'minimum.addingProduct(stop, maximum - minimum)' in fusion, \
     'the blend is the Fusion panel blend slider, not the slab thickness slider'
 
 # The viewer goes back to where the user left it, even when a capture fails.
-finally_block = bridge[bridge.index('@finally'):bridge.index('@finally') + 260]
-assert 'setDoubleValue:previous' in finally_block and 'blendingSlider:slider' in finally_block, \
-    'the blend the user had must be restored in the @finally, not only on success'
-assert bridge.index('@try') < bridge.index('nsimage:NO'), 'the capture loop runs inside the @try'
+capture = gif[gif.index('private func captureBlendFrames('):]
+capture = capture[:capture.index('\n    }\n')]
+restore = capture[capture.index('defer {'):capture.index('defer {') + 160]
+assert 'slider?.doubleValue = previous' in restore and 'viewer.blendingSlider(slider)' in restore, \
+    'the blend the user had must be restored in a defer, not only on success'
+assert capture.index('defer {') < capture.index('nsimage(false)'), 'the capture loop runs under the defer'
 
 # Captures from a comparison that moved are not this comparison.
-assert 'refusalForApplyingPlan:plan toSession:' in bridge, \
+assert 'RegisteredGIF.refusalForApplying(plan, to: viewer.horosRegistrationSession())' in gif, \
     'a comparison that changed while being captured must refuse its captures'
-assert bridge.index('refusalForApplyingPlan') > bridge.index('@finally'), \
+assert gif.index('refusalForApplying(plan') > gif.index('let frames = captureBlendFrames('), \
     'the check belongs after the captures, which is when the change can have happened'
 
 # The clipboard route is a data route.
-assert 'copyData:result.data toPasteboard:[NSPasteboard generalPasteboard]' in bridge, \
+assert 'RegisteredGIF.copy(data, to: NSPasteboard.general)' in gif, \
     'the animation goes to the general pasteboard through the shared policy'
-for forbidden in ('NSTemporaryDirectory', 'writeToFile', 'NSSavePanel', 'createFileAtPath'):
-    assert forbidden not in bridge, 'the clipboard route must not write a file: ' + forbidden
+for forbidden in ('NSTemporaryDirectory', 'temporaryDirectory', 'write(to', 'NSSavePanel', 'createFile'):
+    assert forbidden not in bridge and forbidden not in gif, 'the clipboard route must not write a file: ' + forbidden
 assert 'writesTemporaryFiles() -> Bool { false }' in policy
 
 # A panel-free core, so the capture can be exercised without a modal answer.
-assert 'horosRegisteredComparisonGIFWithBlendStops:' in header and 'refusal:(NSString **)refusal' in header, \
-    'the capture must be callable without a panel'
-core = bridge[bridge.index('- (HorosRegisteredGIFResult *)horosRegisteredComparisonGIF'):bridge.index('- (IBAction)copyRegisteredComparisonGIF:')]
+assert '@objc(horosRegisteredComparisonGIFWithBlendStops:delaySeconds:refusal:)' in bridge \
+    and 'refusal: AutoreleasingUnsafeMutablePointer<NSString?>?' in bridge, 'the capture must be callable without a panel'
+assert 'movieExport.registeredComparisonGIF(' in bridge and 'movieExport.copyRegisteredComparisonGIF()' in bridge, \
+    'the selectors of the viewer hand the comparison to its movie export'
+core = gif[gif.index('func registeredComparisonGIF('):gif.index('    func copyRegisteredComparisonGIF()')]
 for forbidden in ('NSAlert', 'runModal', 'NSPasteboard'):
     assert forbidden not in core, 'the panel-free core must not ' + forbidden
 
 # Menu, catalogs, project.
-assert 'ViewerController.installRegisteredGIFMenuItems()' in app and '#import "RegisteredGIFHostBridge.h"' in bridging, 'the menu item must be installed'
-assert '@selector(copyROIsFromFusedSeries:)' in bridge, 'the item sits with the other fusion items'
+assert 'ViewerController.installRegisteredGIFMenuItems()' in app and '@objc class func installRegisteredGIFMenuItems()' in bridge, \
+    'the menu item must be installed'
+assert 'menu.horosItem(sending: #selector(copyROIsFromFusedSeries(_:)))' in bridge, 'the item sits with the other fusion items'
 assert 'item.target = nil' in bridge, 'the item goes to the front viewer through the responder chain'
 for catalog, language in ((italian, 'it-IT'), (spanish, 'es')):
     for key in ('Copy Registered Comparison as GIF', 'The Comparison Was Not Copied',
                 'The registered comparison could not be copied to the clipboard.'):
         assert '"%s"' % key in catalog, '%s is missing from %s' % (key, language)
-assert sum('RegisteredGIFHostBridge.m' in line for line in project.splitlines()) == 4, \
-    'RegisteredGIFHostBridge.m is not fully registered in the Xcode project'
+assert sum('ViewerController+RegisteredGIF.swift' in line for line in project.splitlines()) == 4, \
+    'ViewerController+RegisteredGIF.swift is not fully registered in the Xcode project'
 assert sum('RegisteredGIFExport.swift' in line for line in project.splitlines()) == 4, \
     'RegisteredGIFExport.swift is not fully registered in the Xcode project'
+assert sum('ViewerMovieExport.swift' in line for line in project.splitlines()) == 4, \
+    'ViewerMovieExport.swift is not fully registered in the Xcode project'
 
 # It replaces nothing that has its own acceptance.
 for name in ('replacesFusedDICOMExport', 'replacesMovieExport', 'replacesFlythrough', 'replacesDragFilePromises'):
     assert '%s() -> Bool { false }' % name in policy, name + ' must stay false'
 for other in ('QuicktimeExport', 'DICOMExport', 'flythrough', 'filePromise'):
-    assert other not in bridge, 'the comparison GIF must not take over ' + other
+    assert other not in bridge and other not in gif, 'the comparison GIF must not take over ' + other
 
-print('PASS: the comparison GIF is the viewer\'s own captures at the host\'s own blend, restored in a @finally, '
+print('PASS: the comparison GIF is the viewer\'s own captures at the host\'s own blend, restored in a defer, '
       'refused when the comparison moved, and copied to the clipboard as data with no file written')

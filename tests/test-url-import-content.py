@@ -22,10 +22,10 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
+from sources import source_text, class_text  # noqa: E402
 failures = []
 report = root / 'Horos/Sources/URLImportReport.swift'
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+browser = class_text('BrowserController')
 # OsiriXScripts is in Swift.
 scripting = source_text('Scripting_Additions')
 
@@ -69,8 +69,11 @@ else:
             # Top-level statements are only allowed in a file called main.swift.
             (Path(directory) / 'main.swift').write_text(DRIVER)
             binary = Path(directory) / 'urlimport'
+            # LogText: what the report tells the log of each URL that brought nothing.
             built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-o', str(binary),
-                                    str(report), str(Path(directory) / 'main.swift')],
+                                    str(report), str(root / 'Modules/IsiXLogging/Sources/LogText.swift'),
+                                    str(root / 'Modules/IsiXLogging/Sources/UnifiedLog.swift'),
+                                    str(Path(directory) / 'main.swift')],
                                    capture_output=True, text=True)
             if built.returncode != 0:
                 failures.append('the report does not compile:\n%s' % built.stderr[-1500:])
@@ -88,7 +91,7 @@ if results:
         # Neither of these may be disguised as an image.
         'html': '', 'empty': '', 'short': '',
         'clean': 'yes', 'dirty': 'no',
-        'summary': ('1 added to the database | 1 handed to the import folder to be expanded | '
+        'summary': ('1 added to the database | 1 handed to the import folder | '
                     '127.0.0.1/missing could not be downloaded: could not be opened | '
                     '127.0.0.1/page is not something this database can take: 76 bytes that are neither'),
     }
@@ -109,12 +112,14 @@ else:
     if 'URLImportReport.fileExtension(forPayload: data)' not in window:
         failures.append('the content is not looked at, so a zip and a sign-in page are still '
                         'written into the database folder as DICOM objects')
-    if 'database.incomingDirPath()' not in window:
-        failures.append('anything that is not a DICOM object is still written straight into the '
+    if 'ingest.admissionFolder(of: database)' not in window:
+        failures.append('anything that arrives is still written straight into the '
                         "database's file folder, where nothing will ever look at it")
-    if 'database.uniquePathForNewDataFile(withExtension: "dcm")' not in window:
-        failures.append('a DICOM object no longer goes into the database directly')
-    if 'initiateImportFilesFromIncomingDirUnlessAlreadyImporting()' not in window:
+    if 'uniquePathForNewDataFile' in window or 'addFiles' in window:
+        failures.append('a DICOM object still goes into the database past the import folder')
+    if 'ingest.publishAndImport(draft, preset: .url, in: database)' not in window:
+        failures.append('a DICOM object is not published and imported before the operation answers')
+    if 'ingest.requestImport(of: database)' not in window:
         failures.append('nothing asks the importer to look at what was handed to it')
     if 'report.recordFailed(' not in window:
         failures.append('a download that failed is not reported')
@@ -144,4 +149,4 @@ for failure in failures:
 if failures:
     sys.exit(1)
 print('ok: a URL that answers with an archive is expanded, one that answers with a page is named '
-      'and refused, and a DICOM object still goes straight into the database')
+      'and refused, and a DICOM object is counted as added only once the database has it')

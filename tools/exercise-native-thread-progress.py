@@ -10,8 +10,8 @@ it exits. Three flows, all local and synthetic:
   import     120 synthetic CT images copied into INCOMING
   remote     the app shares its database (no password) and opens it as a remote
              database on 127.0.0.1, then updates it: the index download
-  retrieve   C-GET of a synthetic study from tools/serve-cget-fixture.py, run the
-             way the query window runs it; `retrieve-cancel` cancels it midway the
+  retrieve   C-GET of a synthetic study from tools/serve-cget-fixture.py, asked of
+             the query window's own controller; `retrieve-cancel` cancels it midway the
              way the activity window's cancel button does; `move` retrieves by
              C-MOVE into the app's own listener; `retrieve-silent` and
              `move-silent` retrieve by C-GET and by C-MOVE from a node that
@@ -21,7 +21,7 @@ it exits. Three flows, all local and synthetic:
              a RIS sends it: its thread must reach the activity window too;
              `xmlrpc-retrieve-cancel` cancels it midway from that window
   dicomweb   DICOMweb retrieve of a study from tools/serve-dicomweb-fixture.py whose
-             searches count no instances, run the way the query window runs it;
+             searches count no instances, asked of the same controller;
              --dicomweb-option replaces the fixture's options on counts and listings
 
     local-validation/venv/bin/python tools/exercise-native-thread-progress.py \\
@@ -127,7 +127,26 @@ def records(path: Path):
     return lines
 
 
+running_app = None
+
+
+def wait_for(predicate, timeout, **options):
+    """native_app.wait_for that stops at once if the app it waits on dies."""
+    def check():
+        if running_app is not None and running_app.poll() is not None:
+            raise RuntimeError(f"the app exited with {running_app.returncode}")
+        return predicate()
+    return native_app.wait_for(check, timeout, **options)
+
+
+def node_argument(port, aetitle, retrieve_mode, description):
+    """A DICOM node for -SERVERS."""
+    return (f'({{Address = "127.0.0.1"; Port = {port}; AETitle = {aetitle}; TransferSyntax = 0; retrieveMode = {retrieve_mode}; '
+            f'Description = "{description}"; Activated = 1; QR = 1; Send = 0;}})')
+
+
 def run(name, extra_arguments, environment, before_trigger=None, peer=None):
+    global running_app
     folder = out / name
     root = folder / "database"
     log = folder / "thread-progress.jsonl"
@@ -136,23 +155,24 @@ def run(name, extra_arguments, environment, before_trigger=None, peer=None):
            "HOROS_THREAD_PROGRESS_TRIGGER": str(trigger)}
     env.update(environment)
     native_app.stop_all(app)
-    process = native_app.launch(root, folder / "horos.log", extra_arguments, app=app, environment=env)
+    process = running_app = native_app.launch(root, folder / "horos.log", extra_arguments, app=app, environment=env)
     result = {"scenario": name}
     try:
         data = native_app.database_folder(root)
-        native_app.wait_for(lambda: (data / "INCOMING.noindex").is_dir(), 90, description="the database to open")
-        native_app.wait_for(lambda: any(r.get("probe") == "loaded" for r in records(log)), 30,
-                            description="the probe to load")
+        wait_for(lambda: (data / "INCOMING.noindex").is_dir(), 90, description="the database to open")
+        wait_for(lambda: any(r.get("probe") == "loaded" for r in records(log)), 30,
+                 description="the probe to load")
         if before_trigger:
             before_trigger(data, root, result)
         trigger.write_text("go\n")
         if "HOROS_THREAD_PROGRESS_REMOTE" in environment or "HOROS_THREAD_PROGRESS_RETRIEVE" in environment:
-            native_app.wait_for(lambda: any(r.get("driving") == "done" for r in records(log)), 240, interval=0.5,
-                                description="the probe to finish driving")
+            wait_for(lambda: any(r.get("driving") == "done" for r in records(log)), 240, interval=0.5,
+                     description="the probe to finish driving")
         time.sleep(4)  # the last threads exit and report
         result["images_in_database"] = native_app.image_count(root)
         result["app_running"] = process.poll() is None
     finally:
+        running_app = None
         native_app.stop(process)
         if peer:
             peer.terminate()
@@ -185,8 +205,8 @@ if "import" in scenarios:
             staging = incoming / f".{path.name}.part"
             shutil.copyfile(path, staging)
             os.rename(staging, incoming / path.name)
-        native_app.wait_for(lambda: (native_app.image_count(root) or 0) >= 120, 180, interval=0.25,
-                            description="the import")
+        wait_for(lambda: (native_app.image_count(root) or 0) >= 120, 180, interval=0.25,
+                 description="the import")
         result["import_seconds"] = time.monotonic() - started
 
     summary["scenarios"]["import"] = run("import", [], {}, before_trigger=copy_into_incoming)
@@ -201,10 +221,10 @@ if "remote" in scenarios:
             staging = incoming / f".{path.name}.part"
             shutil.copyfile(path, staging)
             os.rename(staging, incoming / path.name)
-        native_app.wait_for(lambda: (native_app.image_count(root) or 0) >= 60, 180, interval=0.25,
-                            description="the import")
-        native_app.wait_for(lambda: socket.socket().connect_ex(("127.0.0.1", 8780)) == 0, 60,
-                            description="the shared-database listener")
+        wait_for(lambda: (native_app.image_count(root) or 0) >= 60, 180, interval=0.25,
+                 description="the import")
+        wait_for(lambda: socket.socket().connect_ex(("127.0.0.1", 8780)) == 0, 60,
+                 description="the shared-database listener")
         time.sleep(4)  # the import thread exits before the update starts
 
     summary["scenarios"]["remote"] = run("remote", ["-bonjourSharing", "YES", "-bonjourPasswordProtected", "NO"],
@@ -228,11 +248,11 @@ for name in ("retrieve", "retrieve-cancel", "retrieve-silent", "move", "move-sil
         peer_command += ["--destination", "HOROSDEV", "--destination-port", str(listener_port)]
     peer = subprocess.Popen(peer_command, stdout=open(folder / "peer.log", "w"), stderr=subprocess.STDOUT)
     # The peer writes its evidence on DICOM events only: wait for its port.
-    native_app.wait_for(lambda: socket.socket().connect_ex(("127.0.0.1", port)) == 0, 60, description="the C-GET peer")
+    wait_for(lambda: socket.socket().connect_ex(("127.0.0.1", port)) == 0, 60, description="the C-GET peer")
     servers = folder / "servers.json"
-    servers.write_text(json.dumps([{"Address": "127.0.0.1", "Port": port, "AETitle": "CMOVEFIX" if move else "CGETFIX",
-                                    "TransferSyntax": 0, "retrieveMode": 0 if move else 1,
-                                    "Description": "synthetic C-MOVE peer" if move else "synthetic C-GET peer"}]))
+    aetitle, retrieve_mode, description = ("CMOVEFIX", 0, "synthetic C-MOVE peer") if move else ("CGETFIX", 1, "synthetic C-GET peer")
+    servers.write_text(json.dumps([{"Address": "127.0.0.1", "Port": port, "AETitle": aetitle, "TransferSyntax": 0,
+                                    "retrieveMode": retrieve_mode, "Description": description}]))
     environment = {"HOROS_THREAD_PROGRESS_RETRIEVE": str(servers)}
     if name == "retrieve-cancel":
         environment["HOROS_THREAD_PROGRESS_CANCEL_AFTER"] = "4"
@@ -241,6 +261,7 @@ for name in ("retrieve", "retrieve-cancel", "retrieve-silent", "move", "move-sil
     listening = "YES" if move else "NO"
     arguments_for_retrieve = ["-STORESCP", listening, "-USESTORESCP", listening, "-TLSStoreSCP", "NO", "-hideListenerError", "YES",
                               "-SingleProcessMultiThreadedListener", "YES", "-syncDICOMNodes", "NO",
+                              "-SERVERS", node_argument(port, aetitle, retrieve_mode, description),
                               "-publishDICOMBonjour", "NO", "-searchDICOMBonjour", "NO", "-AETITLE", "HOROSDEV",
                               "-AEPORT", str(listener_port), "-DICOMTimeout", "8", "-DICOMConnectionTimeout", "5"]
     summary["scenarios"][name] = run(name, arguments_for_retrieve, environment, peer=peer)
@@ -256,19 +277,18 @@ for name in ("xmlrpc-retrieve", "xmlrpc-retrieve-cancel"):
     peer = subprocess.Popen([sys.executable, str(ROOT / "tools/serve-cget-fixture.py"), str(folder / "peer"),
                              "--port", str(port), "--instances", "30", "--instance-delay", "0.4" if cancel else "0.15"],
                             stdout=open(folder / "peer.log", "w"), stderr=subprocess.STDOUT)
-    native_app.wait_for(lambda: socket.socket().connect_ex(("127.0.0.1", port)) == 0, 60, description="the C-GET peer")
-    node = (f'({{Address = "127.0.0.1"; Port = {port}; AETitle = CGETFIX; TransferSyntax = 0; retrieveMode = 1; '
-            'Description = "synthetic C-GET peer"; Activated = 1; QR = 1; Send = 0;})')
+    wait_for(lambda: socket.socket().connect_ex(("127.0.0.1", port)) == 0, 60, description="the C-GET peer")
+    node = node_argument(port, "CGETFIX", 1, "synthetic C-GET peer")
 
     def ask_by_xmlrpc(data, root, result):
-        native_app.wait_for(lambda: socket.socket().connect_ex(("127.0.0.1", xmlrpc_port)) == 0, 60,
-                            description="the XML-RPC server")
+        wait_for(lambda: socket.socket().connect_ex(("127.0.0.1", xmlrpc_port)) == 0, 60,
+                 description="the XML-RPC server")
         answer = xmlrpc.client.ServerProxy(f"http://127.0.0.1:{xmlrpc_port}").Retrieve(
             {"serverName": "synthetic C-GET peer", "filterKey": "PatientID", "filterValue": "CGET-27"})
         result["xmlrpc_answer"] = answer
         if not cancel:
-            native_app.wait_for(lambda: (native_app.image_count(root) or 0) >= 30, 120, interval=0.5,
-                                description="the retrieved images")
+            wait_for(lambda: (native_app.image_count(root) or 0) >= 30, 120, interval=0.5,
+                     description="the retrieved images")
         else:
             time.sleep(25)  # the cancelled retrieve stops; what arrived is imported
 
@@ -290,7 +310,7 @@ if "dicomweb" in scenarios:
                              "--part-delay", "0.1",
                              *(arguments.dicomweb_option or ["--omit-instance-counts", "--listing-delay=1.5"])],
                             stdout=open(folder / "peer.log", "w"), stderr=subprocess.STDOUT)
-    native_app.wait_for(lambda: socket.socket().connect_ex(("127.0.0.1", port)) == 0, 120, description="the DICOMweb fixture")
+    wait_for(lambda: socket.socket().connect_ex(("127.0.0.1", port)) == 0, 120, description="the DICOMweb fixture")
     identifier = str(uuid.uuid4())
     node = [{"Identifier": identifier, "Address": f"http://127.0.0.1:{port}", "AllowInsecureHTTP": True, "WADOPath": "",
              "QIDOPath": "", "Name": "Synthetic DICOMweb", "QR": True, "RetrieveSyntax": "*", "Send": False,
@@ -301,7 +321,10 @@ if "dicomweb" in scenarios:
                                     "Activated": True, "retrieveMode": 3}]))
     nodes = plistlib.dumps(node, fmt=plistlib.FMT_XML).decode()
     summary["scenarios"]["dicomweb"] = run("dicomweb", ["-publishDICOMBonjour", "NO", "-searchDICOMBonjour", "NO",
-                                                        "-STORESCP", "NO", "-USESTORESCP", "NO", "-DICOMWEB_SERVERS", nodes],
+                                                        "-STORESCP", "NO", "-USESTORESCP", "NO", "-DICOMWEB_SERVERS", nodes,
+                                                        # A stored C-MOVE node, with the listener off, opens the
+                                                        # query window on a panel that stops the main queue.
+                                                        "-SERVERS", "()"],
                                            {"HOROS_THREAD_PROGRESS_RETRIEVE": str(servers)}, peer=peer)
 
 previous = json.loads((out / "summary.json").read_text()) if (out / "summary.json").exists() else {"scenarios": {}}

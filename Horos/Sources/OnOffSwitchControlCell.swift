@@ -52,8 +52,14 @@ import Carbon
 
 // OnOffSwitchControlCell is implemented in Swift: the Objective-C
 // name, the selectors and <Horos/OnOffSwitchControlCell.h> are those of the
-// former class. The header keeps the OnOffSwitchControlColors enum and
-// DKCenterRect, which is defined in OnOffSwitchControlCell+CAPI.m.
+// former class. The header keeps the OnOffSwitchControlColors enum.
+
+/// `smallRect`'s size, centred in `bigRect`.
+private func DKCenterRect(_ smallRect: NSRect, _ bigRect: NSRect) -> NSRect {
+    return NSMakeRect(bigRect.origin.x + (bigRect.size.width - smallRect.size.width) / 2.0,
+                      bigRect.origin.y + (bigRect.size.height - smallRect.size.height) / 2.0,
+                      smallRect.size.width, smallRect.size.height)
+}
 
 // The former #defines. Those written as float literals (0.45f, 0.9f, 0.35f,
 // 0.6f...) are kept as Float and widened to CGFloat, as the C promotion did,

@@ -96,6 +96,73 @@ let surgIndex = modalities.firstIndex(of: "SURG")!
 expect(ctIndex < surgIndex, true, "SURG follows the matching patient studies")
 expect(srIndex < surgIndex, true, "SURG does not replace the vendor SR row")
 
+// A filtered list shows the records of the patients it lists, no others.
+func event(_ identifier: String, _ patientID: String, _ patientName: String) -> [String: Any] {
+    ["eventID": identifier, "operation": "Surgery " + identifier, "patientID": patientID,
+     "patientName": patientName, "date": Date(timeIntervalSince1970: 0)]
+}
+let onePatient: [Any] = [["name": "Other, Patient", "patientID": "999"]]
+let filtered = SurgicalProcedureOutline.array(
+    insertingEvents: [event("a", "001234", "Test, Patient"), event("b", "999", "Other, Patient"), event("c", "", "Nameless ID")],
+    intoStudies: onePatient)
+expect(filtered.count, 2, "records of patients out of the list stay out")
+expect((filtered.last as? SurgicalProcedureOutlineRow)?.eventID, "b", "the listed patient keeps the record")
+
+// A patient with no ID is found by name, so the record stays beside the study.
+let noIDStudies: [Any] = [["name": "No, Identifier", "patientID": ""], ["name": "Another, Person", "patientID": ""]]
+let noIDMerged = SurgicalProcedureOutline.array(
+    insertingEvents: [event("d", "", "No, Identifier"), event("h", "", "Absent, Patient")], intoStudies: noIDStudies)
+expect(noIDMerged.count, 3, "a record of a patient with no ID, out of the list, stays out")
+expect((noIDMerged[1] as? SurgicalProcedureOutlineRow)?.eventID, "d", "a patient with no ID keeps the record after the study")
+
+// Records of one patient stay in the order given, after that patient's last study.
+let ordered = SurgicalProcedureOutline.array(
+    insertingEvents: [event("e", "999", "Other, Patient"), event("f", "999", "Other, Patient")],
+    intoStudies: [["name": "Other, Patient", "patientID": "999"], ["name": "Other, Patient", "patientID": "999"],
+                  ["name": "Test, Patient", "patientID": "001234"]] as [Any])
+expect(ordered.compactMap { ($0 as? SurgicalProcedureOutlineRow)?.eventID }, ["e", "f"], "events keep their order")
+expect(ordered[2] is SurgicalProcedureOutlineRow, true, "after the last study of the patient")
+expect(ordered[3] is SurgicalProcedureOutlineRow, true, "before the next patient")
+
+// The study made for a report is not a study more: its SURG row stands for it,
+// and it is gone only where that row has a place. An ordinary SR stays.
+func reportEvent(_ identifier: String, _ study: String, _ patientID: String, _ patientName: String) -> [String: Any] {
+    var made = event(identifier, patientID, patientName)
+    made["reportStudyInstanceUID"] = study
+    return made
+}
+let listed: [Any] = [
+    ["name": "Test, Patient", "patientID": "001234", "studyInstanceUID": "1.2.3.ct"],
+    ["name": "Test, Patient", "patientID": "001234", "studyInstanceUID": "2.25.report-a"],
+    ["name": "Test, Patient", "patientID": "001234", "studyInstanceUID": "1.2.3.vendor-sr"],
+    ["name": "Only, Report", "patientID": "555", "studyInstanceUID": "2.25.report-b"],
+    // A report written without a character set: another spelling, the same ID.
+    ["name": "Teste\u{C3}\u{A3}o", "patientID": "001234", "studyInstanceUID": "2.25.report-c"],
+    ["name": "No, Identifier", "patientID": "", "studyInstanceUID": "1.2.3.no-id"],
+    ["name": "No, Identifier", "patientID": "", "studyInstanceUID": "2.25.report-d"],
+]
+let reportEvents = [reportEvent("r-a", "2.25.report-a", "001234", "Test, Patient"), reportEvent("r-b", "2.25.report-b", "555", "Only, Report"),
+                    reportEvent("r-c", "2.25.report-c", "001234", "Test, Patient"), reportEvent("r-d", "2.25.report-d", "", "No, Identifier")]
+let uidsOf = { (studies: [Any]) in studies.map { ($0 as? [String: Any])?["studyInstanceUID"] as? String ?? "" } }
+let hidden = SurgicalProcedureOutline.studies(listed, hidingReportsOf: reportEvents)
+expect(uidsOf(hidden), ["1.2.3.ct", "1.2.3.vendor-sr", "2.25.report-b", "1.2.3.no-id"],
+       "report studies leave where their record has a row; the rest stays")
+let shown = SurgicalProcedureOutline.array(insertingEvents: reportEvents, intoStudies: hidden)
+expect(shown.compactMap { ($0 as? SurgicalProcedureOutlineRow)?.eventID }.sorted(), ["r-a", "r-b", "r-c", "r-d"], "every record keeps its row")
+expect(SurgicalProcedureOutline.studies(listed, hidingReportsOf: [event("old", "001234", "Test, Patient")]).count, listed.count,
+       "an event that names no study hides nothing")
+expect(SurgicalProcedureOutline.studies(listed, hidingReportsOf: []).count, listed.count, "no events, nothing to hide")
+
+// The list is read once, however many events there are: this runs on the main
+// thread at every refresh.
+final class CountedStudy: NSObject {
+    nonisolated(unsafe) static var reads = 0
+    @objc var patientID: String { CountedStudy.reads += 1; return "999" }
+}
+let counted = (0..<1000).map { _ in CountedStudy() }
+_ = SurgicalProcedureOutline.array(insertingEvents: (0..<200).map { event("g\($0)", "999", "") }, intoStudies: counted)
+expect(CountedStudy.reads, counted.count, "each study is read once")
+
 print("PASS: SURG outline rows sit beside studies and leave ordinary SR listed")
 '''
 

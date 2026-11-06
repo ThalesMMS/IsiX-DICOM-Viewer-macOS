@@ -202,7 +202,7 @@ public final class HorosDatabaseServer: NSObject, @unchecked Sendable {
                     try peer.start()
                     handler(peer)
                 } catch {
-                    NSLog("Shared database: connection from %@ failed: %@", peer.address, String(describing: error))
+                    NSLog("Shared database: connection from %@ failed: %@", peer.address, LogText.error(error))
                 }
             }
         }
@@ -266,7 +266,7 @@ public final class HorosDatabasePeer: NSObject, @unchecked Sendable {
             default: host = String(describing: endpointHost)
             }
         }
-        // The textual host without an interface suffix, as N2ConnectionListener reported it.
+        // The textual host without an interface suffix, as the server has always reported it.
         address = host.split(separator: "%").first.map(String.init) ?? host
         super.init()
     }

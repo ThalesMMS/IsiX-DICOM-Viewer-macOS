@@ -16,11 +16,16 @@ ten seconds once the "Background Operations" alert had been shown.
 
 What must stay true:
 
-- every import of the folder passes HorosIncomingImportGate; once stopped, the
-  gate admits no import, cancels the threads inside and lets quitting wait for
-  them, whether or not ThreadsManager lists them;
-- finishTermination stops the gate before it waits for the background threads,
-  and waits for the gate before NSApp.terminate;
+- every import of the folder passes HorosIncomingImportGate, with an admission
+  that names the thread to cancel; once stopped, the gate admits no import,
+  cancels those inside and lets quitting wait for them, whether or not
+  ThreadsManager lists them, and whichever thread gives the admission back;
+- finishTermination stops the gate, through DatabaseIngest, which also stops the
+  scheduler of the passes, before it waits for the background threads, and waits
+  for the gate before NSApp.terminate;
+- the copy and the scan of a medium pass the gate too, and each batch of the
+  copy as a part of it, on its own thread: never refused, so that what was
+  copied before quitting is not left out, and waited for;
 - the wait drops finished threads on each pass.
 
 The gate itself is compiled and run.
@@ -34,7 +39,7 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_text  # noqa: E402
+from sources import source_text, class_text  # noqa: E402
 failures = []
 
 
@@ -59,33 +64,52 @@ def body(source, signature):
     return ''
 
 
-database = source_text('DicomDatabase')
-wrapper = body(database, '-(NSInteger)importFilesFromIncomingDir: (NSNumber*) showGUI\n           listenerCompressionSettings:')
+# DicomDatabase is Swift: the scan of the incoming folder is
+# IncomingAdmission.swift. The @finally that leaves the gate is the
+# code after the attempt, before the exception it caught goes on.
+database = class_text('DicomDatabase')
+admission = source_text('IncomingAdmission')
+signature = 'func importFolder(showGUI: NSNumber!, listenerCompressionSettings: Int32) -> Int {'
+wrapper = body(admission, signature)
 check(wrapper, 'importFilesFromIncomingDir:listenerCompressionSettings: not found')
-check(re.search(r'if \(!\[\[HorosIncomingImportGate shared\] enter\]\)\s*return 0;', wrapper),
-      'the import does not ask the gate before it starts')
-check(re.search(r'@finally\s*\{\s*\[\[HorosIncomingImportGate shared\] leave\];', wrapper),
+check(re.search(r'guard let admission = IncomingImportGate\.shared\.admit\(cancelling: Thread\.current\) else \{\s*return 0\s*\}', wrapper),
+      'the import does not ask the gate before it starts, naming the thread to cancel')
+check(re.search(r'let raised = HorosObjCException\.caught \{[^}]*\}\s*IncomingImportGate\.shared\.leave\(admission\)\s*if let raised \{ raised\.raise\(\) \}', wrapper),
       'the import does not leave the gate whatever happens')
-check('importAdmittedFilesFromIncomingDir:' in wrapper, 'the gate does not wrap the import itself')
-check(database.count('-(NSInteger)importFilesFromIncomingDir: (NSNumber*) showGUI\n           listenerCompressionSettings:') == 1,
+check('importAdmittedFilesFromIncomingDir(' in wrapper, 'the gate does not wrap the import itself')
+check(admission.count(signature) == 1,
       'more than one implementation of the import that takes the compression settings')
-initiate = body(database, '-(void)initiateImportFilesFromIncomingDirUnlessAlreadyImporting')
-check(re.search(r'\[\[HorosIncomingImportGate shared\] isStopped\]\)\s*return;', initiate),
+ingest = source_text('DatabaseIngest')
+initiate = body(admission, 'func initiateImportFilesFromIncomingDirUnlessAlreadyImporting() {')
+check('schedulePass(over: self)' in initiate, 'the dynamic method no longer reaches the scheduler')
+schedule = body(ingest, 'func schedulePass(over database: DicomDatabase) {')
+check(re.search(r'if IncomingImportGate\.shared\.isStopped \{\s*return\s*\}', schedule),
       'the import timer still starts imports once quitting has begun')
+check('onMainRunLoop' in schedule and 'yieldsToViewers' in schedule[schedule.index('onMainRunLoop'):],
+      'a request no longer asks about the viewers on the main run loop')
+scan = body(admission, 'private func importAdmittedFilesFromIncomingDir(')
+check(re.search(r'if !scanFailed, enumer\.nextObject\(\) != nil', scan) and 'scanFailed = true' in scan,
+      'a scan that raised asks for the next pass at once, and the passes never end')
+ready = body(ingest, 'func isReadyForPass() -> Bool {')
+check('IncomingImportGate.shared.isStopped' in ready, 'a request waiting in the scheduler still starts a pass once quitting has begun')
+quit = body(ingest, 'func stop() {')
+check(-1 < quit.find('IncomingImportGate.shared.stop()') < quit.find('scheduler.stop()'),
+      'quitting does not close the gate at once, before it tells the scheduler')
 
-controller = source_text('AppController')
-finish = body(controller, 'func finishTermination(_ sender: Any!)')
+controller = class_text('AppController')
+# The rest of quitting is ApplicationLifecycle's.
+finish = body(controller, 'func finishTermination(_ sender: Any?)')
 check(finish, 'finishTermination not found')
-stop = finish.find('IncomingImportGate.shared.stop()')
-listeners = finish.find('AppController.stopListeners(before:')
-loop = finish.find('while Date.timeIntervalSinceReferenceDate - t < 10')
+stop = finish.find('processGraph.databaseIngest.stop()')
+listeners = finish.find('dicomListener.stopListeners(before:')
+loop = finish.find('while Date.timeIntervalSinceReferenceDate - start < 10')
 wait = finish.find('IncomingImportGate.shared.waitUntilIdle(before:')
 terminate = finish.find('NSApp.terminate(sender)')
 check(-1 < stop < listeners, 'finishTermination does not stop the incoming import first')
 check(-1 < loop < wait < terminate, 'finishTermination does not wait for the incoming import after the threads and before NSApp.terminate')
 waiting = finish[loop:wait]
 check(waiting.find('cleanupFinishedThreads(nil)') > -1
-      and waiting.find('cleanupFinishedThreads(nil)') < waiting.find('threads()?.count ?? 0) == 0 { break }'),
+      and waiting.find('cleanupFinishedThreads(nil)') < waiting.find('if threads.isEmpty { break }'),
       'the wait does not drop finished threads before it counts them')
 
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='latin1')
@@ -104,10 +128,12 @@ func expect(_ condition: Bool, _ message: String) {
 func elapsed(_ start: Date) -> TimeInterval { Date().timeIntervalSince(start) }
 
 // An import reading file after file, as -addFilesAtPaths: does, checking its
-// thread's cancellation between files. No ThreadsManager anywhere.
+// thread's cancellation between files. No ThreadsManager anywhere. The
+// admission is handed back from another thread when `leavesElsewhere` says so.
 final class Importer: @unchecked Sendable {
     let gate: IncomingImportGate
     let ignoresCancel: Bool
+    let leavesElsewhere: Bool
     let started = DispatchSemaphore(value: 0)
     let finished = DispatchSemaphore(value: 0)
     private let lock = NSLock()
@@ -115,10 +141,12 @@ final class Importer: @unchecked Sendable {
     private var _files = 0
     var sawCancel: Bool { lock.withLock { _sawCancel } }
     var files: Int { lock.withLock { _files } }
-    init(gate: IncomingImportGate, ignoresCancel: Bool = false) { self.gate = gate; self.ignoresCancel = ignoresCancel }
+    init(gate: IncomingImportGate, ignoresCancel: Bool = false, leavesElsewhere: Bool = false) {
+        self.gate = gate; self.ignoresCancel = ignoresCancel; self.leavesElsewhere = leavesElsewhere
+    }
     func start(for seconds: TimeInterval = 30) {
         let thread = Thread { [self] in
-            guard gate.enter() else { started.signal(); finished.signal(); return }
+            guard let admission = gate.admit(cancelling: Thread.current) else { started.signal(); finished.signal(); return }
             started.signal()
             let end = Date(timeIntervalSinceNow: seconds)
             while Date() < end {
@@ -129,8 +157,13 @@ final class Importer: @unchecked Sendable {
                     if !ignoresCancel { break }
                 }
             }
-            gate.leave()
-            finished.signal()
+            if leavesElsewhere {
+                let gate = gate, finished = finished
+                Thread.detachNewThread { gate.leave(admission); finished.signal() }
+            } else {
+                gate.leave(admission)
+                finished.signal()
+            }
         }
         thread.start()
         started.wait()
@@ -168,7 +201,7 @@ do { // an import started after the stop never starts
     importer.start()
     expect(importer.finished.wait(timeout: .now() + 1) == .success, "a refused import did not return")
     expect(importer.files == 0, "an import read files after quitting began")
-    expect(!gate.enter(), "the stopped gate admitted the main thread")
+    expect(gate.admit(cancelling: .current) == nil, "the stopped gate admitted the main thread")
 }
 
 do { // an import that does not stop: the deadline holds
@@ -184,11 +217,43 @@ do { // an import that does not stop: the deadline holds
 
 do { // a thread importing from inside an import is inside until it leaves both
     let gate = IncomingImportGate()
-    expect(gate.enter() && gate.enter(), "the gate refused a nested import")
-    gate.leave()
+    guard let outer = gate.admit(cancelling: .current), let inner = gate.admit(cancelling: .current) else {
+        expect(false, "the gate refused a nested import")
+        exit(0)
+    }
+    expect(outer != inner, "two imports share an admission")
+    gate.leave(inner)
     expect(!gate.waitUntilIdle(before: Date(timeIntervalSinceNow: 0.05)), "the outer import counted as gone")
-    gate.leave()
+    gate.leave(outer)
     expect(gate.waitUntilIdle(before: Date(timeIntervalSinceNow: 0.05)), "the gate is not idle after both left")
+}
+
+do { // an import may end on another thread than the one that entered
+    let gate = IncomingImportGate()
+    let importer = Importer(gate: gate, leavesElsewhere: true)
+    importer.start()
+    gate.stop()
+    expect(gate.waitUntilIdle(before: Date(timeIntervalSinceNow: 5)), "an admission given back from another thread still counted as inside")
+    expect(importer.sawCancel, "the import was not cancelled through its admission")
+}
+do { // a part of an import inside: never refused, waited for, and cancelled only by a stop that comes after it
+    let gate = IncomingImportGate()
+    guard let whole = gate.admit(cancelling: .current) else {
+        expect(false, "the gate refused the import")
+        exit(0)
+    }
+    let before = Thread { }
+    let early = gate.admitPart(cancelling: before)
+    gate.stop()
+    expect(before.isCancelled, "the stop did not cancel a part already inside")
+    let after = Thread { }
+    let late = gate.admitPart(cancelling: after)
+    expect(!after.isCancelled, "a part that came after the stop was cancelled: what was copied would be left out")
+    gate.leave(early)
+    gate.leave(whole)
+    expect(!gate.waitUntilIdle(before: Date(timeIntervalSinceNow: 0.05)), "a part counted as gone")
+    gate.leave(late)
+    expect(gate.waitUntilIdle(before: Date(timeIntervalSinceNow: 0.05)), "the gate is not idle after the parts left")
 }
 print("done")
 '''
@@ -203,8 +268,26 @@ with tempfile.TemporaryDirectory() as folder:
         check(run.returncode == 0 and run.stdout.strip().endswith('done'), 'the driver runs\n' + run.stdout + run.stderr[-2000:])
         failures.extend(line[len('FAIL: '):] for line in run.stdout.splitlines() if line.startswith('FAIL: '))
 
+# The copy and the scan of a medium read files as the folder's import does, so
+# they hold admissions too: the scan, the copy, and each batch on its own thread,
+# which the copy's cancellation does not reach. And an exception leaves the gate.
+ingest = source_text('DatabaseIngest')
+admitted = body(ingest, 'func whileAdmitted<Result>(')
+check('IncomingImportGate.shared.admit(cancelling: Thread.current)' in admitted, 'the single entry does not admit the calling thread')
+check(admitted.find('HorosObjCException.caught') < admitted.find('.leave(admission)') < admitted.find('exception?.raise()'),
+      'an exception of what is admitted never gives the admission back')
+scan = source_text('MediaVolumeScan')
+check('ingest.whileAdmitted { scanned() } ?? false' in scan, 'the scan of a medium passes no gate')
+job = source_text('MediaImportJob')
+check('ingest.whileAdmitted { importing() } ?? MediaImportOutcome(stopped: true)' in job, 'the copy passes no gate')
+check('ingest.asPartOfAdmittedImport {' in body(job, 'func index(_ batch: MediaImportBatch)'), 'a batch of the copy passes no gate')
+part = body(ingest, 'func asPartOfAdmittedImport(')
+check('admitPart(cancelling: Thread.current)' in part and part.find('HorosObjCException.caught') < part.find('.leave(admission)') < part.find('exception?.raise()'),
+      'a part of an import does not give its admission back when it raises')
+
 if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('PASS: quitting stops, cancels and waits for the incoming import, listed or not; the wait drops finished threads')
+print('PASS: quitting stops, cancels and waits for the incoming import, the copy and the scan of a medium, listed or not; '
+      'the wait drops finished threads')

@@ -10,6 +10,9 @@ if [[ $# -gt 0 ]]; then
     echo "Intel com macOS 15 ou posterior). Cada pacote leva só a sua; o x86_64 tem dependências e build próprios em build/x86_64."
     echo "O build recebe o número AAAAMMDDNN: data local e HOROS_RELEASE_SEQUENCE (0 a 99, padrão 0);"
     echo "HOROS_RELEASE_BUILD substitui o número inteiro."
+    echo "O build arm64 do canal GitHub também exporta o SDK de plugins, arm64 e x86_64, com o kit de porte"
+    echo "de plugins Horos/OsiriX, em build/Release/IsiXPluginKit-SDK-VERSÃO.zip; VERSÃO vem de"
+    echo "HUMAN_READABLE_VERSION em Horos/Horos.xcconfig (6.0.0-beta1, ...), ou de HOROS_SDK_VERSION."
     [[ $# -eq 1 && "$1" == --help ]] && exit 0
     exit 2
 fi
@@ -23,8 +26,10 @@ case "$ARCH" in
     *) echo "HOROS_RELEASE_ARCH deve ser arm64 ou x86_64." >&2; exit 2 ;;
 esac
 case "$CHANNEL" in
-    github) OUTPUT_DIR="$ROOT_DIR/build/Release/$ARCH"; CHANNEL_CONFIG="GitHub"; HELPER_SOURCE="Decompress/Decompress.entitlements" ;;
-    appstore) OUTPUT_DIR="$ROOT_DIR/build/AppStore"; CHANNEL_CONFIG="AppStore"; HELPER_SOURCE="Horos/Configuration/AppStoreHelper.entitlements" ;;
+    github) OUTPUT_DIR="$ROOT_DIR/build/Release/$ARCH"; CHANNEL_CONFIG="GitHub"; HELPER_SOURCE="Decompress/Decompress.entitlements"
+            SERVICE_SOURCE="Decompress/Decompress.entitlements" ;;
+    appstore) OUTPUT_DIR="$ROOT_DIR/build/AppStore"; CHANNEL_CONFIG="AppStore"; HELPER_SOURCE="Horos/Configuration/AppStoreHelper.entitlements"
+              SERVICE_SOURCE="Horos/Configuration/AppStoreDecompress.entitlements" ;;
     *) echo "ISIS_BUILD_CHANNEL deve ser github ou appstore." >&2; exit 2 ;;
 esac
 if [[ "$CHANNEL" == appstore && "$ARCH" != arm64 ]]; then
@@ -85,56 +90,6 @@ lock_digest() {
     if [[ -f "$PACKAGE_LOCK" ]]; then shasum -a 256 "$PACKAGE_LOCK" | cut -d ' ' -f 1; else echo absent; fi
 }
 APPROVED_LOCK_DIGEST="$(lock_digest)"
-# A copied checkout can retain a submodule gitfile whose local repository was
-# not copied. Preserve that worktree before Git initializes the pinned source.
-SUBMODULE_LOG="$ROOT_DIR/build/logs/release-submodules.log"
-echo "Preparando submódulos. Log: $SUBMODULE_LOG"
-if ! python3 - "$ROOT_DIR" > "$SUBMODULE_LOG" 2>&1 <<'PYTHON'
-from pathlib import Path
-import shutil
-import subprocess
-import sys
-import tempfile
-
-root = Path(sys.argv[1])
-entries = subprocess.check_output(['git', 'ls-files', '--stage', '-z'], cwd=root)
-paths = []
-for entry in entries.split(b'\0'):
-    if not entry:
-        continue
-    metadata, name = entry.split(b'\t', 1)
-    if metadata.split()[0] == b'160000':
-        paths.append(name.decode('utf-8'))
-backup = None
-for name in paths:
-    worktree = root / name
-    gitfile = worktree / '.git'
-    if worktree.is_symlink() or gitfile.is_symlink() or not gitfile.is_file():
-        continue
-    pointer = gitfile.read_text().strip()
-    if not pointer.startswith('gitdir: '):
-        continue
-    gitdir = worktree / pointer.removeprefix('gitdir: ')
-    if gitdir.exists():
-        continue
-    if backup is None:
-        recovery = root / 'build/recovery'
-        recovery.mkdir(parents=True, exist_ok=True)
-        backup = Path(tempfile.mkdtemp(prefix='submodules-', dir=recovery))
-    destination = backup / name
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(worktree), str(destination))
-    print(f'Submódulo {name}: metadados locais ausentes; conteúdo preservado em {destination}', flush=True)
-if paths:
-    subprocess.run(['git', 'submodule', 'sync', '--', *paths], cwd=root, check=True)
-    subprocess.run(['git', 'submodule', 'update', '--init', '--', *paths], cwd=root, check=True)
-PYTHON
-then
-    cat "$SUBMODULE_LOG" >&2
-    echo "Falha ao preparar os submódulos; o Xcode não foi iniciado." >&2
-    exit 1
-fi
-cat "$SUBMODULE_LOG"
 # The update check compares build numbers, so each release needs its own,
 # larger than every earlier one: the local date and a two-digit sequence for a
 # further release of the same day.
@@ -157,11 +112,27 @@ elif ! [[ "$RELEASE_BUILD" =~ ^[1-9][0-9]{9}$ ]]; then
     echo "HOROS_RELEASE_BUILD deve ter dez dígitos, AAAAMMDDNN." >&2
     exit 2
 fi
+# The plugin SDK a release publishes beside the two packages is one zip with
+# both architectures and the porting kit for Horos and OsiriX plugins, made by
+# tools/export-isix-plugin-kit.py. The arm64 build, the default one, makes it;
+# its name carries the version the application shows, as the release tag does.
+SDK_ZIP_NAME=""
+if [[ "$CHANNEL" == github && "$ARCH" == arm64 ]]; then
+    SDK_VERSION="${HOROS_SDK_VERSION:-$(sed -n 's/^HUMAN_READABLE_VERSION = .* v\([0-9][^ ]*\)$/\1/p' "$ROOT_DIR/Horos/Horos.xcconfig")}"
+    if ! [[ "$SDK_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$ ]]; then
+        echo "A versão do SDK (HOROS_SDK_VERSION ou HUMAN_READABLE_VERSION em Horos/Horos.xcconfig) deve ser como 6.0.0 ou 6.0.0-beta1." >&2
+        exit 2
+    fi
+    SDK_ZIP_NAME="IsiXPluginKit-SDK-$SDK_VERSION.zip"
+fi
 # The verified source archives of the dependencies do not depend on the slice.
 if [[ "$ARCH" != arm64 ]]; then
     export EXTERNAL_SOURCES_DOWNLOADS="$ROOT_DIR/build/Intermediates.noindex/Horos.build/ExternalSources.downloads"
 fi
 echo "Compilando IsiX DICOM Viewer Release $ARCH, build $RELEASE_BUILD. Log: $BUILD_LOG"
+# Xcode leaves in an existing bundle what the project no longer copies into it,
+# such as a framework that was removed: build the bundle again from nothing.
+rm -rf "$PRODUCTS_DIR/Release/IsiX DICOM Viewer.app"
 if ! xcodebuild -project Horos.xcodeproj -scheme Horos -configuration Release -xcconfig "$XCCONFIG" \
     -derivedDataPath "$DERIVED_DIR" -clonedSourcePackagesDirPath "$SOURCE_PACKAGES" \
     -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile SYMROOT="$PRODUCTS_DIR" \
@@ -192,6 +163,15 @@ ENTITLEMENTS="$STAGING_DIR/entitlements.plist"
 # Incremental builds and ditto can retain an older bundle date, keeping the
 # previous icon cached by the Dock after the application is replaced.
 /usr/bin/touch "$STAGED_APP"
+# Xcode copies the Swift toolchain's back-deployment libraries (the Span one,
+# which SwiftNIO needs below macOS 26) with every slice the toolchain has;
+# the package carries only the slice it was built for.
+for library in "$STAGED_APP"/Contents/Frameworks/libswift*.dylib; do
+    [[ -f "$library" && ! -L "$library" ]] || continue
+    if [[ "$(/usr/bin/lipo -archs "$library")" != "$ARCH" ]]; then
+        /usr/bin/lipo "$library" -thin "$ARCH" -output "$library.thin" && /bin/mv "$library.thin" "$library"
+    fi
+done
 
 # Under the hardened runtime, library validation refuses code signed by another
 # team. Third-party plugins are signed by their own developers and load into the
@@ -252,8 +232,8 @@ for extension in "$STAGED_APP"/Contents/PlugIns/*.appex; do
     [[ -d "$extension" ]] || continue
     sign --options runtime --entitlements "$ROOT_DIR/FinderPreview/FinderPreview.entitlements" "$extension"
 done
-# 4. The helpers in Resources, including Decompress: separate processes that
-#    load the frameworks beside them, so they need the same exception.
+# 4. The helpers in Resources: separate processes that load the frameworks
+#    beside them, so they need the same exception.
 /usr/bin/find "$STAGED_APP/Contents/Resources" -type f -perm -u+x -exec /bin/sh -c '
     entitlements=$1; shift
     for file do
@@ -262,7 +242,13 @@ done
         esac
     done
 ' _ "$HELPER_ENTITLEMENTS" {} + >> "$SIGNING_LOG" 2>&1
-# 5. The application.
+# 5. The XPC services (Decompress), with their own entitlements: in the App
+#    Store channel a sandbox of their own, which they do not inherit.
+for service in "$STAGED_APP"/Contents/XPCServices/*.xpc; do
+    [[ -d "$service" ]] || continue
+    sign --options runtime --entitlements "$ROOT_DIR/$SERVICE_SOURCE" "$service"
+done
+# 6. The application.
 sign --options runtime --entitlements "$ENTITLEMENTS" "$STAGED_APP"
 /usr/bin/codesign --verify --deep --strict "$STAGED_APP" >> "$SIGNING_LOG" 2>&1
 
@@ -286,6 +272,24 @@ if [[ -n "$PUBLIC_SOURCE_REF" ]]; then
 fi
 python3 "$ROOT_DIR/script/release-metadata.py" ${PUBLIC_SOURCE_ARGS[@]+"${PUBLIC_SOURCE_ARGS[@]}"} "$ROOT_DIR" \
     "$INTERMEDIATES_DIR/Horos.build/Release" "$STAGING_DIR" "$AUDIT_LOG" "$SOURCE_PACKAGES"
+
+# The plugin SDK, before anything is replaced: a failure leaves the previous
+# output, the package and the SDK, where it was.
+if [[ -n "$SDK_ZIP_NAME" ]]; then
+    SDK_LOG="$ROOT_DIR/build/logs/release-sdk.log"
+    echo "Exportando o SDK de plugins (arm64 e x86_64) em $SDK_ZIP_NAME. Log: $SDK_LOG"
+    if ! python3 "$ROOT_DIR/tools/export-isix-plugin-kit.py" --xcode Release --archs arm64,x86_64 \
+        --output "$STAGING_DIR/sdk" --zip "$STAGING_DIR/$SDK_ZIP_NAME" > "$SDK_LOG" 2>&1; then
+        tail -n 40 "$SDK_LOG" >&2
+        echo "O SDK de plugins não foi exportado; a versão anterior foi mantida." >&2
+        exit 1
+    fi
+    # That build of IsiXPluginKit alone must not have resolved packages either.
+    if [[ "$(lock_digest)" != "$APPROVED_LOCK_DIGEST" ]]; then
+        echo "A exportação do SDK alterou o lockfile aprovado; a versão anterior foi mantida." >&2
+        exit 1
+    fi
+fi
 
 # Replace the previous output only now, all three files together, keeping the
 # previous ones under the same date. A failure puts back what was moved.
@@ -319,6 +323,14 @@ for item in "${ITEMS[@]}"; do
 done
 if [[ ${#MOVED[@]} -gt 0 ]]; then
     echo "Versão anterior preservada em: $OUTPUT_DIR/$(previous_name "$APP_NAME.app")"
+fi
+if [[ -n "$SDK_ZIP_NAME" ]]; then
+    SDK_ZIP="$ROOT_DIR/build/Release/$SDK_ZIP_NAME"
+    if [[ -e "$SDK_ZIP" ]]; then
+        mv "$SDK_ZIP" "$ROOT_DIR/build/Release/${SDK_ZIP_NAME%.zip}.previous-$STAMP.zip"
+    fi
+    mv "$STAGING_DIR/$SDK_ZIP_NAME" "$SDK_ZIP"
+    echo "SDK de plugins: $SDK_ZIP (SHA-256 $(shasum -a 256 "$SDK_ZIP" | cut -d ' ' -f 1))"
 fi
 echo "Build local $CHANNEL $ARCH pronto, assinado ad hoc:"
 echo "$OUTPUT_APP"

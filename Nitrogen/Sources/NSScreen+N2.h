@@ -46,12 +46,4 @@
 // Swift is compiling the extension itself.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift, the Decompress helper: NSUserDefaults+OsiriX.mm
-// names these selectors there, as it did before, without their implementation.
-@interface NSScreen (N2)
--(NSUInteger)screenNumber;
--(NSString*)displayName;
--(NSNumber*)serialNumber;
-@end
 #endif

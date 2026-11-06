@@ -41,7 +41,7 @@ import AppKit
 
 /// Asks what to do with the DICOM files of a disc that was just mounted.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// DiscMountedAskTheUserDialogController.h are those of the former class.
 @objc(DiscMountedAskTheUserDialogController)
 public final class DiscMountedAskTheUserDialogController: NSWindowController {

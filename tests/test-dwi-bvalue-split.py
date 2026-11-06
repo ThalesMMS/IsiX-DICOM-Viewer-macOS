@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """A diffusion series that stacks its b-values splits into one viewer per b-value.
 
-Compiles DiffusionBValueSplit.swift with a driver for the b-value readers
-(standard, Siemens, GE, Philips, sequence name) and the grouping, and checks
-the wiring of 2D Viewer > Split Series by b-value.
+Compiles BValueSplit.swift (IsiXImaging) with a driver for the b-value
+readers (standard, Siemens, GE, Philips, sequence name) and the grouping, and
+checks the wiring of 2D Viewer > Split Series by b-value.
 """
 from pathlib import Path
 import subprocess
@@ -11,6 +11,7 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 sources = root / 'Horos/Sources'
+split_source = root / 'Modules/IsiXImaging/Sources/BufferOperations/BValueSplit.swift'
 
 
 def fail(message):
@@ -24,7 +25,7 @@ import Foundation
 func check(_ condition: Bool, _ message: String) {
     if !condition { print("FAIL: " + message); exit(1) }
 }
-typealias S = DiffusionBValueSplit
+typealias S = BValueSplit
 func b(_ standard: Any? = nil, siemens: Any? = nil, ge: Any? = nil, philips: Any? = nil, sequence: Any? = nil) -> Double? {
     S.bValue([standard, siemens, ge, philips, sequence])
 }
@@ -62,17 +63,18 @@ print("PASS: b-value readers and groups")
 with tempfile.TemporaryDirectory(prefix='horos-dwi-split-') as tmp:
     work = Path(tmp)
     (work / 'main.swift').write_text(driver)
-    if subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', str(sources / 'DiffusionBValueSplit.swift'),
+    if subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', str(split_source),
                        str(work / 'main.swift'), '-o', str(work / 'check')]).returncode:
-        fail('DiffusionBValueSplit.swift does not build with the driver')
+        fail('BValueSplit.swift does not build with the driver')
     if subprocess.run([str(work / 'check')]).returncode:
         raise SystemExit(1)
 
 split = (sources / 'ViewerController+BValueSplit.swift').read_text(encoding='utf-8')
 for needle, why in (
     ('@objc(splitSeriesByBValue:)', 'is the menu action'),
-    ('DiffusionBValueSplit.groups(', 'groups with the shared rule'),
-    ('viewer: index == 0 ? self : nil', 'shows the first b-value in this viewer'),
+    ('BValueSplit.groups(', 'groups with the rule of IsiXImaging'),
+    ('processGraph.currentBrowser', 'opens the viewers through the graph'),
+    ('viewer: index == 0 ? viewer : nil', 'shows the first b-value in this viewer'),
     ('lastGroup: 0x2001', 'reads the headers up to the Philips group'),
     ('tileWindows(nil)', 'tiles the viewers'),
     ('window?.subtitle', 'names the b-value of each viewer'),
@@ -86,7 +88,8 @@ if 'selector="splitSeriesByBValue:"' not in menu[at:menu.index('</menuItem>', at
     fail('2D Viewer > Split Series by b-value does not send splitSeriesByBValue:')
 
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
-for name in ('DiffusionBValueSplit.swift', 'ViewerController+BValueSplit.swift'):
-    if f'{name} in Sources' not in pbx:
-        fail(f'{name} is not compiled into the app')
+if 'ViewerController+BValueSplit.swift in Sources' not in pbx:
+    fail('ViewerController+BValueSplit.swift is not compiled into the app')
+if 'DiffusionBValueSplit' in pbx or (sources / 'DiffusionBValueSplit.swift').exists():
+    fail('the former DiffusionBValueSplit.swift is back in the app beside BValueSplit')
 print('PASS: Split Series by b-value is wired to the viewer')

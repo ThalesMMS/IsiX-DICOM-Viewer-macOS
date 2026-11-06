@@ -8,7 +8,7 @@ volume's own: an empty folder and one holding only .DS_Store stay put; a folder
 with received files goes to the Trash whole, contents intact. Then checks that
 AppController's quit cleanup asks it, and composes no TEMP.noindex path from the
 INCOMING listing any more (AppController is Swift: the check reads
-AppController.swift).
+ApplicationLifecycle.swift, whose willTerminate() it calls).
 
     python3 tests/test-incoming-folder-on-quit.py [REV]
 """
@@ -44,7 +44,9 @@ def check(condition, message):
 
 
 swift = read("Horos/Sources/IncomingFolderOnQuit.swift")
-controller = read(str(source_path("AppController").relative_to(ROOT)))
+# The quit cleanup is ApplicationLifecycle's willTerminate(), which an older
+# revision kept in AppController.swift.
+controller = (read(str(source_path("AppController").relative_to(ROOT))) or "") + (read("Horos/Sources/ApplicationLifecycle.swift") or "")
 check(swift is not None, "there is no IncomingFolderOnQuit.swift")
 
 block = controller.split("// EMPTY THE INCOMING.noindex DIRECTORY", 1)[1].split("confirmDirectory(atPath: incomingDirectoryPath", 1)[0]

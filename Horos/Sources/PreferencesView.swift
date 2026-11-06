@@ -96,7 +96,8 @@ public final class PreferencesView: NSControl {
         let button = NSButton(frame: .zero)
         button.cell = PreferencesViewButtonCell()
         button.title = title
-        button.image = image
+        // A copy: the cell resizes what it draws, and named images are shared.
+        button.image = image?.copy() as? NSImage
         button.alternateImage = image?.shadowImage()
         button.target = self
         button.action = #selector(buttonAction(_:))
@@ -106,6 +107,18 @@ public final class PreferencesView: NSControl {
         group.buttons.append(button)
 
         layout()
+    }
+
+    /// Dims the panes that are not in `contexts`, and leaves all of them
+    /// as they were when it is nil.
+    func setSearchMatches(_ contexts: Set<ObjectIdentifier>?) {
+        for button in groups.flatMap(\.buttons) {
+            let shown = contexts.map { matches in
+                (button.cell?.representedObject as AnyObject?).map { matches.contains(ObjectIdentifier($0)) } ?? false
+            } ?? true
+            button.isEnabled = shown
+            button.alphaValue = shown ? 1 : 0.25
+        }
     }
 
     public override var isOpaque: Bool {

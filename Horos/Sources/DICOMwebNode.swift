@@ -11,6 +11,9 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXDICOMNetwork
+import IsiXPreferences
+import Synchronization
 
 /// How a DICOMweb node authenticates. The secret itself is in the Keychain;
 /// the node keeps only the UUID that names it.
@@ -83,38 +86,12 @@ public final class DICOMwebNode: NSObject {
     @objc public static let defaultsKey = "DICOMWEB_SERVERS"
 
     /// The dictionary keys of a stored node.
-    public enum Key {
-        public static let identifier = "Identifier"
-        public static let address = "Address"
-        public static let allowInsecureHTTP = "AllowInsecureHTTP"
-        public static let wadoPath = "WADOPath"
-        public static let qidoPath = "QIDOPath"
-        public static let name = "Name"
-        public static let queryRetrieve = "QR"
-        public static let retrieveSyntax = "RetrieveSyntax"
-        public static let credential = "CredentialID"
-        public static let send = "Send"
-        public static let sendSyntax = "SendSyntax"
-        /// Set on a node migrated from the pilot until its credential is rewritten.
-        public static let legacyCredential = "LegacyCredential"
-        public static let maximumRequests = "MaxRequests"
-        public static let seriesOrder = "SeriesOrder"
-        public static let excludeSeries = "ExcludeSeries"
-        public static let adaptiveRequests = "AdaptiveRequests"
-        public static let trustedCertificate = "TrustedCertificateSHA256"
-        public static let oidcIssuer = "OIDCIssuer"
-        public static let oidcClientID = "OIDCClientID"
-        public static let oidcScopes = "OIDCScopes"
-        public static let oidcAudience = "OIDCAudience"
-        public static let oidcRedirectURI = "OIDCRedirectURI"
-        public static let clientIdentity = "ClientIdentity"
-        public static let clientIdentityName = "ClientIdentityName"
-    }
+    public typealias Key = DICOMwebNodeRecord.Key
 
     // MARK: Transfer syntaxes
 
     /// "As stored": the server sends, or receives, each object in its own syntax.
-    @objc public static let asStored = "*"
+    @objc public static let asStored = DICOMwebNodeRecord.asStored
 
     /// The syntaxes a node may ask for or send, first "As stored": those Horos
     /// decodes, which DCMTK can also write when a Send Syntax asks for it.
@@ -147,12 +124,6 @@ public final class DICOMwebNode: NSObject {
         "1.2.840.10008.1.2.4.91": "JPEG 2000",
         "1.2.840.10008.1.2.5": "RLE Lossless",
     ]
-
-    /// A syntax as saved: empty, and Implicit VR Little Endian, which earlier
-    /// versions offered and DICOMweb does not carry, read as "As stored".
-    private static func storedSyntax(_ saved: String) -> String {
-        saved.isEmpty || saved == "1.2.840.10008.1.2" ? asStored : saved
-    }
 
     /// What the pop-up menus show for a syntax.
     @objc(titleForTransferSyntax:)
@@ -195,7 +166,7 @@ public final class DICOMwebNode: NSObject {
     private var _maximumRequests = DICOMwebNode.defaultMaximumRequests
     /// A few requests at once, which a server answering one study at a time
     /// should take without throttling.
-    @objc public static let defaultMaximumRequests = 4
+    @objc public static let defaultMaximumRequests = DICOMwebNodeRecord.defaultMaximumRequests
     @objc public static let maximumRequestsChoices = Array(1...16)
 
     /// The order the node's series are asked for in, a `RetrieveOrder`: 0, as
@@ -266,9 +237,9 @@ public final class DICOMwebNode: NSObject {
     @objc public var clientIdentityName = ""
 
     /// A stored limit, clamped into 1...16; anything not a number gives the default.
-    @objc public static func validMaximumRequests(_ value: Int) -> Int { min(max(value, 1), 16) }
+    @objc public static func validMaximumRequests(_ value: Int) -> Int { DICOMwebNodeRecord.validMaximumRequests(value) }
     /// Keys this version does not know, saved back unchanged.
-    private var unknown: [String: Any] = [:]
+    private var unknown: [String: PropertyListValue] = [:]
 
     /// A new node: a source, not a destination, with no address yet.
     @objc public override init() {
@@ -288,95 +259,74 @@ public final class DICOMwebNode: NSObject {
     }
 
     /// A node as stored. Missing values take their defaults; an entry with no
-    /// identifier (written by hand) is given one.
+    /// identifier (written by hand) is given one. A value no property list can
+    /// hold is not kept: the preferences could not store it.
     @objc(initWithDictionary:)
-    public init(dictionary: [String: Any]) {
-        func text(_ key: String) -> String {
-            if let value = dictionary[key] as? String { return value.trimmingCharacters(in: .whitespacesAndNewlines) }
-            if let value = dictionary[key] as? NSNumber { return value.stringValue }
-            return ""
-        }
-        func flag(_ key: String, _ fallback: Bool) -> Bool {
-            if let value = dictionary[key] as? NSNumber { return value.boolValue }
-            if let value = dictionary[key] as? NSString { return value.boolValue }
-            return fallback
-        }
-        let stored = text(Key.identifier)
-        identifier = UUID(uuidString: stored) != nil ? stored : UUID().uuidString
-        address = text(Key.address)
-        allowInsecureHTTP = flag(Key.allowInsecureHTTP, false)
-        wadoPath = text(Key.wadoPath)
-        qidoPath = text(Key.qidoPath)
-        name = text(Key.name)
-        queryRetrieve = flag(Key.queryRetrieve, true)
-        retrieveSyntax = Self.storedSyntax(text(Key.retrieveSyntax))
-        credentialIdentifier = text(Key.credential)
-        send = flag(Key.send, false)
-        sendSyntax = Self.storedSyntax(text(Key.sendSyntax))
-        hasLegacyCredential = flag(Key.legacyCredential, false)
-        if let stored = dictionary[Key.maximumRequests] as? NSNumber { _maximumRequests = Self.validMaximumRequests(stored.intValue) }
-        else if let stored = dictionary[Key.maximumRequests] as? String, let parsed = Int(stored.trimmingCharacters(in: .whitespaces)) {
-            _maximumRequests = Self.validMaximumRequests(parsed)
-        }
-        let order = (dictionary[Key.seriesOrder] as? NSNumber)?.intValue ?? (dictionary[Key.seriesOrder] as? String).flatMap { Int($0) } ?? 0
-        _seriesOrder = (0...2).contains(order) ? order : 0
-        excludedSeries = ((dictionary[Key.excludeSeries] as? [Any]) ?? []).compactMap { $0 as? String }
-        adaptiveRequests = flag(Key.adaptiveRequests, false)
-        // Kept as written: the table stores it normalized, and one written by
-        // hand in another form is refused when the node is used, never dropped.
-        trustedCertificateSHA256 = text(Key.trustedCertificate)
-        oidcIssuer = text(Key.oidcIssuer)
-        oidcClientID = text(Key.oidcClientID)
-        oidcScopes = text(Key.oidcScopes)
-        oidcAudience = text(Key.oidcAudience)
-        oidcRedirectURI = text(Key.oidcRedirectURI)
-        // Data in the preferences; base64 text from a hand-written argument.
-        clientIdentityReference = (dictionary[Key.clientIdentity] as? Data)
-            ?? (dictionary[Key.clientIdentity] as? String).flatMap { Data(base64Encoded: $0) }
-        if clientIdentityReference?.isEmpty == true { clientIdentityReference = nil }
-        clientIdentityName = clientIdentityReference == nil ? "" : text(Key.clientIdentityName)
-        let known: Set<String> = [Key.identifier, Key.address, Key.allowInsecureHTTP, Key.wadoPath, Key.qidoPath, Key.name, Key.queryRetrieve,
-                                  Key.retrieveSyntax, Key.credential, Key.send, Key.sendSyntax, Key.legacyCredential, Key.maximumRequests, Key.seriesOrder, Key.excludeSeries, Key.adaptiveRequests,
-                                  Key.trustedCertificate, Key.oidcIssuer, Key.oidcClientID, Key.oidcScopes, Key.oidcAudience,
-                                  Key.oidcRedirectURI, Key.clientIdentity, Key.clientIdentityName]
-        unknown = dictionary.filter { !known.contains($0.key) }
+    public convenience init(dictionary: [String: Any]) {
+        self.init(record: DICOMwebNodeRecord(entry: dictionary.compactMapValues(PropertyListValue.init)))
+    }
+
+    /// A node as `DICOMWEB_SERVERS` stores it, read by the module's record.
+    public init(record: DICOMwebNodeRecord) {
+        identifier = record.identifier
+        address = record.address
+        allowInsecureHTTP = record.allowInsecureHTTP
+        wadoPath = record.wadoPath
+        qidoPath = record.qidoPath
+        name = record.name
+        queryRetrieve = record.queryRetrieve
+        retrieveSyntax = record.retrieveSyntax
+        credentialIdentifier = record.credentialIdentifier
+        send = record.send
+        sendSyntax = record.sendSyntax
+        hasLegacyCredential = record.hasLegacyCredential
+        _maximumRequests = record.maximumRequests
+        _seriesOrder = record.seriesOrder
+        excludedSeries = record.excludedSeries
+        adaptiveRequests = record.adaptiveRequests
+        trustedCertificateSHA256 = record.trustedCertificateSHA256
+        oidcIssuer = record.oidcIssuer
+        oidcClientID = record.oidcClientID
+        oidcScopes = record.oidcScopes
+        oidcAudience = record.oidcAudience
+        oidcRedirectURI = record.oidcRedirectURI
+        clientIdentityReference = record.clientIdentityReference
+        clientIdentityName = record.clientIdentityName
+        unknown = record.unknown
         super.init()
     }
 
-    /// The node as it is stored.
-    @objc public var dictionaryRepresentation: [String: Any] {
-        var node = unknown
-        node[Key.identifier] = identifier
-        node[Key.address] = address
-        node[Key.allowInsecureHTTP] = allowInsecureHTTP
-        node[Key.wadoPath] = wadoPath
-        node[Key.qidoPath] = qidoPath
-        node[Key.name] = name
-        node[Key.queryRetrieve] = queryRetrieve
-        node[Key.retrieveSyntax] = retrieveSyntax
-        node[Key.send] = send
-        node[Key.sendSyntax] = sendSyntax
-        node[Key.maximumRequests] = maximumRequests
-        node[Key.seriesOrder] = seriesOrder
-        if excludedSeries.isEmpty { node.removeValue(forKey: Key.excludeSeries) } else { node[Key.excludeSeries] = excludedSeries }
-        node[Key.adaptiveRequests] = adaptiveRequests
-        if trustedCertificateSHA256.isEmpty { node.removeValue(forKey: Key.trustedCertificate) }
-        else { node[Key.trustedCertificate] = trustedCertificateSHA256 }
-        for (key, value) in [(Key.oidcIssuer, oidcIssuer), (Key.oidcClientID, oidcClientID), (Key.oidcScopes, oidcScopes),
-                             (Key.oidcAudience, oidcAudience), (Key.oidcRedirectURI, oidcRedirectURI)] {
-            if value.isEmpty || !usesOIDC { node.removeValue(forKey: key) } else { node[key] = value }
-        }
-        if let clientIdentityReference, !clientIdentityReference.isEmpty {
-            node[Key.clientIdentity] = clientIdentityReference
-            node[Key.clientIdentityName] = clientIdentityName
-        } else {
-            node.removeValue(forKey: Key.clientIdentity)
-            node.removeValue(forKey: Key.clientIdentityName)
-        }
-        if credentialIdentifier.isEmpty { node.removeValue(forKey: Key.credential) } else { node[Key.credential] = credentialIdentifier }
-        if hasLegacyCredential { node[Key.legacyCredential] = true } else { node.removeValue(forKey: Key.legacyCredential) }
-        return node
+    /// The node as the module's record, which writes it as it is stored.
+    public var record: DICOMwebNodeRecord {
+        var record = DICOMwebNodeRecord(identifier: identifier, name: name)
+        record.address = address
+        record.allowInsecureHTTP = allowInsecureHTTP
+        record.wadoPath = wadoPath
+        record.qidoPath = qidoPath
+        record.queryRetrieve = queryRetrieve
+        record.retrieveSyntax = retrieveSyntax
+        record.credentialIdentifier = credentialIdentifier
+        record.send = send
+        record.sendSyntax = sendSyntax
+        record.hasLegacyCredential = hasLegacyCredential
+        record.maximumRequests = maximumRequests
+        record.seriesOrder = seriesOrder
+        record.excludedSeries = excludedSeries
+        record.adaptiveRequests = adaptiveRequests
+        record.trustedCertificateSHA256 = trustedCertificateSHA256
+        record.oidcIssuer = oidcIssuer
+        record.oidcClientID = oidcClientID
+        record.oidcScopes = oidcScopes
+        record.oidcAudience = oidcAudience
+        record.oidcRedirectURI = oidcRedirectURI
+        record.clientIdentityReference = clientIdentityReference
+        record.clientIdentityName = clientIdentityName
+        record.unknown = unknown
+        return record
     }
+
+    /// The node as it is stored.
+    @objc public var dictionaryRepresentation: [String: Any] { record.propertyList }
 
     // MARK: Validation
 
@@ -468,29 +418,49 @@ public final class DICOMwebNode: NSObject {
     @objc public var qidoEndpoint: String { endpoint(qidoPath) }
     /// The WADO-RS base URL: the address, with the WADO path when there is one. Empty when the node is not valid.
     @objc public var wadoEndpoint: String { endpoint(wadoPath) }
-    /// The STOW-RS base URL: the address; STOW-RS posts to {Address}/studies.
-    @objc public var stowEndpoint: String { endpoint("") }
+    /// The STOW-RS base URL, which STOW-RS posts its /studies to: the
+    /// address, with the path QIDO and WADO share when they have the same one.
+    @objc public var stowEndpoint: String { endpoint(DICOMwebNode.storePath(qidoPath: qidoPath, wadoPath: wadoPath)) }
+
+    /// The path STOW-RS stores below. The node has no path of its own for
+    /// it: with QIDO-RS and WADO-RS under one prefix, the node's services
+    /// are all there, and a store sent to the bare address is not found.
+    /// Two different paths say nothing of a third, and the address stays.
+    static func storePath(qidoPath: String, wadoPath: String) -> String {
+        guard let qido = relativePath(qidoPath), let wado = relativePath(wadoPath), qido == wado else { return "" }
+        return qido
+    }
+
+    /// Where STOW-RS posts its `studies` for a node at `address`: the address,
+    /// or below the path its QIDO-RS and WADO-RS share.
+    static func storeBaseURL(address: URL, qidoPath: String, wadoPath: String) -> URL {
+        let path = storePath(qidoPath: qidoPath, wadoPath: wadoPath)
+        guard !path.isEmpty, var components = URLComponents(url: address, resolvingAgainstBaseURL: false) else { return address }
+        components.percentEncodedPath += "/" + path
+        return components.url ?? address
+    }
 
     // MARK: The stored list
 
-    /// The Keychain the nodes' credentials are in. Replaced only by tests.
-    // nonisolated(unsafe): the application only reads it; a test program
-    // replaces it at its top level, before any node is read and before any
-    // other thread starts. Remove when the tests inject the store another way.
-    nonisolated(unsafe) public static var credentialStore: DICOMwebCredentialStoring = KeychainDICOMwebCredentialStore()
+    /// The Keychain the nodes' credentials are in. Replaced only by tests,
+    /// from any thread; every read sees a whole store.
+    private static let installedCredentialStore = Mutex<DICOMwebCredentialStoring>(KeychainDICOMwebCredentialStore())
+    public static var credentialStore: DICOMwebCredentialStoring {
+        get { installedCredentialStore.withLock { $0 } }
+        set { installedCredentialStore.withLock { $0 = newValue } }
+    }
 
     private static let lock = NSLock()
 
     /// Every stored node, valid or not, in the order the Locations pane shows them.
     public static func nodes(in defaults: UserDefaults) -> [DICOMwebNode] {
-        let stored = defaults.array(forKey: defaultsKey) ?? []
-        return stored.compactMap { ($0 as? [String: Any]).map(DICOMwebNode.init(dictionary:)) }
+        DICOMNodeStore.dicomwebNodes(fromPropertyList: defaults.array(forKey: defaultsKey)).map(DICOMwebNode.init(record:))
     }
 
     @objc public static func allNodes() -> [DICOMwebNode] { nodes(in: .standard) }
 
     public static func save(_ nodes: [DICOMwebNode], to defaults: UserDefaults) {
-        defaults.set(nodes.map { $0.dictionaryRepresentation }, forKey: defaultsKey)
+        defaults.set(nodes.map(\.dictionaryRepresentation), forKey: defaultsKey)
     }
 
     @objc(saveNodes:)
@@ -547,8 +517,8 @@ public final class DICOMwebNode: NSObject {
         // A list given as an argument of the launch (`-SERVERS`) is not the
         // one of the preferences, and writing what is left of it would replace
         // that one for good.
-        guard defaults.volatileDomain(forName: UserDefaults.argumentDomain)["SERVERS"] == nil,
-              let servers = defaults.array(forKey: "SERVERS") else { return 0 }
+        guard !defaults.isGivenAsLaunchArgument(NetworkPreferences.dicomNodes),
+              let servers = defaults[NetworkPreferences.dicomNodes]?.map(\.object) else { return 0 }
         var nodes = self.nodes(in: defaults)
         var remaining: [Any] = []
         var moved = 0
@@ -577,7 +547,7 @@ public final class DICOMwebNode: NSObject {
         }
         guard moved > 0 else { return 0 }
         save(nodes, to: defaults)
-        defaults.set(remaining, forKey: "SERVERS")
+        defaults.set(remaining.compactMap(PropertyListValue.init), for: NetworkPreferences.dicomNodes)
         NSLog("DICOMweb: moved %ld node(s) from SERVERS to %@", moved, defaultsKey)
         return moved
     }
@@ -620,6 +590,9 @@ public final class DICOMwebNode: NSObject {
         save(current, to: defaults)
     }
 
+    /// The queue of the conversion of the pilot's credentials.
+    private static let legacyConversion = DispatchQueue(label: "Horos.DICOMwebLegacyCredentials", qos: .utility)
+
     /// Run once at launch, after the defaults are registered: moves the
     /// pilot's nodes out of `SERVERS` at once, and converts their credentials
     /// in the background, so the Keychain never holds up the launch. The marks
@@ -629,7 +602,8 @@ public final class DICOMwebNode: NSObject {
         let pending = pendingLegacyCredentials(in: .standard)
         guard !pending.isEmpty else { return }
         let store = credentialStore
-        DispatchQueue.global(qos: .utility).async {
+        // Off the launch: the Keychain may take its time to answer.
+        legacyConversion.async {
             let done = convertLegacyCredentials(pending, store: store)
             DispatchQueue.main.async { clearLegacyMarks(done, in: .standard) }
         }

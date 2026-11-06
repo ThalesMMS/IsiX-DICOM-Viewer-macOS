@@ -636,7 +636,7 @@
                     <constraints>
                         <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="64" id="1xK-Nd-zOX"/>
                     </constraints>
-                    <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" enabled="NO" alignment="left" minValue="2" maxValue="128" doubleValue="20" tickMarkPosition="below" numberOfTickMarks="45" sliderType="linear" id="2140">
+                    <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" enabled="NO" alignment="left" minValue="1" maxValue="128" doubleValue="20" tickMarkPosition="below" numberOfTickMarks="45" sliderType="linear" id="2140">
                         <font key="font" size="12" name="Helvetica"/>
                     </sliderCell>
                     <connections>

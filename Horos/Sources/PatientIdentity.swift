@@ -88,3 +88,63 @@ public final class PatientIdentity: NSObject {
         return value.isEmpty ? "(none)" : "\"\(value)\""
     }
 }
+
+/// Evidence for comparing study history without changing the database's patient key.
+struct ComparativePatientIdentity: Sendable {
+    private let patientID: String
+    private let issuer: String?
+    private let universalIssuer: String?
+    private let name: String
+    private let birthDate: Date?
+
+    init?(patientID: String?, issuer: String?, universalIssuer: String?, name: String?, birthDate: Date?) {
+        let issuer = issuer?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let patientID, !patientID.isEmpty, issuer?.isEmpty == false || universalIssuer != nil else { return nil }
+        self.patientID = patientID
+        self.issuer = issuer?.isEmpty == false ? issuer : nil
+        self.universalIssuer = universalIssuer
+        self.name = name ?? ""
+        self.birthDate = birthDate
+    }
+
+    func hasDifferentIssuer(from other: ComparativePatientIdentity) -> Bool {
+        if let universalIssuer, let otherIssuer = other.universalIssuer {
+            return universalIssuer != otherIssuer
+        }
+        guard let issuer, let otherIssuer = other.issuer else { return false }
+        return issuer != otherIssuer
+    }
+
+    func corroborates(_ other: ComparativePatientIdentity) -> Bool {
+        guard patientID == other.patientID, !hasDifferentIssuer(from: other),
+              universalIssuer == other.universalIssuer else { return false }
+        let sameBirthDate: Bool
+        if let birthDate, let otherDate = other.birthDate {
+            sameBirthDate = Calendar(identifier: .gregorian).isDate(birthDate, inSameDayAs: otherDate)
+            guard sameBirthDate else { return false }
+        } else {
+            sameBirthDate = false
+        }
+
+        let left = Self.nameComponents(name)
+        let right = Self.nameComponents(other.name)
+        guard !left.isEmpty, !right.isEmpty else { return false }
+        if left == right { return true }
+
+        // With a corroborating birth date, only the DICOM middle-name component may differ.
+        guard sameBirthDate, left.count >= 2, right.count >= 2,
+              !left[0].isEmpty, !left[1].isEmpty else { return false }
+        return left[0] == right[0] && left[1] == right[1] &&
+            Array(left.dropFirst(3)) == Array(right.dropFirst(3))
+    }
+
+    private static func nameComponents(_ name: String) -> [String] {
+        guard let alphabetic = name.components(separatedBy: "=").first, !alphabetic.isEmpty else { return [] }
+        var components = alphabetic.components(separatedBy: "^").map {
+            $0.split(whereSeparator: \.isWhitespace).joined(separator: " ").folding(
+                options: [.caseInsensitive, .widthInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+        }
+        while components.last == "" { components.removeLast() }
+        return components
+    }
+}

@@ -29,6 +29,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import process_graph_stand_in  # the Metal sources read their development switches through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -52,21 +53,26 @@ def read(path):
 
 
 failures = []
-bridge = read('Horos/Sources/PlanarHostBridge.m')
+# The snapshot is Swift (DCMView+PlanarSnapshot.swift); its decisions are
+# IsiXImaging's PlanarPresentation.
+bridge = read('Horos/Sources/DCMView+PlanarSnapshot.swift')
+presentation = read('Modules/IsiXImaging/Sources/ViewDrawing/PlanarPresentation.swift')
 view = read('Horos/Sources/DCMView.m')
-snapshot = bridge[bridge.index('- (NSDictionary *)horosPlanarSnapshot'):]
-refusal = snapshot[:snapshot.index('return @{@"error": unsupported};')]
-if 'pix.isLUT12Bit)' in refusal.replace('BOOL packed = pix.isLUT12Bit;', ''):
+snapshot = bridge[bridge.index('private func horosPlanarSnapshot(drawnIn host: DCMView)'):]
+refusal = snapshot[snapshot.index('guard let pix = view.curDCM'):snapshot.index('let bounds = host.bounds')]
+if 'isLUT12Bit' in refusal.replace('let packed = pix.isLUT12Bit', '') or 'packed' in refusal.replace('let packed = pix.isLUT12Bit', ''):
     failures.append('the snapshot still refuses the 12-bit LUT mode')
 if 'fused && packed' in refusal:
     failures.append('a fused series in the 12-bit LUT mode is still refused')
-if 'if (packed || volumeSlab) snapshot[@"bytesCarryAlpha"] = @YES;' not in snapshot:
+if 'if source.bytesCarryAlpha(packed: packed) { snapshot["bytesCarryAlpha"] = true }' not in snapshot \
+        or 'func bytesCarryAlpha(packed: Bool) -> Bool { packed || volumeSlab }' not in presentation:
     failures.append('the snapshot does not mark the packed bytes, which a fusion blends untabled')
-if 'char *bytes = packed ? (char *)pix.LUT12baseAddr : pix.baseAddr;' not in snapshot:
+if 'packed ? pix.lut12baseAddr.map { UnsafeRawPointer($0) } : pix.baseAddr.map { UnsafeRawPointer($0) }' not in snapshot:
     failures.append('the snapshot does not hand over the packed bytes, LUT12baseAddr')
-if '@"isColor": @(colourBytes || volumeSlab)' not in snapshot or 'BOOL colourBytes = pix.isRGB || packed;' not in snapshot:
+if '"isColor": source.isColour' not in snapshot or 'public var isColour: Bool { colourBytes || volumeSlab }' not in presentation \
+        or 'let colour = isRGB || packed' not in presentation:
     failures.append('the packed bytes are not drawn as colour bytes')
-if 'if (pix.isRGB && !packed && (fused ||' not in snapshot:
+if 'return isRGB && !packed && (fused ||' not in presentation:
     failures.append('a table can still be laid over the packed bytes')
 if not re.search(r'if\( self\.curDCM\.isLUT12Bit\)\s*\{\s*\}\s*else if\(\(localColorTransfer == YES\) \|\| \(blending == YES\)\)', view):
     failures.append('the host now lays something over the packed bytes; the port must follow it')
@@ -170,7 +176,7 @@ with tempfile.TemporaryDirectory(prefix='horos-planar-lut12-') as name:
         (directory / source).write_text(read('Horos/Sources/' + source))
     (directory / 'Check.swift').write_text(DRIVER)
     build = subprocess.run(['xcrun', 'swiftc', '-O', '-parse-as-library', '-suppress-warnings',
-                            *[str(directory / source) for source in sources], str(directory / 'Check.swift'),
+                            *[str(directory / source) for source in sources], *process_graph_stand_in.swift_flags(directory / 'isix'), str(directory / 'Check.swift'),
                             '-o', str(directory / 'check')])
     if build.returncode:
         print('FAIL: the planar renderer does not build with the 12-bit driver')

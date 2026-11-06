@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 
 /// The window of the floating series list.
 ///
@@ -70,12 +71,12 @@ public final class ThumbnailsListNSWindow: NSPanel {
             return
         }
 
-        if UserDefaults.standard.bool(forKey: "SeriesListVisible") == false {
+        if PreferencesSource.process.preferences[ViewerPreferences.seriesListVisible] == false {
             super.orderOut(sender)
             return
         }
 
-        if UserDefaults.standard.bool(forKey: "UseFloatingThumbnailsList") {
+        if PreferencesSource.process.preferences[ViewerPreferences.useFloatingThumbnailsList] {
 
             if let v = ViewerController.frontMostDisplayed2DViewer(for: self.screen) {
                 (self.windowController as? ThumbnailsListPanel)?.setThumbnailsView(v.previewMatrixScrollView(), viewer: v)

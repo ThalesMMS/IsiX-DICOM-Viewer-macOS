@@ -91,8 +91,11 @@ public final class OSIFloatVolumeData: CPRVolumeData {
         for case let maskRunValue as NSValue in roiMask?.maskRuns() ?? NSArray() {
             let maskRun = maskRunValue.osiroiMaskRun()
 
+            // The run covers columns location..<location + length, so it may end
+            // exactly at pixelsWide; the row and slice are indexes and must be below
+            // their counts.
             if maskRun.depthIndex >= pixelsDeep || maskRun.heightIndex >= pixelsHigh ||
-                maskRun.widthRange.location &+ maskRun.widthRange.length >= pixelsWide {
+                maskRun.widthRange.location &+ maskRun.widthRange.length > pixelsWide {
                 return false
             }
         }

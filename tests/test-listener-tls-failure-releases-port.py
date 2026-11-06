@@ -1,28 +1,32 @@
 #!/usr/bin/env python3
 """Every way the TLS listener's set-up fails closes its port and frees its TLS layer.
 
--[DCMTKQueryRetrieveSCP run] opens the network - the listening socket - before
-it builds the DcmTLSTransportLayer. Most of the TLS set-up's error exits
-returned without ASC_dropNetwork() or deleting the layer: with "Activate DICOM
-TLS Listener" on and no private key, the Listener preferences said the TLS
-settings could not be applied, and the TLS port stayed in LISTEN, accepting
-connections nothing answered, until the app quit. Turning TLS on again after
-fixing the settings could then run into the app's own port.
+The listener opens the network - the listening socket - before it builds the
+TLS layer. Most of the TLS set-up's error exits once returned without dropping
+the network or deleting the layer: with "Activate DICOM TLS Listener" on and
+no private key, the Listener preferences said the TLS settings could not be
+applied, and the TLS port stayed in LISTEN, accepting connections nothing
+answered, until the app quit. Turning TLS on again after fixing the settings
+could then run into the app's own port.
 
-The listener's own TLS set-up, cut from DCMTKQueryRetrieveSCP.mm, runs here
-against the real DCMTK and OpenSSL archives, after the network has been opened
-on a port, once for each way it can fail and once for success:
+The listener is Swift (DCMTKQueryRetrieveSCP.swift) and reaches DCMTK through
+its adapter's IsiXDCMTKListener, in steps that each fail with an NSError. In
+the sources: every way out of the Swift TLS set-up is a failure the listener
+answers by showing the error, closing the adapter's listener and reporting it
+not listening because of its TLS settings; the adapter's close drops the
+network before it deletes the layer.
 
-- a trusted certificate that does not load, a missing private key, a missing
-  certificate, a key and a certificate that do not match, a cipher suite that
-  is refused, and a transport layer DCMTK does not take: each leaves the port
-  closed, no TLS layer alive, an error shown and the listener reported as not
-  listening because of its TLS settings;
-- with a matching key and certificate, the set-up goes on with the port still
-  listening and the layer in place.
+The adapter itself runs here against the real DCMTK and OpenSSL archives,
+after the network has been opened on a port, once for each way the set-up can
+fail and once for success:
 
-The layer's creation returning NULL cannot happen with new; its exit is
-checked in the source with the others.
+- a trusted certificate that does not load (named in the error), a missing
+  private key, a missing certificate, a key and a certificate that do not
+  match, a cipher suite that is refused, and a layer attached before it was
+  made: each step fails with an NSError naming it, and closing the listener
+  closes the port, which another listener then opens;
+- with a matching key and certificate, the set-up goes through with the port
+  still listening, until the listener is closed.
 """
 import re
 import socket
@@ -32,7 +36,8 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dcmtk_build import ROOT, BUILD, dcmtk_flags
+from dcmtk_build import ROOT  # noqa: E402
+import dcmtk_scp_adapter  # noqa: E402
 
 failures = []
 
@@ -42,120 +47,64 @@ def check(condition, message):
         failures.append(message)
 
 
-source = (ROOT / 'Horos/Sources/DCMTKQueryRetrieveSCP.mm').read_bytes().decode('latin1')
-start = source.index('\tDcmTLSTransportLayer *tLayer = NULL;')
-block = source[start:source.index('\n#endif', start)]
-opened = source.rfind('ASC_initializeNetwork(', 0, start)
-check(opened > -1, 'the network is no longer opened before the TLS set-up')
+# --- the sources ----------------------------------------------------------------
+listener = (ROOT / 'Horos/Sources/DCMTKQueryRetrieveSCP.swift').read_text()
+run = listener[listener.index('    @objc func run() {'):listener.index('    private func setUpTLS(')]
+opened, tls = run.find('try listener.openNetwork()'), run.find('if secure, let message = setUpTLS(listener) {')
+check(-1 < opened < tls, 'the network is no longer opened before the TLS set-up')
+branch = run[tls:run.index('\n        }\n', tls)]
+for step in ('Self.displayListenerError(message)', '_ = listener.close()',
+             'ListenerStatus.setNotListening(reason: ListenerStatus.tlsSettingsReason, tls: true)', 'return'):
+    check(step in branch, f'a TLS set-up that fails no longer does {step}')
+setup = listener[listener.index('    private func setUpTLS('):]
+setup = setup[:setup.index('\n    }\n')]
+# The closure that picks the cipher suites returns its own values.
+suites = setup.find('.compactMap { suite -> String? in')
+if suites > -1:
+    setup = setup[:suites] + setup[setup.index('\n        }\n', suites):]
+exits = re.findall(r'\breturn (\S+)', setup)
+check(len(exits) == 8 and exits[-1] == 'nil' and all(value.startswith('"') for value in exits[:-1]),
+      f'the TLS set-up has {len(exits)} exits; expected 7 failures, each a message, and nil at its end: {exits}')
+adapter = (ROOT / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCP.mm').read_text()
+close = adapter[adapter.index('- (NSError *)close'):]
+close = close[:close.index('\n}\n')]
+check(-1 < close.find('ASC_dropNetwork(&_network)') < close.find('delete _layer;') < close.find('_layer = NULL;'),
+      'the adapter\'s close no longer drops the network, then frees the layer that it may still point at')
 
-# Every exit of the TLS set-up goes through the one clean-up.
-body = block[block.index("if([[_params objectForKey:@\"TLSEnabled\"] boolValue])"):]
-returns = len(re.findall(r'\breturn\s*;', body))
-abandoned = len(re.findall(r'abandonTLS\( [^;]+\);\s*return;', body))
-check(returns == abandoned == 7, f'{returns} exits from the TLS set-up, {abandoned} of them after abandonTLS(); expected 7 of 7')
-at = block.find('auto abandonTLS')
-cleanup = block[at:block.index('};', at)] if at > -1 else ''
-check(cleanup, 'the TLS set-up has no single clean-up')
-for step in ('ASC_dropNetwork(&options.net_);', 'delete tLayer;', 'tLayer = NULL;',
-             'setNotListening: [HorosListenerStatus tlsSettingsReason] TLS: YES', '@selector(displayListenerError:)'):
-    check(step in cleanup, f'abandonTLS() no longer does {step}')
-check(cleanup.find('ASC_dropNetwork') < cleanup.find('delete tLayer'),
-      'the layer is freed before the network that may still point at it')
-
-openssl = BUILD / 'OpenSSL.build/Install'
-if not (openssl / 'lib/libssl.a').is_file():
-    print('skipped: needs the OpenSSL built by script/build_and_run.sh --verify: ' + str(openssl / 'lib/libssl.a'))
-    sys.exit(2)
-
-driver = r'''
-#include "dcmtk/config/osconfig.h"
-#include "dcmtk/dcmnet/assoc.h"
-#include "dcmtk/dcmtls/tlslayer.h"
-#include "HorosTLSConfiguration.h"
+DRIVER = r'''
 #import <Foundation/Foundation.h>
+#import "IsiXDCMTKQueryRetrieveSCP.h"
+#import "IsiXDCMTKError.h"
 #include <arpa/inet.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
-typedef enum { RequirePeerCertificate = 0, VerifyPeerCertificate, IgnorePeerCertificate } TLSCertificateVerificationType;
+@interface Host : NSObject <IsiXDCMTKListenerHost>
+@end
+@implementation Host
+- (id<IsiXDCMTKSCPDatabase>)databaseForCallingAETitle:(NSString *)callingAETitle { return nil; }
+- (IsiXDCMTKMoveDestination *)moveDestinationForAETitle:(NSString *)aeTitle { return nil; }
+- (BOOL)answersCommand:(IsiXDCMTKListenerCommand)command { return YES; }
+- (NSUInteger)maximumConcurrentAssociations { return 1; }
+- (BOOL)isListenerAETitle:(NSData *)calledAETitle { return YES; }
+- (uint16_t)finalStatusOfGet:(uint16_t)proposed completed:(NSUInteger)completed failed:(NSUInteger)failed
+                    warnings:(NSUInteger)warnings { return proposed; }
+- (void)associationEndedWithError:(NSError *)error message:(NSString *)message {}
+- (void)startAssociationThread:(NSThread *)thread peer:(NSString *)peer { [thread start]; }
+- (void)association:(NSString *)peer willServe:(IsiXDCMTKListenerCommand)command secure:(BOOL)secure {}
+- (void)associationDidEnd {}
+@end
 
-static NSString *folder, *keyPath, *certificatePath;
-static BOOL badTrustedCertificate, refuseTransportLayer;
-static int liveLayers, errorsShown, notListening;
-static NSString *notListeningReason;
-
-class CountingLayer : public DcmTLSTransportLayer
+static IsiXDCMTKListener *makeListener(int port)
 {
-public:
-    CountingLayer(T_ASC_NetworkRole role, const char *seed, OFBool initialise) : DcmTLSTransportLayer(role, seed, initialise) { liveLayers++; }
-    ~CountingLayer() { liveLayers--; }
-};
-#define DcmTLSTransportLayer CountingLayer
-
-static OFCondition RefusingSetTransportLayer(T_ASC_Network *network, DcmTransportLayer *layer, int takeOver)
-{
-    if (refuseTransportLayer)
-        return makeOFCondition(OFM_dcmnet, 999, OF_error, "transport layer refused by the test");
-    return ASC_setTransportLayer(network, layer, takeOver);
-}
-#define ASC_setTransportLayer RefusingSetTransportLayer
-static void HorosDumpDIMSECondition(OFCondition) {}
-
-@interface AppController : NSObject
-+ (AppController *)sharedAppController;
-- (void)displayListenerError:(NSString *)message;
-@end
-@implementation AppController
-+ (AppController *)sharedAppController { static AppController *app; if (!app) app = [AppController new]; return app; }
-- (void)displayListenerError:(NSString *)message { errorsShown++; }
-@end
-@interface HorosListenerStatus : NSObject
-+ (NSString *)tlsSettingsReason;
-+ (void)setNotListening:(NSString *)reason TLS:(BOOL)tls;
-@end
-@implementation HorosListenerStatus
-+ (NSString *)tlsSettingsReason { return @"its TLS settings could not be applied"; }
-+ (void)setNotListening:(NSString *)reason TLS:(BOOL)tls { if (tls) { notListening++; notListeningReason = reason; } }
-@end
-@interface DICOMTLS : NSObject
-@end
-@implementation DICOMTLS
-+ (const char *)seedFilePath { return NULL; }
-+ (NSString *)temporaryFolder { return folder; }
-+ (NSString *)TLS_PRIVATE_KEY_PASSWORD { return @""; }
-+ (void)generateCertificateAndKeyForLabel:(NSString *)label withStringID:(NSString *)stringID {}
-+ (NSString *)keyPathForLabel:(NSString *)label withStringID:(NSString *)stringID { return keyPath; }
-+ (NSString *)certificatePathForLabel:(NSString *)label withStringID:(NSString *)stringID { return certificatePath; }
-@end
-#define TLS_TRUSTED_CERTIFICATES_DIR [[DICOMTLS temporaryFolder] stringByAppendingPathComponent: @"TLSTrustedCert"]
-#define TLS_KEYCHAIN_IDENTITY_NAME_SERVER @"com.osirixviewer.dicomtlsserver"
-@interface DDKeychain : NSObject
-@end
-@implementation DDKeychain
-+ (void)KeychainAccessExportTrustedCertificatesToDirectory:(NSString *)directory
-{
-    [NSFileManager.defaultManager createDirectoryAtPath: directory withIntermediateDirectories: YES attributes: nil error: NULL];
-    if (badTrustedCertificate)
-        [@"not a certificate" writeToFile: [directory stringByAppendingPathComponent: @"bad.pem"] atomically: NO encoding: NSUTF8StringEncoding error: NULL];
-}
-@end
-@interface HorosTLSVerificationPolicy : NSObject
-@end
-@implementation HorosTLSVerificationPolicy
-+ (int)normalise:(int)stored { return stored; }
-@end
-
-struct Options { T_ASC_Network *net_; };
-
-static bool reachedEnd;
-
-static void setUp(Options &options, NSDictionary *_params)
-{
-    OFCondition cond;
-''' + block + r'''
-    reachedEnd = true;
-    if (tLayer) { ASC_dropNetwork(&options.net_); delete tLayer; }
+    IsiXDCMTKListenerSettings *settings = [IsiXDCMTKListenerSettings new];
+    settings.port = port;
+    settings.aeTitle = @"TLSSCP";
+    settings.timeout = 10;
+    settings.connectionTimeout = 5;
+    settings.maxAssociations = 1;
+    settings.secureConnection = YES;
+    return [[IsiXDCMTKListener alloc] initWithSettings:settings host:[Host new]];
 }
 
 static bool listening(int port)
@@ -175,55 +124,70 @@ int main(int argc, char **argv)
     @autoreleasepool {
         NSString *kase = @(argv[1]);
         int port = atoi(argv[2]);
-        folder = @(argv[3]);
-        NSString *pair = [kase isEqualToString: @"mismatch"] ? @"other" : @"server";
-        keyPath = [folder stringByAppendingPathComponent: [kase isEqualToString: @"no-key"] ? @"missing.key" : @"server.key"];
-        certificatePath = [folder stringByAppendingPathComponent: [kase isEqualToString: @"no-certificate"] ? @"missing.pem" : [pair stringByAppendingString: @".pem"]];
-        badTrustedCertificate = [kase isEqualToString: @"trusted-certificate"];
-        refuseTransportLayer = [kase isEqualToString: @"transport-layer"];
-        NSArray *suites = [kase isEqualToString: @"cipher-suites"] ? @[@{@"Supported": @YES, @"Cipher": @"NOT-A-CIPHER-SUITE"}] : @[];
-        [NSUserDefaults.standardUserDefaults registerDefaults: @{
-            @"TLSStoreSCPCertificateVerification": @(badTrustedCertificate ? VerifyPeerCertificate : IgnorePeerCertificate),
-            @"TLSStoreSCPCipherSuites": suites}];
+        NSString *folder = @(argv[3]);
+        NSString *pair = [kase isEqualToString:@"mismatch"] ? @"other" : @"server";
+        NSString *key = [folder stringByAppendingPathComponent:[kase isEqualToString:@"no-key"] ? @"missing.key" : @"server.key"];
+        NSString *certificate = [folder stringByAppendingPathComponent:
+            [kase isEqualToString:@"no-certificate"] ? @"missing.pem" : [pair stringByAppendingString:@".pem"]];
+        NSString *bad = [folder stringByAppendingPathComponent:@"bad.pem"];
+        [@"not a certificate" writeToFile:bad atomically:NO encoding:NSUTF8StringEncoding error:NULL];
 
-        Options options = {};
-        OFCondition opened = ASC_initializeNetwork(NET_ACCEPTORREQUESTOR, port, 30, &options.net_);
-        if (opened.bad()) { printf("BIND %s\n", opened.text()); return 3; }
-        bool before = listening(port);
-        setUp(options, @{@"TLSEnabled": @YES});
-        bool reached = reachedEnd;
-        bool after = reached ? true : listening(port);
-        // The error is shown on the main thread, which is this one: let it arrive.
-        [NSRunLoop.currentRunLoop runUntilDate: [NSDate dateWithTimeIntervalSinceNow: 0.1]];
-        printf("%s\treached=%d listeningBefore=%d listeningAfter=%d layers=%d errors=%d notListening=%d tlsReason=%d network=%d\n",
-               kase.UTF8String, reached, before, after, liveLayers, errorsShown, notListening,
-               [notListeningReason isEqualToString: [HorosListenerStatus tlsSettingsReason]], options.net_ != NULL);
+        IsiXDCMTKListener *listener = makeListener(port);
+        NSError *error = nil;
+        if (![listener openNetwork:&error]) { printf("BIND %s\n", error.localizedDescription.UTF8String); return 3; }
+        const bool before = listening(port);
+        NSString *failed = nil, *file = nil;
+        BOOL ok = YES;
+        if (![kase isEqualToString:@"transport-layer"]) ok = [listener createTLSLayer:&error];
+        if (ok && [kase isEqualToString:@"trusted-certificate"]) ok = [listener addTrustedCertificateFiles:@[bad] error:&error];
+        if (ok && ![kase isEqualToString:@"transport-layer"])
+            ok = [listener setPrivateKeyFile:key certificateFile:certificate password:@"" error:&error];
+        if (ok && ![kase isEqualToString:@"transport-layer"])
+            ok = [listener setCipherSuites:[kase isEqualToString:@"cipher-suites"] ? @[@"NOT-A-CIPHER-SUITE"] : @[]
+                              verification:2 error:&error];
+        if (ok) ok = [listener attachTLSLayer:&error];
+        if (!ok) {
+            failed = error.userInfo[IsiXDCMTKOperationKey];
+            file = error.userInfo[IsiXDCMTKListenerFileKey];
+        }
+        const bool during = listening(port);
+        NSError *closed = [listener close];
+        const bool after = listening(port);
+        IsiXDCMTKListener *again = makeListener(port);
+        const bool reopened = [again openNetwork:NULL] && listening(port);
+        [again close];
+        printf("%s\tok=%d step=%s file=%s domain=%d listeningBefore=%d listeningDuring=%d closed=%d listeningAfter=%d reopened=%d\n",
+               kase.UTF8String, ok, failed.UTF8String ?: "-", file.lastPathComponent.UTF8String ?: "-",
+               [error.domain isEqualToString:IsiXDCMTKErrorDomain], before, during, closed == nil, after, reopened);
     }
     return 0;
 }
 '''
 
-with tempfile.TemporaryDirectory(prefix='horos-tls-port-') as directory:
-    p = Path(directory)
-    (p / 'main.mm').write_text(driver)
-    built = subprocess.run(['xcrun', 'clang++', '-std=c++17', '-fobjc-arc', '-w', '-I' + str(openssl / 'include'), str(p / 'main.mm'),
-                            *dcmtk_flags('dcmtls', 'dcmnet'), str(openssl / 'lib/libssl.a'), str(openssl / 'lib/libcrypto.a'),
-                            '-framework', 'Foundation', '-framework', 'Security', '-o', str(p / 'driver')],
-                           capture_output=True, text=True)
-    check(built.returncode == 0, 'the TLS set-up does not compile on its own\n' + built.stderr[-4000:])
-    if built.returncode == 0:
-        executable = str(openssl / 'bin/openssl') if (openssl / 'bin/openssl').exists() else 'openssl'
+EXPECTED = {
+    'trusted-certificate': ('addTrustedCertificateFile', 'bad.pem'),
+    'no-key': ('setPrivateKeyFile', 'missing.key'),
+    'no-certificate': ('setCertificateFile', 'missing.pem'),
+    'mismatch': ('checkPrivateKeyMatchesCertificate', 'other.pem'),
+    'cipher-suites': ('HorosConfigureTLSCipherSuites', '-'),
+    'transport-layer': ('ASC_setTransportLayer', '-'),
+}
+
+if not failures:
+    with tempfile.TemporaryDirectory(prefix='horos-tls-port-') as directory:
+        p = Path(directory)
+        executable = dcmtk_scp_adapter.build(p, DRIVER)
         (p / 'openssl.cnf').write_text('[req]\ndistinguished_name=dn\nx509_extensions=ext\n[dn]\n[ext]\nbasicConstraints=critical,CA:TRUE\n')
         for name in ('server', 'other'):
-            subprocess.run([executable, 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-sha256', '-days', '1',
+            subprocess.run([dcmtk_scp_adapter.openssl(), 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-sha256', '-days', '1',
                             '-subj', '/CN=Horos synthetic TLS ' + name, '-config', str(p / 'openssl.cnf'),
                             '-keyout', str(p / (name + '.key')), '-out', str(p / (name + '.pem'))], check=True, capture_output=True)
-        for kase in ('trusted-certificate', 'no-key', 'no-certificate', 'mismatch', 'cipher-suites', 'transport-layer', 'success'):
+        for kase in (*EXPECTED, 'success'):
             for attempt in range(5):
                 with socket.socket() as probe:
                     probe.bind(('127.0.0.1', 0))
                     port = probe.getsockname()[1]
-                run = subprocess.run([str(p / 'driver'), kase, str(port), str(p)], capture_output=True, text=True, timeout=60)
+                run = subprocess.run([str(executable), kase, str(port), str(p)], capture_output=True, text=True, timeout=60)
                 if run.returncode != 3:
                     break
             line = next((l for l in run.stdout.splitlines() if l.startswith(kase + '\t')), None)
@@ -232,20 +196,19 @@ with tempfile.TemporaryDirectory(prefix='horos-tls-port-') as directory:
                 continue
             result = dict(item.split('=', 1) for item in line.split('\t', 1)[1].split(' '))
             check(result['listeningBefore'] == '1', f'{kase}: the port was not listening before the TLS set-up')
+            check(result['closed'] == '1' and result['listeningAfter'] == '0', f'{kase}: closing the listener did not close its port: {line}')
+            check(result['reopened'] == '1', f'{kase}: another listener could not open the port again: {line}')
             if kase == 'success':
-                check(result['reached'] == '1' and result['errors'] == '0' and result['notListening'] == '0',
-                      f'success: the TLS set-up did not go through: {line}')
+                check(result['ok'] == '1' and result['listeningDuring'] == '1', f'success: the TLS set-up did not go through: {line}')
             else:
-                check(result['reached'] == '0', f'{kase}: the TLS set-up went through')
-                check(result['listeningAfter'] == '0', f'{kase}: the TLS port is still listening after the set-up failed')
-                check(result['network'] == '0', f'{kase}: the network was not dropped')
-                check(result['layers'] == '0', f'{kase}: the TLS layer was not freed ({result["layers"]} alive)')
-                check(result['errors'] == '1', f'{kase}: {result["errors"]} errors shown, not 1')
-                check(result['notListening'] == '1' and result['tlsReason'] == '1',
-                      f'{kase}: the listener was not reported as not listening because of its TLS settings: {line}')
+                step, file = EXPECTED[kase]
+                check(result['ok'] == '0' and result['domain'] == '1', f'{kase}: the TLS set-up went through: {line}')
+                check(result['step'] == step and result['file'] == file, f'{kase}: the error names {result["step"]}, {result["file"]}; '
+                      f'expected {step}, {file}')
+            print(line)
 
 if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('PASS: each failure of the TLS set-up closes the port and frees the layer; success keeps both')
+print('PASS: each failure of the TLS set-up is an NSError naming its step, and closing the listener frees the port; success keeps it')

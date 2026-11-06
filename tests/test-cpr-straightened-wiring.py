@@ -57,7 +57,7 @@ check('generation cancelled; markings kept' in swift, 'cancel keeps the red-poin
 check('CPRStraightenedGeneration.swift in Sources' in pbx, 'the helper must be in the Horos target')
 check('class CurvedMPRPathSession' in path, 'the Curved MPR drawing session stays')
 
-send = body(view, 'private dynamic func _sendNewRequest()')
+send = body(view, 'private func _sendNewRequest()')
 check('CPRStraightenedSession' in send or 'horosStraightenedSession()' in send,
       '_sendNewRequest must consult the Swift generation gate')
 check('beginGeneration(pixelsWide:' in send, '_sendNewRequest must begin through Swift')
@@ -65,7 +65,8 @@ check('synchronousRequestVolume' not in send,
       'drawRect must not wait on synchronousRequestVolume after the centerline')
 check('runUntilAllRequestsAreFinished' not in send,
       'drawRect must not spin the generator run loop after the centerline')
-check('requestVolume(request)' in send, 'valid curves still request an asynchronous straightened volume')
+check('requestInteractiveVolume(request)' in send or 'requestVolume(request)' in send,
+      'valid curves still request an asynchronous straightened volume')
 
 abandon = body(view, 'func generator(_ generator: CPRGenerator, didAbandonRequest request: CPRGeneratorRequest)')
 check('curvedPath' not in abandon or 'clearPath' not in abandon,

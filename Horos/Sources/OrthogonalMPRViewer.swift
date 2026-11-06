@@ -38,6 +38,8 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
+import IsiXPreferences
 import UniformTypeIdentifiers
 
 // The file-level statics of the former OrthogonalMPRViewer.m.
@@ -61,6 +63,22 @@ private let SyncLockSeriesImageName = "SyncLock.pdf"
 /// The former statics, with the values +initialize gave them.
 @MainActor private var activateSyncSeriesToolbarItem = false
 @MainActor private var globalSyncSeriesScope = SyncSeriesScopeSamePatient
+
+/// The main queue, tagged on first use, so that code can tell whether it runs
+/// on that queue and not merely on the main thread: a block that another
+/// queue runs on the main thread through dispatch_sync is not on it, and must
+/// not dispatch_sync to it.
+private enum MainQueueTag {
+    static let key: DispatchSpecificKey<Bool> = {
+        let key = DispatchSpecificKey<Bool>()
+        DispatchQueue.main.setSpecific(key: key, value: true)
+        return key
+    }()
+
+    static var isCurrent: Bool {
+        return DispatchQueue.getSpecific(key: key) == true
+    }
+}
 
 /// What the synchronization of the MPR viewers sends to a viewer, an
 /// OrthogonalMPRViewer or an OrthogonalMPRPETCTViewer, which the former class
@@ -171,6 +189,9 @@ private func cLong(_ x: Double) -> Int {
 /// Window3DController+SwiftIvars.h.
 @objc(OrthogonalMPRViewer)
 public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate, NSToolbarDelegate {
+    /// The preferences the window reads and writes: those of the process graph.
+    let preferenceStore: any PreferenceStore = PreferencesSource.process.preferences
+
     // MARK: - Outlets
 
     @objc public private(set) dynamic var controller: OrthogonalMPRController!
@@ -209,8 +230,8 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
     // MARK: - The former instance variables
 
-    /// viewer, retained.
-    private var viewerIvar: ViewerController?
+    /// viewer, retained. Read on any thread through -pixList.
+    nonisolated(unsafe) private var viewerIvar: ViewerController?
 
     private var toolbar: NSToolbar?
     private var isFullWindow = false
@@ -311,6 +332,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
     @objc(CloseViewerNotification:)
     private dynamic func CloseViewerNotification(_ note: Notification!) {
+        if PreviousSeriesHold.window(self, keepsSeriesReleasedBy: note) { return }
         let v = note?.object as AnyObject?
 
         if v === viewerIvar {
@@ -319,9 +341,13 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         }
     }
 
-    // -pixList stays in Objective-C, in OrthogonalMPRViewer+CAPI.m: an override
-    // in Swift would return a copy of the viewer's list, which
-    // -[AppController FindViewer::] compares by identity.
+    /// The list of the 2D viewer, the very array it keeps:
+    /// -[AppController FindViewer::] compares it by identity. An
+    /// NSMutableArray, which Swift does not bridge, so the object itself is
+    /// returned. Read on any thread, as the former method was.
+    public override nonisolated func pixList() -> NSMutableArray! {
+        return viewerIvar?.pixList()
+    }
 
     public override dynamic func awakeFromNib() {
         MainActor.assumeIsolated {
@@ -334,7 +360,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
             }
 
             NSUserDefaultsController.shared.addObserver(self,
-                                                        forKeyPath: "values.exportDCMIncludeAllViews",
+                                                        forKeyPath: ReconstructionPreferences.controllerKeyPath(ReconstructionPreferences.exportIncludesAllViews),
                                                         options: .new,
                                                         context: nil)
         }
@@ -372,15 +398,16 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         moviePosSlider?.maxValue = Double(_maxMovieIndex - 1)
         moviePosSlider?.numberOfTickMarks = Int(_maxMovieIndex)
 
-        // initialisations: the controller of the nib is sent its initializer again.
-        HorosOrthogonalMPRControllerReinit(controller, pixList, filesList, vData, vC, bC, self)
+        // initialisations: the controller of the nib is given the pixels.
+        controller?.horosReinit(pixList: (pixList as NSArray?) as? [Any], files: (filesList as NSArray?) as? [Any], viewerController: vC,
+                                blendingController: bC, viewer: self)
 
         isFullWindow = false
         displayResliceAxes = 1
 
         // thick slab
-        thickSlabTextField?.intValue = Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "stackThicknessOrthoMPR"))
-        thickSlabSlider?.intValue = Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "stackThicknessOrthoMPR"))
+        thickSlabTextField?.intValue = Int32(truncatingIfNeeded: self.preferenceStore[ReconstructionPreferences.stackThicknessOrthogonalMPR])
+        thickSlabSlider?.intValue = Int32(truncatingIfNeeded: self.preferenceStore[ReconstructionPreferences.stackThicknessOrthogonalMPR])
         thickSlabSlider?.minValue = 2
         //NSLog(@"maxValue : %d",[controller maxThickSlab]);
         //[thickSlabSlider setMaxValue:[controller maxThickSlab]];
@@ -422,8 +449,8 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
     isolated deinit {
         NSLog("OrthogonalMPRViewer dealloc")
 
-        NSUserDefaultsController.shared.removeObserver(self, forKeyPath: "values.exportDCMIncludeAllViews")
-        UserDefaults.standard.set(Int(thickSlabSlider?.intValue ?? 0), forKey: "stackThicknessOrthoMPR")
+        NSUserDefaultsController.shared.removeObserver(self, forKeyPath: ReconstructionPreferences.controllerKeyPath(ReconstructionPreferences.exportIncludesAllViews))
+        self.preferenceStore.set(Int(thickSlabSlider?.intValue ?? 0), for: ReconstructionPreferences.stackThicknessOrthogonalMPR)
 
         self.removeObserver(self, forKeyPath: "syncSeriesState")
 
@@ -478,14 +505,9 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
     public override dynamic func updateCLUTMenu(_ note: Notification!) {
         //*** Build the menu
-        var i: Int16
-        let keys: [Any]?
-        let sortedKeys: NSArray?
-
         // Presets VIEWER Menu
 
-        keys = (UserDefaults.standard.dictionary(forKey: "CLUT") as NSDictionary?)?.allKeys
-        sortedKeys = (keys as NSArray?)?.sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as NSArray?
+        let names = ReconstructionPreferences.menuNames(ImagePresetPreferences.colourTables, in: self.preferenceStore)
 
         self.clutPopup()?.menu?.removeAllItems()
 
@@ -493,10 +515,8 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         self.clutPopup()?.menu?.addItem(withTitle: NSLocalizedString("No CLUT", comment: ""), action: #selector(applyCLUT(_:)), keyEquivalent: "")
         self.clutPopup()?.menu?.addItem(NSMenuItem.separator())
 
-        i = 0
-        while Int(i) < (sortedKeys?.count ?? 0) {
-            self.clutPopup()?.menu?.addItem(withTitle: sortedKeys?.object(at: Int(i)) as? String ?? "", action: #selector(applyCLUT(_:)), keyEquivalent: "")
-            i += 1
+        for name in names {
+            self.clutPopup()?.menu?.addItem(withTitle: name, action: #selector(applyCLUT(_:)), keyEquivalent: "")
         }
 
         self.clutPopup()?.menu?.item(at: 0)?.title = curCLUTMenuIvar ?? ""
@@ -518,13 +538,8 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
     @objc(UpdateWLWWMenu:)
     private dynamic func UpdateWLWWMenu(_ note: Notification!) {
         //*** Build the menu
-        var i: Int16
-        let keys: [Any]?
-        let sortedKeys: NSArray?
-
         // Presets VIEWER Menu
-        keys = (UserDefaults.standard.dictionary(forKey: "WLWW3") as NSDictionary?)?.allKeys
-        sortedKeys = (keys as NSArray?)?.sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as NSArray?
+        let titles = ReconstructionPreferences.windowLevelMenuTitles(in: self.preferenceStore)
 
         self.wlwwPopup()?.menu?.removeAllItems()
 
@@ -534,10 +549,8 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         self.wlwwPopup()?.menu?.addItem(withTitle: NSLocalizedString("Full dynamic", comment: ""), action: #selector(ApplyWLWW(_:)), keyEquivalent: "")
         self.wlwwPopup()?.menu?.addItem(NSMenuItem.separator())
 
-        i = 0
-        while Int(i) < (sortedKeys?.count ?? 0) {
-            self.wlwwPopup()?.menu?.addItem(withTitle: String(format: "%d - %@", Int32(i) + 1, (sortedKeys?.object(at: Int(i)) as? NSString) ?? "(null)"), action: #selector(ApplyWLWW(_:)), keyEquivalent: "")
-            i += 1
+        for title in titles {
+            self.wlwwPopup()?.menu?.addItem(withTitle: title, action: #selector(ApplyWLWW(_:)), keyEquivalent: "")
         }
 
         self.wlwwPopup()?.menu?.item(at: 0)?.title = curWLWWMenuIvar ?? ""
@@ -552,8 +565,8 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         } else if menuString == NSLocalizedString("Full dynamic", comment: "") {
             self.setWLWW(0, 0)
         } else {
-            let value = (UserDefaults.standard.dictionary(forKey: "WLWW3") as NSDictionary?)?.object(forKey: menuString as Any) as? NSArray
-            self.setWLWW(floatValueOf(value?.object(at: 0)), floatValueOf(value?.object(at: 1)))
+            let value = ReconstructionPreferences.preset(menuString, of: ImagePresetPreferences.windowLevelPresets, in: self.preferenceStore)
+            self.setWLWW(Float(value?.level ?? 0), Float(value?.width ?? 0))
         }
 
         if curWLWWMenuIvar != menuString {
@@ -569,11 +582,9 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
     private dynamic func ApplyWLWW(_ sender: Any!) {
         var menuString = titleOf(sender)
 
-        if menuString == NSLocalizedString("Other", comment: "") {
-        } else if menuString == NSLocalizedString("Default WL & WW", comment: "") {
-        } else if menuString == NSLocalizedString("Full dynamic", comment: "") {
-        } else {
-            menuString = (menuString as NSString?)?.substring(from: 4)
+        let fixedItems = [NSLocalizedString("Other", comment: ""), NSLocalizedString("Default WL & WW", comment: ""), NSLocalizedString("Full dynamic", comment: "")]
+        if let title = menuString, !fixedItems.contains(title) {
+            menuString = WindowLevel.presetName(fromMenuTitle: title)
         }
 
         self.applyWLWW(for: menuString)
@@ -594,31 +605,22 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
     @objc(UpdateOpacityMenu:)
     private dynamic func UpdateOpacityMenu(_ note: Notification!) {
         //*** Build the menu
-        var i: Int16
-        let keys: [Any]?
-        let sortedKeys: NSArray?
-
         // Presets VIEWER Menu
 
-        keys = (UserDefaults.standard.dictionary(forKey: "OPACITY") as NSDictionary?)?.allKeys
-        sortedKeys = (keys as NSArray?)?.sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as NSArray?
+        let names = ReconstructionPreferences.menuNames(ImagePresetPreferences.opacityTables, in: self.preferenceStore)
 
         self.opacityPopup()?.menu?.removeAllItems()
 
         self.opacityPopup()?.menu?.addItem(withTitle: NSLocalizedString("Linear Table", comment: ""), action: #selector(applyOpacity(_:)), keyEquivalent: "")
         self.opacityPopup()?.menu?.addItem(withTitle: NSLocalizedString("Linear Table", comment: ""), action: #selector(applyOpacity(_:)), keyEquivalent: "")
-        i = 0
-        while Int(i) < (sortedKeys?.count ?? 0) {
-            self.opacityPopup()?.menu?.addItem(withTitle: sortedKeys?.object(at: Int(i)) as? String ?? "", action: #selector(applyOpacity(_:)), keyEquivalent: "")
-            i += 1
+        for name in names {
+            self.opacityPopup()?.menu?.addItem(withTitle: name, action: #selector(applyOpacity(_:)), keyEquivalent: "")
         }
 
         self.opacityPopup()?.menu?.item(at: 0)?.title = curOpacityMenuIvar ?? ""
     }
 
     public override dynamic func applyOpacityString(_ str: String!) {
-        let aOpacity: NSDictionary?
-
         if str == NSLocalizedString("Linear Table", comment: "") {
             if curOpacityMenuIvar != str {
                 curOpacityMenuIvar = str
@@ -629,8 +631,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
             controller?.setTransferFunction(nil)
         } else {
-            aOpacity = (UserDefaults.standard.dictionary(forKey: "OPACITY") as NSDictionary?)?.object(forKey: str as Any) as? NSDictionary
-            if let aOpacity = aOpacity {
+            if let aOpacity = ReconstructionPreferences.preset(str, of: ImagePresetPreferences.opacityTables, in: self.preferenceStore) {
                 if curOpacityMenuIvar != str {
                     curOpacityMenuIvar = str
                 }
@@ -638,7 +639,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
                 self.opacityPopup()?.menu?.item(at: 0)?.title = str
 
-                controller?.setTransferFunction(OpacityTransferView.tableWith4096Entries(aOpacity.object(forKey: "Points") as? NSArray) as Data)
+                controller?.setTransferFunction(OpacityTransferView.tableWith4096Entries(ReconstructionPreferences.pointTexts(aOpacity) as NSArray) as Data)
             }
         }
 
@@ -741,11 +742,8 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
     @objc(splitViewWillResizeSubviews:)
     public dynamic func splitViewWillResizeSubviews(_ notification: Notification) {
-        let window = self.window as AnyObject?
-
-        if window?.responds(to: #selector(N2OpenGLViewWithSplitsWindow.disableUpdatesUntilFlush)) ?? false {
-            (window as? N2OpenGLViewWithSplitsWindow)?.disableUpdatesUntilFlush()
-        }
+        // The whole window redraws while the split view resizes its panes.
+        self.window?.contentView?.needsDisplay = true
     }
 
     @objc(adjustSplitView)
@@ -936,17 +934,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
             else { item.state = .off }
         } else if item.action == #selector(ApplyWLWW(_:)) {
             valid = true
-
-            var str: String? = nil
-
-            do {
-                try HorosObjCException.perform {
-                    str = (item.title as NSString).substring(from: 4)
-                }
-            } catch {}
-
-            if (str != nil && str == curWLWWMenuIvar) || item.title == curWLWWMenuIvar { item.state = .on }
-            else { item.state = .off }
+            item.state = ViewerPresetMenus.checksWLWWItem(title: item.title, current: curWLWWMenuIvar) ? .on : .off
         } else if item.action == #selector(syncSeriesScopeAction(_:)) {
             valid = true
             item.state = (Int(globalSyncSeriesScope.rawValue) == item.tag ? .on : .off)
@@ -1130,7 +1118,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         }
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
-            if (plugin as AnyObject).responds(to: #selector(PluginFilter.toolbarItem(forItemIdentifier:forViewer:))) {
+            if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarItem(forItemIdentifier:forViewer:))) {
                 let item = (plugin as AnyObject).toolbarItem?(forItemIdentifier: itemIdent.rawValue, forViewer: self) ?? nil
 
                 if let item = item {
@@ -1186,7 +1174,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
                                            VRPanelToolbarItemIdentifier])
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
-            if (plugin as AnyObject).responds(to: #selector(PluginFilter.toolbarAllowedIdentifiers(forViewer:))) {
+            if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarAllowedIdentifiers(forViewer:))) {
                 array.addObjects(from: ((plugin as AnyObject).toolbarAllowedIdentifiers?(forViewer: self) ?? nil) ?? [])
             }
         }
@@ -1272,7 +1260,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
         bitmapData = NSBitmapImageRep.representationOfImageReps(in: representations ?? [], using: .jpeg, properties: [.compressionFactor: NSDecimalNumber(value: Float(0.9))])
 
-        let path = ((BrowserController.currentBrowser()?.database?.tempDirPath() as NSString?)?.appendingPathComponent("IsiX DICOM Viewer.jpg"))
+        let path = (browserWindowGraph?.database?.tempDirPath() as NSString?)?.appendingPathComponent("IsiX DICOM Viewer.jpg")
         if let path = path {
             (bitmapData as NSData?)?.write(toFile: path, atomically: true)
         }
@@ -1314,7 +1302,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
                 (bitmapData as NSData?)?.write(toFile: path, atomically: true)
             }
 
-            if UserDefaults.standard.bool(forKey: "OPENVIEWER") {
+            if self.preferenceStore[ReconstructionPreferences.opensViewer] {
                 if let url = panel.url {
                     NSWorkspace.shared.open(url)
                 }
@@ -1326,7 +1314,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         // The defaults controller reports a default on the thread that wrote
         // it; the sync state changes on the main thread.
         onMainActor {
-            if keyPath == "values.exportDCMIncludeAllViews" {
+            if keyPath == ReconstructionPreferences.controllerKeyPath(ReconstructionPreferences.exportIncludesAllViews) {
                 self.dcmFormat?.selectCell(withTag: 1) // Screen capture
             } else if keyPath == "syncSeriesState" {
                 OrthogonalMPRViewer.updateSyncSeriesToolbarItemUI(self)
@@ -1348,8 +1336,8 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
     private dynamic func exportDICOMFileInt(_ screenCapture: Bool) -> NSDictionary? {
         let curPix = self.keyView()?.curDCM
 
-        let annotCopy = Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "ANNOTATIONS")),
-            clutBarsCopy = Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "CLUTBARS"))
+        let annotCopy = Int32(truncatingIfNeeded: self.preferenceStore[ViewerPreferences.annotations]),
+            clutBarsCopy = Int32(truncatingIfNeeded: self.preferenceStore[ViewerPreferences.clutBars])
         var width = 0, height = 0, spp = 0, bpp = 0
         var cwl: Float = 0, cww: Float = 0
         var o = [Float](repeating: 0, count: 9)
@@ -1358,13 +1346,13 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         var isSigned: ObjCBool = false
         var f: String? = nil
 
-        UserDefaults.standard.set(annotGraphics, forKey: "ANNOTATIONS")
-        UserDefaults.standard.set(barHide, forKey: "CLUTBARS")
+        self.preferenceStore.set(Int(annotGraphics), for: ViewerPreferences.annotations)
+        self.preferenceStore.set(Int(barHide), for: ViewerPreferences.clutBars)
         DCMView.setDefaults()
 
         var data: UnsafeMutablePointer<UInt8>? = nil
 
-        if UserDefaults.standard.bool(forKey: "exportDCMIncludeAllViews") {
+        if self.preferenceStore[ReconstructionPreferences.exportIncludesAllViews] {
             let views = NSMutableArray(), viewsRect = NSMutableArray()
 
             addObject(views, controller?.originalView())
@@ -1442,7 +1430,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
             exportDCM?.setPixelSpacing(imSpacing[0], imSpacing[1])
 
-            if UserDefaults.standard.bool(forKey: "exportDCMIncludeAllViews") == false {
+            if self.preferenceStore[ReconstructionPreferences.exportIncludesAllViews] == false {
                 exportDCM?.setSliceThickness(curPix?.sliceThickness ?? 0)
                 exportDCM?.setSlicePosition(Float(curPix?.sliceLocation ?? 0))
 
@@ -1470,8 +1458,8 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
             free(data)
         }
-        UserDefaults.standard.set(Int(annotCopy), forKey: "ANNOTATIONS")
-        UserDefaults.standard.set(Int(clutBarsCopy), forKey: "CLUTBARS")
+        self.preferenceStore.set(Int(annotCopy), for: ViewerPreferences.annotations)
+        self.preferenceStore.set(Int(clutBarsCopy), for: ViewerPreferences.clutBars)
         DCMView.setDefaults()
 
         if let f = f {
@@ -1585,7 +1573,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
                             view?.setCrossPosition(Float(Double(oldX) + 0.5), Float(Double(oldY) + 0.5))
 
-                            self.keyView()?.setIndex(Int16(truncatingIfNeeded: curImage))
+                            self.keyView()?.setIndex(Int(truncatingIfNeeded: curImage))
 
                             self.keyView()?.display()
                         }
@@ -1598,24 +1586,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
             }
 
             if producedFiles.count > 0 {
-                let database = BrowserController.currentBrowser()?.database
-                var objects = database?.addFiles(atPaths: producedFiles.value(forKey: "file") as? [Any],
-                                                 postNotifications: true,
-                                                 dicomOnly: true,
-                                                 rereadExistingItems: true,
-                                                 generatedByOsiriX: true)
-
-                objects = database?.objects(withIDs: objects)
-
-                if UserDefaults.standard.bool(forKey: "afterExportSendToDICOMNode") {
-                    BrowserController.currentBrowser()?.selectServer(objects)
-                }
-
-                if UserDefaults.standard.bool(forKey: "afterExportMarkThemAsKeyImages") {
-                    for case let im as NSManagedObject in (objects as NSArray?) ?? NSArray() {
-                        im.setValue(NSNumber(value: true), forKey: "isKeyImage")
-                    }
-                }
+                GeneratedSeriesImport.process.add(producedFiles.value(forKey: "file") as? [Any] ?? [])
             }
         }
     }
@@ -2004,7 +1975,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         }
 
         // Fire this event change on the MainThread
-        if HorosOrthogonalMPRIsCurrentQueueMain() { // avoid deadlocks when using dispatch_sync, same as => if(![NSThread isMainThread])
+        if MainQueueTag.isCurrent { // avoid deadlocks when using dispatch_sync, same as => if(![NSThread isMainThread])
             syncSeriesBlockOnMainThread()
         } else {
             DispatchQueue.main.async(execute: syncSeriesBlockOnMainThread)
@@ -2527,7 +2498,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
         controller?.reslicer()?.setOriginalDCMPixList(viewerIvar?.pixList(Int(i)))
         controller?.reslicer()?.useYcache = false
-        controller?.originalView()?.setPixels(viewerIvar?.pixList(Int(i)), files: viewerIvar?.fileList(Int(i)) as? [Any], rois: viewerIvar?.roiList(Int(i)), firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: false)
+        controller?.originalView()?.setPixels(viewerIvar?.pixList(Int(i)), files: viewerIvar?.fileList(Int(i)), rois: viewerIvar?.roiList(Int(i)), firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: false)
 
         controller?.setFusion()
 
@@ -2535,7 +2506,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
         //	if( wasDataFlipped) [self flipDataSeries: self];
 
-        controller?.originalView()?.setIndex(Int16(truncatingIfNeeded: index))
+        controller?.originalView()?.setIndex(Int(truncatingIfNeeded: index))
         //[[controller originalView] sendSyncMessage: 0];
         controller?.setFusion()
 
@@ -2560,7 +2531,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         if _curMovieIndex != (viewerIvar?.curMovieIndex() ?? 0) || !(self.window?.isKeyWindow ?? false) { return false }
         var point = [Float](repeating: 0, count: 3)
         OrthogonalMPRViewer.getDICOMCoords(self, &point)
-        return HorosPublishPatientCrosshair(point, viewerIvar, self)
+        return PatientCrosshairController.shared.publish(point, viewer: viewerIvar, owner: self)
     }
 
     @objc(patientCrosshairChanged:)
@@ -2568,7 +2539,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         let crosshair = PatientCrosshairController.shared
         if _curMovieIndex == (viewerIvar?.curMovieIndex() ?? 0) && crosshair.sourceOwner !== self &&
             boolValueOf((notification?.userInfo as NSDictionary?)?.object(forKey: "move")) {
-            let point = HorosPatientCrosshairForViewer(viewerIvar)
+            let point = crosshair.point(forViewer: viewerIvar)
             if let point = point { controller?.move(toAbsolutePosition: point.coordinates) }
         }
         controller?.originalView()?.needsDisplay = true

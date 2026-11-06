@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Surface Rendering and Endoscopy refuse the same inconsistent 4D geometry as VR."""
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -111,28 +112,36 @@ with tempfile.TemporaryDirectory(prefix='horos-four-d-sr-') as tmp:
     ], check=True)
     subprocess.run([str(p / 'test')], check=True)
 
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-sr = body(viewer, '-(IBAction) SRViewer:(id) sender')
-endo = body(viewer, '-(IBAction) endoscopyViewer:(id) sender')
-open_sr = body(viewer, '- (SRController *)openSRViewer')
+# The 3D viewers are opened by ThreeDViewerLauncher (the viewer's selectors
+# are its façade); the checks each door runs are IsiXImaging's VolumeEligibility.
+viewer = (root / 'Horos/Sources/ThreeDViewerLauncher.swift').read_text(encoding='utf-8')
+eligibility = (root / 'Modules/IsiXImaging/Sources/ViewerReconstruction/VolumeEligibility.swift').read_text(encoding='utf-8')
+sr = body(viewer, 'func openSurfaceRendering(_ sender: Any?)')
+endo = body(viewer, 'func openEndoscopy(_ sender: Any?)')
+open_sr = body(viewer, 'func surfaceRenderingWindow() -> SRController?')
+rendering_checks = re.search(r'case \.volumeRenderingPanel, \.volumeRendering, \.surfaceRendering, \.endoscopy:\s*return (\[[^\]]*\])',
+                             eligibility)
+refuses_frames = (rendering_checks is not None and '.fourDFrames' in rendering_checks.group(1)
+                  and 'return fourDReconstructionRefusalReason().map { .fourDFrames(reason: $0) }' in viewer)
 
-check('refuseFourDReconstructionWithTitle' in sr,
+check(refuses_frames and 'passesChecks(.surfaceRendering, sender: sender)' in sr,
       'SRViewer must refuse inconsistent 4D geometry before opening VTK')
-check('Surface Rendering' in sr,
+check(re.search(r'case \.surfaceRendering: return NSLocalizedString\("Surface Rendering"', viewer),
       'SRViewer must name Surface Rendering in the refusal title')
-check('refuseFourDReconstructionWithTitle' in endo,
+check(refuses_frames and 'passesChecks(.endoscopy, sender: sender)' in endo,
       'endoscopyViewer must refuse inconsistent 4D geometry before opening VTK')
-check('Endoscopy' in endo,
+check(re.search(r'case \.endoscopy: return NSLocalizedString\("Endoscopy"', viewer),
       'endoscopyViewer must name Endoscopy in the refusal title')
 
-check('wrappedIndex' in open_sr or 'alignedTimeIndexRequested' in open_sr,
+check('FourDSeriesGuard.wrappedIndex(' in open_sr or 'FourDSeriesGuard.alignedTimeIndex(requested:' in open_sr,
       'openSRViewer must wrap the time into 0 ..< maxMovieIndex')
-check('pixList[curMovieIndex]' not in open_sr,
+check('horos_pixList(at: Int(horos_curMovieIndex))' not in open_sr,
       'openSRViewer must not index pixList with an unwrapped curMovieIndex')
 # Same local time index for pix, files and volume.
-check('fileList[0]' not in open_sr,
+check('horos_fileList(at: 0)' not in open_sr,
       'openSRViewer must not pair the current volume with fileList[0]')
-check('pixList[' in open_sr and 'fileList[' in open_sr and 'volumeData[' in open_sr,
+check('horos_pixList(at: time)' in open_sr and 'horos_fileList(at: time)' in open_sr and 'horos_volumeData(at: time)' in open_sr
+      and 'makeSRController(pix, files, volume)' in open_sr,
       'openSRViewer must pass pixList, fileList and volumeData')
 
 if failures:

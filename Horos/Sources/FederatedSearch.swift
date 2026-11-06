@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXPreferences
 
 /// Optional search across the local databases the user has chosen.
 ///
@@ -29,18 +30,17 @@ import Foundation
 @objc(HorosFederatedSearch)
 public final class FederatedSearch: NSObject {
     @objc public static let sourceFlagKey = "FederatedSearch"
-    @objc public static let defaultSourceFlagKey = "HorosDefaultDatabaseFederatedSearch"
+    @objc public static let defaultSourceFlagKey = NetworkPreferences.federatedSearchIncludesDefaultDatabase.name
 
     /// When the preference has never been written, the default database is
     /// included so a search from a section folder still sees the documents
     /// database that OsiriX used as the waystation.
     @objc public static var isDefaultDatabaseIncluded: Bool {
         get {
-            let defaults = UserDefaults.standard
-            if defaults.object(forKey: defaultSourceFlagKey) == nil { return true }
-            return defaults.bool(forKey: defaultSourceFlagKey)
+            NetworkPreferences.isOn(NetworkPreferences.federatedSearchIncludesDefaultDatabase, in: PreferencesSource.process.preferences,
+                                    whenAbsent: true)
         }
-        set { UserDefaults.standard.set(newValue, forKey: defaultSourceFlagKey) }
+        set { PreferencesSource.process.preferences.set(newValue, for: NetworkPreferences.federatedSearchIncludesDefaultDatabase) }
     }
 
     /// One local source the user can opt into a federated query.

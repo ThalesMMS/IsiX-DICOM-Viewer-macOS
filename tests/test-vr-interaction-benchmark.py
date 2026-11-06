@@ -18,30 +18,33 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 helper = root / 'Horos/Sources/VRInteractionBenchmark.swift'
-view = (root / 'Horos/Sources/VRView.mm').read_bytes().decode('latin1')
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_bytes().decode('latin1')
 phantom = (root / 'tools/generate-ct-phantom-fixture.py').read_text()
+# The clipping range is Swift (VRView+Crop.swift), an extension of VRView, and
+# so are the mouse's drags (VRView+Mouse.swift).
+crop = (root / 'Horos/Sources/VRView+Crop.swift').read_text(encoding='utf-8')
+mouse = (root / 'Horos/Sources/VRView+Mouse.swift').read_text(encoding='utf-8')
 
 if not helper.is_file():
     failures.append('Horos/Sources/VRInteractionBenchmark.swift is missing')
 if 'VRInteractionBenchmark.swift' not in project:
     failures.append('project.pbxproj does not compile VRInteractionBenchmark.swift')
-if 'Horos-Swift.h' not in view:
-    failures.append('VRView.mm does not import Horos-Swift.h')
-if 'HorosVRInteractionBenchmark' not in view:
-    failures.append('VRView.mm never records 3D interaction samples')
-if 'beginSample:@"rotate"' not in view:
-    failures.append('VRView.mm does not time rotation')
-if 'beginSample:@"pan"' not in view:
-    failures.append('VRView.mm does not time panning')
-if 'beginSample:@"clip"' not in view:
-    failures.append('VRView.mm does not time clipping')
-if '[HorosVRInteractionBenchmark endSample]' not in view:
-    failures.append('VRView.mm never closes an interaction sample')
+if 'VRInteractionBenchmark.beginSample(' not in mouse:
+    failures.append('the VR view never records 3D interaction samples')
+if 'VRInteractionBenchmark.beginSample("rotate")' not in mouse:
+    failures.append('the VR view does not time rotation')
+if 'VRInteractionBenchmark.beginSample("pan")' not in mouse:
+    failures.append('the VR view does not time panning')
+clip = crop[crop.index('private func applyClippingRangeThickness('):]
+clip = clip[:clip.index('\n    }\n')]
+if 'VRInteractionBenchmark.beginSample("clip")' not in clip or 'VRInteractionBenchmark.endSample()' not in clip:
+    failures.append('VRView+Crop.swift does not time clipping')
+if 'VRInteractionBenchmark.endSample()' not in mouse:
+    failures.append('the VR view never closes an interaction sample')
 
 # Backing conversion stays on the drag path. This issue must not
 # put window points back into VTK.
-if 'HorosVRInteractionGeometry backingPoint:' not in view:
+if 'VRInteractionGeometry.backingPoint(theEvent.locationInWindow, in: self)' not in mouse:
     failures.append('mouseDragged no longer converts window points through VRInteractionGeometry')
 
 # The catalog volume is the CT phantom, not a second generator.

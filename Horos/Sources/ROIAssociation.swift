@@ -111,12 +111,20 @@ public enum ROIAssociationPlacement: Int {
         if problems.isEmpty {
             return "Matched \(bindings.count) ROI(s) by image identity."
         }
-        let lines = problems.map { binding -> String in
+        // The first problems in full; a file of hundreds of ROIs has the rest counted, so
+        // that the alert that shows this fits the screen.
+        var lines = problems.prefix(Self.problemsListed).map { binding -> String in
             let label = binding.sourceIndex + 1
             return "ROI \(label): \(binding.reason)"
         }
+        if problems.count > Self.problemsListed {
+            lines.append("… and \(problems.count - Self.problemsListed) more: \(problems.count) of \(bindings.count) ROI(s) could not be placed.")
+        }
         return lines.joined(separator: "\n")
     }
+
+    /// How many problems the summary writes out before counting the rest.
+    public static let problemsListed = 4
 
     public var error: NSError {
         let code = bindings.first(where: { $0.status != .mapped })?.status.rawValue ?? ROIAssociationStatus.insufficient.rawValue

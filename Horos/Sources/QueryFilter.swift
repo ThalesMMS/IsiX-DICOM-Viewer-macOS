@@ -38,6 +38,8 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Foundation
+import IsiXDICOMFile
+import IsiXPreferences
 
 /// A value of the query window with the way it is matched, turned into the
 /// string of a C-FIND key by -filteredValue.
@@ -121,7 +123,7 @@ public final class QueryFilter: NSObject {
     private func calendarDescription(_ format: String) -> String? {
         guard let object = object else { return nil }
         if let date = object as? NSDate {
-            return HorosDateString(date, format)
+            return DICOMCalendarDate.string(from: date, calendarFormat: format)
         }
         (object as AnyObject as? NSObject)?.doesNotRecognizeSelector(
             NSSelectorFromString("descriptionWithCalendarFormat:timeZone:locale:"))
@@ -161,11 +163,11 @@ public final class QueryFilter: NSObject {
             return NSString(format: "-%@", describeNil(calendarDescription("%Y%m%d"))) // before
 
         case Self.searchAfter:
-            if UserDefaults.standard.bool(forKey: "DICOMQueryAllowFutureQuery") {
+            if PreferencesSource.process.preferences[NetworkPreferences.dicomQueryAllowsFutureQuery] {
                 return NSString(format: "%@-", describeNil(calendarDescription("%Y%m%d"))) // after
             } else {
                 return NSString(format: "%@-%@", describeNil(calendarDescription("%Y%m%d")),
-                              describeNil(HorosDateString(Date(), "%Y%m%d"))) // after
+                              describeNil(DICOMCalendarDate.string(from: Date(), calendarFormat: "%Y%m%d"))) // after
             }
 
         case Self.searchWithin:
@@ -204,7 +206,7 @@ public final class QueryFilter: NSObject {
         calendar.timeZone = NSTimeZone.default
         var startDate: Date? = nil
 
-        let today = HorosDateString(endDate, "%Y%m%d")
+        let today = DICOMCalendarDate.string(from: endDate, calendarFormat: "%Y%m%d")
 
         switch objectIntValue() {
         case Self.searchWithinLast2Days:
@@ -226,9 +228,9 @@ public final class QueryFilter: NSObject {
             return today // today
         }
 
-        let start = HorosDateString(startDate, "%Y%m%d")
+        let start = DICOMCalendarDate.string(from: startDate, calendarFormat: "%Y%m%d")
         let dateRange: String
-        if UserDefaults.standard.bool(forKey: "DICOMQueryAllowFutureQuery") {
+        if PreferencesSource.process.preferences[NetworkPreferences.dicomQueryAllowsFutureQuery] {
             dateRange = String(format: "%@-", describeNil(start))
         } else {
             dateRange = String(format: "%@-%@", describeNil(start), describeNil(today))

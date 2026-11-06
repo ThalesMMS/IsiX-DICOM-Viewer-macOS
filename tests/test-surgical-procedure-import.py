@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """CSV/SR surgical-log contract: preview, identity, idempotency, Basic Text SR."""
 from pathlib import Path
+import struct
 import subprocess
+import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+import isix_modules  # noqa: E402
 source = root / 'Horos/Sources/SurgicalProcedureImport.swift'
 if not source.is_file():
     raise SystemExit('FAIL: Horos/Sources/SurgicalProcedureImport.swift is missing')
@@ -225,6 +229,256 @@ if mixed[0].detailsHTML().contains("Endoscopic surgery") == false {
     fail("details HTML must show the operation")
 }
 
+// A reimport: the record found again in the file the session wrote, the way the
+// browser hands it over, is unchanged, and nothing is written.
+let sessionFolder = NSTemporaryDirectory() + "surgical-session-" + UUID().uuidString
+try FileManager.default.createDirectory(atPath: sessionFolder, withIntermediateDirectories: true)
+let logPath = sessionFolder + "/log.csv"
+try quoted.write(toFile: logPath, atomically: true, encoding: .utf8)
+let rows: [[AnyHashable: Any]] = [
+    ["name": "Test, Patient", "patientID": "001234", "patientUID": "TEST-001234-19700101",
+     "studyInstanceUID": "1.2.3.study-a", "dateOfBirth": SurgicalProcedureImport.date(from: "1970-01-01")!],
+]
+let firstImport = SurgicalProcedureImportSession()
+try firstImport.prepareCSV(atPath: logPath, patients: rows, existingPaths: [])
+expect(firstImport.changeCount, 1, "the first import writes the record")
+let firstFiles = try firstImport.commit(toDirectory: sessionFolder + "/first")
+expect(firstFiles.count, 1, "one report for one record")
+
+let found = SurgicalProcedureImportSession()
+try found.prepareCSV(atPath: logPath, patients: rows, existingPaths: firstFiles)
+expect(found.changeCount, 0, "the same log finds its record and writes nothing")
+if found.summary.contains("unchanged 1") == false { fail("the reimport must say unchanged: \(found.summary)") }
+
+// The UIDs come from the event, not from the import: a report that was not found
+// again, because its file is out of reach, still has the same instance, which
+// the index then updates instead of adding a second one.
+let lost = SurgicalProcedureImportSession()
+try lost.prepareCSV(atPath: logPath, patients: rows, existingPaths: [sessionFolder + "/gone.dcm"])
+expect(lost.changeCount, 1, "a report out of reach is written again")
+let secondFiles = try lost.commit(toDirectory: sessionFolder + "/second")
+let firstRecord = try SurgicalProcedureImport.decodeBasicTextSR(Data(contentsOf: URL(fileURLWithPath: firstFiles[0])))
+let secondRecord = try SurgicalProcedureImport.decodeBasicTextSR(Data(contentsOf: URL(fileURLWithPath: secondFiles[0])))
+expect(secondRecord.sopInstanceUID, firstRecord.sopInstanceUID, "SOP Instance UID is stable across imports")
+expect(secondRecord.seriesInstanceUID, firstRecord.seriesInstanceUID, "Series Instance UID is stable across imports")
+expect(secondRecord.studyInstanceUID, firstRecord.studyInstanceUID, "Study Instance UID is stable across imports")
+
+// The studies of the database come in no order: the same person's studies, one
+// with a birth date and one without, must give the same identity either way.
+let withBirth = SurgicalProcedurePatient(name: "Test, Patient", patientID: "001234",
+    patientUID: "TEST-001234-19700101", birthDate: SurgicalProcedureImport.date(from: "1970-01-01"),
+    studyInstanceUID: "1.2.3.study-a")
+let withoutBirth = SurgicalProcedurePatient(name: "Test, Patient", patientID: "001234",
+    patientUID: "TEST-001234-", birthDate: nil, studyInstanceUID: "1.2.3.study-c")
+let oneWay = SurgicalProcedureImport.preview(table: table, patients: [withBirth, withoutBirth], existing: [])
+let otherWay = SurgicalProcedureImport.preview(table: table, patients: [withoutBirth, withBirth], existing: [])
+expect(oneWay.rows[0].record?.eventID, otherWay.rows[0].record?.eventID, "the order of the studies does not change the event")
+
+// Without a birth date the identity holds the ID of the chosen study, so the
+// choice among studies alike must not depend on their order either: two IDs
+// under one patient UID, and two UIDs reached by the name alone.
+let noID = try SurgicalProcedureImport.parseCSV(
+    "Date,Name,ID,Operation,Diagnosis,Results,Optics,Assistants\n"
+    + "2024-03-21,\"Test, Patient\",,Endoscopic surgery,,,,\n")
+func eventIDs(_ first: SurgicalProcedurePatient, _ second: SurgicalProcedurePatient, _ log: SurgicalProcedureTable) -> (String?, String?) {
+    (SurgicalProcedureImport.preview(table: log, patients: [first, second], existing: []).rows[0].record?.eventID,
+     SurgicalProcedureImport.preview(table: log, patients: [second, first], existing: []).rows[0].record?.eventID)
+}
+let sameUID = (SurgicalProcedurePatient(name: "Test, Patient", patientID: "001234", patientUID: "TEST-001234-19700101",
+                                        birthDate: nil, studyInstanceUID: "1.2.3.study-b"),
+               SurgicalProcedurePatient(name: "Test, Patient", patientID: "NEW-9", patientUID: "TEST-001234-19700101",
+                                        birthDate: nil, studyInstanceUID: "1.2.3.study-a"))
+let sameUIDEvents = eventIDs(sameUID.0, sameUID.1, table)
+expect(sameUIDEvents.0, sameUIDEvents.1, "the Study Instance UID settles a tie of patient UIDs")
+let byName = (SurgicalProcedurePatient(name: "Test, Patient", patientID: "001234", patientUID: "TEST PATIENT-001234-",
+                                       birthDate: nil, studyInstanceUID: "1.2.3.study-a"),
+              SurgicalProcedurePatient(name: "Test, Patient", patientID: "NEW-9", patientUID: "TEST PATIENT-NEW-9-",
+                                       birthDate: nil, studyInstanceUID: "1.2.3.study-a"))
+let byNameEvents = eventIDs(byName.0, byName.1, noID)
+expect(byNameEvents.0, byNameEvents.1, "the patient UID settles the choice among studies found by name")
+
+// A study that arrives later changes the chosen patient, and with it the event
+// made from the same line of the log. The patient ID finds the record filed
+// before, with its UIDs, so the same log adds nothing.
+let noBirthStudy = SurgicalProcedurePatient(name: "Test, Patient", patientID: "001234",
+    patientUID: "TEST-001234-", birthDate: nil, studyInstanceUID: "1.2.3.study-c")
+let firstFiled = SurgicalProcedureImport.preview(table: table, patients: [noBirthStudy], existing: [])
+var filedStore: [SurgicalProcedureRecord] = []
+_ = try SurgicalProcedureImport.commit(firstFiled, into: &filedStore, now: Date(timeIntervalSince1970: 1_700_000_000))
+let filed = try SurgicalProcedureImport.decodeBasicTextSR(SurgicalProcedureImport.encodeBasicTextSR(filedStore[0]))
+let grown = SurgicalProcedureImport.preview(table: table, patients: [noBirthStudy, withBirth], existing: [filed])
+expect(grown.rows[0].action, .unchanged, "a study with a birth date does not add the procedure again")
+expect(grown.changes.count, 0, "nothing is written")
+let grownCorrected = SurgicalProcedureImport.preview(table: updatedTable, patients: [noBirthStudy, withBirth], existing: [filed])
+expect(grownCorrected.rows[0].action, .update, "a changed line updates the record filed before")
+expect(grownCorrected.rows[0].record?.eventID, filed.eventID, "the update keeps the event")
+expect(grownCorrected.rows[0].record?.patientKey, filed.patientKey, "the update keeps the patient key")
+expect(grownCorrected.rows[0].record?.sopInstanceUID, filed.sopInstanceUID, "the update keeps the SOP Instance UID")
+expect(grownCorrected.rows[0].record?.studyInstanceUID, filed.studyInstanceUID, "the update keeps the Study Instance UID")
+var grownStore = grownCorrected.existing
+_ = try SurgicalProcedureImport.commit(grownCorrected, into: &grownStore, now: Date(timeIntervalSince1970: 1_700_000_200))
+expect(grownStore.count, 1, "the update replaces the record filed before")
+
+// The second of two procedures of a day finds the second record, not the first.
+let sameDay = try SurgicalProcedureImport.parseCSV(
+    "Date,Name,ID,Operation,Diagnosis,Results,Optics,Assistants\n"
+    + "2024-03-21,\"Test, Patient\",001234,Endoscopic surgery,First,,,\n"
+    + "2024-03-21,\"Test, Patient\",001234,Endoscopic surgery,Second,,,\n")
+var sameDayStore: [SurgicalProcedureRecord] = []
+_ = try SurgicalProcedureImport.commit(SurgicalProcedureImport.preview(table: sameDay, patients: [noBirthStudy], existing: []),
+                                       into: &sameDayStore, now: Date(timeIntervalSince1970: 1_700_000_000))
+expect(sameDayStore.count, 2, "two procedures on one day")
+let sameDayAgain = SurgicalProcedureImport.preview(table: sameDay, patients: [noBirthStudy, withBirth], existing: sameDayStore)
+expect(sameDayAgain.rows.map(\.action), [.unchanged, .unchanged], "each line finds its own record")
+
+// An ID is what says it is the same person: a name alone, or a birth date that
+// disagrees, never takes over another patient's record.
+let otherPerson = SurgicalProcedurePatient(name: "Test, Patient", patientID: "777",
+    patientUID: "TEST-777-19800202", birthDate: SurgicalProcedureImport.date(from: "1980-02-02"),
+    studyInstanceUID: "1.2.3.study-d")
+let otherLog = try SurgicalProcedureImport.parseCSV(
+    "Date,Name,ID,Operation,Diagnosis,Results,Optics,Assistants\n"
+    + "2024-03-21,\"Test, Patient\",777,Endoscopic surgery,,,,\n")
+expect(SurgicalProcedureImport.preview(table: otherLog, patients: [noBirthStudy, otherPerson], existing: [filed]).rows[0].action,
+       .add, "the same name under another ID is another person")
+var bornElsewhere = filed
+bornElsewhere.matchedBirthDate = SurgicalProcedureImport.date(from: "1980-02-02")
+expect(SurgicalProcedureImport.preview(table: table, patients: [withBirth], existing: [bornElsewhere]).rows[0].action,
+       .add, "birth dates that disagree say it is another person")
+
+// The same report can be indexed twice, under two patients: the latest one
+// counts, and the preview must not stop on the repeated event.
+var older = store[0]
+older.diagnosis = "Older diagnosis"
+older.updatedAt = store[0].updatedAt.addingTimeInterval(-100)
+let twice = SurgicalProcedureImport.preview(table: updatedTable, patients: patients, existing: [older, store[0]])
+expect(twice.existing.count, 1, "one record for each event")
+expect(twice.rows[0].action, .unchanged, "the record updated last is the one compared")
+expect(SurgicalProcedureImport.preview(table: updatedTable, patients: patients, existing: [store[0], older]).rows[0].action,
+       .unchanged, "the record updated last is the one compared, whichever comes first")
+var twiceStore = twice.existing
+_ = try SurgicalProcedureImport.commit(twice, into: &twiceStore, now: Date(timeIntervalSince1970: 1_700_000_300))
+expect(twiceStore.count, 1, "the commit keeps one record")
+
+// The timeline counts the same record: one event, with the text updated last,
+// whatever the order of the paths.
+var newest = try SurgicalProcedureImport.decodeBasicTextSR(srData)
+newest.diagnosis = "Newest diagnosis"
+newest.updatedAt = decoded.updatedAt.addingTimeInterval(100)
+let reports = sessionFolder + "/reports"
+try FileManager.default.createDirectory(atPath: reports, withIntermediateDirectories: true)
+let newestPath = reports + "/newest.dcm", stalePath = reports + "/stale.dcm"
+try SurgicalProcedureImport.encodeBasicTextSR(newest).write(to: URL(fileURLWithPath: newestPath))
+try srData.write(to: URL(fileURLWithPath: stalePath))
+for order in [[stalePath, newestPath], [newestPath, stalePath]] {
+    let events = SurgicalProcedureImport.timelineEvents(fromSRPaths: order)
+    expect(events.count, 1, "a report indexed twice is one event")
+    expect(events.first?["diagnosis"] as? String, "Newest diagnosis", "the timeline shows the text updated last")
+}
+
+// A report is read again when its file changes, and gone when its file is.
+var rewritten = newest
+rewritten.diagnosis = "Rewritten diagnosis"
+try SurgicalProcedureImport.encodeBasicTextSR(rewritten).write(to: URL(fileURLWithPath: newestPath))
+try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: 60)], ofItemAtPath: newestPath)
+expect(SurgicalProcedureImport.timelineEvents(fromSRPaths: [newestPath]).first?["diagnosis"] as? String,
+       "Rewritten diagnosis", "a changed report is read again")
+try FileManager.default.removeItem(atPath: newestPath)
+expect(SurgicalProcedureImport.timelineEvents(fromSRPaths: [newestPath]).isEmpty, true, "a report that is gone leaves the timeline")
+
+// An accented name: the report says what it is written in, and that is what a
+// reader goes by. The bytes are checked by the DICOM reader's own rules below.
+let accented = "Jo\u{E3}o da Concei\u{E7}\u{E3}o"
+var accentedRecord = store[0]
+accentedRecord.matchedPatientName = accented
+accentedRecord.sopInstanceUID = ""
+let accentedReport = sessionFolder + "/accented.dcm"
+try SurgicalProcedureImport.encodeBasicTextSR(accentedRecord).write(to: URL(fileURLWithPath: accentedReport))
+try FileManager.default.copyItem(atPath: accentedReport, toPath: CommandLine.arguments[1])
+expect(try SurgicalProcedureImport.decodeBasicTextSR(Data(contentsOf: URL(fileURLWithPath: accentedReport))).matchedPatientName,
+       accented, "the record keeps the name")
+
+// A report filed before says who the patient was in its own spelling. Its own
+// study neither makes the match ambiguous nor sends the line to review.
+let realStudy = SurgicalProcedurePatient(name: accented, patientID: "4242", patientUID: "JOAO-4242-19700101",
+    birthDate: SurgicalProcedureImport.date(from: "1970-01-01"), studyInstanceUID: "1.2.3.real")
+let accentedLog = try SurgicalProcedureImport.parseCSV(
+    "Date,Name,ID,Operation,Diagnosis,Results,Optics,Assistants\n"
+    + "2024-03-21,\"\(accented)\",4242,Craniotomia,,,,\n")
+var accentedStore: [SurgicalProcedureRecord] = []
+_ = try SurgicalProcedureImport.commit(SurgicalProcedureImport.preview(table: accentedLog, patients: [realStudy], existing: []),
+                                       into: &accentedStore, now: Date(timeIntervalSince1970: 1_700_000_000))
+let filedAccented = try SurgicalProcedureImport.decodeBasicTextSR(SurgicalProcedureImport.encodeBasicTextSR(accentedStore[0]))
+let misread = SurgicalProcedurePatient(name: "Jo\u{C3}\u{A3}o da Concei\u{C3}\u{A7}\u{C3}\u{A3}o", patientID: "4242", patientUID: "JOâO-4242-19700101",
+    birthDate: SurgicalProcedureImport.date(from: "1970-01-01"), studyInstanceUID: filedAccented.studyInstanceUID)
+let withOwnStudy = SurgicalProcedureImport.preview(table: accentedLog, patients: [misread, realStudy], existing: [filedAccented])
+expect(withOwnStudy.rows[0].action, .unchanged, "a report's own study does not send the line to review")
+// The study of the report is all there is of a patient whose images were deleted.
+expect(SurgicalProcedureImport.preview(table: accentedLog, patients: [misread], existing: [filedAccented]).rows[0].action,
+       .unchanged, "a report's own study still answers when no other does")
+
+// New UIDs have no leading zero, in any component, whatever the event.
+func uidsAreValid(_ uid: String) -> Bool {
+    uid.count <= 64 && uid.split(separator: ".", omittingEmptySubsequences: false).allSatisfy { $0 == "0" || ($0.first != "0" && $0.isEmpty == false) }
+}
+var hadLeadingZero = 0
+for number in 0..<300 {
+    var fresh = store[0]
+    fresh.eventID = "event-\(number)"
+    (fresh.sopInstanceUID, fresh.seriesInstanceUID, fresh.studyInstanceUID) = ("", "", "")
+    let made = try SurgicalProcedureImport.decodeBasicTextSR(SurgicalProcedureImport.encodeBasicTextSR(fresh))
+    for uid in [made.sopInstanceUID, made.seriesInstanceUID, made.studyInstanceUID] {
+        if uidsAreValid(uid) == false { fail("invalid UID \(uid)") }
+        if uid.count < 41 { hadLeadingZero += 1 }
+    }
+}
+if hadLeadingZero == 0 { fail("no event gave the case of a leading zero") }
+
+// A report filed with such a UID keeps it: its identity in the database is that UID.
+var legacy = store[0]
+legacy.sopInstanceUID = "2.25.012034056078090012034056078090123456"
+legacy.seriesInstanceUID = "2.25.012034056078090012034056078090123457"
+legacy.studyInstanceUID = "2.25.012034056078090012034056078090123458"
+let legacyFiled = try SurgicalProcedureImport.decodeBasicTextSR(SurgicalProcedureImport.encodeBasicTextSR(legacy))
+expect(legacyFiled.sopInstanceUID, legacy.sopInstanceUID, "the file keeps the UID it was filed with")
+let legacySame = SurgicalProcedureImport.preview(table: updatedTable, patients: patients, existing: [legacyFiled])
+expect(legacySame.rows[0].action, .unchanged, "a report with the former UID is found, not added again")
+let legacyChanged = SurgicalProcedureImport.preview(table: table, patients: patients, existing: [legacyFiled])
+expect(legacyChanged.rows[0].action, .update, "a changed line updates it")
+expect(legacyChanged.rows[0].record?.sopInstanceUID, legacy.sopInstanceUID, "the update keeps the former SOP Instance UID")
+expect(legacyChanged.rows[0].record?.studyInstanceUID, legacy.studyInstanceUID, "the update keeps the former Study Instance UID")
+
+// An update under another patient makes another study of the database: the
+// commit says which files the new ones replace, the only ones and all of them,
+// the copy of the same report under the former patient included.
+let moving = sessionFolder + "/moving"
+try FileManager.default.createDirectory(atPath: moving, withIntermediateDirectories: true)
+var keptRecord = filed
+keptRecord.eventID = "another-event"
+keptRecord.operation = "Another operation"
+let reportPath = moving + "/report.dcm", copyPath = moving + "/copy.dcm", keptPath = moving + "/kept.dcm"
+try SurgicalProcedureImport.encodeBasicTextSR(filed).write(to: URL(fileURLWithPath: reportPath))
+try SurgicalProcedureImport.encodeBasicTextSR(filed).write(to: URL(fileURLWithPath: copyPath))
+try SurgicalProcedureImport.encodeBasicTextSR(keptRecord).write(to: URL(fileURLWithPath: keptPath))
+let corrected = moving + "/log.csv"
+try updatedCSV.write(toFile: corrected, atomically: true, encoding: .utf8)
+let bothStudies: [[AnyHashable: Any]] = [
+    ["name": "Test, Patient", "patientID": "001234", "patientUID": "TEST-001234-", "studyInstanceUID": "1.2.3.study-c"],
+    ["name": "Test, Patient", "patientID": "001234", "patientUID": "TEST-001234-19700101",
+     "studyInstanceUID": "1.2.3.study-a", "dateOfBirth": SurgicalProcedureImport.date(from: "1970-01-01")!],
+]
+let correction = SurgicalProcedureImportSession()
+try correction.prepareCSV(atPath: corrected, patients: bothStudies, existingPaths: [reportPath, copyPath, keptPath])
+expect(correction.changeCount, 1, "the changed line is one update")
+expect(correction.formerReportPaths, [], "nothing is replaced before the commit")
+let newFiles = try correction.commit(toDirectory: moving + "/new")
+expect(newFiles.count, 1, "one file for the update")
+expect(correction.formerReportPaths.sorted(), [copyPath, reportPath].sorted(), "the files of that report, and no other")
+let unchangedAgain = SurgicalProcedureImportSession()
+try unchangedAgain.prepareCSV(atPath: logPath, patients: rows, existingPaths: firstFiles)
+_ = try unchangedAgain.commit(toDirectory: moving + "/none")
+expect(unchangedAgain.formerReportPaths, [], "an import that updates nothing replaces nothing")
+
 let numbersJSON = """
 {"sheet":"Surgical Log","table":"Table 0","headerRow":1,"rows":[["Date","Name","ID","Operation","Diagnosis","Results","Optics","Assistants"],["2024-03-21","Test, Patient","001234","Endoscopic surgery","","","",""]]}
 """
@@ -236,6 +490,7 @@ if SurgicalProcedureImport.numbersReaderScript.contains("document.close({saving:
     fail("Numbers reader must close the disposable copy without saving")
 }
 
+try? FileManager.default.removeItem(atPath: sessionFolder)
 print("PASS: surgical CSV preview, identity, idempotency, timeline and Numbers table")
 '''
 
@@ -248,10 +503,63 @@ with tempfile.TemporaryDirectory(prefix='horos-surgical-sr-') as directory:
     if compiled.returncode:
         print(compiled.stderr)
         raise SystemExit('FAIL: SurgicalProcedureImport.swift did not compile')
-    ran = subprocess.run([str(path / 'test')], capture_output=True, text=True)
+    accented_file = path / 'accented.dcm'
+    ran = subprocess.run([str(path / 'test'), str(accented_file)], capture_output=True, text=True)
     if ran.returncode:
         print(ran.stderr or ran.stdout)
         raise SystemExit(ran.returncode)
+    print(ran.stdout.strip())
+
+    # The file as the database reads it: the DICOM reader's own rules, from the
+    # bytes of the two elements, in the order the standard wants them.
+    report = accented_file.read_bytes()
+
+    def element(group, number):
+        at = report.index(struct.pack('<HH', group, number), report.index(b'1.2.840.10008.1.2.1'))
+        length = struct.unpack('<H', report[at + 6:at + 8])[0]
+        return at, report[at + 8:at + 8 + length]
+
+    charset_at, charset = element(0x0008, 0x0005)
+    if charset_at + 8 + len(charset) != element(0x0008, 0x0016)[0]:
+        raise SystemExit('FAIL: Specific Character Set does not come right before the SOP Class UID')
+    if charset.strip() != b'ISO_IR 192':
+        raise SystemExit('FAIL: the report does not say it is UTF-8: %r' % charset)
+    name = element(0x0010, 0x0010)[1]
+    (path / 'read.swift').write_text(r'''
+import Foundation
+import IsiXDICOMFile
+
+let settings = ImportSettings()
+let charset = String(decoding: Data(hex: CommandLine.arguments[1]), as: UTF8.self).trimmingCharacters(in: .whitespaces)
+let bytes = [UInt8](Data(hex: CommandLine.arguments[2])).map { CChar(bitPattern: $0) } + [0]
+let encodings = DICOMCharacterSet.encodings(forSpecificCharacterSet: charset)
+let decoded = DICOMTextDecoding.decode(bytes, encodings: encodings) { DICOMCharacterSet.encoding(forDICOMCharacterSet: $0) }
+let expected = "Jo\u{E3}o da Concei\u{E7}\u{E3}o"
+let read = (decoded as String).trimmingCharacters(in: .whitespaces)
+guard read == expected else { fatalError("the name reads \\(read)") }
+let uid = { (name: String) in PatientUIDRule.uid(name: name as NSString, patientID: "001234", birthDate: "19700101", settings: settings) }
+guard uid(read) == uid(expected) else { fatalError("the name makes another patient") }
+print("PASS: an accented name reads back the same, in the same patient")
+
+extension Data {
+    init(hex: String) {
+        self.init(stride(from: 0, to: hex.count, by: 2).map {
+            UInt8(hex.dropFirst($0).prefix(2), radix: 16)!
+        })
+    }
+}
+''')
+    modules = path / 'modules'
+    flags = isix_modules.module_flags('IsiXDICOMFile', modules, ['-target', 'arm64-apple-macos15.0'])
+    built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-target', 'arm64-apple-macos15.0', *flags,
+                            str(path / 'read.swift'), '-o', str(path / 'read')], capture_output=True, text=True)
+    if built.returncode:
+        print(built.stderr[-3000:])
+        raise SystemExit('FAIL: the reader of the accented name did not compile')
+    ran = subprocess.run([str(path / 'read'), charset.hex(), name.hex()], capture_output=True, text=True)
+    if ran.returncode:
+        print(ran.stderr or ran.stdout)
+        raise SystemExit('FAIL: an accented name does not read back the same')
     print(ran.stdout.strip())
 
 # Numbers JXA is exercised against a mock table. No Numbers.app, no database.

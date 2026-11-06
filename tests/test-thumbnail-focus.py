@@ -7,12 +7,14 @@ from pathlib import Path
 import subprocess,tempfile,sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import sources
+import process_graph_stand_in  # the panel reads the catalog's keys through PreferencesSource
 root=Path(__file__).resolve().parents[1]
 path=sources.source_path('ThumbnailsListPanel')
 s=(subprocess.check_output(['git','show',sys.argv[1]+':'+str(path.relative_to(root))]).decode('utf-8') if len(sys.argv)>1 else sources.source_text('ThumbnailsListPanel'))
 a=s.index('@objc(windowDidBecomeMain:)');method=s[a:s.index('@objc(thumbnailsListWillClose:)',a)]
 code=r'''
 import Foundation
+import IsiXPreferences
 func check(_ c: Bool, _ what: String) { if !c { print("FAIL: \(what)"); exit(1) } }
 class NSScreen: NSObject {
  static var screens: [NSScreen] = []
@@ -69,5 +71,5 @@ print("PASS: foreign-screen focus preserved; same-screen/panel activation, hidde
 '''.replace('METHOD',method)
 with tempfile.TemporaryDirectory(prefix='horos-thumbnail-focus-') as tmp:
  p=Path(tmp);(p/'main.swift').write_text(code)
- subprocess.run(['xcrun','swiftc','-swift-version','5',str(p/'main.swift'),'-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','swiftc','-swift-version','5',str(p/'main.swift'),*process_graph_stand_in.swift_flags(p/'isix'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

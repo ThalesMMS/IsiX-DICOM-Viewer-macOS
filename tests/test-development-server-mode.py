@@ -1,21 +1,28 @@
 #!/usr/bin/env python3
 """Execute the actual preference write blocks with process overrides and saved values.
 
-AppController is Swift: its two blocks (the abort in
--killAllStoreSCU: and the crash recovery) are cut out of AppController.swift and
-compiled with swiftc into functions the Objective-C driver calls, beside the
-BrowserController.m block, which stays Objective-C.
+The crash recovery is the launch's step of IsiXPreferences'
+LaunchPreferenceMigrations (in an older revision, a block of AppController.swift),
+and the abort of -killAllStoreSCU: is DICOMListenerController's
+whileListenerErrorsHidden (in an older revision, a block of -killAllStoreSCU:
+itself); both are compiled with swiftc into functions the Objective-C driver
+calls, the listener's with the IsiXPreferences and IsiXDICOMNetwork modules it
+reads. So is the browser's block of -waitForRunningProcesses
+(BrowserController+Window.swift; in an older revision, the Objective-C of
+BrowserController.m).
 """
 from pathlib import Path
 import argparse
 import re
 import subprocess
+import uuid
 import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
-from sources import source_path  # noqa: E402
+from sources import source_path, class_text  # noqa: E402
+import isix_modules  # noqa: E402
 parser = argparse.ArgumentParser()
 parser.add_argument('--baseline', help='read source from this Git revision')
 args = parser.parse_args()
@@ -57,29 +64,58 @@ def swift_block(text, at):
 
 
 app = source(str(source_path('AppController').relative_to(root)))
-browser = source('Horos/Sources/BrowserController.m')
-category = source('Horos/Sources/NSUserDefaults+OsiriX.mm')
+browser = class_text('BrowserController')
+category = source('Horos/Sources/NSUserDefaults+OsiriX.m')
 helper = re.search(r'-\(BOOL\)hasArgumentOverrideForKey:.*?\n\}', category, re.S)
-browser_scope = browser.split('- (void)waitForRunningProcesses', 1)[1]
-browser_scope = browser_scope.split('// ----------', 2)[1]
+if '- (void)waitForRunningProcesses' in browser:
+    browser_scope = browser.split('- (void)waitForRunningProcesses', 1)[1]
+    browser_scope = browser_scope.split('// ----------', 2)[1]
+    browser_swift = None
+else:
+    window = source('Horos/Sources/BrowserController+Window.swift')
+    wait = swift_block(window, window.index('@objc(waitForRunningProcesses)'))
+    browser_swift = swift_block(wait, wait.index('if !defaults.hasArgumentOverride(forKey: "hideListenerError")'))
 # The method's statements, from those after the wait window is shown to the
 # brace that closes it.
-abort = swift_block(app, app.index('@objc(killAllStoreSCU:)'))
-abort = abort[abort.index('\n', abort.index('.showWindow(')):abort.rindex('}')]
-abort_begin = abort.split('HorosDICOMGlobalAbortBegin()')[0]
-abort_begin = abort_begin[:abort_begin.rindex('\n')]
-abort_end = abort.split('HorosDICOMGlobalAbortEnd()')[1]
-recovery_end = app.index('object(forKey: "copyHideListenerError")')
-recovery_start = app.rfind('if ', 0, recovery_end)
-recovery = swift_block(app, recovery_start)
+if 'HorosDICOMGlobalAbortBegin()' in swift_block(app, app.index('@objc(killAllStoreSCU:)')):
+    abort = swift_block(app, app.index('@objc(killAllStoreSCU:)'))
+    abort = abort[abort.index('\n', abort.index('.showWindow(')):abort.rindex('}')]
+    abort_begin = abort.split('HorosDICOMGlobalAbortBegin()')[0]
+    abort_begin = abort_begin[:abort_begin.rindex('\n')]
+    abort_end = abort.split('HorosDICOMGlobalAbortEnd()')[1]
+    abort_block, hidden = abort_begin + abort_end, ''
+else:
+    # The abort runs inside the listener controller's whileListenerErrorsHidden,
+    # compiled on its own and called with nothing to run while the errors are hidden.
+    lifecycle = source('Horos/Sources/DICOMListenerController.swift')
+    hidden = swift_block(lifecycle, lifecycle.index('nonisolated static func whileListenerErrorsHidden('))
+    hidden = 'enum ListenerErrors {\n' + hidden + '\n}\n'
+    abort_block = 'ListenerErrors.whileListenerErrorsHidden(in: defaults) {}'
 
-functions = ('static void writeBlock0(NSUserDefaults *defaults) {\n'
-             + browser_scope.replace('[NSUserDefaults standardUserDefaults]', 'defaults') + '\n}\n'
-             'void writeBlock1(NSUserDefaults *defaults);\nvoid writeBlock2(NSUserDefaults *defaults);')
-swift_functions = 'import Foundation\n' + '\n'.join(
+if 'object(forKey: "copyHideListenerError")' in app:
+    recovery_end = app.index('object(forKey: "copyHideListenerError")')
+    recovery_start = app.rfind('if ', 0, recovery_end)
+    recovery = swift_block(app, recovery_start)
+else:
+    # The launch's step in IsiXPreferences' LaunchPreferenceMigrations, over the
+    # store it is given: here the defaults the driver hands it.
+    migrations = source('Modules/IsiXPreferences/Sources/LaunchPreferenceMigrations.swift')
+    recovery_end = migrations.index('object(forKey: NetworkPreferences.savedHidesListenerErrors.name)')
+    recovery_start = migrations.rfind('if ', 0, recovery_end)
+    recovery = swift_block(migrations, recovery_start).replace('store.', 'defaults.').replace('store[', 'defaults[')
+
+if browser_swift is None:
+    functions = ('static void writeBlock0(NSUserDefaults *defaults) {\n'
+                 + browser_scope.replace('[NSUserDefaults standardUserDefaults]', 'defaults') + '\n}\n'
+                 'void writeBlock1(NSUserDefaults *defaults);\nvoid writeBlock2(NSUserDefaults *defaults);')
+    swift_blocks = ((1, abort_block), (2, recovery))
+else:
+    functions = 'void writeBlock0(NSUserDefaults *defaults);\nvoid writeBlock1(NSUserDefaults *defaults);\nvoid writeBlock2(NSUserDefaults *defaults);'
+    swift_blocks = ((0, browser_swift), (1, abort_block), (2, recovery))
+swift_functions = 'import Foundation\nimport IsiXPreferences\nimport IsiXDICOMNetwork\n' + hidden + '\n'.join(
     f'@_cdecl("writeBlock{index}") public func writeBlock{index}(_ defaults: UserDefaults) {{\n'
     + block.replace('UserDefaults.standard', 'defaults') + '\n}'
-    for index, block in ((1, abort_begin + abort_end), (2, recovery)))
+    for index, block in swift_blocks)
 
 driver = r'''
 #import <Foundation/Foundation.h>
@@ -90,8 +126,9 @@ driver = r'''
 HELPER
 @end
 FUNCTIONS
-int main(void) { @autoreleasepool {
-    NSString *domain = [@"thalesmms.isis.workstation.test-server-mode-" stringByAppendingString:NSUUID.UUID.UUIDString];
+int main(int argc, char **argv) { @autoreleasepool {
+    // The test names the domain, so it can remove the plist cfprefsd leaves behind.
+    NSString *domain = @(argv[1]);
     NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:domain];
     [defaults registerDefaults:@{@"hideListenerError": @NO}];
     void (*writers[])(NSUserDefaults *) = {writeBlock0, writeBlock1, writeBlock2};
@@ -149,9 +186,17 @@ with tempfile.TemporaryDirectory(prefix='horos-server-mode-') as directory:
                                    '-(BOOL)hasArgumentOverrideForKey:(NSString*)key;\n@end\n')
     subprocess.run(['xcrun', 'clang', '-c', '-fobjc-arc', str(path / 'probe.m'), '-o', str(path / 'probe.o')],
                    check=True)
-    subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-import-objc-header', str(path / 'bridge.h'),
+    modules = isix_modules.module_flags('IsiXDICOMNetwork', path / 'modules')
+    subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-import-objc-header', str(path / 'bridge.h'), *modules,
                     str(path / 'blocks.swift'), str(path / 'probe.o'), '-o', str(path / 'probe')], check=True)
-    subprocess.run([str(path / 'probe')], check=True)
+    domain = f'thalesmms.isis.workstation.test-server-mode-{uuid.uuid4()}'
+    try:
+        subprocess.run([str(path / 'probe'), domain], check=True)
+    finally:
+        # Removing the persistent domain leaves an empty plist: delete the domain
+        # through cfprefsd first, or it writes the file back, then unlink it.
+        subprocess.run(['defaults', 'delete', domain], capture_output=True)
+        (Path.home() / 'Library/Preferences' / f'{domain}.plist').unlink(missing_ok=True)
 
 launcher = source('script/build_and_run.sh')
 assert 'ARGS=(-hideListenerError NO ' in launcher, 'development must override saved server mode'

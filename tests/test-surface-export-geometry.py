@@ -9,12 +9,14 @@ install=root/'build/Build/Intermediates.noindex/Horos.build/Release/VTK.build/In
 if not (install/'lib').is_dir():
     print('needs built VTK libraries in', install, file=sys.stderr)
     sys.exit(2)
-overlay=(root/'Horos/Sources/SceneOverlay.mm').read_text()
-at=overlay.index('std::vector<vtkActor2D *> HorosVisibleActors2D(')
+adapter=root/'Horos/Sources/Adapters/VTK'
+overlay=(adapter/'IsiXVTKSceneOverlay.mm').read_text()
+at=overlay.index('std::vector<vtkActor2D *> IsiXVTKVisibleActors2D(')
 end=overlay.index('\n}\n',at)+3
 visible_actors=overlay[at:end]
 code=r'''
-#include "SRSurfaceExport.h"
+#include "IsiXVTKInternal.hpp"
+#include "IsiXVTKSurfaceExport.hpp"
 #include <vtkAutoInit.h>
 #include "vtk_pattern_scene.h"
 #include <vtkCellArray.h>
@@ -43,8 +45,8 @@ public:
  vtkActor2D *Actor = nullptr;
  void GetActors2D(vtkPropCollection *collection) override { if(Actor) Actor->GetActors2D(collection); }
 };
-using Point=std::array<long,3>;
-Point key(double x,double y,double z){return {{lround(x*10000),lround(y*10000),lround(z*10000)}};}
+using VertexKey=std::array<long,3>;
+VertexKey key(double x,double y,double z){return {{lround(x*10000),lround(y*10000),lround(z*10000)}};}
 int main(int argc,char **argv){
  auto overlayRenderer=vtkSmartPointer<vtkRenderer>::New();
  auto visible=vtkSmartPointer<vtkActor2D>::New();
@@ -54,10 +56,10 @@ int main(int argc,char **argv){
  auto volumeActor=vtkSmartPointer<vtkActor>::New();assembly->AddPart(volumeActor);
  overlayRenderer->AddViewProp(visible);overlayRenderer->AddViewProp(invisible);overlayRenderer->AddViewProp(assembly);
  auto aggregate=vtkSmartPointer<AggregatedOverlay>::New();aggregate->Actor=nested;overlayRenderer->AddViewProp(aggregate);
- auto shown=HorosVisibleActors2D(overlayRenderer);
+ auto shown=IsiXVTKVisibleActors2D(overlayRenderer);
  assert(shown.size()==2 && shown[0]==visible && shown[1]==nested);
- assert(HorosVisibleActors2D(nullptr).empty());
- nested->SetVisibility(0);shown=HorosVisibleActors2D(overlayRenderer);
+ assert(IsiXVTKVisibleActors2D(nullptr).empty());
+ nested->SetVisibility(0);shown=IsiXVTKVisibleActors2D(overlayRenderer);
  assert(shown.size()==1 && shown[0]==visible);
  auto data=vtkSmartPointer<vtkPolyData>::New();
  auto points=vtkSmartPointer<vtkPoints>::New();
@@ -79,7 +81,7 @@ int main(int argc,char **argv){
  std::string prefix=argv[1],stl=prefix+".stl";
  auto sw=vtkSmartPointer<vtkSTLWriter>::New();sw->SetInputData(geometry);sw->SetFileName(stl.c_str());sw->Write();
  auto ow=vtkSmartPointer<vtkOBJExporter>::New();ow->SetRenderWindow(window);ow->SetFilePrefix(prefix.c_str());ow->Write();
- std::set<Point> objVertices,stlVertices,expected;
+ std::set<VertexKey> objVertices,stlVertices,expected;
  std::ifstream in(prefix+".obj");std::string line;
  while(std::getline(in,line)){std::istringstream row(line);std::string tag;double x,y,z;row>>tag;if(tag=="v" && row>>x>>y>>z)objVertices.insert(key(x,y,z));}
  auto reader=vtkSmartPointer<vtkSTLReader>::New();reader->SetFileName(stl.c_str());reader->Update();
@@ -98,5 +100,5 @@ with tempfile.TemporaryDirectory(prefix='horos-surface-export-') as folder:
  p=Path(folder);(p/'test.cpp').write_text(code);(p/'vtk_pattern_scene.h').write_text(vtk_pattern_window.WINDOW+vtk_pattern_window.SCENE)
  # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.
  libs = [install / 'wlib' / 'libVTK.a']
- subprocess.run(['xcrun','clang++','-std=c++17','-Werror=deprecated-declarations','-fsanitize=address','-I'+str(install/'include'),'-I'+str(root/'Horos/Sources'),str(p/'test.cpp'),str(root/'Horos/Sources/SceneFactory.cxx'),*[str(x) for x in libs],'-L'+str(install.parent.parent/'ExternalInputs.build/Install/lib'),'-lpng16','-ltiff','-lz','-framework','Cocoa','-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','clang++','-std=c++17','-Werror=deprecated-declarations','-fsanitize=address','-fobjc-arc','-I'+str(install/'include'),'-I'+str(root/'Horos/Sources'),'-I'+str(adapter),'-x','objective-c++',str(p/'test.cpp'),str(adapter/'IsiXVTKError.mm'),'-x','c++',str(root/'Horos/Sources/Adapters/VTK/SceneFactory.cxx'),'-x','none',*[str(x) for x in libs],'-L'+str(install.parent.parent/'ExternalInputs.build/Install/lib'),'-lpng16','-ltiff','-lz','-framework','Cocoa','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test'),str(p/'model')],check=True)

@@ -35,24 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// OSIPlanarPathROI is implemented in Swift (Horos/Sources/OSIPlanarPathROI.swift).
+// This header keeps <Horos/OSIPlanarPathROI.h>: it brings in the generated
+// interface, which declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 #import "OSIROI.h"
-#import "N3Geometry.h"
 
-@class ROI;
-@class N3MutableBezierPath;
-@class OSIFloatVolumeData;
-
-// for now implement closed poly first
-
-@interface OSIPlanarPathROI : OSIROI {
-	ROI *_osiriXROI;
-	
-	N3MutableBezierPath *_bezierPath;
-	N3Plane _plane;
-}
-
-- (OSIROIMask *)ROIMaskForFloatVolumeData:(OSIFloatVolumeData *)floatVolume; // for this class the passed floatVolume's z direction needs to be perpendicular to the plane 
-
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSIPlanarPathROI;
+#else
+#import "Horos-Swift.h"
+#endif

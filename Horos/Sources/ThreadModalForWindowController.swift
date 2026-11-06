@@ -41,32 +41,14 @@ import AppKit
 
 // ThreadModalForWindowController and NSThread (ModalForWindow) are implemented
 // in Swift: the Objective-C names, the selectors and
-// <Horos/ThreadModalForWindowController.h> are those of before. The
-// NSThreadModalForWindowControllerKey constant is exported by
-// ThreadModalForWindowController+CAPI.m.
+// <Horos/ThreadModalForWindowController.h> are those of before.
 //
-// Synchronization: every @synchronized of the Objective-C is objcSynchronized
-// below, on the same thread object and around the same statements. KVO
+// Synchronization: every @synchronized of the Objective-C locks the same thread
+// object around the same statements: with HorosObjCException.synchronized where
+// the window's views are updated, which may raise, and with
+// objc_sync_enter/objc_sync_exit and defer around the thread dictionary. KVO
 // observers are added and removed in the same order, and the handler goes to
 // the main thread the same way.
-
-/// `@synchronized (object) { … }`: the same recursive lock, taken on nothing
-/// when the object is nil, and left before an exception raised inside goes on.
-@inline(__always)
-fileprivate func objcSynchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T {
-    guard let object else { return body() }
-    objc_sync_enter(object)
-    var result: T?
-    var raised: NSException?
-    do {
-        try HorosObjCException.perform { result = body() }
-    } catch {
-        raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    objc_sync_exit(object)
-    if let raised { raised.raise() }
-    return result!
-}
 
 /// DLog of N2Debug.h: NSLog in a DEBUG build, otherwise only while N2Debug is
 /// active.
@@ -349,7 +331,7 @@ public final class ThreadModalForWindowController: NSWindowController {
     }
 
     private func threadDidChange(_ obj: Thread, _ keyPath: String?) {
-            objcSynchronized(obj) {
+            HorosObjCException.synchronized(obj) {
                 if obj.threadDictionary === _retainedThreadDictionary {
                     if keyPath == NSThreadProgressKey {
                         // display
@@ -443,7 +425,10 @@ public final class ThreadModalForWindowController: NSWindowController {
             self.progressIndicator?.displayIfNeeded()
             lastGUIUpdate = Date.timeIntervalSinceReferenceDate
 
-            objcSynchronized(self.thread) {
+            do {
+                let lock = self.thread
+                if let lock { objc_sync_enter(lock) }
+                defer { if let lock { objc_sync_exit(lock) } }
                 if (_retainedThreadDictionary?.object(forKey: NSThreadModalForWindowControllerKey) as? ThreadModalForWindowController) === self {
                     _retainedThreadDictionary?.removeObject(forKey: NSThreadModalForWindowControllerKey as NSString)
                 }
@@ -490,9 +475,9 @@ public extension Thread {
 
     @objc(modalForWindowController)
     func modalForWindowController() -> ThreadModalForWindowController! {
-        return objcSynchronized(self) {
-            self.threadDictionary.object(forKey: NSThreadModalForWindowControllerKey) as? ThreadModalForWindowController
-        }
+        objc_sync_enter(self)
+        defer { objc_sync_exit(self) }
+        return self.threadDictionary.object(forKey: NSThreadModalForWindowControllerKey) as? ThreadModalForWindowController
     }
 }
 

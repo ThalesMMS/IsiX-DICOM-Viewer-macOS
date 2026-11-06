@@ -471,6 +471,38 @@ def prepare_and_embed(transaction):
         if tree_identity(itk_resources) != tree_identity(prepared_itk):
             replacements[itk_resources] = prepared_itk
 
+    # DCMTK and OpenSSL are compiled from their original archives too: carry
+    # each source record with the license and the notices it declares, by the
+    # names the recipes install them under.
+    declared = json.loads((Path(__file__).resolve().parent.parent / 'external-sources.json').read_text())
+    installed_notices = {'dcmjpls/docs/License.txt': 'CharLS-License.txt',
+                         'dcmjpeg/docs/ijg_readme.txt': 'ijg_readme.txt'}
+    for name, product in (('DCMTK', 'lib/libdcmdata.a'), ('OpenSSL', 'lib/libcrypto.a')):
+        install = Path(environment('CONFIGURATION_TEMP_DIR')) / ('%s.build/Install' % name)
+        if not (install / product).is_file():
+            continue
+        if (install / '.incomplete').exists():
+            fail('%s installation is incomplete' % name)
+        source_record = install / 'share/source.json'
+        if not source_record.is_file():
+            fail('%s has no installed original source record' % name)
+        pin = json.loads(source_record.read_text())
+        if pin != declared[name] or pin['name'] != name or pin.get('sourcePatches') != []:
+            fail('%s original source differs from its installed identity' % name)
+        texts = [(Path(pin['license']).name, pin['licenseSha256'])]
+        texts += [(installed_notices[notice['path']], notice['sha256']) for notice in pin.get('notices', [])]
+        prepared = transaction / ('%s-source' % name.lower())
+        prepared.mkdir()
+        shutil.copyfile(source_record, prepared / 'source.json')
+        for text_name, expected in texts:
+            text = install / 'share/licenses' / name / text_name
+            if not text.is_file() or sha256(text) != expected:
+                fail('%s license or notice %s differs from its installed identity' % (name, text_name))
+            shutil.copyfile(text, prepared / text_name)
+        compiled = resources / 'CompiledSources' / name
+        if tree_identity(compiled) != tree_identity(prepared):
+            replacements[compiled] = prepared
+
     problems = []
     for binary in binaries + [frameworks / name for name in embedded]:
         for reference in load_commands(replacements.get(binary, binary))[1]:

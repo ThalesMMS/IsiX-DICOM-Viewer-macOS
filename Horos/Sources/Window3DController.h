@@ -36,6 +36,15 @@
  ============================================================================*/
 
 /** \brief  SuperClass for 3D WindowControllers
+*
+* The class is implemented in Swift: Window3DController.swift is its
+* implementation (@objc @implementation), with the window level presets in
+* Window3DController+WindowLevel.swift, the colour and opacity tables in
+* Window3DController+ColorTables.swift and its own full screen in
+* Window3DController+FullScreen.swift. This interface declares it to
+* Objective-C, which still subclasses it (VRController, SRController); it has
+* no instance variables: the outlets and the state the subclasses share are
+* properties.
 */
 
 
@@ -55,41 +64,36 @@
 @class DCMPix;
 
 
+
 /** \brief Base Window Controller for 3D viewers */
 
 @interface Window3DController : OSIWindowController <NSWindowDelegate>
-{
-	IBOutlet NSWindow				*setWLWWWindow;
-    IBOutlet NSTextField			*wlset, *fromset;
-    IBOutlet NSTextField			*wwset, *toset;	
-    IBOutlet NSWindow				*addWLWWWindow;
-    IBOutlet NSTextField			*newName;
-    IBOutlet NSTextField			*wl;
-    IBOutlet NSTextField			*ww;
-    IBOutlet NSPopUpButton			*wlwwPopup;
-    NSString						*curWLWWMenu;
 
-	IBOutlet NSWindow				*addCLUTWindow;
-	IBOutlet ColorTransferView		*clutView;
-	IBOutlet NSTextField			*clutName;
-	IBOutlet NSPopUpButton			*clutPopup;
-	NSString						*curCLUTMenu;
+// The outlets of the window level, colour table and opacity sheets that the
+// subclasses fill themselves (VR.xib connects them). The window level sheet's
+// own fields and the colour table editor are private to the class.
+@property (nonatomic, retain) IBOutlet NSWindow *addWLWWWindow;
+/// The name field of the new window level preset. Its getter is not -newName,
+/// a name of the new family, which would hand its caller a retained field.
+@property (nonatomic, retain, getter=horos_newName) IBOutlet NSTextField *newName;
+@property (nonatomic, retain) IBOutlet NSTextField *wl;
+@property (nonatomic, retain) IBOutlet NSTextField *ww;
+@property (nonatomic, retain) IBOutlet NSTextField *clutName;
+@property (nonatomic, retain) IBOutlet NSWindow *addOpacityWindow;
+@property (nonatomic, retain) IBOutlet NSTextField *OpacityName;
+@property (nonatomic, retain) IBOutlet OpacityTransferView *OpacityView;
 
-	IBOutlet NSWindow				*addOpacityWindow;
-	IBOutlet NSTextField			*OpacityName;
-	IBOutlet OpacityTransferView	*OpacityView;
-	IBOutlet NSPopUpButton			*OpacityPopup;
-    NSString						*curOpacityMenu;
-	
-	BOOL							FullScreenOn;
-	
-	NSWindow						*FullScreenWindow;
-	NSWindow						*StartingWindow;
-	NSView							*contentView;
-	
-	BOOL							windowWillClose;
-
-}
+/// The name of the current window level preset, the current colour table and
+/// the current opacity table, as the menus show them. The subclasses store
+/// them through these accessors, which no subclass overrides.
+@property (nonatomic, copy) NSString *horos_curWLWWMenu;
+@property (nonatomic, copy) NSString *horos_curCLUTMenu;
+@property (nonatomic, copy) NSString *horos_curOpacityMenu;
+/// Whether the content is in the class's own full screen window, and that window.
+@property (nonatomic, readonly) BOOL horos_FullScreenOn;
+@property (nonatomic, readonly) NSWindow *horos_FullScreenWindow;
+/// Set by the subclasses' -windowWillClose:; -windowWillClose answers it.
+@property (nonatomic) BOOL horos_windowWillClose;
 
 - (BOOL) windowWillClose;
 - (void) sendMailImage: (NSImage*) im;
@@ -97,6 +101,37 @@
 - (id) view;
 - (ViewerController*) viewer;
 
+- (long) movieFrames;
+- (void) setMovieFrame: (long) l;
+
+- (void) print:(id) sender;
+- (BOOL)is4D;
+
+/// The viewer's own list, the very object it keeps: -[AppController FindViewer::]
+/// and -FindRelatedViewers: compare it by identity. A mutable array, as
+/// OSIWindowController declares it, so that a Swift override returns the object
+/// itself rather than a bridged copy.
+- (NSMutableArray*) pixList;
+- (NSArray*) fileList;
+
+- (void) load3DState;
+
+- (NSArray*) roiVolumes;
+- (void) hideROIVolume: (id) v;
+- (void) displayROIVolume: (id) v;
+
+@end
+
+/// The class's own full screen: the content view moved into a borderless window
+/// that covers the main screen, and back.
+@interface Window3DController (FullScreen)
+- (void) offFullScreen;
+- (IBAction) fullScreenMenu: (id) sender;
+@end
+
+/// The window level presets: the sheet that sets the level and width by hand
+/// and the one that names a new preset (WLWW3 preference).
+@interface Window3DController (WindowLevelPresets)
 - (void) setWLWW: (float) wl : (float) ww;
 - (void) getWLWW: (float*) wl : (float*) ww;
 - (IBAction) endSetWLWW: (id) sender;
@@ -105,7 +140,11 @@
 - (IBAction) updateSetWLWW: (id) sender;
 - (void) deleteWLWW: (NSWindow *) sheet returnCode: (int) returnCode contextInfo: (void*) contextInfo;
 - (NSPopUpButton*) wlwwPopup;
+@end
 
+/// The colour tables (CLUT preference) and the opacity tables (OPACITY
+/// preference), their menus and their editors.
+@interface Window3DController (ColorTablePresets)
 - (IBAction) AddCLUT: (id) sender;
 - (IBAction) clutAction: (id) sender;
 - (IBAction) endCLUT: (id) sender;
@@ -119,25 +158,10 @@
 - (IBAction) endOpacity: (id) sender;
 - (void) deleteOpacity: (NSWindow*) sheet returnCode: (int) returnCode contextInfo: (void*) contextInfo;
 - (NSPopUpButton*) OpacityPopup;
-
-- (void) offFullScreen;
-- (IBAction) fullScreenMenu: (id) sender;
-- (long) movieFrames;
-- (void) setMovieFrame: (long) l;
-
-- (void) print:(id) sender;
-- (BOOL)is4D;
-
-- (NSArray*) pixList;
-- (NSArray*) fileList;
-
 - (void) ApplyOpacityString: (NSString*) str;
-- (void) load3DState;
-
-- (NSArray*) roiVolumes;
-- (void) hideROIVolume: (ROIVolume*) v;
-- (void) displayROIVolume: (ROIVolume*) v;
 @end
+
+
 
 // VRController.h defines HOROS_WINDOW3D_DEFER_SWIFT_IMPORTS around its import of
 // this header: a Swift class subclasses VRController too, and these

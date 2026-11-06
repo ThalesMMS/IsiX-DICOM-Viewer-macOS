@@ -38,6 +38,8 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXKeychain
+import IsiXStorage
 import PreferencePanes
 import SecurityInterface
 
@@ -79,7 +81,7 @@ public final class SecondsToMinutesTransformer: ValueTransformer {
 
 /// The Web Server preference pane.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors,
+/// Implemented in Swift: the Objective-C name, the selectors,
 /// the xib outlets and bindings and
 /// <Horos/OSIWebSharingPreferencePanePref.h> are those of the former class.
 // Main actor: a preferences pane, which the preferences window creates, shows
@@ -103,6 +105,9 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
     @IBOutlet var mainWindow: NSWindow?
 
     @IBOutlet var usersTable: NSTableView?
+
+    /// Its title, in every language, names the direct build's folder.
+    @IBOutlet var customWebPagesCheckbox: NSButton?
 
     private var _tlos: NSArray?
 
@@ -159,6 +164,15 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
         (portTextField?.cell as? NSTextFieldCell)?.placeholderString = NSNumber(value: UserDefaults.webPortalPortNumber()).stringValue
 
         usersTable?.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true, selector: #selector(NSString.localizedCaseInsensitiveCompare(_:)))]
+
+        nameTheCustomWebPagesFolderOfThisBuild()
+    }
+
+    private func nameTheCustomWebPagesFolderOfThisBuild() {
+        guard let checkbox = customWebPagesCheckbox, StorageLocations.Channel.running != .direct else { return }
+        checkbox.title = checkbox.title.replacingOccurrences(of: StorageLocations.customWebPagesFolderLabel(for: .direct),
+                                                             with: StorageLocations.customWebPagesFolderLabel(for: .running))
+        checkbox.toolTip = StorageLocations.customWebPagesPath(for: .running)
     }
 
     @objc(UniqueLabelForSelectedServer)
@@ -169,8 +183,8 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
     @objc(getTLSCertificate)
     func getTLSCertificate() {
         let label = self.UniqueLabelForSelectedServer()
-        var name = DDKeychain.certificateName(forLabel: label)
-        let icon = DDKeychain.certificateIcon(forLabel: label)
+        var name = KeychainCertificatePresentation.certificateName(forLabel: label)
+        let icon = KeychainCertificatePresentation.certificateIcon(forLabel: label)
 
         if name == nil {
             name = NSLocalizedString("No certificate selected.", comment: "No certificate selected.")
@@ -187,7 +201,7 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
 
     @objc(chooseTLSCertificate:)
     @IBAction public func chooseTLSCertificate(_ sender: Any?) {
-        let certificates = (DDKeychain.keychainAccessCertificatesList() ?? []) as [Any]
+        let certificates = (KeychainIdentities.serverIdentities() ?? []) as [Any]
 
         if certificates.count > 0 {
             SFChooseIdentityPanel.shared().setAlternateButtonTitle(NSLocalizedString("Cancel", comment: "Cancel"))
@@ -195,7 +209,7 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
 
             if clickedButton == NSApplication.ModalResponse.OK.rawValue {
                 if let identity = SFChooseIdentityPanel.shared().identity() {
-                    DDKeychain.keychainAccessSetPreferredIdentity(identity.takeUnretainedValue(), forName: self.UniqueLabelForSelectedServer(), keyUse: Int32(bitPattern: UInt32(CSSM_KEYUSE_ANY)))
+                    KeychainIdentities.setPreferredIdentity(identity.takeUnretainedValue(), forName: self.UniqueLabelForSelectedServer())
                     self.getTLSCertificate()
                 }
             } else if clickedButton == NSApplication.ModalResponse.cancel.rawValue {
@@ -221,7 +235,7 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
     @objc(viewTLSCertificate:)
     @IBAction public func viewTLSCertificate(_ sender: Any?) {
         let label = self.UniqueLabelForSelectedServer()
-        DDKeychain.openCertificatePanel(forLabel: label)
+        KeychainCertificatePresentation.openCertificatePanel(forLabel: label)
     }
 
     /// Bound by the xib (the users' array controller).
@@ -340,11 +354,7 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
     @objc(copyMissingCustomizedFiles:)
     @IBAction public func copyMissingCustomizedFiles(_ sender: Any?) {
         let source = ((Bundle.main.resourcePath ?? "") as NSString).appendingPathComponent("WebServicesHTML")
-        #if MACAPPSTORE
-        FileManager.default.copyItem(atPath: source, toPath: ("~/Library/Application Support/Horos App/WebServicesHTML" as NSString).expandingTildeInPath, byReplacingExisting: false, error: nil)
-        #else
-        FileManager.default.copyItem(atPath: source, toPath: ("~/Library/Application Support/Horos/WebServicesHTML" as NSString).expandingTildeInPath, byReplacingExisting: false, error: nil)
-        #endif
+        FileManager.default.copyItem(atPath: source, toPath: StorageLocations.customWebPagesPath(for: .running), byReplacingExisting: false, error: nil)
     }
 
     @objc(editUsers:)

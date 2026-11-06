@@ -40,52 +40,27 @@
 import AppKit
 import UniformTypeIdentifiers
 import CoreData
+import IsiXContracts
+import IsiXPreferences
+import IsiXROI
 
-// The first half of the "ROI" block of ViewerController (from +defaultROINames
-// to -roiDeleteGeneratedROIs:) is implemented in Swift: a Swift
-// extension of ViewerController, which stays Objective-C, with the same
-// selectors. The instance variables it used are read through
-// ViewerController (SwiftIvars); the static function that reads a volume
-// length archive through ViewerController (SwiftStatics).
+// The ROI storage and creation of the 2D viewer. ViewerController keeps the
+// selectors plugins, menus and the other viewer files send, as façades; the
+// work is done here by types of their own that receive the viewer as an
+// argument and never keep it:
 //
-// DefaultROINames was a file-scope static of ViewerController.m that only
-// these methods used: it is the fileprivate variable below, which holds the
-// array as the static retained it. -newROI: returns an object without being
-// an owner (a "new" method): it stays in ViewerController.m.
+// - ViewerROIArchives reads and writes the ROIs of the images through the
+//   ROIStoring port (IsiXContracts), whose app adapter is ViewerROIArchiveStore;
+// - ViewerROICreation makes brushes from a mask and layers from a ROI with
+//   ROIFromMask (IsiXROI);
+// - ViewerROIEdits deletes, renames and selects ROIs by name, and erases or
+//   restores the content of a ROI volume;
+// - ViewerROINames holds the default names and builds the names a viewer
+//   offers with ROINameCatalog (IsiXPreferences);
+// - ViewerROIFiles imports and exports ROI files through the open and save panels.
 //
-// A message to nil answered nil, 0 or NO: the optional chains below answer the
-// same. An @try is HorosObjCException.perform (objcTry). The ROI archives are
-// read and written by the same calls as before (SRAnnotation, the restricted
-// unarchiver, NSArchiver), in the same order. Where the Objective-C sent a ROI
-// message to an element of an array that could hold something else (an
-// archive may hold strings or numbers), the Swift raises the same
-// unrecognized-selector exception for an element that is no ROI. A float
-// turned into an int follows the arm64 conversion (NaN is 0, out of range
-// saturates) instead of trapping, and int arithmetic keeps the C widths.
-
-/// Runs `body` as an @try block: the NSException it raises is returned.
-@inline(__always)
-fileprivate func objcTry(_ body: () -> Void) -> NSException? {
-    do {
-        try HorosObjCException.perform(body)
-    } catch {
-        return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    return nil
-}
-
-/// A `%@` argument: the object, or "(null)" as Objective-C printed nil.
-fileprivate func objcFormatArgument(_ object: Any?) -> CVarArg {
-    if let object = object as? NSObject { return object }
-    if let object { return String(describing: object) as NSString }
-    return "(null)" as NSString
-}
-
-/// `[a isEqualToString: b]`, NO when either is nil.
-fileprivate func objcIsEqualToString(_ a: String?, _ b: String?) -> Bool {
-    guard let a, let b else { return false }
-    return (a as NSString).isEqual(to: b)
-}
+// The ROI lists of the viewer are its own mutable arrays (ViewerROISlices),
+// which plugins hold and change and the ROI code compares by identity.
 
 /// `[controller windowWillClose]`, for the window controllers that answer it
 /// (OSIWindowController and its subclasses, and the auxiliary windows of the
@@ -97,112 +72,6 @@ func horosWindowControllerIsClosing(_ controller: NSWindowController?) -> Bool {
     guard let controller, controller.responds(to: selector) else { return false }
     typealias Imp = @convention(c) (AnyObject, Selector) -> ObjCBool
     return unsafeBitCast(controller.method(for: selector), to: Imp.self)(controller, selector).boolValue
-}
-
-/// `[array addObject:object]`: nothing for a nil array, and the exception
-/// Foundation raised for a nil object.
-fileprivate func objcAdd(_ array: NSMutableArray?, _ object: Any?) {
-    guard let array else { return }
-    guard let object else {
-        NSException(name: .invalidArgumentException, reason: "*** -[__NSArrayM insertObject:atIndex:]: object cannot be nil", userInfo: nil).raise()
-        return
-    }
-    array.add(object)
-}
-
-/// `dictionary[key] = object`: nothing for a nil dictionary, the exception
-/// Foundation raised for a nil key, and a removal for a nil object.
-fileprivate func objcSetKeyed(_ dictionary: NSMutableDictionary?, _ key: Any?, _ object: Any?) {
-    guard let dictionary else { return }
-    guard let key = key as? NSCopying else {
-        NSException(name: .invalidArgumentException, reason: "*** -[__NSDictionaryM setObject:forKeyedSubscript:]: key cannot be nil", userInfo: nil).raise()
-        return
-    }
-    if let object {
-        dictionary.setObject(object, forKey: key)
-    } else {
-        dictionary.removeObject(forKey: key)
-    }
-}
-
-/// An element of a `ROI *` loop, about to be sent `selectorName`: nil for nil,
-/// the ROI, or - for an object that is no ROI - the unrecognized-selector
-/// exception the message raised.
-fileprivate func objcROI(_ object: Any?, _ selectorName: String) -> ROI? {
-    guard let object else { return nil }
-    if let roi = object as? ROI { return roi }
-    (object as? NSObject)?.doesNotRecognizeSelector(NSSelectorFromString(selectorName))
-    return nil
-}
-
-/// `[object isKindOfClass: aClass]`, NO for nil.
-fileprivate func objcIsKind(_ object: Any?, _ aClass: AnyClass) -> Bool {
-    return (object as? NSObject)?.isKind(of: aClass) ?? false
-}
-
-/// `[object integerValue]` of an NSNumber or an NSString, 0 for nil; another
-/// object raises, as the message did.
-fileprivate func objcIntegerValue(_ object: Any?) -> Int {
-    guard let object else { return 0 }
-    if let number = object as? NSNumber { return number.intValue }
-    if let string = object as? NSString { return string.integerValue }
-    (object as? NSObject)?.doesNotRecognizeSelector(NSSelectorFromString("integerValue"))
-    return 0
-}
-
-/// `[sender tag]` of an `id` sender: 0 for nil, and a sender that does not
-/// implement it raises (through the forwarding machinery), as before.
-fileprivate func objcTag(_ sender: Any?) -> Int {
-    guard let sender else { return 0 }
-    let target = sender as AnyObject
-    let selector = NSSelectorFromString("tag")
-    guard let targetClass: AnyClass = object_getClass(target),
-          let implementation = class_getMethodImplementation(targetClass, selector) else { return 0 }
-    typealias Send = @convention(c) (AnyObject, Selector) -> Int
-    return unsafeBitCast(implementation, to: Send.self)(target, selector)
-}
-
-/// `[data isEqualToData: other]`: NO for a nil receiver; the method itself
-/// answers for a nil argument.
-fileprivate func objcIsEqualToData(_ data: NSData?, _ other: NSData?) -> Bool {
-    guard let data else { return false }
-    let selector = NSSelectorFromString("isEqualToData:")
-    guard let dataClass: AnyClass = object_getClass(data),
-          let implementation = class_getMethodImplementation(dataClass, selector) else { return false }
-    typealias Send = @convention(c) (AnyObject, Selector, AnyObject?) -> Bool
-    return unsafeBitCast(implementation, to: Send.self)(data, selector, other)
-}
-
-/// A float converted to an int as arm64 converts it: NaN is 0, and a value out
-/// of range saturates, where Swift would trap.
-fileprivate func objcInt32(_ value: Float) -> Int32 {
-    if value.isNaN { return 0 }
-    if value >= Float(Int32.max) { return Int32.max }
-    if value <= Float(Int32.min) { return Int32.min }
-    return Int32(value)
-}
-
-/// The bounds (minX, minY, maxX, maxY) of the `count` points of `locations`
-/// (x and y interleaved) whose coordinates are both finite; nil when none is.
-fileprivate func roiLayerBounds(_ locations: UnsafePointer<Float>, _ count: Int) -> (Float, Float, Float, Float)? {
-    var bounds: (Float, Float, Float, Float)? = nil
-    var i = 0
-    while i < count {
-        let x = locations[2 * i], y = locations[2 * i + 1]
-        i += 1
-        if !x.isFinite || !y.isFinite { continue }
-        if let b = bounds {
-            bounds = (min(b.0, x), min(b.1, y), max(b.2, x), max(b.3, y))
-        } else {
-            bounds = (x, y, x, y)
-        }
-    }
-    return bounds
-}
-
-/// `[[NSNotificationCenter defaultCenter] postNotificationName: name object: object userInfo: nil]`.
-fileprivate func objcPost(_ name: NSNotification.Name, _ object: Any?) {
-    NotificationCenter.default.post(name: name, object: object, userInfo: nil)
 }
 
 /// The paths of `urls` by importer, in the order they were chosen: JSON
@@ -222,178 +91,641 @@ fileprivate func roiImportGroups(_ urls: [URL]) -> (json: [String], xml: [String
     return groups
 }
 
-//class setter and getter
-// of ViewerController class field   static NSArray*	DefaultROINames;
-// used in self generateROINameArray hereafter and in PluginManager.m
-@MainActor fileprivate var DefaultROINames: NSArray? = nil
+// MARK: - Storage
+
+/// The ROIs of one time point and what saving them needs, copied from the
+/// viewer when the save is asked: its images, slices, ROIs and the archives
+/// they were loaded from, and the store of their archives.
+@MainActor final class ViewerROISaveSnapshot {
+    /// The image of each slice; nil where the file list holds something else.
+    let fileList: [DicomImage?]
+    let pixList: [DCMPix?]
+    /// The ROIs of each slice, as they were.
+    let roiList: [[ROI]]
+    /// The archive each slice's ROIs were loaded from, empty for none.
+    let copyRoiList: [Data]
+    let store: ViewerROIArchiveStore
+
+    init(fileList: [DicomImage?], pixList: [DCMPix?], roiList: [[ROI]], copyRoiList: [Data], store: ViewerROIArchiveStore) {
+        self.fileList = fileList
+        self.pixList = pixList
+        self.roiList = roiList
+        self.copyRoiList = copyRoiList
+        self.store = store
+    }
+
+    /// The database the ROIs are saved in.
+    var database: DicomDatabase { store.database }
+}
+
+/// The ROIs of the viewer's images, read when a time point is loaded and
+/// written when it is saved, through the `ROIStoring` port of the viewer's
+/// process graph: an image's ROIs are one archive, its report, filed by SOP
+/// Instance UID and frame. The ROIs of an image shown on every image of the
+/// series (an alias) are stored with their own image only, and put back on
+/// the other images of the same series when loaded. The volume lengths are
+/// stored with the image they were drawn from (their anchor).
+@MainActor enum ViewerROIArchives {
+
+    /// The images of the time point `movieIndex`, by slice, and their database.
+    private static func images(of viewer: ViewerController, movieIndex: Int) -> (images: [DicomImage?], database: DicomDatabase)? {
+        guard let files = viewer.horos_fileList(at: movieIndex), let last = files.lastObject as? NSManagedObject,
+              let database = DicomDatabase(for: last.managedObjectContext) else { return nil }
+        return (files.map { $0 as? DicomImage }, database)
+    }
+
+    /// The store of the archives of `images` and of the volume lengths' anchors of `movieIndex`.
+    private static func store(of viewer: ViewerController, movieIndex: Int, images: [DicomImage?],
+                              database: DicomDatabase) -> ViewerROIArchiveStore {
+        let anchors = viewer.volumeLengthState(forMovieIndex: movieIndex, create: false).map(volumeLengthAnchors) ?? []
+        return viewer.sessionGraph.processGraph.roiArchives(of: images.compactMap { $0 } + anchors, in: database)
+    }
+
+    /// The images the volume lengths of a time point were drawn from: its anchor and the anchor of each length.
+    private static func volumeLengthAnchors(_ state: Any) -> [DicomImage] {
+        guard let state = state as? [AnyHashable: Any] else { return [] }
+        let anchors = (state["anchors"] as? [AnyHashable: Any])?.values.compactMap { $0 as? DicomImage } ?? []
+        return anchors + [state["anchor"] as? DicomImage].compactMap { $0 }
+    }
+
+    /// The ROIs in the archive stored for `reference`: none when it has no
+    /// archive, nil when the archive cannot be read.
+    private static func storedROIs(of reference: ROIImageReference, in store: some ROIStoring) -> [ROI]? {
+        guard let stored = store.storedArchive(of: reference) else { return [] }
+        return RestrictedUnarchiver.unarchiveROIs(with: stored.archive)?.compactMap { $0 as? ROI }
+    }
+
+    /// The time point a volume length belongs to, 0 when it names none.
+    private static func temporalIndex(of length: HorosVolumeLengthROI) -> Int {
+        switch length.volumeLength?["temporalIndex"] {
+        case let number as NSNumber: return number.intValue
+        case let text as NSString: return text.integerValue
+        default: return 0
+        }
+    }
+
+    /// Reads the ROIs of the time point `movieIndex` into its slices, when the
+    /// ROIs are saved: those of each image that is no reslice, then the
+    /// volume lengths, read from their anchor in a reslice.
+    static func load(_ viewer: ViewerController, movieIndex: Int) {
+        guard viewer.sessionGraph.preferences[ROINameCatalog.savesROIs],
+              let (images, database) = images(of: viewer, movieIndex: movieIndex) else { return }
+        N2ManagedObjectContextPerformAndWait(database.managedObjectContext) {
+            let store = store(of: viewer, movieIndex: movieIndex, images: images, database: database)
+            let pixList = (viewer.horos_pixList(at: movieIndex) as? [Any] ?? []).map { $0 as? DCMPix }
+            let copies = viewer.horos_copyRoiList(at: movieIndex)
+            guard let slices = ViewerROISlices(viewer, movie: movieIndex) else { return }
+            for (i, image) in images.enumerated() where !isReslice(pixList, i) {
+                let reference = image.map(ViewerROIArchiveStore.reference(of:))
+                let stored = reference.flatMap(store.storedArchive(of:))
+                if i < (copies?.count ?? 0) {
+                    copies?.replaceObject(at: i, with: (stored?.savedArchive ?? Data()) as NSData)
+                }
+                guard let stored else { continue }
+                guard let archived = RestrictedUnarchiver.unarchiveROIs(with: stored.archive) else {
+                    NSLog("failed to read a ROI")
+                    continue
+                }
+                // An archive may hold something else than ROIs (the restricted
+                // unarchiver accepts strings and numbers): it is left out.
+                let rois = archived.compactMap { $0 as? ROI }.filter { roi in
+                    (roi as? HorosVolumeLengthROI).map { temporalIndex(of: $0) == movieIndex } ?? true
+                }
+                slices.list(at: i)?.addObjects(from: rois)
+                for roi in rois {
+                    if let length = roi as? HorosVolumeLengthROI {
+                        viewer.register(length, movieIndex: movieIndex, anchor: image)
+                    }
+                    if roi.isAliased {
+                        roi.originalIndexForAlias = Int32(i)
+                        // Put back on the other images of the same series.
+                        for x in pixList.indices where x != i && (x < images.count ? images[x]?.series : nil) === image?.series {
+                            slices.list(at: x)?.add(roi)
+                        }
+                    }
+                }
+                for roi in rois {
+                    viewer.horos_imageView?.roiSet(roi)
+                }
+            }
+            for length in viewer.volumeLengthROIs(forMovieIndex: movieIndex) ?? [] {
+                viewer.attach(length, movieIndex: movieIndex)
+            }
+            guard isReslice(pixList, 0) else { return }
+            // A reslice has no ROIs of its own: its volume lengths are read
+            // from the image they were drawn from.
+            guard let anchor = viewer.volumeLengthState(forMovieIndex: movieIndex, create: true)?["anchor"] as? DicomImage else { return }
+            guard let stored = storedROIs(of: ViewerROIArchiveStore.reference(of: anchor), in: store) else {
+                NSLog("*** load ROI exception: %@", "The existing ROI archive could not be read.")
+                return
+            }
+            for case let length as HorosVolumeLengthROI in stored where temporalIndex(of: length) == movieIndex {
+                viewer.register(length, movieIndex: movieIndex, anchor: anchor)
+                viewer.attach(length, movieIndex: movieIndex)
+            }
+        }
+    }
+
+    /// Whether slice `i` is a reslice, which has no ROIs of its own to store.
+    private static func isReslice(_ pixList: [DCMPix?], _ i: Int) -> Bool {
+        i < pixList.count && (pixList[i]?.generated ?? false)
+    }
+
+    /// Writes the ROIs of the time point `movieIndex` that changed, when the
+    /// ROIs are saved. `later`: the viewer keeps going with other slices (a
+    /// plane change, another series), so the ROIs are written a few images at
+    /// a time on the main thread, from a copy of the lists, instead of all at
+    /// once: thousands of brushes took more than a second. A series with
+    /// volume lengths, whose anchors are the viewer's state, is saved at once.
+    static func save(_ viewer: ViewerController, movieIndex: Int, later: Bool) {
+        guard viewer.sessionGraph.preferences[ROINameCatalog.savesROIs],
+              let (images, database) = images(of: viewer, movieIndex: movieIndex) else { return }
+        let state = viewer.volumeLengthState(forMovieIndex: movieIndex, create: false) as? [AnyHashable: Any]
+        let volumeLengths = (state?["anchors"] as? [AnyHashable: Any])?.isEmpty == false
+        N2ManagedObjectContextPerformAndWait(database.managedObjectContext) {
+            let pixList = (viewer.horos_pixList(at: movieIndex) as? [Any] ?? []).map { $0 as? DCMPix }
+            let copies = (viewer.horos_copyRoiList(at: movieIndex) as? [Any] ?? []).map { $0 as? Data ?? Data() }
+            let snapshot = ViewerROISaveSnapshot(fileList: images, pixList: pixList,
+                                                 roiList: ViewerROISlices(viewer, movie: movieIndex)?.all ?? [],
+                                                 copyRoiList: copies,
+                                                 store: store(of: viewer, movieIndex: movieIndex, images: images, database: database))
+            if later && !volumeLengths {
+                ROISaveJob(snapshot: snapshot).start()
+                return
+            }
+            var written: [String] = []
+            var anchorPaths: [AnyHashable: Any] = [:]
+            for i in images.indices {
+                guard let path = archiveROIs(of: i, in: snapshot, volumeLengths: volumeLengths) else { continue }
+                written.append(path)
+                if let key = images[i]?.objectID as AnyHashable? { anchorPaths[key] = path }
+            }
+            if volumeLengths && !anchorsAreReadable(state, written: anchorPaths, in: snapshot.store) {
+                NSLog("-[ViewerController saveROI:]: %@", "The existing ROI archive could not be read.")
+                return
+            }
+            // The volume lengths add the files they write to the list.
+            let paths = NSMutableArray(array: written)
+            viewer.saveVolumeLengthROIs(movieIndex, writtenPaths: paths, anchorPaths: anchorPaths)
+            snapshot.store.index(paths.compactMap { $0 as? String })
+        }
+    }
+
+    /// Whether the archive of every anchor not written by this save can be
+    /// read: one that cannot is never replaced by the volume lengths alone.
+    private static func anchorsAreReadable(_ state: [AnyHashable: Any]?, written: [AnyHashable: Any],
+                                           in store: ViewerROIArchiveStore) -> Bool {
+        let anchors = (state?["anchors"] as? [AnyHashable: Any])?.values.compactMap { $0 as? DicomImage } ?? []
+        return anchors.allSatisfy { anchor in
+            (anchor.objectID as AnyHashable?).flatMap { written[$0] } != nil || storedROIs(of: ViewerROIArchiveStore.reference(of: anchor), in: store) != nil
+        }
+    }
+
+    /// Writes the ROIs of slice `i` of the snapshot as the report of its
+    /// image, when they changed since they were loaded; returns the file
+    /// written, or nil. The ROIs shown on every image are stored with their
+    /// own image only, and the volume lengths with their anchor; with
+    /// `volumeLengths`, those already stored stay.
+    static func archiveROIs(of i: Int, in snapshot: ViewerROISaveSnapshot, volumeLengths: Bool) -> String? {
+        guard i < snapshot.pixList.count, snapshot.pixList[i]?.generated != true,
+              i < snapshot.fileList.count, let image = snapshot.fileList[i] else { return nil }
+        let store = snapshot.store
+        let reference = ViewerROIArchiveStore.reference(of: image)
+        return autoreleasepool { () -> String? in
+            guard let destination = store.destination(of: reference) else { return nil }
+            var rois = (i < snapshot.roiList.count ? snapshot.roiList[i] : []).filter { roi in
+                if roi is HorosVolumeLengthROI { return false }
+                roi.pix = snapshot.pixList[i]
+                return !(roi.isAliased && Int32(i) != roi.originalIndexForAlias)
+            }
+            if volumeLengths && !destination.replacesFormerFile {
+                guard let stored = storedROIs(of: reference, in: store) else {
+                    NSLog("saveROI failed: %@", "The existing ROI archive could not be read.")
+                    return nil
+                }
+                rois += stored.filter { $0 is HorosVolumeLengthROI }
+            }
+            let loaded = i < snapshot.copyRoiList.count ? snapshot.copyRoiList[i] : Data()
+            guard destination.needsWriting(roiCount: rois.count, unchanged: {
+                identical(RestrictedUnarchiver.unarchiveROIs(with: loaded).map { Array($0) } ?? [], rois)
+            }) else { return nil }
+            do {
+                // The reports carry the typedstream of the array, as released versions read it.
+                let archive = try HistoricalArchive.archivedData(withRootObject: NSArray(array: rois))
+                return store.write(archive, to: destination, of: reference) ? destination.path : nil
+            } catch {
+                NSLog("saveROI failed: %@", "\(error)")
+                return nil
+            }
+        }
+    }
+
+    /// Whether two lists of ROIs are the same, ROI by ROI, in their persisted
+    /// form: ROI.data, the archive every encoded field is part of.
+    nonisolated static func identical(_ saved: [Any], _ current: [Any]) -> Bool {
+        guard saved.count == current.count else { return false }
+        return zip(saved, current).allSatisfy { saved, current in
+            guard let data = (current as? ROI)?.data else { return false }
+            return data == (saved as? ROI)?.data
+        }
+    }
+}
+
+// MARK: - Creation
+
+/// The ROIs the viewer makes from a buffer: brushes from a mask of labels,
+/// one per label and per image, and layer ROIs, an image over the current
+/// one. The arithmetic is ROIFromMask's; each new ROI goes into the slice's
+/// list and is announced, as a ROI drawn by hand.
+@MainActor enum ViewerROICreation {
+
+    /// The current image of the viewer and its slices.
+    private static func currentImage(of viewer: ViewerController) -> (pix: DCMPix?, index: Int, depth: Int) {
+        let index = Int(viewer.horos_imageView?.curImage ?? 0)
+        let slices = viewer.pixList() as? [Any] ?? []
+        return (index < slices.count ? slices[index] as? DCMPix : nil, index, slices.count)
+    }
+
+    /// The labels of `mask`: the current image's, or, for `fullStack`, those of
+    /// every image of the series, one after the other.
+    static func labels(of viewer: ViewerController, in mask: UnsafeMutablePointer<UInt8>?, fullStack: Bool) -> [UInt8] {
+        let (pix, _, depth) = currentImage(of: viewer)
+        guard let mask, let pix else { return [] }
+        let count = pix.pwidth * pix.pheight * (fullStack ? depth : 1)
+        return ROIFromMask.labels(in: UnsafeBufferPointer(start: mask, count: count))
+    }
+
+    /// The colour of the `index`-th label, as a ROI keeps it.
+    static func colour(ofRegion index: Int) -> RGBColor {
+        let colour = ROIFromMask.colour(ofRegion: index)
+        return RGBColor(red: colour.red, green: colour.green, blue: colour.blue)
+    }
+
+    /// Adds a brush of the pixels of `label` in `mask` to the current image,
+    /// or, for `fullStack`, to each image of the series that has some.
+    static func addBrushes(to viewer: ViewerController, from mask: UnsafeMutablePointer<UInt8>?, label: UInt8,
+                           colour: RGBColor, name: String?, fullStack: Bool) {
+        let (pix, current, depth) = currentImage(of: viewer)
+        guard let mask, let slices = ViewerROISlices(viewer, movie: Int(viewer.horos_curMovieIndex)) else { return }
+        let width = pix?.pwidth ?? 0, height = pix?.pheight ?? 0
+        for k in fullStack ? 0..<depth : 0..<1 {
+            let slice = UnsafeBufferPointer(start: mask + k * width * height, count: width * height)
+            guard let region = ROIFromMask.region(of: label, in: slice, width: width, height: height) else { continue }
+            var texture = region.texture
+            let roi = texture.withUnsafeMutableBufferPointer { texture in
+                ROI(texture: texture.baseAddress, textWidth: region.width, textHeight: region.height,
+                    textName: ROIFromMask.name(name, label: label), positionX: region.x, positionY: region.y,
+                    spacingX: Float(pix?.pixelSpacingX ?? 0), spacingY: Float(pix?.pixelSpacingY ?? 0),
+                    imageOrigin: NSPoint(x: CGFloat(pix?.originX ?? 0), y: CGFloat(pix?.originY ?? 0)))
+            }
+            guard let roi else { continue }
+            roi.rgbcolor = colour
+            slices.list(at: fullStack ? k : current)?.add(roi)
+            ViewerROIEdits.post(.OsirixROIChange, roi)
+        }
+    }
+
+    /// A layer ROI of `image` on the current image, selected.
+    static func addLayer(to viewer: ViewerController, image: NSImage?, referenceFilePath path: String?,
+                         layerPixelSpacingX: Float, layerPixelSpacingY: Float) -> ROI? {
+        let pix = currentImage(of: viewer).pix
+        guard let roi = ROI(type: .tLayerROI, Float(pix?.pixelSpacingX ?? 0), Float(pix?.pixelSpacingY ?? 0),
+                            DCMPix.originCorrected(accordingToOrientation: pix)) else { return nil }
+        roi.layerPixelSpacingX = layerPixelSpacingX
+        roi.layerPixelSpacingY = layerPixelSpacingY
+        roi.layerReferenceFilePath = path
+        roi.layerImage = image
+        ViewerROISlices(viewer, movie: Int(viewer.horos_curMovieIndex))?.list(at: currentImage(of: viewer).index)?.add(roi)
+        ViewerROIEdits.post(.OsirixROIChange, roi)
+        viewer.select(roi, deselectingOther: true)
+        return roi
+    }
+
+    /// A layer ROI of the values inside `roi`, drawn through the window of
+    /// the image, beside the ROI and selected; nil for a ROI without an area
+    /// (a text, a length, an arrow, a point) or without values.
+    static func layer(from roi: ROI?, in viewer: ViewerController) -> ROI? {
+        guard let roi, ![ToolMode.tText, .tMesure, .tArrow, .t2DPoint].contains(roi.type) else { return nil }
+        var count = 0
+        var locations: UnsafeMutablePointer<Float>? = nil
+        let values = roi.curView?.curDCM?.getROIValue(&count, roi, &locations)
+        defer {
+            free(values)
+            free(locations)
+        }
+        // A spline of two points or fewer has no value at all.
+        guard let values, let locations, count > 0,
+              let layer = ROIFromMask.Layer(locations: locations, count: count) else { return nil }
+        NSLog("imageWidth : %d, imageHeight: %d", layer.width, layer.height)
+        // A picture that cannot be made (a size out of range) has no layer.
+        guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(layer.width), pixelsHigh: Int(layer.height),
+                                            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                            colorSpaceName: .calibratedRGB, bytesPerRow: Int(layer.width &* 4), bitsPerPixel: 32),
+              let pixels = bitmap.bitmapData else { return nil }
+        var windowLevel: Float = 0, windowWidth: Float = 0
+        viewer.horos_imageView?.getWLWW(&windowLevel, &windowWidth)
+        let pix = viewer.horos_imageView?.curDCM
+        layer.draw(values: values, locations: locations, count: count, windowLevel: windowLevel, windowWidth: windowWidth,
+                   isRGB: pix?.isRGB ?? false, into: pixels, bytesPerRow: Int32(truncatingIfNeeded: bitmap.bytesPerRow))
+        let image = NSImage()
+        image.addRepresentation(bitmap)
+        NSLog("image: %f, %f", image.size.width, image.size.height)
+        NSLog("pixelSpacing: %f, %f", pix?.pixelSpacingX ?? 0, pix?.pixelSpacingY ?? 0)
+        guard let newROI = viewer.addLayerRoiToCurrentSlice(with: image, referenceFilePath: "none",
+                                                            layerPixelSpacingX: Float(pix?.pixelSpacingX ?? 0),
+                                                            layerPixelSpacingY: Float(pix?.pixelSpacingY ?? 0)) else { return nil }
+        newROI.name = "\(roi.name ?? "(null)") \(NSLocalizedString("Layer", comment: ""))"
+        newROI.isLayerOpacityConstant = false
+        newROI.canColorizeLayer = true
+        // Beside the ROI: its lower right corner 10 pixels right of and above
+        // that of the values.
+        let corner = newROI.lowerRightPoint()
+        let dx = Float(CGFloat(layer.maxX) - corner.x + 10), dy = Float(CGFloat(layer.maxY) - corner.y - 10)
+        for case let point as MyPoint in newROI.points as? [Any] ?? [] {
+            point.move(dx, dy)
+        }
+        viewer.select(newROI, deselectingOther: true)
+        return newROI
+    }
+}
+
+// MARK: - Edits by name
+
+/// What the viewer does to its ROIs by name: delete and rename them in every
+/// image of the current time point, delete the ROIs a morphing generated,
+/// select them all, and erase or restore the pixels of a ROI volume.
+@MainActor enum ViewerROIEdits {
+
+    /// Announces a change of `roi` to the views, windows and plugins.
+    static func post(_ name: NSNotification.Name, _ roi: Any?) {
+        NotificationCenter.default.post(name: name, object: roi, userInfo: nil)
+    }
+
+    /// Removes from every image of the current time point the ROIs `matching`
+    /// asks for, each announced first; returns how many.
+    @discardableResult
+    static func remove(from viewer: ViewerController, matching: (ROI) -> Bool) -> Int {
+        guard let slices = ViewerROISlices(viewer, movie: Int(viewer.horos_curMovieIndex)) else { return 0 }
+        var removed = 0
+        for index in 0..<slices.count {
+            guard let list = slices.list(at: index) else { continue }
+            var i = 0
+            while i < list.count {
+                guard let roi = list.object(at: i) as? ROI, matching(roi) else {
+                    i += 1
+                    continue
+                }
+                post(.OsirixRemoveROI, roi)
+                list.remove(roi)
+                removed += 1
+            }
+        }
+        return removed
+    }
+
+    /// Renames the ROIs called `name` in every image of the current time point.
+    static func rename(_ name: String?, to newName: String?, in viewer: ViewerController) {
+        guard let slices = ViewerROISlices(viewer, movie: Int(viewer.horos_curMovieIndex)) else { return }
+        for index in 0..<slices.count {
+            for roi in slices.rois(at: index) where name != nil && roi.name == name {
+                roi.name = newName
+                post(.OsirixROIChange, roi)
+            }
+        }
+    }
+
+    /// Selects every ROI of the current time point, or none.
+    static func selectAll(_ select: Bool, in viewer: ViewerController) {
+        viewer.add(toUndoQueue: "roi")
+        guard let slices = ViewerROISlices(viewer, movie: Int(viewer.horos_curMovieIndex)) else { return }
+        for index in 0..<slices.count {
+            for roi in slices.rois(at: index) {
+                roi.roImode = select ? ROI_selected : ROI_sleep
+            }
+        }
+        viewer.horos_imageView?.needsDisplay = true
+    }
+
+    /// Deletes the unlocked ROIs called `name`, as one undo step.
+    static func deleteUnlocked(named name: String?, in viewer: ViewerController) {
+        viewer.add(toUndoQueue: "roi")
+        remove(from: viewer) { name != nil && $0.name == name && !$0.locked }
+        viewer.imageView()?.needsDisplay = true
+    }
+
+    /// Deletes the ROIs a morphing generated, those called `name` or all of
+    /// them, after saving every time point, as one undo step; returns how many.
+    static func deleteGenerated(named name: String?, in viewer: ViewerController) -> Int32 {
+        for movie in 0..<Int(viewer.horos_maxMovieIndex) {
+            viewer.saveROI(movie)
+        }
+        viewer.add(toUndoQueue: "roi")
+        viewer.horos_imageView?.stopROIEditingForce(true)
+        let removed = remove(from: viewer) { $0.comments == "morphing generated" && (name == nil || $0.name == name) }
+        viewer.horos_imageView?.setIndex(viewer.horos_imageView?.curImage ?? 0)
+        return Int32(removed)
+    }
+
+    // MARK: Volume content
+
+    /// Erase Content rewrites the pixel data of every image of the series that
+    /// contains a ROI with the selected name. Undo only tracks ROI objects, so
+    /// the user is warned once (with an opt-out) that the pixels can only be
+    /// brought back with ROI Volume > Restore Content.
+    static func confirmErase(named name: String?, in viewer: ViewerController) -> Bool {
+        let preferences = viewer.sessionGraph.preferences
+        if preferences[ROINameCatalog.skipsEraseContentWarning] {
+            return true
+        }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = String(format: NSLocalizedString("Erase the content of ROI \u{201c}%@\u{201d} in the whole series?", comment: ""),
+                                   (name ?? "(null)") as NSString)
+        alert.informativeText = NSLocalizedString("The pixels inside every ROI with this name will be replaced in memory, on all images of the series. Undo does not revert pixel data: use ROI Volume > Restore Content to reload the original pixels from disk.", comment: "")
+        alert.addButton(withTitle: NSLocalizedString("Erase", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = NSLocalizedString("Do not ask again", comment: "")
+        guard alert.runModal() == .alertFirstButtonReturn else { return false }
+        if alert.suppressionButton?.state == .on {
+            preferences.set(true, for: ROINameCatalog.skipsEraseContentWarning)
+        }
+        return true
+    }
+
+    /// Erases (`restore` false) or restores the content of the selected ROI's
+    /// volume in every image of the series, then measures every ROI again.
+    static func eraseOrRestoreVolume(restore: Bool, in viewer: ViewerController) {
+        for movie in 0..<Int(viewer.horos_maxMovieIndex) {
+            viewer.saveROI(movie)
+        }
+        _ = viewer.computeInterval()
+        guard let selected = viewer.selectedROI() else {
+            HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Volume Error", comment: ""), message: NSLocalizedString("Select a ROI.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            return
+        }
+        if !restore && viewer.confirmROIVolumeErase(forName: selected.name) == false {
+            return
+        }
+        var error: NSString? = nil
+        _ = viewer.computeVolume(selected, points: nil, generateMissingROIs: true, generatedROIs: nil, computeData: nil, error: &error)
+        if let error {
+            HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Volume Error", comment: ""), message: error as String, defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            return
+        }
+        let current = Int(viewer.horos_curMovieIndex)
+        if restore {
+            viewer.roiSetPixels(selected, 0, false, false, -Float.greatestFiniteMagnitude, Float.greatestFiniteMagnitude, 0, true)
+        } else {
+            let minimum = (viewer.horos_pixList(at: current)?.firstObject as? DCMPix)?.minValueOfSeries ?? 0
+            viewer.roiSetPixels(selected, 0, false, false, -Float.greatestFiniteMagnitude, Float.greatestFiniteMagnitude, minimum, false)
+        }
+        // The window level again, then every ROI measured again.
+        var level: Float = 0, width: Float = 0
+        viewer.horos_imageView?.getWLWW(&level, &width)
+        viewer.horos_imageView?.setWLWW(level, width)
+        for movie in 0..<Int(viewer.horos_maxMovieIndex) {
+            let slices = ViewerROISlices(viewer, movie: movie)
+            for (index, pix) in (viewer.horos_pixList(at: movie) as? [Any] ?? []).enumerated() {
+                for roi in slices?.rois(at: index) ?? [] { roi.recompute() }
+                (pix as? DCMPix)?.changeWLWW(level, width)
+            }
+        }
+        post(.OsirixUpdateVolumeData, viewer.horos_pixList(at: current))
+    }
+}
+
+// MARK: - Names
+
+/// The names of ROIs a viewer offers in its menus: the default names every
+/// viewer shares, which plugins may replace, then those of its own ROIs.
+@MainActor enum ViewerROINames {
+    /// The default names as they were given, the object plugins set and read
+    /// back (the plugin manager gives a mutable array, which plugins may change).
+    static var defaults: NSArray? = nil
+
+    /// The names `viewer` offers now, published in its state.
+    static func names(of viewer: ViewerController) -> [String] {
+        var found: [String?] = []
+        for movie in 0..<Int(viewer.horos_maxMovieIndex) {
+            guard let slices = ViewerROISlices(viewer, movie: movie) else { continue }
+            for index in 0..<min(slices.count, viewer.horos_pixList(at: movie)?.count ?? 0) {
+                found += slices.rois(at: index).map(\.name)
+            }
+        }
+        let names = ROINameCatalog.names(defaults: (defaults as? [Any] ?? []).compactMap { $0 as? String }, found: found)
+        viewer.horos_ROINamesArray = names
+        return names
+    }
+}
+
+// MARK: - Files
+
+/// The ROI files the viewer imports and exports through its panels.
+@MainActor enum ViewerROIFiles {
+
+    /// Asks for ROI files and imports them.
+    static func chooseAndLoad(into viewer: ViewerController) {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [UTType(filenameExtension: "roi")!, UTType(filenameExtension: "rois_series")!, UTType(filenameExtension: "xml")!, UTType(filenameExtension: "json")!]
+        panel.begin { result in
+            if result == .OK { load(panel.urls, into: viewer) }
+        }
+    }
+
+    /// Imports the files chosen, each by the importer of its own extension:
+    /// the JSON interchange files, the XML files, each .rois_series archive,
+    /// and the .roi archives together.
+    static func load(_ urls: [URL], into viewer: ViewerController) {
+        let groups = roiImportGroups(urls)
+        for path in groups.json {
+            viewer.roiLoadFromInterchangeFile(path)
+        }
+        if !groups.xml.isEmpty {
+            viewer.horos_imageView?.roiLoad(fromXMLFiles: groups.xml)
+        }
+        for path in groups.series {
+            viewer.roiLoad(fromSeries: path)
+        }
+        if !groups.roi.isEmpty {
+            do {
+                try viewer.importROIFiles(groups.roi)
+            } catch {
+                viewer.presentROIImportError(forPath: groups.roi.last ?? "", error: error)
+            }
+        }
+    }
+
+    /// Imports a .rois_series archive; a nil path reaches the importer as an empty one.
+    static func loadSeries(_ path: String?, into viewer: ViewerController) {
+        do {
+            try viewer.importROIArchive(fromPath: path ?? "")
+        } catch {
+            viewer.presentROIImportError(forPath: path ?? "", error: error)
+        }
+    }
+
+    /// Asks where to save the ROIs of every image of every time point as a
+    /// .rois_series archive, or says there are none.
+    static func chooseAndSaveSeries(of viewer: ViewerController) {
+        var perMovie: [[[ROI]]] = []
+        for movie in 0..<Int(viewer.horos_maxMovieIndex) {
+            let slices = ViewerROISlices(viewer, movie: movie)
+            perMovie.append((0..<(viewer.horos_pixList(at: movie)?.count ?? 0)).map { slices?.rois(at: $0) ?? [] })
+        }
+        guard perMovie.contains(where: { $0.contains { !$0.isEmpty } }) else {
+            HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Save Error", comment: ""), message: NSLocalizedString("No ROIs in this series!", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            return
+        }
+        let panel = NSSavePanel()
+        panel.canSelectHiddenExtension = false
+        panel.allowedContentTypes = [UTType(filenameExtension: "rois_series")!]
+        panel.nameFieldStringValue = (viewer.fileList()?.firstObject as? DicomImage)?.series?.name ?? ""
+        panel.begin { result in
+            // Compatibility: .rois_series is the typedstream of arrays of
+            // mutable arrays that released Horos/OsiriX and the restricted
+            // ROI importer read, not a keyed archive.
+            guard result == .OK, let path = panel.url?.path else { return }
+            let archive = NSMutableArray(array: perMovie.map { movie in NSMutableArray(array: movie.map { NSMutableArray(array: $0) }) })
+            _ = try? HistoricalArchive.archiveRootObject(archive, toFile: path)
+        }
+    }
+}
+
+// MARK: - The selectors
 
 public extension ViewerController {
 
-    // MARK: - ROI
-
     @objc(defaultROINames)
     class func defaultROINames() -> NSArray! {
-        return DefaultROINames
+        ViewerROINames.defaults
     }
 
     @objc(setDefaultROINames:)
     class func setDefaultROINames(_ rn: NSArray!) {
-        // [DefaultROINames release]; DefaultROINames = [rn retain];
-        DefaultROINames = rn
+        ViewerROINames.defaults = rn
     }
 
     @objc(loadROI:)
     func loadROI(_ mIndex: Int) {
-        let context = BrowserController.currentBrowser()?.database?.managedObjectContext
-        N2ManagedObjectContextPerformAndWait(context) {
-        let study = (self.horos_fileList(at: 0)?.object(at: 0) as? NSObject)?.value(forKeyPath: "series.study") as? DicomStudy
-        let roisArray = (study?.roiSRSeries()?.value(forKey: "images") as? NSSet)?.allObjects as NSArray?
-
-
-        if let e = objcTry({
-            let files = self.horos_fileList(at: mIndex)
-            if objcIsKind(files?.lastObject, NSManagedObject.self)
-            {
-                if UserDefaults.standard.bool(forKey: "SAVEROIS")
-                {
-                    var i: Int32 = 0
-                    while Int(i) < (files?.count ?? 0)
-                    {
-                        defer { i += 1 }
-                        if ((self.horos_pixList(at: mIndex)?.object(at: Int(i)) as? DCMPix)?.generated ?? false) == false
-                        {
-                            let str = study?.roiPath(forImage: files?.object(at: Int(i)) as? DicomImage, inArray: roisArray)
-
-                            let data: Data? = SRAnnotation.roi(fromDICOM: str)
-
-                            if let data {
-                                self.horos_copyRoiList(at: mIndex)?.replaceObject(at: Int(i), with: data as NSData)
-                            } else {
-                                self.horos_copyRoiList(at: mIndex)?.replaceObject(at: Int(i), with: NSData())
-                            }
-
-                            //If data, we successfully unarchived from SR style ROI
-                            var array: NSArray? = nil
-
-                            if objcTry({
-                                if let data {
-                                    array = RestrictedUnarchiver.unarchiveROIs(with: data)
-                                } else {
-                                    array = RestrictedUnarchiver.unarchiveROIs(withFile: str)
-                                }
-                            }) != nil
-                            {
-                                NSLog("failed to read a ROI")
-                            }
-
-                            if let loaded = array
-                            {
-                                let phaseROIs = NSMutableArray()
-                                for roi in loaded {
-                                    // An archive may hold something else than ROIs (the
-                                    // restricted unarchiver accepts strings and numbers):
-                                    // it is left out. It went into the slice and made the
-                                    // -isAliased below raise, which ended the whole load.
-                                    if objcIsKind(roi, ROI.self) == false { continue }
-                                    if objcIsKind(roi, HorosVolumeLengthROI.self) == false ||
-                                        objcIntegerValue((roi as? HorosVolumeLengthROI)?.volumeLength?["temporalIndex"]) == mIndex {
-                                        phaseROIs.add(roi)
-                                    }
-                                }
-                                array = phaseROIs
-                                (self.horos_roiList(at: mIndex)?.object(at: Int(i)) as? NSMutableArray)?.addObjects(from: phaseROIs as [AnyObject])
-
-                                for r in phaseROIs
-                                {
-                                    if objcIsKind(r, HorosVolumeLengthROI.self), let length = r as? HorosVolumeLengthROI {
-                                        self.register(length, movieIndex: mIndex, anchor: files?.object(at: Int(i)) as? DicomImage)
-                                    }
-                                    if let roi = objcROI(r, "isAliased"), roi.isAliased
-                                    {
-                                        roi.originalIndexForAlias = i
-
-                                        let originalROIseries = (files?.object(at: Int(i)) as? NSObject)?.value(forKey: "series") as AnyObject?
-
-                                        // propagate it to the entire series IF the images are from the same series
-                                        var x: Int32 = 0
-                                        while Int(x) < (self.horos_pixList(at: mIndex)?.count ?? 0)
-                                        {
-                                            if x != i && originalROIseries === ((files?.object(at: Int(x)) as? NSObject)?.value(forKey: "series") as AnyObject?)
-                                            {
-                                                objcAdd(self.horos_roiList(at: mIndex)?.object(at: Int(x)) as? NSMutableArray, roi)
-                                            }
-                                            x += 1
-                                        }
-                                    }
-                                }
-
-                                for r in phaseROIs {
-                                    self.horos_imageView?.roiSet(r as? ROI)
-                                }
-                            }
-                        }
-                    }
-                    for roi in self.volumeLengthROIs(forMovieIndex: mIndex) ?? [] {
-                        self.attach(roi, movieIndex: mIndex)
-                    }
-                    if ((self.horos_pixList(at: mIndex)?.firstObject as? DCMPix)?.generated ?? false)
-                    {
-                        let anchor = self.volumeLengthState(forMovieIndex: mIndex, create: true)?["anchor"] as? DicomImage
-                        let stored: [Any]? = anchor != nil ? ViewerController.horos_volumeLengthReadArchive(anchor?.series?.study?.roiPath(forImage: anchor)) : []
-                        for roi in stored ?? [] {
-                            if objcIsKind(roi, HorosVolumeLengthROI.self) &&
-                                objcIntegerValue((roi as? HorosVolumeLengthROI)?.volumeLength?["temporalIndex"]) == mIndex,
-                               let length = roi as? HorosVolumeLengthROI
-                            {
-                                self.register(length, movieIndex: mIndex, anchor: anchor)
-                                self.attach(length, movieIndex: mIndex)
-                            }
-                        }
-                    }
-                }
-            }
-        }) {
-            NSLog("*** load ROI exception: %@", e)
-        }
-        }
+        ViewerROIArchives.load(self, movieIndex: mIndex)
     }
 
     @objc(areROIsArraysIdentical:with:)
     class func areROIsArraysIdentical(_ copy: NSArray!, with roisArray: NSArray!) -> Bool {
-        // This compares the persisted SR payload, not an undo snapshot. ROI.data
-        // remains the SDK typedstream contract so every encoded field participates.
-        var identical = true
-
-        if (roisArray?.count ?? 0) != (copy?.count ?? 0) {
-            identical = false
-        } else {
-            var v: Int32 = 0
-            while Int(v) < (roisArray?.count ?? 0) {
-                let data = objcROI(roisArray.object(at: Int(v)), "data")?.data as NSData?
-                let copyData = objcROI(copy?.object(at: Int(v)), "data")?.data as NSData?
-                if objcIsEqualToData(data, copyData) == false {
-                    identical = false
-                    break
-                }
-                v += 1
-            }
-        }
-
-        return identical
+        ViewerROIArchives.identical(copy as? [Any] ?? [], roisArray as? [Any] ?? [])
     }
 
     @objc(flipROIHorizontally:)
     @IBAction func flipROIHorizontally(_ sender: Any!) {
-        for roi in self.selectedROIs() ?? NSMutableArray() {
-            objcROI(roi, "flipVertically:")?.flipVertically(false)
-        }
+        for case let roi as ROI in selectedROIs() as? [Any] ?? [] { roi.flipVertically(false) }
     }
 
     @objc(flipROIVertically:)
     @IBAction func flipROIVertically(_ sender: Any!) {
-        for roi in self.selectedROIs() ?? NSMutableArray() {
-            objcROI(roi, "flipVertically:")?.flipVertically(true)
-        }
+        for case let roi as ROI in selectedROIs() as? [Any] ?? [] { roi.flipVertically(true) }
     }
 
     @objc(saveROI:)
@@ -401,138 +733,17 @@ public extension ViewerController {
         saveROI(mIndex, later: false)
     }
 
-    /// The ROIs of one phase, and what saving them needs, as they are now.
-    final class ROISaveSnapshot {
-        let fileList: [Any]
-        let pixList: [Any]
-        let roiList: [NSArray]
-        let copyRoiList: [Any]
-        let database: DicomDatabase
-        let study: DicomStudy?
-        let srImages: NSArray?
+    /// The type of what a save copies from the viewer, as ROISaveJob names it.
+    internal typealias ROISaveSnapshot = ViewerROISaveSnapshot
 
-        init(fileList: [Any], pixList: [Any], roiList: [NSArray], copyRoiList: [Any], database: DicomDatabase) {
-            self.fileList = fileList
-            self.pixList = pixList
-            self.roiList = roiList
-            self.copyRoiList = copyRoiList
-            self.database = database
-            study = (fileList.first as? NSObject)?.value(forKeyPath: "series.study") as? DicomStudy
-            srImages = (study?.roiSRSeries()?.value(forKey: "images") as? NSSet)?.allObjects as NSArray?
-        }
-    }
-
-    /// `later`: the viewer keeps going with other slices (a plane change,
-    /// another series), so the ROIs of these are written a few images at a
-    /// time on the main thread, from a copy of the lists, instead of all at
-    /// once: thousands of brushes took more than a second. A series with
-    /// volume lengths, whose anchors are the viewer's state, is saved at once.
     @objc(saveROI:later:)
     func saveROI(_ mIndex: Int, later: Bool) {
-        if UserDefaults.standard.bool(forKey: "SAVEROIS") == false {
-            return
-        }
-        guard objcIsKind(self.horos_fileList(at: mIndex)?.lastObject, NSManagedObject.self),
-              let database = DicomDatabase(for: (self.horos_fileList(at: mIndex)?.lastObject as? NSManagedObject)?.managedObjectContext) else { return }
-
-        let volumeLengths = ((self.volumeLengthState(forMovieIndex: mIndex, create: false)?["anchors"] as? NSDictionary)?.count ?? 0) != 0
-        N2ManagedObjectContextPerformAndWait(database.managedObjectContext) {
-            if let e = objcTry({
-                let roiList = (self.horos_roiList(at: mIndex) as? [Any] ?? []).map { ($0 as? NSArray).map { NSArray(array: $0) } ?? NSArray() }
-                let snapshot = ROISaveSnapshot(fileList: self.horos_fileList(at: mIndex) as? [Any] ?? [],
-                                               pixList: self.horos_pixList(at: mIndex) as? [Any] ?? [],
-                                               roiList: roiList, copyRoiList: self.horos_copyRoiList(at: mIndex) as? [Any] ?? [],
-                                               database: database)
-                if later && !volumeLengths {
-                    ROISaveJob(snapshot: snapshot).start()
-                    return
-                }
-
-                let allDICOMSR = NSMutableArray()
-                let volumeAnchorPaths = NSMutableDictionary()
-                for i in 0..<snapshot.fileList.count {
-                    if let path = ViewerController.archiveROIs(of: i, in: snapshot, volumeLengths: volumeLengths) {
-                        objcAdd(allDICOMSR, path)
-                        objcSetKeyed(volumeAnchorPaths, (snapshot.fileList[i] as? DicomImage)?.objectID, path)
-                    }
-                }
-
-                self.saveVolumeLengthROIs(mIndex, writtenPaths: allDICOMSR, anchorPaths: volumeAnchorPaths as? [AnyHashable: Any])
-                if allDICOMSR.count != 0 {
-                    database.addFiles(atPaths: allDICOMSR as? [Any], postNotifications: true, dicomOnly: true, rereadExistingItems: true, generatedByOsiriX: true)
-                }
-            }) {
-                _N2LogExceptionImpl(e, true, "-[ViewerController saveROI:]")
-            }
-        }
+        ViewerROIArchives.save(self, movieIndex: mIndex, later: later)
     }
 
-    /// Writes the ROIs of one image of the snapshot as its DICOM SR, when they
-    /// changed since they were loaded; returns the file written, or nil.
-    static func archiveROIs(of i: Int, in snapshot: ROISaveSnapshot, volumeLengths: Bool) -> String? {
-        guard i < snapshot.pixList.count, ((snapshot.pixList[i] as? DCMPix)?.generated ?? false) == false else { return nil }
-        let image = snapshot.fileList[i] as? DicomImage
-        var written: String? = nil
-
-        autoreleasepool {
-            if let ne = objcTry({
-                var forceArchive = false
-                var str: String? = snapshot.study?.roiPath(forImage: image, inArray: snapshot.srImages)
-
-                if str == nil {
-                    str = snapshot.database.uniquePathForNewDataFile(withExtension: "dcm")
-                }
-                else if FileManager.default.fileExists(atPath: str!) && objcIsEqualToString(str, image?.srPath()) // Old ROIs folder -> move it to DATABASE.index file
-                {
-                    if let oldPath = image?.srPath() {
-                        _ = try? FileManager.default.removeItem(atPath: oldPath)
-                    }
-                    str = snapshot.database.uniquePathForNewDataFile(withExtension: "dcm")
-                    forceArchive = true
-                }
-
-                let sliceROIs: NSArray? = i < snapshot.roiList.count ? snapshot.roiList[i] : nil
-                let roisArray = NSMutableArray()
-                for roi in sliceROIs ?? NSArray() { roisArray.add(roi) }
-
-                if (sliceROIs?.count ?? 0) > 0
-                {
-                    let aliasROIs = NSMutableArray()
-
-                    for r in roisArray
-                    {
-                        if objcIsKind(r, HorosVolumeLengthROI.self) {
-                            aliasROIs.add(r)
-                        } else if let roi = objcROI(r, "setPix:") {
-                            roi.pix = snapshot.pixList[i] as? DCMPix
-                            if roi.isAliased && Int32(i) != roi.originalIndexForAlias {
-                                aliasROIs.add(roi)
-                            }
-                        }
-                    }
-
-                    roisArray.removeObjects(in: aliasROIs as [AnyObject])
-                }
-                if volumeLengths {
-                    for stored in ViewerController.horos_volumeLengthReadArchive(str) ?? [] {
-                        if objcIsKind(stored, HorosVolumeLengthROI.self) { roisArray.add(stored) }
-                    }
-                }
-
-                let loaded = i < snapshot.copyRoiList.count ? snapshot.copyRoiList[i] as? Data : nil
-                if roisArray.count != 0 || (str.map { FileManager.default.fileExists(atPath: $0) } ?? false)
-                {
-                    if ViewerController.areROIsArraysIdentical(RestrictedUnarchiver.unarchiveROIs(with: loaded), with: roisArray) == false || forceArchive == true
-                    {
-                        SRAnnotation.archiveROIs(asDICOM: roisArray as? [Any], toPath: str, forImage: image)
-                        written = str
-                    }
-                }
-            }) {
-                NSLog("saveROI failed: %@", ne.description as NSString)
-            }
-        }
-        return written
+    /// Writes the ROIs of slice `i` of the snapshot; returns the file written, or nil.
+    internal static func archiveROIs(of i: Int, in snapshot: ROISaveSnapshot, volumeLengths: Bool) -> String? {
+        ViewerROIArchives.archiveROIs(of: i, in: snapshot, volumeLengths: volumeLengths)
     }
 
     // -newROI: stays in ViewerController.m (a "new" method returning an
@@ -540,1158 +751,180 @@ public extension ViewerController {
 
     @objc(containsROI:)
     func contains(_ roi: ROI!) -> Bool {
-        for roiImageList in self.roiList() ?? NSMutableArray()
-        {
-            for r in (roiImageList as? NSArray) ?? NSArray() {
-                if (r as AnyObject) === roi {
-                    return true
-                }
-            }
-        }
-
-        return false
+        guard let roi, let slices = ViewerROISlices(self, movie: Int(horos_curMovieIndex)) else { return false }
+        return (0..<slices.count).contains { slices.rois(at: $0).contains { $0 === roi } }
     }
 
     @objc(generateROINamesArray)
     func generateROINamesArray() -> NSMutableArray! {
-        // Publish a complete catalog only; a failed refresh must not invalidate existing suggestions.
-        var updatedNames: NSMutableArray? = nil
-        if let exception = objcTry({
-            // [[NSMutableArray alloc] initWithCapacity:0] never answers nil in
-            // Swift, so the former "if (!updatedNames) return ROINamesArray;"
-            // has no case left.
-            let names = NSMutableArray(capacity: 0)
-            updatedNames = names
-            for name in DefaultROINames ?? NSArray() { names.add(name) }
-
-            // Scan all ROIs of current series to find other names!
-            var first = true
-            let knownNames = NSMutableSet()
-            for name in DefaultROINames ?? NSArray() { knownNames.add(name) }
-            var y = 0
-            while y < Int(self.horos_maxMovieIndex)
-            {
-                var x = 0
-                while x < (self.horos_pixList(at: y)?.count ?? 0)
-                {
-                    var z = 0
-                    while z < ((self.horos_roiList(at: y)?.object(at: x) as? NSArray)?.count ?? 0)
-                    {
-                        let roiName = objcROI((self.horos_roiList(at: y)?.object(at: x) as? NSArray)?.object(at: z), "name")?.name
-                        // A ROI without a name has nothing to suggest: adding its nil
-                        // name raised, and the names were not refreshed.
-                        if let roiName, knownNames.contains(roiName) == false
-                        {
-                            if first { names.add("-") }
-                            first = false
-                            names.add(roiName)
-                            knownNames.add(roiName)
-                            knownNames.add("-")
-                        }
-                        z += 1
-                    }
-                    x += 1
-                }
-                y += 1
-            }
-        }) {
-            // [updatedNames release]
-            updatedNames = nil
-            if exception.name.rawValue != NSExceptionName.mallocException.rawValue { exception.raise() }
-            NSLog("Not enough memory to refresh ROI names; keeping the previous suggestions.")
-            return self.horos_ROINamesArray
-        }
-        // [ROINamesArray release]; ROINamesArray = updatedNames; (owned, +1)
-        self.horos_ROINamesArray = updatedNames
-        return self.horos_ROINamesArray
+        NSMutableArray(array: ViewerROINames.names(of: self))
     }
-
-    //-------------------------------------------------------------
 
     @objc(imageForROI:)
     func image(forROI i: ToolMode) -> NSImage! {
-        var filename: String? = nil
-        switch i
-        {
-        case .tWL:          filename = "WLWW"
-        case .tZoom:        filename = "Zoom"
-        case .tTranslate:   filename = "Move"
-        case .tRotate:      filename = "Rotate"
-        case .tNext:        filename = "Stack"
-        case .tMesure:      filename = "Length"
-        case .tAngle:       filename = "Angle"
-        case .tROI:         filename = "Rectangle"
-        case .tOval:        filename = "Oval"
-        case .tText:        filename = "Text"
-        case .tArrow:       filename = "Arrow"
-        case .tOPolygon:    filename = "Opened Polygon"
-        case .tCPolygon:    filename = "Closed Polygon"
-        case .tPencil:      filename = "Pencil"
-        case .t2DPoint:     filename = "Point"
-        case .tPlain:       filename = "Brush"
-        case .tRepulsor:    filename = "Repulsor"
-        case .tROISelector: filename = "ROISelector"
-        case .tAxis:        filename = "Axis"
-        case .tDynAngle:    filename = "DynamicAngle"
-        case .tTAGT:        filename = "PerpendicularLines"
-        default: break
-        }
-
-        // [NSImage imageNamed: nil] is nil.
-        guard let filename else { return nil }
-        return NSImage(named: filename)
+        let names: [ToolMode: String] = [
+            .tWL: "WLWW", .tZoom: "Zoom", .tTranslate: "Move", .tRotate: "Rotate", .tNext: "Stack", .tMesure: "Length",
+            .tAngle: "Angle", .tROI: "Rectangle", .tOval: "Oval", .tText: "Text", .tArrow: "Arrow",
+            .tOPolygon: "Opened Polygon", .tCPolygon: "Closed Polygon", .tPencil: "Pencil", .t2DPoint: "Point",
+            .tPlain: "Brush", .tRepulsor: "Repulsor", .tROISelector: "ROISelector", .tAxis: "Axis",
+            .tDynAngle: "DynamicAngle", .tTAGT: "PerpendicularLines",
+        ]
+        return names[i].flatMap { NSImage(named: $0) }
     }
 
-    // shows on top the first ROI manager window found
+    /// Shows the ROI manager window, or opens one.
     @objc(roiGetManager:)
     @IBAction func roiGetManager(_ sender: Any!) {
-        var found = false
-        let winList = NSApp.windows
-
-        for loopItem in winList
-        {
-            if objcIsEqualToString(loopItem.windowController?.windowNibName, "ROIManager") && !horosWindowControllerIsClosing(loopItem.windowController)
-            {
-                found = true
-                loopItem.makeKeyAndOrderFront(self)
-            }
+        let open = NSApp.windows.filter {
+            $0.windowController?.windowNibName == "ROIManager" && !horosWindowControllerIsClosing($0.windowController)
         }
-
-        if !found
-        {
-            let manager = ROIManagerController(viewer: self)
-            // The reference [ROIManagerController alloc] gave the Objective-C,
-            // never released here: -windowWillClose: autoreleases it.
-            _ = Unmanaged.passRetained(manager)
-            manager.showWindow(self)
-            manager.window?.makeKeyAndOrderFront(self)
-        }
+        for window in open { window.makeKeyAndOrderFront(self) }
+        guard open.isEmpty else { return }
+        let manager = ROIManagerController(viewer: self)
+        // The manager releases itself when its window closes (-windowWillClose:).
+        _ = Unmanaged.passRetained(manager)
+        manager.showWindow(self)
+        manager.window?.makeKeyAndOrderFront(self)
     }
-
 
     @objc(addRoiFromFullStackBuffer:)
     func addRoi(fromFullStackBuffer buff: UnsafeMutablePointer<UInt8>!) {
-        self.addRoi(fromFullStackBuffer: buff, withName: "")
+        addRoi(fromFullStackBuffer: buff, withName: "")
     }
 
     @objc(addPlainRoiToCurrentSliceFromBuffer:)
     func addPlainRoiToCurrentSlice(fromBuffer buff: UnsafeMutablePointer<UInt8>!) {
-        self.addPlainRoiToCurrentSlice(fromBuffer: buff, withName: "")
+        addPlainRoiToCurrentSlice(fromBuffer: buff, withName: "")
     }
 
     @objc(addPlainRoiToCurrentSliceFromBuffer:withName:)
     func addPlainRoiToCurrentSlice(fromBuffer buff: UnsafeMutablePointer<UInt8>!, withName name: String!) {
-        var i: Int32, j: Int32, l: Int32
-        var tempValue: UInt8
-        var alreadyIn = false
-
-        var aColor = RGBColor()
-        //float *r,*g,*b;
-        let nbColor: Int32 = 6
-
-        // color init
-        var rgbList = [RGBColor](repeating: RGBColor(), count: 6)
-        aColor.red = UInt16((239.0/255.0)*65535.0)
-        aColor.green = UInt16((239.0/255.0)*65535.0)
-        aColor.blue = 37
-        rgbList[0] = aColor
-
-        aColor.red = UInt16((239.0/255.0)*65535.0)
-        aColor.green = UInt16((10.0/255.0)*65535.0)
-        aColor.blue = UInt16((239.0/255.0)*65535)
-        rgbList[1] = aColor
-
-        aColor.red = 65535
-        aColor.green = 0
-        aColor.blue = 0
-        rgbList[2] = aColor
-
-        aColor.red = 0
-        aColor.green = 0
-        aColor.blue = 65535
-        rgbList[3] = aColor
-
-        aColor.red = 0
-        aColor.green = 65535
-        aColor.blue = 0
-        rgbList[4] = aColor
-
-        aColor.red = 0
-        aColor.green = UInt16((241.0/255.0)*65535.0)
-        aColor.blue = UInt16((220.0/255.0)*65535.0)
-        rgbList[5] = aColor
-
-        let nbRegion = NSMutableArray()
-        let curPix = self.pixList()?.object(at: Int(self.horos_imageView?.curImage ?? 0)) as? DCMPix
-        let height: Int = curPix?.pheight ?? 0
-        let width: Int = curPix?.pwidth ?? 0
-        j = 0
-        while Int(j) < height
-        {
-            i = 0
-            while Int(i) < width
-            {
-                tempValue = buff[Int(i) + Int(j) * width]
-                if tempValue != 0
-                {
-                    alreadyIn = false
-                    // check if the region has not been already added to the nbRegion Mutable Array
-                    l = 0
-                    while Int(l) < nbRegion.count {
-                        if (nbRegion.object(at: Int(l)) as? NSNumber)?.int32Value == Int32(tempValue) {
-                            alreadyIn = true
-                        }
-                        l += 1
-                    }
-                    if !alreadyIn {
-                        nbRegion.add(NSNumber(value: Int32(tempValue)))
-                    }
-                }
-                i += 1
-            }
-            j += 1
+        for (index, label) in ViewerROICreation.labels(of: self, in: buff, fullStack: false).enumerated() {
+            addPlainRoiToCurrentSlice(fromBuffer: buff, forSpecificValue: label, with: ViewerROICreation.colour(ofRegion: index), withName: name)
         }
-
-        l = 0
-        while Int(l) < nbRegion.count {
-            self.addPlainRoiToCurrentSlice(fromBuffer: buff,
-                                           forSpecificValue: UInt8(truncatingIfNeeded: (nbRegion.object(at: Int(l)) as? NSNumber)?.int32Value ?? 0),
-                                           with: rgbList[Int(l % nbColor)],
-                                           withName: name)
-            l += 1
-        }
-
     }
+
     @objc(addPlainRoiToCurrentSliceFromBuffer:forSpecificValue:withColor:withName:)
     func addPlainRoiToCurrentSlice(fromBuffer buff: UnsafeMutablePointer<UInt8>!, forSpecificValue value: UInt8, with aColor: RGBColor, withName name: String!) {
-        var name = name
-        var i: Int32, j: Int32, l: Int32
-        var theNewROI: ROI?
-        let curPix = self.pixList()?.object(at: Int(self.horos_imageView?.curImage ?? 0)) as? DCMPix
-        let height: Int = curPix?.pheight ?? 0
-        let width: Int = curPix?.pwidth ?? 0
-        var upLeftX: Int32, upLeftY: Int32, dRightX: Int32, dRightY: Int32
-        var tWidth: Int32, tHeight: Int32
-        var textureBuffer: UnsafeMutablePointer<UInt8>
-        var findOne = false
-
-        // 1- For a Slice find the texture dimension for the specific value (param: value)
-        findOne = false
-        upLeftX = Int32(truncatingIfNeeded: width); upLeftY = Int32(truncatingIfNeeded: height); dRightX = 0; dRightY = 0 // initialisation with opposite values
-        j = 0
-        while Int(j) < height {
-            i = 0
-            while Int(i) < width
-            {
-                if buff[Int(i) + Int(j) * width] == value
-                {
-                    findOne = true
-                    // boundary check
-                    if i < upLeftX {
-                        upLeftX = i
-                    }
-                    if j < upLeftY {
-                        upLeftY = j
-                    }
-                    if i > dRightX {
-                        dRightX = i
-                    }
-                    if j > dRightY {
-                        dRightY = j
-                    }
-                }
-                i += 1
-            }
-            j += 1
-        }
-
-        // Create texture ...
-        if findOne
-        {
-            tWidth = dRightX &- upLeftX &+ 1
-            tHeight = dRightY &- upLeftY &+ 1
-            textureBuffer = malloc(Int(tWidth &* tHeight) * MemoryLayout<UInt8>.size)!.assumingMemoryBound(to: UInt8.self)
-            // clear texture
-            l = 0
-            while l < tWidth &* tHeight {
-                textureBuffer[Int(l)] = 0
-                l += 1
-            }
-
-            // fill in the texture
-            j = 0
-            while Int(j) < height {
-                i = 0
-                while Int(i) < width {
-                    if buff[Int(i) + Int(j) * width] == value {
-                        textureBuffer[Int((i &- upLeftX) &+ (j &- upLeftY) &* tWidth)] = 0xFF
-                    }
-                    i += 1
-                }
-                j += 1
-            }
-
-            // 2- create a roi with the (initWithTexture) at slice k
-            name = objcIsEqualToString(name, "") ? String(format: "area %d", Int32(value)) : name
-            theNewROI = ROI(texture: textureBuffer, textWidth: tWidth, textHeight: tHeight, textName: name,
-                            positionX: upLeftX, positionY: upLeftY,
-                            spacingX: Float(curPix?.pixelSpacingX ?? 0), spacingY: Float(curPix?.pixelSpacingY ?? 0),
-                            imageOrigin: NSMakePoint(CGFloat(curPix?.originX ?? 0), CGFloat(curPix?.originY ?? 0)))
-            free(textureBuffer)
-            theNewROI?.rgbcolor = aColor
-            //	NSLog(@"New roi has been created name=%@, color.red=%d, color.green=%d, color.blue=%d",[theNewROI name], aColor.red, aColor.green, aColor.blue);
-            objcAdd(self.roiList()?.object(at: Int(self.horos_imageView?.curImage ?? 0)) as? NSMutableArray, theNewROI)
-            objcPost(.OsirixROIChange, theNewROI)
-        }
-
+        ViewerROICreation.addBrushes(to: self, from: buff, label: value, colour: aColor, name: name, fullStack: false)
     }
 
     @objc(addRoiFromFullStackBuffer:withName:)
     func addRoi(fromFullStackBuffer buff: UnsafeMutablePointer<UInt8>!, withName name: String!) {
-        var i: Int32, j: Int32, k: Int32, l: Int32
-        var tempValue: UInt8
-        var alreadyIn = false
-
-        var aColor = RGBColor()
-        //float *r,*g,*b;
-        let nbColor: Int32 = 6
-
-        // color init
-        var rgbList = [RGBColor](repeating: RGBColor(), count: 6)
-        aColor.red = UInt16((239.0/255.0)*65535.0)
-        aColor.green = UInt16((239.0/255.0)*65535.0)
-        aColor.blue = 37
-        rgbList[0] = aColor
-
-        aColor.red = UInt16((239.0/255.0)*65535.0)
-        aColor.green = UInt16((10.0/255.0)*65535.0)
-        aColor.blue = UInt16((239.0/255.0)*65535)
-        rgbList[1] = aColor
-
-        aColor.red = 65535
-        aColor.green = 0
-        aColor.blue = 0
-        rgbList[2] = aColor
-
-        aColor.red = 0
-        aColor.green = 0
-        aColor.blue = 65535
-        rgbList[3] = aColor
-
-        aColor.red = 0
-        aColor.green = 65535
-        aColor.blue = 0
-        rgbList[4] = aColor
-
-        aColor.red = 0
-        aColor.green = UInt16((241.0/255.0)*65535.0)
-        aColor.blue = UInt16((220.0/255.0)*65535.0)
-        rgbList[5] = aColor
-
-        /*
-         // 1- blue
-         [[NSColor blueColor] getRed:r green:g blue:b alpha:nil];
-         aColor.red = *r * 65535.;
-         aColor.green = *g * 65535.;
-         aColor.blue = *b * 65535.;
-         rgbList[cpt]=aColor;
-         cpt++;
-         NSLog(@"color r=%d, g=%d, b=%d", aColor.red, aColor.green, aColor.blue);
-         //  yellow
-         [[NSColor yellowColor] getRed:r green:g blue:b alpha:nil];
-         aColor.red = *r * 65535.;
-         aColor.green = *g * 65535.;
-         aColor.blue = *b * 65535.;
-         rgbList[cpt]=aColor;
-         cpt++;
-         NSLog(@"color r=%d, g=%d, b=%d", aColor.red, aColor.green, aColor.blue);
-         // purpleColor
-         [[NSColor redColor] getRed:r green:g blue:b alpha:nil];
-         aColor.red = *r * 65535.;
-         aColor.green = *g * 65535.;
-         aColor.blue = *b * 65535.;
-         rgbList[cpt]=aColor;
-         cpt++;
-         NSLog(@"color r=%d, g=%d, b=%d", aColor.red, aColor.green, aColor.blue);
-         //magentaColor
-         [[NSColor magentaColor] getRed:r green:g blue:b alpha:nil];
-         aColor.red = *r * 65535.;
-         aColor.green = *g * 65535.;
-         aColor.blue = *b * 65535.;
-         rgbList[cpt]=aColor;
-         cpt++;
-         NSLog(@"color r=%d, g=%d, b=%d", aColor.red, aColor.green, aColor.blue);
-         // orangeColor
-         [[NSColor orangeColor] getRed:r green:g blue:b alpha:nil];
-         aColor.red = *r * 65535.;
-         aColor.green = *g * 65535.;
-         aColor.blue = *b * 65535.;
-         rgbList[cpt]=aColor;
-         cpt++;
-         NSLog(@"color r=%d, g=%d, b=%d", aColor.red, aColor.green, aColor.blue);
-         // redColor
-         [[NSColor redColor] getRed:r green:g blue:b alpha:nil];
-         aColor.red = *r * 65535.;
-         aColor.green = *g * 65535.;
-         aColor.blue = *b * 65535.;
-         rgbList[cpt]=aColor;
-         cpt++;
-         NSLog(@"color r=%d, g=%d, b=%d", aColor.red, aColor.green, aColor.blue);
-         */
-        let nbRegion = NSMutableArray()
-        let curPix = self.pixList()?.object(at: Int(self.horos_imageView?.curImage ?? 0)) as? DCMPix
-        let height: Int = curPix?.pheight ?? 0
-        let width: Int = curPix?.pwidth ?? 0
-        let depth: Int = self.pixList()?.count ?? 0
-        k = 0
-        while Int(k) < depth
-        {
-            j = 0
-            while Int(j) < height
-            {
-                i = 0
-                while Int(i) < width
-                {
-                    tempValue = buff[Int(i) + Int(j) * width + Int(k) * width * height]
-                    if tempValue != 0
-                    {
-                        alreadyIn = false
-                        // check if the region has not been already added to the nbRegion Mutable Array
-                        l = 0
-                        while Int(l) < nbRegion.count {
-                            if (nbRegion.object(at: Int(l)) as? NSNumber)?.int32Value == Int32(tempValue) {
-                                alreadyIn = true
-                            }
-                            l += 1
-                        }
-                        if !alreadyIn {
-                            nbRegion.add(NSNumber(value: Int32(tempValue)))
-                        }
-                    }
-                    i += 1
-                }
-                j += 1
-            }
-            k += 1
+        for (index, label) in ViewerROICreation.labels(of: self, in: buff, fullStack: true).enumerated() {
+            addRoi(fromFullStackBuffer: buff, forSpecificValue: label, with: ViewerROICreation.colour(ofRegion: index), withName: name)
         }
-        l = 0
-        while Int(l) < nbRegion.count {
-            self.addRoi(fromFullStackBuffer: buff,
-                        forSpecificValue: UInt8(truncatingIfNeeded: (nbRegion.object(at: Int(l)) as? NSNumber)?.int32Value ?? 0),
-                        with: rgbList[Int(l % nbColor)],
-                        withName: name)
-            l += 1
-        }
-
     }
 
     @objc(addRoiFromFullStackBuffer:forSpecificValue:withColor:)
     func addRoi(fromFullStackBuffer buff: UnsafeMutablePointer<UInt8>!, forSpecificValue value: UInt8, with aColor: RGBColor) {
-        self.addRoi(fromFullStackBuffer: buff, forSpecificValue: value, with: aColor, withName: "")
+        addRoi(fromFullStackBuffer: buff, forSpecificValue: value, with: aColor, withName: "")
     }
+
     @objc(addRoiFromFullStackBuffer:forSpecificValue:withColor:withName:)
     func addRoi(fromFullStackBuffer buff: UnsafeMutablePointer<UInt8>!, forSpecificValue value: UInt8, with aColor: RGBColor, withName name: String!) {
-        var name = name
-        var i: Int32, j: Int32, k: Int32, l: Int32
-        var theNewROI: ROI?
-        let curPix = self.pixList()?.object(at: Int(self.horos_imageView?.curImage ?? 0)) as? DCMPix
-        let height: Int = curPix?.pheight ?? 0
-        let width: Int = curPix?.pwidth ?? 0
-        let depth: Int = self.pixList()?.count ?? 0
-        var upLeftX: Int32, upLeftY: Int32, dRightX: Int32, dRightY: Int32
-        var tWidth: Int32, tHeight: Int32
-        var textureBuffer: UnsafeMutablePointer<UInt8>
-        var findOne = false
-        k = 0
-        while Int(k) < depth
-        {
-            // 1- For a Slice find the texture dimension for the specific value (param: value)
-            findOne = false
-            upLeftX = Int32(truncatingIfNeeded: width); upLeftY = Int32(truncatingIfNeeded: height); dRightX = 0; dRightY = 0 // initialisation with opposite values
-            j = 0
-            while Int(j) < height {
-                i = 0
-                while Int(i) < width
-                {
-                    if buff[Int(i) + Int(j) * width + Int(k) * width * height] == value
-                    {
-                        findOne = true
-                        // boundary check
-                        if i < upLeftX {
-                            upLeftX = i
-                        }
-                        if j < upLeftY {
-                            upLeftY = j
-                        }
-                        if i > dRightX {
-                            dRightX = i
-                        }
-                        if j > dRightY {
-                            dRightY = j
-                        }
-                    }
-                    i += 1
-                }
-                j += 1
-            }
-
-            // Create texture ...
-            if findOne
-            {
-                tWidth = dRightX &- upLeftX &+ 1
-                tHeight = dRightY &- upLeftY &+ 1
-                textureBuffer = malloc(Int(tWidth &* tHeight) * MemoryLayout<UInt8>.size)!.assumingMemoryBound(to: UInt8.self)
-                // clear texture
-                l = 0
-                while l < tWidth &* tHeight {
-                    textureBuffer[Int(l)] = 0
-                    l += 1
-                }
-
-                // fill in the texture
-                j = 0
-                while Int(j) < height {
-                    i = 0
-                    while Int(i) < width {
-                        if buff[Int(i) + Int(j) * width + Int(k) * width * height] == value {
-                            textureBuffer[Int((i &- upLeftX) &+ (j &- upLeftY) &* tWidth)] = 0xFF
-                        }
-                        i += 1
-                    }
-                    j += 1
-                }
-
-                // 2- create a roi with the (initWithTexture) at slice k
-                name = objcIsEqualToString(name, "") ? String(format: "area %d", Int32(value)) : name
-                theNewROI = ROI(texture: textureBuffer, textWidth: tWidth, textHeight: tHeight, textName: name,
-                                positionX: upLeftX, positionY: upLeftY,
-                                spacingX: Float(curPix?.pixelSpacingX ?? 0), spacingY: Float(curPix?.pixelSpacingY ?? 0),
-                                imageOrigin: NSMakePoint(CGFloat(curPix?.originX ?? 0), CGFloat(curPix?.originY ?? 0)))
-                free(textureBuffer)
-                theNewROI?.rgbcolor = aColor
-                //	NSLog(@"New roi has been created name=%@, color.red=%d, color.green=%d, color.blue=%d",[theNewROI name], aColor.red, aColor.green, aColor.blue);
-                objcAdd(self.roiList()?.object(at: Int(k)) as? NSMutableArray, theNewROI)
-                objcPost(.OsirixROIChange, theNewROI)
-            }
-            k += 1
-        }
+        ViewerROICreation.addBrushes(to: self, from: buff, label: value, colour: aColor, name: name, fullStack: true)
     }
 
-    //- (ROI*)addLayerRoiToCurrentSliceWithImage:(NSImage*)image imageWhenSelected:(NSImage*)imageWhenSelected referenceFilePath:(NSString*)path layerPixelSpacingX:(float)layerPixelSpacingX layerPixelSpacingY:(float)layerPixelSpacingY;
     @objc(addLayerRoiToCurrentSliceWithImage:referenceFilePath:layerPixelSpacingX:layerPixelSpacingY:)
     func addLayerRoiToCurrentSlice(with image: NSImage!, referenceFilePath path: String!, layerPixelSpacingX: Float, layerPixelSpacingY: Float) -> ROI! {
-        let curPix = self.pixList()?.object(at: Int(self.horos_imageView?.curImage ?? 0)) as? DCMPix
-
-        let theNewROI = ROI(type: .tLayerROI, Float(curPix?.pixelSpacingX ?? 0), Float(curPix?.pixelSpacingY ?? 0), DCMPix.originCorrected(accordingToOrientation: curPix))
-        theNewROI?.layerPixelSpacingX = layerPixelSpacingX
-        theNewROI?.layerPixelSpacingY = layerPixelSpacingY
-        theNewROI?.layerReferenceFilePath = path
-        theNewROI?.layerImage = image
-
-        //	[theNewROI setLayerImageWhenSelected:imageWhenSelected];
-
-        objcAdd(self.roiList()?.object(at: Int(self.horos_imageView?.curImage ?? 0)) as? NSMutableArray, theNewROI)
-        objcPost(.OsirixROIChange, theNewROI)
-        self.select(theNewROI, deselectingOther: true)
-
-        return theNewROI
+        ViewerROICreation.addLayer(to: self, image: image, referenceFilePath: path,
+                                   layerPixelSpacingX: layerPixelSpacingX, layerPixelSpacingY: layerPixelSpacingY)
     }
 
     @objc(createLayerROIFromROI:)
     func createLayerROI(from roi: ROI!) -> ROI! {
-        if roi?.type == .tText { return nil }
-        if roi?.type == .tMesure { return nil }
-        if roi?.type == .tArrow { return nil }
-        if roi?.type == .t2DPoint { return nil }
-
-        var data: UnsafeMutablePointer<Float>? = nil
-        var locations: UnsafeMutablePointer<Float>? = nil
-        var dataSize: Int = 0
-        data = roi?.curView?.curDCM?.getROIValue(&dataSize, roi, &locations)
-
-        // A spline of two points or fewer produces no run at all.
-        guard let data, let locations, dataSize > 0 else
-        {
-            free(data)
-            free(locations)
-            return nil
-        }
-
-        // The bounds of the points with finite coordinates. A NaN first point
-        // made every bound NaN, the bitmap nil, and the loop below wrote
-        // through its NULL buffer.
-        guard let bounds = roiLayerBounds(locations, dataSize) else
-        {
-            free(data)
-            free(locations)
-            return nil
-        }
-        let (minX, minY, maxX, maxY) = bounds
-        var x: Float, y: Float
-        var i: Int32
-
-        let imageHeight: Int32 = objcInt32(maxY - minY + 1)
-        let imageWidth: Int32 = objcInt32(maxX - minX + 1)
-        NSLog("imageWidth : %d, imageHeight: %d", imageWidth, imageHeight)
-
-        let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil,
-                                      pixelsWide: Int(imageWidth),
-                                      pixelsHigh: Int(imageHeight),
-                                      bitsPerSample: 8,
-                                      samplesPerPixel: 4,
-                                      hasAlpha: true,
-                                      isPlanar: false,
-                                      colorSpaceName: .calibratedRGB,
-                                      bytesPerRow: Int(imageWidth &* 4),
-                                      bitsPerPixel: 32)
-
-        // A bitmap that could not be made (a size out of range) has no buffer
-        // to write to: no layer, instead of a write through NULL.
-        guard let bitmap, let imageBuffer = bitmap.bitmapData else
-        {
-            free(data)
-            free(locations)
-            return nil
-        }
-
-        // need the window level to do a RGB image
-        var windowLevel: Float = 0, windowWidth: Float = 0
-        self.horos_imageView?.getWLWW(&windowLevel, &windowWidth)
-        let windowLevelMax = Float(Double(windowLevel) + 0.5 * Double(windowWidth))
-        let windowLevelMin = Float(Double(windowLevel) - 0.5 * Double(windowWidth))
-
-        var value: Float
-        var imageValue: UInt8
-
-        let bytesPerRow = Int32(truncatingIfNeeded: bitmap.bytesPerRow)
-
-        //	NSBitmapFormat format = [bitmap bitmapFormat];
-
-        let isRGB = self.horos_imageView?.curDCM?.isRGB ?? false
-
-        // transfer curve rgb = a * value + b
-        let a = Float(255.0 / Double(windowWidth))
-        let b = -a * windowLevelMin
-
-        i = 0
-        while Int(i) < dataSize
-        {
-            x = locations[Int(2 &* i)] - minX
-            y = locations[Int(2 &* i &+ 1)] - minY
-            value = data[Int(i)]
-
-            // A point with a coordinate that is not finite, or outside the
-            // bitmap, is not drawn.
-            guard x.isFinite, y.isFinite, x >= 0, y >= 0, objcInt32(x) < imageWidth, objcInt32(y) < imageHeight else
-            {
-                i += 1
-                continue
-            }
-
-            if !isRGB
-            {
-                if value > windowLevelMax { imageValue = 255 }
-                else if value < windowLevelMin { imageValue = 0 }
-                else
-                {
-                    // (char)(a * value + b), stored in an unsigned char: clang
-                    // fuses a * value + b into one fmadd, then converts to int
-                    // (fcvtzs) and keeps the low byte.
-                    imageValue = UInt8(truncatingIfNeeded: objcInt32(b.addingProduct(a, value)))
-                }
-            }
-            else {
-                // A float stored in an unsigned char: converted to int (fcvtzs, as
-                // the optimized build does) and the low byte kept.
-                imageValue = UInt8(truncatingIfNeeded: objcInt32(value))
-            }
-            let xi = objcInt32(x), yi = objcInt32(y)
-            imageBuffer[Int(4 &* xi &+ yi &* bytesPerRow)] = imageValue
-            imageBuffer[Int(4 &* xi &+ 1 &+ yi &* bytesPerRow)] = imageValue
-            imageBuffer[Int(4 &* xi &+ 2 &+ yi &* bytesPerRow)] = imageValue
-            imageBuffer[Int(4 &* xi &+ 3 &+ yi &* bytesPerRow)] = 255
-            i += 1
-        }
-
-        let image = NSImage()
-
-        image.addRepresentation(bitmap)
-
-        NSLog("image: %f, %f", image.size.width, image.size.height)
-        NSLog("pixelSpacing: %f, %f", self.horos_imageView?.curDCM?.pixelSpacingX ?? 0, self.horos_imageView?.curDCM?.pixelSpacingY ?? 0)
-
-        NSLog("addLayerRoiToCurrentSliceWithImage")
-        let theNewROI = self.addLayerRoiToCurrentSlice(with: image, referenceFilePath: "none", layerPixelSpacingX: Float(self.horos_imageView?.curDCM?.pixelSpacingX ?? 0), layerPixelSpacingY: Float(self.horos_imageView?.curDCM?.pixelSpacingY ?? 0))
-
-        NSLog("setName")
-        theNewROI?.name = String(format: "%@ %@", objcFormatArgument(roi?.name), NSLocalizedString("Layer", comment: "") as NSString)
-        theNewROI?.isLayerOpacityConstant = false
-        theNewROI?.canColorizeLayer = true
-        //[theNewROI loadLayerImageTexture];
-
-        free(data)
-        free(locations)
-        // [image release]; [bitmap release]: Swift releases them.
-
-        // move the new ROI to its location
-        var offset = NSPoint()
-        offset.x = CGFloat(maxX)
-        offset.y = CGFloat(maxY)
-        let p = theNewROI?.lowerRightPoint() ?? NSPoint()
-        offset.x -= p.x
-        offset.y -= p.y
-
-        offset.x += 10
-        offset.y -= 10
-
-        let newROIPoints = theNewROI?.points
-        i = 0
-        while Int(i) < (newROIPoints?.count ?? 0)
-        {
-            (newROIPoints?.object(at: Int(i)) as? MyPoint)?.move(Float(offset.x), Float(offset.y))
-            i += 1
-        }
-
-        self.select(theNewROI, deselectingOther: true)
-
-        return theNewROI
+        ViewerROICreation.layer(from: roi, in: self)
     }
 
     @objc(createLayerROIFromSelectedROI)
     func createLayerROIFromSelectedROI() {
-        _ = self.createLayerROI(from: self.selectedROI())
+        _ = createLayerROI(from: selectedROI())
     }
 
     @objc(createLayerROIFromSelectedROI:)
     @IBAction func createLayerROIFromSelectedROI(_ sender: Any!) {
-        self.createLayerROIFromSelectedROI()
+        createLayerROIFromSelectedROI()
     }
 
     @objc(deleteROI:)
     func delete(_ roi: ROI!) {
-        self.horos_imageView?.stopROIEditingForce(true)
-
-        // [x retain] ... [x autorelease] kept each slice list alive during its
-        // loop: Swift holds it.
-        for item in self.horos_roiList(at: Int(self.horos_curMovieIndex)) ?? NSMutableArray()
-        {
-            guard let x = item as? NSMutableArray else { continue }
-
-            var i = 0
-            while i < x.count
-            {
-                let curROI = x.object(at: i) as AnyObject
-                if curROI === roi
-                {
-                    objcPost(.OsirixRemoveROI, curROI)
-                    x.remove(curROI)
-                    i -= 1
-                }
-                i += 1
-            }
-        }
+        horos_imageView?.stopROIEditingForce(true)
+        ViewerROIEdits.remove(from: self) { $0 === roi }
     }
 
     @objc(deleteSeriesROIwithName:)
     func deleteSeriesROIwithName(_ name: String!) {
-        var i: Int
-
-        // [name retain] ... [name release]: Swift holds it.
-
-        self.horos_imageView?.stopROIEditingForce(true)
-
-        for item in self.horos_roiList(at: Int(self.horos_curMovieIndex)) ?? NSMutableArray()
-        {
-            guard let x = item as? NSMutableArray else { continue }
-
-            i = 0
-            while i < x.count
-            {
-                let curROI = x.object(at: i)
-                if objcIsEqualToString(objcROI(curROI, "name")?.name, name)
-                {
-                    objcPost(.OsirixRemoveROI, curROI)
-                    x.remove(curROI)
-                    i -= 1
-                }
-                i += 1
-            }
-        }
+        horos_imageView?.stopROIEditingForce(true)
+        ViewerROIEdits.remove(from: self) { name != nil && $0.name == name }
     }
 
     @objc(renameSeriesROIwithName:newName:)
     func renameSeriesROIwithName(_ name: String!, newName newString: String!) {
-        var x: Int, i: Int
-
-        // [name retain] ... [name release]: Swift holds it.
-
-        let movie = Int(self.horos_curMovieIndex)
-        x = 0
-        while x < (self.horos_pixList(at: movie)?.count ?? 0)
-        {
-
-            i = 0
-            while i < ((self.horos_roiList(at: movie)?.object(at: x) as? NSArray)?.count ?? 0)
-            {
-                let curROI = objcROI((self.horos_roiList(at: movie)?.object(at: x) as? NSArray)?.object(at: i), "name")
-                if objcIsEqualToString(curROI?.name, name)
-                {
-                    curROI?.name = newString
-                    objcPost(.OsirixROIChange, curROI)
-                }
-                i += 1
-            }
-            x += 1
-        }
+        ViewerROIEdits.rename(name, to: newString, in: self)
     }
 
     @objc(roiLoadFromSeries:)
     func roiLoad(fromSeries filename: String!) {
-        // The importer's error: parameter is the Swift throw; a nil path
-        // reached it as an empty string.
-        do {
-            try self.importROIArchive(fromPath: filename ?? "")
-        } catch {
-            self.presentROIImportError(forPath: filename ?? "", error: error)
-        }
+        ViewerROIFiles.loadSeries(filename, into: self)
     }
 
     @objc(roiLoadFromFiles:)
     @IBAction func roiLoadFromFiles(_ sender: Any!) {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = false
-
-        panel.allowedContentTypes = [UTType(filenameExtension: "roi")!, UTType(filenameExtension: "rois_series")!, UTType(filenameExtension: "xml")!, UTType(filenameExtension: "json")!]
-
-        panel.begin { result in
-            if result != .OK {
-                return
-            }
-
-            self.roiLoadFiles(panel.urls)
-        }
-    }
-
-    /// Imports the files chosen in `-roiLoadFromFiles:`, each by the importer
-    /// of its own extension. The importer was chosen by the extension of the
-    /// last file alone and given every file: in a mixed selection the other
-    /// files went to the wrong importer, and of several .rois_series files
-    /// only the last one was read.
-    fileprivate func roiLoadFiles(_ urls: [URL]) {
-        let groups = roiImportGroups(urls)
-
-        for path in groups.json {
-            self.roiLoadFromInterchangeFile(path)
-        }
-        if !groups.xml.isEmpty {
-            self.horos_imageView?.roiLoad(fromXMLFiles: groups.xml)
-        }
-        for path in groups.series {
-            self.roiLoad(fromSeries: path)
-        }
-        if !groups.roi.isEmpty {
-            do {
-                try self.importROIFiles(groups.roi)
-            } catch {
-                self.presentROIImportError(forPath: groups.roi.last ?? "", error: error)
-            }
-        }
+        ViewerROIFiles.chooseAndLoad(into: self)
     }
 
     @objc(roiSaveSeries:)
     @IBAction func roiSaveSeries(_ sender: Any!) {
-        let panel = NSSavePanel()
-        let roisPerMovies = NSMutableArray()
-        var rois = false
-
-        var y: Int32 = 0
-        while y < Int32(self.horos_maxMovieIndex)
-        {
-            let roisPerSeries = NSMutableArray()
-
-            var x: Int32 = 0
-            while Int(x) < (self.horos_pixList(at: Int(y))?.count ?? 0)
-            {
-                let roisPerImages = NSMutableArray()
-
-                var i: Int32 = 0
-                while Int(i) < ((self.horos_roiList(at: Int(y))?.object(at: Int(x)) as? NSArray)?.count ?? 0)
-                {
-                    let curROI = (self.horos_roiList(at: Int(y))?.object(at: Int(x)) as? NSArray)?.object(at: Int(i))
-
-                    objcAdd(roisPerImages, curROI)
-
-                    rois = true
-                    i += 1
-                }
-
-                roisPerSeries.add(roisPerImages)
-                x += 1
-            }
-
-            roisPerMovies.add(roisPerSeries)
-            y += 1
-        }
-
-        if rois
-        {
-            panel.canSelectHiddenExtension = false
-            panel.allowedContentTypes = [UTType(filenameExtension: "rois_series")!]
-            // panel.nameFieldStringValue = [... valueForKeyPath:@"series.name"]:
-            // sent as the Objective-C sent it, whatever the value is.
-            panel.setValue((self.fileList()?.object(at: 0) as? NSObject)?.value(forKeyPath: "series.name"), forKey: "nameFieldStringValue")
-
-            panel.begin { result in
-                if result != .OK {
-                    return
-                }
-                // Compatibility: .rois_series is the typedstream format consumed by
-                // released Horos/OsiriX and the restricted ROI importer, not a keyed archive.
-                if let path = (panel.url as NSURL?)?.path {
-                    _ = try? HistoricalArchive.archiveRootObject(roisPerMovies, toFile: path)
-                }
-            }
-        }
-        else
-        {
-            HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Save Error", comment: ""), message: NSLocalizedString("No ROIs in this series!", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-        }
+        ViewerROIFiles.chooseAndSaveSeries(of: self)
     }
 
     @objc(roiSelectDeselectAll:)
     @IBAction func roiSelectDeselectAll(_ sender: Any!) {
-        var x: Int32, i: Int32
-
-        self.add(toUndoQueue: "roi")
-
-        let movie = Int(self.horos_curMovieIndex)
-        x = 0
-        while Int(x) < (self.horos_pixList(at: movie)?.count ?? 0)
-        {
-
-            i = 0
-            while Int(i) < ((self.horos_roiList(at: movie)?.object(at: Int(x)) as? NSArray)?.count ?? 0)
-            {
-                let curROI = objcROI((self.horos_roiList(at: movie)?.object(at: Int(x)) as? NSArray)?.object(at: Int(i)), "setROIMode:")
-
-                if objcTag(sender) != 0
-                {
-                    curROI?.roImode = ROI_selected
-                }
-                else
-                {
-                    curROI?.roImode = ROI_sleep
-                }
-                i += 1
-            }
-            x += 1
-        }
-
-        self.horos_imageView?.needsDisplay = true
+        ViewerROIEdits.selectAll(ViewerSender.tag(sender) != 0, in: self)
     }
 
-    // Erase Content rewrites the pixel data of every image of the series that contains a ROI with the
-    // selected name. Undo only tracks ROI objects, so the user is warned once (with an opt-out) that the
-    // pixels can only be brought back with ROI Volume > Restore Content.
     @objc(confirmROIVolumeEraseForName:)
     func confirmROIVolumeErase(forName name: String!) -> Bool {
-        let skipKey = "ROIVolumeEraseContentSkipWarning"
-
-        if UserDefaults.standard.bool(forKey: skipKey) {
-            return true
-        }
-
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = String(format: NSLocalizedString("Erase the content of ROI \u{201c}%@\u{201d} in the whole series?", comment: ""), objcFormatArgument(name))
-        alert.informativeText = NSLocalizedString("The pixels inside every ROI with this name will be replaced in memory, on all images of the series. Undo does not revert pixel data: use ROI Volume > Restore Content to reload the original pixels from disk.", comment: "")
-        alert.addButton(withTitle: NSLocalizedString("Erase", comment: ""))
-        alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
-        alert.showsSuppressionButton = true
-        alert.suppressionButton?.title = NSLocalizedString("Do not ask again", comment: "")
-
-        let response = alert.runModal()
-
-        if response != .alertFirstButtonReturn {
-            return false
-        }
-
-        if alert.suppressionButton?.state == .on {
-            UserDefaults.standard.set(true, forKey: skipKey)
-        }
-
-        return true
+        ViewerROIEdits.confirmErase(named: name, in: self)
     }
 
     @objc(roiVolumeEraseRestore:)
     @IBAction func roiVolumeEraseRestore(_ sender: Any!) {
-        var i: Int32 = 0
-        while i < Int32(self.horos_maxMovieIndex) {
-            self.saveROI(Int(i))
-            i += 1
-        }
-
-        _ = self.computeInterval()
-
-        let selectedRoi = self.selectedROI()
-
-        guard let selectedRoi else
-        {
-            HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Volume Error", comment: ""), message: NSLocalizedString("Select a ROI.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-            return
-        }
-
-        if objcTag(sender) == 0 && self.confirmROIVolumeErase(forName: selectedRoi.name) == false {
-            return
-        }
-
-        var error: NSString? = nil
-        _ = self.computeVolume(selectedRoi, points: nil, generateMissingROIs: true, generatedROIs: nil, computeData: nil, error: &error)
-
-        if let error
-        {
-            HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Volume Error", comment: ""), message: error as String, defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-        }
-        else
-        {
-            if objcTag(sender) != 0	// Restore
-            {
-                self.roiSetPixels(selectedRoi, 0, false, false, -Float.greatestFiniteMagnitude, Float.greatestFiniteMagnitude, 0, true)	//MINFLOAT //maxfloat float.h
-            }
-            else				// Erase
-            {
-                self.roiSetPixels(selectedRoi, 0, false, false, -Float.greatestFiniteMagnitude, Float.greatestFiniteMagnitude, (self.horos_pixList(at: Int(self.horos_curMovieIndex))?.object(at: 0) as? DCMPix)?.minValueOfSeries ?? 0, false)
-            }
-
-            // Recompute!!!! Apply WL/WW
-            var iwl: Float = 0, iww: Float = 0
-
-            self.horos_imageView?.getWLWW(&iwl, &iww)
-            self.horos_imageView?.setWLWW(iwl, iww)
-
-            var y: Int32, x: Int32
-            // Recompute all ROIs
-            y = 0
-            while y < Int32(self.horos_maxMovieIndex)
-            {
-                x = 0
-                while Int(x) < (self.horos_pixList(at: Int(y))?.count ?? 0)
-                {
-                    i = 0
-                    while Int(i) < ((self.horos_roiList(at: Int(y))?.object(at: Int(x)) as? NSArray)?.count ?? 0) {
-                        objcROI((self.horos_roiList(at: Int(y))?.object(at: Int(x)) as? NSArray)?.object(at: Int(i)), "recompute")?.recompute()
-                        i += 1
-                    }
-
-                    (self.horos_pixList(at: Int(y))?.object(at: Int(x)) as? DCMPix)?.changeWLWW(iwl, iww)	//recompute WLWW
-                    x += 1
-                }
-                y += 1
-            }
-
-            objcPost(.OsirixUpdateVolumeData, self.horos_pixList(at: Int(self.horos_curMovieIndex)))
-        }
+        ViewerROIEdits.eraseOrRestoreVolume(restore: ViewerSender.tag(sender) != 0, in: self)
     }
 
     @objc(roiIntDeleteAllROIsWithSameName:)
     func roiIntDeleteAllROIs(withSameName name: String!) {
-        var i: Int
-
-        // [name retain] ... [name release]: Swift holds it.
-
-        self.add(toUndoQueue: "roi")
-
-        for item in self.horos_roiList(at: Int(self.horos_curMovieIndex)) ?? NSMutableArray()
-        {
-            guard let x = item as? NSMutableArray else { continue }
-
-            i = 0
-            while i < x.count
-            {
-                let curROI = objcROI(x.object(at: i), "name")
-                if objcIsEqualToString(curROI?.name, name) && curROI?.locked == false
-                {
-                    objcPost(.OsirixRemoveROI, curROI)
-                    if let curROI { x.remove(curROI) }
-                    i -= 1
-                }
-                i += 1
-            }
-        }
-
-        self.imageView()?.needsDisplay = true
+        ViewerROIEdits.deleteUnlocked(named: name, in: self)
     }
 
     @objc(roiDeleteAllROIsWithSameName:)
     @IBAction func roiDeleteAllROIsWithSameName(_ sender: Any!) {
-        let selectedROI = self.selectedROI()
-
-        if let selectedROI
-        {
-            self.roiIntDeleteAllROIs(withSameName: selectedROI.name)
-        }
-        else {
+        guard let selected = selectedROI() else {
             HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Error", comment: ""), message: NSLocalizedString("Select a ROI to delete all ROIs with the same name.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            return
         }
+        roiIntDeleteAllROIs(withSameName: selected.name)
     }
 
     @objc(roiDeleteWithName:)
     func roiDelete(withName name: String!) {
-        self.roiIntDeleteAllROIs(withSameName: name)
+        roiIntDeleteAllROIs(withSameName: name)
     }
 
     @objc(roiIntDeleteGeneratedROIsForName:)
     func roiIntDeleteGeneratedROIs(forName name: String!) -> Int32 {
-        var no: Int32 = 0
-
-        var m: Int32 = 0
-        while m < Int32(self.horos_maxMovieIndex) {
-            self.saveROI(Int(m))
-            m += 1
-        }
-
-        // [name retain] ... [name release]: Swift holds it.
-
-        self.add(toUndoQueue: "roi")
-
-        self.horos_imageView?.stopROIEditingForce(true)
-
-        for item in self.horos_roiList(at: Int(self.horos_curMovieIndex)) ?? NSMutableArray()
-        {
-            guard let x = item as? NSMutableArray else { continue }
-
-            var i = 0
-            while i < x.count
-            {
-                let curROI = objcROI(x.object(at: i), "comments")
-                if objcIsEqualToString(curROI?.comments, "morphing generated")
-                {
-                    if objcIsEqualToString(curROI?.name, name) || name == nil
-                    {
-                        objcPost(.OsirixRemoveROI, curROI)
-                        if let curROI { x.remove(curROI) }
-                        i -= 1
-
-                        no += 1
-                    }
-                }
-                i += 1
-            }
-        }
-
-        self.horos_imageView?.setIndex(self.horos_imageView?.curImage ?? 0)
-
-        return no
+        ViewerROIEdits.deleteGenerated(named: name, in: self)
     }
 
     @objc(roiDeleteGeneratedROIsForName:)
     func roiDeleteGeneratedROIs(forName name: String!) {
-        _ = self.roiIntDeleteGeneratedROIs(forName: name)
+        _ = roiIntDeleteGeneratedROIs(forName: name)
     }
 
     @objc(roiDeleteGeneratedROIs:)
     @IBAction func roiDeleteGeneratedROIs(_ sender: Any!) {
-        self.roiDeleteGeneratedROIs(forName: nil)
+        roiDeleteGeneratedROIs(forName: nil)
     }
 }

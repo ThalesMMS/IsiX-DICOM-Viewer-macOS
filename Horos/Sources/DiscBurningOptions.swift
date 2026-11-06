@@ -39,18 +39,22 @@
 
 import Foundation
 
+/// What a disc burn does to the images' compression. The Objective-C names
+/// (CompressionDont, CompressionCompress, CompressionDecompress) and values
+/// are those of the former C enum.
+@objc(Compression)
+public enum Compression: Int {
+    case dont = 0
+    case compress = 1
+    case decompress = 2
+}
+
 /// The options of a disc burn, archivable with the same keys as before.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/DiscBurningOptions.h> are those of the former class. As before, the
 /// class adopts NSCopying and answers -encodeWithCoder: and -initWithCoder:
 /// without declaring NSCoding.
-///
-/// The `compression` property is declared and implemented by the Objective-C
-/// category of DiscBurningOptions+CAPI.mm, over `compressionValue`: its type
-/// is the C enum Compression of DicomCompressor.h, which the generated
-/// interface would name before the Objective-C++ files that import it have
-/// declared it.
 @objc(DiscBurningOptions)
 public final class DiscBurningOptions: NSObject, NSCopying {
     @objc public var anonymize: Bool = false
@@ -61,8 +65,14 @@ public final class DiscBurningOptions: NSObject, NSCopying {
     @objc public var includeReports: Bool = false
     @objc public var includeAuxiliaryDir: Bool = false
     @objc public var auxiliaryDirPath: String?
-    /// The enum Compression value of `compression`.
-    @objc(compressionValue) var compressionValue: UInt32 = 0
+    /// The value of `compression` as archived, kept as read even when it is
+    /// none of the enum's.
+    private var compressionValue: UInt32 = 0
+
+    @objc public var compression: Compression {
+        get { return Compression(rawValue: Int(compressionValue)) ?? .dont }
+        set { compressionValue = UInt32(newValue.rawValue) }
+    }
     @objc public var compressJPEGNotJPEG2000: Bool = false
     @objc public var zip: Bool = false
     @objc public var zipEncrypt: Bool = false

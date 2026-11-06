@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Built-in T2 Fit Map is registered and Intel load failures keep a T2 diagnosis."""
+"""Built-in T2 Fit Map is registered; the former plugin it replaces is refused."""
 from pathlib import Path
 import sys
 
@@ -18,8 +18,10 @@ xib = (root / 'Horos/Resources/en.lproj/Viewer.xib').read_text(encoding='latin1'
 if 'T2FitMapFilter.register(in: plugins)' not in manager:
     print('FAIL: discoverPlugins does not register the built-in T2 Fit Map', file=sys.stderr)
     sys.exit(1)
-if 'T2FitMapCompatibility.diagnostic(forBundleAtPath:' not in manager:
-    print('FAIL: plugin load failures do not ask T2FitMapCompatibility for a diagnosis', file=sys.stderr)
+# The former public plugin it replaces is refused like every former plugin,
+# by its extension, before anything of it is read or loaded.
+if 'T2FitMapCompatibility' in manager or 'PluginAdmission.isManaged(name)' not in manager:
+    print('FAIL: the former T2 Fit Map plugin is not refused like every former plugin', file=sys.stderr)
     sys.exit(1)
 if not viewer.is_file() or not header.is_file():
     print('FAIL: ViewerController+T2FitMap is missing', file=sys.stderr)
@@ -28,8 +30,17 @@ host = source_text('ViewerController+T2FitMap')
 if 't2FitMapProcessCurrentSeries' not in host:
     print('FAIL: viewer category does not process the current multi-echo series', file=sys.stderr)
     sys.exit(1)
-if 'T2FitMapEngine' not in host:
-    print('FAIL: viewer category must fit through T2FitMapEngine', file=sys.stderr)
+# The echo groups and the layout of the maps are IsiXImaging's T2FitMapping;
+# each slice is fitted by T2FitMap.fitSeries.
+mapping = root / 'Modules/IsiXImaging/Sources/BufferOperations/T2FitMapping.swift'
+if not mapping.is_file() or 'public enum T2FitMapping' not in mapping.read_text(encoding='utf-8'):
+    print('FAIL: T2FitMapping is missing from IsiXImaging', file=sys.stderr)
+    sys.exit(1)
+if 'T2FitMapping.map(' not in host or 'T2FitMapping.groups(' not in host:
+    print('FAIL: viewer category must group and lay out the maps through T2FitMapping', file=sys.stderr)
+    sys.exit(1)
+if 'T2FitMap.fitSeries(' not in host:
+    print('FAIL: viewer category must fit each slice through T2FitMap.fitSeries', file=sys.stderr)
     sys.exit(1)
 if 'newWindow' not in host:
     print('FAIL: a successful fit must open the T2 map in a new 2D viewer', file=sys.stderr)
@@ -43,4 +54,4 @@ if viewer.name not in pbx:
 if 'T2 Fit Map' in xib or 't2FitMap' in xib:
     print('FAIL: Viewer.xib must stay untouched', file=sys.stderr)
     sys.exit(1)
-print('PASS: built-in T2 Fit Map is registered, diagnoses Intel ABI, and fits from the viewer')
+print('PASS: built-in T2 Fit Map is registered, the former plugin is refused, and fits from the viewer')

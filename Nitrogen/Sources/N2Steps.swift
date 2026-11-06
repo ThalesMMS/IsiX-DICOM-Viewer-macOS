@@ -53,8 +53,7 @@ import Cocoa
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2Steps.h>` are those of the former class. The notification
-/// names stay in N2Steps+CAPI.m, and the informal delegate protocol stays
-/// in N2Steps.h.
+/// names and the informal delegate protocol are in N2Steps.h.
 @available(*, deprecated)
 @objc(N2Steps)
 public final class N2Steps: NSArrayController {

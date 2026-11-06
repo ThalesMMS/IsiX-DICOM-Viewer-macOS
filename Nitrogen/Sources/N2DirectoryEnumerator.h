@@ -48,18 +48,4 @@
 @class N2DirectoryEnumerator;
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
-#else
-// A target without Swift, the Decompress helper: DCMPix.m and DicomFile.mm
-// import this header through NSFileManager+N2.h, as they did before, without
-// the implementation.
-@interface N2DirectoryEnumerator : NSDirectoryEnumerator
-
-@property BOOL filesOnly;
-@property BOOL recursive;
-
--(id)initWithPath:(NSString*)path maxNumberOfFiles:(NSInteger)n;
-
-- (int)stat:(struct stat*)s;
-
-@end
 #endif

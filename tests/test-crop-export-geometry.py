@@ -28,19 +28,22 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-writer = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
-at = writer.find('+ (BOOL) writeCropOfFile:')
-body = writer[at:writer.find('#endif  // HOROS_KEYWORD_SPELLINGS', at)] if at >= 0 else ''
+# The writer is Swift (DicomFile+DICOMCrop.swift) over the DCMTK adapter; the
+# adapter's encapsulation test is both DCMTK predicates together.
+writer = (root / 'Horos/Sources/DicomFile+DICOMCrop.swift').read_text()
+adapter = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKFile.mm').read_text()
+at = writer.find('class func writeCrop(ofFile source:')
+body = writer[at:writer.find('private static func cropFailure', at)] if at >= 0 else ''
 if not body:
     failures.append('the crop writer is gone')
 else:
     for wanted, why in (
-        ('HorosCroppedImageGeometry positionForPosition:', 'nothing works out where the crop sits'),
-        ('putAndInsertString( DCM_ImagePositionPatient', 'the crop keeps the position of the whole image'),
-        ('DCM_Rows, cropHeight', 'Rows is not set to the rectangle'),
-        ('DCM_Columns, cropWidth', 'Columns is not set to the rectangle'),
-        ('dcmGenerateUniqueIdentifier', 'the derived instance keeps the identity of the original'),
-        ('DCM_SourceImageSequence', 'nothing says which image this came from'),
+        ('CroppedImageGeometry.position(position:', 'nothing works out where the crop sits'),
+        ('DicomFileTag.imagePositionPatient, in: dataset)', 'the crop keeps the position of the whole image'),
+        ('cropHeight), forTag: DicomFileTag.rows', 'Rows is not set to the rectangle'),
+        ('cropWidth), forTag: DicomFileTag.columns', 'Columns is not set to the rectangle'),
+        ('IsiXDCMTKFile.generateUID(root: .instance)', 'the derived instance keeps the identity of the original'),
+        ('DicomFileTag.sourceImageSequence', 'nothing says which image this came from'),
         ('DERIVED', 'the derived instance is not marked as one'),
     ):
         if wanted not in body:
@@ -48,17 +51,18 @@ else:
     # Current DCMTK distinguishes encapsulated storage from compressed pixel
     # data. Require both predicates in the same refusal guard, before any pixel
     # read: checking that the method names merely occur would miss a bypass.
-    compressed_guard = re.search(
-        r'if\s*\(\s*\(?\s*xfer\.usesEncapsulatedFormat\(\)\s*&&\s*'
-        r'xfer\.isPixelDataCompressed\(\)\s*\)?\s*\)\s*FAIL\s*\(', body)
-    pixel_read = body.find('findAndGetUint8Array( DCM_PixelData')
-    if not compressed_guard or pixel_read < 0 or compressed_guard.start() >= pixel_read:
+    encapsulated = adapter[adapter.find('- (BOOL)originalTransferSyntaxIsEncapsulated'):]
+    encapsulated = encapsulated[:encapsulated.find('\n}\n')]
+    compressed_guard = re.search(r'if\s+file\.originalTransferSyntaxIsEncapsulated\s*\{\s*throw\s+cropFailure\(', body)
+    pixel_read = body.find('dataset.bytes(forTag: DicomFileTag.pixelData)')
+    if (not compressed_guard or pixel_read < 0 or compressed_guard.start() >= pixel_read or
+            not re.search(r'xfer\.usesEncapsulatedFormat\(\)\s*&&\s*xfer\.isPixelDataCompressed\(\)', encapsulated)):
         failures.append('compressed pixel data is not refused before the crop reads pixels')
 
     # It writes somewhere else, and the source is only ever read.
-    if 'saveFile( [destination' not in body:
+    if 'try file.write(toPath: destination' not in body:
         failures.append('the writer does not save to the destination it was given')
-    if re.search(r'saveFile\(\s*\[source', body):
+    if re.search(r'write\(toPath:\s*source', body):
         failures.append('the writer saves over the source')
 
 for failure in failures:

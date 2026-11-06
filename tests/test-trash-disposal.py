@@ -49,6 +49,8 @@ assert "performFileOperation" not in plugin_removal
 assert "if returnPath != nil" in plugin_removal
 sys.path.insert(0, str(ROOT / "tools"))
 import object_probe  # noqa: E402
+sys.path.insert(0, str(ROOT / "tests"))
+import isix_modules  # noqa: E402
 
 SOURCE = "Nitrogen/Sources/NSFileManager+N2.mm"  # --revision: the Objective-C before its move to Swift
 HOME_TRASH = Path.home() / ".Trash"
@@ -72,28 +74,23 @@ if arguments.revision:
     obj = scratch / "NSFileManager+N2.o"
     object_probe.compile_source(command, source, obj)
 else:
-    # NSFileManager (N2) is Swift: its source, the Swift classes it
-    # calls (N2DirectoryEnumerator, HorosStorageFailure) and the four FSRef
-    # methods that stay Objective-C (NSFileManager+N2+CAPI.o) make one library.
-    # NSString (SymlinksAndAliases) of LetsMoveAndDock resolves aliases for it.
-    helpers = [object_probe.app_object(name, arguments.configuration) if arguments.configuration
-               else object_probe.first_app_object(name)
-               for name in ("NSFileManager+N2+CAPI", "NSString+SymlinksAndAliases")]
-    if any(h is None for h in helpers):
-        print("needs a built NSFileManager+N2+CAPI.o and NSString+SymlinksAndAliases.o: script/build_and_run.sh",
-              file=sys.stderr)
-        raise SystemExit(2)
+    # NSFileManager (N2) is Swift: its source and the Swift classes it calls
+    # (N2DirectoryEnumerator, HorosStorageFailure) make one library.
+    # IsiXStorage's path alias resolution resolves aliases for it.
+    helpers = []
     bridging = scratch / "bridging.h"
     bridging.write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n'
-                        '#import "N2DirectoryEnumerator.h"\n#import "NSFileManager+N2.h"\n'
-                        '#import "NSString+SymlinksAndAliases.h"\n')
+                        '#import "N2DirectoryEnumerator.h"\n#import "NSFileManager+N2.h"\n')
     obj = object_probe.swift_dylib([ROOT / "Nitrogen/Sources/NSFileManager+N2.swift",
                                     ROOT / "Nitrogen/Sources/N2DirectoryEnumerator.swift",
                                     ROOT / "Horos/Sources/StorageFailure.swift"],
                                    helpers, scratch / "libNSFileManagerN2.dylib", bridging_header=bridging,
-                                   include_dirs=(ROOT / "Nitrogen/Sources", ROOT / "Horos/Sources",
-                                                 ROOT / "LetsMoveAndDock"),
-                                   frameworks=("Cocoa",))
+                                   include_dirs=(ROOT / "Nitrogen/Sources", ROOT / "Horos/Sources"),
+                                   frameworks=("Cocoa",),
+                                   # The extension is reached by selector only: load all of it.
+                                   flags=[*isix_modules.module_flags("IsiXStorage", scratch / "modules",
+                                                                     ["-target", "arm64-apple-macos15.0"]),
+                                          "-Xlinker", "-all_load"])
 probe = object_probe.link_probe(ROOT / "tools/probe-trash.m", [obj], scratch / "probe",
                                 defines=() if obj.suffix == ".o" else ("HOROS_PROBE_SWIFT_FILE_MANAGER",))
 print(f"object under test: {obj}")

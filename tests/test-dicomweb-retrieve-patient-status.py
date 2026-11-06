@@ -14,28 +14,27 @@ import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_text(encoding='utf-8')
+# The query node is Swift: the move is in DCMTKQueryNode+Retrieve.swift, the
+# DICOMweb retrieve and the session that takes each object in +DICOMweb.
+move = (root / 'Horos/Sources/DCMTKQueryNode+Retrieve.swift').read_text()
+session = (root / 'Horos/Sources/DCMTKQueryNode+DICOMweb.swift').read_text()
 failures = []
 
-move = source[source.index('- (void) move:'):]
-start = move.find('_retrievePatient = [[[studyNode.name stringByReplacingOccurrencesOfString:@"^" withString:@" "]')
-call = move.find('reportedDICOMwebFailure = ![self retrieveDICOMweb];')
+move = move[move.index('func move(_ dictionary: [AnyHashable: Any]!, retrieveMode: Int32)'):]
+start = move.find('retrievePatient = studyNode?.name()?.replacingOccurrences(of: "^", with: " ")')
+call = move.find('reportedDICOMwebFailure = !retrieveDICOMweb()')
 if not 0 <= start < call:
-    failures.append('move: does not keep the patient of the study before the DICOMweb retrieve')
-elif 'if (_retrievePatient.length) NSThread.currentThread.status = _retrievePatient;' not in move[start:call]:
-    failures.append('move: does not show the patient as the retrieve starts')
+    failures.append('move does not keep the patient of the study before the DICOMweb retrieve')
+elif 'if let patient = retrievePatient, !patient.isEmpty { Thread.current.status = patient }' not in move[start:call]:
+    failures.append('move does not show the patient as the retrieve starts')
 
-retrieve = source[source.index('- (BOOL)retrieveDICOMweb'):]
-retrieve = retrieve[:retrieve.index('\n- (')]
-named = re.search(r'if \(patient\.length\) status = window \? \[NSString stringWithFormat:NSLocalizedString\(@"%@, %ld of %ld requests at once \(automatic\)", nil\),\s*patient, \(long\)window, \(long\)limit\] : patient;', retrieve)
+named = re.search(r'if let patient = node\.retrievePatient, !patient\.isEmpty \{\s*status = window > 0 \? String\(format: NSLocalizedString\("%@, %ld of %ld requests at once \(automatic\)", comment: ""\), patient, window, limit\) : patient', session)
 if not named:
     failures.append('an object queued does not keep the patient as the status')
-if 'if (![thread.status isEqualToString:status]) [thread setStatus:status];' not in retrieve:
+if 'if thread.status != status { thread.status = status }' not in session:
     failures.append('the status is set again for every object even when it has not changed')
-if 'NSString *_retrievePatient;' not in (root / 'Horos/Sources/DCMTKQueryNode.h').read_text(encoding='utf-8'):
-    failures.append('DCMTKQueryNode has no _retrievePatient')
-if '[_retrievePatient release];' not in source[source.index('- (void)dealloc'):]:
-    failures.append('dealloc does not release _retrievePatient')
+if 'var retrievePatient: String?' not in (root / 'Horos/Sources/DCMTKQueryNode.swift').read_text():
+    failures.append('DCMTKQueryNode has no retrievePatient')
 
 if failures:
     for failure in failures:

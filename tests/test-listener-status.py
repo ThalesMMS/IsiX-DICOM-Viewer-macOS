@@ -17,8 +17,8 @@ ListenerStatus.swift is compiled as it is and driven as the application drives i
 - the IPv4 side of a port is taken while a socket of either family holds it,
   listening or only bound, and free before and after.
 
-The wiring is read from the sources: every way out of -[DCMTKQueryRetrieveSCP
-run] before its accept loop says why, the IPv4 side is asked before the port
+The wiring is read from the sources: every way out of DCMTKQueryRetrieveSCP's
+run() before it serves associations says why, the IPv4 side is asked before the port
 is opened, the loop is entered as "listening" and left as "ended"; the
 application marks protected mode, an inactive session, a listener still
 stopping, a bind failure (before the notice that is shown once, or hidden) and
@@ -46,66 +46,76 @@ def source(path):
 
 
 # -- wiring -------------------------------------------------------------------
-listener = source('Horos/Sources/DCMTKQueryRetrieveSCP.mm')
-run = listener[listener.index('- (void)run\n'):]
-run = run[:run.index('\n-(void)abort')]
-loop = run.index('/* loop waiting for associations */')
+# The listener is Swift, DCMTKQueryRetrieveSCP.swift; DCMTK is behind its adapter.
+listener = source('Horos/Sources/DCMTKQueryRetrieveSCP.swift')
+run = listener[listener.index('    @objc func run() {\n'):]
+run = run[:run.index('\n    private func setUpTLS(')]
+loop = run.index('listener.serve(until:')
 setup, rest = run[:loop], run[loop:]
 lines = setup.split('\n')
 for number, line in enumerate(lines):
-    if 'return;' not in line:
+    if line.strip() != 'return':
         continue
     said = '\n'.join(lines[max(0, number - 6):number + 1])
-    if 'HorosListenerStatus setNotListening' not in said and 'reportListenBindFailureForService' not in said and 'abandonTLS(' not in said:
+    if 'ListenerStatus.setNotListening(' not in said and 'listenBindFailed(' not in said:
         failures.append(f'the listener leaves without saying why: {" ".join(lines[max(0, number - 2):number + 1]).strip()[:90]}')
-# The TLS set-up's exits say why through the one clean-up they share.
-abandon = setup[setup.find('auto abandonTLS'):]
-abandon = abandon[:abandon.find('};')]
-if 'setNotListening: [HorosListenerStatus tlsSettingsReason] TLS: YES' not in abandon:
-    failures.append('the TLS set-up leaves without saying why: abandonTLS() no longer sets the status')
-if setup.count('return;') < 10:
+# The TLS set-up's exits say why through the one place that leaves after it.
+tls = setup[setup.find('if secure, let message = setUpTLS(listener)'):]
+tls = tls[:tls.find('\n        }\n')]
+if 'ListenerStatus.setNotListening(reason: ListenerStatus.tlsSettingsReason, tls: true)' not in tls:
+    failures.append('the TLS set-up leaves without saying why')
+if sum(line.strip() == 'return' for line in lines) < 6:
     failures.append('the ways out of the listener were not found')
-probe, opened = setup.find('[HorosListenerStatus isIPv4PortTaken: _port]'), setup.find('ASC_initializeNetwork(')
+probe, opened = setup.find('ListenerStatus.isIPv4PortTaken(Int(listenerPort))'), setup.find('listener.openNetwork()')
 if probe < 0 or opened < 0 or probe > opened:
     failures.append('the IPv4 side of the port must be asked before the port is opened')
-if 'errnoCode: EADDRINUSE' not in setup[probe:opened]:
+if 'errnoCode: EADDRINUSE' not in setup[probe:opened] and 'errno: EADDRINUSE' not in setup[probe:opened]:
     failures.append('a port whose IPv4 side is taken must be reported as a port in use')
-if '[HorosListenerStatus setListeningOnPort: _port TLS: tlsListener]' not in setup[opened:]:
+if 'ListenerStatus.setListening(port: Int(listenerPort), tls: secure)' not in setup[opened:]:
     failures.append('the listener does not say that it listens')
-if '[HorosListenerStatus setEndedForTLS: tlsListener]' not in rest:
+if 'ListenerStatus.setEnded(tls: secure)' not in rest:
     failures.append('the listener does not say that it ended')
 
 app = source('Horos/Sources/AppController.swift')
+lifecycle = source('Horos/Sources/DICOMListenerController.swift')
 
 
-def body(signature, end='\n    }\n'):
-    start = app.index(signature)
-    return app[start:app.index(end, start)]
+def body(signature, end='\n    }\n', text=None):
+    text = app if text is None else text
+    start = text.index(signature)
+    return text[start:text.index(end, start)]
 
 
-restart = body('@objc public func restartSTORESCP() {')
-for needle, what in (('markListenersNotStarted(ListenerStatus.protectedModeReason)', 'protected mode'),
-                     ('ListenerStatus.setStarting(tls: false)', 'the listener starting'),
-                     ('ListenerStatus.setStarting(tls: true)', 'the TLS listener starting'),
-                     ('ListenerStatus.setOff(tls: false)', 'the listener switched off'),
-                     ('ListenerStatus.setOff(tls: true)', 'the TLS listener switched off'),
-                     ('ListenerStatus.setNotListening(reason: ListenerStatus.stillStoppingReason, tls: false)', 'a listener still stopping'),
-                     ('markListenersNotStarted(ListenerStatus.internalErrorReason(e?.reason))', 'an exception')):
-    if needle not in restart:
-        failures.append(f'restartSTORESCP does not say: {what}')
-bind = body('nonisolated public func reportListenBindFailure(')
-said, hidden = bind.find('ListenerStatus.setNotListening(reason: ListenerStatus.bindFailureReason('), bind.find('if hideDICOM')
+# The listener's life cycle is DICOMListenerController's: each listener starts
+# through start(tls:settings:) and runs in serve(tls:settings:).
+restart = body('    func restart() {', text=lifecycle)
+start = body('    private func start(tls: Bool, settings: ListenerSettings) {', text=lifecycle)
+for needle, what, where in (('markListenersNotStarted(ListenerStatus.protectedModeReason)', 'protected mode', restart),
+                            ('ListenerStatus.setStarting(tls: tls)', 'a listener starting', start),
+                            ('ListenerStatus.setOff(tls: tls)', 'a listener switched off', start),
+                            ('ListenerStatus.setNotListening(reason: ListenerStatus.stillStoppingReason, tls: tls)',
+                             'a listener still stopping', start)):
+    if needle not in where:
+        failures.append(f'the restart does not say: {what}')
+if restart.count('start(tls:') != 2 or 'start(tls: false,' not in restart or 'start(tls: true,' not in restart:
+    failures.append('the restart does not start, or say why it does not start, both listeners')
+notices = source('Horos/Sources/ApplicationNetworkNotices.swift')
+bind = notices[notices.index('    func listenBindFailed('):]
+bind = bind[:bind.index('\n    }\n')]
+if 'listenBindFailed(service:' not in body('nonisolated public func reportListenBindFailure('):
+    failures.append('AppController no longer reports a bind failure through the application notices')
+said, hidden = bind.find('ListenerStatus.setNotListening(reason: ListenerStatus.bindFailureReason('), bind.find('hideListenerErrorKey')
 if said < 0 or hidden < 0 or said > hidden:
     failures.append('a bind failure must reach the status before the notice that may be hidden or already shown')
-if 'controller.markListenersNotStarted(ListenerStatus.inactiveSessionReason)' not in body('private func applyListenerSettings() {'):
+if 'markListenersNotStarted(ListenerStatus.inactiveSessionReason)' not in body('    private func applySettings() {', text=lifecycle):
     failures.append('settings applied in an inactive session do not say why the listener stays stopped')
-resign = body('func switchHandler(')
-said, stopped = resign.find('markListenersNotStarted(ListenerStatus.inactiveSessionReason)'), resign.find('self.killDICOMListenerWait(true)')
+resign = body('    private func sessionSwitched(', text=lifecycle)
+said, stopped = resign.find('markListenersNotStarted(ListenerStatus.inactiveSessionReason)'), resign.find('stopListeners(wait: true)')
 if said < 0 or stopped < 0 or said > stopped:
     failures.append('a session that resigns must say why before it stops the listener, which ends as off otherwise')
-for method, tls in (('startSTORESCP(_', 'false'), ('startSTORESCPTLS(_', 'true')):
-    if f'ListenerStatus.setNotListening(reason: ListenerStatus.internalErrorReason(e?.reason), tls: {tls})' not in body(f'nonisolated public func {method}'):
-        failures.append(f'{method[:-2]} does not say that it raised')
+if 'ListenerStatus.setNotListening(reason: ListenerStatus.internalErrorReason(exception.reason), tls: tls)' \
+        not in body('    private nonisolated func serve(tls: Bool, settings: ListenerSettings) {', text=lifecycle):
+    failures.append('a listener thread that raised does not say so')
 pane = source('Preference Panes/OSIListenerPreferencePane/OSIListenerPreferencePanePref.swift')
 if 'ListenerStatusLine.install(in: view)' not in pane:
     failures.append('the Listener pane does not install the status line')
@@ -235,6 +245,15 @@ var failed = false
 func check(_ condition: Bool, _ what: String) {
     if !condition { FileHandle.standardError.write("FAIL: \(what)\n".data(using: .utf8)!); failed = true }
 }
+// The status announces a change on the main queue: run the main run loop until
+// the line shows `wanted`, or for at most five seconds, as a loaded machine may
+// take more than one short turn of it to deliver the announcement.
+func settle(_ line: NSTextField, _ wanted: String) {
+    let deadline = Date(timeIntervalSinceNow: 5)
+    repeat {
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+    } while line.stringValue != wanted && Date() < deadline
+}
 _ = NSApplication.shared
 MainActor.assumeIsolated {
     for path in CommandLine.arguments.dropFirst() {
@@ -258,11 +277,11 @@ MainActor.assumeIsolated {
         }
         check(line.stringValue == "Listening on port 11112" && line.textColor == NSColor.secondaryLabelColor, "\(name): at first: \(line.stringValue)")
         ListenerStatus.set(.notListening(reason: ListenerStatus.bindFailureReason(port: 11112, errno: EADDRINUSE)), tls: false)
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        settle(line, "Not listening: port 11112 is in use by another application")
         check(line.stringValue == "Not listening: port 11112 is in use by another application" && line.textColor == NSColor.systemRed && line.toolTip == line.stringValue,
               "\(name): after a failure: \(line.stringValue)")
         ListenerStatus.set(.off, tls: false)
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        settle(line, "The listener is off")
         check(line.stringValue == "The listener is off" && line.textColor == NSColor.secondaryLabelColor, "\(name): switched off: \(line.stringValue)")
     }
 }

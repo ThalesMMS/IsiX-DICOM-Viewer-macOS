@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 
 /// Window Controller for ROI palette: the brush tool panel (PaletteBrush.xib),
 /// which switches the viewer's brush between painting and erasing and sets its
@@ -73,15 +74,17 @@ public final class PaletteController: NSWindowController, NSWindowDelegate {
     public func changeBrushSize(_ sender: Any!) {
         sliderTextValue?.intValue = PaletteController.control(sender)?.intValue ?? 0
 
-        UserDefaults.standard.set(PaletteController.control(sender)?.floatValue ?? 0, forKey: "ROIRegionThickness")
+        PreferencesSource.process.preferences.set(PaletteController.control(sender)?.floatValue ?? 0, for: ViewerPreferences.roiRegionThickness)
     }
 
     public override func awakeFromNib() {
         MainActor.assumeIsolated {
-            sliderTextValue?.intValue = Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "ROIRegionThickness"))
+            // The thickness is a float, shown in whole points as the integer accessor read it.
+            let thickness = PreferencesSource.process.preferences[ViewerPreferences.roiRegionThickness.reading(as: Int.self)]
+            sliderTextValue?.intValue = Int32(truncatingIfNeeded: thickness)
 
             // init brush size
-            sizeSlider?.intValue = Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "ROIRegionThickness"))
+            sizeSlider?.intValue = Int32(truncatingIfNeeded: thickness)
 
             // The nib loads from -initWithViewer: before the viewer is set: this
             // reaches no viewer, as the former message to nil did.
@@ -102,8 +105,9 @@ public final class PaletteController: NSWindowController, NSWindowDelegate {
     public init(viewer v: ViewerController!) {
         super.init(window: nil)
 
-        if UserDefaults.standard.integer(forKey: "ROIRegionThickness") == 0 {
-            UserDefaults.standard.set(Float(2.0), forKey: "ROIRegionThickness")
+        let preferences = PreferencesSource.process.preferences
+        if preferences[ViewerPreferences.roiRegionThickness.reading(as: Int.self)] == 0 {
+            preferences.set(Float(2.0), for: ViewerPreferences.roiRegionThickness)
         }
 
         window?.setFrameAutosaveName("BrushTool")

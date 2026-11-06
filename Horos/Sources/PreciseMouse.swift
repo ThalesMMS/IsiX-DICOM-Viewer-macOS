@@ -11,17 +11,19 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPreferences
 
 /// Sensitivity applies to movement, never to hit testing or the image's coordinates.
 @objc(HorosPreciseMouse)
 public final class PreciseMouse: NSObject {
-    public static let enabledKey = "PreciseMouseForMeasuringAndZoom"
-    public static let factorKey = "PreciseMouseFactor"
+    public static let enabledKey = ViewerPreferences.preciseMouseForMeasuringAndZoom.name
+    public static let factorKey = ViewerPreferences.preciseMouseFactor.name
 
     @objc public static var effectiveFactor: Double {
-        let defaults = UserDefaults.standard
-        guard defaults.bool(forKey: enabledKey) else { return 1 }
-        let factor = defaults.double(forKey: factorKey)
+        let preferences = PreferencesSource.process.preferences
+        guard preferences[ViewerPreferences.preciseMouseForMeasuringAndZoom] else { return 1 }
+        // Read as a double, as the pane's choices 0.25, 0.5 and 0.75 are compared.
+        let factor = preferences[ViewerPreferences.preciseMouseFactor.reading(as: Double.self)]
         return [0.25, 0.5, 0.75].contains(factor) ? factor : 0.5
     }
 

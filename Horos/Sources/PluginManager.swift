@@ -38,6 +38,9 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPluginLoading
+import IsiXPreferences
+import IsiXStorage
 
 // What the static variables of the former Objective-C file held: the loaded
 // plugins, by menu title, toolbar name, file format and bundle path.
@@ -136,11 +139,11 @@ fileprivate enum Registry {
     }
 }
 
-// The loader reads plugins' Info.plist values and registers what it finds the
-// way Objective-C messaging did: a nil value answers zero or nil, and a value of
-// the wrong type, or a nil inserted into a collection, raises the NSException
-// the message raised. The callers run inside HorosObjCException.perform where
-// the former code had @try, so those exceptions keep ending where they ended.
+// The plugin manager reads property-list and dictionary values the way
+// Objective-C messaging did: a nil value answers zero or nil, and a value of the
+// wrong type, or a nil inserted into a collection, raises the NSException the
+// message raised. The callers run inside HorosObjCException.perform where the
+// former code had @try, so those exceptions keep ending where they ended.
 fileprivate enum ObjC {
     /// The argument of a "%@": nil prints (null), a class prints its name.
     static func arg(_ value: Any?) -> CVarArg {
@@ -170,18 +173,6 @@ fileprivate enum ObjC {
         _ = array?.perform(#selector(NSMutableArray.add(_:)), with: object)
     }
 
-    /// Whether a pluginType names `string`. An Info.plist without pluginType
-    /// names no role: the former [nil rangeOfString:] answered a zero range,
-    /// whose location 0 counted as found, and such a plugin was loaded as a
-    /// Pre-Process filter, registered as a Report and, in the menus, taken
-    /// for a fusion filter.
-    static func contains(_ value: Any?, _ string: String) -> Bool {
-        guard let value = value else { return false }
-        if let text = value as? NSString { return text.range(of: string).location != NSNotFound }
-        _ = (value as AnyObject).perform(NSSelectorFromString("rangeOfString:"), with: string)
-        return true
-    }
-
     /// [value isEqualToString:string], NO for a nil value.
     static func isEqualToString(_ value: Any?, _ string: String?) -> Bool {
         guard let value = value else { return false }
@@ -193,15 +184,6 @@ fileprivate enum ObjC {
         return text.isEqual(to: string)
     }
 
-    /// A string value the former code sent `selector` to: nil stays nil, and
-    /// another type raises the exception of that message.
-    static func string(_ value: Any?, sending selector: String) -> NSString? {
-        guard let value = value else { return nil }
-        if let text = value as? NSString { return text }
-        _ = (value as AnyObject).perform(NSSelectorFromString(selector))
-        return nil
-    }
-
     /// [value boolValue], NO for nil.
     static func bool(_ value: Any?) -> Bool {
         guard let value = value else { return false }
@@ -211,40 +193,11 @@ fileprivate enum ObjC {
         return false
     }
 
-    /// [value count].
-    static func count(_ value: Any) -> Int {
-        if let array = value as? NSArray { return array.count }
-        if let dictionary = value as? NSDictionary { return dictionary.count }
-        if let set = value as? NSSet { return set.count }
-        _ = (value as AnyObject).perform(NSSelectorFromString("count"))
-        return 0
-    }
-
     /// [value objectAtIndex:index]: out of range raises NSRangeException.
     static func object(_ value: Any, at index: Int) -> Any? {
         if let array = value as? NSArray { return array.object(at: index) }
         _ = (value as AnyObject).perform(NSSelectorFromString("objectAtIndex:"))
         return nil
-    }
-
-    /// The elements `for (id element in value)` visited; nil visits none.
-    static func forIn(_ value: Any?) -> [Any] {
-        guard let value = value else { return [] }
-        guard let collection = (value as AnyObject) as? NSFastEnumeration else {
-            _ = (value as AnyObject).perform(NSSelectorFromString("countByEnumeratingWithState:objects:count:"))
-            return []
-        }
-        var elements: [Any] = []
-        var iterator = NSFastEnumerationIterator(collection)
-        while let element = iterator.next() { elements.append(element) }
-        return elements
-    }
-
-    /// The elements [value objectEnumerator] returned; nil returns none.
-    static func objectEnumerator(_ value: Any?) -> [Any] {
-        guard let value = value else { return [] }
-        let enumerator = (value as AnyObject).perform(NSSelectorFromString("objectEnumerator"))?.takeUnretainedValue()
-        return (enumerator as? NSEnumerator)?.allObjects ?? []
     }
 
     /// [NSArray arrayWithObjects:..., nil], which ends at the first nil.
@@ -271,21 +224,6 @@ fileprivate enum ObjC {
     static func classOf(_ object: Any?) -> AnyClass? {
         guard let object = object else { return nil }
         return (object as AnyObject).perform(NSSelectorFromString("class"))?.takeUnretainedValue() as? AnyClass
-    }
-
-    /// [filterClass filter], PluginFilter's factory, sent to whatever class the
-    /// bundle names: one that does not answer it raises.
-    static func filter(of filterClass: AnyClass) -> Any? {
-        return (filterClass as AnyObject).perform(NSSelectorFromString("filter"))?.takeUnretainedValue()
-    }
-
-    /// [item setTitle:title] with a title read from an Info.plist.
-    static func setTitle(_ item: NSMenuItem, _ title: Any?) {
-        if let title = title as? String {
-            item.title = title
-        } else {
-            _ = item.perform(#selector(setter: NSMenuItem.title), with: title)
-        }
     }
 }
 
@@ -413,118 +351,15 @@ public final class PluginManager: NSObject {
         othersMenu?.removeAllItems()
         dbMenu?.removeAllItems()
 
-        let enumerator = Registry.pluginsDict?.objectEnumerator()
+        // Plugins made for Horos or OsiriX declare their items in Info.plist
+        // (MenuTitles, pluginType).
+        PluginManager.addFormerPluginMenuItems(filtersMenu, roisMenu, othersMenu, dbMenu)
 
-        while let plugin = enumerator?.nextObject() as? Bundle {
-            let info = plugin.infoDictionary as NSDictionary?
-            // A bundle in pluginsDict loaded its executable, which is this name.
-            let pluginName = info?.object(forKey: "CFBundleExecutable") as? String ?? ""
-            let pluginType = info?.object(forKey: "pluginType")
-            let menuTitles = info?.object(forKey: "MenuTitles")
+        // Version 1 plugins register their commands in code.
+        PluginManager.addIsiXPluginMenuItems(filtersMenu, roisMenu, othersMenu, dbMenu)
 
-            PluginManager.startProtectForCrash(withPath: plugin.bundlePath)
-
-            if let menuTitles = menuTitles {
-                if ObjC.count(menuTitles) > 1 {
-                    // Create a sub menu item
-
-                    let subMenu = NSMenu(title: pluginName)
-
-                    for menuTitle in ObjC.forIn(menuTitles) {
-                        let item: NSMenuItem
-
-                        if (menuTitle as AnyObject).isEqual("(-") {
-                            item = NSMenuItem.separator()
-                        } else {
-                            item = NSMenuItem()
-                            ObjC.setTitle(item, menuTitle)
-
-                            if ObjC.contains(pluginType, "fusionFilter") {
-                                Registry.change(\.fusionPlugins) { ObjC.add($0, item.title) }
-                                item.action = NSSelectorFromString("endBlendingType:")
-                            } else if ObjC.contains(pluginType, "Database") || ObjC.contains(pluginType, "Report") {
-                                item.target = BrowserController.currentBrowser() //  browserWindow responds to DB plugins
-                                item.action = NSSelectorFromString("executeFilterDB:")
-                            } else {
-                                item.target = nil // FIRST RESPONDER !
-                                item.action = NSSelectorFromString("executeFilter:")
-                            }
-                        }
-
-                        subMenu.insertItem(item, at: subMenu.numberOfItems)
-                    }
-
-                    // Only assigned when the item is new. When the menu already carries
-                    // this plugin name the representedObject below is not set, which is
-                    // what leaving the existing item alone implies.
-                    var subMenuItem: NSMenuItem? = nil
-
-                    if ObjC.contains(pluginType, "imageFilter") {
-                        if (filtersMenu?.indexOfItem(withTitle: pluginName) ?? 0) == -1 {
-                            subMenuItem = filtersMenu.insertItem(withTitle: pluginName, action: nil, keyEquivalent: "", at: filtersMenu.numberOfItems)
-                            filtersMenu.setSubmenu(subMenu, for: subMenuItem!)
-                        }
-                    } else if ObjC.contains(pluginType, "roiTool") {
-                        if (roisMenu?.indexOfItem(withTitle: pluginName) ?? 0) == -1 {
-                            subMenuItem = roisMenu.insertItem(withTitle: pluginName, action: nil, keyEquivalent: "", at: roisMenu.numberOfItems)
-                            roisMenu.setSubmenu(subMenu, for: subMenuItem!)
-                        }
-                    } else if ObjC.contains(pluginType, "fusionFilter") {
-                        if let fusionPluginsMenu = Registry.fusionPluginsMenu, fusionPluginsMenu.indexOfItem(withTitle: pluginName) == -1 {
-                            subMenuItem = fusionPluginsMenu.insertItem(withTitle: pluginName, action: nil, keyEquivalent: "", at: fusionPluginsMenu.numberOfItems)
-                            fusionPluginsMenu.setSubmenu(subMenu, for: subMenuItem!)
-                        }
-                    } else if ObjC.contains(pluginType, "Database") {
-                        if (dbMenu?.indexOfItem(withTitle: pluginName) ?? 0) == -1 {
-                            subMenuItem = dbMenu.insertItem(withTitle: pluginName, action: nil, keyEquivalent: "", at: dbMenu.numberOfItems)
-                            dbMenu.setSubmenu(subMenu, for: subMenuItem!)
-                        }
-                    } else {
-                        if (othersMenu?.indexOfItem(withTitle: pluginName) ?? 0) == -1 {
-                            subMenuItem = othersMenu.insertItem(withTitle: pluginName, action: nil, keyEquivalent: "", at: othersMenu.numberOfItems)
-                            othersMenu.setSubmenu(subMenu, for: subMenuItem!)
-                        }
-                    }
-
-                    subMenuItem?.representedObject = plugin
-                } else {
-                    // Create a menu item
-
-                    let item = NSMenuItem()
-
-                    ObjC.setTitle(item, ObjC.object(menuTitles, at: 0)) //pluginName];
-                    item.representedObject = plugin
-
-                    if ObjC.contains(pluginType, "fusionFilter") {
-                        Registry.change(\.fusionPlugins) { ObjC.add($0, item.title) }
-                        item.action = NSSelectorFromString("endBlendingType:")
-                    } else if ObjC.contains(pluginType, "Database") || ObjC.contains(pluginType, "Report") {
-                        item.target = BrowserController.currentBrowser() //  browserWindow responds to DB plugins
-                        item.action = NSSelectorFromString("executeFilterDB:")
-                    } else {
-                        item.target = nil // FIRST RESPONDER !
-                        item.action = NSSelectorFromString("executeFilter:")
-                    }
-
-                    if ObjC.contains(pluginType, "imageFilter") {
-                        filtersMenu?.insertItem(item, at: filtersMenu.numberOfItems)
-                    } else if ObjC.contains(pluginType, "roiTool") {
-                        roisMenu?.insertItem(item, at: roisMenu.numberOfItems)
-                    } else if ObjC.contains(pluginType, "fusionFilter") {
-                        Registry.fusionPluginsMenu?.insertItem(item, at: Registry.fusionPluginsMenu!.numberOfItems)
-                    } else if ObjC.contains(pluginType, "Database") {
-                        dbMenu?.insertItem(item, at: dbMenu.numberOfItems)
-                    } else {
-                        othersMenu?.insertItem(item, at: othersMenu.numberOfItems)
-                    }
-                }
-            }
-
-            PluginManager.endProtectForCrash()
-        }
-
-        // The app's own filters have no bundle to declare their items: without these, T2 Fit Map and
-        // ROI Enhancement were registered and unreachable from any menu.
+        // The app's own filters have no bundle to declare their items: without these, T1 Fit Map,
+        // T2 Fit Map and ROI Enhancement were registered and unreachable from any menu.
         // With no plugins or no menu the former call found nothing to add.
         if let plugins = Registry.plugins, let filtersMenu = filtersMenu, let roisMenu = roisMenu {
             NativeFilterMenus.addItems(for: plugins, filtersMenu: filtersMenu, roisMenu: roisMenu)
@@ -614,6 +449,59 @@ public final class PluginManager: NSObject {
         MenuShortcutCatalog.applyStoredAssignments(to: shortcutMenus.compactMap { $0 as? NSMenu })
     }
 
+    /// The items of the plugins made for Horos or OsiriX, as each one's
+    /// Info.plist declares them: one item, or, when it declares several, a
+    /// submenu named after its executable. The menu and the message the items
+    /// send are LegacyPluginDeclaration's.
+    private class func addFormerPluginMenuItems(_ filtersMenu: NSMenu?, _ roisMenu: NSMenu?, _ othersMenu: NSMenu?, _ dbMenu: NSMenu?) {
+        // pluginsDict holds a bundle under each of its titles.
+        var seen = Set<ObjectIdentifier>()
+        for case let plugin as Bundle in Registry.pluginsDict?.allValues ?? [] where seen.insert(ObjectIdentifier(plugin)).inserted {
+            let declaration = LegacyPluginDeclaration(info: plugin.infoDictionary ?? [:])
+            guard let titles = declaration.menuTitles, let first = titles.first else { continue }
+            let menu: NSMenu?
+            switch declaration.menu {
+            case .imageFilters: menu = filtersMenu
+            case .roiTools: menu = roisMenu
+            case .fusion: menu = Registry.fusionPluginsMenu
+            case .database: menu = dbMenu
+            case .others: menu = othersMenu
+            }
+
+            PluginManager.startProtectForCrash(withPath: plugin.bundlePath)
+
+            func item(_ title: String) -> NSMenuItem {
+                let item = NSMenuItem(title: title, action: NSSelectorFromString(declaration.command.selectorName), keyEquivalent: "")
+                switch declaration.command {
+                case .fusion: Registry.change(\.fusionPlugins) { ObjC.add($0, title) }
+                case .database: item.target = PluginManager.databaseWindow() // the database window runs these
+                case .viewer: item.target = nil // the first responder: the front viewer
+                }
+                return item
+            }
+
+            if declaration.hasSubmenu {
+                // A menu that already has an item of this name keeps it.
+                let name = declaration.executableName ?? ""
+                if let menu, menu.indexOfItem(withTitle: name) == -1 {
+                    let subMenu = NSMenu(title: name)
+                    for title in titles {
+                        subMenu.addItem(title == LegacyPluginDeclaration.menuSeparator ? .separator() : item(title))
+                    }
+                    let subMenuItem = menu.addItem(withTitle: name, action: nil, keyEquivalent: "")
+                    menu.setSubmenu(subMenu, for: subMenuItem)
+                    subMenuItem.representedObject = plugin
+                }
+            } else {
+                let single = item(first)
+                single.representedObject = plugin
+                menu?.addItem(single)
+            }
+
+            PluginManager.endProtectForCrash()
+        }
+    }
+
     public override init() {
         super.init()
 
@@ -665,140 +553,148 @@ public final class PluginManager: NSObject {
         return allowed
     }
 
+    /// Loads a plugin made for Horos or OsiriX, as it was built: its bundle is
+    /// neither changed nor rebuilt. Protected mode, the signature and what its
+    /// files say (an executable for this process's architecture, among the
+    /// rest) come first, before NSBundle opens it. Its principal class, named
+    /// by NSPrincipalClass or the bundle's own, is then registered by what its
+    /// Info.plist declares (LegacyPluginDeclaration): `+filter`, which runs
+    /// its -initPlugin, under each menu title and toolbar name for the menus
+    /// and -filterImage:, or as a pre-process filter, a file format decoder or
+    /// a report.
     @objc(loadPluginBundle:)
     class func loadPluginBundle(_ path: String!) {
         #if !MACAPPSTORE
-        let diagnosticPath = (path as NSString?)?.resolvingAlias()
-        PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Blocked", comment: ""), NSLocalizedString("Loading is disabled by protected mode or the plugin signature policy. Check protected mode and obtain a compatible plugin from its author.", comment: ""))
-        if DCMPix.isRunOsiriXInProtectedModeActivated() == false && PluginManager.isPluginBundleSignatureValid(path) {
-            let name = (path as NSString).lastPathComponent
+        guard let path, !path.isEmpty else { return }
+        let diagnosticPath = (path as NSString).resolvingAlias()
+        guard DCMPix.isRunOsiriXInProtectedModeActivated() == false else {
+            PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Blocked", comment: ""), NSLocalizedString("Loading is disabled by protected mode or the plugin signature policy. Check protected mode and obtain a compatible plugin from its author.", comment: ""))
+            return
+        }
+        // Records its own refusal.
+        guard PluginManager.isPluginBundleSignatureValid(path) else { return }
 
-            let path = (path as NSString).deletingLastPathComponent
+        let name = ((path as NSString).lastPathComponent as NSString).deletingPathExtension
+        Registry.change(\.pluginsNames) { ObjC.set($0, (path as NSString).deletingLastPathComponent, name) }
 
-            Registry.change(\.pluginsNames) { $0?.setValue(path, forKey: ((name as NSString).lastPathComponent as NSString).deletingPathExtension) }
+        let resolved = (path as NSString).resolvingAlias() as String
+        PluginManager.startProtectForCrash(withPath: resolved)
+        defer { PluginManager.endProtectForCrash() }
 
-            do {
-                try HorosObjCException.perform {
-                    let pathResolved: String = ((path as NSString).appendingPathComponent(name) as NSString).resolvingAlias()
+        let url = URL(fileURLWithPath: resolved)
+        let inspection = PluginInspector().inspect(bundleAt: url)
+        guard inspection.isLoadable, let declaration = LegacyPluginDeclaration(bundleAt: url) else {
+            PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Incompatible", comment: ""), inspection.summary)
+            NSLog("Plugin not loaded: %@: %@", resolved as NSString, inspection.summary as NSString)
+            return
+        }
 
-                    PluginManager.startProtectForCrash(withPath: pathResolved)
-
-                    let archReason = HorosArchitectureAudit.pluginDiagnosis(at: pathResolved)
-                    if let archReason = archReason, !archReason.isEmpty {
-                        PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Incompatible", comment: ""), archReason)
-                        NSLog("%@", archReason as NSString)
-                    } else {
-                        let plugin = Bundle(path: pathResolved)
-
-                        if let plugin = plugin {
-                            let info = plugin.infoDictionary as NSDictionary?
-                            let principalName = ObjC.string((info?.object(forKey: "NSPrincipalClass") as AnyObject?)?.copy(), sending: "length")
-                            var loadError: NSError? = nil
-                            if !PluginManagerCAPILoadBundle(plugin, &loadError) {
-                                var reason = ObjC.format(NSLocalizedString("%@ Obtain a plugin compatible with this Mac and IsiX DICOM Viewer from its author.", comment: ""), loadError?.localizedDescription ?? NSLocalizedString("The bundle loader refused the plugin.", comment: ""))
-                                let t2Reason = T2FitMapCompatibility.diagnostic(forBundleAtPath: pathResolved, loadErrorDomain: loadError?.domain, loadErrorCode: loadError?.code ?? 0)
-                                let roiReason = ROIEnhancementCompatibility.diagnostic(forBundleAtPath: pathResolved, loadErrorDomain: loadError?.domain, loadErrorCode: loadError?.code ?? 0)
-                                if let t2Reason = t2Reason, !t2Reason.isEmpty {
-                                    reason = t2Reason
-                                } else if let roiReason = roiReason, !roiReason.isEmpty {
-                                    reason = roiReason
-                                }
-                                let state = ObjC.isEqualToString(loadError?.domain, NSCocoaErrorDomain) && loadError?.code == NSExecutableArchitectureMismatchError ? NSLocalizedString("Incompatible", comment: "") : NSLocalizedString("Load failed", comment: "")
-                                PluginManagerCAPIRecordLoad(diagnosticPath, state, reason)
-                                NSLog("Plugin load failed: %@ (%@ %ld)", reason as NSString, ObjC.arg(loadError?.domain), loadError?.code ?? 0)
-                            } else {
-                                let filterClass: AnyClass? = (principalName?.length ?? 0) > 0 ? plugin.classNamed(principalName! as String) : plugin.principalClass
-
-                                if let filterClass = filterClass {
-
-                                    var version = info?.value(forKey: kCFBundleVersionKey as String)
-
-                                    if version == nil {
-                                        version = info?.value(forKey: "CFBundleShortVersionString")
-                                    }
-
-                                    NSLog("Registering: %@, vers: %@ (%@)", ObjC.arg((name as NSString).deletingPathExtension), ObjC.arg(version), ObjC.arg(path))
-
-                                    if let args: AnyClass = NSClassFromString("ARGS"), ObjectIdentifier(filterClass) == ObjectIdentifier(args) {
-                                        Registry.change(\.pluginsBundleDictionnary) { ObjC.set($0, plugin, pathResolved) }
-                                        PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Loaded", comment: ""), NSLocalizedString("The bundle and its principal class loaded in this session.", comment: ""))
-                                        return
-                                    }
-
-                                    if ObjC.contains(info?.object(forKey: "pluginType"), "Pre-Process") {
-                                        let filter = ObjC.filter(of: filterClass)
-                                        Registry.change(\.preProcessPlugins) { ObjC.add($0, filter) }
-                                    } else if let fileFormats = info?.object(forKey: "FileFormats") {
-                                        for fileFormat in ObjC.objectEnumerator(fileFormats) {
-                                            //we will save the bundle rather than a filter.  Each file decode will require a separate decoder
-                                            Registry.change(\.fileFormatPlugins) { ObjC.set($0, plugin, fileFormat) }
-                                        }
-                                    } else if (filterClass as? NSObject.Type)?.instancesRespond(to: NSSelectorFromString("filterImage:")) == true {
-                                        let menuTitles = info?.object(forKey: "MenuTitles")
-                                        let filter = ObjC.filter(of: filterClass)
-
-                                        if menuTitles != nil {
-                                            for menuTitle in ObjC.forIn(menuTitles) {
-                                                Registry.change(\.plugins) { ObjC.set($0, filter, menuTitle) }
-                                                Registry.change(\.pluginsDict) { ObjC.set($0, plugin, menuTitle) }
-                                            }
-                                        }
-
-                                        let toolbarNames = info?.object(forKey: "ToolbarNames")
-
-                                        if toolbarNames != nil {
-                                            for toolbarName in ObjC.forIn(toolbarNames) {
-                                                Registry.change(\.plugins) { ObjC.set($0, filter, toolbarName) }
-                                                Registry.change(\.pluginsDict) { ObjC.set($0, plugin, toolbarName) }
-                                            }
-                                        }
-                                    }
-
-                                    if ObjC.contains(info?.object(forKey: "pluginType"), "Report") {
-                                        Registry.change(\.reportPlugins) { ObjC.set($0, plugin, info?.object(forKey: "CFBundleExecutable")) }
-                                    }
-                                    Registry.change(\.pluginsBundleDictionnary) { ObjC.set($0, plugin, pathResolved) }
-                                    PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Loaded", comment: ""), NSLocalizedString("The bundle and its principal class loaded and registration completed in this session.", comment: ""))
-                                } else {
-                                    PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Incompatible", comment: ""), NSLocalizedString("The principal class is missing. Obtain a corrected plugin from its author.", comment: ""))
-                                    NSLog("********* principal class not found for: %@ - %@", name as NSString, ObjC.arg(plugin.principalClass))
-                                }
-                            }
-                        } else {
-                            let t2Reason = T2FitMapCompatibility.diagnostic(forBundleAtPath: pathResolved, loadErrorDomain: nil, loadErrorCode: 0)
-                            let roiReason = ROIEnhancementCompatibility.diagnostic(forBundleAtPath: pathResolved, loadErrorDomain: nil, loadErrorCode: 0)
-                            let specific = (t2Reason?.isEmpty == false) ? t2Reason : roiReason
-                            PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Incompatible", comment: ""), specific?.isEmpty == false ? specific! : NSLocalizedString("The plugin bundle could not be opened. Reinstall a complete compatible copy from its author.", comment: ""))
-                            NSLog("**** Bundle opening failed for plugin: %@", (path as NSString).appendingPathComponent(name) as NSString)
-                        }
-                    }
-                }
-            } catch {
-                let e = ObjC.exception(error)
-                PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Load failed", comment: ""), ObjC.format(NSLocalizedString("Plugin initialization failed: %@. Obtain an updated plugin from its author.", comment: ""), e?.reason ?? e?.name.rawValue))
-                NSLog("******** Plugin loading exception: %@", ObjC.arg(e))
+        var outcome: (state: String, reason: String)?
+        // Loading the bundle runs its initializers, and +filter its
+        // -initPlugin: an Objective-C or C++ exception that escapes them is
+        // caught here, and the plugin is not loaded.
+        do {
+            try IsiXPluginExceptionGuard.perform {
+                outcome = PluginManager.registerFormerPlugin(atPath: resolved, declaration: declaration)
             }
-
-            // The former @finally: also after the ARGS registration returned.
-            PluginManager.endProtectForCrash()
+        } catch {
+            let exception = IsiXPluginException(error as NSError)
+            PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Load failed", comment: ""),
+                                        String(format: NSLocalizedString("Plugin initialization failed: %@. Obtain an updated plugin from its author.", comment: ""),
+                                               exception.description as NSString))
+            NSLog("******** Plugin loading exception: %@", exception.description)
+            return
+        }
+        if let outcome {
+            PluginManagerCAPIRecordLoad(diagnosticPath, outcome.state, outcome.reason)
         }
         #endif
     }
 
+    /// Opens and loads the bundle at `path` and registers its principal class
+    /// by its declaration; answers the state and reason to record.
+    private class func registerFormerPlugin(atPath path: String, declaration: LegacyPluginDeclaration) -> (state: String, reason: String) {
+        guard let plugin = Bundle(path: path) else {
+            NSLog("**** Bundle opening failed for plugin: %@", path as NSString)
+            return (NSLocalizedString("Incompatible", comment: ""), NSLocalizedString("The plugin bundle could not be opened. Reinstall a complete compatible copy from its author.", comment: ""))
+        }
+        var loadError: NSError? = nil
+        guard PluginManagerCAPILoadBundle(plugin, &loadError) else {
+            let failure = loadError.map(LegacyPluginLoadFailure.init)
+            var refusal = loadError?.localizedDescription ?? NSLocalizedString("The bundle loader refused the plugin.", comment: "")
+            // dyld's words, untranslated: they name the symbol the plugin looks for in the application.
+            if let detail = failure?.linkDetail { refusal += " (dyld: \(detail))" }
+            let reason = ObjC.format(NSLocalizedString("%@ Obtain a plugin compatible with this Mac and IsiX DICOM Viewer from its author.", comment: ""), refusal)
+            NSLog("Plugin load failed: %@ (%@ %ld) dyld: %@", reason as NSString, ObjC.arg(loadError?.domain), loadError?.code ?? 0,
+                  (failure?.dyldReason ?? "no reason given") as NSString)
+            return (failure?.isArchitectureMismatch == true ? NSLocalizedString("Incompatible", comment: "") : NSLocalizedString("Load failed", comment: ""), reason)
+        }
+        // A class the Info.plist names and the bundle lacks is not replaced by another.
+        let principal: AnyClass? = declaration.principalClass.map { plugin.classNamed($0) } ?? plugin.principalClass
+        guard let filterClass = principal else {
+            NSLog("********* principal class not found for: %@ - %@", path as NSString, ObjC.arg(declaration.principalClass))
+            return (NSLocalizedString("Incompatible", comment: ""), NSLocalizedString("The principal class is missing. Obtain a corrected plugin from its author.", comment: ""))
+        }
+
+        let version = plugin.infoDictionary?[kCFBundleVersionKey as String] ?? plugin.infoDictionary?["CFBundleShortVersionString"]
+        NSLog("Registering: %@, vers: %@ (%@)", ((path as NSString).lastPathComponent as NSString).deletingPathExtension as NSString,
+              ObjC.arg(version), (path as NSString).deletingLastPathComponent as NSString)
+
+        // ARGS is only kept as a loaded bundle.
+        if let args: AnyClass = NSClassFromString("ARGS"), ObjectIdentifier(filterClass) == ObjectIdentifier(args) {
+            Registry.change(\.pluginsBundleDictionnary) { ObjC.set($0, plugin, path) }
+            return (NSLocalizedString("Loaded", comment: ""), NSLocalizedString("The bundle and its principal class loaded in this session.", comment: ""))
+        }
+
+        /// [filterClass filter], PluginFilter's factory: a class that does not answer it raises.
+        func makeFilter() -> Any? {
+            (filterClass as AnyObject).perform(NSSelectorFromString("filter"))?.takeUnretainedValue()
+        }
+        let answersFilterImage = (filterClass as? NSObject.Type)?.instancesRespond(to: NSSelectorFromString("filterImage:")) == true
+        switch declaration.registration(answersFilterImage: answersFilterImage) {
+        case .preProcess:
+            let filter = makeFilter()
+            Registry.change(\.preProcessPlugins) { ObjC.add($0, filter) }
+        case .fileFormats(let formats):
+            // The bundle, not a filter: each file decoded makes its own decoder.
+            for format in formats {
+                Registry.change(\.fileFormatPlugins) { ObjC.set($0, plugin, format) }
+            }
+        case .filter(let titles):
+            let filter = makeFilter()
+            for title in titles {
+                Registry.change(\.plugins) { ObjC.set($0, filter, title) }
+                Registry.change(\.pluginsDict) { ObjC.set($0, plugin, title) }
+            }
+        case .none:
+            break
+        }
+        if declaration.isReport {
+            Registry.change(\.reportPlugins) { ObjC.set($0, plugin, declaration.executableName) }
+        }
+        Registry.change(\.pluginsBundleDictionnary) { ObjC.set($0, plugin, path) }
+        return (NSLocalizedString("Loaded", comment: ""), NSLocalizedString("The bundle and its principal class loaded and registration completed in this session.", comment: ""))
+    }
+
     @objc(loadHorosPluginAtPath:)
     class func loadHorosPlugin(atPath path: String!) {
-        self.loadPluginBundle(path)
+        PluginManager.loadPluginBundle(path)
     }
 
     @objc(loadOsiriXPluginAtPath:)
     class func loadOsiriXPlugin(atPath path: String!) {
-        self.loadPluginBundle(path)
+        PluginManager.loadPluginBundle(path)
     }
 
     @objc(loadPluginAtPath:)
     public class func loadPlugin(atPath path: String!) {
         #if !MACAPPSTORE
         let name = (path as NSString).lastPathComponent
+
+        // The extension decides the loader: a .isixplugin goes to the version 1
+        // loader, which never hands a bundle it refuses on to the former one.
+        // Anything else in a plugins folder is not a plugin.
+        guard PluginAdmission.isManaged(name), let loader = PluginAdmission.loader(for: name) else { return }
 
         if Registry.pluginsNames?.value(forKey: ((name as NSString).lastPathComponent as NSString).deletingPathExtension) != nil {
             PluginManagerCAPIRecordLoad((path as NSString?)?.resolvingAlias(), NSLocalizedString("Blocked", comment: ""), NSLocalizedString("Another plugin with this name was selected for loading. Remove the duplicate through Plugin Manager and restart IsiX DICOM Viewer.", comment: ""))
@@ -813,12 +709,16 @@ public final class PluginManager: NSObject {
             return
         }
 
-        if (name as NSString).pathExtension == "horosplugin" {
-            PluginManager.loadHorosPlugin(atPath: path)
-        } else if (name as NSString).pathExtension == "osirixplugin" {
-            PluginManager.loadOsiriXPlugin(atPath: path)
-        } else if (name as NSString).pathExtension == "plugin" {
-            //[PluginManager loadUnknownPluginAtPath:path];
+        Registry.change(\.pluginsNames) { $0?.setValue((path as NSString).deletingLastPathComponent, forKey: ((name as NSString).lastPathComponent as NSString).deletingPathExtension) }
+        switch loader {
+        case .version1:
+            PluginManager.loadIsiXPlugin(atPath: path)
+        case .formerAPI:
+            if (name as NSString).pathExtension.lowercased() == "osirixplugin" {
+                PluginManager.loadOsiriXPlugin(atPath: path)
+            } else {
+                PluginManager.loadHorosPlugin(atPath: path)
+            }
         }
 
         let outcome = PluginManagerCAPILoadOutcome((path as NSString?)?.resolvingAlias(), true)
@@ -832,25 +732,13 @@ public final class PluginManager: NSObject {
         #if !MACAPPSTORE
         do {
             try HorosObjCException.perform {
-                var appSupport = "Library/Application Support/Horos/" as NSString
-                var appAppStoreSupport = "Library/Application Support/Horos App/" as NSString
                 let appPath = Bundle.main.builtInPlugInsPath
                 // The home folder and the root of the disk, unless this is an isolated development launch.
                 let isolatedFolder = PluginManager.isolatedPluginsFolder()
-                let userDomain = PluginManager.userPluginsDomain() as NSString
-                let systemDomain = PluginManager.systemPluginsDomain() as NSString
-                var userAppStorePath = userDomain.appendingPathComponent(appAppStoreSupport as String)
-                var userPath = userDomain.appendingPathComponent(appSupport as String)
-                var sysPath = systemDomain.appendingPathComponent(appSupport as String)
-
-                appSupport = appSupport.appendingPathComponent("Plugins/") as NSString
-                appAppStoreSupport = appAppStoreSupport.appendingPathComponent("Plugins/") as NSString
-
-                userPath = userDomain.appendingPathComponent(appSupport as String)
-                userAppStorePath = userDomain.appendingPathComponent(appAppStoreSupport as String)
-                sysPath = systemDomain.appendingPathComponent(appSupport as String)
-
-                let paths = ObjC.array(upToFirstNil: [NSNull(), appPath, userPath, userAppStorePath, sysPath]) // [NSNull null] is a placeholder for launch parameters load commands
+                let folders = StorageLocations.discoveryFolders(userDomain: PluginManager.userPluginsDomain(),
+                                                                systemDomain: PluginManager.systemPluginsDomain())
+                // NSNull stands for explicit load commands from the launch arguments.
+                let paths = ObjC.array(upToFirstNil: [NSNull(), appPath] + folders.map { $0 as Any? })
 
                 Registry.set(\.pluginsBundleDictionnary, NSMutableDictionary())
                 Registry.set(\.plugins, NSMutableDictionary())
@@ -870,17 +758,24 @@ public final class PluginManager: NSObject {
                 }
 
                 let pluginCrash: String = PluginManager.crashMarkerPath()
-                if FileManager.default.fileExists(atPath: pluginCrash) && !UserDefaults.standard.bool(forKey: "DoNotDeleteCrashingPlugins") {
+                if FileManager.default.fileExists(atPath: pluginCrash) && !PreferencesSource.process.preferences[ApplicationPreferences.doNotDeleteCrashingPlugins] {
                     let pluginCrashPath = try? NSString(contentsOfFile: pluginCrash, encoding: String.Encoding.utf8.rawValue)
                     if PluginUpdateRecovery.shouldEnterPluginLessMode(markerExists: true) {
                         DCMPix.setRunOsiriXInProtectedMode(true)
                     }
+                    // Recovery acts only on a plugin in this app's own folders: the
+                    // marker names a path, and a plugin given with --LoadPlugin, or
+                    // any other path, is not this app's to restore or move.
+                    let ownPlugin = PluginManager.isInOwnPluginsFolder((pluginCrashPath as String?) ?? "")
+                            && PluginAdmission.mayManage(bundleAt: URL(fileURLWithPath: (pluginCrashPath as String?) ?? ""))
                     // A nil path reaches the Swift recovery methods as an empty string.
-                    _ = PluginUpdateRecovery.adoptLeftoverStaging(inDirectory: pluginCrashPath?.deletingLastPathComponent ?? "")
+                    if ownPlugin {
+                        _ = PluginUpdateRecovery.adoptLeftoverStaging(inDirectory: pluginCrashPath?.deletingLastPathComponent ?? "")
+                    }
                     let inactivePath = PluginQuarantine.inactivePath(forPluginAt: (pluginCrashPath as String?) ?? "",
                                                                      active: PluginManager.activeDirectories() as! [String],
                                                                      inactive: PluginManager.inactiveDirectories() as! [String])
-                    let canRestore = FileManager.default.fileExists(atPath: PluginUpdateRecovery.previousPath(forDestination: (pluginCrashPath as String?) ?? ""))
+                    let canRestore = ownPlugin && FileManager.default.fileExists(atPath: PluginUpdateRecovery.previousPath(forDestination: (pluginCrashPath as String?) ?? ""))
                     let explanation = PluginUpdateRecovery.explanation(pluginNamed: pluginCrashPath?.lastPathComponent ?? "",
                                                                        canRestore: canRestore,
                                                                        canDisable: inactivePath != nil)
@@ -963,51 +858,32 @@ public final class PluginManager: NSObject {
                     }
                 }
 
-                //        NSLog(@"paths: %@", pathsOfPluginsToLoad);
-
-                // some plugins require other plugins to be loaded before them
-                var i = pathsOfPluginsToLoad.count - 1
-                while i >= 0 {
-                    let bundle = Bundle(path: pathsOfPluginsToLoad.object(at: i) as! String)
-                    var name: Any? = (bundle?.infoDictionary as NSDictionary?)?.object(forKey: "CFBundleName")
-                    if name == nil {
-                        name = ((pathsOfPluginsToLoad.object(at: i) as! NSString).lastPathComponent as NSString).deletingPathExtension
-                    }
-
-                    // list of requirements
-                    for req in ObjC.forIn((bundle?.infoDictionary as NSDictionary?)?.object(forKey: "Requirements")) {
-                        // make sure they're loaded before this plugin
-                        let indexes = pathsOfPluginsToLoad.indexesOfObjects(passingTest: { obj, _, _ in
-                            let bundle = Bundle(path: obj as! String)
-                            var name: Any? = (bundle?.infoDictionary as NSDictionary?)?.object(forKey: "CFBundleName")
-                            if name == nil {
-                                name = ((obj as! NSString).lastPathComponent as NSString).deletingPathExtension
-                            }
-                            return ObjC.isEqualToString(name, req as? String)
-                        })
-                        if indexes.count == 0 {
-                            NSLog("Warning: plugin requirement %@ not available for %@", ObjC.arg(req), ObjC.arg(name)) // we actually may decide not to load this plugin, since it requires something that apparently isn't available, but hopefully it'll just raise an exception and end up not being loaded...
-                        }
-                        for idx in indexes {
-                            if idx > i {
-                                let o = pathsOfPluginsToLoad.object(at: idx)
-                                pathsOfPluginsToLoad.removeObject(at: idx)
-                                pathsOfPluginsToLoad.insert(o, at: i)
-                                i += 1
-                            }
-                        }
-                    }
-
-                    i -= 1
+                // A plugin made for Horos or OsiriX can ask, with Requirements in
+                // its Info.plist, to load after others; the property lists are
+                // read as files, no bundle is opened here. A version 1 bundle that
+                // declares it is refused by its inspection.
+                let pending = pathsOfPluginsToLoad.compactMap { $0 as? String }.map { path -> LegacyPluginDeclaration.Pending in
+                    let declaration = LegacyPluginDeclaration(bundleAt: URL(fileURLWithPath: path))
+                    let name = declaration?.bundleName ?? ((path as NSString).lastPathComponent as NSString).deletingPathExtension
+                    let requirements = PluginAdmission.kind(of: path) == .formerAPI ? (declaration?.requirements ?? []) : []
+                    return LegacyPluginDeclaration.Pending(path: path, name: name, requirements: requirements)
                 }
-
-                for path in pathsOfPluginsToLoad {
-                    PluginManager.loadPlugin(atPath: path as? String)
+                let (order, unmet) = LegacyPluginDeclaration.loadOrder(pending)
+                for (plugin, requirement) in unmet {
+                    // It still loads: it may only fail where it uses the other plugin.
+                    NSLog("Warning: plugin requirement %@ not available for %@", requirement as NSString, plugin as NSString)
+                }
+                for plugin in order {
+                    PluginManager.loadPlugin(atPath: plugin.path)
                 }
 
                 if let plugins = Registry.plugins {
                     T2FitMapFilter.register(in: plugins)
                     ROIEnhancementFilter.register(in: plugins)
+                    // A loaded plugin that declares the title keeps it.
+                    if plugins[T1FitMapFilter.menuTitle] == nil {
+                        plugins[T1FitMapFilter.menuTitle] = T1FitMapFilter()
+                    }
                 }
                 NSLog("|||||||||||||||||| Plugins loading END ||||||||||||||||||")
             }
@@ -1037,69 +913,60 @@ public final class PluginManager: NSObject {
     /// The only bundle that honours `isolatedPluginsFolderArgument`: the
     /// development copy `script/build_and_run.sh` makes. A release build ignores
     /// the argument and keeps reading the plugins folders.
-    @objc public static let developmentBundleIdentifier = "thalesmms.isis.workstation.local-development"
+    @objc public static let developmentBundleIdentifier = StorageLocations.developmentBundleIdentifier
 
     /// `-IsolatedPluginsFolder <folder>` on the command line of the development
     /// bundle stands that folder in for the user's and the computer's plugins
     /// folders.
-    @objc public static let isolatedPluginsFolderArgument = "IsolatedPluginsFolder"
+    @objc public static let isolatedPluginsFolderArgument = StorageLocations.isolatedPluginsFolderArgument
 
     /// The folder an isolated development launch keeps its plugins in, or nil.
     ///
     /// The isolated launches kept their own database, listener and updates, and
-    /// still loaded the plugins of whoever ran them, from
-    /// ~/Library/Application Support/Horos/Plugins. Stopping the development app
-    /// while one loaded left its marker there, and the next launch offered to
-    /// move that plugin to the disabled folder. In this mode the plugins
-    /// folders, the one for Horos App and the marker are all inside this folder:
-    /// the user's and the computer's are never listed, read or written, and
-    /// `--LoadPlugin <bundle>` still loads a given plugin. Only the command line
-    /// counts, not a saved preference.
+    /// still loaded the plugins of whoever ran them, from the user's plugins
+    /// folder in Application Support. Stopping the development app while one
+    /// loaded left its marker there, and the next launch offered to move that
+    /// plugin to the disabled folder. In this mode the plugins folders and the
+    /// marker are inside the isolated folder. `--LoadPlugin <bundle>` still
+    /// loads a given plugin. Only the command line counts, not a saved preference.
     @objc public class func isolatedPluginsFolder() -> String? {
-        guard Bundle.main.bundleIdentifier == PluginManager.developmentBundleIdentifier else { return nil }
-        let arguments = UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)
-        guard let folder = arguments[PluginManager.isolatedPluginsFolderArgument] as? String, !folder.isEmpty else { return nil }
-        return URL(fileURLWithPath: (folder as NSString).expandingTildeInPath).standardizedFileURL.path
+        StorageLocations.runningIsolatedFolder
     }
 
     /// What the plugins folders of the current user are relative to: the home
     /// folder, or its stand-in inside the isolated folder.
     class func userPluginsDomain() -> String {
-        guard let folder = PluginManager.isolatedPluginsFolder() else { return NSHomeDirectory() }
-        return (folder as NSString).appendingPathComponent("User")
+        StorageLocations.userPluginsDomain(isolatedFolder: PluginManager.isolatedPluginsFolder())
     }
 
     /// What the plugins folders of all users are relative to: the root of the
     /// disk, or its stand-in inside the isolated folder.
     class func systemPluginsDomain() -> String {
-        guard let folder = PluginManager.isolatedPluginsFolder() else { return "/" }
-        return (folder as NSString).appendingPathComponent("System")
+        StorageLocations.systemPluginsDomain(isolatedFolder: PluginManager.isolatedPluginsFolder())
     }
 
     @objc public class func activePluginsDirectoryPath() -> String! {
-        return "Library/Application Support/Horos/Plugins/"
+        return StorageLocations.activePluginsRelativePath
     }
 
     @objc public class func inactivePluginsDirectoryPath() -> String! {
-        return "Library/Application Support/Horos/Plugins Disabled/"
+        return StorageLocations.inactivePluginsRelativePath
     }
 
     @objc public class func userActivePluginsDirectoryPath() -> String! {
-        return (PluginManager.userPluginsDomain() as NSString).appendingPathComponent(PluginManager.activePluginsDirectoryPath())
+        return StorageLocations.pluginsFolder(inDomain: PluginManager.userPluginsDomain(), active: true)
     }
 
     @objc public class func userInactivePluginsDirectoryPath() -> String! {
-        return (PluginManager.userPluginsDomain() as NSString).appendingPathComponent(PluginManager.inactivePluginsDirectoryPath())
+        return StorageLocations.pluginsFolder(inDomain: PluginManager.userPluginsDomain(), active: false)
     }
 
     @objc public class func systemActivePluginsDirectoryPath() -> String! {
-        let s = PluginManager.systemPluginsDomain() as NSString
-        return s.appendingPathComponent(PluginManager.activePluginsDirectoryPath())
+        return StorageLocations.pluginsFolder(inDomain: PluginManager.systemPluginsDomain(), active: true)
     }
 
     @objc public class func systemInactivePluginsDirectoryPath() -> String! {
-        let s = PluginManager.systemPluginsDomain() as NSString
-        return s.appendingPathComponent(PluginManager.inactivePluginsDirectoryPath())
+        return StorageLocations.pluginsFolder(inDomain: PluginManager.systemPluginsDomain(), active: false)
     }
 
     @objc public class func appActivePluginsDirectoryPath() -> String! {
@@ -1133,6 +1000,17 @@ public final class PluginManager: NSObject {
         #endif
     }
 
+    /// Crash recovery may only change a plugin in a managed folder.
+    public class func isInOwnPluginsFolder(_ path: String) -> Bool {
+        guard !path.isEmpty else { return false }
+        func resolved(_ folder: String) -> String {
+            URL(fileURLWithPath: folder).resolvingSymlinksInPath().standardizedFileURL.path
+        }
+        let parent = resolved((path as NSString).deletingLastPathComponent)
+        let own = ((activeDirectories() ?? []) + (inactiveDirectories() ?? [])).compactMap { $0 as? String }
+        return own.contains { resolved($0) == parent }
+    }
+
     // MARK: activation
 
     @objc(movePluginFromPath:toPath:)
@@ -1140,11 +1018,13 @@ public final class PluginManager: NSObject {
         #if !MACAPPSTORE
         if ObjC.isEqualToString(sourcePath, destinationPath) { return }
 
+        // The plugins folders of all users, under /Library, do not exist until a
+        // plugin goes there, and the user cannot make them: the move then
+        // makes them with its own authorization.
         let destinationDirectory = (destinationPath as NSString?)?.deletingLastPathComponent
-        if !FileManager.default.fileExists(atPath: destinationDirectory ?? "") {
-            if let destinationDirectory = destinationDirectory {
-                try? FileManager.default.createDirectory(atPath: destinationDirectory, withIntermediateDirectories: true, attributes: nil)
-            }
+        var directoryNeedsPrivilege = false
+        if let destinationDirectory, !FileManager.default.fileExists(atPath: destinationDirectory) {
+            directoryNeedsPrivilege = (try? FileManager.default.createDirectory(atPath: destinationDirectory, withIntermediateDirectories: true, attributes: nil)) == nil
         }
 
         // Moving within folders the user can write needs no privilege: the
@@ -1165,12 +1045,20 @@ public final class PluginManager: NSObject {
         }
 
         if !moved {
+            let authentication = PluginManager.authentication()
+            if directoryNeedsPrivilege, let destinationDirectory {
+                // Both rights at once, so that one password makes the folder
+                // and moves the plugin.
+                _ = authentication?.authenticate(["/bin/mkdir", "/bin/mv"])
+                _ = authentication?.executeCommand("/bin/mkdir", withArgs: ["-p", destinationDirectory])
+            }
+
             let args = NSMutableArray()
             args.add("-f")
             ObjC.add(args, sourcePath)
             ObjC.add(args, destinationPath)
 
-            _ = PluginManager.authentication()?.executeCommand("/bin/mv", withArgs: args as? [Any])
+            _ = authentication?.executeCommand("/bin/mv", withArgs: args as? [Any])
         }
 
         // A copy is not a successful move: it can leave a disabled plugin active.
@@ -1184,6 +1072,20 @@ public final class PluginManager: NSObject {
         #endif
     }
 
+    /// Asks for a restart once per run, from any thread, and returns when the
+    /// alert is answered. The flag and the alert are the main thread's; the
+    /// alert opens from the main run loop, so that the main queue goes on while
+    /// it is open, and the flag is set before it opens, so that a change made
+    /// meanwhile does not open a second one.
+    private static func askForRestart(title: String, message: String) {
+        onMainRunLoopSync {
+            guard !gPluginsAlertAlreadyDisplayed.boolValue else { return }
+            gPluginsAlertAlreadyDisplayed = true
+            HorosAlertPanel.runInformational(title: title, message: message, defaultButton: NSLocalizedString("OK", comment: ""),
+                                             alternateButton: nil, otherButton: nil)
+        }
+    }
+
     @objc(activatePluginWithName:)
     public class func activatePlugin(withName pluginName: String!) {
         #if !MACAPPSTORE
@@ -1194,7 +1096,7 @@ public final class PluginManager: NSObject {
 
         for inactivePath in inactivePaths {
             let activePath = activePathEnum.next()
-            for name in (try? FileManager.default.contentsOfDirectory(atPath: inactivePath as! String)) ?? [] {
+            for name in (try? FileManager.default.contentsOfDirectory(atPath: inactivePath as! String)) ?? [] where PluginManager.mayManagePlugin(inFolder: inactivePath, named: name) {
                 if ((name as NSString).deletingPathExtension as NSString).isEqual(to: pluginName ?? "") && pluginName != nil {
                     let sourcePath = ObjC.format("%@/%@", inactivePath, name)
                     let destinationPath = ObjC.format("%@/%@", activePath, name)
@@ -1203,13 +1105,7 @@ public final class PluginManager: NSObject {
             }
         }
 
-        // The flag and the alert are the main thread's.
-        onMainActorSync {
-            if !gPluginsAlertAlreadyDisplayed.boolValue {
-                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart IsiX DICOM Viewer to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-            }
-            gPluginsAlertAlreadyDisplayed = true
-        }
+        PluginManager.askForRestart(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart IsiX DICOM Viewer to apply the changes to the plugins.", comment: ""))
         #endif
     }
 
@@ -1225,7 +1121,7 @@ public final class PluginManager: NSObject {
 
         for activePath in activePaths {
             let inactivePath = inactivePathEnum.next() as? String
-            for name in (try? FileManager.default.contentsOfDirectory(atPath: activePath as! String)) ?? [] {
+            for name in (try? FileManager.default.contentsOfDirectory(atPath: activePath as! String)) ?? [] where PluginManager.mayManagePlugin(inFolder: activePath, named: name) {
                 if ((name as NSString).deletingPathExtension as NSString).isEqual(to: pluginName ?? "") && pluginName != nil {
                     var isDir: ObjCBool = true
                     if !FileManager.default.fileExists(atPath: inactivePath ?? "", isDirectory: &isDir) && isDir.boolValue {
@@ -1239,13 +1135,7 @@ public final class PluginManager: NSObject {
             }
         }
 
-        // The flag and the alert are the main thread's.
-        onMainActorSync {
-            if !gPluginsAlertAlreadyDisplayed.boolValue {
-                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart IsiX DICOM Viewer to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-            }
-            gPluginsAlertAlreadyDisplayed = true
-        }
+        PluginManager.askForRestart(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart IsiX DICOM Viewer to apply the changes to the plugins.", comment: ""))
         #endif
     }
 
@@ -1263,7 +1153,7 @@ public final class PluginManager: NSObject {
 
         for path in paths {
             if found { break }
-            for name in (try? FileManager.default.contentsOfDirectory(atPath: path as! String)) ?? [] {
+            for name in (try? FileManager.default.contentsOfDirectory(atPath: path as! String)) ?? [] where PluginManager.mayManagePlugin(inFolder: path, named: name) {
                 if found { break }
                 if ((name as NSString).deletingPathExtension as NSString).isEqual(to: pluginName ?? "") && pluginName != nil {
                     completePluginPath = ObjC.format("%@/%@", path, name)
@@ -1272,6 +1162,7 @@ public final class PluginManager: NSObject {
             }
         }
 
+        guard completePluginPath != nil else { return }
         let directory = (completePluginPath as NSString?)?.deletingLastPathComponent
         let newDirectory = NSMutableString(string: "")
 
@@ -1314,7 +1205,15 @@ public final class PluginManager: NSObject {
     @objc(installPluginFromPath:)
     public class func installPlugin(fromPath path: String!) {
         #if !MACAPPSTORE
-        // Validate the candidate before touching an existing installation.
+        // Validate the candidate before touching an existing installation, by
+        // the rules of the loader its format goes to, whatever the entry that
+        // brought it.
+        if let refusal = PluginManager.pluginInstallRefusal(atPath: path) {
+            HorosAlertPanel.runCritical(title: NSLocalizedString("Plugin", comment: ""),
+                                        message: ObjC.format(NSLocalizedString("The plugin cannot be installed. The existing installation was preserved. %@", comment: ""), refusal),
+                                        defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            return
+        }
         let archReason = HorosArchitectureAudit.pluginDiagnosis(at: path)
         if let archReason = archReason, !archReason.isEmpty {
             HorosAlertPanel.runCritical(title: NSLocalizedString("Plugin", comment: ""),
@@ -1393,13 +1292,16 @@ public final class PluginManager: NSObject {
 
         destinationPath = ObjC.appendingPathComponent(destinationDirectory as NSString?, (path as NSString).lastPathComponent)
 
-        // Keep the actual installed extension when updating a legacy OsiriX bundle.
-        for pathExtension in ["horosplugin", "osirixplugin"] {
-            let existingPath = ObjC.appendingPathComponent(destinationDirectory as NSString?,
-                (pluginBundleName as NSString).appendingPathExtension(pathExtension))
-            if FileManager.default.fileExists(atPath: existingPath ?? "") && existingPath != nil {
-                destinationPath = existingPath
-                break
+        // A plugin made for Horos or OsiriX is updated in place under the
+        // extension it was installed with.
+        if PluginAdmission.kind(of: path) == .formerAPI {
+            for pathExtension in PluginAdmission.formerExtensions.sorted() {
+                let existingPath = ObjC.appendingPathComponent(destinationDirectory as NSString?,
+                    (pluginBundleName as NSString).appendingPathExtension(pathExtension))
+                if let existingPath, FileManager.default.fileExists(atPath: existingPath) {
+                    destinationPath = existingPath
+                    break
+                }
             }
         }
 
@@ -1459,7 +1361,7 @@ public final class PluginManager: NSObject {
         }
 
         for path in pluginsPaths {
-            for name in (try? FileManager.default.contentsOfDirectory(atPath: path as! String)) ?? [] {
+            for name in (try? FileManager.default.contentsOfDirectory(atPath: path as! String)) ?? [] where PluginManager.mayManagePlugin(inFolder: path, named: name) {
                 if ObjC.isEqualToString((name as NSString).deletingPathExtension, (pluginName as NSString?)?.deletingPathExtension) &&
                     (directory == nil || (directory! as NSString).isEqual(to: path)) {
                     let pluginURL = URL(fileURLWithPath: path as! String, isDirectory: true).appendingPathComponent(name)
@@ -1470,21 +1372,18 @@ public final class PluginManager: NSObject {
                         // Keep the plugin in place on failure. A forced move to
                         // ~/.Trash could overwrite another plugin of this name.
                         NSLog("Unable to move plugin to Trash: %@", error.localizedDescription)
-                        _ = onMainActorSync {
-                            HorosAlertPanel.runCritical(title: NSLocalizedString("Plugins", comment: ""), message: error.localizedDescription, defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                        // From the main run loop: the main queue goes on while it is open.
+                        onMainRunLoopSync {
+                            _ = HorosAlertPanel.runCritical(title: NSLocalizedString("Plugins", comment: ""), message: error.localizedDescription, defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
                         }
                     }
                 }
             }
         }
 
-        // The flag and the alert are the main thread's.
-        if returnPath != nil { onMainActorSync {
-            if !gPluginsAlertAlreadyDisplayed.boolValue {
-                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart IsiX DICOM Viewer to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-            }
-            gPluginsAlertAlreadyDisplayed = true
-        } }
+        if returnPath != nil {
+            PluginManager.askForRestart(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart IsiX DICOM Viewer to apply the changes to the plugins.", comment: ""))
+        }
 
         return returnPath
         #endif
@@ -1523,7 +1422,7 @@ public final class PluginManager: NSObject {
 
             for name in (try? FileManager.default.contentsOfDirectory(atPath: path)) ?? [] {
                 let pathExtension = (name as NSString).pathExtension as NSString
-                if /* [[name pathExtension] isEqualToString:@"plugin"] || */ pathExtension.isEqual(to: "horosplugin") || pathExtension.isEqual(to: "osirixplugin") {
+                if PluginAdmission.isPluginBundle(name) {
                     let pluginPath = ((path as NSString).appendingPathComponent(name) as NSString).resolvingAlias() as String
 
                     let pluginDescription = NSMutableDictionary(capacity: 3)
@@ -1532,6 +1431,7 @@ public final class PluginManager: NSObject {
                     pluginDescription.setObject(NSNumber(value: active), forKey: "active" as NSString)
                     pluginDescription.setObject(NSNumber(value: allUsers), forKey: "allUsers" as NSString)
                     ObjC.set(pluginDescription, availability, "availability")
+                    pluginDescription.setObject(pluginPath, forKey: "path" as NSString)
 
                     if pathExtension.isEqual(to: "osirixplugin") {
                         ObjC.set(pluginDescription, NSImage(named: "osirixplugin"), "typeIcon")
@@ -1565,17 +1465,9 @@ public final class PluginManager: NSObject {
 
                     //////////////
 
-                    if pathExtension.isEqual(to: "horosplugin") {
-                        pluginDescription.setObject("YES", forKey: "HorosCompatiblePlugin" as NSString)
-                    } else {
-                        var horosCompatible: Any = NSNumber(value: false)
-
-                        if let bundleInfoDict = bundleInfoDict {
-                            horosCompatible = bundleInfoDict.object(forKey: "HorosCompatiblePlugin") ?? NSNumber(value: false)
-                        }
-
-                        pluginDescription.setObject(ObjC.bool(horosCompatible) ? "YES" : "NO", forKey: "HorosCompatiblePlugin" as NSString)
-                    }
+                    // Read from its metadata and executable only, by the rules of
+                    // its format's loader: listing never loads a plugin.
+                    pluginDescription.setObject(PluginManager.isIsiXPluginCompatible(atPath: pluginPath) ? "YES" : "NO", forKey: "HorosCompatiblePlugin" as NSString)
 
                     ////////////////////////////////////
 
@@ -1636,7 +1528,7 @@ public final class PluginManager: NSObject {
                     }
                 }
 
-                if let onlinePlugin = onlinePlugin {
+                if let onlinePlugin = onlinePlugin, PluginManager.isVersion1Download(onlinePlugin.object(forKey: "download_url")) {
                     let currVersion = installedPlugin.object(forKey: "version")
                     let onlineVersion = onlinePlugin.object(forKey: "version")
 
@@ -1693,7 +1585,7 @@ public final class PluginManager: NSObject {
                     }
                 }
 
-                if let onlinePlugin = onlinePlugin {
+                if let onlinePlugin = onlinePlugin, PluginManager.isVersion1Download(onlinePlugin.object(forKey: "download_url")) {
                     let currVersion = installedPlugin.object(forKey: "version")
                     let onlineVersion = onlinePlugin.object(forKey: "version")
 
@@ -1781,7 +1673,7 @@ public final class PluginManager: NSObject {
 
                     let pluginURL = first?.object(forKey: "download_url") as? NSString
 
-                    if pluginURL?.contains("horosplugin") == true || pluginURL?.contains("osirixplugin") == true {
+                    if PluginManager.isVersion1Download(pluginURL) {
                         _ = pluginManagerController.perform(NSSelectorFromString("downloadPluginUpdate:"), with: pluginURL)
                     }
                 }
@@ -1797,10 +1689,16 @@ public final class PluginManager: NSObject {
         return BLAuthentication.sharedInstance() as AnyObject? as? BLAuthentication
     }
 
-    /// -[BrowserController pluginManagerController] of the current browser. The
-    /// window controller is reached by its selectors, whatever language it is in.
+    /// The database window, read on the main actor: it runs the items of
+    /// database and report plugins, and holds the plugin manager's window.
+    private class func databaseWindow() -> BrowserController? {
+        onMainActorSync { BrowserDatabaseSource.process.processGraph.currentBrowser }
+    }
+
+    /// The plugin manager's window controller, which the database window
+    /// holds. It is reached by its selectors, whatever language it is in.
     private class func pluginManagerController() -> NSObject? {
-        return BrowserController.currentBrowser()?.perform(NSSelectorFromString("pluginManagerController"))?.takeUnretainedValue() as? NSObject
+        return PluginManager.databaseWindow()?.pluginManagerController
     }
 
     @objc(downloadNext:)
@@ -1821,17 +1719,11 @@ public final class PluginManager: NSObject {
 
             let pluginURL = first?.object(forKey: "download_url") as? NSString
 
-            if pluginURL?.contains("horosplugin") == true || pluginURL?.contains("osirixplugin") == true {
+            if PluginManager.isVersion1Download(pluginURL) {
                 _ = pluginManagerController?.perform(NSSelectorFromString("downloadPluginUpdate:"), with: pluginURL)
             }
         } else {
-            // The flag and the alert are the main thread's.
-            onMainActorSync {
-                if !gPluginsAlertAlreadyDisplayed.boolValue {
-                    HorosAlertPanel.runInformational(title: NSLocalizedString("Plugin Update Completed", comment: ""), message: NSLocalizedString("All your plugins are now up to date. Restart IsiX DICOM Viewer to use the new or updated plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-                }
-                gPluginsAlertAlreadyDisplayed = true
-            }
+            PluginManager.askForRestart(title: NSLocalizedString("Plugin Update Completed", comment: ""), message: NSLocalizedString("All your plugins are now up to date. Restart IsiX DICOM Viewer to use the new or updated plugins.", comment: ""))
 
             startedUpdateProcess = false
         }

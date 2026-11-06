@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The DCM tag dictionaries built from DCMTK answer as the former plists did.
 
-Compiles Horos/Sources/DICOMDataDictionary.mm with the DCMTK archives of a
+Compiles Horos/Sources/Adapters/DCMTK/IsiXDCMTKDictionary.mm with the DCMTK archives of a
 current build, loads the dicom.dic the application ships (as the application
 does, from beside the executable) and dumps +[HorosDICOMDictionaries
 tagDictionary] and +tagForNameDictionary. Against the DCM Framework's former
@@ -14,7 +14,7 @@ tagDictionary.plist and nameDictionary.plist, for the whole dictionary:
 - tags the former dictionary lacked are counted, not compared.
 
 With --dump FILE the two dictionaries are also written there as JSON, which is
-how HorosDICOMLegacyNames.h was made.
+how HorosDICOMLegacyNames.hpp was made.
 
 The former plists left the repository; by default they are read from
 the removal commit available in Git history (legacy_dictionary.py).
@@ -32,7 +32,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dcmtk_build import BUILD, ROOT, dcmtk_flags
+from dcmtk_build import BUILD, ROOT, dcmtk_dictionary, dcmtk_flags
 import legacy_dictionary
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -49,10 +49,17 @@ else:
 if not legacy_tags_bytes or not legacy_names_bytes:
     print('skipped: needs the former DCM dictionaries (Git history): --legacy DIR', file=sys.stderr)
     raise SystemExit(2)
-dictionary_file = BUILD.parent.parent.parent / 'Products' / BUILD.name / 'DCMTK/dicom.dic'
-if not dictionary_file.is_file():
-    dictionary_file = ROOT / 'DCMTK/dcmdata/data/dicom.dic'
-flags = dcmtk_flags()
+# The dicom.dic the build ships beside its tools. script/build_and_run.sh puts
+# the products in build/Build/Products (its SYMROOT) even when the
+# intermediates are at build/Intermediates.noindex; older layouts kept both
+# under build/Build, beside each other.
+shipped = [ROOT / 'build/Build/Products' / BUILD.name / 'DCMTK/dicom.dic',
+           BUILD.parent.parent.parent / 'Products' / BUILD.name / 'DCMTK/dicom.dic']
+dictionary_file = next((path for path in shipped if path.is_file()), None)
+if dictionary_file is None:
+    # Without a shipped copy, the same file from the pinned DCMTK source.
+    dictionary_file = dcmtk_dictionary()
+flags = dcmtk_flags('dcmnet')  # IsiXDCMTKError.mm names DIMSE conditions
 
 # DCMTK knows these tags better than the 2005 table did: URIs are UR, some
 # former strings are sequences, curve and overlay data are OB/OW. Each pair is
@@ -81,7 +88,7 @@ def is_tag(key):
 
 driver = r'''
 #import <Foundation/Foundation.h>
-#import "DICOMDataDictionary.h"
+#import "IsiXDCMTKDictionary.h"
 int main(int argc, char **argv) { @autoreleasepool {
     NSDictionary *both = @{@"tags": [HorosDICOMDictionaries tagDictionary],
                            @"names": [HorosDICOMDictionaries tagForNameDictionary]};
@@ -94,8 +101,9 @@ int main(int argc, char **argv) { @autoreleasepool {
 with tempfile.TemporaryDirectory(prefix='horos-dictionary-') as work:
     work = Path(work)
     (work / 'driver.mm').write_text(driver)
-    subprocess.run(['xcrun', 'clang++', '-std=c++17', '-fobjc-arc', '-w', *flags[:2],
-                    str(work / 'driver.mm'), str(ROOT / 'Horos/Sources/DICOMDataDictionary.mm'),
+    adapters = ROOT / 'Horos/Sources/Adapters/DCMTK'
+    subprocess.run(['xcrun', 'clang++', '-std=c++17', '-fobjc-arc', '-w', *flags[:2], '-I' + str(adapters),
+                    str(work / 'driver.mm'), str(adapters / 'IsiXDCMTKDictionary.mm'), str(adapters / 'IsiXDCMTKError.mm'),
                     '-framework', 'Foundation', *flags[2:], '-o', str(work / 'driver')], check=True)
     shutil.copy(dictionary_file, work / 'dicom.dic')  # beside the executable, as for Decompress
     built = json.loads(subprocess.run([str(work / 'driver')], capture_output=True, check=True).stdout)

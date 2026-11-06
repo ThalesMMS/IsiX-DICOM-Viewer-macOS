@@ -66,7 +66,7 @@ public final class PlanarFrameCycle: NSObject {
     public func presentPicture(in view: DCMView, layer: CAMetalLayer, index: Int, hasImage: Bool, whiteBackground: Bool) -> Bool {
         span = trace?.beginDraw(index: index) ?? 0
         pictureDrawn = hasImage && view.horosDrawPlanar(in: layer, inverted: inverted)
-        if !pictureDrawn { view.horosClearLayer(layer, white: whiteBackground && hasImage, inverted: inverted) }
+        if !pictureDrawn { view.horosClear(layer, white: whiteBackground && hasImage, inverted: inverted) }
         trace?.prepared(span, metal: pictureDrawn, loadedLegacyTexture: false,
                         gpuMilliseconds: pictureDrawn ? view.horosPlanarLastCommandMilliseconds() : -1)
         return pictureDrawn
@@ -205,26 +205,40 @@ public final class PlanarFrameGraphics: NSObject {
         screen(canvas, size, xFlipped: xFlipped, yFlipped: yFlipped)
     }
 
-    /// The frame of a 2D window in its colour when more than one is open:
-    /// thick on the key view of the frontmost window, thin on the others.
+    /// The frame of a 2D window when more than one is open: thick, in the
+    /// colour of its study, on the key view of the active window; thin and
+    /// neutral on the others. The whole line is inside the view, so the window
+    /// cuts none of its sides. Returns how far the frame reaches into the
+    /// view, in points.
+    @discardableResult
     @objc(drawWindowBorderSize:scale:color:active:)
-    public static func drawWindowBorder(size: NSSize, scale: CGFloat, color: NSColor, active: Bool) {
-        guard let canvas = ROICanvas.current, let rgb = color.usingColorSpace(.genericRGB) else { return }
+    public static func drawWindowBorder(size: NSSize, scale: CGFloat, color: NSColor, active: Bool) -> CGFloat {
+        let width: Float = active ? 5 : 2
+        guard let canvas = ROICanvas.current, let rgb = color.usingColorSpace(.genericRGB) else { return 0 }
         let sf = Float(scale)
         canvas.color(r: rgb.redComponent, g: rgb.greenComponent, b: rgb.blueComponent, a: CGFloat(Float(active ? 0.9 : 0.8)))
-        canvas.lineWidth(CGFloat((active ? 10 : 6) * sf))
-        loop(canvas, halfWidth: Float(Double(size.width) / 2), halfHeight: Float(Double(size.height) / 2))
+        canvas.lineWidth(CGFloat(width * sf))
+        loop(canvas, halfWidth: Float(Double(size.width) / 2) - width * sf / 2, halfHeight: Float(Double(size.height) / 2) - width * sf / 2)
         canvas.lineWidth(CGFloat(1 * sf))
+        return CGFloat(width)
+    }
+
+    /// The marks against the bare edges of the view, as former plugins ask for them.
+    @objc(drawOverflowImageRect:size:scale:)
+    public static func drawOverflow(image: NSRect, size: NSSize, scale: CGFloat) {
+        drawOverflow(image: image, size: size, scale: scale, inset: 0)
     }
 
     /// Dotted green marks on the sides past which the image overflows the view.
-    /// `image` is the image's rectangle in the frame's pixels.
-    @objc(drawOverflowImageRect:size:scale:)
-    public static func drawOverflow(image: NSRect, size: NSSize, scale: CGFloat) {
+    /// `image` is the image's rectangle in the frame's pixels. `inset` is how
+    /// far the window's frame reaches into the view, in points: the marks
+    /// stand inside it, as far from it as they stand from a bare edge.
+    @objc(drawOverflowImageRect:size:scale:inset:)
+    public static func drawOverflow(image: NSRect, size: NSSize, scale: CGFloat, inset: CGFloat) {
         guard let canvas = ROICanvas.current else { return }
         let sf = Float(scale)
         let heighthalf = Float(Double(size.height) / 2), widthhalf = Float(Double(size.width) / 2)
-        let offset = 4 * sf
+        let offset = (4 + Float(inset)) * sf
         // The rectangle is in doubles; the half sizes and the offset in floats.
         let ox = Double(image.origin.x), oy = Double(image.origin.y), iw = Double(image.size.width), ih = Double(image.size.height)
         let hh = Double(heighthalf), wh = Double(widthhalf)

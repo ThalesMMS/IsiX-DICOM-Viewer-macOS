@@ -360,9 +360,10 @@ def main():
             threading.Thread(target=running.serve_forever, daemon=True).start()
         try:
             (p / 'check.swift').write_text(CHECK)
-            names = ['DICOMwebIntegration.swift', 'DICOMwebNode.swift', 'DICOMwebClient.swift', 'DICOMwebCredentials.swift',
+            names = ['DICOMwebIntegration.swift', 'DICOMwebNode.swift', 'DICOMwebClient.swift', 'DICOMwebClient+LogText.swift',
+                     'DICOMwebCredentials.swift',
                      'DICOMwebMultipart.swift', 'DicomNodeConfiguration.swift', 'NonInteractiveKeychainRead.swift',
-                     'DICOMwebOIDC.swift']
+                     'DICOMwebOIDC.swift', 'StoreReport.swift']
             build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-suppress-warnings',
                                     *[str(root / 'Horos/Sources' / n) for n in names], str(p / 'check.swift'),
                                     *swift_flags(p), '-o', str(p / 'check')], capture_output=True, text=True, timeout=600)

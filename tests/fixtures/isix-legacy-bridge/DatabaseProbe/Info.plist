@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>DatabaseProbe</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>MenuTitles</key>
+	<array>
+		<string>Database Probe</string>
+		<string>Database Probe Refused State</string>
+		<string>Database Probe Read-only Attribute</string>
+		<string>Database Probe Viewer Export</string>
+	</array>
+	<key>NSPrincipalClass</key>
+	<string>DatabaseProbeFilter</string>
+	<key>pluginType</key>
+	<string>Database</string>
+</dict>
+</plist>

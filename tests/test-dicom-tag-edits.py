@@ -4,9 +4,15 @@ from pathlib import Path
 import subprocess, sys, tempfile
 
 root = Path(__file__).resolve().parents[1]
-path = 'Horos/Sources/XMLControllerDCMTKCategory.mm'
-source = (subprocess.check_output(['git', 'show', sys.argv[1] + ':' + path])
-          if len(sys.argv) > 1 else (root / path).read_bytes()).decode('latin1')
+# The editing is the DCMTK adapter's; before, XMLController's DCMTK category.
+path = 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKTagEditor.mm'
+former = 'Horos/Sources/XMLControllerDCMTKCategory.mm'
+if len(sys.argv) > 1:
+    shown = subprocess.run(['git', 'show', sys.argv[1] + ':' + path], capture_output=True)
+    source = (shown.stdout if shown.returncode == 0
+              else subprocess.check_output(['git', 'show', sys.argv[1] + ':' + former])).decode('latin1')
+else:
+    source = (root / path).read_bytes().decode('latin1')
 
 start = source.index('typedef struct')
 # The entry parser is independent of the serialization backend.
@@ -22,7 +28,7 @@ code = r'''
 #include <string>
 #include <vector>
 
-// Stands in for the DCM framework's tag: the parser only reads group/element.
+// Stands in for the IsiXDICOMFile tag: the parser only reads group/element.
 @interface DCMAttributeTag : NSObject
 @property unsigned short group;
 @property unsigned short element;

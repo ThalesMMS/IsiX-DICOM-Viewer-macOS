@@ -222,9 +222,24 @@ for recipe in recipes:
         report('dependency_cross_cache "$path"' in body and '${cross_cache:+"$cross_cache"}' in whole,
                '%s does not hash the cross-build answers it configures with' % name)
         report('args+=(-C "$cross_cache")' in body, '%s does not configure a cross build with its answers' % name)
+    # The acquired archive is the pin of DCMTK and OpenSSL, as for ITK and VTK:
+    # the selected record moves when another archive is selected, and DCMTK also
+    # hashes the record OpenSSL selected, so a new OpenSSL pin reconfigures it.
     if name == 'DCMTK':
-        for item in ('revision_file', 'Make.sh', 'isolate-dcmtk-jpegls.py', 'OpenSSL/UPSTREAM_REVISION'):
+        for item in ('Make.sh', 'isolate-dcmtk-jpegls.py'):
             report(item in match.group(1), 'DCMTK does not hash ' + item)
+        for item in ('external_inputs', 'openssl_record'):
+            report('"$%s"' % item in arguments, 'DCMTK does not hash ' + item)
+        for item in ('"$source_prefix/share/source.json"', '"$source_dir/CMakeLists.txt"',
+                     '"$source_dir/CMake/dcmtkPrepare.cmake"'):
+            report(item in arguments, 'DCMTK does not hash ' + item)
+        report('openssl_record="$CONFIGURATION_TEMP_DIR/OpenSSL.build/Source/share/source.json"' in body,
+               'DCMTK does not hash the source record OpenSSL selected')
+        report('--source DCMTK' in body and body.index('--source DCMTK') < body.index('.buildhash'),
+               'DCMTK does not verify pristine source before its configure stamp')
+        report('external-sources.json' not in match.group(1), 'DCMTK hashes unrelated source declarations')
+        report('UPSTREAM_REVISION' not in body and 'revision_file' not in body,
+               'DCMTK still reads a revision file beside the source declaration')
     if name in ('ITK', 'VTK'):
         for item in ('external_inputs', 'external_inputs_lock'):
             report('"$%s"' % item in arguments, '%s does not hash %s' % (name, item))
@@ -249,8 +264,15 @@ for recipe in recipes:
                'VTK does not verify pristine source before its configure stamp')
         report('external-sources.json' not in match.group(1), 'VTK hashes unrelated source declarations')
     if name == 'OpenSSL':
-        for item in ('revision_file', 'Make.sh'):
-            report(item in match.group(1), 'OpenSSL does not hash ' + item)
+        report('Make.sh' in match.group(1), 'OpenSSL does not hash Make.sh')
+        report('"$external_inputs"' in arguments, 'OpenSSL does not hash external_inputs')
+        for item in ('"$source_prefix/share/source.json"', '"$source_dir/VERSION.dat"'):
+            report(item in arguments, 'OpenSSL does not hash ' + item)
+        report('--source OpenSSL' in body and body.index('--source OpenSSL') < body.index('.cmakehash'),
+               'OpenSSL does not verify pristine source before its configure stamp')
+        report('external-sources.json' not in match.group(1), 'OpenSSL hashes unrelated source declarations')
+        report('UPSTREAM_REVISION' not in body and 'revision_file' not in body,
+               'OpenSSL still reads a revision file beside the source declaration')
     if name == 'OpenJPEG':
         for item in ('Make.sh', 'external_inputs', 'source_prefix/share/source.json', 'source_dir/CMakeLists.txt'):
             report(item in match.group(1), 'OpenJPEG does not hash ' + item)

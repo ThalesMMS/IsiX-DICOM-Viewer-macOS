@@ -4,15 +4,20 @@
 The database and DCMPix adapters are deliberate doubles; this covers caller
 selection/wiring/error paths, not native DICOM decoding or visible UI.
 
--printDatabaseSelection: and -printDatabaseSpool: are Swift, in
-BrowserController+DatabaseDragExport+Selection.swift. Both are taken from there
-as they stand, with the file's own objcTry/objcIdentical, and compiled with
-swiftc as an extension of an Objective-C double of BrowserController, beside the
-real PrintSelection.swift and HorosObjCException. The Objective-C doubles keep
+-printDatabaseSelection: and -printDatabaseSpool: are the browser's selectors,
+in BrowserController+DatabaseDragExport+Selection.swift, and hand their work
+to PrintSelection (PrintSelection+DatabaseSelection.swift). The selectors are
+taken from there as they stand and compiled with swiftc as an extension of an
+Objective-C double of BrowserController, beside the real PrintSelection.swift,
+PrintSelection+DatabaseSelection.swift (without its module imports, whose two
+types the harness declares) and HorosObjCException. The Objective-C doubles keep
 the declarations of the application's headers (DicomSeries, DicomImage,
 DCMPix, HorosDCMTKObject, HorosAlertPanel), so the Swift code is checked
 against the names it sees in the app; Wait, Swift in the app, is a Swift double.
 """
+import sys
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+import objc_exception_guards
 from pathlib import Path
 import re
 import subprocess
@@ -23,8 +28,9 @@ start = browser.index('    @objc(printDatabaseSelection:)\n    func printDatabas
 end = browser.index('    @objc(databaseDoublePressed:)', start)
 methods = browser[start:end]
 helpers = ''
-for name in ('objcTry', 'objcIdentical'):
-    helpers += re.search(r'(?:@inline\(__always\)\n)?fileprivate func ' + name + r'\b.*?\n}\n', browser, re.S).group(0) + '\n'
+selection = (root / 'Horos/Sources/PrintSelection+DatabaseSelection.swift').read_text(encoding='utf-8')
+selection = selection.replace('import IsiXDICOMDataset\n', '').replace('import IsiXDatabase\n', '')
+attempt = objc_exception_guards.between('BrowserObjC')
 header = r'''
 // Only the annotations Swift reads from the application's headers are written.
 #pragma clang diagnostic ignored "-Wnullability-completeness"
@@ -65,6 +71,8 @@ extern int alerts;
 @interface DCMObject : NSObject
 @property(retain) NSData *payload;
 - (id)attributeValueWithName:(NSString *)name;
+// The IsiXDICOMDataset model's factory, under the Swift name it has there.
++ (nullable instancetype)objectWithContentsOfFile:(nonnull NSString *)path NS_SWIFT_NAME(object(contentsOfFile:));
 @end
 @interface HorosDCMTKObject : DCMObject
 + (nullable instancetype)objectWithContentsOfFile:(nonnull NSString *)path;
@@ -105,6 +113,8 @@ NSMutableArray *loaded;
 @end
 @implementation DCMObject
 - (id)attributeValueWithName:(NSString *)name { return [name isEqual:@"EncapsulatedDocument"] ? self.payload : nil; }
+// The model's reading forwards to the reader, as +[DCMObject objectWithContentsOfFile:] does.
++ (instancetype)objectWithContentsOfFile:(NSString *)path { return [HorosDCMTKObject objectWithContentsOfFile:path]; }
 @end
 // The DCMTK reader the browser uses; same interface.
 @implementation HorosDCMTKObject
@@ -163,6 +173,19 @@ final class Wait: NSObject {
 var cancelAfter = -1
 var calls = 0
 
+// The app's @try (HorosObjCException+Guards.swift), as it is written there.
+enum BrowserObjC {
+ATTEMPT}
+
+// DecompressService is in IsiXDatabase; the member the print uses. No selection
+// here is a structured report, so this path only has to compile.
+final class DecompressService {
+    static let shared: DecompressService? = nil
+    func updateReportPDF(atPath path: String, timeout: TimeInterval, cancelled: (() -> Bool)? = nil) -> Result<Bool, Error> {
+        .success(false)
+    }
+}
+
 // Foundation's NSTemporaryDirectory() is the user's temporary folder whatever
 // TMPDIR says, and every print test, and any Horos the user runs, spools
 // there. Declared in the harness's own module, this one shadows it for the
@@ -172,7 +195,7 @@ var calls = 0
 func NSTemporaryDirectory() -> String {
     (CommandLine.arguments[1] as NSString).appendingPathComponent("tmp") + "/"
 }
-'''
+'''.replace('ATTEMPT', attempt)
 extension = 'import AppKit\n\n' + helpers + 'extension BrowserController {\n' + methods + '}\n'
 main = r'''
 import AppKit
@@ -273,12 +296,13 @@ with tempfile.TemporaryDirectory(prefix='horos-print-384-browser-') as temporary
     (folder / 'Harness.m').write_text(stubs)
     (folder / 'Wait.swift').write_text(wait)
     (folder / 'Print.swift').write_text(extension)
+    (folder / 'Selection.swift').write_text(selection)
     (folder / 'main.swift').write_text(main)
     include = ['-I', str(folder), '-I', str(root / 'Horos/Sources')]
     subprocess.run(['xcrun', 'clang', '-c', '-fblocks', *include, str(folder / 'Harness.m'), '-o', str(folder / 'Harness.o')], check=True, timeout=60)
     subprocess.run(['xcrun', 'clang', '-c', '-fobjc-arc', *include, str(root / 'Horos/Sources/HorosObjCException.m'), '-o', str(folder / 'HorosObjCException.o')], check=True, timeout=60)
     subprocess.run(['xcrun', 'swiftc', *include, '-import-objc-header', str(folder / 'Harness.h'),
-                    str(root / 'Horos/Sources/PrintSelection.swift'), str(folder / 'Wait.swift'), str(folder / 'Print.swift'), str(folder / 'main.swift'),
+                    str(root / 'Horos/Sources/PrintSelection.swift'), str(folder / 'Wait.swift'), str(folder / 'Print.swift'), str(folder / 'Selection.swift'), str(folder / 'main.swift'),
                     str(folder / 'Harness.o'), str(folder / 'HorosObjCException.o'), '-o', str(folder / 'check')], check=True, timeout=120)
     # The spool folders are made and counted in <folder>/tmp, which the
     # harness's NSTemporaryDirectory() returns (TMPDIR does not move

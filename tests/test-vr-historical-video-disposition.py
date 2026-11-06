@@ -66,36 +66,40 @@ check('Exception Type:' not in VIDEO, 'do not relabel the film as a crash')
 check('applicationDidFinishLaunching' not in VIDEO,
       'the film is not a launch hang')
 
-vr = root / 'Horos/Sources/VRView.mm'
-source = vr.read_bytes().decode('latin1')
-drag = body(vr, '- (void)mouseDragged:(NSEvent *)theEvent')
-magnify = body(vr, '-(void) magnifyWithEvent:(NSEvent *)event')
-rotate = body(vr, '-(void) rotateWithEvent:(NSEvent *)event')
-roi = body(vr, '- (void) generateROI')
-moved = body(vr, '-(void) mouseMoved: (NSEvent*) theEvent')
+# The view's mouse, gestures and measurements are Swift extensions of VRView
+# (VRView+Mouse.swift, VRView+Gestures.swift, VRView+Measure.swift).
+mouse = root / 'Horos/Sources/VRView+Mouse.swift'
+gestures = root / 'Horos/Sources/VRView+Gestures.swift'
+measure = root / 'Horos/Sources/VRView+Measure.swift'
+source = mouse.read_text()
+drag = body(mouse, 'public override func mouseDragged(with theEvent: NSEvent)')
+magnify = body(gestures, 'public override func magnify(with event: NSEvent)')
+rotate = body(gestures, 'public override func rotate(with event: NSEvent)')
+roi = body(measure, 'func generateROI()')
+moved = body(gestures, 'private func horosMouseMoved(_ theEvent: NSEvent?)')
 
-check(drag and 't3DCut' in drag and 'generateROI' in drag,
+check(drag and '.t3DCut' in drag and 'generateROI' in drag,
       'mouseDragged must still draw the scissors polygon through generateROI')
-check(roi and 'ROI3DData' in roi, 'generateROI is gone')
+check(roi and 'horos_vtk.setScissorsOutline(' in roi, 'generateROI is gone')
 # The film uses mouse tools; current trackpad handlers also move the camera.
 # They still offer the event to plugins before their native camera handling.
 for gesture, name in ((magnify, 'magnifyWithEvent'), (rotate, 'rotateWithEvent')):
-    check(gesture and 'eventToPlugins' in gesture and 'aCamera' in gesture
-          and gesture.index('eventToPlugins') < gesture.index('aCamera'),
+    check(gesture and 'eventToPlugins' in gesture and 'vtk.hasCamera' in gesture
+          and gesture.index('eventToPlugins') < gesture.index('vtk.hasCamera'),
           name + ' must offer plugins the event before native camera handling')
-check('View Size: %d x %d' in moved and '[self frame].size.width' in moved,
+check('View Size: %d x %d' in moved and 'Double(frame.size.width)' in moved,
       'the film overlay still reads the view frame in points')
-check('Scale: %2.3f' in moved and 'GetParallelProjection' in moved,
+check('Scale: %2.3f' in moved and 'vtk.cameraParallelProjection' in moved,
       'the film scale overlay still requires parallel projection')
 
 # Scissors mouseDown blanks the volume mapper while the polygon is drawn.
-cut_down = source.find('else if( tool == t3DCut)')
+cut_down = source.find('} else if tool == .t3DCut {')
 check(cut_down > 0, 't3DCut mouseDown is gone')
 cut_block = source[cut_down:cut_down + 1200]
-check('dontRenderVolumeRenderingOsiriX = 1' in cut_block,
+check('IsiXVTKVolumeView.volumeRenderingSuppressed = true' in cut_block,
       'starting scissors must still disable the volume mapper (gray view in the film)')
 check('generateROI' in cut_block, 't3DCut mouseDown must still seed generateROI')
-check('HorosVRInteractionGeometry backingPoint' in cut_block,
+check('VRInteractionGeometry.backingPoint(' in cut_block,
       't3DCut must keep the window-to-view conversion, not a new speculative path')
 
 # The window-to-view conversion is present; that is not a runtime reproduction of the film.

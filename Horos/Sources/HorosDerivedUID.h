@@ -16,26 +16,13 @@
 /// `SITE_UID_ROOT`, OFFIS's `1.2.276.0.7230010.3`, with the `.1.2` and `.1.3`
 /// arcs `DICOMExport` uses for studies and series.
 ///
-/// This is Objective-C rather than Swift because the file that needs it is
-/// compiled into the Decompress helper as well as the application, and that
-/// target has no Swift.
-@interface HorosDerivedUID : NSObject
+/// It is the IsiXImaging module's DerivedUID (IsiXDerivedUID), which the
+/// application and the Decompress service both link: Swift imports the module,
+/// and Objective-C names the class HorosDerivedUID here.
+// __swift__: Swift itself reading the bridging header, which sees the module directly.
+#if !defined(__swift__) && __has_include("IsiXImaging-Swift.h")
+// Found in GENERATED_MODULEMAP_DIR: these targets compile without clang modules.
+#import "IsiXImaging-Swift.h"
 
-+ (NSString*) studyRoot;
-+ (NSString*) seriesRoot;
-
-/// A UID under `root`, determined entirely by `key`.
-+ (NSString*) uidForKey:(NSString*) key root:(NSString*) root;
-
-/// A `SeriesInstanceUID` for a file that carries none, from the key the importer
-/// groups that series on.
-+ (NSString*) seriesUIDForKey:(NSString*) key;
-
-/// A `StudyInstanceUID` for a file that carries none.
-+ (NSString*) studyUIDForKey:(NSString*) key;
-
-/// Whether a string is something `UI` can hold: at most 64 characters, only
-/// digits and dots, no empty component, no leading zero in a component.
-+ (BOOL) isConformantUID:(NSString*) value;
-
-@end
+@compatibility_alias HorosDerivedUID IsiXDerivedUID;
+#endif

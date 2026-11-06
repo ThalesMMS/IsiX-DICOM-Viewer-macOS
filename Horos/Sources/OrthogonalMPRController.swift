@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 
 /// The messages the controller sends to its viewer, an id in the former class:
 /// an OrthogonalMPRViewer, an OrthogonalMPRPETCTViewer or an EndoscopyViewer.
@@ -82,14 +83,10 @@ private func objIsEqualTo(_ a: Any?, _ b: Any?) -> Bool {
     return a.isEqual(to: b)
 }
 
-/// [object floatValue] and [object longValue], messages to an id: an object
+/// [object floatValue], a message to an id: an object
 /// that does not answer raises, as before; nil answers 0.
 private func floatValueOf(_ object: Any?) -> Float {
     return ((object as? NSObject)?.value(forKey: "floatValue") as? NSNumber)?.floatValue ?? 0
-}
-
-private func longValueOf(_ object: Any?) -> Int {
-    return ((object as? NSObject)?.value(forKey: "longValue") as? NSNumber)?.intValue ?? 0
 }
 
 /// A float converted to long as the arm64 code of the former C did (fcvtzs):
@@ -154,6 +151,9 @@ private let ToolsMenuIconSize = NSMakeSize(28.0, 28.0)
 @MainActor
 @objc(OrthogonalMPRController)
 public class OrthogonalMPRController: NSObject {
+    /// The preferences the controller reads: those of the process graph.
+    let preferenceStore: any PreferenceStore = PreferencesSource.process.preferences
+
     // MARK: - The former instance variables
 
     /// Retained, as the former ivars.
@@ -286,13 +286,23 @@ public class OrthogonalMPRController: NSObject {
         _reslicer = OrthogonalReslice(originalDCMPixList: _originalDCMPixList)
     }
 
-    /// The former initializer. The viewers send it again to the controller the
-    /// nib made, once they have the pixels: it is a method, so that it keeps the
-    /// outlets the nib set, which a Swift initializer would start over. It
-    /// returns the controller, as -[NSObject init] did.
+    /// The former initializer, kept for the Objective-C that sends it: it
+    /// does what -horosReinit does and returns the controller, as
+    /// -[NSObject init] did. The volume is not read.
     @discardableResult
     @objc(initWithPixList::::::)
     public dynamic func initWithPixList(_ pix: [Any]!, _ files: [Any]!, _ vData: Data!, _ vC: ViewerController!, _ bC: ViewerController!, _ newViewer: Any!) -> Any! {
+        self.horosReinit(pixList: pix, files: files, viewerController: vC, blendingController: bC, viewer: newViewer)
+        return self
+    }
+
+    /// What the former initializer did. The viewers send it to the controller
+    /// the nib made, once they have the pixels: a method, so that it keeps the
+    /// outlets the nib set, which a Swift initializer would start over, and
+    /// outside the init family, whose selectors consume the receiver and
+    /// return it retained. `bC`, the blending viewer, is for the subclasses.
+    func horosReinit(pixList pix: [Any]?, files: [Any]?, viewerController vC: ViewerController?,
+                     blendingController bC: ViewerController?, viewer newViewer: Any?) {
         // initialisations
         self.setPixList(pix, files, vC)
 
@@ -322,8 +332,6 @@ public class OrthogonalMPRController: NSObject {
 
         _orientationVector = Int(vC?.orientationVector() ?? 0)
         self.applyOrientation()
-
-        return self
     }
 
     deinit {
@@ -419,7 +427,7 @@ public class OrthogonalMPRController: NSObject {
             if sliceIndex < 0 { sliceIndex = 0 }
             if sliceIndex >= stackCount { sliceIndex = stackCount &- 1 }
             // update axial view
-            originalView?.setIndex(Int16(truncatingIfNeeded: sliceIndex))
+            originalView?.setIndex(Int(truncatingIfNeeded: sliceIndex))
 
             if objIsEqual(sender, xReslicedView) {
                 originalView?.setCrossPositionX(Float(Double(x) + 0.5))
@@ -639,16 +647,11 @@ public class OrthogonalMPRController: NSObject {
 
     @objc(ApplyOpacityString:)
     public dynamic func applyOpacityString(_ str: String!) {
-        var aOpacity: NSDictionary?
-
         if str == NSLocalizedString("Linear Table", comment: "") {
             self.setTransferFunction(nil)
         } else {
-            aOpacity = (UserDefaults.standard.dictionary(forKey: "OPACITY") as NSDictionary?).flatMap { object($0, forKey: str) } as? NSDictionary
-            if let aOpacity {
-//                array = [aOpacity objectForKey:@"Points"];
-
-                self.setTransferFunction(OpacityTransferView.tableWith4096Entries(aOpacity.object(forKey: "Points") as? NSArray) as Data?)
+            if let aOpacity = ReconstructionPreferences.preset(str, of: ImagePresetPreferences.opacityTables, in: self.preferenceStore) {
+                self.setTransferFunction(OpacityTransferView.tableWith4096Entries(ReconstructionPreferences.pointTexts(aOpacity) as NSArray) as Data?)
             }
         }
     }
@@ -660,33 +663,9 @@ public class OrthogonalMPRController: NSObject {
             _xReslicedView?.setCLUT(nil, nil, nil)
             _yReslicedView?.setCLUT(nil, nil, nil)
         } else {
-            var aCLUT: NSDictionary?
-            var array: NSArray?
-            var i = 0
-            var red = [UInt8](repeating: 0, count: 256), green = [UInt8](repeating: 0, count: 256), blue = [UInt8](repeating: 0, count: 256)
-
-            aCLUT = (UserDefaults.standard.dictionary(forKey: "CLUT") as NSDictionary?).flatMap { object($0, forKey: str) } as? NSDictionary
-            if let aCLUT {
-                array = aCLUT.object(forKey: "Red") as? NSArray
-                i = 0
-                while i < 256 {
-                    red[i] = UInt8(truncatingIfNeeded: longValueOf(array?.object(at: i)))
-                    i += 1
-                }
-
-                array = aCLUT.object(forKey: "Green") as? NSArray
-                i = 0
-                while i < 256 {
-                    green[i] = UInt8(truncatingIfNeeded: longValueOf(array?.object(at: i)))
-                    i += 1
-                }
-
-                array = aCLUT.object(forKey: "Blue") as? NSArray
-                i = 0
-                while i < 256 {
-                    blue[i] = UInt8(truncatingIfNeeded: longValueOf(array?.object(at: i)))
-                    i += 1
-                }
+            if let aCLUT = ReconstructionPreferences.preset(str, of: ImagePresetPreferences.colourTables, in: self.preferenceStore) {
+                var red = ReconstructionPreferences.levels(aCLUT.red), green = ReconstructionPreferences.levels(aCLUT.green),
+                    blue = ReconstructionPreferences.levels(aCLUT.blue)
 
                 _originalView?.setCLUT(&red, &green, &blue)
                 _xReslicedView?.setCLUT(&red, &green, &blue)
@@ -1033,7 +1012,7 @@ public class OrthogonalMPRController: NSObject {
         self.saveCrossPositions()
         self.reslice(cLong(originalCrossPositionX), cLong(originalCrossPositionY), _originalView)
 
-        UserDefaults.standard.set(Int(_thickSlab), forKey: "stackThicknessOrthoMPR")
+        self.preferenceStore.set(Int(_thickSlab), for: ReconstructionPreferences.stackThicknessOrthogonalMPR)
     }
 
     // MARK: - NSWindow related methods
@@ -1042,7 +1021,7 @@ public class OrthogonalMPRController: NSObject {
     public dynamic func showViews(_ sender: Any!) {
         // Set the 1st view
         _originalView?.setPixList(_originalDCMPixList, _originalDCMFilesList, _originalROIList)
-        _originalView?.setIndexWithReset(Int16(truncatingIfNeeded: (_originalDCMPixList?.count ?? 0) / 2), true)
+        _originalView?.setIndexWithReset((_originalDCMPixList?.count ?? 0) / 2, true)
 
         let pix = _originalView?.pixList()?.object(at: 0) as? DCMPix
 
@@ -1415,7 +1394,7 @@ public class OrthogonalMPRController: NSObject {
         contextual.addItem(NSMenuItem.separator())
 
         /******************* WW/WL menu items **********************/
-        let menu = AppController.shared()?.wlwwMenu()?.copy() as? NSMenu
+        let menu = PreferencesSource.process.processGraph.applicationMenus.wlwwMenu()?.copy() as? NSMenu
         item = NSMenuItem(title: NSLocalizedString("Window Width & Level", comment: ""), action: nil, keyEquivalent: "")
         item.submenu = menu
         contextual.addItem(item)

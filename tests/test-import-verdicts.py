@@ -19,8 +19,9 @@ import sys
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_text
+import sources
 failures = []
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
+database = sources.class_text('DicomDatabase')  # DicomDatabase is Swift
 # The paths of the database are in its Swift extension.
 instance = source_text('DicomDatabase+Instance')
 
@@ -52,11 +53,11 @@ elif 'confirmDirectory(atPath:' not in errors:
                     'the file is deleted instead')
 
 # --- a file that cannot be indexed says so, whichever way it goes -------------
-branch = body('else // DELETE or MOVE THIS UNKNOWN FILE ?')
+branch = body('else { // DELETE or MOVE THIS UNKNOWN FILE ?')
 if not branch:
     failures.append('the branch that handles a file that is not indexable is gone')
 else:
-    logs = re.findall(r'NSLog\(\s*@"---- import: [^"]*"', branch)
+    logs = re.findall(r'NSLog\(\s*"---- import: [^"]*"', branch)
     if len(logs) < 3:
         failures.append('a file that cannot be indexed is not named in all three outcomes '
                         '(deleted, kept, or could not be kept): %d of 3' % len(logs))
@@ -67,31 +68,29 @@ else:
     # Two archives can each hold a readme.txt. Moving the second onto the first
     # fails, and the fallback deletes it - so the preference that is meant to
     # keep unreadable files silently keeps only the first of each name.
-    if 'availablePathInDirectory' not in branch:
+    if 'availablePath(inDirectory:' not in branch:
         failures.append('a second file of the same name is moved onto the first, and the failed '
                         'move deletes it although the preference says to keep it')
 
 # --- and an empty file does not sit there for ever ---------------------------
-if 'longLongValue] == 0' not in database:
+if '} else if size == 0 {' not in database:
     failures.append('a zero-length file still matches no branch and stays in the incoming folder')
 else:
-    at = database.find('longLongValue] == 0')
+    at = database.find('} else if size == 0 {')
     window = database[at:at + 900]
-    if 'NSFileModificationDate' not in window:
+    if '.modificationDate' not in window:
         failures.append('an empty file is removed without asking how long it has been empty, so a '
                         'transfer in progress could be destroyed')
     if 'timeIntervalSinceNow' not in window:
         failures.append('there is no age test on an empty file')
-    if 'removeItemAtPath' not in window:
+    if 'removeItem(srcPath)' not in window:
         failures.append('an empty file is still not removed')
     if 'is empty' not in window:
         failures.append('an empty file is removed without saying so')
 
 # The two branches must stay in this order, or the empty case never runs.
-empty_at = database.find('longLongValue] == 0')
-nonempty_at = database.find('longLongValue] > 0\n                {')
-if nonempty_at < 0:
-    nonempty_at = database.find('objectForKey:NSFileSize] longLongValue] > 0')
+empty_at = database.find('} else if size == 0 {')
+nonempty_at = database.find('} else if size > 0 {')
 if empty_at > 0 and nonempty_at > 0 and empty_at > nonempty_at:
     failures.append('the empty-file branch comes after the one that requires a size, so it never '
                     'runs')

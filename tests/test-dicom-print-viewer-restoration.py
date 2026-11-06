@@ -29,7 +29,7 @@ extern NSString* const OsirixGLFontChangeNotification;
 // One object stands for the viewer, its image view, series view, window and
 // screen, as in the former test.
 @interface ViewerController : NSObject
-@property short curImage;
+@property NSInteger curImage;
 @property int rowsValue, columnsValue;
 @property BOOL magneticValue, matrixVisibleValue, displayed;
 @property NSRect frame;
@@ -47,8 +47,8 @@ extern NSString* const OsirixGLFontChangeNotification;
 - (void)setFrame:(NSRect)frame display:(BOOL)display;
 - (void)setImageRows:(int)rows columns:(int)columns;
 - (void)setImageIndex:(long)index;
-- (void)setIndex:(short)index;
-- (void)sendSyncMessage:(short)message;
+- (void)setIndex:(NSInteger)index;
+- (void)sendSyncMessage:(NSInteger)message;
 - (void)adjustSlider;
 - (void)display;
 @end
@@ -99,9 +99,9 @@ void QAUseDefaults(NSUserDefaults *defaults) {
 - (NSRect)visibleFrame { return NSMakeRect(0,0,1200,900); }
 - (void)setFrame:(NSRect)frame display:(BOOL)display { self.frame=frame; }
 - (void)setImageRows:(int)rows columns:(int)columns { self.rowsValue=rows;self.columnsValue=columns; }
-- (void)setImageIndex:(long)index { self.curImage=(short)index; }
-- (void)setIndex:(short)index { self.curImage=index; }
-- (void)sendSyncMessage:(short)message {}
+- (void)setImageIndex:(long)index { self.curImage=index; }
+- (void)setIndex:(NSInteger)index { self.curImage=index; }
+- (void)sendSyncMessage:(NSInteger) message {}
 - (void)adjustSlider {}
 - (void)display { self.displayed=YES; }
 @end

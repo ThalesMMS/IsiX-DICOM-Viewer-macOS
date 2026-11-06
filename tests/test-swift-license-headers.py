@@ -26,9 +26,11 @@ YEAR = r"20\d{2}"
 NEW_HEADER = re.compile(
     rf"//  Copyright \(c\) {YEAR} {re.escape(AUTHOR)}\n"
     r"//\n"
-    r"//  This file is part of a fork of Horos \(https://github.com/ThalesMMS/horos\).\n"
-    r"//\n"
-    r"//  It is free software: you can redistribute it and/or modify it under the\n"
+    # The current header names no one else; the earlier one, still valid in the
+    # files that carry it, also said the file was part of a fork of Horos.
+    r"(?://  This file is free software"
+    r"|//  This file is part of a fork of Horos \(https://github.com/ThalesMMS/horos\).\n//\n//  It is free software)"
+    r": you can redistribute it and/or modify it under the\n"
     r"//  terms of the GNU Lesser General Public License as published by the Free\n"
     r"//  Software Foundation, version 3 of the License.\n"
     r"//\n"
@@ -74,6 +76,9 @@ def header_error(data, original_digest=None):
     # immediately follow it; no whitespace, BOM, code or other comments before it.
     if data.startswith(b"#!/usr/bin/env swift\n"):
         data = data.split(b"\n", 1)[1]
+    # A Swift package manifest must start with its tools version; the notice follows it.
+    if re.match(rb"// swift-tools-version: ?[0-9.]+\n", data):
+        data = data.split(b"\n", 1)[1]
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError:
@@ -115,7 +120,12 @@ def check_rejections():
     legacy = b"/* Original Horos/OsiriX notice: Copyright (c) OsiriX Team. */"
     converted = legacy + f"\n//\n//  Copyright (c) 2026 {AUTHOR} — modifications in this fork\n".encode("utf-8")
     digest = hashlib.sha256(legacy).hexdigest()
+    current = native.replace(
+        b"//  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).\n//\n//  It is free software",
+        b"//  This file is free software", 1)
+    assert current != native
     assert header_error(native) is None
+    assert header_error(current) is None
     assert header_error(b"#!/usr/bin/env swift\n" + native) is None
     assert header_error(converted, digest) is None
     assert header_error(native.replace(b"2026", b"2027", 1)) is None
@@ -128,6 +138,9 @@ def check_rejections():
         (native.replace(b"WITHOUT ANY", b"WITH", 1), None),
         (native.replace(b"https://github.com/ThalesMMS/horos", b"https://example.org", 1), None),
         (native + b"// Copyright (c) Horos Project\n", None),
+        (current.replace(AUTHOR.encode(), b"Horos Project", 1), None),
+        (current.replace(b"version 3", b"version 2", 1), None),
+        (current + b"// Copyright (c) Yves Starreveld\n", None),
         (converted.replace(b"Copyright (c) OsiriX Team", b"Copyright (c) Someone", 1), digest),
         (converted.replace(b"modifications in this fork", b"", 1), digest),
         (converted.replace(AUTHOR.encode(), b"Horos Project", 1), digest),

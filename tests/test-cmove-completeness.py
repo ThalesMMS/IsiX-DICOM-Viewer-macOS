@@ -33,7 +33,9 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 completion = root / 'Horos/Sources/RetrieveCompletion.swift'
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
+# The query node is Swift; the DIMSE responses are read in its DCMTK adapter.
+node = (root / 'Horos/Sources/DCMTKQueryNode+Network.swift').read_text()
+adapter = (root / 'Horos/Sources/Adapters/DCMTK/IsiXDCMTKQueryRetrieveSCU.mm').read_text()
 
 
 def body(signature, source):
@@ -176,37 +178,37 @@ if results:
             failures.append('%s: %r, expected %r' % (key, got, want))
 
 # --- the move reports what it lost --------------------------------------------
-move = body('- (OFCondition)moveSCU:(T_ASC_Association *)assoc  network:(T_ASC_Network *)net '
-            'dataset:( DcmDataset *)dataset destination:', node)
+move = body('private func moveSCU(on association: IsiXDCMTKAssociation', node)
+fill = body('static void IsiXDCMTKFillRetrieveResult(', adapter)
 if not move:
-    failures.append('-moveSCU:network:dataset:destination: is gone')
+    failures.append('moveSCU(on:identifier:destination:) is gone')
 else:
-    if 'HorosRetrieveCompletion' not in move:
+    if 'RetrieveCompletion(' not in move:
         failures.append('the move does not read the sub-operation counts it came back with, so a '
                         'partial retrieval is reported as a whole study')
-    for field in ('NumberOfCompletedSubOperations', 'NumberOfFailedSubOperations',
-                  'NumberOfWarningSubOperations', 'NumberOfRemainingSubOperations'):
-        if move.count(field) < 2:
+    for field, value in (('NumberOfCompletedSubOperations', 'completed'), ('NumberOfFailedSubOperations', 'failed'),
+                         ('NumberOfWarningSubOperations', 'warnings'), ('NumberOfRemainingSubOperations', 'remaining')):
+        if field not in fill or 'UInt(result.%s)' % value not in move or '%s: %s' % (value, value) not in move:
             failures.append('%s reaches the counters but not the report' % field)
     if 'everythingArrived' not in move:
         failures.append('nothing decides whether the move brought back everything')
     if 'Move Failed' not in move or 'completion.summary' not in move:
         failures.append('an incomplete move is not reported to the user with what it lost')
     # 0xB000 is a warning; branching on the status is what missed it.
-    if 'DICOM_WARNING_STATUS' in move:
+    if 'DICOM_WARNING_STATUS' in move or '0xb000' in move.lower():
         failures.append('the move still decides by status, which reads 0xB000 as an arrival')
     at = move.find('everythingArrived')
     branch = move[at:at + 1200]
-    if 'makeDcmnetCondition' in branch or 'cond = ' in branch:
+    if 'IsiXDCMTKError' in branch or 'condition = ' in branch:
         failures.append('the shortfall is turned into an error condition, which cancels the '
                         'thread an image-level retrieve is still fetching on')
 
 # --- and the get uses the same words ------------------------------------------
-get = body('- (OFCondition)getSCU:', node)
+get = body('private func getSCU(on association: IsiXDCMTKAssociation', node)
 if not get:
-    failures.append('-getSCU:network:dataset: is gone')
+    failures.append('getSCU(on:identifier:) is gone')
 else:
-    if 'HorosRetrieveCompletion' not in get or 'completion.summary' not in get:
+    if 'RetrieveCompletion(' not in get or 'completion.summary' not in get:
         failures.append('the C-GET report has drifted away from the C-MOVE one')
     if 'Get Failed' not in get:
         failures.append('an incomplete retrieval is not reported to the user at all')

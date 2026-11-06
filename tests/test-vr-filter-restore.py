@@ -15,8 +15,9 @@ driven as VRController drives it:
   the filters when its window closes, never when the 2D viewer closes, and
   a post-processed series reverts from the copy.
 
-`<git revision>` as an optional argument reads VRController.mm from that
-revision, the negative control.
+VRController is Swift, one file per responsibility (VRController+*.swift).
+`<git revision>` as an optional argument reads its files from that revision,
+the negative control.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
@@ -35,37 +36,39 @@ if shutil.which('xcrun') is None:
     sys.exit(SKIPPED)
 
 if revision:
-    controller = subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:Horos/Sources/VRController.mm']).decode('latin1')
+    names = subprocess.check_output(['git', '-C', str(root), 'ls-tree', '--name-only', revision, 'Horos/Sources/']).decode().split()
+    controller = ''.join(subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:{name}']).decode('utf-8')
+                         for name in sorted(names) if re.fullmatch(r'Horos/Sources/VRController(\+\w+)?\.swift', name))
 else:
-    controller = (root / 'Horos/Sources/VRController.mm').read_bytes().decode('latin1')
+    controller = ''.join(path.read_text() for path in sorted((root / 'Horos/Sources').glob('VRController*.swift')))
 
 
 def method(signature):
-    match = re.search(re.escape(signature) + r'.*?\n}\n', controller, re.S)
+    match = re.search(re.escape(signature) + r'.*?\n    }\n', controller, re.S)
     return match.group(0) if match else ''
 
 
 failures = []
-apply = method('- (IBAction) applyConvolution:(id) sender')
-if not apply or apply.find('horosKeepVolumeBeforeFilter') < 0 or apply.find('horosKeepVolumeBeforeFilter') > apply.find('applyConvolutionOnSource'):
+apply = method('    public final func applyConvolution(_ sender: Any!) {')
+if not apply or apply.find('horosKeepVolumeBeforeFilter()') < 0 or apply.find('horosKeepVolumeBeforeFilter()') > apply.find('applyConvolutionOnSource'):
     failures.append('applyConvolution: must keep the copy before it filters the 2D buffer')
-if '[sender title]' in apply[apply.find('applyConvolutionOnSource'):]:
+if 'sender' in apply[apply.find('applyConvolutionOnSource'):]:
     failures.append('applyConvolution: must read the title before filtering rebuilds the menu that holds its item')
-if 'horosApplyingFilter = YES' not in apply:
+if 'horosApplyingFilter = true' not in apply:
     failures.append('applyConvolution: must not count its own -prepareUndo as a cut')
-preset = re.search(r'NSArray \*convolutionFilters = \[preset objectForKey:@"convolutionFilters"\];.*?applyConvolutionOnSource', controller, re.S)
-if not preset or 'horosKeepVolumeBeforeFilter' not in preset.group(0):
+preset = re.search(r'let filters = preset\.object\(forKey: "convolutionFilters"\) as\? NSArray.*?applyConvolutionOnSource', controller, re.S)
+if not preset or 'horosKeepVolumeBeforeFilter()' not in preset.group(0):
     failures.append('a preset with filters must keep the copy before it filters the 2D buffer')
-undo = method('- (void) prepareUndo')
-if 'noteCut' not in undo or 'horosApplyingFilter == NO' not in undo:
+undo = method('    public final func prepareUndo() {')
+if 'noteCut()' not in undo or 'if !horosApplyingFilter' not in undo:
     failures.append('-prepareUndo must record a cut, except for a filter')
-close = method('- (void)windowWillClose:(NSNotification *)notification')
-if 'horosSettleFiltersOnClose' not in close:
+close = method('    public override func windowWillClose(_ notification: Notification) {')
+if 'horosSettleFiltersOnClose()' not in close:
     failures.append('-windowWillClose: must settle the filters')
-viewer = method('- (void) CloseViewerNotification: (NSNotification*) note')
-if viewer.find('horosViewerClosing = YES') < 0 or viewer.find('horosViewerClosing = YES') > viewer.find('[[self window] close]'):
+viewer = method('    public final func closeViewerNotification(_ note: Notification!) {')
+if viewer.find('horosViewerClosing = true') < 0 or viewer.find('horosViewerClosing = true') > viewer.find('window?.close()'):
     failures.append('the 2D viewer closing must be known before the 3D window closes')
-revert = method('-(void) revertSeries:(id) sender')
+revert = method('    public final func revertSeries(_ sender: Any!) {')
 if 'postprocessed' not in revert or 'horosRestoreVolumeBeforeFilter' not in revert:
     failures.append('Revert Series must restore the copy of a post-processed series')
 if failures:

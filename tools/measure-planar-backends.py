@@ -48,6 +48,8 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+import process_graph_stand_in  # noqa: E402  - the Metal sources read their development switches through PreferencesSource
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument('--iterations', type=int, default=200)
 parser.add_argument('--warmup', type=int, default=20)
@@ -607,7 +609,7 @@ with (contextlib.nullcontext(_keep) if _keep else tempfile.TemporaryDirectory(pr
         (work/name).write_bytes(subprocess.check_output(['git','-C',str(root),'show',f'{arguments.revision}:{path}']) if arguments.revision else (root/path).read_bytes())
     (work / 'Benchmark.swift').write_text(driver)
     build = subprocess.run(['xcrun', 'swiftc', '-Onone' if arguments.optimization == 'debug' else '-O', '-parse-as-library',
-                            *[str(work / name) for name in sources],
+                            *[str(work / name) for name in sources], *process_graph_stand_in.swift_flags(work / 'isix'),
                             str(work / 'Benchmark.swift'), '-o', str(work / 'bench')],
                            capture_output=True, text=True)
     if build.returncode != 0:

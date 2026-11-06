@@ -50,8 +50,9 @@ typedef void (^HorosGDCMAnonymizerFailure)(NSString *reason, NSString * _Nullabl
 @interface HorosGDCMAnonymizer : NSObject
 
 /// Reads the staged copy at `path` with DCMTK and replaces the `tags`
-/// (arrays of a DCMAttributeTag and, optionally, a value whose -description is
-/// written in the file's character set; no value writes an empty one).
+/// (arrays of a tag object that answers -group and -element and, optionally, a
+/// value whose -description is written in the file's character set; no value
+/// writes an empty one).
 /// Code-extension text is limited to verified ASCII; other replacements that
 /// cannot be encoded faithfully report a field failure. VRs outside the
 /// declared repertoire use ASCII. The charset declaration cannot be changed.

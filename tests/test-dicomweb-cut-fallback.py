@@ -133,7 +133,7 @@ try:
     with tempfile.TemporaryDirectory(prefix='horos-dicomweb-cut-') as folder:
         temporary = Path(folder)
         sources = [str(root / 'Horos/Sources' / name) for name in
-                   ('DICOMwebClient.swift', 'DICOMwebNode.swift', 'DICOMwebCredentials.swift', 'DICOMwebMultipart.swift',
+                   ('DICOMwebClient.swift', 'DICOMwebClient+LogText.swift', 'DICOMwebNode.swift', 'DICOMwebCredentials.swift', 'DICOMwebMultipart.swift',
                     'NonInteractiveKeychainRead.swift')]
         (temporary / 'check.swift').write_text(DRIVER)
         executable = temporary / 'check'
@@ -189,23 +189,31 @@ finally:
         except subprocess.TimeoutExpired:
             process.kill()
 
-node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_text()
-retrieve = node[node.index('- (BOOL)retrieveDICOMweb'):]
-retrieve = retrieve[:retrieve.index('\n}\n')]
-listed = retrieve.index('[_retrieveInventory confirmInstances:')
-turn = retrieve.find('fallbackOnly = YES;')
-second = retrieve.find('NSDictionary *left = _retrieveInventory.unreceivedSeries;')
+# The query node is Swift: its DICOMweb retrieve, and the session that takes
+# each object and runs the requests, are in DCMTKQueryNode+DICOMweb.swift.
+session = (root / 'Horos/Sources/DCMTKQueryNode+DICOMweb.swift').read_text()
+retrieve = session[session.index('func retrieveDICOMweb() -> Bool'):]
+retrieve = retrieve[:retrieve.index('\n    }\n')]
+# What a cut is, the requests kept to be resumed and the fallback flag are the
+# module's queue of the retrieve's requests.
+queue = (root / 'Modules/IsiXDICOMNetwork/Sources/DICOMwebRetrieveQueue.swift').read_text()
+port = (root / 'Modules/IsiXDICOMNetwork/Sources/DICOMwebRetrieving.swift').read_text()
+listed = retrieve.index('inventory.confirm(instances: instances')
+turn = retrieve.find('session.queue.useFallbackOnly()')
+second = retrieve.find('for (seriesUID, uids) in inventory.unreceivedSeries {')
 check(listed < turn < second, 'the fallback is decided once the listing has ended and before the second pass')
-guard = retrieve[retrieve.rfind('if (cut', 0, turn):turn]
-check('succeeded' in guard and 'client.retrieveFallbackTransferSyntax' in guard and 'HorosDICOMwebObjectsHandedOver' in guard
-      and 'HorosDICOMwebErrorKindNetwork' in guard and 'HorosDICOMwebErrorKindInvalidResponse' in guard and '!failed()' in guard,
+guard = retrieve[retrieve.rfind('if let cut', 0, turn):turn]
+check('succeeded' in guard and 'client.retrieveFallbackTransferSyntax' in guard and 'cut.isCutAfterObjects' in guard
+      and '(kind == .network || kind == .invalidResponse) && objectsHandedOver > 0' in port and '!session.failed' in guard,
       'only a cut after some objects, with a listing and a fallback syntax, turns the pass for what is missing to that syntax')
-check("cut = [[[interrupted.firstObject objectForKey:@\"error\"] retain] autorelease];" in retrieve,
+check('if let cut = session.queue.firstCut' in retrieve and '$0.interrupted.first?.failure' in queue
+      and 'state.interrupted.append(again)' in queue,
       'a cut is a request kept to be resumed, not an error that stops the retrieve')
-check('fallbackOnly || ![asked containsObject:uid]' in retrieve[second:], 'that pass asks again for what was asked before the cut')
-check("[request setObject:@YES forKey:@\"fallback\"]" in retrieve and 'fallbackOnly:fallback objectHandler:queue' in retrieve,
+check('(whole || fallbackOnly || !asked.contains(uid))' in retrieve[second:], 'that pass asks again for what was asked before the cut')
+check('fallback: fallbackOnly))' in queue and 'fallbackOnly: request.fallback, handler: handler)' in queue
+      and 'queue.perform(request, with: client, stagingDirectory: staging, handler: handler)' in session,
       'its requests ask the client for the fallback syntax alone')
-check(retrieve.count('fallbackOnly = YES;') == 1, 'the fallback pass runs once per retrieve')
+check(session.count('useFallbackOnly()') == 1, 'the fallback pass runs once per retrieve')
 
 for failure in failures:
     print('FAIL:', failure)

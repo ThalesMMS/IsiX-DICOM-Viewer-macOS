@@ -12,8 +12,9 @@ The decision used to be a `switch` with a silent `default`, so a mode added to
 a mode that does not apply refused *explicitly*, not resolved by enabling
 everything. So the table is compared against the enum itself, mode by mode.
 
-`-roiSetPixelsSetup:` is Swift (ViewerController+ROI+Editing.swift),
-where the InOutROI outlet is read through `horos_InOutROI`.
+`-roiSetPixelsSetup:` is Swift (ViewerController+ROI+Editing.swift), a
+façade over ViewerROISetPixels.beginSheet, where the InOutROI outlet is read
+through `horos_InOutROI`.
 """
 from pathlib import Path
 import json
@@ -116,36 +117,36 @@ if acting != ['tROISelector', 'tRepulsor']:
 
 # ------------------------------------------------- what the shipped code does
 
-view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
-body = re.search(r'-\(BOOL\) roiTool:\(ToolMode\) tool\s*\{(.*?)\n\}', view, re.S)
+# The tools and the mouse are Swift (DCMView+Tools.swift, DCMView+Mouse.swift);
+# which tool a click uses is IsiXImaging's ViewInput rule.
+tools = sources.source_text('DCMView+Tools')
+mouse = sources.source_text('DCMView+Mouse')
+rules = (root / 'Modules/IsiXImaging/Sources/ViewInput/InputRules.swift').read_text()
+body = re.search(r'@objc\(roiTool:\)\s*public dynamic func roiTool\(_ tool: ToolMode\) -> Bool \{(.*?)\n    \}\n', tools, re.S)
 if not body:
     failures.append('-[DCMView roiTool:] is gone')
 else:
-    if 'HorosToolModeCapability' not in body.group(1):
+    if 'ToolModeCapability.drawsROIs(toolMode:' not in body.group(1):
         failures.append('roiTool: must ask HorosToolModeCapability instead of switching')
-    if 'case t' in body.group(1):
+    if 'case .t' in body.group(1):
         failures.append('roiTool: still decides with a switch; a new mode would fall through silently')
 
-# Each caller either asks only about drawing, or names the two acting tools. A
-# caller that silently means "and the selector too" is the shape A255 refuses.
-for match in re.finditer(r'^.*\[self roiTool:\s*\w+\].*$', view, re.M):
-    line = match.group(0)
-    if 'tROISelector' in line or 'tRepulsor' in line:
-        continue
-    # The declaration and the definition are not call sites.
-    if 'roiTool:(ToolMode)' in line:
-        continue
-if 'currentTool != tROISelector' not in view:
+# The click names the two acting tools beside the ROI tools, and the tool
+# choice the selector beside them: ROIs stay selectable.
+if 'if self.roiTool(self.horos_currentTool) || self.horos_currentTool == .tRepulsor || self.horos_currentTool == .tROISelector {' not in mouse:
     failures.append('the mouseDown gate no longer names tROISelector; ROIs would stop being selectable')
+if 'if !leftDrawsROIs && left != 25 { // roiSelector' not in rules:
+    failures.append('the tool choice no longer names tROISelector; ROIs would stop being selectable')
 
 # The sheet that removes a CT table is the reason this matters: it offers the
 # inside/outside choice only when a ROI is selected.
 viewer = sources.source_text('ViewerController+ROI+Editing')
-setup = re.search(r'@objc\(roiSetPixelsSetup:\)\s*func roiSetPixelsSetup\(_ sender: Any!\)\s*\{(.*?)\n    \}\n', viewer, re.S)
-if not setup:
+facade = re.search(r'@objc\(roiSetPixelsSetup:\)\s*func roiSetPixelsSetup\(_ sender: Any!\)\s*\{(.*?)\n    \}\n', viewer, re.S)
+setup = re.search(r'static func beginSheet\(in viewer: ViewerController\) \{\n        let selectedRoi = (.*?)\n    \}\n', viewer, re.S)
+if not facade or 'ViewerROISetPixels.beginSheet(in: self)' not in facade.group(1) or not setup:
     failures.append('-roiSetPixelsSetup: is gone; A255 has no command left to enable')
 else:
-    if 'self.horos_InOutROI?.isEnabled = false' not in setup.group(1):
+    if 'viewer.horos_InOutROI?.isEnabled = false' not in setup.group(1):
         failures.append('the inside/outside choice is no longer refused without a selected ROI')
     if 'selectedRoi == nil' not in setup.group(1):
         failures.append('the sheet no longer keys the choice on a selected ROI')

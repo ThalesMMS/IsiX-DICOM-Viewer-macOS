@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """The 2D viewer's export and print blocks guard their intervals, divisors and paths.
 
-The blocks are Swift (ViewerController+Export.swift and
-ViewerController+Export+PrintMovie.swift). The pieces that carry each guard are
+The blocks are Swift (the image and DICOM export of the viewer,
+ViewerImageExporter.swift, with the range it walks, ViewerExportRange.swift of
+IsiXImaging, and the print and the movie of the viewer, ViewerPrintJob.swift
+and ViewerMovieExport.swift, with their plans). The pieces that carry each guard are
 copied out of the methods as they stand and compiled with swiftc inside Swift
 doubles of the viewer:
 
@@ -11,14 +13,16 @@ doubles of the viewer:
 - a DICOM export with "From" after "To" left out both ends (5...1 took
   images 2 to 4, 2...1 none); it now swaps them as the print and the movie do;
 - -exportAllImages: added the empty dictionary of a failed write, whose missing
-  file reached the database as an NSNull among the paths;
+  file reached the database as an NSNull among the paths; the export keeps
+  only the files written;
 - -exportQuicktimeSetNumber: and -imageForFrame:maxFrame: divided by an interval
   of 0 and by maxFrame - 1 of 0 (cDiv here counts every zero divisor); now
   the movie takes From, From + interval, ... and 1...9 by 2 counts the 5
   images it takes (tests/test-viewer-export-count.py);
-- -endExportImage: ignored a failed JPEG or TIFF write when a file was already
-  at the path (a read-only folder here), and added EXIF to the old file;
-- -exportTextFieldDidChange: bounded the "From", "To" and interval fields
+- -endExportImage: (endImageSheet) ignored a failed JPEG or TIFF write when a
+  file was already at the path (a read-only folder here), and added EXIF to the
+  old file;
+- -exportTextFieldDidChange: (exportFieldDidChange) bounded the "From", "To" and interval fields
   of the DICOM and QuickTime sheets only by the maximum of their sliders, so 0
   and negative values passed. It runs here on real NSTextFields and NSSliders
   with the bounds of Viewer.xib, and the helper it shares with the orthogonal
@@ -30,9 +34,8 @@ window constraint back, -exportCroppedSeries: no longer leaks its Wait window,
 and SeriesView hands each DCMView the viewer's file list itself, not a copy
 (the helper that does it is compiled against a double of DCMView).
 
---export-source, --print-source, --retrieve-source, --series-source and
---fusion-source take other sources of those files, to show the defects on an
-earlier revision.
+--export-source, --range-source, --print-source, --movie-source, --retrieve-source,
+--series-source and --fusion-source take other sources of those files.
 """
 import argparse
 import os
@@ -46,14 +49,19 @@ import private_tmpdir  # noqa: F401  (swiftc leaves folders in TMPDIR)
 from sources import source_path
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--export-source', type=Path, default=source_path('ViewerController+Export'))
-parser.add_argument('--print-source', type=Path, default=source_path('ViewerController+Export+PrintMovie'))
+parser.add_argument('--export-source', type=Path, default=source_path('ViewerImageExporter'))
+parser.add_argument('--range-source', type=Path,
+                    default=source_path('ViewerImageExporter').parents[2] / 'Modules/IsiXImaging/Sources/ViewerExport/ViewerExportRange.swift')
+parser.add_argument('--print-source', type=Path, default=source_path('ViewerPrintJob'))
+parser.add_argument('--movie-source', type=Path, default=source_path('ViewerMovieExport'))
 parser.add_argument('--retrieve-source', type=Path, default=source_path('ViewerController+RetrieveAndView'))
 parser.add_argument('--series-source', type=Path, default=source_path('SeriesView'))
 parser.add_argument('--fusion-source', type=Path, default=source_path('OrthogonalFusionSliceExport'))
 args = parser.parse_args()
 export = args.export_source.read_text(encoding='utf-8')
+export_range = args.range_source.read_text(encoding='utf-8')
 printing = args.print_source.read_text(encoding='utf-8')
+movie = args.movie_source.read_text(encoding='utf-8')
 retrieve = args.retrieve_source.read_text(encoding='utf-8')
 series = args.series_source.read_text(encoding='utf-8')
 fusion = args.fusion_source.read_text(encoding='utf-8')
@@ -118,7 +126,7 @@ final class Matrix: NSObject {
     func selectedCell() -> Cell? { return cell }
 }
 final class Layout: NSObject { var selectedItem: Cell? = Cell(4) }
-final class ImageView: NSObject { var curImage: Int16 = 0; var flippedData = false }
+final class ImageView: NSObject { var curImage = 0; var flippedData = false }
 func steps(_ from: Int32, _ to: Int32, _ interval: Int32) -> Int {
     var n = 0, i = from
     while i < to { n += 1; if n > 10_000 { return -1 }; i = i &+ interval }
@@ -127,16 +135,24 @@ func steps(_ from: Int32, _ to: Int32, _ interval: Int32) -> Int {
 '''
 
 # ---------------------------------------------------------------- export
-dicom = method(export, 'endExportDICOMFileSettings:')
-dicomRange = between(dicom, '                var from: Int32, to: Int32, interval: Int32', '                let splash = Wait(')
-check('i = i &+ interval' in dicom, 'the DICOM export loop no longer steps by interval')
-exportAll = statement(method(export, 'exportAllImages:'), 'let s = self.exportDICOMFileInt(1,', 'producedFiles.add(')
-image = method(export, 'endExportImage:')
-imageWrite = between(image, '                            if imageFormatTag() == 0 {\n                                let jpegFile: String?',
-                     '\n                        }\n                    }\n                    i += 1')
-imageEnd = image[image.index('                if imageFormatTag() == 0 || imageFormatTag() == 1 {'):image.rindex('\n            }\n        }\n    }')]
+def member(source, signature):
+    start = source.index(signature)
+    return source[start:source.index('\n    }\n', start) + 7]
 
-export_program = DOUBLES + r'''
+
+dicom = member(export, '    func endDICOMSheet(')
+dicomRange = between(dicom, '                var range = ViewerExportRange(first:', '\n                let keysAndROIs')
+check('for i in range.indices {' in dicom, 'the DICOM export loop no longer walks its range')
+exportAll = statement(member(export, '    func exportAllImages('), 'let s = viewer.exportDICOMFileInt(', 'producedFiles.append(')
+writtenFile = member(export, '    private static func writtenFile(')
+image = member(export, '    func endImageSheet(')
+imageWrite = between(image, '            } else if formatTag == ViewerImageFormat.jpeg.rawValue {',
+                     '\n        }\n\n        // Rendering each export frame')
+imageEnd = between(image, '        if formatTag == ViewerImageFormat.jpeg.rawValue || formatTag == ViewerImageFormat.tiff.rawValue {',
+                   '\n    }\n')
+imageFormats = between(export, 'enum ViewerImageFormat: Int {', '\n}\n') + '\n}\n'
+
+export_program = DOUBLES + export_range + imageFormats + r'''
 enum ImageExportPath {
     static func path(selection: String, index: Int, fileExtension: String) -> String {
         return ((selection as NSString).deletingPathExtension as NSString).appendingPathExtension(String(format: "%4.4d.%@", index, fileExtension))!
@@ -147,10 +163,14 @@ enum JPEGExif { static func addExif(_ url: URL, properties: [AnyHashable: Any], 
 enum HorosAlertPanel {
     @discardableResult static func run(title: String, message: String, defaultButton: String, alternateButton: String?, otherButton: String?) -> Int { alerts += 1; return 1 }
 }
-func exportExifDictionary(_ curImage: NSObject?) -> [AnyHashable: Any] { return [:] }
-func jpegExportProperties() -> [NSBitmapImageRep.PropertyKey: Any] { return [:] }
+enum SeriesExportSettings { enum Format: Int32 { case memory = 0, screenCapture = 1, screenCapture16Bit = 2 } }
+enum ReconstructionPreferences { static let opensViewer = "OPENVIEWER" }
+/// The preferences: the file written is not opened.
+struct Preferences { subscript(_ key: String) -> Bool { false } }
 final class Panel: NSObject { var url: URL? }
 final class Viewer: NSObject {
+    var viewer: Viewer { self }
+    let preferences = Preferences()
     var horos_dcmFrom: Field?, horos_dcmTo: Field?, horos_dcmInterval: Field?, horos_dcmSelection: Matrix?
     var horos_dcmSeriesName: Field? = Field(0)
     var horos_curMovieIndex: Int16 = 0
@@ -160,24 +180,29 @@ final class Viewer: NSObject {
     func exportDICOMFileInt(_ screenCapture: Int32, withName name: String!, allViewers: Bool) -> [AnyHashable: Any]! {
         return results.removeFirst()
     }
+    static func exifProperties(_ image: Any?) -> [AnyHashable: Any] { return [:] }
+    static func jpegProperties() -> [NSBitmapImageRep.PropertyKey: Any] { return [:] }
+''' + writtenFile + r'''
     func range() -> (Int32, Int32, Int32) {
 ''' + dicomRange + r'''
-        return (from, to, interval)
+        return (range.from, range.to, range.interval)
     }
-    func exportAll(_ producedFiles: NSMutableArray) {
+    func exportAll(_ producedFiles: inout [String]) {
 ''' + exportAll + r'''
     }
     func write(format: Int, count: Int32, to url: URL, image im: NSImage?) -> Bool {
-        let imageFormatTag = { format }
-        let numberOfExportedImages = count
+        let formatTag = format
+        let numberOfExportedImages = Int(count)
         let panel = Panel(); panel.url = url
         var fileIndex: Int32 = 1
         var fileExportFailed = false
         var bitmapData: Data?
+        let firstImage = { nil as Any? }
         let representations: [NSImageRep] = im?.representations ?? []
+        if false {
 ''' + imageWrite + r'''
 ''' + imageEnd + r'''
-        _ = (fileIndex, bitmapData)
+        _ = (fileIndex, bitmapData, firstImage)
         return fileExportFailed
     }
 }
@@ -189,11 +214,10 @@ for (from, to, interval, expected) in [(1, 5, 0, 5), (1, 5, -2, 5), (1, 9, 2, 5)
     check(i >= 1 && steps(f, t, i) == expected, "DICOM export of \(from)...\(to) by \(interval) takes \(expected) images")
     check(cDiv(t &- f, i) > 0, "the DICOM export's progress has a maximum")
 }
-let produced = NSMutableArray()
+var produced: [String] = []
 viewer.results = [["file": "/a.dcm"], [:], ["file": "/b.dcm"]]
-for _ in 0..<3 { viewer.exportAll(produced) }
-let paths = produced.value(forKey: "file") as! NSArray
-check(paths.count == 2 && !paths.contains(NSNull()), "a failed write leaves no NSNull among the exported paths")
+for _ in 0..<3 { viewer.exportAll(&produced) }
+check(produced == ["/a.dcm", "/b.dcm"], "a failed write leaves no hole among the exported paths: \(produced)")
 
 let root = URL(fileURLWithPath: CommandLine.arguments[1])
 let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 4, pixelsHigh: 4, bitsPerSample: 8, samplesPerPixel: 3, hasAlpha: false, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
@@ -222,13 +246,7 @@ print("PASS: export intervals, paths and write results")
 '''
 
 # ---------------------------------------------------------------- fields of the sheets
-changed = export[export.index('    @objc(exportTextFieldDidChange:)'):]
-changed = changed[:changed.index('\n    }\n') + 7]
-field_helpers = ''
-for name in ('fileprivate func cInt32(', 'fileprivate func boundExportField('):
-    if name in export:
-        helper = export[export.index(name):]
-        field_helpers += helper[:helper.index('\n}\n') + 3]
+changed = member(export, '    static func exportFieldDidChange(') + member(export, '    private static func boundExportField(')
 field_value = fusion[fusion.index('    @objc(exportFieldValue:minValue:maxValue:)'):]
 field_value = field_value[field_value.index('\n') + 1:]
 field_value = field_value[:field_value.index('\n    }\n') + 7].replace('public static func', 'static func')
@@ -243,15 +261,17 @@ enum OrthogonalFusionSliceExport {
 func slider(_ max: Double) -> NSSlider? {
     let s = NSSlider(); s.minValue = 1; s.maxValue = max; s.doubleValue = 1; return s
 }
+typealias ViewerController = Viewer
 final class Viewer: NSObject {
     let horos_dcmIntervalText: NSTextField? = NSTextField(), horos_dcmFromText: NSTextField? = NSTextField(), horos_dcmToText: NSTextField? = NSTextField()
     let horos_quicktimeIntervalText: NSTextField? = NSTextField(), horos_quicktimeFromText: NSTextField? = NSTextField(), horos_quicktimeToText: NSTextField? = NSTextField()
     // The bounds of the sliders in Viewer.xib.
     let horos_dcmInterval = slider(50), horos_dcmFrom = slider(90), horos_dcmTo = slider(90)
     let horos_quicktimeInterval = slider(50), horos_quicktimeFrom = slider(90), horos_quicktimeTo = slider(90)
+}
+enum ViewerImageExporter {
 """ + changed + r"""
 }
-""" + field_helpers + r"""
 let viewer = Viewer()
 let pairs: [(String, NSTextField?, NSSlider?)] = [
     ("DICOM interval", viewer.horos_dcmIntervalText, viewer.horos_dcmInterval),
@@ -263,7 +283,7 @@ let pairs: [(String, NSTextField?, NSSlider?)] = [
 ]
 func type(_ text: String, in field: NSTextField) {
     field.stringValue = text
-    viewer.exportTextFieldDidChange(Notification(name: NSControl.textDidChangeNotification, object: field))
+    ViewerImageExporter.exportFieldDidChange(Notification(name: NSControl.textDidChangeNotification, object: field), of: viewer)
 }
 for (name, field, slider) in pairs {
     guard let field = field, let slider = slider else { continue }
@@ -282,82 +302,60 @@ for (name, field, slider) in pairs {
 }
 let other = NSTextField()
 other.stringValue = "0"
-viewer.exportTextFieldDidChange(Notification(name: NSControl.textDidChangeNotification, object: other))
+ViewerImageExporter.exportFieldDidChange(Notification(name: NSControl.textDidChangeNotification, object: other), of: viewer)
 check(other.stringValue == "0", "a field outside the sheets is left alone")
 if failed { exit(1) }
 print("PASS: the fields of the DICOM and QuickTime sheets keep the bounds of their sliders")
 """
 
 # ---------------------------------------------------------------- print and movie
-quicktime = between(method(printing, 'exportQuicktimeSetNumber:'), '        var no: Int32', '\n    }\n')
-blending = statement(method(printing, 'imageForFrame:maxFrame:'), 'self.blendingSlider()?.intValue = ', 'self.blendingSlider()?.intValue = ')
-pages = method(printing, 'setPagesToPrint:')
-pagesLoop = between(pages, '        // Uninitialized in the C', '        if UserDefaults.standard.bool(forKey: "autoAdjustPrintingFormat")')
-end_print = method(printing, 'endPrint:')
-printRange = between(end_print, '            // Uninitialized in the C', '            //--------------------------Preparation images')
-check('i &+= interval' in end_print and 'i &+= interval' in pages, 'the print loops no longer step by interval')
+print_plan = between(printing, '// MARK: - The plan', '/// The choices of the print sheet')
+movie_plan = between(movie, '// MARK: - The plan', '// MARK: - The export')
+update_pages = between(printing, '    func updatePageCount(', '    /// Follows a range slider')
+capture = between(printing, '    private func capturePages(', '    func finish(pages:')
+check('for index in plan.indices' in update_pages and 'for index in plan.indices' in capture,
+      'the print loops no longer walk the images of the plan')
+check('ViewerPrintPlan.pageCount(images: count, perPage: perPage)' in update_pages, 'the page count is not the plan\'s')
+check('ViewerMoviePlan.imageCount(' in movie and 'ViewerMoviePlan.blendingValue(sample: sample, frames: maxFrame?.int32Value ?? 0)' in movie,
+      'the movie sheet and the blending frames are not the plan\'s')
 
-print_program = DOUBLES + r'''
-final class Viewer: NSObject {
-    var horos_quicktimeFrom: Field?, horos_quicktimeTo: Field?, horos_quicktimeInterval: Field?
-    var horos_quicktimeNumber: Field? = Field(0)
-    var horos_printFrom: Field?, horos_printTo: Field?, horos_printInterval: Field?
-    var horos_printSelection: Matrix? = Matrix(2)
-    var horos_printLayout: Layout? = Layout()
-    var horos_imageView: ImageView? = ImageView()
-    var horos_curMovieIndex: Int16 = 0
-    var slider: Field? = Field(0)
-    func blendingSlider() -> Field? { return slider }
-    func horos_pixList(at index: Int) -> NSArray? { return NSArray(array: Array(repeating: 0, count: 9)) }
-    func horos_fileList(at index: Int) -> NSArray? { return nil }
-    func horos_roiList(at index: Int) -> NSArray? { return nil }
-    func number() {
-''' + quicktime + r'''
-    }
-    func blend(_ curSample: Int32, _ max: NSNumber?) {
-''' + blending + r'''
-    }
-    func pages() -> Int32 {
-''' + pagesLoop + r'''
-        _ = ipp
-        return count
-    }
-    func endpoints() -> (Int32, Int32, Int32) {
-''' + printRange + r'''
-        return (from, to, interval)
-    }
+print_program = r'''
+import Foundation
+var failed = false
+func check(_ condition: Bool, _ what: String) { if !condition { print("failed: " + what); failed = true } }
+func steps(_ from: Int32, _ to: Int32, _ interval: Int32) -> Int {
+    var n = 0, i = from
+    while i < to { n += 1; if n > 10_000 { return -1 }; i = i &+ interval }
+    return n
 }
-let viewer = Viewer()
+''' + print_plan + movie_plan + r'''
 for (from, to, interval, expected) in [(1, 5, 0, "5 images"), (5, 1, -1, "5 images"), (1, 9, 2, "5 images")] as [(Int32, Int32, Int32, String)] {
-    viewer.horos_quicktimeFrom = Field(from); viewer.horos_quicktimeTo = Field(to); viewer.horos_quicktimeInterval = Field(interval)
-    zeroDivisions = 0
-    viewer.number()
-    check(zeroDivisions == 0 && viewer.horos_quicktimeNumber?.stringValue == expected, "a movie of \(from)...\(to) by \(interval) counts \(expected)")
+    check("\(ViewerMoviePlan.imageCount(from: from, to: to, interval: interval)) images" == expected, "a movie of \(from)...\(to) by \(interval) counts \(expected)")
 }
-for (cur, max, expected) in [(0, 1, -256), (0, 20, -256), (19, 20, 256)] as [(Int32, Int32, Int32)] {
-    zeroDivisions = 0
-    viewer.blend(cur, NSNumber(value: max))
-    check(zeroDivisions == 0 && viewer.slider?.intValue == expected, "blending frame \(cur) of \(max) sets \(expected)")
+for (cur, max, expected) in [(0, 1, -256), (0, 20, -256), (19, 20, 256), (0, 0, -256)] as [(Int32, Int32, Int32)] {
+    check(ViewerMoviePlan.blendingValue(sample: cur, frames: max) == expected, "blending frame \(cur) of \(max) sets \(expected)")
 }
 for (from, to, interval, expected) in [(1, 5, 0, 5), (5, 1, 0, 5), (1, 5, -3, 5), (1, 9, 3, 3)] as [(Int32, Int32, Int32, Int)] {
-    viewer.horos_printFrom = Field(from); viewer.horos_printTo = Field(to); viewer.horos_printInterval = Field(interval)
-    cellQueries = 0
-    check(viewer.pages() == Int32(expected), "the page count of \(from)...\(to) by \(interval) takes \(expected) images")
-    cellQueries = 0
-    let (f, t, i) = viewer.endpoints()
-    check(i >= 1 && steps(f, t, i) == expected, "printing \(from)...\(to) by \(interval) takes \(expected) images")
-    check(cDiv(t &- f, i) > 0, "the print's progress has a maximum")
+    let plan = ViewerPrintPlan(selection: 2, currentImage: 0, count: 9, first: from, last: to, step: interval)
+    check(plan.indices.count == expected, "the page count of \(from)...\(to) by \(interval) takes \(expected) images")
+    check(plan.interval >= 1 && steps(plan.from, plan.to, plan.interval) == expected, "printing \(from)...\(to) by \(interval) takes \(expected) images")
+    check(plan.progressMaximum > 0, "the print's progress has a maximum")
+}
+let nothing = ViewerPrintPlan(selection: 7, currentImage: 3, count: 9, first: 1, last: 9, step: 0)
+check(nothing.indices.isEmpty && nothing.progressMaximum == 0, "a choice the sheet does not have prints nothing and never loops")
+for (images, perPage, expected) in [(5, 0, 5), (5, 4, 2), (8, 4, 2), (0, 4, 0), (1, 1, 1)] as [(Int32, Int32, Int32)] {
+    check(ViewerPrintPlan.pageCount(images: images, perPage: perPage) == expected, "\(images) images \(perPage) to a page make \(expected) pages")
 }
 if failed { exit(1) }
 print("PASS: movie and print intervals and divisors")
 '''
 
 # ---------------------------------------------------------------- read from the source
-constrain = [m.start() for m in re.finditer(r'OSIWindow\.setDontConstrain\(', end_print)]
-check(len(constrain) == 2 and 'OSIWindow.setDontConstrain(true)' not in end_print[constrain[-1]:constrain[-1] + 40]
-      and constrain[-1] > end_print.index('i &+= interval'),
-      '-endPrint: puts the window constraint back after the pages are prepared')
-check('OSIWindow.dontConstrainWindow()' in end_print[:constrain[0]], '-endPrint: keeps the constraint it found')
+constrain = [m.start() for m in re.finditer(r'OSIWindow\.setDontConstrain\(', capture)]
+check(len(constrain) == 2 and 'OSIWindow.setDontConstrain(true)' not in capture[constrain[-1]:constrain[-1] + 40]
+      and constrain[-1] > capture.index('for index in plan.indices'),
+      'the print puts the window constraint back after the pages are prepared')
+check('OSIWindow.dontConstrainWindow()' in capture[:constrain[0]], 'the print keeps the constraint it found')
 
 cropped = method(retrieve, 'exportCroppedSeries:')
 check('passRetained' not in cropped and 'wait?.close()' in cropped, '-exportCroppedSeries: leaves its Wait window to be released')
@@ -376,7 +374,7 @@ import AppKit
 class DCMView: NSObject {
     var received: NSArray?
     @objc(setPixels:files:rois:firstImage:level:reset:)
-    func setPixels(_ pixels: NSMutableArray?, files: NSArray?, rois: NSMutableArray?, firstImage: Int16, level: CChar, reset: Bool) { received = files }
+    func setPixels(_ pixels: NSMutableArray?, files: NSArray?, rois: NSMutableArray?, firstImage: Int, level: CChar, reset: Bool) { received = files }
 }
 ''' + helper + r'''
 let list = NSMutableArray(array: ["a", "b", "c"])

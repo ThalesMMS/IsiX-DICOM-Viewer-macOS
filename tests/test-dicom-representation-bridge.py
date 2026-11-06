@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from python_with import prefer  # noqa: E402
 prefer('import pydicom', 'import numpy', 'import imagecodecs')
 if len(sys.argv) != 2:
-    print('skipped: needs the built Decompress helper and pydicom/numpy/imagecodecs', file=sys.stderr)
+    print('skipped: needs the built Decompress service (a Decompress.xpc) or a helper, and pydicom/numpy/imagecodecs', file=sys.stderr)
     raise SystemExit(2)
 
 import imagecodecs
@@ -26,6 +26,13 @@ from pydicom.encaps import generate_frames
 
 root = Path(__file__).resolve().parents[1]
 helper = Path(sys.argv[1]).resolve()
+
+# The Decompress XPC service answers through the tests' client, which takes the
+# helper's command line (decompress_service.py).
+if helper.suffix == '.xpc':
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import decompress_service
+    helper = decompress_service.client(helper)
 spec = importlib.util.spec_from_file_location('fixture', root/'tools/generate-dimse-matrix-fixture.py')
 fixture = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fixture)

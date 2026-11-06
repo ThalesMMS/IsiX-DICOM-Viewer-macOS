@@ -38,11 +38,12 @@
 #import <Cocoa/Cocoa.h>
 
 
+// Implemented in Swift (NSManagedObject+N2.swift).
 @interface NSManagedObject (N2)
 
 +(NSString*)UidForXid:(NSString*)xid;
-+(NSURL*)UrlForXid:(NSString*)xid;
 
 -(NSString*)XID;
 -(NSString*)XIDFilename;
+
 @end

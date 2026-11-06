@@ -69,10 +69,10 @@ import AppKit
 /// with the file list object itself: the [Any] Swift imports `files` as would hand
 /// the view a copy, which the viewer's in-place reversal of its fileList leaves stale.
 private func dcmViewSetPixels(_ view: DCMView?, _ pixels: NSMutableArray?, files: NSArray?, rois: NSMutableArray?,
-                              firstImage: Int16, level: CChar, reset: Bool) {
+                              firstImage: Int, level: CChar, reset: Bool) {
     guard let view else { return }
     let selector = NSSelectorFromString("setPixels:files:rois:firstImage:level:reset:")
-    typealias Send = @convention(c) (AnyObject, Selector, NSMutableArray?, NSArray?, NSMutableArray?, Int16, CChar, Bool) -> Void
+    typealias Send = @convention(c) (AnyObject, Selector, NSMutableArray?, NSArray?, NSMutableArray?, Int, CChar, Bool) -> Void
     unsafeBitCast(view.method(for: selector), to: Send.self)(view, selector, pixels, files, rois, firstImage, level, reset)
 }
 
@@ -140,8 +140,8 @@ public final class SeriesView: NSView {
         // The tag counts the views, and is left at their number.
         while tagValue < matrixSize {
             let dcmView = DCMView(frame: frame, imageRows: imageRowsValue, imageColumns: imageColumnsValue)
-            if let dcmView { addSubview(dcmView) }
-            dcmView?.tag = Int(tagValue)
+            addSubview(dcmView)
+            dcmView.tag = Int(tagValue)
             tagValue += 1
         }
         autoresizingMask = .minXMargin
@@ -283,9 +283,9 @@ public final class SeriesView: NSView {
             var i = Int32(truncatingIfNeeded: imageViews?.count ?? 0)
             while i < rows &* columns {
                 let dcmView = DCMView(frame: bounds, imageRows: rows, imageColumns: columns)
-                dcmView?.setCOPYSETTINGSINSERIESdirectly(csis)
-                if let dcmView { addSubview(dcmView) }
-                dcmView?.tag = Int(i)
+                dcmView.setCOPYSETTINGSINSERIESdirectly(csis)
+                addSubview(dcmView)
+                dcmView.tag = Int(i)
                 dcmViewSetPixels(dcmView, dcmPixList, files: dcmFilesList, rois: dcmRoiList, firstImage: 0, level: listType, reset: true)
                 i += 1
             }
@@ -371,7 +371,7 @@ public final class SeriesView: NSView {
     }
 
     @objc(setPixels:files:rois:firstImage:level:reset:)
-    public func setPixels(_ pixels: NSMutableArray!, files: NSArray!, rois: NSMutableArray!, firstImage: Int16, level: CChar, reset: Bool) {
+    public func setPixels(_ pixels: NSMutableArray!, files: NSArray!, rois: NSMutableArray!, firstImage: Int, level: CChar, reset: Bool) {
         dcmPixList = pixels
 
         dcmFilesList = files
@@ -380,11 +380,11 @@ public final class SeriesView: NSView {
 
         listType = level
 
-        var i = Int32(firstImage)
+        var i = firstImage
         for case let view as DCMView in imageViewsStorage ?? [] {
-            // int against NSUInteger, as before: a negative index is never below the count.
-            if UInt(bitPattern: Int(i)) < UInt(dcmPixList?.count ?? 0) {
-                dcmViewSetPixels(view, pixels, files: files, rois: rois, firstImage: Int16(truncatingIfNeeded: i), level: level, reset: reset)
+            // Compared with the NSUInteger count, as before: a negative index is never below the count.
+            if UInt(bitPattern: i) < UInt(dcmPixList?.count ?? 0) {
+                dcmViewSetPixels(view, pixels, files: files, rois: rois, firstImage: i, level: level, reset: reset)
                 i += 1
             } else {
                 dcmViewSetPixels(view, pixels, files: files, rois: rois, firstImage: -1, level: level, reset: reset)
@@ -393,7 +393,7 @@ public final class SeriesView: NSView {
     }
 
     @objc(setDCM::::::)
-    public func setDCM(_ c: NSMutableArray!, _ d: NSArray!, _ e: NSMutableArray!, _ firstImage: Int16, _ type: CChar, _ reset: Bool) {
+    public func setDCM(_ c: NSMutableArray!, _ d: NSArray!, _ e: NSMutableArray!, _ firstImage: Int, _ type: CChar, _ reset: Bool) {
         setPixels(c, files: d, rois: e, firstImage: firstImage, level: type, reset: reset)
     }
 

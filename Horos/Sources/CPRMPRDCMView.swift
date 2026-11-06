@@ -38,11 +38,16 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
 
 // The file-level statics of the former CPRMPRDCMView.m. arePlanesParallel() is
-// HorosMPRArePlanesParallel(), the same function; splitPosition and
-// frameZoomed, which the four CPR views share, stay C globals
-// (CPRMPRDCMView+CAPI.m).
+// HorosMPRArePlanesParallel(), the same function.
+
+/// Whether a CPR view fills the window, and the split positions it restores;
+/// shared by the four CPR views.
+@MainActor var cprFrameZoomed: ObjCBool = false
+@MainActor var cprSplitPosition: (Int32, Int32, Int32) = (0, 0, 0)
+
 private let deg2rad: Float = Float(Double.pi / 180.0)
 private let VIEW_COLOR_LABEL_SIZE: Float = 25
 private let BS: Double = 10.0
@@ -111,10 +116,9 @@ private typealias CrossLines = ((Float, Float, Float), (Float, Float, Float))
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRMPRDCMView.h> are those of the former class, the customClass of the
-/// three plane views of CPR.xib. Its superclass, DCMView, stays in Objective-C;
-/// the ivars it reads of it go through DCMView+SwiftIvars.h. The messages to the
-/// VRView, whose header is C++, go through HorosMPRVRViewMessages, which VRView
-/// adopts in VRHostBridge.h.
+/// three plane views of CPR.xib. Its superclass, DCMView, is Swift too; the state it reads of it is DCMView's
+/// stored properties. The messages to the
+/// VRView go through HorosMPRVRViewMessages, which VRView adopts in VRView+CAPI.m.
 @objc(CPRMPRDCMView)
 public final class CPRMPRDCMView: DCMView {
     // MARK: - The former instance variables
@@ -251,7 +255,7 @@ public final class CPRMPRDCMView: DCMView {
         set { _dontUseAutoLOD = newValue }
     }
 
-    /// The former `VRView *`: VRView.h is C++, so the view is typed by the
+    /// The former `VRView *`: the view is typed by the
     /// messages the view sends it.
     @objc public dynamic var vrView: (NSView & HorosMPRVRViewMessages)! {
         return _vrView
@@ -308,8 +312,8 @@ public final class CPRMPRDCMView: DCMView {
     /// caller made it.
     @objc(setDCMPixList:filesList:roiList:firstImage:type:reset:)
     public dynamic func setDCMPixList(_ pixList: NSMutableArray!, filesList files: NSArray!, roiList rois: NSMutableArray!,
-                                      firstImage: Int16, type: CChar, reset: Bool) {
-        super.setPixels(pixList, files: files as? [Any], rois: rois, firstImage: firstImage, level: type, reset: reset)
+                                      firstImage: Int, type: CChar, reset: Bool) {
+        super.setPixels(pixList, files: files, rois: rois, firstImage: firstImage, level: type, reset: reset)
 
         NotificationCenter.default.addObserver(self,
                                                selector: #selector(removeROI(_:)),
@@ -322,7 +326,7 @@ public final class CPRMPRDCMView: DCMView {
 
         self.horos_currentTool = .t3DRotate
 
-        frameZoomed = false
+        cprFrameZoomed = false
         _displayCrossLines = true
 
         windowControllerIvar = self.windowController() as? CPRController
@@ -397,8 +401,22 @@ public final class CPRMPRDCMView: DCMView {
         }
     }
 
+    /// On a screen of another scale the picture must be rendered again at that
+    /// scale, or it keeps its pixels and changes size in the pane.
+    public override dynamic func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+
+        guard _vrView != nil, _camera != nil, self.window != nil else { return }
+
+        _camera?.forceUpdate = true
+        self.restoreCamera()
+        self.updateViewMPR()
+    }
+
     @objc(checkForFrame)
     private dynamic func checkForFrame() {
+        _vrView?.setHostBackingScale(backingScaleFactor)
+
         let frame = self.convert(self.bounds, to: nil)
 
         if NSEqualRects(frame, _vrView?.frame ?? NSZeroRect) == false {
@@ -406,8 +424,7 @@ public final class CPRMPRDCMView: DCMView {
         }
     }
 
-    @objc(hasCameraChanged:)
-    private dynamic func hasCameraChanged(_ currentCamera: Camera?) -> Bool {
+    private func hasCameraChanged(_ currentCamera: Camera?) -> Bool {
         if _camera?.forceUpdate ?? false {
             _camera?.forceUpdate = false
             return true
@@ -762,19 +779,12 @@ public final class CPRMPRDCMView: DCMView {
         self.updateViewMPR(true)
     }
 
-    /// DCMView's -reshape, which only DCMView.m declares: a method with its
-    /// selector overrides it, and [super reshape] calls DCMView's
-    /// implementation through the runtime.
-    @objc(reshape)
-    private dynamic func reshape() {
+    public override dynamic func reshape() {
         // To display or hide the resulting plane on the CPR view
         self.willChangeValue(forKey: "plane")
         self.didChangeValue(forKey: "plane")
 
-        typealias Reshape = @convention(c) (AnyObject, Selector) -> Void
-        let selector = NSSelectorFromString("reshape")
-        let superReshape = unsafeBitCast(class_getMethodImplementation(DCMView.self, selector), to: Reshape.self)
-        superReshape(self, selector)
+        super.reshape()
     }
 
     /// roiColor4f of the axis colour of view 1, 2 or 3, its components read
@@ -790,8 +800,7 @@ public final class CPRMPRDCMView: DCMView {
                    Float(color?.blueComponent ?? 0), Float(color?.alphaComponent ?? 0))
     }
 
-    @objc(colorForView:)
-    private dynamic func colorForView(_ v: Int32) {
+    private func colorForView(_ v: Int32) {
         switch v {
         case 1:
             //roiColor4f (VIEW_1_RED, VIEW_1_GREEN, VIEW_1_BLUE, VIEW_1_ALPHA);
@@ -869,7 +878,6 @@ public final class CPRMPRDCMView: DCMView {
         //	}
     }
 
-    @objc(drawTextualData::)
     public override dynamic func drawTextualData(_ size: NSRect, _ annotations: Int) {
         let copyScale = self.horos_scaleValue
         self.horos_scaleValue = 1
@@ -877,7 +885,6 @@ public final class CPRMPRDCMView: DCMView {
         self.horos_scaleValue = copyScale
     }
 
-    @objc(subDrawRect:)
     public override dynamic func subDraw(_ r: NSRect) {
         if self.stringID == "export" {
             return
@@ -895,7 +902,7 @@ public final class CPRMPRDCMView: DCMView {
         roiEnable(GL_LINE_SMOOTH)
         roiPointSize(Float(12 * backingScaleFactor))
 
-        if _displayCrossLines && frameZoomed.boolValue == false {
+        if _displayCrossLines && cprFrameZoomed.boolValue == false {
             // All pix have the same thickness
             let thickness = Float(_pix?.sliceThickness ?? 0)
 
@@ -943,7 +950,7 @@ public final class CPRMPRDCMView: DCMView {
         self.colorForView(viewID)
 
         // Red Square
-        if self.window?.firstResponder === self && self.stringID == nil && frameZoomed.boolValue == false {
+        if self.window?.firstResponder === self && self.stringID == nil && cprFrameZoomed.boolValue == false {
             roiLineWidth(Float(8.0 * backingScaleFactor))
             roiBegin(GL_LINE_LOOP)
             roiVertex2f(-widthhalf, -heighthalf)
@@ -963,7 +970,7 @@ public final class CPRMPRDCMView: DCMView {
         roiLineWidth(Float(1.0 * backingScaleFactor))
 
         let controller = windowControllerIvar
-        if _displayCrossLines && frameZoomed.boolValue == false && (controller?.displayMousePosition ?? false)
+        if _displayCrossLines && cprFrameZoomed.boolValue == false && (controller?.displayMousePosition ?? false)
             && !(controller?.mprView1?.rotateLines ?? false) && !(controller?.mprView2?.rotateLines ?? false) && !(controller?.mprView3?.rotateLines ?? false)
             && !(controller?.mprView1?.moveCenter ?? false) && !(controller?.mprView2?.moveCenter ?? false) && !(controller?.mprView3?.moveCenter ?? false) {
             // Mouse Position
@@ -1100,8 +1107,7 @@ public final class CPRMPRDCMView: DCMView {
         }
     }
 
-    @objc(horosCurvedPathSession)
-    private dynamic func horosCurvedPathSession() -> CurvedMPRPathSession {
+    private func horosCurvedPathSession() -> CurvedMPRPathSession {
         let session = CurvedMPRPathSession()
         for case let value as NSValue in _curvedPath?.nodes ?? NSArray() {
             let node = value.n3VectorValue()
@@ -1110,8 +1116,7 @@ public final class CPRMPRDCMView: DCMView {
         return session
     }
 
-    @objc(stopCurvedPathCreationMode)
-    private dynamic func stopCurvedPathCreationMode() {
+    private func stopCurvedPathCreationMode() {
         let decision = self.horosCurvedPathSession().complete()
         windowControllerIvar?.curvedPathCreationMode = false
         draggedToken = controlTokenNone
@@ -1130,9 +1135,8 @@ public final class CPRMPRDCMView: DCMView {
 
     /// Whether the curve was deleted: not when it had no node, nor when the
     /// alert was cancelled.
-    @objc(deleteCurrentCurvedPath)
     @discardableResult
-    private dynamic func deleteCurrentCurvedPath() -> Bool {
+    private func deleteCurrentCurvedPath() -> Bool {
         if (_curvedPath?.nodes.count ?? 0) > 0 {
             if HorosAlertPanel.runInformational(title: NSLocalizedString("Delete the Curve", comment: ""),
                                                 message: NSLocalizedString("Are you sure you want to delete the entire curve?", comment: ""),
@@ -1398,7 +1402,6 @@ public final class CPRMPRDCMView: DCMView {
         }
     }
 
-    @objc(roiChange:)
     public override dynamic func roiChange(_ note: Notification!) {
         if dontCheckRoiChange == false {
             let r = note?.object as? ROI
@@ -1438,8 +1441,7 @@ public final class CPRMPRDCMView: DCMView {
         return true
     }
 
-    @objc(angleBetween:center:)
-    private dynamic func angleBetween(_ mouseLocation: NSPoint, center: NSPoint) -> Float {
+    private func angleBetween(_ mouseLocation: NSPoint, center: NSPoint) -> Float {
         var mouseLocation = mouseLocation
         mouseLocation.x -= center.x
         mouseLocation.y -= center.y
@@ -1447,8 +1449,7 @@ public final class CPRMPRDCMView: DCMView {
         return Float(-atan2(Double(mouseLocation.x), Double(mouseLocation.y)) / Double(deg2rad))
     }
 
-    @objc(centerLines)
-    private dynamic func centerLines() -> NSPoint {
+    private func centerLines() -> NSPoint {
         var r = NSMakePoint(0, 0)
 
         // One line or no lines : find the middle of the line
@@ -1484,15 +1485,14 @@ public final class CPRMPRDCMView: DCMView {
         return r
     }
 
-    @objc(mouseOnLines:)
-    private dynamic func mouseOnLines(_ mouseLocation: NSPoint) -> Int32 {
+    private func mouseOnLines(_ mouseLocation: NSPoint) -> Int32 {
         var mouseLocation = mouseLocation
 
-        if UserDefaults.standard.integer(forKey: "ANNOTATIONS") == annotNone {
+        if preferredAnnotationLevel == annotNone {
             return 0
         }
 
-        if _displayCrossLines == false || frameZoomed.boolValue {
+        if _displayCrossLines == false || cprFrameZoomed.boolValue {
             return 0
         }
 
@@ -1719,14 +1719,8 @@ public final class CPRMPRDCMView: DCMView {
 
         var clickCount = 1
 
-        do {
-            try HorosObjCException.perform {
-                if theEvent.type == .leftMouseDown || theEvent.type == .rightMouseDown || theEvent.type == .leftMouseUp || theEvent.type == .rightMouseUp {
-                    clickCount = theEvent.clickCount
-                }
-            }
-        } catch {
-            clickCount = 1
+        if theEvent.type == .leftMouseDown || theEvent.type == .rightMouseDown || theEvent.type == .leftMouseUp || theEvent.type == .rightMouseUp {
+            clickCount = theEvent.clickCount
         }
 
         if clickCount == 2 && self.horos_drawingROI == false {
@@ -1750,14 +1744,14 @@ public final class CPRMPRDCMView: DCMView {
                 }
             } else {
                 let controller = windowControllerIvar
-                if frameZoomed.boolValue == false {
+                if cprFrameZoomed.boolValue == false {
                     let frame1 = controller?.mprView1?.frame ?? NSZeroRect
                     let frame3 = controller?.mprView3?.frame ?? NSZeroRect
-                    splitPosition.0 = cInt32(Double(frame1.origin.x + frame1.size.width)) // vert
-                    splitPosition.1 = cInt32(Double(frame1.origin.y + frame1.size.height)) // hori12
-                    splitPosition.2 = cInt32(Double(frame3.origin.y + frame3.size.height)) // horiz2
+                    cprSplitPosition.0 = cInt32(Double(frame1.origin.x + frame1.size.width)) // vert
+                    cprSplitPosition.1 = cInt32(Double(frame1.origin.y + frame1.size.height)) // hori12
+                    cprSplitPosition.2 = cInt32(Double(frame3.origin.y + frame3.size.height)) // horiz2
 
-                    frameZoomed = true
+                    cprFrameZoomed = true
                     switch viewID {
                     case 1:
                         controller?.verticalSplit?.setPosition(controller?.verticalSplit?.maxPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
@@ -1775,10 +1769,10 @@ public final class CPRMPRDCMView: DCMView {
                         break
                     }
                 } else {
-                    frameZoomed = false
-                    controller?.verticalSplit?.setPosition(CGFloat(splitPosition.0), ofDividerAt: 0)
-                    controller?.horizontalSplit1?.setPosition(CGFloat(splitPosition.1), ofDividerAt: 0)
-                    controller?.horizontalSplit2?.setPosition(CGFloat(splitPosition.2), ofDividerAt: 0)
+                    cprFrameZoomed = false
+                    controller?.verticalSplit?.setPosition(CGFloat(cprSplitPosition.0), ofDividerAt: 0)
+                    controller?.horizontalSplit1?.setPosition(CGFloat(cprSplitPosition.1), ofDividerAt: 0)
+                    controller?.horizontalSplit2?.setPosition(CGFloat(cprSplitPosition.2), ofDividerAt: 0)
 
                     controller?.mprView1?.restoreCamera()
                     controller?.mprView1?.camera?.forceUpdate = true
@@ -1829,7 +1823,7 @@ public final class CPRMPRDCMView: DCMView {
 
                 _vrView?.keep3DRotateCentered = true
                 if tool == .tCamera3D {
-                    if _displayCrossLines == false || frameZoomed.boolValue == true {
+                    if _displayCrossLines == false || cprFrameZoomed.boolValue == true {
                         _vrView?.keep3DRotateCentered = false
                     } else {
                         if theEvent.modifierFlags.contains(.option) {
@@ -2066,7 +2060,6 @@ public final class CPRMPRDCMView: DCMView {
         dontCheckRoiChange = false
     }
 
-    @objc(mouseDraggedImageScroll:)
     public override dynamic func mouseDraggedImageScroll(_ event: NSEvent!) {
         self.checkCursor()
 
@@ -2348,8 +2341,7 @@ public final class CPRMPRDCMView: DCMView {
 
     // MARK: -
 
-    @objc(sendWillEditCurvedPath)
-    private dynamic func sendWillEditCurvedPath() {
+    private func sendWillEditCurvedPath() {
         if editingCurvedPathCount == 0 {
             if let delegate = _delegate, delegate.responds(to: #selector(CPRViewDelegate.cprViewWillEditCurvedPath(_:))) {
                 delegate.cprViewWillEditCurvedPath!(self)
@@ -2358,15 +2350,13 @@ public final class CPRMPRDCMView: DCMView {
         editingCurvedPathCount += 1
     }
 
-    @objc(sendDidUpdateCurvedPath)
-    private dynamic func sendDidUpdateCurvedPath() {
+    private func sendDidUpdateCurvedPath() {
         if let delegate = _delegate, delegate.responds(to: #selector(CPRViewDelegate.cprViewDidUpdateCurvedPath(_:))) {
             delegate.cprViewDidUpdateCurvedPath!(self)
         }
     }
 
-    @objc(sendDidEditCurvedPath)
-    private dynamic func sendDidEditCurvedPath() {
+    private func sendDidEditCurvedPath() {
         editingCurvedPathCount -= 1
         if editingCurvedPathCount == 0 {
             if let delegate = _delegate, delegate.responds(to: #selector(CPRViewDelegate.cprViewDidEditCurvedPath(_:))) {
@@ -2385,8 +2375,7 @@ public final class CPRMPRDCMView: DCMView {
     //	editingCurvedPathCount++;
     //}
 
-    @objc(sendDidEditAssistedCurvedPath)
-    private dynamic func sendDidEditAssistedCurvedPath() {
+    private func sendDidEditAssistedCurvedPath() {
         editingCurvedPathCount -= 1
         if editingCurvedPathCount == 0 {
             // The delegate is asked for the message it is sent: it
@@ -2398,15 +2387,13 @@ public final class CPRMPRDCMView: DCMView {
         }
     }
 
-    @objc(sendWillEditDisplayInfo)
-    private dynamic func sendWillEditDisplayInfo() {
+    private func sendWillEditDisplayInfo() {
         if let delegate = _delegate, delegate.responds(to: #selector(CPRViewDelegate.cprViewWillEditDisplayInfo(_:))) {
             delegate.cprViewWillEditDisplayInfo!(self)
         }
     }
 
-    @objc(sendDidEditDisplayInfo)
-    private dynamic func sendDidEditDisplayInfo() {
+    private func sendDidEditDisplayInfo() {
         if let delegate = _delegate, delegate.responds(to: #selector(CPRViewDelegate.cprViewDidEditDisplayInfo(_:))) {
             delegate.cprViewDidEditDisplayInfo!(self)
         }
@@ -2432,8 +2419,7 @@ public final class CPRMPRDCMView: DCMView {
         _LOD = windowControllerIvar?.lod ?? 0
     }
 
-    @objc(_debugDrawDebugPoints)
-    private dynamic func _debugDrawDebugPoints() {
+    private func _debugDrawDebugPoints() {
         // first off find the points like the operation would and draw a point at each of the nodes
         var vectors = [N3Vector](repeating: N3Vector(), count: 40)
         var normals = [N3Vector](repeating: N3Vector(), count: 40)
@@ -2495,8 +2481,7 @@ public final class CPRMPRDCMView: DCMView {
         return outline?.mutableCopy() as? N3MutableBezierPath
     }
 
-    @objc(drawCurvedPathInGL)
-    private dynamic func drawCurvedPathInGL() {
+    private func drawCurvedPathInGL() {
         if (_curvedPath?.nodes.count ?? 0) == 0 {
             return
         }
@@ -2684,8 +2669,7 @@ public final class CPRMPRDCMView: DCMView {
         //    [self _debugDrawDebugPoints];
     }
 
-    @objc(drawOSIROIs)
-    private dynamic func drawOSIROIs() {
+    private func drawOSIROIs() {
         var pixToSubdrawRectOpenGLTransform = [Double](repeating: 0, count: 16)
 
         if self.ROIManager() == nil {
@@ -2722,8 +2706,7 @@ public final class CPRMPRDCMView: DCMView {
         return _ROIManager
     }
 
-    @objc(drawCircleAtPoint:pointSize:)
-    private dynamic func drawCircle(at point: NSPoint, pointSize: CGFloat) {
+    private func drawCircle(at point: NSPoint, pointSize: CGFloat) {
         roiEnable(GL_POINT_SMOOTH)
         roiPointSize(Float(pointSize * backingScaleFactor))
 
@@ -2732,8 +2715,7 @@ public final class CPRMPRDCMView: DCMView {
         roiEnd()
     }
 
-    @objc(drawCircleAtPoint:)
-    private dynamic func drawCircle(at point: NSPoint) {
+    private func drawCircle(at point: NSPoint) {
         self.drawCircle(at: point, pointSize: 8)
     }
 
@@ -2826,23 +2808,19 @@ extension DCMView {
     /// converts coordinates in the NSView's space to coordinates on a DCMPix object in "Slice Coordinates"
     /// (the former DCMView (CPRAdditions) category of CPRMPRDCMView.m)
     @objc(viewToPixTransform) public func viewToPixTransform() -> N3AffineTransform {
-        // since there is no way to get matrix values directly for this transformation, we will figure out how the basis vectors get transformed, and contruct the matrix from these values
-        var viewToPixTransform: N3AffineTransform
-        let orginBasis: NSPoint
-        let xBasis: NSPoint
-        let yBasis: NSPoint
+        // since there is no way to get matrix values directly for this transformation, we will figure out how the basis vectors
+        // get transformed (through the view's conversions, ViewTransform's), and contruct the matrix from these values
+        let basis = ViewTransform.basisTransform(origin: self.convert(fromNSView2GL: NSMakePoint(0, 0)),
+                                                 xBasis: self.convert(fromNSView2GL: NSMakePoint(1, 0)),
+                                                 yBasis: self.convert(fromNSView2GL: NSMakePoint(0, 1)))
 
-        orginBasis = self.convert(fromNSView2GL: NSMakePoint(0, 0))
-        xBasis = self.convert(fromNSView2GL: NSMakePoint(1, 0))
-        yBasis = self.convert(fromNSView2GL: NSMakePoint(0, 1))
-
-        viewToPixTransform = N3AffineTransformIdentity
-        viewToPixTransform.m41 = orginBasis.x
-        viewToPixTransform.m42 = orginBasis.y
-        viewToPixTransform.m11 = xBasis.x - orginBasis.x
-        viewToPixTransform.m12 = xBasis.y - orginBasis.y
-        viewToPixTransform.m21 = yBasis.x - orginBasis.x
-        viewToPixTransform.m22 = yBasis.y - orginBasis.y
+        var viewToPixTransform = N3AffineTransformIdentity
+        viewToPixTransform.m41 = basis.m41
+        viewToPixTransform.m42 = basis.m42
+        viewToPixTransform.m11 = basis.m11
+        viewToPixTransform.m12 = basis.m12
+        viewToPixTransform.m21 = basis.m21
+        viewToPixTransform.m22 = basis.m22
 
         return viewToPixTransform
     }

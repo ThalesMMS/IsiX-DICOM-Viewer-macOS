@@ -215,6 +215,10 @@ func make(_ name: String, _ address: String, qr: Bool, send: Bool, qido: String 
         && DICOMwebSources.inventoryEndpoint(forServer: deltaServer, in: defaults) == base + "/ok",
         "the inventory is kept under the WADO endpoint, the address without a WADO path")
   check(DICOMwebSources.storeURL(forServer: deltaServer, in: defaults) == base + "/ok/studies", "the Send sheet shows {address}/studies")
+  // A node whose services all answer under one prefix stores there too.
+  let prefixed = make("Prefixed", base, qr: true, send: true, qido: "/ok", wado: "ok")
+  check(prefixed.stowEndpoint == base + "/ok" && (try? DICOMwebSources.configuration(for: prefixed).storeURLString) == base + "/ok/studies",
+        "STOW-RS goes below the path QIDO and WADO share")
 
   // Test's messages: one per kind.
   let kinds: [DICOMwebErrorKind] = [.network, .tls, .timeout, .authentication, .notFound, .redirect, .http, .invalidResponse, .credentials, .cancelled]
@@ -299,6 +303,8 @@ func make(_ name: String, _ address: String, qr: Bool, send: Bool, qido: String 
           "the refused instance has its Failure Reason: \(report.results[2].reason)")
     check(report.results[2].sopInstanceUID == "2.25.799.13", "the refused instance is named by its SOP Instance UID")
     check(report.detail(limit: 5).contains("2.25.799.13"), "the detail lists the refused instance")
+    check(report.logDetail(limit: 5) == report.summary + "\n  2.25.799.13: " + report.results[2].reason,
+          "the log is told the refused instance by its UID and its Failure Reason: \(report.logDetail(limit: 5))")
     check(calls.isEmpty && leftovers().isEmpty, "as stored converts nothing and makes no folder")
     check(fractions.last == 1.0 && fractions == fractions.sorted(), "progress rises to 1: \(fractions)")
    } catch { check(false, "as stored: \(error)") }
@@ -314,6 +320,8 @@ func make(_ name: String, _ address: String, qr: Bool, send: Bool, qido: String 
     check(report.results.map(\.status) == [.success, .success, .success, .failure], "three stored, the unconvertible one not: \(report.detail(limit: 9))")
     check(report.results[3].reason.contains("could not be converted") && report.results[3].sopInstanceUID == "2.25.799.16",
           "the unconvertible file is reported: \(report.results[3].reason)")
+    check(report.results[3].logReason == "Not sent: it could not be converted to the Send Syntax 1.2.840.10008.1.2.4.70.",
+          "the log is told the syntax by its UID: \(report.results[3].logReason)")
     check(report.results.map(\.path) == [path("plain-1.dcm"), path("lossless.dcm"), path("plain-3.dcm"), path("unconvertible.dcm")],
           "results name the original files, not the converted copies")
     check(leftovers().isEmpty, "the converted files' folder is removed")
@@ -327,6 +335,12 @@ func make(_ name: String, _ address: String, qr: Bool, send: Bool, qido: String 
     let report = try sender.send(files: [path("plain-1.dcm"), path("plain-2.dcm"), path("plain-3.dcm")], cancelled: { progressCalls >= 1 })
     check(report.cancelled && report.sentCount == 0 && report.failedCount == 3, "a cancelled send stores nothing more: \(report.summary)")
     check(report.results.allSatisfy { $0.reason.contains("cancelled") }, "each file not sent says the send was cancelled")
+    // A file the send never read has no UID to be told by: the user is shown
+    // its name, and the log its place and the shape of its name.
+    let logged = report.logDetail(limit: 9)
+    check(report.detail(limit: 9).contains("  plain-2.dcm: ") && !logged.contains("plain")
+          && logged.contains("  file 2 <name of 11 characters>: Not sent: the send was cancelled."),
+          "a cancelled send names its files to the user and not to the log: \(logged)")
     check(leftovers().isEmpty, "a cancelled send removes its folder")
    } catch { check(false, "cancelled send: \(error)") }
    print("PASS: STOW-RS as stored and converted, per-instance results, cancellation, no folder left")
@@ -343,7 +357,9 @@ def sources_at(folder):
     names = ['Horos/Sources/DICOMwebIntegration.swift', 'Horos/Sources/DICOMwebNode.swift', 'Horos/Sources/DICOMwebClient.swift',
              'Horos/Sources/DICOMwebCredentials.swift', 'Horos/Sources/DICOMwebMultipart.swift',
              'Horos/Sources/DicomNodeConfiguration.swift']
-    if not revision: names += ['Horos/Sources/NonInteractiveKeychainRead.swift', 'Horos/Sources/DICOMwebOIDC.swift']
+    if not revision:
+        names += ['Horos/Sources/NonInteractiveKeychainRead.swift', 'Horos/Sources/DICOMwebOIDC.swift',
+                  'Horos/Sources/StoreReport.swift', 'Horos/Sources/DICOMwebClient+LogText.swift']
     if revision:
         listed = subprocess.run(['git', 'ls-tree', '--name-only', revision, 'Horos/Sources/DICOM-Swift/'], cwd=root,
                                 capture_output=True, text=True).stdout.split()
@@ -463,45 +479,65 @@ finally:
         fixture.stderr.close()
 
 # --- source level ------------------------------------------------------------
-query = text('Horos/Sources/QueryController.mm') or ''
-refresh = query[query.find('- (void) refreshSources'):query.find('- (NSArray*) prepareDICOMFieldsArrays')]
+# The Query window is Swift, split by responsibility.
+query = '\n'.join(text('Horos/Sources/QueryController%s.swift' % part) or ''
+                  for part in ('', '+Query', '+Network', '+Retrieve'))
+refresh = query[query.find('public func refreshSources()'):query.find('nonisolated func servicesDidChange(')]
 popup = refresh.find('Update Send To popup menu')
-check('[serversArray addObjectsFromArray: [HorosDICOMwebSources queryRetrieveServers]]' in refresh[:popup],
+check('serversArray.append(contentsOf: DICOMwebSources.queryRetrieveServers() as [Any])' in refresh[:popup],
       'the Query window appends the DICOMweb Q&R nodes to its sources')
-check(refresh.find('[DCMNetServiceDelegate DICOMServersList]') < refresh.find('HorosDICOMwebSources queryRetrieveServers')
-      and 'HorosDICOMwebSources' not in refresh[popup:] and '[DCMNetServiceDelegate DICOMServersList]' in refresh[popup:],
+check(refresh.find('DICOMNodeService.dicomNodes(sendOnly: false, queryRetrieveOnly: false)') < refresh.find('DICOMwebSources.queryRetrieveServers()')
+      and 'DICOMwebSources' not in refresh[popup:] and 'DICOMNodeService.dicomNodes(sendOnly: false, queryRetrieveOnly: false)' in refresh[popup:],
       'the DIMSE sources come first and the retrieve destinations stay DIMSE')
-matcher = query[query.find('- (NSDictionary*) findCorrespondingServer'):query.find('- (void) refreshSources')]
-check('HorosDICOMwebSources.nodeKey' in matcher and 'continue;' in matcher,
+matcher = query[query.find('func findCorrespondingServer('):query.find('public func refreshSources()')]
+check('DICOMwebSources.nodeKey' in matcher and 'continue' in matcher,
       'a saved DICOMweb source is matched by its identifier and never taken for a DIMSE one')
-check('values.DICOMWEB_SERVERS' in query and 'forValuesKey:@"DICOMWEB_SERVERS"' in query, 'the Query window follows DICOMWEB_SERVERS')
-check('[HorosDICOMwebSources isDICOMwebServer:serverParameters]' in query, 'Verify in the Query window reaches the node')
-node = text('Horos/Sources/DCMTKQueryNode.mm') or ''
-for pilot in ('DICOMwebURL', 'DICOMwebCredentialID', 'initWithEndpoint:', '== DICOMwebRetrieveMode'):
+# The window observes the user defaults controller with the catalog's key path for
+# DICOMWEB_SERVERS and refreshes its sources when that path changes.
+network_preferences = text('Modules/IsiXPreferences/Sources/NetworkPreferences.swift') or ''
+dicomweb_key_path = 'NetworkPreferences.controllerKeyPath(NetworkPreferences.dicomwebNodes)'
+observed = query[query.find('func observeValue('):]
+check('static let dicomwebNodes = PreferenceKey<[PropertyListValue]?>("DICOMWEB_SERVERS")' in network_preferences
+      and '"values." + key.name' in network_preferences
+      and 'addObserver(self, forKeyPath: ' + dicomweb_key_path in query
+      and 'removeObserver(self, forKeyPath: ' + dicomweb_key_path in query
+      and dicomweb_key_path in observed[:observed.find('controller.refreshSources()')],
+      'the Query window follows DICOMWEB_SERVERS')
+check('if DICOMwebSources.isDICOMwebServer(serverParameters) {' in query, 'Verify in the Query window reaches the node')
+# The query node is Swift, split by responsibility into DCMTKQueryNode+*.swift.
+node = '\n'.join(text('Horos/Sources/DCMTKQueryNode%s.swift' % part) or ''
+                 for part in ('', '+Query', '+Network', '+Retrieve', '+RetrieveInventory', '+WADO', '+DICOMweb'))
+for pilot in ('DICOMwebURL', 'DICOMwebCredentialID', 'initWithEndpoint:', 'DICOMwebClient(endpoint:', '== DICOMwebRetrieveMode'):
     check(pilot not in node, f'DCMTKQueryNode no longer uses the pilot\'s {pilot}')
 check('== DICOMwebRetrieveMode' not in query, 'QueryController no longer compares the retrieve mode with the pilot\'s')
-check(node.count('[HorosDICOMwebSources clientForServer:') == 4, 'query, retrieve, verify and the pictures of left-out series use the node\'s client')
-move = node[node.find('- (void) move:(NSDictionary*) dict retrieveMode:'):]
-check('BOOL dicomweb = [HorosDICOMwebSources isDICOMwebServer:_extraParameters];' in move and 'if (dicomweb)' in move,
+check(node.count('DICOMwebSources.client(forServer:') == 4, 'query, retrieve, verify and the pictures of left-out series use the node\'s client')
+move = node[node.find('func move(_ dictionary: [AnyHashable: Any]!, retrieveMode: Int32)'):]
+check('let dicomweb = DICOMwebSources.isDICOMwebServer(extraParameters())' in move and 'if dicomweb {' in move,
       'a retrieve goes to DICOMweb only for a DICOMweb node')
 listener = text('Horos/Sources/RetrieveListenerRequirement.swift') or ''
 check(re.search(r'case wado, dicomweb:\s*return false', listener) is not None, 'a DICOMweb source needs no listener')
 send = text('Horos/Sources/SendController.swift') or ''
 check('DICOMwebSources.sendDestinations()' in send and send.count('SendController.destinations()') >= 5
-      and send.count('dicomServersListSendOnly(true') == 1, 'the Send sheet lists DIMSE then DICOMweb destinations everywhere')
-offis = send[send.find('public func sendDICOMFilesOffis'):send.find('// MARK: DICOMweb')]
-check(offis.find('isDICOMwebServer') < offis.find('DirectTransferPolicy.route'), 'a DICOMweb destination is sent to before any DIMSE path')
-check('DICOMwebSendActivity.send(files:' in send and 'thread: Thread.current' in send, 'the send runs on the activity thread')
+      and send.count('DICOMNodeService.dicomNodes(sendOnly: true') == 1, 'the Send sheet lists DIMSE then DICOMweb destinations everywhere')
+request = send[send.find('private func sendRequest(to node'):send.find('// MARK: serversArray functions')]
+check(request.find('isDICOMwebServer') < request.find('DirectTransferPolicy.route') and 'route = .dicomweb' in request,
+      'a DICOMweb destination is sent to before any DIMSE path')
+transport = text('Horos/Sources/ActivitySendTransport.swift') or ''
+check('DICOMwebSendActivity.send(files:' in transport and 'thread: thread' in transport
+      and 'ActivityThread.run(' in transport, 'the send runs on the activity thread')
 activity = text('Horos/Sources/DICOMwebSendActivity.swift') or ''
 check('DICOMwebSender(node: node)' in activity and 'HorosDICOMWriter.transcodeFile(atPath:' in activity
       and 'cancelled: { thread.isCancelled }' in activity and 'thread.progress = CGFloat(fraction)' in activity,
       'STOW-RS with DCMTK conversion, progress and the activity panel\'s Cancel')
-check('addLogLine' in activity and 'report.detail(limit: 20)' in activity and 'runCritical' in activity,
+check('addLogLine' in activity and 'report.detail(limit: 20)' in activity and 'runCritical' in activity
+      and 'report.logDetail(limit: 20))' in activity,
       'per-instance results reach the log, the network log and an alert')
-writer = text('Horos/Sources/HorosDICOMWriter.mm') or ''
-transcode = writer[writer.find('+ (BOOL)transcodeFileAtPath:'):]
-check('HorosChooseDICOMRepresentation(file, target' in transcode and 'file.saveFile(temporary.fileSystemRepresentation, target)' in transcode
+adapter = text('Horos/Sources/Adapters/DCMTK/IsiXDCMTKFile.mm') or ''
+transcode = adapter[adapter.find('+ (BOOL)transcodeFileAtPath:'):]
+check('HorosChooseDICOMRepresentation(file, target' in transcode and 'file.saveFile(IsiXDCMTKFileSystemPath(temporary), target)' in transcode
       and 'rename(' in transcode, 'the conversion uses the host\'s DCMTK codecs and publishes a complete file')
+writer = text('Horos/Sources/HorosDICOMWriter.swift') or ''
+check('IsiXDCMTKFile.transcodeFile(atPath: source' in writer, 'the writer converts through the DCMTK file adapter')
 check('transcodeFileAtPath:(NSString *)source toPath:' in (text('Horos/Sources/HorosDICOMWriter.h') or ''), 'the conversion is declared')
 editor = text('Horos/Sources/DICOMwebNodeEditor.swift') or ''
 check('DICOMwebSources.configuration(for: node)' in editor and 'DICOMwebClient(node: configuration' in editor
@@ -512,7 +548,7 @@ check('DICOMwebIntegration.swift in Sources' in pbx and 'DICOMwebSendActivity.sw
       'the new files are in the Horos target')
 integration = text('Horos/Sources/DICOMwebIntegration.swift') or ''
 for name, content in (('DICOMwebIntegration.swift', integration), ('DICOMwebSendActivity.swift', activity)):
-    check(content.startswith('//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)\n//\n//  This file is part of a fork of Horos'),
+    check(content.startswith('//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)\n//\n'),
           f'{name} has the fork\'s header')
 check(not re.search(r'NSLog\([^)]*(secret|password|token|credential)', send + integration + activity, re.I), 'no secret is logged')
 if not revision:

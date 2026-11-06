@@ -38,11 +38,12 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import process_graph_stand_in  # the source reads the preferences through the process graph
 
 root = Path(__file__).resolve().parents[1]
 failures = []
 source = root / 'Horos/Sources/PreferencesContinuity.swift'
-main = (root / 'Horos/Sources/main.m').read_bytes().decode('latin1')
+main = (root / 'Horos/Sources/main.swift').read_text()
 config = (root / 'Horos/Horos.xcconfig').read_text()
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 
@@ -151,7 +152,7 @@ else:
             (Path(directory) / 'main.swift').write_text(harness_defaults.DOMAINS + DRIVER)
             binary = Path(directory) / 'continuity'
             built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-o', str(binary),
-                                    str(source), str(root / 'Horos/Sources/DatabaseLocation.swift'),
+                                    *process_graph_stand_in.swift_flags(Path(directory) / 'isix'), str(source), str(root / 'Horos/Sources/DatabaseLocation.swift'),
                                     str(Path(directory) / 'main.swift')],
                                    capture_output=True, text=True)
             if built.returncode != 0:
@@ -207,12 +208,10 @@ if results:
         failures.append('the application target no longer takes the prefix as its identifier')
 
 # --- asked before the first preference is read --------------------------------
-ask = main.find('HorosImportPreviousPreferences();')
-start = main.find('NSApplicationMain(argc, argv)')
+ask = main.find('PreferencesContinuity.importPreviousPreferences()')
+start = main.find('NSApplicationMain(')
 if ask < 0 or start < 0 or ask > start:
     failures.append('main does not import the previous preferences before NSApplicationMain')
-if 'HorosPreferencesContinuity' not in main or 'importPreviousPreferences' not in main:
-    failures.append('main does not reach the import rule')
 
 # --- the import reads every source, not only the previous identifier -----------
 text = source.read_text() if source.exists() else ''

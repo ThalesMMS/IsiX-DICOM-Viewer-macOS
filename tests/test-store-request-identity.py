@@ -2,8 +2,9 @@
 """A C-STORE must not acknowledge a dataset with another SOP identity."""
 import subprocess,tempfile
 from pathlib import Path
-root=Path(__file__).resolve().parents[1]
-s=(root/'DCMTK/dcmqrdb/libsrc/dcmqrcbs.cc').read_text(encoding='latin1')
+from dcmtk_build import dcmtk_source
+# The store callback of the pinned original source the recipe compiles.
+s=(dcmtk_source()/'dcmqrdb/libsrc/dcmqrcbs.cc').read_text(encoding='latin1')
 a=s.index('void DcmQueryRetrieveStoreContext::checkRequestAgainstDataset(');b=s.index('void DcmQueryRetrieveStoreContext::callbackHandler(',a)
 method=s[a:b]
 code=r'''

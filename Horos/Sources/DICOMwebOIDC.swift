@@ -139,11 +139,13 @@ private final class DICOMwebOIDCSessionDelegate: NSObject, URLSessionTaskDelegat
 /// expired tokens, shared by every request of a node.
 @objc(HorosDICOMwebOIDC)
 public final class DICOMwebOIDC: NSObject {
-    /// Where the tokens are. Replaced only by tests.
-    // nonisolated(unsafe): the application only reads it; a test program
-    // replaces it at its top level, before any provider is made and before
-    // any other thread starts.
-    nonisolated(unsafe) static var tokenStore: any DicomWebOIDCTokenStore = DICOMwebOIDCTokenKeychain(backend: .keychain)
+    /// Where the tokens are. Replaced only by tests, from any thread; every
+    /// read sees a whole store.
+    private static let installedTokenStore = Mutex<any DicomWebOIDCTokenStore>(DICOMwebOIDCTokenKeychain(backend: .keychain))
+    static var tokenStore: any DicomWebOIDCTokenStore {
+        get { installedTokenStore.withLock { $0 } }
+        set { installedTokenStore.withLock { $0 = newValue } }
+    }
 
     /// One provider per trusted certificate, so that every request of a node,
     /// and its sign-in, share one refresh.

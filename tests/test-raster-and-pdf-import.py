@@ -41,9 +41,13 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-dicomfile = (root / 'Horos/Sources/DicomFile.mm').read_bytes().decode('latin1')
+legacy = root / 'Horos/Sources/DicomFile.mm'
+dicomfile = legacy.read_bytes().decode('latin1') if legacy.exists() else ''
 header = (root / 'Horos/Sources/DicomFile.h').read_bytes().decode('latin1')
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
+# DicomDatabase is Swift: the incoming scan and the import are its extensions.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources  # noqa: E402
+database = sources.class_text('DicomDatabase')
 refusals_path = root / 'Horos/Sources/ImportRefusals.swift'
 refusals = refusals_path.read_text() if refusals_path.exists() else ''
 
@@ -52,18 +56,37 @@ RASTER = ('tiff', 'tif', 'stk', 'png', 'jpg', 'jpeg', 'jp2', 'pdf', 'pct', 'gif'
 # --- the reader and the test of what it reads agree ---------------------------
 live = re.sub(r'//[^\n]*', '', dicomfile)
 at = live.find('+ (BOOL) isImageFile:')
-if at < 0:
+if not legacy.exists():
+    # The test and the reader are Swift and take one list, IsiXDICOMFile's
+    # ImportFormats.imageExtensions.
+    formats = (root / 'Modules/IsiXDICOMFile/Sources/ImportFormats.swift').read_text()
+    at = formats.find('public static let imageExtensions: Set<String> = [')
+    listed = set(re.findall(r'"(\w+)"', formats[at:formats.find(']', at)])) if at >= 0 else set()
+    for extension in RASTER:
+        if extension not in listed:
+            failures.append('%s is missing from the list of raster extensions' % extension)
+    classification = (root / 'Horos/Sources/DicomFile+Classification.swift').read_text()
+    readers = (root / 'Horos/Sources/DicomFile+NonDICOMReaders.swift').read_text()
+    if 'ImportFormats.imageExtensions.contains(' not in classification:
+        failures.append('the test does not ask the list the reader uses')
+    if 'if ImportFormats.imageExtensions.contains(fileExtension) {' not in readers:
+        failures.append('the raster reader no longer handles the list')
+    if 'isImageFile:' not in header:
+        failures.append('the test is not declared, so the database cannot use it')
+elif at < 0:
     failures.append('nothing says which extensions the raster reader handles')
 else:
     listed = set(re.findall(r'@"(\w+)"', live[at:live.find('\n}', at)]))
     for extension in RASTER:
         if extension not in listed:
             failures.append('%s is missing from the list of raster extensions' % extension)
-if 'isImageFile:' not in header:
-    failures.append('the test is not declared, so the database cannot use it')
+    if 'isImageFile:' not in header:
+        failures.append('the test is not declared, so the database cannot use it')
 
 at = live.find('-(short) getImageFile')
-if at < 0:
+if not legacy.exists():
+    pass
+elif at < 0:
     failures.append('the raster reader is gone')
 else:
     body = live[at:at + 1200]
@@ -78,8 +101,8 @@ else:
 # itself (isFVTiffFile / isImageFile), not a window from the assignment.
 live = re.sub(r'//[^\n]*', '', database)
 live = re.sub(r'\s+', ' ', live)
-at = live.find('isDicomFile = [DicomFile isDICOMFile:srcPath')
-door = live.find('[DicomFile isFVTiffFile:srcPath', at) if at >= 0 else -1
+at = live.find('isDicomFile = DicomFile.isDICOMFile(srcPath')
+door = live.find('DicomFile.isFVTiffFile(srcPath)', at) if at >= 0 else -1
 if at < 0 or door < 0:
     failures.append('the incoming folder no longer decides what to take')
 else:
@@ -100,7 +123,7 @@ else:
     window = live[max(0, at - 600):at + 1200]
     if 'refusedByPolicy' not in window:
         failures.append('the reason is built but not carried to the refusal')
-    if 'refuse: newFile reason:' not in window:
+    if 'refusals.refuse(newFile ?? "", reason: refusedByPolicy)' not in window:
         failures.append('the refusal does not take the reason it was given')
 if 'refuse(_ path: String, reason: String)' not in refusals:
     failures.append('the report cannot be told a reason it could not work out for itself')

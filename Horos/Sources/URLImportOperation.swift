@@ -11,13 +11,15 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXContracts
 
 /// What became of one URL of an import.
 @objc(HorosURLImportEntry)
 public final class URLImportEntry: NSObject {
     @objc(HorosURLImportOutcome)
     public enum Outcome: Int {
-        /// A DICOM object, written into the database and indexed.
+        /// A DICOM object, published to the import folder and found in the
+        /// database once the import that took it ended.
         case indexed
         /// An archive, handed to the import folder to be expanded there.
         case expanded
@@ -26,11 +28,16 @@ public final class URLImportEntry: NSObject {
         case refused
         /// Not downloaded, or not written: nothing of it is in the database.
         case failed
+        /// A DICOM object in the import folder's hands and not in the database
+        /// yet: the import stopped before it, or it went to be converted.
+        case queued
     }
 
     @objc public let url: String
     @objc public let outcome: Outcome
-    /// Where its bytes were written, or nil.
+    /// Where its bytes are, or nil: the file of the image for an indexed object,
+    /// where the import kept a refused one, if it kept it, and the import folder
+    /// otherwise.
     @objc public let path: String?
     /// Why it was refused or failed, or nil.
     @objc public let reason: String?
@@ -72,8 +79,10 @@ public final class URLImportResult: NSObject {
 /// cancelled through that thread's `cancel()`. What arrived before a
 /// cancellation or a failure stays, and the result does not claim success.
 ///
-/// A DICOM object goes straight into the database folder and is indexed, so
-/// the caller gets a file that is really there. Anything else goes to the
+/// Everything that arrives is published to the import folder. A DICOM object
+/// is imported on the calling thread, once, so that the caller gets the answer:
+/// what is in the database with the file that is really there, or what the
+/// import refused, which is not counted as added. Anything else goes to the
 /// import folder, where an archive is expanded and given its own verdict and
 /// a file nothing can read is named and kept.
 @objc(HorosURLImportOperation)
@@ -104,6 +113,13 @@ public final class URLImportOperation: NSObject {
 
     /// Runs the import on the calling thread and returns its result. A second
     /// call returns a failure without importing anything again.
+    ///
+    /// The reports of a second call and of a call on the main thread stay in
+    /// English: the app makes a new operation for every import and runs it on a
+    /// thread of its own, so only code that misuses the class reads them. A
+    /// database that cannot be opened happens at run time, and its report
+    /// reaches the URL Error alert and the AppleScript answer, so it follows the
+    /// language of the interface.
     @objc public func run() -> URLImportResult {
         let first: Bool = lock.withLock {
             guard stateValue == .ready else { return false }
@@ -119,12 +135,15 @@ public final class URLImportOperation: NSObject {
         }
         // A private-queue database; the indexing runs inside its queue.
         guard let independent = database.privateQueueIndependentDatabase() as? DicomDatabase else {
-            return URLImportResult(entries: [], report: "The database cannot be opened for this import.", succeeded: false, cancelled: false)
+            let report = NSLocalizedString("The database cannot be opened for this import.",
+                                           comment: "URL import report: the database could not give the import a context of its own")
+            return URLImportResult(entries: [], report: report, succeeded: false, cancelled: false)
         }
         return importURLs(into: independent)
     }
 
     private func importURLs(into database: DicomDatabase) -> URLImportResult {
+        let ingest = DatabaseIngest.process
         let report = URLImportReport()
         var entries = [Int: URLImportEntry]()
         let downloads = URLImportDownloads(urls: urls, requestTimeout: requestTimeout, totalTimeout: totalTimeout)
@@ -146,16 +165,11 @@ public final class URLImportOperation: NSObject {
                 continue
             }
             let fileExtension = URLImportReport.fileExtension(forPayload: data)
-            let destination: String
-            if fileExtension == "dcm" {
-                destination = database.uniquePathForNewDataFile(withExtension: "dcm")
-            } else {
-                var name = "url-" + UUID().uuidString
-                if !fileExtension.isEmpty { name = (name as NSString).appendingPathExtension(fileExtension) ?? name }
-                destination = (database.incomingDirPath() as NSString).appendingPathComponent(name)
-            }
+            var name = "url-" + UUID().uuidString
+            if !fileExtension.isEmpty { name = (name as NSString).appendingPathExtension(fileExtension) ?? name }
+            let draft = IngestDraft(folder: ingest.admissionFolder(of: database), name: name)
             do {
-                try data.write(to: URL(fileURLWithPath: destination), options: .atomic)
+                try data.write(to: URL(fileURLWithPath: draft.path), options: .atomic)
             } catch {
                 let reason = (error as NSError).localizedDescription
                 report.recordFailed(url: url, reason: reason)
@@ -163,27 +177,57 @@ public final class URLImportOperation: NSObject {
                 continue
             }
             if fileExtension == "dcm" {
-                database.performBlockAndWait { _ = database.addFiles(atPaths: [destination]) }
-                report.recordIndexed(url: url)
-                entries[result.index] = URLImportEntry(url: url, outcome: .indexed, path: destination, reason: nil)
+                entries[result.index] = imported(ingest.publishAndImport(draft, preset: .url, in: database), url: url, report: report)
+                continue
+            }
+            let publication = ingest.publish(draft, preset: .url)
+            guard publication.succeeded else {
+                ingest.discard(draft)
+                entries[result.index] = notPublished(publication.errorNumber, url: url, report: report)
+                continue
+            }
+            ingest.requestImport(of: database)
+            let destination = draft.folder.path(named: name)
+            if fileExtension == "zip" {
+                report.recordExpanded(url: url)
+                entries[result.index] = URLImportEntry(url: url, outcome: .expanded, path: destination, reason: nil)
             } else {
-                database.initiateImportFilesFromIncomingDirUnlessAlreadyImporting()
-                if fileExtension == "zip" {
-                    report.recordExpanded(url: url)
-                    entries[result.index] = URLImportEntry(url: url, outcome: .expanded, path: destination, reason: nil)
-                } else {
-                    let reason = String(format: NSLocalizedString("%d bytes that are neither a DICOM object nor an archive", comment: ""),
-                                        Int32(truncatingIfNeeded: data.count))
-                    report.recordRefused(url: url, reason: reason)
-                    entries[result.index] = URLImportEntry(url: url, outcome: .refused, path: destination, reason: reason)
-                }
+                let reason = String(format: NSLocalizedString("%d bytes that are neither a DICOM object nor an archive", comment: ""),
+                                    Int32(truncatingIfNeeded: data.count))
+                report.recordRefused(url: url, reason: reason)
+                entries[result.index] = URLImportEntry(url: url, outcome: .refused, path: destination, reason: reason)
             }
         }
 
         let ordered = entries.keys.sorted().compactMap { entries[$0] }
         let summary = report.summary
-        NSLog("---- url import: %@", summary.replacingOccurrences(of: "\n", with: "; "))
+        NSLog("---- url import: %@", report.logSummary)
         return URLImportResult(entries: ordered, report: summary,
                                succeeded: report.everythingArrived && !urls.isEmpty && !cancelled, cancelled: cancelled)
+    }
+
+    /// The entry of a DICOM object after its import: only what the database
+    /// took is recorded as added.
+    private func imported(_ verdict: DatabaseIngest.Verdict, url: String, report: URLImportReport) -> URLImportEntry {
+        switch verdict {
+        case .indexed(let path):
+            report.recordIndexed(url: url)
+            return URLImportEntry(url: url, outcome: .indexed, path: path, reason: nil)
+        case .refused(let name, let path):
+            let reason = String(format: NSLocalizedString("%@ is not a DICOM file this database can index", comment: ""), name)
+            report.recordRefused(url: url, reason: reason)
+            return URLImportEntry(url: url, outcome: .refused, path: path, reason: reason)
+        case .queued(let path):
+            report.recordExpanded(url: url)
+            return URLImportEntry(url: url, outcome: .queued, path: path, reason: nil)
+        case .notPublished(let errorNumber):
+            return notPublished(errorNumber, url: url, report: report)
+        }
+    }
+
+    private func notPublished(_ errorNumber: Int32, url: String, report: URLImportReport) -> URLImportEntry {
+        let reason = String(cString: strerror(errorNumber))
+        report.recordFailed(url: url, reason: reason)
+        return URLImportEntry(url: url, outcome: .failed, path: nil, reason: reason)
     }
 }

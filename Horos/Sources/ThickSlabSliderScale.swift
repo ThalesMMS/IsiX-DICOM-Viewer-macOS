@@ -47,29 +47,65 @@ struct ThickSlabSliderScale {
         return (thickness - minimum) / (maximum - minimum)
     }
 
-    /// Marks are evenly spaced thickness values, the same on both scales,
-    /// projected onto the knob's curve. On an exponential scale they stand far
-    /// apart at the thin end and close together at the thick end, which shows
-    /// the curve. Marks closer than `minimumSpacing` are omitted rather than
-    /// drawn on top of each other; both endpoints remain visible.
-    func tickPositions(count: Int, minimumSpacing: Double, integral: Bool) -> [Double] {
-        guard (2...50).contains(count), maximum > minimum else { return [] }
-        var values = [minimum]
-        for index in 1..<(count - 1) {
-            let value = minimum + Double(index) / Double(count - 1) * (maximum - minimum)
-            values.append(integral ? value.rounded() : value)
+    /// The thickness the MPR's knob gives at `position`: whole millimeters,
+    /// with the scale's own ends kept as they are, so the thin end is still
+    /// the slice interval. The curve alone gave 1.03, 1.57 or 2.61 mm.
+    func wholeThickness(at position: Double) -> Double {
+        let raw = thickness(at: position)
+        guard raw > minimum, raw < maximum else { return raw }
+        return min(maximum, max(minimum, raw.rounded()))
+    }
+
+    /// Where the marks stand, both ends included: at round values of the
+    /// scale's own unit, never closer than `minimumSpacing` of the track.
+    /// A linear scale marks the multiples of one step (1, 2, 5, 10, 20…), the
+    /// smallest that fits, so its marks are evenly spaced. An exponential
+    /// scale is a logarithmic ruler: 1, 2, 3 … 9 of each power of ten, or 1, 2
+    /// and 5, or the powers alone, whichever is the densest that fits; its
+    /// marks close up toward each power, and the same ratio is the same
+    /// distance anywhere on the track.
+    func tickPositions(minimumSpacing: Double) -> [Double] {
+        guard maximum > minimum else { return [] }
+        let spacing = minimumSpacing.isFinite ? max(minimumSpacing, 0) : 0
+        let rulers = exponential ? Self.digits.map { logarithmicMarks($0) } : linearSteps.map { linearMarks(every: $0) }
+        for case let values? in rulers {
+            let inner = values.map { position(for: $0) }
+            guard zip(inner, inner.dropFirst()).allSatisfy({ $1 - $0 >= spacing }) else { continue }
+            // A mark that would touch an end gives way to the end's own.
+            return [0] + inner.filter { $0 >= spacing && 1 - $0 >= spacing } + [1]
         }
-        // A linear scale keeps its marks evenly spaced; an exponential one may
-        // crowd them up to the legible spacing.
-        let legible = minimumSpacing.isFinite ? max(minimumSpacing, 0) : 0
-        let gap = exponential ? legible : max(legible, 1 / Double(count - 1))
-        var positions = [0.0]
-        for value in values.dropFirst() {
-            let next = position(for: value)
-            if next < 1, next - positions.last! >= gap { positions.append(next) }
+        return [0, 1]
+    }
+
+    /// The digits marked in each power of ten, from the densest ruler to the sparsest.
+    private static let digits: [[Double]] = [[1, 2, 3, 4, 5, 6, 7, 8, 9], [1, 2, 5], [1]]
+    /// More marks than this are no ruler.
+    private static let mostMarks = 48
+
+    /// The values strictly inside the scale that a logarithmic ruler of `digits` marks.
+    private func logarithmicMarks(_ digits: [Double]) -> [Double]? {
+        var values: [Double] = []
+        var power = pow(10, floor(log10(minimum)))
+        while power < maximum {
+            values += digits.map { $0 * power }.filter { $0 > minimum && $0 < maximum }
+            if values.count > Self.mostMarks { return nil }
+            power *= 10
         }
-        if positions.count > 1, 1 - positions.last! < gap { positions.removeLast() }
-        positions.append(1)
-        return positions
+        return values
+    }
+
+    /// Round steps, from about a fiftieth of the range up.
+    private var linearSteps: [Double] {
+        let finest = pow(10, floor(log10((maximum - minimum) / 50)))
+        return (0..<4).flatMap { decade in [1.0, 2, 5].map { $0 * finest * pow(10, Double(decade)) } }
+    }
+
+    /// The multiples of `step` strictly inside the scale.
+    private func linearMarks(every step: Double) -> [Double]? {
+        let first = Int((minimum / step).rounded(.down)) + 1
+        let last = Int((maximum / step).rounded(.up)) - 1
+        guard last >= first else { return [] }
+        guard last - first < Self.mostMarks else { return nil }
+        return (first...last).map { Double($0) * step }
     }
 }

@@ -2,8 +2,9 @@
 """The crash reporter carries no SMTP account or password.
 
 AppController used to return, in clear text, the server, account and password
-of the original project's crash report mailbox. FeedbackReporter never asked
-for them; they only put a credential in the source and in the binary.
+of the original project's crash report mailbox. FeedbackReporter, the reporter
+then, never asked for them; they only put a credential in the source and in
+the binary. The crash report window that replaced it sends nothing itself.
 """
 from pathlib import Path
 import subprocess

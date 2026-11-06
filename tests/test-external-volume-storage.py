@@ -25,7 +25,7 @@ failure = root / 'Horos/Sources/StorageFailure.swift'
 # NSFileManager (N2) is Swift; the checks below name both spellings.
 manager = source_text('NSFileManager+N2')
 manager_is_swift = is_swift('NSFileManager+N2')
-database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
+database = source_text('DicomDatabase')  # Swift
 
 DRIVER = '''
 import Foundation
@@ -117,7 +117,7 @@ if window and ('.contains(' if manager_is_swift else 'containsObject') not in wi
                     'twenty times a launch, which buries everything else')
 
 # --- and a database that never opened says what happened ---------------------
-if 'N2LogStackTrace( @"*************** WTF")' in database:
+if '*************** WTF' in database or 'was released without ever being registered' not in database:
     failures.append('a database released before it finished opening still logs a stack trace '
                     'under "WTF" instead of saying what happened')
 

@@ -42,8 +42,8 @@ import Cocoa
 /// A box whose title is a disclosure triangle that shows and hides its content.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
-/// `<Horos/N2DisclosureBox.h>` are those of the former class. The notification
-/// names stay in N2DisclosureBox+CAPI.m.
+/// `<Horos/N2DisclosureBox.h>` are those of the former class. The
+/// notification names are constants of N2DisclosureBox.h.
 ///
 /// The former class redeclared NSBox's `titleCell` as a read-write
 /// N2DisclosureButtonCell whose getter returned `self.titleCell`, that is,

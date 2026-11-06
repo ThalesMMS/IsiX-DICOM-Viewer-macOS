@@ -99,24 +99,11 @@ public final class DicomDirParser: NSObject {
             fatalError("unreachable")
         }
 
-        var output: NSString = ""
-        var raised: NSException?
-
-        // @synchronized released the lock when an exception left it and let
-        // the exception reach the caller; so does this.
+        // The former @synchronized: one dcmdump at a time. dcmdumpOutput(_:)
+        // raises nothing: the launch of dcmdump, which can, is guarded there.
         DicomDirParser.singeDcmDump.lock()
-        do {
-            try HorosObjCException.perform {
-                output = DicomDirParser.dcmdumpOutput(srcFile)
-            }
-        } catch {
-            raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-        }
+        let output = DicomDirParser.dcmdumpOutput(srcFile)
         DicomDirParser.singeDcmDump.unlock()
-
-        if let raised = raised {
-            raised.raise()
-        }
 
         dirpath = NSString(format: "%@/", srcFile.deletingLastPathComponent)
         data = NSString(string: output as String)
@@ -196,19 +183,17 @@ public final class DicomDirParser: NSObject {
     private static func launch(_ task: Process) -> NSError? {
         var failure: NSError?
         var launched = false
-        do {
-            try HorosObjCException.perform {
-                do {
-                    try task.run() // -launchAndReturnError:
-                    launched = true
-                } catch {
-                    failure = error as NSError
-                }
+        // -launchAndReturnError: still raises for a task it refuses to start.
+        if let exception = HorosObjCException.caught({
+            do {
+                try task.run() // -launchAndReturnError:
+                launched = true
+            } catch {
+                failure = error as NSError
             }
-        } catch {
-            let exception = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
+        }) {
             failure = NSError(domain: "HorosTaskLaunch", code: 2, userInfo: [
-                NSLocalizedDescriptionKey: exception?.reason ?? "The helper tool could not be started."])
+                NSLocalizedDescriptionKey: exception.reason ?? "The helper tool could not be started."])
         }
         if launched {
             return nil
@@ -224,26 +209,12 @@ public final class DicomDirParser: NSObject {
         if startDirectory.isEqual(to: "") || startDirectory.isEqual(to: "/") { return }
         validFilePathDepth += 1
 
-        do {
-            try HorosObjCException.perform {
-                for filePathComponent in (try? FileManager.default.contentsOfDirectory(atPath: startDirectory as String)) ?? [] {
-                    autoreleasepool {
-                        do {
-                            try HorosObjCException.perform {
-                                self.testItem(filePathComponent as NSString, in: startDirectory,
-                                              dicomdirFileList: dicomdirFileList, files: files)
-                            }
-                        } catch {
-                            if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                                NSLog("%@", e)
-                            }
-                        }
-                    }
-                }
-            }
-        } catch {
-            if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                _N2LogExceptionImpl(e, true, "-[DicomDirParser _testForValidFilePath:path:files:]")
+        // Paths and comparisons of NSString, and the file manager's answers:
+        // nothing here raises, as the @try of the former code assumed it might.
+        for filePathComponent in (try? FileManager.default.contentsOfDirectory(atPath: startDirectory as String)) ?? [] {
+            autoreleasepool {
+                testItem(filePathComponent as NSString, in: startDirectory,
+                         dicomdirFileList: dicomdirFileList, files: files)
             }
         }
 
@@ -261,53 +232,41 @@ public final class DicomDirParser: NSObject {
         guard FileManager.default.fileExists(atPath: filePath as String, isDirectory: &isDirectory) else { return }
 
         if !isDirectory.boolValue {
-            do {
-                try HorosObjCException.perform {
-                    let ext = uppercaseFilePath.pathExtension as NSString
+            let ext = uppercaseFilePath.pathExtension as NSString
 
-                    // only files with DCM or no extension, or a number like 82873.9982.9928.22
-                    guard ext.isEqual(to: "DCM") || ext.isEqual(to: "") || ext.length > 4 || ext.length < 3 || ext.holdsIntegerValue() else {
-                        return
-                    }
+            // only files with DCM or no extension, or a number like 82873.9982.9928.22
+            guard ext.isEqual(to: "DCM") || ext.isEqual(to: "") || ext.length > 4 || ext.length < 3 || ext.holdsIntegerValue() else {
+                return
+            }
 
-                    let cutFilePath: NSString
-                    if ext.length <= 4 && ext.length >= 3 && !ext.holdsIntegerValue() {
-                        cutFilePath = uppercaseFilePath.deletingPathExtension as NSString
-                    } else {
-                        cutFilePath = uppercaseFilePath
-                    }
+            let cutFilePath: NSString
+            if ext.length <= 4 && ext.length >= 3 && !ext.holdsIntegerValue() {
+                cutFilePath = uppercaseFilePath.deletingPathExtension as NSString
+            } else {
+                cutFilePath = uppercaseFilePath
+            }
 
-                    guard cutFilePath.length < 2000 else { return }
+            guard cutFilePath.length < 2000 else { return }
 
-                    autoreleasepool {
-                        // The former @catch (...) {} : whatever is raised here
-                        // is dropped silently.
-                        try? HorosObjCException.perform {
-                            if dicomdirFileList.contains(cutFilePath) || dicomdirFileList.contains(filePath) {
+            autoreleasepool {
+                if dicomdirFileList.contains(cutFilePath) || dicomdirFileList.contains(filePath) {
+                    files.add(filePath)
+                } else {
+                    let cutFilePathWithoutPathExtension = cutFilePath.deletingPathExtension as NSString
+
+                    for case let s as NSString in dicomdirFileList {
+                        if cutFilePathWithoutPathExtension.isEqual(to: s as String) {
+                            files.add(filePath)
+                            break
+                        }
+
+                        if (s.pathExtension as NSString).isEqual(to: "") { /// for this case: 738495.		// GE Scanner
+                            if (cutFilePath.deletingPathExtension as NSString).isEqual(to: s.deletingPathExtension) {
                                 files.add(filePath)
-                            } else {
-                                let cutFilePathWithoutPathExtension = cutFilePath.deletingPathExtension as NSString
-
-                                for case let s as NSString in dicomdirFileList {
-                                    if cutFilePathWithoutPathExtension.isEqual(to: s as String) {
-                                        files.add(filePath)
-                                        break
-                                    }
-
-                                    if (s.pathExtension as NSString).isEqual(to: "") { /// for this case: 738495.		// GE Scanner
-                                        if (cutFilePath.deletingPathExtension as NSString).isEqual(to: s.deletingPathExtension) {
-                                            files.add(filePath)
-                                            break
-                                        }
-                                    }
-                                }
+                                break
                             }
                         }
                     }
-                }
-            } catch {
-                if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                    NSLog("**** _testForValidFilePath exception: %@", e)
                 }
             }
         } else if validFilePathDepth < 8 {

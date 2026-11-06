@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// OSICDPreferencePanePref is implemented in Swift since #711 (Preference
+// OSICDPreferencePanePref is implemented in Swift (Preference
 // Panes/OSICDPreferencePane/OSICDPreferencePanePref.swift). This header keeps
 // OSICDPreferencePanePref.h: it brings in the generated interface, which declares the same
 // class name and selectors.

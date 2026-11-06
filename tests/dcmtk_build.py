@@ -23,3 +23,18 @@ def dcmtk_flags(*modules):
         raise SystemExit(2)
     return ['-I' + str(INSTALL / 'include'), '-I' + str(ROOT / 'Horos/Sources'),
             *map(str, archives), '-lz', '-liconv']
+
+
+def dcmtk_source():
+    """The original DCMTK source the build compiles: the archive pinned in
+    Horos/Scripts/external-sources.json, verified and extracted read-only by
+    the same resolver as the recipe. For internal sources and data files that
+    the installation does not carry; public headers are read from INSTALL."""
+    from sources import dependency_source
+    return dependency_source('DCMTK')
+
+
+def dcmtk_dictionary():
+    """The external dicom.dic of the pinned DCMTK source, the file the build
+    ships beside the executables."""
+    return dcmtk_source() / 'dcmdata/data/dicom.dic'

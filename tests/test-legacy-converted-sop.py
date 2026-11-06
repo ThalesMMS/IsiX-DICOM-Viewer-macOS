@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Legacy Converted Enhanced CT, MR and PET are recognised as multi-frame images.
 
-The real DCMAbstractSyntaxUID is compiled and asked, and the UIDs are checked
-against DCMTK's dictionary in this checkout rather than against themselves.
+The real SOP classes of IsiXDICOMFile (DCMAbstractSyntaxUID) are compiled and asked, and the UIDs are checked
+against DCMTK's dictionary rather than against themselves.
 """
 from pathlib import Path
 import re
@@ -10,12 +10,20 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from isix_modules import dicom_file_flags  # noqa: E402
+from dcmtk_build import INSTALL, dcmtk_source  # noqa: E402
+
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-# The values DCMTK 3.6.7 defines, read out of its header: an independent source
-# in this tree for what these UIDs are.
-dcmtk = (root / 'DCMTK/dcmdata/include/dcmtk/dcmdata/dcuid.h').read_text(errors='replace')
+# The values DCMTK defines, read out of its header: an independent source for
+# what these UIDs are. The header the application compiles against is the
+# installed one; without a build, the same public header of the pinned original
+# source the recipe installs it from.
+installed = INSTALL / 'include/dcmtk/dcmdata/dcuid.h'
+dcmtk = (installed if installed.is_file() else
+         dcmtk_source() / 'dcmdata/include/dcmtk/dcmdata/dcuid.h').read_text(errors='replace')
 expected = {}
 for name in ('LegacyConvertedEnhancedCTImageStorage',
              'LegacyConvertedEnhancedMRImageStorage',
@@ -29,7 +37,7 @@ for name in ('LegacyConvertedEnhancedCTImageStorage',
 
 code = r'''
 #import <Foundation/Foundation.h>
-#import "DCMAbstractSyntaxUID.h"
+#import "IsiXDICOMFile-Swift.h"
 
 static int failures;
 #define check(c) do { if (!(c)) { printf("FAIL %s:%d %s\n", __FILE__, __LINE__, #c); failures++; } } while (0)
@@ -85,14 +93,13 @@ int main(int argc, const char **argv) { @autoreleasepool {
 with tempfile.TemporaryDirectory() as directory:
     path = Path(directory)
     (path / 'main.m').write_text(code)
-    build = subprocess.run(['xcrun', 'clang', '-fno-objc-arc',
-                            '-I', str(root / 'DCM Framework'),
-                            str(path / 'main.m'), str(root / 'DCM Framework/DCMAbstractSyntaxUID.m'),
-                            '-framework', 'Foundation', '-framework', 'Cocoa',
+    includes, links = dicom_file_flags(path / 'modules')
+    build = subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fmodules', '-mmacosx-version-min=15.0', *includes,
+                            str(path / 'main.m'), *links, '-framework', 'Foundation',
                             '-o', str(path / 'test')], capture_output=True, text=True)
     if build.returncode != 0:
         print(build.stderr)
-        failures.append('DCMAbstractSyntaxUID.m does not compile')
+        failures.append('the SOP classes do not compile')
         ran = 1
     else:
         ran = subprocess.run([str(path / 'test'),

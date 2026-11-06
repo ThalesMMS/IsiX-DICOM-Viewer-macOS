@@ -40,75 +40,26 @@
 import Cocoa
 import CoreData
 import Synchronization
+import IsiXDICOMFile
+import IsiXDatabase
+import IsiXPreferences
 
 // MARK: - Objective-C semantics the class keeps
 
-/// The database that indexes a file a study generated: the browser's on the
-/// main thread, a private-queue one elsewhere.
-fileprivate func dicomStudyGeneratedFilesDatabase() -> DicomDatabase? {
-    let database = BrowserController.currentBrowser()?.database
-    return Thread.isMainThread ? database : database?.privateQueueIndependentDatabase() as? DicomDatabase
+/// The database that indexes a file a study generated for `database`: that
+/// database on the main thread, a private-queue one over its store elsewhere -
+/// off the main thread the study may be a row an import is still filling (one
+/// it puts in an album), whose context the file must not be indexed through.
+func dicomStudyGeneratedFilesDatabase(_ database: DicomDatabase?) -> DicomDatabase? {
+    Thread.isMainThread ? database : database?.privateQueueIndependentDatabase() as? DicomDatabase
 }
 
 /// Indexes the file inside the queue of that database's context.
 fileprivate func dicomStudyAddGeneratedFiles(_ database: DicomDatabase?, _ paths: [Any]?, postNotifications: Bool) {
     N2ManagedObjectContextPerformAndWait(database?.managedObjectContext) {
-        _ = database?.addFiles(atPaths: paths,
-                               postNotifications: postNotifications,
-                               dicomOnly: true,
-                               rereadExistingItems: true,
-                               generatedByOsiriX: true)
+        guard let database else { return }
+        DatabaseIngest.process.index(paths, preset: postNotifications ? .generated : .generatedQuiet, in: database)
     }
-}
-
-/// Indexes the validated report's DICOM PDF and says whether it went into the
-/// study with `studyInstanceUID`; a file on disk is not that, an import can
-/// refuse it or file it elsewhere.
-fileprivate func dicomStudyAddValidatedReport(_ database: DicomDatabase?, _ path: String?, _ studyInstanceUID: String?) -> Bool {
-    var indexed = false
-    N2ManagedObjectContextPerformAndWait(database?.managedObjectContext) {
-        guard let database, let context = database.managedObjectContext, let path,
-              let studyInstanceUID, !studyInstanceUID.isEmpty else { return }
-        let added = database.addFiles(atPaths: [path], postNotifications: true, dicomOnly: true,
-                                      rereadExistingItems: true, generatedByOsiriX: true) ?? []
-        indexed = added.contains { item in
-            guard let objectID = item as? NSManagedObjectID,
-                  let image = try? context.existingObject(with: objectID) else { return false }
-            return (image.value(forKeyPath: "series.study.studyInstanceUID") as? String) == studyInstanceUID
-        }
-    }
-    return indexed
-}
-
-/// `@try { body } @catch (NSException *e) { N2LogExceptionWithStackTrace(e); }`
-/// (or N2LogException when `stack` is false), logged under the name the
-/// Objective-C method gave __PRETTY_FUNCTION__. True when body raised.
-@discardableResult
-fileprivate func dicomStudyTry(_ function: String, stack: Bool = true, _ body: () -> Void) -> Bool {
-    do {
-        try HorosObjCException.perform(body)
-        return false
-    } catch {
-        if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-            _N2LogExceptionImpl(e, stack, function)
-        }
-        return true
-    }
-}
-
-/// `@synchronized (object) { body }`: the same recursive lock (objc_sync_enter).
-/// An NSException that body raises releases it and then goes on to the caller,
-/// as it did through @synchronized.
-fileprivate func dicomStudySynchronized(_ object: AnyObject, _ body: () -> Void) {
-    objc_sync_enter(object)
-    var raised: NSException? = nil
-    do {
-        try HorosObjCException.perform(body)
-    } catch {
-        raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-    }
-    objc_sync_exit(object)
-    raised?.raise()
 }
 
 /// Runs a complete study operation on its context queue. The synchronous helper
@@ -202,14 +153,6 @@ fileprivate func dicomStudyEnumerate(_ object: Any?) -> [Any] {
         elements.append(element)
     }
     return elements
-}
-
-/// `[NSArray arrayWithObject: object]`, which raises for nil.
-fileprivate func dicomStudyArray(_ object: Any?) -> NSArray {
-    guard let object = object else {
-        return (dicomStudyGet(NSArray.self, "arrayWithObject:", nil) as? NSArray) ?? NSArray()
-    }
-    return NSArray(object: object)
 }
 
 /// `[array addObject: object]`, which raises for nil.
@@ -385,7 +328,7 @@ public final class DicomStudy: NSManagedObject {
         set {
             var c = newValue
 
-            if self.hasDICOM?.boolValue == true && UserDefaults.standard.bool(forKey: "savedCommentsAndStatusInDICOMFiles") && (DicomDatabase(for: self.managedObjectContext)?.isLocal() ?? false) {
+            if self.hasDICOM?.boolValue == true && PreferencesSource.process.preferences[DatabasePreferences.savedCommentsAndStatusInDICOMFiles] && (DicomDatabase(for: self.managedObjectContext)?.isLocal() ?? false) {
                 if c == nil {
                     c = ""
                 }
@@ -467,7 +410,7 @@ public final class DicomStudy: NSManagedObject {
             return v
         }
         set {
-            dicomStudySynchronized(self) {
+            HorosObjCException.synchronized(self) {
                 self.dicomTimeCache = nil
 
                 self.willChangeValue(forKey: "date")
@@ -487,7 +430,7 @@ public final class DicomStudy: NSManagedObject {
 
     @objc public dynamic var institutionName: String! {
         get {
-            if UserDefaults.standard.bool(forKey: "CapitalizedString") {
+            if PreferencesSource.process.preferences[DatabasePreferences.capitalizedString] {
                 return (self.primitiveValue(forKey: "institutionName") as? NSString)?.capitalized
             }
 
@@ -535,7 +478,7 @@ public final class DicomStudy: NSManagedObject {
 
             s = s?.trimmingCharacters(in: .whitespaces) as NSString?
 
-            if UserDefaults.standard.bool(forKey: "CapitalizedString") {
+            if PreferencesSource.process.preferences[DatabasePreferences.capitalizedString] {
                 return s?.capitalized
             }
 
@@ -556,7 +499,7 @@ public final class DicomStudy: NSManagedObject {
             return v
         }
         set {
-            dicomStudySynchronized(self) {
+            HorosObjCException.synchronized(self) {
                 self.cachedModalites = nil
 
                 self.willChangeValue(forKey: "numberOfImages")
@@ -575,7 +518,7 @@ public final class DicomStudy: NSManagedObject {
 
     @objc public dynamic var performingPhysician: String! {
         get {
-            if UserDefaults.standard.bool(forKey: "CapitalizedString") {
+            if PreferencesSource.process.preferences[DatabasePreferences.capitalizedString] {
                 return (self.primitiveValue(forKey: "performingPhysician") as? NSString)?.capitalized
             }
 
@@ -590,7 +533,7 @@ public final class DicomStudy: NSManagedObject {
 
     @objc public dynamic var referringPhysician: String! {
         get {
-            if UserDefaults.standard.bool(forKey: "CapitalizedString") {
+            if PreferencesSource.process.preferences[DatabasePreferences.capitalizedString] {
                 return (self.primitiveValue(forKey: "referringPhysician") as? NSString)?.capitalized
             }
 
@@ -609,7 +552,7 @@ public final class DicomStudy: NSManagedObject {
 
             if let u = url, u.length != 0 {
                 if u.hasPrefix("http://") == false && u.hasPrefix("https://") == false {
-                    let db = BrowserController.currentBrowser()?.database
+                    let db = BrowserDatabaseSource.process.database(of: self)
 
                     if !(db?.isLocal() ?? false) {
                         // We will give a path with TEMP.noindex, instead of REPORTS
@@ -639,7 +582,7 @@ public final class DicomStudy: NSManagedObject {
         }
         set {
             var url = newValue as NSString?
-            let db = BrowserController.currentBrowser()?.database
+            let db = BrowserDatabaseSource.process.database(of: self)
 
             if let u = url {
                 if u.hasPrefix("http://") == false && u.hasPrefix("https://") == false {
@@ -677,11 +620,9 @@ public final class DicomStudy: NSManagedObject {
         set {
             var c = newValue
 
-            dicomStudyTry("-[DicomStudy setStateText:]") {
-                if self.hasDICOM?.boolValue == true && UserDefaults.standard.bool(forKey: "savedCommentsAndStatusInDICOMFiles") && (DicomDatabase(for: self.managedObjectContext)?.isLocal() ?? false) {
-                    if c == nil {
-                        c = NSNumber(value: 0 as Int32)
-                    }
+            HorosObjCException.logged("-[DicomStudy setStateText:]", stack: true) {
+                if self.hasDICOM?.boolValue == true && PreferencesSource.process.preferences[DatabasePreferences.savedCommentsAndStatusInDICOMFiles] && (DicomDatabase(for: self.managedObjectContext)?.isLocal() ?? false) {
+                    c = c ?? NSNumber(value: 0 as Int32)
 
                     if (c?.int32Value ?? 0) != ((self.primitiveValue(forKey: "stateText") as? NSNumber)?.int32Value ?? 0) {
                         let dict = dicomStudyModifyDictionary(self.paths()?.allObjects, "(4008,0212)", c?.stringValue)
@@ -695,44 +636,9 @@ public final class DicomStudy: NSManagedObject {
                 }
 
                 if self.hasDICOM?.boolValue == true {
-                    // Save as DICOM PDF
-                    if UserDefaults.standard.bool(forKey: "generateDICOMPDFWhenValidated") && (c?.int32Value ?? 0) == 4 && dicomStudyLength(self.reportURL) != 0 {
-                        let isMainDB = self.managedObjectContext?.persistentStoreCoordinator === BrowserController.currentBrowser()?.database?.managedObjectContext?.persistentStoreCoordinator
-
-                        let filePath: String? = isMainDB ? BrowserController.currentBrowser()?.database?.uniquePathForNewDataFile(withExtension: "dcm") : FileManager.default.tmpFilePathInTmp()
-
-                        var caught: NSException? = nil
-                        do {
-                            try HorosObjCException.perform {
-                                self.saveReportAsDicom(atPath: filePath)
-
-                                // Conversion failure must not import an empty path or
-                                // replace the Pages report. reportURL is untouched.
-                                if dicomStudyFileExists(filePath) == false {
-                                    NSException(name: .genericException, reason: "The DICOM PDF could not be written. The original report has been left unchanged.", userInfo: nil).raise()
-                                }
-
-                                let idb = isMainDB ? dicomStudyGeneratedFilesDatabase() : DicomDatabase(atPath: FileManager.default.tmpDirPath())
-
-                                // The report open in Pages closes once its PDF is in this
-                                // study; until then it is the only copy being worked on.
-                                if dicomStudyAddValidatedReport(idb, filePath, self.studyInstanceUID),
-                                   UserDefaults.standard.bool(forKey: "closePagesReportWhenValidated"),
-                                   let report = self.reportURL {
-                                    PagesPDFConversion.closeValidatedReport(at: report)
-                                }
-                            }
-                        } catch {
-                            caught = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-                        }
-                        if let e = caught {
-                            _N2LogExceptionImpl(e, true, "-[DicomStudy setStateText:]")
-                            // Validation goes on; the missing DICOM PDF is said, not only logged.
-                            let reason = String(format: "%@: %@", dicomStudyArg(self.name ?? ""), dicomStudyArg(e.reason ?? e.name.rawValue))
-                            DispatchQueue.main.async {
-                                AppController.shared()?.notificationTitle(NSLocalizedString("Report Error", comment: ""), description: reason, name: "reportConversion")
-                            }
-                        }
+                    // Save as DICOM PDF when the study becomes validated, not when it is set validated again (ValidatedReportPDF)
+                    if PreferencesSource.process.preferences[DatabasePreferences.generatesDICOMPDFWhenValidated] && ValidatedReportPDF.isDue(from: (self.primitiveValue(forKey: "stateText") as? NSNumber)?.int32Value ?? 0, to: c?.int32Value ?? 0) && dicomStudyLength(self.reportURL) != 0 {
+                        self.archiveValidatedReportAsDICOMPDF()
                     }
                 }
             }
@@ -745,6 +651,7 @@ public final class DicomStudy: NSManagedObject {
 
             if (c?.int32Value ?? 0) != (previousState?.int32Value ?? 0) {
                 self.archiveAnnotationsAsDICOMSR()
+                StudyStates.stateChanged(of: self, from: previousState?.int32Value ?? 0, to: c?.int32Value ?? 0)
             }
         }
     }
@@ -753,7 +660,7 @@ public final class DicomStudy: NSManagedObject {
 
     @objc public dynamic var studyName: String! {
         get {
-            if UserDefaults.standard.bool(forKey: "CapitalizedString") {
+            if PreferencesSource.process.preferences[DatabasePreferences.capitalizedString] {
                 return (self.primitiveValue(forKey: "studyName") as? NSString)?.capitalized
             }
 
@@ -858,24 +765,24 @@ public final class DicomStudy: NSManagedObject {
 
     @objc(displaySeriesWithSOPClassUID:andSeriesDescription:containingOnlyPixels:)
     public dynamic class func displaySeries(withSOPClassUID uid: String!, andSeriesDescription description: String!, containingOnlyPixels pixels: Bool) -> Bool {
-        if dicomStudyEqual(description, "OsiriX No Autodeletion") {
+        if dicomStudyEqual(description, SelectionImages.noAutodeletionName) {
             return false
         }
 
         if pixels {
-            if uid == nil || DCMAbstractSyntaxUID.isImageStorage(uid) {
-                if dicomStudyEqual(uid, DCMAbstractSyntaxUID.pdfStorageClassUID()) {
+            if uid == nil || DICOMSOPClass.isImageStorage(uid) {
+                if dicomStudyEqual(uid, DICOMSOPClass.pdfStorageClassUID()) {
                     return false
                 }
 
                 return true
             }
         } else {
-            if uid == nil || DCMAbstractSyntaxUID.isImageStorage(uid) || DCMAbstractSyntaxUID.isRadiotherapy(uid) || DCMAbstractSyntaxUID.isWaveform(uid) {
+            if uid == nil || DICOMSOPClass.isImageStorage(uid) || DICOMSOPClass.isRadiotherapy(uid) || DICOMSOPClass.isWaveform(uid) {
                 return true
             }
 
-            if DCMAbstractSyntaxUID.isStructuredReport(uid) && dicomStudyHasPrefix(description, "OsiriX ROI SR") == false && dicomStudyHasPrefix(description, "OsiriX Annotations SR") == false && dicomStudyHasPrefix(description, "OsiriX Report SR") == false && dicomStudyHasPrefix(description, "OsiriX WindowsState SR") == false {
+            if DICOMSOPClass.isStructuredReport(uid) && dicomStudyHasPrefix(description, "OsiriX ROI SR") == false && dicomStudyHasPrefix(description, "OsiriX Annotations SR") == false && dicomStudyHasPrefix(description, "OsiriX Report SR") == false && dicomStudyHasPrefix(description, "OsiriX WindowsState SR") == false {
                 return true
             }
         }
@@ -934,8 +841,8 @@ public final class DicomStudy: NSManagedObject {
         let sortdate = NSSortDescriptor(key: "date", ascending: true)
         var sortDescriptors: NSArray? = nil
 
-        if UserDefaults.standard.integer(forKey: "SERIESORDER") == 0 { sortDescriptors = [sortid, sortdate] }
-        else if UserDefaults.standard.integer(forKey: "SERIESORDER") == 1 { sortDescriptors = [sortdate, sortid] }
+        if PreferencesSource.process.preferences[DatabasePreferences.seriesOrder] == 0 { sortDescriptors = [sortid, sortdate] }
+        else if PreferencesSource.process.preferences[DatabasePreferences.seriesOrder] == 1 { sortDescriptors = [sortdate, sortid] }
         else { sortDescriptors = [sortid, sortdate] }
 
         return sortDescriptors
@@ -970,13 +877,13 @@ public final class DicomStudy: NSManagedObject {
 
     @objc public dynamic func dicomTime() -> NSNumber! {
         var time: NSNumber? = nil
-        dicomStudySynchronized(self) {
+        HorosObjCException.synchronized(self) {
             if let cached = self.dicomTimeCache {
                 time = cached
                 return
             }
 
-            self.dicomTimeCache = (DCMCalendarDate.dicomTime(with: self.date) as? DCMCalendarDate)?.timeAsNumber()
+            self.dicomTimeCache = (DICOMCalendarDate.dicomTime(with: self.date))?.timeAsNumber()
 
             time = self.dicomTimeCache
         }
@@ -986,7 +893,7 @@ public final class DicomStudy: NSManagedObject {
     @objc public dynamic func intervalSinceBirth() -> NSNumber! {
         // -[NSDate timeIntervalSinceDate: nil] is NaN; a nil receiver answers 0.
         let dateOfBirth = self.dateOfBirth
-        if UserDefaults.standard.integer(forKey: "yearOldDatabaseDisplay") == 0 {
+        if PreferencesSource.process.preferences[DatabasePreferences.yearOldDatabaseDisplay] == 0 {
             return NSNumber(value: dateOfBirth.map { Date().timeIntervalSince($0) } ?? Double.nan)
         } else {
             guard let date = self.date else { return NSNumber(value: 0.0) }
@@ -1006,11 +913,10 @@ public final class DicomStudy: NSManagedObject {
         return dicomStudyOnQueue(self.managedObjectContext) { () -> String? in
             var local = true
 
-            dicomStudyTry("-[DicomStudy localstring]") {
+            HorosObjCException.logged("-[DicomStudy localstring]", stack: true) {
                 let obj = (dicomStudyValue(self.series?.anyObject(), "images") as? NSSet)?.anyObject()
                 local = (dicomStudyValue(obj, "inDatabaseFolder") as? NSNumber)?.boolValue ?? false
             }
-
 
             if local {
                 return "L"
@@ -1023,10 +929,9 @@ public final class DicomStudy: NSManagedObject {
         return dicomStudyOnQueue(self.managedObjectContext) { () -> String? in
             var names: String? = nil
 
-            dicomStudyTry("-[DicomStudy albumsNames]") {
+            HorosObjCException.logged("-[DicomStudy albumsNames]", stack: true) {
                 names = ((self.albums?.allObjects as NSArray?)?.value(forKey: "name") as? NSArray)?.componentsJoined(by: "/")
             }
-
 
             return names
         }
@@ -1038,12 +943,11 @@ public final class DicomStudy: NSManagedObject {
         return dicomStudyOnQueue(self.managedObjectContext) { () -> NSNumber? in
             var sum: Int32 = 0
 
-            dicomStudyTry("-[DicomStudy rawNoFiles]") {
+            HorosObjCException.logged("-[DicomStudy rawNoFiles]", stack: true) {
                 for s in (self.series?.allObjects ?? []) {
                     sum &+= (dicomStudyValue(s, "rawNoFiles") as? NSNumber)?.int32Value ?? 0
                 }
             }
-
 
             return NSNumber(value: sum)
         }
@@ -1054,14 +958,13 @@ public final class DicomStudy: NSManagedObject {
             if ((self.primitiveValue(forKey: "numberOfImages") as? NSNumber)?.int32Value ?? 0) <= 0 { // There are frames !
                 var result: NSNumber? = nil
 
-                dicomStudyTry("-[DicomStudy noFilesExcludingMultiFrames]") {
+                HorosObjCException.logged("-[DicomStudy noFilesExcludingMultiFrames]", stack: true) {
                     var sum: Int32 = 0
                     for s in (self.series?.allObjects ?? []) {
                         sum &+= (dicomStudyValue(s, "noFilesExcludingMultiFrames") as? NSNumber)?.int32Value ?? 0
                     }
                     result = NSNumber(value: sum)
                 }
-
 
                 if let result = result {
                     return result
@@ -1082,13 +985,13 @@ public final class DicomStudy: NSManagedObject {
                 var sum: Int32 = 0
                 var no: NSNumber? = nil
 
-                dicomStudyTry("-[DicomStudy noFiles]") {
+                HorosObjCException.logged("-[DicomStudy noFiles]", stack: true) {
                     var framesInSeries = false
 
                     for s in (self.series?.allObjects ?? []) {
-                        if DCMAbstractSyntaxUID.isStructuredReport(dicomStudyValue(s, "seriesSOPClassUID") as? String) == false &&
-                            DCMAbstractSyntaxUID.isSupportedPrivateClasses(dicomStudyValue(s, "seriesSOPClassUID") as? String) == false &&
-                            DCMAbstractSyntaxUID.isPresentationState(dicomStudyValue(s, "seriesSOPClassUID") as? String) == false {
+                        if DICOMSOPClass.isStructuredReport(dicomStudyValue(s, "seriesSOPClassUID") as? String) == false &&
+                            DICOMSOPClass.isSupportedPrivateClasses(dicomStudyValue(s, "seriesSOPClassUID") as? String) == false &&
+                            DICOMSOPClass.isPresentationState(dicomStudyValue(s, "seriesSOPClassUID") as? String) == false {
                             sum &+= (dicomStudyValue(s, "noFiles") as? NSNumber)?.int32Value ?? 0
 
                             if (((s as? NSManagedObject)?.primitiveValue(forKey: "numberOfImages") as? NSNumber)?.int32Value ?? 0) < 0 { // There are frames !
@@ -1107,7 +1010,6 @@ public final class DicomStudy: NSManagedObject {
                     self.setPrimitiveValue(no, forKey: "numberOfImages")
                     self.didChangeValue(forKey: "numberOfImages")
                 }
-
 
                 if sum < 0 {
                     return NSNumber(value: 0 &- sum)
@@ -1129,14 +1031,13 @@ public final class DicomStudy: NSManagedObject {
         return dicomStudyOnQueue(self.managedObjectContext) { () -> NSSet? in
             var result: NSSet? = nil
 
-            dicomStudyTry(function) {
+            HorosObjCException.logged(function, stack: true) {
                 let set = NSMutableSet()
                 for subset in dicomStudyEnumerate(self.value(forKeyPath: keyPath)) {
                     dicomStudyUnion(set, subset)
                 }
                 result = set
             }
-
 
             return result
         }
@@ -1154,14 +1055,13 @@ public final class DicomStudy: NSManagedObject {
         return dicomStudyOnQueue(self.managedObjectContext) { () -> NSSet? in
             var result: NSSet? = nil
 
-            dicomStudyTry("-[DicomStudy keyImages]") {
+            HorosObjCException.logged("-[DicomStudy keyImages]", stack: true) {
                 let set = NSMutableSet()
                 for object in dicomStudyEnumerate(self.series) {
                     dicomStudyUnion(set, dicomStudyGet(object, "keyImages"))
                 }
                 result = set
             }
-
 
             return result
         }
@@ -1182,21 +1082,17 @@ public final class DicomStudy: NSManagedObject {
         return dicomStudyOnQueue(self.managedObjectContext) { () -> NSArray? in
             var result: NSArray? = nil
 
-            dicomStudyTry("-[DicomStudy imageSeriesContainingPixels:]") {
+            HorosObjCException.logged("-[DicomStudy imageSeriesContainingPixels:]", stack: true) {
                 let newArray = NSMutableArray()
                 for series in (self.series?.sortedArray(using: (DicomStudy.seriesSortDescriptors() as? [NSSortDescriptor]) ?? []) ?? []) {
-                    do {
-                        try HorosObjCException.perform {
-                            if let series = series as? DicomSeries, DicomStudy.displaySeries(withSOPClassUID: series.seriesSOPClassUID, andSeriesDescription: series.name, containingOnlyPixels: pixels) {
-                                newArray.add(series)
-                            }
+                    HorosObjCException.caught {
+                        if let series = series as? DicomSeries, DicomStudy.displaySeries(withSOPClassUID: series.seriesSOPClassUID, andSeriesDescription: series.name, containingOnlyPixels: pixels) {
+                            newArray.add(series)
                         }
-                    } catch {
                     }
                 }
                 result = DicomStudy.imagesBeforeDocuments(newArray)
             }
-
 
             return result
         }
@@ -1208,7 +1104,7 @@ public final class DicomStudy: NSManagedObject {
     @objc(isPictureSeriesSOPClassUID:)
     public dynamic class func isPictureSeries(sopClassUID uid: String?) -> Bool {
         guard let uid, !uid.isEmpty else { return true }
-        return DCMAbstractSyntaxUID.isImageStorage(uid) && uid != DCMAbstractSyntaxUID.pdfStorageClassUID()
+        return DICOMSOPClass.isImageStorage(uid) && uid != DICOMSOPClass.pdfStorageClassUID()
     }
 
     /// The series of pictures first and the documents after them, each in the
@@ -1234,19 +1130,15 @@ public final class DicomStudy: NSManagedObject {
         return dicomStudyOnQueue(self.managedObjectContext) { () -> UInt in
             var count: UInt = 0
 
-            dicomStudyTry("-[DicomStudy numberOfImageSeries]") {
+            HorosObjCException.logged("-[DicomStudy numberOfImageSeries]", stack: true) {
                 for series in dicomStudyEnumerate(self.series) {
-                    do {
-                        try HorosObjCException.perform {
-                            if let series = series as? DicomSeries, DicomStudy.displaySeries(withSOPClassUID: series.seriesSOPClassUID, andSeriesDescription: series.name) {
-                                count += 1
-                            }
+                    HorosObjCException.caught {
+                        if let series = series as? DicomSeries, DicomStudy.displaySeries(withSOPClassUID: series.seriesSOPClassUID, andSeriesDescription: series.name) {
+                            count += 1
                         }
-                    } catch {
                     }
                 }
             }
-
 
             return count
         }
@@ -1257,7 +1149,7 @@ public final class DicomStudy: NSManagedObject {
         return dicomStudyOnQueue(self.managedObjectContext) { () -> NSArray? in
             var result: NSArray? = nil
 
-            dicomStudyTry(function) {
+            HorosObjCException.logged(function, stack: true) {
                 let newArray = NSMutableArray()
                 for series in dicomStudyEnumerate(self.series) {
                     if test(dicomStudyValue(series, "seriesSOPClassUID") as? String) {
@@ -1273,14 +1165,14 @@ public final class DicomStudy: NSManagedObject {
     }
 
     @objc public dynamic func keyObjectSeries() -> NSArray! {
-        return self.seriesWithSOPClass("-[DicomStudy keyObjectSeries]") { dicomStudyEqual(DCMAbstractSyntaxUID.keyObjectSelectionDocumentStorage(), $0) }
+        return self.seriesWithSOPClass("-[DicomStudy keyObjectSeries]") { dicomStudyEqual(DICOMSOPClass.keyObjectSelectionDocumentStorage(), $0) }
     }
 
     @objc public dynamic func keyObjects() -> NSArray! {
         return dicomStudyOnQueue(self.managedObjectContext) { () -> NSArray? in
             var result: NSArray? = nil
 
-            dicomStudyTry("-[DicomStudy keyObjects]") {
+            HorosObjCException.logged("-[DicomStudy keyObjects]", stack: true) {
                 let set = NSMutableSet()
                 for series in dicomStudyEnumerate(self.keyObjectSeries()) {
                     dicomStudyUnion(set, dicomStudyGet(series, "images"))
@@ -1294,11 +1186,11 @@ public final class DicomStudy: NSManagedObject {
     }
 
     @objc public dynamic func presentationStateSeries() -> NSArray! {
-        return self.seriesWithSOPClass("-[DicomStudy presentationStateSeries]") { DCMAbstractSyntaxUID.isPresentationState($0) }
+        return self.seriesWithSOPClass("-[DicomStudy presentationStateSeries]") { DICOMSOPClass.isPresentationState($0) }
     }
 
     @objc public dynamic func waveFormSeries() -> NSArray! {
-        return self.seriesWithSOPClass("-[DicomStudy waveFormSeries]") { DCMAbstractSyntaxUID.isWaveform($0) }
+        return self.seriesWithSOPClass("-[DicomStudy waveFormSeries]") { DICOMSOPClass.isWaveform($0) }
     }
 
     // MARK: The app's own SR series
@@ -1310,13 +1202,13 @@ public final class DicomStudy: NSManagedObject {
     /// `numberOfImagesFirst` says whether numberOfImages is reset before the
     /// save (the report, windows state and ROI series) or after the merge (the
     /// annotations series), as each method did.
-    private func ownSRSeries(in array: NSSet?, _ number: Int32, _ name: String, logFormat: String, function: String, numberOfImagesFirst: Bool) -> NSArray {
+    private func ownSRSeries(in array: NSSet?, _ number: Int32, _ name: String, logFormat: StaticString, function: String, numberOfImagesFirst: Bool) -> NSArray {
         let newArray = NSMutableArray()
 
         for series in dicomStudyEnumerate(array) {
             if (dicomStudyValue(series, "id") as? NSNumber)?.int32Value ?? 0 == number &&
                 dicomStudyEqual(dicomStudyValue(series, "name"), name) &&
-                DCMAbstractSyntaxUID.isStructuredReport(dicomStudyValue(series, "seriesSOPClassUID") as? String) == true {
+                DICOMSOPClass.isStructuredReport(dicomStudyValue(series, "seriesSOPClassUID") as? String) == true {
                 newArray.add(series)
             }
         }
@@ -1324,7 +1216,7 @@ public final class DicomStudy: NSManagedObject {
         if newArray.count > 1 {
             NSLog(logFormat, Int32(truncatingIfNeeded: newArray.count))
 
-            dicomStudyTry(function) {
+            HorosObjCException.logged(function, stack: true) {
                 let r = (newArray.lastObject as AnyObject).mutableSetValue(forKey: "images")
 
                 for i in dicomStudyEnumerate(newArray) {
@@ -1364,7 +1256,7 @@ public final class DicomStudy: NSManagedObject {
 
             var image: DicomImage? = nil
 
-            dicomStudyTry("-[DicomStudy annotationsSRImage]") {
+            HorosObjCException.logged("-[DicomStudy annotationsSRImage]", stack: true) {
                 let newArray = self.ownSRSeries(in: array, 5004, "OsiriX Annotations SR", logFormat: "****** multiple (%d) annotationsSRImage 5004 series: Delete the extra series and merge the images...", function: "-[DicomStudy annotationsSRImage]", numberOfImagesFirst: false)
 
                 if ((dicomStudyValue(newArray.lastObject, "images") as? NSSet)?.count ?? 0) > 1 {
@@ -1387,7 +1279,7 @@ public final class DicomStudy: NSManagedObject {
     @objc public dynamic func reportImage() -> DicomImage! {
         var images: [Any]? = nil
 
-        dicomStudyTry("-[DicomStudy reportImage]") {
+        HorosObjCException.logged("-[DicomStudy reportImage]", stack: true) {
             images = (dicomStudyValue(self.reportSRSeries(), "images") as? NSSet)?.allObjects
 
             if (images?.count ?? 0) > 1 {
@@ -1406,7 +1298,7 @@ public final class DicomStudy: NSManagedObject {
 
             var result: DicomSeries? = nil
 
-            dicomStudyTry("-[DicomStudy reportSRSeries]") {
+            HorosObjCException.logged("-[DicomStudy reportSRSeries]", stack: true) {
                 result = self.ownSRSeries(in: array, 5003, "OsiriX Report SR", logFormat: "****** multiple (%d) reportSRSeries: Delete the extra series and merge the images...", function: "-[DicomStudy reportSRSeries]", numberOfImagesFirst: true).lastObject as? DicomSeries
             }
 
@@ -1418,7 +1310,7 @@ public final class DicomStudy: NSManagedObject {
     @objc public dynamic func allWindowsStateSRSeries() -> NSArray! {
         var images: [Any]? = nil
 
-        dicomStudyTry("-[DicomStudy allWindowsStateSRSeries]") {
+        HorosObjCException.logged("-[DicomStudy allWindowsStateSRSeries]", stack: true) {
             images = (dicomStudyValue(self.windowsStateSRSeries(), "images") as? NSSet)?.allObjects
 
             if (images?.count ?? 0) > 1 {
@@ -1441,7 +1333,7 @@ public final class DicomStudy: NSManagedObject {
 
             var result: DicomSeries? = nil
 
-            dicomStudyTry("-[DicomStudy windowsStateSRSeries]") {
+            HorosObjCException.logged("-[DicomStudy windowsStateSRSeries]", stack: true) {
                 result = self.ownSRSeries(in: array, 5006, "OsiriX WindowsState SR", logFormat: "****** multiple (%d) reportSRSeries: Delete the extra series and merge the images...", function: "-[DicomStudy windowsStateSRSeries]", numberOfImagesFirst: true).lastObject as? DicomSeries
             }
 
@@ -1457,7 +1349,7 @@ public final class DicomStudy: NSManagedObject {
 
             var result: DicomSeries? = nil
 
-            dicomStudyTry("-[DicomStudy roiSRSeries]") {
+            HorosObjCException.logged("-[DicomStudy roiSRSeries]", stack: true) {
                 result = self.ownSRSeries(in: array, 5002, "OsiriX ROI SR", logFormat: "****** multiple (%d) roiSRSeries: Delete the extra series and merge the images...", function: "-[DicomStudy roiSRSeries]", numberOfImagesFirst: true).lastObject as? DicomSeries
             }
 
@@ -1473,7 +1365,7 @@ public final class DicomStudy: NSManagedObject {
         return dicomStudyOnQueue(self.managedObjectContext) { () -> DicomImage? in
             var roi: DicomImage? = nil
 
-            dicomStudyTry("-[DicomStudy roiForImage:inArray:]") {
+            HorosObjCException.logged("-[DicomStudy roiForImage:inArray:]", stack: true) {
                 var searchedUID = dicomStudyValue(image, "sopInstanceUID") as? NSString
 
                 searchedUID = searchedUID?.appending(String(format: "-%d", (dicomStudyValue(image, "frameID") as? NSNumber)?.int32Value ?? 0)) as NSString?
@@ -1494,7 +1386,7 @@ public final class DicomStudy: NSManagedObject {
                     let r = NSMutableArray()
                     for i in dicomStudyEnumerate(found) {
                         if (i as AnyObject) !== (found?.lastObject as AnyObject?) {
-                            dicomStudyTry("-[DicomStudy roiForImage:inArray:]") {
+                            HorosObjCException.logged("-[DicomStudy roiForImage:inArray:]", stack: true) {
                                 if !(DicomDatabase(for: self.managedObjectContext)?.isLocal() ?? false) {
                                     // Not modified on the 'bonjour client side'?
                                     if (dicomStudyValue(i, "inDatabaseFolder") as? NSNumber)?.boolValue ?? false {
@@ -1552,7 +1444,7 @@ public final class DicomStudy: NSManagedObject {
     public dynamic func roiPath(forImage image: DicomImage!, inArray roisArray: NSArray!) -> String! {
         var path: String? = nil
 
-        dicomStudyTry("-[DicomStudy roiPathForImage:inArray:]") {
+        HorosObjCException.logged("-[DicomStudy roiPathForImage:inArray:]", stack: true) {
             let roi = self.roiForImage(image, inArray: roisArray)
 
             path = dicomStudyValue(roi, "completePathResolved") as? String
@@ -1654,15 +1546,7 @@ public final class DicomStudy: NSManagedObject {
         }
 
         if producedFiles.count != 0 {
-            var objects = BrowserController.currentBrowser()?.database?.addFiles(atPaths: producedFiles.value(forKey: "file") as? [Any],
-                                                                                 postNotifications: true,
-                                                                                 dicomOnly: true,
-                                                                                 rereadExistingItems: true,
-                                                                                 generatedByOsiriX: true)
-
-            objects = BrowserController.currentBrowser()?.database?.objects(withIDs: objects)
-
-            return objects as NSArray?
+            return GeneratedSeriesImport.process.images(indexing: producedFiles.value(forKey: "file") as? [Any] ?? []) as NSArray?
         }
         return nil
     }
@@ -1681,7 +1565,7 @@ public final class DicomStudy: NSManagedObject {
         let req = NSFetchRequest<NSFetchRequestResult>(entityName: "Study")
         req.predicate = dicomStudyPredicate("(patientUID == %@)", self.patientUID)
 
-        dicomStudyTry("-[DicomStudy studiesForThisPatient]", stack: false) {
+        HorosObjCException.logged("-[DicomStudy studiesForThisPatient]") {
             comparatives = (try? self.managedObjectContext?.fetch(req)) as NSArray?
         }
 
@@ -1693,7 +1577,7 @@ public final class DicomStudy: NSManagedObject {
         let webContext = WebPortal.default()?.threadWebDatabase()?.managedObjectContext
 
         var result: NSArray? = nil
-        dicomStudyTry("-[DicomStudy authorizedUsers]") {
+        HorosObjCException.logged("-[DicomStudy authorizedUsers]", stack: true) {
             let dbRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "User")
             dbRequest.predicate = NSPredicate(value: true)
             dbRequest.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
@@ -1757,7 +1641,7 @@ public final class DicomStudy: NSManagedObject {
         DicomStudy.avoidReentry3.wrappingAdd(1, ordering: .relaxed)
 
         if self.hasDICOM?.boolValue == true {
-            dicomStudyTry("-[DicomStudy reapplyAnnotationsFromDICOMSR]") {
+            HorosObjCException.logged("-[DicomStudy reapplyAnnotationsFromDICOMSR]", stack: true) {
                 let archivedAnnotations = self.annotationsSRImage()
                 let dstPath = dicomStudyValue(archivedAnnotations, "completePath") as? String
 
@@ -1786,7 +1670,7 @@ public final class DicomStudy: NSManagedObject {
             NSLog("******** WARNING applyAnnotationsFromDictionary will not be applied - studyInstanceUID are NOT corresponding: %@ / %@", dicomStudyArg(rootDict.value(forKey: "studyInstanceUID")), dicomStudyArg(self.studyInstanceUID))
         }
         else {
-            dicomStudyTry("-[DicomStudy applyAnnotationsFromDictionary:]") {
+            HorosObjCException.logged("-[DicomStudy applyAnnotationsFromDictionary:]", stack: true) {
                 // We are at root level
                 for key in ["comment", "comment2", "comment3", "comment4", "stateText"] {
                     if rootDict.value(forKey: key) != nil {
@@ -1992,39 +1876,28 @@ public final class DicomStudy: NSManagedObject {
         DicomStudy.avoidReentry2.wrappingAdd(1, ordering: .relaxed)
 
         if self.hasDICOM?.boolValue == true {
-            dicomStudyTry("-[DicomStudy archiveAnnotationsAsDICOMSR]") {
-                let isMainDB = self.managedObjectContext?.persistentStoreCoordinator === BrowserController.currentBrowser()?.database?.managedObjectContext?.persistentStoreCoordinator
+            HorosObjCException.logged("-[DicomStudy archiveAnnotationsAsDICOMSR]", stack: true) {
+                // The study's own database, which the browser may not show: the SR is written in its data folder and
+                // indexed there, and a shared database sends it to its server, whose copy of the study takes the
+                // annotations from it. Without a database there is nowhere to write it.
+                guard let database = BrowserDatabaseSource.process.database(of: self) else { return }
 
-                let archivedAnnotations = self.annotationsSRImage()
-                var dstPath = dicomStudyValue(archivedAnnotations, "completePath") as? String
-
-                if dstPath == nil {
-                    dstPath = isMainDB ? DicomDatabase(for: self.managedObjectContext)?.uniquePathForNewDataFile(withExtension: "dcm") : FileManager.default.tmpFilePathInTmp()
-                }
-
+                // The study's latest annotations SR as read back: none before the first, no annotations when unreadable
+                let latest = (dicomStudyValue(self.annotationsSRImage(), "completePath") as? String).flatMap { SRAnnotation(contentsOfFile: $0) }
                 let annotationsDict = self.annotationsAsDictionary()
 
-                let w = SRAnnotation(contentsOfFile: dstPath)
-                if ((w?.annotations() as NSDictionary?)?.isEqual(to: annotationsDict as? [AnyHashable: Any] ?? [:]) ?? false) == false {
-                    if w != nil {
-                        dstPath = isMainDB ? DicomDatabase(for: self.managedObjectContext)?.uniquePathForNewDataFile(withExtension: "dcm") : FileManager.default.tmpFilePathInTmp()
-                    }
-
-                    // Save or Re-Save it as DICOM SR
-                    let r = SRAnnotation(dictionary: annotationsDict as? [AnyHashable: Any], path: dstPath, for: self.archivedSRReferenceImage())
-                    _ = r?.writeToFile(atPath: dstPath)
-
-                    let idb = dicomStudyGeneratedFilesDatabase()
-
-                    if isMainDB {
-                        dicomStudyAddGeneratedFiles(idb, dicomStudyArray(dstPath) as? [Any], postNotifications: false)
-                    } else {
-                        _ = DicomDatabase(atPath: FileManager.default.tmpDirPath())?.addFiles(atPaths: dicomStudyArray(dstPath) as? [Any],
-                                                                    postNotifications: false,
-                                                                    dicomOnly: true,
-                                                                    rereadExistingItems: true,
-                                                                    generatedByOsiriX: true)
-                    }
+                if ((latest?.annotations() as NSDictionary?)?.isEqual(to: annotationsDict as? [AnyHashable: Any] ?? [:]) ?? false) == false {
+                    // Always a new file, never over the latest SR, even an unreadable one: the new SR has an instance
+                    // UID of its own, so over that file it would leave the earlier row naming the new SR's file, which
+                    // no row can then leave without taking the file. Apart, the earlier row and its file leave once
+                    // the new one is indexed.
+                    _ = GeneratedSeriesImport.process.add(into: database, writing: { dstPath in
+                        let r = SRAnnotation(dictionary: annotationsDict as? [AnyHashable: Any], path: dstPath, for: self.archivedSRReferenceImage())
+                        return r?.writeToFile(atPath: dstPath) == true ? dstPath : nil
+                    }, indexing: { dstPath, database in
+                        // Indexed, the new SR replaces the study's earlier ones, which leave the database and the disk
+                        AnnotationsSRPruning.index(dstPath, written: true, in: dicomStudyGeneratedFilesDatabase(database))
+                    })
                 }
             }
         }
@@ -2032,26 +1905,33 @@ public final class DicomStudy: NSManagedObject {
     }
 
     @objc public dynamic func archiveWindowsStateAsDICOMSR() {
+        StudyDocumentError.raisingForObjectiveC { try writeWindowsStateAsDICOMSR() }
+    }
+
+    /// The windows state archived as a DICOM SR, written in the data folder of the study's own database (which the
+    /// browser may not show) and indexed there: GeneratedSeriesImport's add(into:writing:).
+    @nonobjc func writeWindowsStateAsDICOMSR() throws {
         NSLog("--- Windows State -> DICOM SR : %@", dicomStudyArg(self.name))
 
-        let windowsState = self.windowsState
+        // Without a database there is no file to write or index, where +[NSArray arrayWithObject:nil] raised.
+        guard let database = BrowserDatabaseSource.process.database(of: self) else {
+            try? self.managedObjectContext?.save()
+            throw StudyDocumentError.named(.invalidArgumentException, "*** -[__NSPlaceholderArray initWithObjects:count:]: attempt to insert nil object from objects[0]")
+        }
 
-        let dstPath = BrowserController.currentBrowser()?.database?.uniquePathForNewDataFile(withExtension: "dcm")
-
-        let r = SRAnnotation(windowsState: windowsState, path: dstPath, for: self.archivedSRReferenceImage())
-
-        _ = r?.writeToFile(atPath: dstPath)
-
-        try? self.managedObjectContext?.save()
-
-        let idb = dicomStudyGeneratedFilesDatabase()
-
-        dicomStudyAddGeneratedFiles(idb, dicomStudyArray(dstPath) as? [Any], postNotifications: true)
+        // On the queue of the study's context, which is that database's.
+        N2ManagedObjectContextPerformAndWait(database.managedObjectContext) {
+            _ = GeneratedSeriesImport.process.add(into: database) { dstPath in
+                let written = SRAnnotation(windowsState: self.windowsState, path: dstPath, for: self.archivedSRReferenceImage())?.writeToFile(atPath: dstPath) ?? false
+                try? self.managedObjectContext?.save()
+                return written ? dstPath : nil
+            }
+        }
     }
 
     @objc public dynamic func archiveReportAsDICOMSR() {
         return dicomStudyOnQueue(self.managedObjectContext) { () -> Void in
-            if UserDefaults.standard.bool(forKey: "archiveReportsAndAnnotationsAsDICOMSR") == false {
+            if PreferencesSource.process.preferences[DatabasePreferences.archiveReportsAndAnnotationsAsDICOMSR] == false {
                 return
             }
 
@@ -2065,98 +1945,107 @@ public final class DicomStudy: NSManagedObject {
             if self.hasDICOM?.boolValue == true {
 
                 var archiveDirectory: String? = nil
-                dicomStudyTry("-[DicomStudy archiveReportAsDICOMSR]") {
-                    let isMainDB = self.managedObjectContext?.persistentStoreCoordinator === BrowserController.currentBrowser()?.database?.managedObjectContext?.persistentStoreCoordinator
+                do {
+                    // SRAnnotation, DCMTK, the archive of the report and Core Data may raise.
+                    try HorosObjCException.throwing(StudyDocumentError.raised) {
+                        // The study's own database, which the browser may not show: the SR is written in its data
+                        // folder and indexed there, and a shared database sends it to its server, which files the
+                        // report from it.
+                        let database = BrowserDatabaseSource.process.database(of: self)
 
-                    // Report
-                    archiveDirectory = FileManager.default.tmpDirectoryPathInTmp()
-                    var zippedFile = (archiveDirectory as NSString?)?.appendingPathComponent("report.zip")
-                    var needToArchive = false
-                    var dstPath: String? = nil
-                    let reportImage = self.reportImage()
+                        // Report
+                        archiveDirectory = FileManager.default.tmpDirectoryPathInTmp()
+                        var zippedFile = (archiveDirectory as NSString?)?.appendingPathComponent("report.zip")
+                        var needToArchive = false
+                        var dstPath: String? = nil
+                        let reportImage = self.reportImage()
 
-                    dstPath = dicomStudyValue(reportImage, "completePathResolved") as? String
+                        dstPath = dicomStudyValue(reportImage, "completePathResolved") as? String
 
-                    if dstPath == nil {
-                        dstPath = isMainDB ? DicomDatabase(for: self.managedObjectContext)?.uniquePathForNewDataFile(withExtension: "dcm") : FileManager.default.tmpFilePathInTmp()
-                    }
-
-                    if dicomStudyHasPrefix(self.reportURL, "http://") || dicomStudyHasPrefix(self.reportURL, "https://") {
-                        let r = SRAnnotation(contentsOfFile: dstPath)
-                        if dicomStudyEqual(self.reportURL, r?.reportURL()) == false {
-                            needToArchive = true
+                        if dstPath == nil {
+                            dstPath = database?.uniquePathForNewDataFile(withExtension: "dcm")
                         }
-                    }
-                    else if dicomStudyFileExists(self.reportURL) {
-                        // Dates lose subsecond precision in SR. Compare archive contents
-                        // even when both timestamps describe the same second.
-                        do {
-                            BrowserController.encryptFileOrFolder(self.reportURL, inZIPFile: zippedFile, password: nil, deleteSource: false, showGUI: false)
 
-                            if dicomStudyFileExists(zippedFile) {
-                                let r = SRAnnotation(contentsOfFile: dstPath)
-                                let zipped = zippedFile.flatMap { NSData(contentsOfFile: $0) }
-                                if dicomStudyDataEqual(zipped, r?.dataEncapsulated()) == false {
-                                    needToArchive = true
+                        if dicomStudyHasPrefix(self.reportURL, "http://") || dicomStudyHasPrefix(self.reportURL, "https://") {
+                            let r = SRAnnotation(contentsOfFile: dstPath)
+                            if dicomStudyEqual(self.reportURL, r?.reportURL()) == false {
+                                needToArchive = true
+                            }
+                        }
+                        else if dicomStudyFileExists(self.reportURL) {
+                            // Dates lose subsecond precision in SR. Compare archive contents
+                            // even when both timestamps describe the same second.
+                            do {
+                                BrowserController.encryptFileOrFolder(self.reportURL, inZIPFile: zippedFile, password: nil, deleteSource: false, showGUI: false)
+
+                                if dicomStudyFileExists(zippedFile) {
+                                    let r = SRAnnotation(contentsOfFile: dstPath)
+                                    let zipped = zippedFile.flatMap { NSData(contentsOfFile: $0) }
+                                    if dicomStudyDataEqual(zipped, r?.dataEncapsulated()) == false {
+                                        needToArchive = true
+                                    }
                                 }
                             }
                         }
-                    }
-                    else //empty or deleted report?
-                    {
-                        if dicomStudyValue(reportImage, "completePath") != nil && dicomStudyFileExists(dicomStudyValue(reportImage, "completePath") as? String) {
-                            needToArchive = true
-                            zippedFile = nil	//We will archive an empty NSData
+                        else if ReportAttachment.isOnVolumeThatIsOut(self.reportURL, fileExists: FileManager.default.fileExists(atPath:)) {
+                            // Nothing says it was deleted: it stays linked, and is archived once it is back.
                         }
-
-                        if self.reportURL != nil && dicomStudyFileExists(self.reportURL) {
-                            dicomStudyRemoveItem(self.reportURL)
-                        }
-
-                        self.willChangeValue(forKey: "reportURL")
-                        self.setPrimitiveValue(nil, forKey: "reportURL")
-                        self.didChangeValue(forKey: "reportURL")
-                    }
-
-                    if needToArchive {
-                        var r: SRAnnotation? = nil
-
-                        NSLog("--- Report -> DICOM SR : %@", dicomStudyArg(self.name))
-
-                        if dicomStudyHasPrefix(self.reportURL, "http://") || dicomStudyHasPrefix(self.reportURL, "https://") {
-                            r = SRAnnotation(urlReport: self.reportURL, path: dstPath, for: self.archivedSRReferenceImage())
-                        }
-                        else {
-                            let modifDate = (self.reportURL.flatMap { try? FileManager.default.attributesOfItem(atPath: $0) })?[.modificationDate] as? Date
-                            r = SRAnnotation(fileReport: zippedFile, path: dstPath, for: self.archivedSRReferenceImage(), contentDate: modifDate)
-                        }
-
-                        if !(r?.writeToFile(atPath: dstPath) ?? false) {
-                            NSException(name: NSExceptionName("ReportArchive"), reason: "Could not write the DICOM report archive.", userInfo: nil).raise()
-                        }
-
-                        try? self.managedObjectContext?.save()
-
-                        let idb = dicomStudyGeneratedFilesDatabase()
-
-                        if isMainDB {
-                            // The SR is a copy of the attached report: indexing it
-                            // must not move the study to a new file.
-                            ReportArchiveIndexing.indexing(dstPath) {
-                                dicomStudyAddGeneratedFiles(idb, dicomStudyArray(dstPath) as? [Any], postNotifications: true)
+                        else //empty or deleted report?
+                        {
+                            if dicomStudyValue(reportImage, "completePath") != nil && dicomStudyFileExists(dicomStudyValue(reportImage, "completePath") as? String) {
+                                needToArchive = true
+                                zippedFile = nil	//We will archive an empty NSData
                             }
-                        } else {
-                            _ = DicomDatabase(atPath: FileManager.default.tmpDirPath())?.addFiles(atPaths: dicomStudyArray(dstPath) as? [Any],
-                                                                        postNotifications: true,
-                                                                        dicomOnly: true,
-                                                                        rereadExistingItems: true,
-                                                                        generatedByOsiriX: true)
+
+                            if self.reportURL != nil && dicomStudyFileExists(self.reportURL) {
+                                dicomStudyRemoveItem(self.reportURL)
+                            }
+
+                            self.willChangeValue(forKey: "reportURL")
+                            self.setPrimitiveValue(nil, forKey: "reportURL")
+                            self.didChangeValue(forKey: "reportURL")
+                        }
+
+                        if needToArchive {
+                            NSLog("--- Report -> DICOM SR : %@", dicomStudyArg(self.name))
+
+                            // Over the study's earlier report SR when it has one, in a new file of its database
+                            // otherwise; without a database nothing is written, as nothing was without a path.
+                            let indexed: Void? = database.flatMap { database in
+                                GeneratedSeriesImport.process.add(into: database, at: dstPath, writing: { dstPath in
+                                    let r: SRAnnotation?
+                                    if dicomStudyHasPrefix(self.reportURL, "http://") || dicomStudyHasPrefix(self.reportURL, "https://") {
+                                        r = SRAnnotation(urlReport: self.reportURL, path: dstPath, for: self.archivedSRReferenceImage())
+                                    }
+                                    else {
+                                        let modifDate = (self.reportURL.flatMap { try? FileManager.default.attributesOfItem(atPath: $0) })?[.modificationDate] as? Date
+                                        r = SRAnnotation(fileReport: zippedFile, path: dstPath, for: self.archivedSRReferenceImage(), contentDate: modifDate)
+                                    }
+
+                                    guard r?.writeToFile(atPath: dstPath) ?? false else { return nil }
+
+                                    try? self.managedObjectContext?.save()
+                                    return dstPath
+                                }, indexing: { dstPath, database in
+                                    // The SR is a copy of the attached report: indexing it
+                                    // must not move the study to a new file.
+                                    ReportArchiveIndexing.indexing(dstPath) {
+                                        dicomStudyAddGeneratedFiles(dicomStudyGeneratedFilesDatabase(database), [dstPath], postNotifications: true)
+                                    }
+                                })
+                            }
+
+                            if indexed == nil {
+                                throw StudyDocumentError.named(NSExceptionName("ReportArchive"), "Could not write the DICOM report archive.")
+                            }
+                        }
+
+                        if zippedFile != nil {
+                            dicomStudyRemoveItem(zippedFile)
                         }
                     }
-
-                    if zippedFile != nil {
-                        dicomStudyRemoveItem(zippedFile)
-                    }
+                } catch {
+                    _N2LogExceptionImpl(StudyDocumentError.exception(of: error), true, "-[DicomStudy archiveReportAsDICOMSR]")
                 }
                 if archiveDirectory != nil { dicomStudyRemoveItem(archiveDirectory) }
 
@@ -2172,10 +2061,10 @@ public final class DicomStudy: NSManagedObject {
     public dynamic func dcmodifyThread(_ dict: NSDictionary!) {
         autoreleasepool {
             DicomStudy.dbModifyLock()?.lock()
-            dicomStudyTry("-[DicomStudy dcmodifyThread:]") {
+            HorosObjCException.logged("-[DicomStudy dcmodifyThread:]", stack: true) {
                 let tagAndValues = NSMutableArray()
 
-                let field = DCMAttributeTag(tagString: dict?.object(forKey: "field") as? String)
+                let field: DICOMAttributeTag? = DICOMAttributeTag(tagString: dict?.object(forKey: "field") as? String)
                 if dict?.object(forKey: "value") == nil || dicomStudyLength(dict?.object(forKey: "value")) == 0 {
                     tagAndValues.add(field.map { NSArray(object: $0) } ?? NSArray())
                 }
@@ -2231,7 +2120,7 @@ public final class DicomStudy: NSManagedObject {
             // images - and then sent -completePath to one of those paths, a string,
             // which raised.
             var path: String? = nil
-            dicomStudyTry("-[DicomStudy valueForUndefinedKey:]") {
+            HorosObjCException.logged("-[DicomStudy valueForUndefinedKey:]", stack: true) {
                 for series in dicomStudyEnumerate(self.series) {
                     if let image = (dicomStudyValue(series, "images") as? NSSet)?.anyObject() as? DicomImage {
                         path = image.completePath()
@@ -2250,16 +2139,16 @@ public final class DicomStudy: NSManagedObject {
         return dicomStudyOnQueue(self.managedObjectContext) { () -> String? in
             var result: String? = nil
 
-            dicomStudyTry("-[DicomStudy modalities]") {
+            HorosObjCException.logged("-[DicomStudy modalities]", stack: true) {
                 if let cached = self.cachedModalites, self.numberOfImagesWhenCachedModalities == (self.numberOfImages?.intValue ?? 0) {
                     result = cached as String
                     return
                 }
 
-                // skip the "OsiriX No Autodeletion" series
+                // skip the series that keeps an empty study
                 let series = NSMutableArray(array: self.series?.allObjects ?? [])
                 for serie in dicomStudyEnumerate(series) {
-                    if let s = serie as? DicomSeries, (s.id?.int32Value ?? 0) == 5005 && dicomStudyEqual(s.name, "OsiriX No Autodeletion") {
+                    if let s = serie as? DicomSeries, SelectionImages.isNoAutodeletionSeries(name: s.name, id: s.id?.int32Value ?? 0) {
                         series.remove(serie)
                         break
                     }

@@ -650,7 +650,7 @@ public final class MPRMetalReslicer {
     }
 }
 
-/// Objective-C face for `MPRHostBridge.m`. Vectors travel as number arrays
+/// The face the MPR host (MPRDCMView+MetalPlane.swift) and its tools use. Vectors travel as number arrays
 /// because the host speaks `float[9]` orientations and `float[3]` origins.
 @objc(HorosMPRReslicer)
 public final class MPRReslicerBridge: NSObject {

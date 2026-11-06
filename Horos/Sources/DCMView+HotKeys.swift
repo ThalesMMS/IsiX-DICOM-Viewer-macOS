@@ -38,22 +38,24 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
+import IsiXPreferences
 
 // The "Hot Keys" methods of DCMView are implemented in Swift: an
-// extension of DCMView, which stays Objective-C, with the same selectors. Every
+// extension of DCMView, with the same selectors. Every
 // method is dynamic, so the Objective-C subclasses that override one still get
-// the message. The instance variables are reached through the accessors of
-// DCMView (SwiftIvars), and the hot key dictionaries, file statics of
-// DCMView.m, through its SwiftStatics accessors.
+// the message. The view's state is its stored properties (DCMView.swift), and
+// the hot key dictionaries are DCMViewSettings'.
 //
-// The hot keys and the WW/WL and opacity presets are read from the same user
-// defaults keys (HOTKEYS, through the dictionary DCMView.m loads, WLWW3 and
-// OPACITY) and sent to the same methods. A message to nil returned nil, NO or
-// 0: it is an optional chain with that default. -[NSArray objectAtIndex:] is
-// NSArray's own, so an index out of range raises the same NSRangeException.
-// The window controller is an id: the messages that carry an object are sent
-// with -performSelector:withObject:, as before through objc_msgSend, and the
-// two that carry an int through Objective-C dynamic lookup.
+// The hot keys and the WW/WL and opacity presets are read from the same
+// preferences (HOTKEYS, through the map +setDefaults loads, WLWW3 through the
+// catalog of DCMViewSettings, and OPACITY through its typed key) and sent to
+// the same methods. A message to nil returned nil, NO or 0: it is an optional
+// chain with that default.
+// The window controller is an id: its messages are sent as the Objective-C
+// sent them (DCMViewInputMessages), the two that carry an int through
+// Objective-C dynamic lookup. Which command a key runs is IsiXImaging's
+// HotKeyMap.
 
 /// `fraction`, which -drawImage:inBounds: passed as the opacity, is not a local
 /// or an ivar: it is the enumerator of CarbonCore's Script.h (character set
@@ -73,163 +75,111 @@ extension DCMView {
     }
 
     //Hot key action
+    /// Runs the command of the hot key typed (HotKeyMap of the HOTKEYS
+    /// preference); NO when it is none, or not one for this view now.
     @objc(actionForHotKey:)
     public dynamic func actionForHotKey(_ hotKey: NSString!) -> Bool {
-        var returnedVal = true
+        guard let hotKey, hotKey.length > 0, let action = DCMView.hotKeyMap?.action(forTyped: hotKey as String) else { return false }
+        guard let command = ViewerKeyCommand.HotKey(action: action) else { return false }
+        let windowController = self.windowController() as AnyObject?
+        let controller = inputMessages(windowController)
 
-        if (hotKey?.length ?? 0) > 0 {
-            var userInfo: NSDictionary? = nil
-            let wlwwDict = UserDefaults.standard.dictionary(forKey: "WLWW3") as NSDictionary?
-            let wwwlValues = (wlwwDict?.allKeys as NSArray?)?.sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as NSArray?
+        switch command {
+        case .defaultWindowLevel:
+            self.setWLWW(self.curDCM?.savedWL ?? 0, self.curDCM?.savedWW ?? 0)	// default WW/WL
 
-            let opacityDict = UserDefaults.standard.dictionary(forKey: "OPACITY") as NSDictionary?
-            let opacityValues = (opacityDict?.allKeys as NSArray?)?.sortedArray(using: #selector(NSString.caseInsensitiveCompare(_:))) as NSArray?
+        case .fullDynamic:
+            self.setWLWW(0, 0)											// full dynamic WW/WL
 
-            var wwwl: NSArray? = nil
-            let lowercaseHotKey = hotKey.lowercased as NSString
-
-            if DCMView.hotKeyDictionary()?.object(forKey: lowercaseHotKey) != nil {
-                let key = unichar(truncatingIfNeeded: objcIntValue(DCMView.hotKeyDictionary()?.object(forKey: lowercaseHotKey)))
-                let windowController = self.windowController() as AnyObject?
-
-                switch UInt32(key) {
-                case DefaultWWWLHotKeyAction.rawValue:
-                    self.setWLWW(self.curDCM?.savedWL ?? 0, self.curDCM?.savedWW ?? 0)	// default WW/WL
-
-                case FullDynamicWWWLHotKeyAction.rawValue:
-                    self.setWLWW(0, 0)											// full dynamic WW/WL
-
-                case Preset1OpacityHotKeyAction.rawValue,																	// 1 - 9 will be presets WW/WL
-                     Preset2OpacityHotKeyAction.rawValue,
-                     Preset3OpacityHotKeyAction.rawValue,
-                     Preset4OpacityHotKeyAction.rawValue,
-                     Preset5OpacityHotKeyAction.rawValue,
-                     Preset6OpacityHotKeyAction.rawValue,
-                     Preset7OpacityHotKeyAction.rawValue,
-                     Preset8OpacityHotKeyAction.rawValue,
-                     Preset9OpacityHotKeyAction.rawValue:
-                    if (opacityValues?.count ?? 0) >= Int(key) - Int(Preset1OpacityHotKeyAction.rawValue) {
-                        // First is always linear
-                        let index = Int32(key) - Int32(Preset1OpacityHotKeyAction.rawValue) - 1
-
-                        if index < 0 {
-                            _ = (windowController as? NSObject)?.perform(#selector(ViewerController.applyOpacityString(_:)), with: NSLocalizedString("Linear Table", comment: "") as NSString)
-                        } else {
-                            _ = (windowController as? NSObject)?.perform(#selector(ViewerController.applyOpacityString(_:)), with: opacityValues?.object(at: Int(index)))
-                        }
-
-                        // With index -1 (Preset1), -objectAtIndex: raises, as it did.
-                        NotificationCenter.default.post(name: .OsirixUpdateOpacityMenu, object: opacityValues?.object(at: Int(index)), userInfo: nil)
-                    }
-
-                case Preset1WWWLHotKeyAction.rawValue,																	// 1 - 9 will be presets WW/WL
-                     Preset2WWWLHotKeyAction.rawValue,
-                     Preset3WWWLHotKeyAction.rawValue,
-                     Preset4WWWLHotKeyAction.rawValue,
-                     Preset5WWWLHotKeyAction.rawValue,
-                     Preset6WWWLHotKeyAction.rawValue,
-                     Preset7WWWLHotKeyAction.rawValue,
-                     Preset8WWWLHotKeyAction.rawValue,
-                     Preset9WWWLHotKeyAction.rawValue:
-                    let presetIndex = Int(key) - Int(Preset1WWWLHotKeyAction.rawValue)
-                    if (wwwlValues?.count ?? 0) > presetIndex {
-                        wwwl = wlwwDict?.object(forKey: wwwlValues!.object(at: presetIndex)) as? NSArray
-                        self.setWLWW(objcFloatValue(wwwl?.object(at: 0)), objcFloatValue(wwwl?.object(at: 1)))
-
-                        if self.is2DViewer() == true { _ = (windowController as? NSObject)?.perform(#selector(ViewerController.setCurWLWWMenu(_:)), with: wwwlValues!.object(at: presetIndex)) }
-
-                        NotificationCenter.default.post(name: .OsirixUpdateWLWWMenu, object: wwwlValues!.object(at: presetIndex), userInfo: nil)
-                    }
-
-                    // Flip
-                case FlipVerticalHotKeyAction.rawValue: self.flipVertical(nil)
-
-                case FlipHorizontalHotKeyAction.rawValue: self.flipHorizontal(nil)
-
-                    // mouse functions
-                case WWWLToolHotKeyAction.rawValue,
-                     MoveHotKeyAction.rawValue,
-                     ZoomHotKeyAction.rawValue,
-                     RotateHotKeyAction.rawValue,
-                     ScrollHotKeyAction.rawValue,
-                     OrthoMPRCrossHotKeyAction.rawValue,
-                     LengthHotKeyAction.rawValue,
-                     AngleHotKeyAction.rawValue,
-                     RectangleHotKeyAction.rawValue,
-                     OvalHotKeyAction.rawValue,
-                     TextHotKeyAction.rawValue,
-                     ArrowHotKeyAction.rawValue,
-                     OpenPolygonHotKeyAction.rawValue,
-                     ClosedPolygonHotKeyAction.rawValue,
-                     PencilHotKeyAction.rawValue,
-                     ThreeDPointHotKeyAction.rawValue,
-                     PlainToolHotKeyAction.rawValue,
-                     RepulsorHotKeyAction.rawValue,
-                     SelectorHotKeyAction.rawValue:
-                    if ViewerController.getToolEquivalent(toHotKey: Int32(key)).rawValue >= 0 {
-                        userInfo = NSDictionary(object: NSNumber(value: Int32(ViewerController.getToolEquivalent(toHotKey: Int32(key)).rawValue)), forKey: "toolIndex" as NSString)
-                        NotificationCenter.default.post(name: .OsirixDefaultToolModified, object: nil, userInfo: userInfo as? [AnyHashable: Any])
-                    }
-                case EmptyHotKeyAction.rawValue,
-                     UnreadHotKeyAction.rawValue,
-                     ReviewedHotKeyAction.rawValue,
-                     DictatedHotKeyAction.rawValue,
-                     ValidatedHotKeyAction.rawValue:
-                    if self.is2DViewer() == true {
-                        windowController?.setStatusValue?(Int32(key) - Int32(EmptyHotKeyAction.rawValue))
-                    }
-                case FullScreenAction.rawValue:
-                    if self.is2DViewer() == true {
-                        _ = (windowController as? NSObject)?.perform(#selector(ViewerController.showCurrentThumbnail(_:)), with: self)
-
-                        self.deleteInvalidROIs()
-
-                        if self.horos_drawingROI == false {
-                            if self.horos_drawingROI == false {
-                                _ = (windowController as? NSObject)?.perform(#selector(ViewerController.fullScreenMenu(_:)), with: self)
-                            }
-                        }
-                    }
-                case Sync3DAction.rawValue:
-                    if self.horos_stringID == nil {
-                        if self.is2DViewer() == true {
-                            _ = (windowController as? NSObject)?.perform(#selector(ViewerController.showCurrentThumbnail(_:)), with: self)
-                        }
-
-                        self.deleteInvalidROIs()
-
-                        if self.horos_drawingROI == false {
-                            self.sync3DPosition()
-                        }
-                    }
-                case ResliceAxialHotKeyAction.rawValue,
-                     ResliceCoronalHotKeyAction.rawValue,
-                     ResliceSagittalHotKeyAction.rawValue:
-                    // Hot Keys are unmodified keys owned by the focused 2D canvas.
-                    // Text editors and menu shortcuts must not reconstruct a series.
-                    let event = NSApp.currentEvent
-                    let modifiers: NSEvent.ModifierFlags = [.command, .control, .option, .shift]
-                    if !self.is2DViewer() || !(self.window?.isKeyWindow ?? false) ||
-                        self.window?.firstResponder !== self || (event?.type.rawValue ?? 0) != NSEvent.EventType.keyDown.rawValue ||
-                        ((event?.modifierFlags.rawValue ?? 0) & modifiers.rawValue) != 0 {
-                        return false
-                    }
-                    _ = windowController?.setOrientation?(Int32(key) - Int32(ResliceAxialHotKeyAction.rawValue))
-                case SetKeyImageAction.rawValue:
-                    if self.is2DViewer() == true {
-                        _ = (windowController as? NSObject)?.perform(#selector(ViewerController.setKeyImage(_:)), with: self)
-                    }
-                default:
-                    returnedVal = false
+        case .opacityPreset(let preset):
+            // The stored tables in the order of their names; none stored is no list at all.
+            let stored = PreferencesSource.process.preferences[ImagePresetPreferences.opacityTables.reading(as: [String: PropertyListValue]?.self)]
+            let names = stored.map { ViewerPresetMenus.sortedNames(Array($0.keys)) }
+            guard let choice = ViewerKeyCommand.opacityChoice(preset: preset, storedTableCount: names?.count ?? 0) else { break }
+            let told: NSString?
+            switch choice {
+            case .linear:
+                // First is always linear
+                controller?.inputApplyOpacityString(NSLocalizedString("Linear Table", comment: "") as NSString)
+                // The menu was told the table at index -1 of the list, which
+                // raised NSRangeException when there was a list, as it did.
+                if names != nil {
+                    NSException(name: .rangeException, reason: "*** -[NSArray objectAtIndex:]: index -1 beyond bounds", userInfo: nil).raise()
                 }
-            } else {
-                returnedVal = false
+                told = nil
+            case .stored(let index):
+                told = names.map { $0[index] as NSString }
+                controller?.inputApplyOpacityString(told)
             }
-        } else {
-            returnedVal = false
+            NotificationCenter.default.post(name: .OsirixUpdateOpacityMenu, object: told, userInfo: nil)
+
+        case .windowLevelPreset(let presetIndex):
+            // The presets in the order of their names; one that is not a
+            // level and a width applies nothing.
+            if let preset = DCMViewSettings.windowLevelPresets().hotKeyPreset(presetIndex), let window = preset.window {
+                self.setWLWW(window.level, window.width)
+
+                let name = preset.name as NSString
+                if self.is2DViewer() == true { controller?.inputSetCurWLWWMenu(name) }
+
+                NotificationCenter.default.post(name: .OsirixUpdateWLWWMenu, object: name, userInfo: nil)
+            }
+
+            // Flip
+        case .flipVertical: self.flipVertical(nil)
+
+        case .flipHorizontal: self.flipHorizontal(nil)
+
+            // mouse functions
+        case .tool(let toolAction):
+            let tool = ViewerController.getToolEquivalent(toHotKey: toolAction).rawValue
+            if tool >= 0 {
+                NotificationCenter.default.post(name: .OsirixDefaultToolModified, object: nil, userInfo: ["toolIndex": NSNumber(value: Int32(tool))])
+            }
+        case .status(let status):
+            if self.is2DViewer() == true {
+                windowController?.setStatusValue?(status)
+            }
+        case .fullScreen:
+            if self.is2DViewer() == true {
+                controller?.inputShowCurrentThumbnail(self)
+
+                self.deleteInvalidROIs()
+
+                if self.horos_drawingROI == false {
+                    controller?.inputFullScreenMenu(self)
+                }
+            }
+        case .sync3DPosition:
+            if self.horos_stringID == nil {
+                if self.is2DViewer() == true {
+                    controller?.inputShowCurrentThumbnail(self)
+                }
+
+                self.deleteInvalidROIs()
+
+                if self.horos_drawingROI == false {
+                    self.sync3DPosition()
+                }
+            }
+        case .reslice(let orientation):
+            // Hot Keys are unmodified keys owned by the focused 2D canvas.
+            // Text editors and menu shortcuts must not reconstruct a series.
+            let event = NSApp.currentEvent
+            let modifiers: NSEvent.ModifierFlags = [.command, .control, .option, .shift]
+            if !self.is2DViewer() || !(self.window?.isKeyWindow ?? false) ||
+                self.window?.firstResponder !== self || (event?.type.rawValue ?? 0) != NSEvent.EventType.keyDown.rawValue ||
+                ((event?.modifierFlags.rawValue ?? 0) & modifiers.rawValue) != 0 {
+                return false
+            }
+            _ = windowController?.setOrientation?(orientation)
+        case .setKeyImage:
+            if self.is2DViewer() == true {
+                controller?.inputSetKeyImage(self)
+            }
         }
 
-        return returnedVal
+        return true
     }
 
     @objc(drawImage:inBounds:)
@@ -282,16 +232,4 @@ extension DCMView {
         // Calling with 'NO' clears _hasChanged after the call (see above).
         return self._checkHasChanged(false)
     }
-}
-
-/// [object intValue]: 0 for nil, as a message to nil.
-private func objcIntValue(_ object: Any?) -> Int32 {
-    guard let object else { return 0 }
-    return (object as AnyObject).intValue ?? 0
-}
-
-/// [object floatValue]: 0 for nil, as a message to nil.
-private func objcFloatValue(_ object: Any?) -> Float {
-    guard let object else { return 0 }
-    return (object as AnyObject).floatValue ?? 0
 }

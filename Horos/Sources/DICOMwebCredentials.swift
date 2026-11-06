@@ -98,17 +98,19 @@ public final class DICOMwebCredentials: NSObject {
 
     /// The Keychain calls, replaceable so the format and the migration can be
     /// tested without the user's keychain.
-    struct Backend {
-        var read: (_ identifier: String, _ wantData: Bool) throws -> (data: Data?, generic: Data?)?
-        var add: (_ identifier: String, _ data: Data, _ generic: Data) throws -> Void
-        var update: (_ identifier: String, _ data: Data?, _ generic: Data) throws -> Bool
-        var delete: (_ identifier: String) throws -> Void
+    struct Backend: Sendable {
+        var read: @Sendable (_ identifier: String, _ wantData: Bool) throws -> (data: Data?, generic: Data?)?
+        var add: @Sendable (_ identifier: String, _ data: Data, _ generic: Data) throws -> Void
+        var update: @Sendable (_ identifier: String, _ data: Data?, _ generic: Data) throws -> Bool
+        var delete: @Sendable (_ identifier: String) throws -> Void
     }
-    // nonisolated(unsafe): the application only reads it. The test programs
-    // replace it at their top level, before the first credential is read and
-    // before any other thread starts. Remove when the tests inject the backend
-    // another way.
-    nonisolated(unsafe) static var backend = Backend.keychain
+    /// The application only reads it; a test replaces it with one in memory,
+    /// from any thread, and every read sees a whole backend.
+    private static let installedBackend = Mutex(Backend.keychain)
+    static var backend: Backend {
+        get { installedBackend.withLock { $0 } }
+        set { installedBackend.withLock { $0 = newValue } }
+    }
 
     // MARK: Errors
 
@@ -315,6 +317,11 @@ public final class DICOMwebCredentials: NSObject {
         let value = Mutex<Result<T, Error>?>(nil)
     }
 
+    /// The keychain reads given a deadline: a queue of their own, so that a
+    /// keychain service that stops answering holds only its threads.
+    private static let keychainReads = DispatchQueue(label: "Horos.DICOMwebKeychainRead", qos: .userInitiated,
+                                                     attributes: .concurrent)
+
     /// Runs a keychain read on another thread and gives up after `timeout`
     /// seconds or as soon as `cancelled` says so, so a keychain service that
     /// stops answering cannot hold a query, a retrieve or the Locations pane.
@@ -323,7 +330,7 @@ public final class DICOMwebCredentials: NSObject {
                                      userInfo: [NSLocalizedDescriptionKey: "DICOMweb operation cancelled."])
         if cancelled() { throw cancelledError }
         let result = Pending<T>()
-        DispatchQueue.global(qos: .userInitiated).async {
+        keychainReads.async {
             let value = Result { try read() }
             result.value.withLock { $0 = value }
             result.finished.signal()
@@ -372,11 +379,12 @@ public final class DICOMwebCredentials: NSObject {
     }
 
     /// The Keychain lookup of `clientIdentity(reference:)`, replaceable so a
-    /// client can be tested with an identity of its own.
-    // nonisolated(unsafe): the application only reads it; a test program
-    // replaces it at its top level, before any request and before any other
-    // thread starts.
-    nonisolated(unsafe) static var identityLookup: (Data) throws -> SecIdentity = keychainIdentity
+    /// client can be tested with an identity of its own, from any thread.
+    private static let installedIdentityLookup = Mutex<@Sendable (Data) throws -> SecIdentity>(keychainIdentity)
+    static var identityLookup: @Sendable (Data) throws -> SecIdentity {
+        get { installedIdentityLookup.withLock { $0 } }
+        set { installedIdentityLookup.withLock { $0 = newValue } }
+    }
 
     private static func keychainIdentity(reference: Data) throws -> SecIdentity {
         // Without its class, the reference finds the identity's certificate alone.

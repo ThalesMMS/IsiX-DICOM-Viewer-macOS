@@ -7,10 +7,10 @@ loop, always with the whole list accumulated so far. For N studies the first fil
 was indexed N times, the second N-1, and so on: N(N+1)/2 additions, each one
 rereading a file already indexed (`rereadExistingItems:YES`).
 
-The shipped method, in BrowserController+Reports.swift, is compiled
-here with xcrun swiftc (with the file's objcTry and HorosObjCException, and
-studies that raise from Objective-C) over four studies, one of whose reports
-cannot be converted:
+The shipped method, StudyReports.convertSelectionToDICOMPDF (StudyReports.swift),
+to which the browser's action forwards, is compiled here with xcrun swiftc (with
+the guards of HorosObjCException, and studies that raise
+from Objective-C) over four studies, one of whose reports cannot be converted:
 
 * one addition, with the three files that were written;
 * the study that failed is named to the user and its file is not indexed;
@@ -23,24 +23,38 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+import objc_exception_guards
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-# The report actions of BrowserController are Swift.
-path = 'Horos/Sources/BrowserController+Reports.swift'
-source = (subprocess.check_output(['git', '-C', str(root), 'show', sys.argv[1] + ':' + path])
-          if len(sys.argv) > 1 else (root / path).read_bytes()).decode('utf-8')
+# The report actions of BrowserController are StudyReports'.
+path = 'Horos/Sources/StudyReports.swift'
 
 
-def top_level(name):
-    """The file's fileprivate helper `name`, from its declaration to its closing brace."""
-    begin = source.index('fileprivate func ' + name)
-    return source[begin:source.index('\n}\n', begin) + 3]
+def read(path):
+    return (subprocess.check_output(['git', '-C', str(root), 'show', sys.argv[1] + ':' + path])
+            if len(sys.argv) > 1 else (root / path).read_bytes()).decode('utf-8')
 
 
-start = source.index('    @objc(convertReportToDICOMSR:)')
-method = source[start:source.index('    @objc(convertReportToPDF:)', start)]
-helpers = top_level('objcTry(') + top_level('valueIsString(')
+source = read(path)
+support = read('Horos/Sources/BrowserController+DatabaseSupport.swift')
+
+
+def member(text, signature):
+    """The member of `text` that starts with `signature`, from its line to its closing brace."""
+    begin = text.rindex('\n', 0, text.index(signature)) + 1
+    depth, at = 0, text.index('{', begin)
+    while True:
+        depth += {'{': 1, '}': -1}.get(text[at], 0)
+        at += 1
+        if depth == 0:
+            return text[begin:at] + '\n'
+
+
+method = member(source, 'func convertSelectionToDICOMPDF()')
+helpers = member(source, 'private static func study(of item: Any?)') + member(source, 'private func reportError(')
+attempt = objc_exception_guards.between('BrowserObjC')
 
 # The studies raise from Objective-C, as the app's DicomStudy does.
 header = r'''
@@ -61,7 +75,6 @@ studies = r'''
         [NSException raise:NSGenericException format:@"The report could not be converted to PDF."];
     [[NSData dataWithBytes:"DICM" length:4] writeToFile:path atomically:YES];
 }
-- (id)valueForKey:(NSString*)key { return [key isEqualToString:@"type"] ? @"Study" : [super valueForKey:key]; }
 @end
 '''
 
@@ -93,18 +106,38 @@ final class Database: NSObject {
     }
 }
 
+// As the real one: the indexing of what was generated, on the database's own method.
+enum IngestPreset { case generated }
+struct DatabaseIngest {
+    static let process = DatabaseIngest()
+    func index(_ paths: [Any]?, preset: IngestPreset, in database: Database) {
+        database.addFiles(atPaths: paths, postNotifications: true, dicomOnly: true, rereadExistingItems: true, generatedByOsiriX: true)
+    }
+}
+
 extension NSException {
     @discardableResult func printStackTrace() -> String { return callStackSymbols.joined(separator: "\n") }
 }
 
-HELPERS
+enum BrowserObjC {
+ATTEMPT
+}
+
+final class DicomSeries: NSObject {
+    var study: DicomStudy!
+}
 
 final class BrowserController: NSObject {
     var database: Database? = Database()
     var selection: [Any] = []
     func databaseSelection() -> [Any]! { return selection }
-    @objc(updateReportToolbarIcon:)
-    func updateReportToolbarIcon(_ note: Any!) {}
+}
+
+final class StudyReports {
+    let browser = BrowserController()
+    var toolbarUpdates = 0
+    func updateToolbarIconSoon() { toolbarUpdates += 1 }
+HELPERS
 METHOD
 }
 
@@ -118,12 +151,17 @@ func study(_ name: String, _ failing: Bool) -> DicomStudy {
 @main
 struct Main {
     static func main() {
-        let browser = BrowserController()
+        let reports = StudyReports()
+        let browser = reports.browser
         browser.database?.directory = CommandLine.arguments[1]
         var failed = 0
 
-        browser.selection = [study("A", false), study("B", true), study("C", false), study("D", false)]
-        browser.convertReportToDICOMSR(nil)
+        // A series stands for its study, which is converted once.
+        let series = DicomSeries()
+        let c = study("C", false)
+        series.study = c
+        browser.selection = [study("A", false), study("B", true), c, series, study("D", false)]
+        reports.convertSelectionToDICOMPDF()
         if additions != 1 { print("FAIL: \(additions) additions for four studies, one expected"); failed += 1 }
         if indexed != 3 { print("FAIL: \(indexed) files indexed, the three that were written expected"); failed += 1 }
         if alerts != 1 || !(alerted.last?.contains("B") ?? false) {
@@ -134,15 +172,16 @@ struct Main {
         additions = 0; indexed = 0; alerts = 0
         alerted.removeAll()
         browser.selection = [study("E", true)]
-        browser.convertReportToDICOMSR(nil)
+        reports.convertSelectionToDICOMPDF()
         if additions != 0 || indexed != 0 { print("FAIL: \(additions) additions with nothing written"); failed += 1 }
         if alerts != 1 { print("FAIL: nothing was said about the only report, which failed"); failed += 1 }
+        if reports.toolbarUpdates != 2 { print("FAIL: the report toolbar item is not updated after each conversion"); failed += 1 }
 
         if failed > 0 { exit(1) }
         print("ok")
     }
 }
-'''.replace('HELPERS', helpers).replace('METHOD', method)
+'''.replace('HELPERS', helpers).replace('METHOD', method).replace('ATTEMPT', attempt)
 
 with tempfile.TemporaryDirectory(prefix='horos-pdf-batch-') as temporary:
     work = Path(temporary)

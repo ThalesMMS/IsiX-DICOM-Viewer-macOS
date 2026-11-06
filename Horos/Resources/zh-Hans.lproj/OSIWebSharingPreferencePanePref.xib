@@ -12,6 +12,7 @@
                 <outlet property="TLSChooseCertificateButton" destination="872" id="883"/>
                 <outlet property="_window" destination="12" id="26"/>
                 <outlet property="addressTextField" destination="1001" id="1050"/>
+                <outlet property="customWebPagesCheckbox" destination="1061" id="1234"/>
                 <outlet property="mainWindow" destination="12" id="1170"/>
                 <outlet property="portTextField" destination="348" id="1051"/>
                 <outlet property="studiesArrayController" destination="786" id="817"/>
@@ -24,14 +25,14 @@
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <window title="&lt;&lt; do not localize &gt;&gt;" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" deferred="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="12" userLabel="PrefPane">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES"/>
-            <rect key="contentRect" x="0.0" y="0.0" width="604" height="538"/>
+            <rect key="contentRect" x="0.0" y="0.0" width="604" height="514"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
             <view key="contentView" horizontalCompressionResistancePriority="1000" id="6">
-                <rect key="frame" x="0.0" y="0.0" width="604" height="538"/>
+                <rect key="frame" x="0.0" y="0.0" width="604" height="514"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <button id="981">
-                        <rect key="frame" x="24" y="503" width="300" height="18"/>
+                        <rect key="frame" x="24" y="479" width="300" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="启用内置网页服务器" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1036">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -42,7 +43,7 @@
                         </connections>
                     </button>
                     <box autoresizesSubviews="NO" borderType="line" titlePosition="noTitle" id="982">
-                        <rect key="frame" x="17" y="439" width="570" height="65"/>
+                        <rect key="frame" x="17" y="415" width="570" height="65"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="zIq-f6-a28">
                             <rect key="frame" x="1" y="1" width="568" height="63"/>
@@ -138,7 +139,7 @@
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
                     <box title="选项" borderType="line" id="1057">
-                        <rect key="frame" x="17" y="127" width="570" height="308"/>
+                        <rect key="frame" x="17" y="103" width="570" height="308"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="lG8-iK-nzt">
                             <rect key="frame" x="1" y="1" width="568" height="292"/>
@@ -170,7 +171,7 @@
                                 <button id="1061">
                                     <rect key="frame" x="15" y="95" width="549" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="使用 ~/Library/Application Support/Horos/WebServicesHTML/ 中的模板" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1094">
+                                    <buttonCell key="cell" type="check" title="使用 ~/Library/Application Support/IsiX/WebServicesHTML/ 中的模板" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1094">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -351,7 +352,7 @@
                                 <textField verticalHuggingPriority="750" id="1186">
                                     <rect key="frame" x="15" y="206" width="349" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="影片最大帧数 (QuickTime 或 Flash):" id="1187">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="影片最大帧数:" id="1187">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -477,10 +478,10 @@
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
                     <box autoresizesSubviews="NO" title="电子邮件( 需要在此计算机上正确配置邮件应用程序)" borderType="line" id="1065">
-                        <rect key="frame" x="17" y="16" width="570" height="107"/>
+                        <rect key="frame" x="17" y="16" width="570" height="83"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="Fgt-XH-KGP">
-                            <rect key="frame" x="1" y="1" width="568" height="91"/>
+                            <rect key="frame" x="1" y="1" width="568" height="67"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button id="1084">
@@ -511,7 +512,7 @@
                                 <textField verticalHuggingPriority="750" id="1082">
                                     <rect key="frame" x="164" y="37" width="275" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" placeholderString="例如:horos@horosproject.org" drawsBackground="YES" id="1087">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" placeholderString="例如:name@example.org" drawsBackground="YES" id="1087">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -556,43 +557,6 @@
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
-                                <textField verticalHuggingPriority="750" id="1212">
-                                    <rect key="frame" x="10" y="63" width="150" height="14"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="电子邮件引擎 :" id="1217">
-                                        <font key="font" metaFont="smallSystem"/>
-                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    </textFieldCell>
-                                </textField>
-                                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="1213">
-                                    <rect key="frame" x="164" y="61" width="264" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="130" height="18"/>
-                                    <size key="intercellSpacing" width="4" height="2"/>
-                                    <buttonCell key="prototype" type="radio" title="单选" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1216">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="smallSystem"/>
-                                    </buttonCell>
-                                    <cells>
-                                        <column>
-                                            <buttonCell type="radio" title="Mail.app" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" tag="1" inset="2" id="1215">
-                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                                <font key="font" metaFont="smallSystem"/>
-                                            </buttonCell>
-                                        </column>
-                                        <column>
-                                            <buttonCell type="radio" title="内置 SMTP" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1214">
-                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                                <font key="font" metaFont="smallSystem"/>
-                                            </buttonCell>
-                                        </column>
-                                    </cells>
-                                    <connections>
-                                        <binding destination="296" name="selectedTag" keyPath="values.WebServerUseMailAppForEmails" id="1218"/>
-                                    </connections>
-                                </matrix>
                             </subviews>
                         </view>
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>

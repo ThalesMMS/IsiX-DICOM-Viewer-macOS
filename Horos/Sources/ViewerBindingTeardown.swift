@@ -13,6 +13,13 @@
 import AppKit
 import ObjectiveC
 
+/// An owner whose outlets are not Objective-C ivars (a Swift class keeps them
+/// in stored holders) lists them here, so the teardown still reaches the nib's
+/// views, windows and toolbars, the panels' windows included.
+@MainActor protocol ViewerBindingTeardownRoots: AnyObject {
+    var bindingTeardownRoots: [AnyObject] { get }
+}
+
 /// Undo Cocoa bindings that still observe a viewer File's Owner when its window
 /// closes. Viewer.xib binds controls to File's Owner; AppKit records those on
 /// `NSAutounbinder` without retaining the controller. Closing then extra-
@@ -23,8 +30,9 @@ public final class ViewerBindingTeardown: NSObject {
 
     /// Inbound File's Owner key paths in Viewer.xib and ViewerPanels.xib. The
     /// helper unbinds every binding it finds, not only these; this is the
-    /// known set. The panels' windows are reached through their outlets, nil
-    /// while ViewerPanels.nib is not loaded.
+    /// known set. The panels' windows are reached through their outlets (the
+    /// owner's object ivars, or the list a `ViewerBindingTeardownRoots` owner
+    /// gives), nil while ViewerPanels.nib is not loaded.
     @objc public static let fileOwnerBindingKeyPaths = [
         "self.thicknessInMm",
         "KeyImageCounter",
@@ -39,6 +47,11 @@ public final class ViewerBindingTeardown: NSObject {
             roots.append(window)
         }
         roots.append(contentsOf: objectIvars(of: owner))
+        if let listed = owner as? ViewerBindingTeardownRoots {
+            roots.append(contentsOf: listed.bindingTeardownRoots.filter {
+                $0 is NSView || $0 is NSWindow || $0 is NSToolbar
+            } as [Any])
+        }
 
         var seen = Set<ObjectIdentifier>()
         for root in roots {

@@ -81,39 +81,65 @@ import Foundation
             if run.returncode:
                 failures.append('the guard does not answer as the play control needs: %s' % run.stderr.strip())
 
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
+viewer = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
+# The 4D player is Swift: -MovieStop: and -MoviePlayStop: are façades in
+# ViewerController+FourDNavigation.swift of the viewer's CinePlayback
+# (CinePlayback.swift), where they are stopMovie() and toggleMovie().
+player = sources.source_text('ViewerController+FourDNavigation')
+cine = sources.source_text('CinePlayback')
 
-stop = re.search(r'- \(void\) MovieStop:\(id\) sender\s*\{(.*?)\n\}', viewer, re.S)
+
+def swift_method(selector):
+    found = re.search(r'    @objc\(%s\)\n.*?\n    \}\n' % re.escape(selector), player, re.S)
+    return found.group(0) if found else None
+
+
+def cine_method(name):
+    found = re.search(r'    func %s\(\) \{\n.*?\n    \}\n' % re.escape(name), cine, re.S)
+    return found.group(0) if found else None
+
+
+for selector, name in (('MovieStop:', 'stopMovie'), ('MoviePlayStop:', 'toggleMovie')):
+    facade = swift_method(selector)
+    if not facade:
+        failures.append('-%s is gone' % selector)
+    elif 'cine.%s()' % name not in facade:
+        failures.append('-%s no longer reaches the viewer\'s CinePlayback.%s()' % (selector, name))
+
+stop = cine_method('stopMovie')
 if not stop:
-    failures.append('-MovieStop: is gone')
+    failures.append('CinePlayback.stopMovie() is gone')
 else:
-    if 'movieTimer invalidate' not in stop.group(1):
+    if 'timer.invalidate()' not in stop:
         failures.append('-MovieStop: no longer stops the timer')
-    if 'moviePlayStop setTitle' not in stop.group(1):
+    if 'horos_moviePlayStop?.title' not in stop:
         failures.append('-MovieStop: must put the control back to "Play"; stopping any other way '
                         'left it reading "Stop" with nothing playing')
 
-toggle = re.search(r'- \(void\) MoviePlayStop:\(id\) sender\s*\{(.*?)\n\}\n\n', viewer, re.S)
+toggle = cine_method('toggleMovie')
 if not toggle:
-    failures.append('-MoviePlayStop: is gone')
+    failures.append('CinePlayback.toggleMovie() is gone')
 else:
-    if '[self MovieStop: self]' not in toggle.group(1):
+    if 'stopMovie()' not in toggle or 'movieStop(viewer)' not in toggle:
         failures.append('-MoviePlayStop: must stop through -MovieStop:, not with its own copy')
-    if 'movieTimer invalidate' in toggle.group(1):
+    if 'invalidate()' in toggle:
         failures.append('-MoviePlayStop: still has its own copy of the stop')
-    if 'scheduledTimerWithTimeInterval' not in toggle.group(1):
+    if 'playerTimer(rate: movieRate' not in toggle:
         failures.append('-MoviePlayStop: no longer starts the movie')
 
 # The series-load path resets maxMovieIndex to 1 and switches the control off;
-# it must stop the movie first. That path (-changeImageData::::) is Swift, in
-# ViewerController+RetrieveAndView.swift, where HorosFourDSeriesGuard
-# is FourDSeriesGuard and -MovieStop: is movieStop(_:).
-loader = sources.source_text('ViewerController+RetrieveAndView')
+# it must stop the movie first. That path (-changeImageData::::) is Swift, a
+# façade of the viewer's ViewerSeriesLoad (ViewerSeriesLoad.swift), where
+# HorosFourDSeriesGuard is FourDSeriesGuard and -MovieStop: is movieStop(_:).
+facade = sources.source_text('ViewerController+RetrieveAndView')
+if 'horosSeriesLoad.show(GivenSeries(' not in facade:
+    failures.append('-changeImageData:::: does not reach the viewer\'s series load')
+loader = sources.source_text('ViewerSeriesLoad')
 if 'FourDSeriesGuard.playControlApplies(timeCount:' not in loader:
     failures.append('the series-load path must ask HorosFourDSeriesGuard whether the control applies')
 else:
     ask = loader.find('FourDSeriesGuard.playControlApplies(timeCount:')
-    disable = loader.find('self.horos_moviePlayStop?.isEnabled = false')
+    disable = loader.find('viewer.horos_moviePlayStop?.isEnabled = false')
     if disable < 0 or not ask < disable:
         failures.append('the movie must be stopped before the control is switched off')
     window = loader[ask:disable]
@@ -122,16 +148,24 @@ else:
 
 # The control must be visible, accessible and operating. It had no
 # accessibility label, while both of its neighbours did.
+# In ViewerController.m, or, since the class is Swift, in the nib's awakening
+# that the viewer's graph runs (ViewerSessionGraph+ViewerLife.swift).
+lifecycle_path = root / 'Horos/Sources/ViewerSessionGraph+ViewerLife.swift'
+lifecycle = lifecycle_path.read_text() if lifecycle_path.exists() else ''
 for outlet, what in (('moviePlayStop', 'the play control'), ('moviePosSlider', 'the phase slider')):
-    if not re.search(r'\[%s setAccessibilityLabel' % outlet, viewer):
+    if not re.search(r'\[%s setAccessibilityLabel' % outlet, viewer) and not re.search(r'\b%s\?\.setAccessibilityLabel\(' % outlet, lifecycle):
         failures.append('%s has no accessibility label' % what)
-    if not re.search(r'\[%s setAccessibilityHelp' % outlet, viewer):
+    if not re.search(r'\[%s setAccessibilityHelp' % outlet, viewer) and not re.search(r'\b%s\?\.setAccessibilityHelp\(' % outlet, lifecycle):
         failures.append('%s has no accessibility help' % what)
 
-# And the animation must keep asking the guard for the next index: this is the
-# 4D buffer safety, not to be confused with the control.
-if 'HorosFourDSeriesGuard nextIndex' not in viewer:
-    failures.append('-performMovieAnimation: no longer asks the guard for the next index')
+# And the animation must keep asking for a wrapped next index: this is the 4D
+# buffer safety, not to be confused with the control. The tick is the viewer's
+# CinePlayback.advanceMovie(), whose next index is IsiXImaging's
+# SliceNavigation.nextMovieIndex, wrapped into the frames as the guard wraps
+# (SliceNavigationTests).
+if 'cine.advanceMovie()' not in (swift_method('performMovieAnimation:') or '') \
+        or '.nextMovieIndex' not in (cine_method('advanceMovie') or ''):
+    failures.append('-performMovieAnimation: no longer asks for the wrapped next index')
 
 if failures:
     print('FAIL:')

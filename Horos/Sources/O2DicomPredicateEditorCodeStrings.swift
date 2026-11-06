@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Foundation
+import IsiXDICOMFile
 
 /// A mutable dictionary that enumerates its keys in the order they were
 /// (last) set. O2DicomPredicateEditorView numbers the code strings of a CS tag
@@ -98,8 +99,8 @@ public final class O2DicomPredicateEditorOrderedMutableDictionary: NSMutableDict
 @objc(O2DicomPredicateEditorCodeStrings)
 public final class O2DicomPredicateEditorCodeStrings: NSObject {
     // nonisolated(unsafe): the lazy initializer of a global `let` runs once,
-    // whichever thread asks first, and nothing changes the dictionary
-    // afterwards: `base()` hands it out as an NSDictionary, only to be read.
+    // whichever thread asks first. Afterwards only `base()` writes to it, the
+    // study states under their key, and hands it out to be read.
     nonisolated(unsafe) private static let baseDictionary: NSMutableDictionary = {
         let base = NSMutableDictionary()
 
@@ -154,26 +155,33 @@ public final class O2DicomPredicateEditorCodeStrings: NSObject {
             }
         }
 
-        let b = O2DicomPredicateEditorOrderedMutableDictionary()
-        b.setObject(NSLocalizedString("empty", comment: ""), forKey: NSNumber(value: Int32(0)))
-        b.setObject(NSLocalizedString("unread", comment: ""), forKey: NSNumber(value: Int32(1)))
-        b.setObject(NSLocalizedString("reviewed", comment: ""), forKey: NSNumber(value: Int32(2)))
-        b.setObject(NSLocalizedString("dictated", comment: ""), forKey: NSNumber(value: Int32(3)))
-        b.setObject(NSLocalizedString("validated", comment: ""), forKey: NSNumber(value: Int32(4)))
-        base.setObject(b, forKey: "OsiriX StudyStatus" as NSString)
-
         return base
     }()
 
+    /// The key of the study states, which are not in the bundled files: the
+    /// user's list (StudyStates), read each time it is asked for.
+    private static let studyStatusKey = "OsiriX StudyStatus"
+    private static let statesLock = NSLock()
+
+    private class func studyStates() -> O2DicomPredicateEditorOrderedMutableDictionary {
+        let states = O2DicomPredicateEditorOrderedMutableDictionary()
+        for (number, name) in StudyStates.names.enumerated() {
+            states.setObject(name, forKey: NSNumber(value: Int32(number)))
+        }
+        return states
+    }
+
     @objc(base)
     class func base() -> NSDictionary {
+        // The states as they are now, in the one dictionary handed out.
+        statesLock.withLock { baseDictionary.setObject(studyStates(), forKey: studyStatusKey as NSString) }
         return baseDictionary
     }
 
     /// The code strings of a CS tag, keyed by value, in the order of the
     /// resource: an NSDictionary, not bridged, so that the order is kept.
     @objc(codeStringsForTag:)
-    public class func codeStrings(for tag: DCMAttributeTag!) -> NSDictionary! {
+    public class func codeStrings(for tag: DICOMAttributeTag!) -> NSDictionary! {
         guard let tag = tag, tag.vr == "CS" else {
             return nil
         }
@@ -186,7 +194,7 @@ public final class O2DicomPredicateEditorCodeStrings: NSObject {
         guard let key = k else {
             return nil
         }
-        return base().object(forKey: key) as? NSDictionary
+        return key == studyStatusKey ? studyStates() : base().object(forKey: key) as? NSDictionary
     }
 }
 

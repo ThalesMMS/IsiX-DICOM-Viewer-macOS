@@ -15,8 +15,9 @@ The visualizer still works for a debug build, from the registration domain, whic
 is consulted the same way and never written down; and the log says when it is on,
 so the next such report answers itself.
 
-AppController is Swift: the checks read AppController.swift, where
-a release build is `#if !DEBUG` (the former `#ifdef NDEBUG`).
+The launch adopts it in ApplicationPreferencesSetup, with the rest of the
+registration of the preferences: the checks read ApplicationPreferencesSetup.swift,
+where a release build is `#if !DEBUG` (the former `#ifdef NDEBUG`).
 """
 from pathlib import Path
 import re
@@ -34,13 +35,13 @@ if not source.exists():
     print('FAIL: %s is gone' % source.name)
     sys.exit(1)
 
-application = source_text('AppController')
+application = source_text('ApplicationPreferencesSetup')
 key = 'NSConstraintBasedLayoutVisualizeMutuallyExclusiveConstraints'
 
 # --- nothing writes the key into the preference file any more -----------------
 written = re.findall(r'\.set\(\s*(?:true|false)\s*,\s*forKey:\s*"%s"\s*\)' % key, application)
 if written:
-    failures.append('AppController still writes %s into the preference domain, %d time(s)'
+    failures.append('the launch still writes %s into the preference domain, %d time(s)'
                     % (key, len(written)))
 
 # --- and the debug build still gets the visualizer ---------------------------

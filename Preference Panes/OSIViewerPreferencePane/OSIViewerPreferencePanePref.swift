@@ -46,7 +46,7 @@ private let UserDefaultsObservingContext = IdentityToken()
 
 /// The Viewers preference pane.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors,
+/// Implemented in Swift: the Objective-C name, the selectors,
 /// the xib outlets and <Horos/OSIViewerPreferencePanePref.h> are those of
 /// the former class.
 // Main actor: a preferences pane, which the preferences window creates, shows
@@ -54,9 +54,45 @@ private let UserDefaultsObservingContext = IdentityToken()
 // the SDK, run their bodies on the main actor through assumeMainActor.
 @MainActor
 @objc(OSIViewerPreferencePanePref)
-public final class OSIViewerPreferencePanePref: NSPreferencePane {
+public class OSIViewerPreferencePanePref: NSPreferencePane {
     @IBOutlet var mainWindow: NSWindow?
     @IBOutlet var captureSeriesNameField: NSTextField?
+    /// The windows of the panes that divide the Viewers settings: one nib holds
+    /// them all, and each pane shows its own window.
+    @IBOutlet var roiWindow: NSWindow?
+    @IBOutlet var mouseWindow: NSWindow?
+    @IBOutlet var screensWindow: NSWindow?
+    @IBOutlet var exportWindow: NSWindow?
+
+    /// The window this pane shows.
+    var paneWindow: NSWindow? { mainWindow }
+
+    /// One popup for the two keys of the zoom's interpolation: the second one
+    /// only counts with the first one off.
+    @objc dynamic var interpolationMode: Int {
+        get {
+            let defaults = UserDefaults.standard
+            if defaults.bool(forKey: "NOINTERPOLATION") { return 0 }
+            return defaults.bool(forKey: "SOFTWAREINTERPOLATION") ? 2 : 1
+        }
+        set {
+            UserDefaults.standard.set(newValue == 0, forKey: "NOINTERPOLATION")
+            UserDefaults.standard.set(newValue == 2, forKey: "SOFTWAREINTERPOLATION")
+        }
+    }
+
+    /// The pop-up of the precise mouse's movement: its items are tagged 25,
+    /// 50 and 75, and the preference keeps the factor, 0.5 when it holds
+    /// anything else.
+    @objc dynamic var preciseMouseFactorTag: Int {
+        get {
+            let factor = UserDefaults.standard.object(forKey: "PreciseMouseFactor") as? Double ?? 0.5
+            return [0.25, 0.5, 0.75].contains(factor) ? Int(factor * 100) : 50
+        }
+        set {
+            UserDefaults.standard.set([25, 50, 75].contains(newValue) ? Double(newValue) / 100 : 0.5, forKey: "PreciseMouseFactor")
+        }
+    }
 
     private var _tlos: NSArray?
 
@@ -77,11 +113,10 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
         let nib = NSNib(nibNamed: "OSIViewerPreferencePanePref", bundle: nil)
         nib?.instantiate(withOwner: self, topLevelObjects: &_tlos)
 
-        addROIStatisticsChecks()
-        addPreviousExamCheck()
-        addViewerInteractionControls()
+        if self is OSIViewerROIPreferencePanePref { addROIStatisticsChecks() }
+        if type(of: self) == OSIViewerPreferencePanePref.self { translateFromCatalogIfNeeded() }
 
-        if let contentView = mainWindow?.contentView {
+        if let contentView = paneWindow?.contentView {
             self.mainView = contentView
         }
         self.mainViewDidLoad()
@@ -95,38 +130,37 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
         captureSeriesNameField?.placeholderString = ScreenCaptureSeriesName.defaultName()
     }
 
-    /// "Previous" on older studies, a check in the right column of the
-    /// Miscellaneous box, in the free place under "Only display images of the
-    /// same patient". Built here so that every localized copy of the pane
-    /// gets it; left out if that place is taken.
-    private func addPreviousExamCheck() {
-        let anchorPath = "values.onlyDisplayImagesOfSamePatient"
-        guard let content = mainWindow?.contentView,
-              let box = content.subviews.lazy.compactMap({ $0 as? NSBox }).first(where: { box in
-                  box.contentView?.subviews.contains { ($0.infoForBinding(.value)?[.observedKeyPath] as? String) == anchorPath } ?? false
-              }),
-              let inner = box.contentView,
-              let anchor = inner.subviews.first(where: { ($0.infoForBinding(.value)?[.observedKeyPath] as? String) == anchorPath })
-        else { return }
-
-        let place = NSRect(x: anchor.frame.minX, y: anchor.frame.minY - 20, width: anchor.frame.width, height: anchor.frame.height)
-        guard !inner.subviews.contains(where: { $0.frame.intersects(place) }) else { return }
-        let check = NSButton(checkboxWithTitle: NSLocalizedString("Show \"Previous\" on older studies",
-                                                                   comment: "Viewers pane: the label on a viewer showing an older study of the patient"),
-                             target: nil, action: nil)
-        check.frame = place
-        check.lineBreakMode = .byTruncatingTail
-        check.toolTip = check.title
-        check.bind(.value, to: NSUserDefaultsController.shared, withKeyPath: "values." + PreviousStudyMark.defaultsKey, options: nil)
-        inner.addSubview(check)
+    /// Italian and Spanish have a catalog and no copy of this nib. There the
+    /// Base nib loads in English, and the texts of this pane's own window are
+    /// read from the catalog; a text the catalog lacks stays as it is.
+    private func translateFromCatalogIfNeeded() {
+        guard let language = Bundle.main.preferredLocalizations.first,
+              Bundle.main.url(forResource: "OSIViewerPreferencePanePref", withExtension: "nib", subdirectory: nil, localization: language) == nil,
+              let content = mainWindow?.contentView else { return }
+        Self.translateFromCatalog(content)
     }
 
-    /// A check for each statistic of closed ROIs' labels, in a row added at the
-    /// bottom of the ROI labels box, which grows to hold it. Built here rather
-    /// than in the xib so that every localized copy of the pane gets it.
+    private static func translateFromCatalog(_ view: NSView) {
+        func translated(_ english: String) -> String {
+            english.isEmpty ? english : Bundle.main.localizedString(forKey: english, value: english, table: nil)
+        }
+        if let box = view as? NSBox {
+            box.title = translated(box.title)
+        } else if let popUp = view as? NSPopUpButton {
+            for item in popUp.itemArray { item.title = translated(item.title) }
+        } else if let button = view as? NSButton {
+            button.title = translated(button.title)
+        } else if let label = view as? NSTextField, !label.isEditable {
+            label.stringValue = translated(label.stringValue)
+        }
+        for child in (view as? NSBox)?.contentView?.subviews ?? view.subviews { translateFromCatalog(child) }
+    }
+
+    /// Put the compact label setting beside the statistics it overrides.
+    /// Build the controls here so that every localized copy of the pane gets them.
     private func addROIStatisticsChecks() {
         let backgroundPath = "values." + ROILabelContrast.backgroundKey
-        guard let content = mainWindow?.contentView,
+        guard let content = paneWindow?.contentView,
               let box = content.subviews.lazy.compactMap({ $0 as? NSBox }).first(where: { box in
                   box.contentView?.subviews.contains { view in
                       (view.infoForBinding(.value)?[.observedKeyPath] as? String) == backgroundPath
@@ -134,7 +168,8 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
               }),
               let inner = box.contentView else { return }
 
-        let rowHeight: CGFloat = 30
+        let rowSpacing: CGFloat = 24
+        let addedHeight: CGFloat = 30 + rowSpacing
         let rowY = inner.subviews.map(\.frame.minY).min() ?? 10
         let autoresizing = (content.autoresizesSubviews, inner.autoresizesSubviews)
         content.autoresizesSubviews = false
@@ -143,14 +178,40 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
             content.autoresizesSubviews = autoresizing.0
             inner.autoresizesSubviews = autoresizing.1
         }
-        content.setFrameSize(NSSize(width: content.frame.width, height: content.frame.height + rowHeight))
+        content.setFrameSize(NSSize(width: content.frame.width, height: content.frame.height + addedHeight))
         for view in content.subviews where view !== box {
-            view.setFrameOrigin(NSPoint(x: view.frame.minX, y: view.frame.minY + rowHeight))
+            view.setFrameOrigin(NSPoint(x: view.frame.minX, y: view.frame.minY + addedHeight))
         }
-        box.setFrameSize(NSSize(width: box.frame.width, height: box.frame.height + rowHeight))
+        box.setFrameSize(NSSize(width: box.frame.width, height: box.frame.height + addedHeight))
         for view in inner.subviews {
-            view.setFrameOrigin(NSPoint(x: view.frame.minX, y: view.frame.minY + rowHeight))
+            view.setFrameOrigin(NSPoint(x: view.frame.minX, y: view.frame.minY + addedHeight))
         }
+
+        let defaults = NSUserDefaultsController.shared
+        let compactPath = "values.ROIPRIMARYMEASUREMENTONLY"
+        let compact = NSButton(checkboxWithTitle: NSLocalizedString("Show Primary Measurement Only", comment: "ROI label display mode"),
+                               target: nil, action: nil)
+        compact.sizeToFit()
+        compact.setFrameOrigin(NSPoint(x: 12, y: rowY + rowSpacing + 4))
+        compact.bind(.value, to: defaults, withKeyPath: compactPath, options: nil)
+        inner.addSubview(compact)
+
+        // The compact mode can be switched on from the ROI menu and forgotten:
+        // while it is on, the statistics checks below are greyed out and keep
+        // their choices, and this note says why the labels leave them out.
+        let note = NSTextField(labelWithString: NSLocalizedString("On: ROI labels hide the statistics below.",
+                                                                  comment: "Viewers pane: shown beside the compact ROI label check while it is on"))
+        note.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        note.textColor = .secondaryLabelColor
+        note.lineBreakMode = .byTruncatingTail
+        note.toolTip = note.stringValue
+        note.sizeToFit()
+        let noteX = compact.frame.maxX + 8
+        note.frame = NSRect(x: noteX, y: compact.frame.midY - note.frame.height / 2,
+                            width: min(note.frame.width, max(0, inner.bounds.width - noteX - 12)), height: note.frame.height)
+        note.bind(.hidden, to: defaults, withKeyPath: compactPath,
+                  options: [.valueTransformerName: NSValueTransformerName.negateBooleanTransformerName])
+        inner.addSubview(note)
 
         let label = NSTextField(labelWithString: NSLocalizedString("Statistics shown:", comment: "Viewers pane: the checks of the statistics ROI labels show"))
         label.sizeToFit()
@@ -161,92 +222,13 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
             let check = NSButton(checkboxWithTitle: ROILabelPresentation.title(forStatistic: statistic), target: nil, action: nil)
             check.sizeToFit()
             check.setFrameOrigin(NSPoint(x: x, y: rowY + 4))
-            check.bind(.value, to: NSUserDefaultsController.shared,
+            check.bind(.value, to: defaults,
                        withKeyPath: "values." + ROILabelPresentation.defaultsKey(forStatistic: statistic), options: nil)
+            check.bind(.enabled, to: defaults, withKeyPath: compactPath,
+                       options: [.valueTransformerName: NSValueTransformerName.negateBooleanTransformerName])
             inner.addSubview(check)
             x = check.frame.maxX + 12
         }
-    }
-
-    /// Add the interaction options to every localized version of the existing
-    /// Miscellaneous box, preserving the positions of the other sections.
-    private func addViewerInteractionControls() {
-        let anchorPath = "values.onlyDisplayImagesOfSamePatient"
-        guard let content = mainWindow?.contentView,
-              let box = content.subviews.lazy.compactMap({ $0 as? NSBox }).first(where: { box in
-                  box.contentView?.subviews.contains { ($0.infoForBinding(.value)?[.observedKeyPath] as? String) == anchorPath } ?? false
-              }), let inner = box.contentView else { return }
-
-        let rowHeight: CGFloat = 28
-        let addedHeight = rowHeight * 4
-        let rowY = inner.subviews.map(\.frame.minY).min() ?? 10
-        let autoresizing = (content.autoresizesSubviews, inner.autoresizesSubviews)
-        content.autoresizesSubviews = false
-        inner.autoresizesSubviews = false
-        defer {
-            content.autoresizesSubviews = autoresizing.0
-            inner.autoresizesSubviews = autoresizing.1
-        }
-        content.setFrameSize(NSSize(width: content.frame.width, height: content.frame.height + addedHeight))
-        for view in content.subviews where view !== box && view.frame.minY >= box.frame.maxY {
-            view.setFrameOrigin(NSPoint(x: view.frame.minX, y: view.frame.minY + addedHeight))
-        }
-        box.setFrameSize(NSSize(width: box.frame.width, height: box.frame.height + addedHeight))
-        for view in inner.subviews {
-            view.setFrameOrigin(NSPoint(x: view.frame.minX, y: view.frame.minY + addedHeight))
-        }
-
-        let defaults = NSUserDefaultsController.shared
-        let left: CGFloat = 12
-        let right = inner.bounds.width - 12
-        func checkbox(_ title: String, key: String, row: CGFloat) -> NSButton {
-            let button = NSButton(checkboxWithTitle: title, target: nil, action: nil)
-            button.frame = NSRect(x: left, y: rowY + row * rowHeight, width: right - left, height: 22)
-            button.bind(.value, to: defaults, withKeyPath: "values." + key, options: nil)
-            inner.addSubview(button)
-            return button
-        }
-        _ = checkbox(NSLocalizedString("Remember MPR plane angles", comment: "Viewers preference"),
-                     key: "RememberMPRPlaneAngles", row: 3)
-        let preciseMouse = checkbox(NSLocalizedString("Precise mouse for measuring and zoom", comment: "Viewers preference"),
-                                    key: "PreciseMouseForMeasuringAndZoom", row: 2)
-        _ = checkbox(NSLocalizedString("Exponential thick slab slider", comment: "Viewers preference"),
-                     key: "LogarithmicThickSlabSlider", row: 0)
-
-        let factor = NSPopUpButton(frame: NSRect(x: right - 78, y: rowY + 2 * rowHeight - 1, width: 78, height: 26), pullsDown: false)
-        for percentage in [25, 50, 75] {
-            factor.addItem(withTitle: "\(percentage)%")
-            factor.lastItem?.tag = percentage
-        }
-        factor.bind(.selectedTag, to: defaults, withKeyPath: "values.PreciseMouseFactor",
-                    options: [.valueTransformer: ViewerMouseFactorTransformer()])
-        factor.bind(.enabled, to: defaults, withKeyPath: "values.PreciseMouseForMeasuringAndZoom", options: nil)
-        let factorLabel = NSTextField(labelWithString: NSLocalizedString("Mouse movement:", comment: "Precise mouse movement percentage"))
-        factorLabel.sizeToFit()
-        factorLabel.setFrameOrigin(NSPoint(x: factor.frame.minX - factorLabel.frame.width - 8, y: rowY + 2 * rowHeight + 3))
-        factor.setAccessibilityLabel(factorLabel.stringValue)
-        preciseMouse.setFrameSize(NSSize(width: factorLabel.frame.minX - left - 12, height: preciseMouse.frame.height))
-        inner.addSubview(factorLabel)
-        inner.addSubview(factor)
-
-        let seriesLabel = NSTextField(labelWithString: NSLocalizedString("Identify series in the list by:", comment: "Viewers preference"))
-        seriesLabel.sizeToFit()
-        seriesLabel.setFrameOrigin(NSPoint(x: left, y: rowY + rowHeight + 3))
-        inner.addSubview(seriesLabel)
-        let series = NSPopUpButton(frame: .zero, pullsDown: false)
-        let titles = [NSLocalizedString("Colors", comment: "Series identification mode"),
-                      NSLocalizedString("Numbers", comment: "Series identification mode"),
-                      NSLocalizedString("Colors and numbers", comment: "Series identification mode")]
-        for (index, title) in titles.enumerated() {
-            series.addItem(withTitle: title)
-            series.lastItem?.tag = index
-        }
-        series.sizeToFit()
-        series.frame = NSRect(x: seriesLabel.frame.maxX + 10, y: rowY + rowHeight - 1,
-                              width: max(210, series.frame.width), height: 26)
-        series.setAccessibilityLabel(seriesLabel.stringValue)
-        series.bind(.selectedTag, to: defaults, withKeyPath: "values.SeriesListIdentificationMode", options: nil)
-        inner.addSubview(series)
     }
 
     /// The field shows the name as it will be written: once its binding has
@@ -311,17 +293,26 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
 }
 
 /// The popup tags are percentages; the stored preference is a movement factor.
-private final class ViewerMouseFactorTransformer: ValueTransformer {
-    override class func transformedValueClass() -> AnyClass { NSNumber.self }
-    override class func allowsReverseTransformation() -> Bool { true }
+/// ROI labels, and what ROIs do when they are drawn or removed.
+@objc(OSIViewerROIPreferencePanePref)
+public final class OSIViewerROIPreferencePanePref: OSIViewerPreferencePanePref {
+    override var paneWindow: NSWindow? { roiWindow }
+}
 
-    override func transformedValue(_ value: Any?) -> Any? {
-        let factor = (value as? NSNumber)?.doubleValue ?? 0.5
-        return NSNumber(value: [0.25, 0.5, 0.75].contains(factor) ? Int(factor * 100) : 50)
-    }
+/// The wheel, the mouse and the lenses.
+@objc(OSIViewerMousePreferencePanePref)
+public final class OSIViewerMousePreferencePanePref: OSIViewerPreferencePanePref {
+    override var paneWindow: NSWindow? { mouseWindow }
+}
 
-    override func reverseTransformedValue(_ value: Any?) -> Any? {
-        let percentage = (value as? NSNumber)?.intValue ?? 50
-        return NSNumber(value: [25, 50, 75].contains(percentage) ? Double(percentage) / 100 : 0.5)
-    }
+/// The screens and the size and order of the viewers' windows.
+@objc(OSIViewerScreensPreferencePanePref)
+public final class OSIViewerScreensPreferencePanePref: OSIViewerPreferencePanePref {
+    override var paneWindow: NSWindow? { screensWindow }
+}
+
+/// What exporting and capturing images keep.
+@objc(OSIViewerExportPreferencePanePref)
+public final class OSIViewerExportPreferencePanePref: OSIViewerPreferencePanePref {
+    override var paneWindow: NSWindow? { exportWindow }
 }

@@ -1,11 +1,68 @@
 #!/usr/bin/env python3
-"""Exercise the actual DICOMExport NSImage conversion with real AppKit bitmaps."""
+"""Exercise the actual DICOMExport NSImage conversion with real AppKit bitmaps.
+
+DICOMExport is Swift (DICOMExport.swift, an @implementation of DICOMExport.h):
+its pixel methods are compiled here as they are written, in a class with the
+stored values they use, with the IsiXDICOMFile module they call. `<git
+revision>` as an optional argument reads the Objective-C++ of a revision that
+has DICOMExport.mm.
+"""
 from pathlib import Path
 import subprocess, sys, tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules
 root=Path(__file__).resolve().parents[1]
-s=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/DICOMExport.mm']) if len(sys.argv)>1 else (root/'Horos/Sources/DICOMExport.mm').read_bytes()).decode('latin1')
-a=s.index('- (long) setPixelData:');b=s.index('- (void) setDefaultWWWL:',a)
-methods=s[a:b]
+revision=sys.argv[1] if len(sys.argv)>1 else None
+swift=revision is None and (root/'Horos/Sources/DICOMExport.swift').is_file()
+if swift:
+ s=(root/'Horos/Sources/DICOMExport.swift').read_text()
+ a=s.index('    @objc(setPixelData:samplesPerPixel:bitsPerSample:width:height:)');b=s.index('    // MARK: - Writing',a)
+ methods=s[a:b]
+else:
+ s=(subprocess.check_output(['git','show',revision+':Horos/Sources/DICOMExport.mm']) if revision else (root/'Horos/Sources/DICOMExport.mm').read_bytes()).decode('latin1')
+ a=s.index('- (long) setPixelData:');b=s.index('- (void) setDefaultWWWL:',a)
+ methods=s[a:b]
+# The Swift methods in a class of the same Objective-C name, with the stored
+# values they use.
+swift_class=r'''
+import AppKit
+import IsiXDICOMFile
+@objc(DICOMExport) final class DICOMExport: NSObject {
+    var horos_data: UnsafeMutablePointer<UInt8>?
+    var horos_localData: UnsafeMutablePointer<UInt8>?
+    var horos_width = 0
+    var horos_height = 0
+    var horos_samplesPerPixel = 0
+    var horos_bitsPerSample = 0
+    var horos_isSigned = false
+    var horos_offset: Int32 = 0
+    var horos_image: NSImage?
+    var horos_imageRepresentation: NSBitmapImageRep?
+    var horos_imageData: UnsafeMutableRawPointer?
+    @objc var probeData: UnsafeMutablePointer<UInt8>? { horos_data }
+    @objc var probeWidth: Int { horos_width }
+    @objc var probeHeight: Int { horos_height }
+    @objc var probeSamples: Int { horos_samplesPerPixel }
+    @objc var probeBits: Int { horos_bitsPerSample }
+    deinit { free(horos_localData); free(horos_imageData) }
+METHODS
+}
+'''
+interface_swift=r'''
+#import <Cocoa/Cocoa.h>
+static int expectedRGB[3]={40,100,200};
+@interface DICOMExport:NSObject
+@property (readonly) unsigned char *probeData;
+@property (readonly) long probeWidth, probeHeight, probeSamples, probeBits;
+- (long)setPixelNSImage:(NSImage*)input;
+@end
+@interface DICOMExport (Check)
+- (BOOL)checkWidth:(long)w height:(long)h;
+@end
+@implementation DICOMExport (Check)
+- (BOOL)checkWidth:(long)w height:(long)h {
+ unsigned char *data=self.probeData;long width=self.probeWidth,height=self.probeHeight,spp=self.probeSamples,bps=self.probeBits;
+'''
 program=r'''
 #import <Cocoa/Cocoa.h>
 static int expectedRGB[3]={40,100,200};
@@ -74,6 +131,21 @@ int main() {@autoreleasepool {
 }}
 '''.replace('METHODS',methods)
 with tempfile.TemporaryDirectory(prefix='horos-nsimage-pixels-') as folder:
- p=Path(folder);(p/'test.m').write_text(program)
- subprocess.run(['xcrun','clang','-fsanitize=address',str(p/'test.m'),'-framework','Cocoa','-o',str(p/'test')],check=True)
+ p=Path(folder)
+ if swift:
+  # The driver's check and fixtures, over the Swift class.
+  check_body=program[program.index('- (BOOL)checkWidth:(long)w height:(long)h {')+len('- (BOOL)checkWidth:(long)w height:(long)h {'):]
+  check_body=check_body[:check_body.index('\n@end')]
+  check_body=check_body[check_body.index('\n')+1:]
+  driver=interface_swift+check_body[:check_body.index('- (void)dealloc')]+'@end\n'+program[program.index('NSImage *fixture(int w,int h) {'):]
+  (p/'test.m').write_text(driver)
+  (p/'probe.swift').write_text(swift_class.replace('METHODS',methods))
+  modules=p/'modules'
+  flags=isix_modules.module_flags('IsiXDICOMFile',modules)
+  subprocess.run(['xcrun','swiftc','-parse-as-library','-swift-version','6','-module-name','Probe','-sanitize=address',*flags[:2],'-c',str(p/'probe.swift'),'-o',str(p/'probe.o')],check=True)
+  subprocess.run(['xcrun','clang','-fno-objc-arc','-fsanitize=address','-c',str(p/'test.m'),'-o',str(p/'test.o')],check=True)
+  subprocess.run(['xcrun','swiftc','-sanitize=address',str(p/'probe.o'),str(p/'test.o'),*isix_modules.link_flags('IsiXDICOMFile',modules),'-framework','Cocoa','-o',str(p/'test')],check=True)
+ else:
+  (p/'test.m').write_text(program)
+  subprocess.run(['xcrun','clang','-fsanitize=address',str(p/'test.m'),'-framework','Cocoa','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

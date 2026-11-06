@@ -1,13 +1,13 @@
 {
-  "originHash" : "7b9ed1f6986bc62d2959d1e680387848ab4567dd698a92095dce5985621e85d9",
+  "originHash" : "bca36a8caa8ec5efad8c029579e8ab43662dd18407b156c7d0a089be10b9b45d",
   "pins" : [
     {
       "identity" : "dicom-swift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ThalesMMS/DICOM-Swift.git",
       "state" : {
-        "revision" : "2cb82e44c1041a2c1e85319fb5661f442d0b1ee9",
-        "version" : "3.0.1"
+        "revision" : "229714f81e3090a937a17c344ca804fa4473cbe7",
+        "version" : "3.1.1"
       }
     },
     {
@@ -17,6 +17,51 @@
       "state" : {
         "revision" : "6a52f3251125d74daf04fcbd5e6f08a75d074382",
         "version" : "1.8.2"
+      }
+    },
+    {
+      "identity" : "swift-atomics",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-atomics.git",
+      "state" : {
+        "revision" : "0442cb5a3f98ab802acb777929fdb446bda11a34",
+        "version" : "1.3.1"
+      }
+    },
+    {
+      "identity" : "swift-collections",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-collections.git",
+      "state" : {
+        "revision" : "7b847a3b7008b2dc2f47ca3110d8c782fb2e5c7e",
+        "version" : "1.3.0"
+      }
+    },
+    {
+      "identity" : "swift-nio",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-nio.git",
+      "state" : {
+        "revision" : "2f58d8ef84438d6517fc78bcea2f8527e3c72936",
+        "version" : "2.105.0"
+      }
+    },
+    {
+      "identity" : "swift-nio-transport-services",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-nio-transport-services.git",
+      "state" : {
+        "revision" : "67787bb645a5e67d2edcdfbe48a216cc549222d5",
+        "version" : "1.28.0"
+      }
+    },
+    {
+      "identity" : "swift-system",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-system.git",
+      "state" : {
+        "revision" : "869129b7bf4ecc57b97d0193ad29690ca2134750",
+        "version" : "1.8.1"
       }
     },
     {

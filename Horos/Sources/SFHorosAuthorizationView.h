@@ -35,16 +35,24 @@
      PURPOSE.
  ============================================================================*/
 
+// SFHorosAuthorizationView is implemented in Swift
+// (Horos/Sources/SFHorosAuthorizationView.swift). This header keeps
+// <Horos/SFHorosAuthorizationView.h>, and declares the method of
+// SFAuthorizationView that the preferences send, which its own header hides.
 
 #import <SecurityInterface/SFAuthorizationView.h>
 
-
-@interface SFHorosAuthorizationView : SFAuthorizationView
-
-@end
-
-@interface SFHorosAuthorizationView (HiddenInSuper)
+@interface SFAuthorizationView (HiddenInSuper)
 
 -(void)buttonPressed:(id)sender;
 
 @end
+
+// Named first: PreferencesWindowController.h declares an outlet of this class,
+// and may be read while Horos-Swift.h is being imported.
+@class SFHorosAuthorizationView;
+
+#ifndef HOROS_BRIDGING_HEADER
+// Swift is not compiling the class itself: bring in its generated interface.
+#import "Horos-Swift.h"
+#endif

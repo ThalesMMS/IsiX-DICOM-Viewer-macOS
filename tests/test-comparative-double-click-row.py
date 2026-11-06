@@ -5,7 +5,8 @@
 table, read the table's -selectedRow. With a row still selected, a double click
 in the empty area below the rows opened (or retrieved) that row's study. It now
 reads -clickedRow, which is -1 outside the rows, and a row outside the studies
-opens nothing.
+opens nothing. The action forwards to PatientHistoryList.doubleClick(), which
+the history list keeps.
 
 Checked in the source, since the method needs the browser, its database and its
 tables around it. `<git revision>` as an optional argument reads the source of
@@ -19,6 +20,7 @@ import sys
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 PATH = 'Horos/Sources/BrowserController+AlbumsTableView.swift'
+HISTORY = 'Horos/Sources/PatientHistoryList.swift'
 SELECTOR = 'doubleClickComparativeStudy:'
 
 
@@ -34,8 +36,8 @@ def code(text):
     return '\n'.join(line.split('//')[0].rstrip() for line in text.split('\n'))
 
 
-def body(text, selector):
-    at = text.find('@objc(%s)' % selector)
+def body(text, selector, at=None):
+    at = text.find('@objc(%s)' % selector) if at is None else at
     if at < 0:
         return None
     opening = text.index('{', at)
@@ -51,21 +53,25 @@ def body(text, selector):
 
 
 failures = []
-method = body(code(read(PATH)), SELECTOR)
-if method is None:
-    failures.append('%s no longer implements -%s; this test needs a new look' % (PATH, SELECTOR))
+facade = body(code(read(PATH)), SELECTOR)
+history = code(read(HISTORY)) if not revision else ''
+method = body(history, SELECTOR, history.find('func doubleClick()')) if history.find('func doubleClick()') >= 0 else None
+if facade is None or 'patientHistory.doubleClick()' not in facade:
+    failures.append('%s no longer forwards -%s to the history list; this test needs a new look' % (PATH, SELECTOR))
+elif method is None:
+    failures.append('%s has no doubleClick(); this test needs a new look' % HISTORY)
 else:
     if 'selectedRow' in method:
         failures.append('-%s reads the selected row, which opens the selected study '
                         'after a double click outside the rows' % SELECTOR)
-    row = re.search(r'let (\w+) = horos_comparativeTable\?\.clickedRow \?\? -1', method)
+    row = re.search(r'let (\w+) = table\?\.clickedRow \?\? -1', method)
     if not row:
         failures.append('-%s does not read the clicked row of the comparative table, -1 without one' % SELECTOR)
     else:
         name = row.group(1)
-        if not re.search(r'\b%s >= 0 && %s < \(?\w+\??\.count' % (name, name), method):
+        if not re.search(r'\b%s >= 0, %s < \w+\.count' % (name, name), method):
             failures.append('-%s does not bound the clicked row by the studies' % SELECTOR)
-        reads = re.findall(r'object\(at: (\w+)\)', method)
+        reads = re.findall(r'studies\[(\w+)\]', method)
         if reads != [name]:
             failures.append('-%s reads its studies at %r, not once at the clicked row' % (SELECTOR, reads))
 

@@ -12,6 +12,7 @@
 
 // Read-only inspector for the production database cleanup policy and candidate selection.
 import AppKit
+import IsiXContracts
 
 @objc(AutoCleanupPreview) public final class AutoCleanupPreview: NSWindowController, NSTableViewDataSource, NSTableViewDelegate {
     // One inspector per process; successive requests update it rather than leaking windows.
@@ -20,7 +21,7 @@ import AppKit
     private let table = NSTableView()
     private let status = NSTextField(labelWithString: "")
     private let refresh = NSButton(title: NSLocalizedString("Refresh", comment: ""), target: nil, action: nil)
-    private var rows: [[String: Any]] = []
+    private var rows: [CleanupPreviewRow] = []
     private let formatter: DateFormatter = {
         let f = DateFormatter(); f.dateStyle = .medium; f.timeStyle = .short; return f
     }()
@@ -92,14 +93,14 @@ import AppKit
         shared.showWindow(nil); shared.window?.makeKeyAndOrderFront(nil)
     }
 
-    @objc public static func display(snapshot: [String: Any]) {
+    static func display(snapshot: CleanupPreview) {
         precondition(Thread.isMainThread)
-        shared.summary.string = snapshot["summary"] as? String ?? ""
-        shared.rows = snapshot["rows"] as? [[String: Any]] ?? []
+        shared.summary.string = snapshot.summary
+        shared.rows = snapshot.rows
         shared.table.reloadData()
         shared.status.stringValue = String(format: NSLocalizedString("%ld candidates • Updated %@ • Read only", comment: ""),
                                            shared.rows.count, shared.formatter.string(from: Date()))
-        if snapshot["error"] as? Bool == true {
+        if snapshot.failed {
             shared.status.stringValue = NSLocalizedString("Preview unavailable • No files changed", comment: "")
         }
         shared.refresh.isEnabled = true
@@ -108,10 +109,20 @@ import AppKit
     public func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
     public func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         guard let key = tableColumn?.identifier.rawValue else { return nil }
-        let value = rows[row][key]
-        let text = value as? Date != nil ? formatter.string(from: value as! Date) : value as? String ?? ""
+        let text = columnText(key, of: rows[row])
         let cell = NSTextField(labelWithString: text)
         cell.lineBreakMode = .byTruncatingTail; cell.toolTip = text
         return cell
+    }
+
+    private func columnText(_ key: String, of row: CleanupPreviewRow) -> String {
+        switch key {
+        case "rule": return row.rule
+        case "patient": return row.patient
+        case "study": return row.study
+        case "uid": return row.studyInstanceUID
+        case "date": return row.date.map(formatter.string(from:)) ?? ""
+        default: return ""
+        }
     }
 }
