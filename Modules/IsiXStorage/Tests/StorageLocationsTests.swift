@@ -25,14 +25,7 @@ import Testing
         #expect(StorageLocations.pluginsFolder(inDomain: "/", active: false) == "/Library/Application Support/IsiX/Plugins Disabled")
         #expect(StorageLocations.discoveryFolders(userDomain: home, systemDomain: "/") == [
             home + "/Library/Application Support/IsiX/Plugins",
-            home + "/Library/Application Support/Horos App/Plugins",
             "/Library/Application Support/IsiX/Plugins",
-        ])
-        #expect(StorageLocations.legacyPluginsFolders(userDomain: home, systemDomain: "/") == [
-            home + "/Library/Application Support/Horos/Plugins",
-            home + "/Library/Application Support/Horos/Plugins Disabled",
-            "/Library/Application Support/Horos/Plugins",
-            "/Library/Application Support/Horos/Plugins Disabled",
         ])
     }
 

@@ -161,6 +161,23 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
         compact.bind(.value, to: defaults, withKeyPath: compactPath, options: nil)
         inner.addSubview(compact)
 
+        // The compact mode can be switched on from the ROI menu and forgotten:
+        // while it is on, the statistics checks below are greyed out and keep
+        // their choices, and this note says why the labels leave them out.
+        let note = NSTextField(labelWithString: NSLocalizedString("On: ROI labels hide the statistics below.",
+                                                                  comment: "Viewers pane: shown beside the compact ROI label check while it is on"))
+        note.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        note.textColor = .secondaryLabelColor
+        note.lineBreakMode = .byTruncatingTail
+        note.toolTip = note.stringValue
+        note.sizeToFit()
+        let noteX = compact.frame.maxX + 8
+        note.frame = NSRect(x: noteX, y: compact.frame.midY - note.frame.height / 2,
+                            width: min(note.frame.width, max(0, inner.bounds.width - noteX - 12)), height: note.frame.height)
+        note.bind(.hidden, to: defaults, withKeyPath: compactPath,
+                  options: [.valueTransformerName: NSValueTransformerName.negateBooleanTransformerName])
+        inner.addSubview(note)
+
         let label = NSTextField(labelWithString: NSLocalizedString("Statistics shown:", comment: "Viewers pane: the checks of the statistics ROI labels show"))
         label.sizeToFit()
         label.setFrameOrigin(NSPoint(x: 12, y: rowY + 4))

@@ -98,7 +98,12 @@ PLANNED = "incorporação prevista"
 EPIC_LIST = {
     "redundante": ["CalciumScore", "T2 Fit Map", "CMIR_T2_Fit_Map", "ROI Enhancement II", "OpenGL",
                    "Cobb Angle", "GantryTiltCorrection", "Orthogonal Reslice", "Resample Data",
-                   "Create DICOMDIR", "jp2 plugin", "_obsolete/AutoClean", "contextualDictionary"],
+                   "Create DICOMDIR", "jp2 plugin", "_obsolete/AutoClean", "contextualDictionary",
+                   # Native functions that took them in.
+                   "CloseThisStudy", "Invert Data", "coreImageFilters", "Normalize", "Reduce Series",
+                   "PointsToLine", "ExportROIs", "Ninety Degrees", "T2 Ratio Map", "Fill the gaps",
+                   "JPEG to DICOM", "PDF to DICOM", "VoxelVolume", "Zombies", "KeyObjectSelection",
+                   "T1 Fit Map", "Worklists", "SeriesSameOrientation"],
     "exemplo": ["HelloWorld", "DB Test", "OSIDemoPlugin", "ITKPlugin", "XML-RPC-Plugin",
                 "ExtraDatabaseColumnsSample", "AuditTrailDemo", "Create ROIs", "Invert - WindowController",
                 "Duplicate", "DefaultDefaults"],
@@ -107,11 +112,7 @@ EPIC_LIST = {
     "plataforma morta": ["SafariPlugin"],
     "não é plugin": ["log", "SpotlightImporter"],
     # Functions the application will take in natively: these plugins are never converted.
-    PLANNED: ["CloseThisStudy", "Invert Data", "Normalize", "T2 Ratio Map", "Reduce Series", "Fill the gaps",
-              "PointsToLine", "ExportROIs", "JPEG to DICOM", "PDF to DICOM", "VoxelVolume", "Zombies",
-              "KeyObjectSelection", "T1 Fit Map", "Worklists", "SeriesSameOrientation", "Ninety Degrees",
-              # Despite its name it uses no Core Image: same code and function as Invert Data.
-              "coreImageFilters"],
+    PLANNED: [],
 }
 EPIC_REASON = {name: reason for reason, names in EPIC_LIST.items() for name in names}
 

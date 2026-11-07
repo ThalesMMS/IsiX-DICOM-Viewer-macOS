@@ -45,7 +45,7 @@ import IsiXPreferences
 // The fusion of a 2D viewer with another, which the "blending" block of the
 // former viewer did: the PET-CT fusion of the Fusion command, the fusion
 // itself (-ActivateBlending:), the sheet a viewer dropped on another opens
-// and what it chooses (fusion, subtraction, multiplication, RGB
+// and what it chooses (fusion, subtraction, multiplication, division, RGB
 // composition, registration, resampling, ROI copy, a fusion plug-in), the
 // Fusion slider and mode, and the "Re-sync origin" of a fused series. The
 // blend of the view itself is IsiXImaging's FusionBlend, which DCMView keeps;
@@ -141,6 +141,10 @@ fileprivate func blendingPercentageString(_ value: Float) -> String {
         registry = processGraph.viewerRegistry
         sync = processGraph.viewerSync
     }
+
+    /// The tag of the sheet's Division button, the blending type it ends the
+    /// sheet with: the types up to 12 were taken before it.
+    static let divisionBlendingType: Int32 = 13
 
     /// The name of the fusion plug-in of the sheet's menu item `index`.
     private func fusionPlugin(at index: Int) -> String? {
@@ -408,12 +412,13 @@ fileprivate func blendingPercentageString(_ value: Float) -> String {
         viewer.horos_blendedWindow = nil
     }
 
-    /// The viewer whose images subtraction and multiplication combine with
-    /// this one's, pixel by pixel, which needs one matrix. A series of the same
-    /// study with another matrix is first resampled onto this viewer's grid, as
-    /// the panel's Resample does: it then has this viewer's images, in their
-    /// order, and each pairs with the image of its own index. Nil when the
-    /// resampling could not be done, which it has already explained.
+    /// The viewer whose images subtraction, multiplication and division
+    /// combine with this one's, pixel by pixel, which needs one matrix. A
+    /// series of the same study with another matrix is first resampled onto
+    /// this viewer's grid, as the panel's Resample does: it then has this
+    /// viewer's images, in their order, and each pairs with the image of its
+    /// own index. Nil when the resampling could not be done, which it has
+    /// already explained.
     private func horos_arithmeticOperand(_ bc: ViewerController?) -> (ViewerController?, Bool)? {
         guard let own = viewer.horos_imageView?.curDCM, let other = bc?.imageView()?.curDCM,
               own.pwidth != other.pwidth || own.pheight != other.pheight else { return (bc, false) }
@@ -472,23 +477,19 @@ fileprivate func blendingPercentageString(_ value: Float) -> String {
             }
 
         case 3:		// Image multiplication
-            guard let arithmetic = horos_arithmeticOperand(bc) else { break }
-            let (operand, pairedByIndex) = arithmetic
-            i = 0
-            while i < (viewer.horos_pixList(at: Int(viewer.horos_curMovieIndex))?.count ?? 0) {
-                viewer.horos_imageView?.setIndex(Int(truncatingIfNeeded: i))
-                viewer.horos_imageView?.sendSyncMessage(0)
-                makeViewsDisplay(viewer.horos_seriesView?.imageViews())
+            horos_combineImages(bc) { view, operand in view?.multiply(operand) }
 
-                if pairedByIndex {
-                    guard i < (operand?.pixList()?.count ?? 0) else { break }
-                    operand?.imageView()?.setIndex(Int(truncatingIfNeeded: i))
-                    makeViewsDisplay(operand?.seriesView()?.imageViews())
-                }
-
-                viewer.horos_imageView?.multiply(operand?.imageView())
-                i += 1
+        case ViewerFusion.divisionBlendingType:		// Image division, the ratio map
+            let divided = horos_combineImages(bc) { view, operand in
+                guard let view else { return }
+                view.curDCM?.divide(by: operand?.curDCM)
+                view.reapplyWindowLevel()
+                view.loadTextures()
+                view.needsDisplay = true
             }
+            // A ratio has none of the values the window of either series was
+            // set for: the full range of the ratio shows it.
+            if divided { viewer.horos_imageView?.setWLWW(0, 0) }
 
         case 4,		// RGB Composition
              5,
@@ -669,6 +670,32 @@ fileprivate func blendingPercentageString(_ value: Float) -> String {
         }
     }
 
+    /// Combines each image of this viewer with the operand's image under it,
+    /// in place, as multiplication and division do: `combine` gets this
+    /// viewer's view and the operand's, each on the image being combined.
+    /// False when the operand could not be resampled onto this grid.
+    @discardableResult
+    private func horos_combineImages(_ bc: ViewerController?, _ combine: (DCMView?, DCMView?) -> Void) -> Bool {
+        guard let arithmetic = horos_arithmeticOperand(bc) else { return false }
+        let (operand, pairedByIndex) = arithmetic
+        var i = 0
+        while i < (viewer.horos_pixList(at: Int(viewer.horos_curMovieIndex))?.count ?? 0) {
+            viewer.horos_imageView?.setIndex(Int(truncatingIfNeeded: i))
+            viewer.horos_imageView?.sendSyncMessage(0)
+            makeViewsDisplay(viewer.horos_seriesView?.imageViews())
+
+            if pairedByIndex {
+                guard i < (operand?.pixList()?.count ?? 0) else { break }
+                operand?.imageView()?.setIndex(Int(truncatingIfNeeded: i))
+                makeViewsDisplay(operand?.seriesView()?.imageViews())
+            }
+
+            combine(viewer.horos_imageView, operand?.imageView())
+            i += 1
+        }
+        return true
+    }
+
     func blendingSlider(_ sender: Any!) {
         viewer.horos_imageView?.setBlendingFactor(objcSendFloat(sender, "floatValue"))
 
@@ -685,7 +712,7 @@ fileprivate func blendingPercentageString(_ value: Float) -> String {
     // MARK: - A viewer dropped on this one
 
     /// Opens the sheet that asks what to do with `vc`, dropped on this viewer:
-    /// fuse, subtract, multiply, compose, register, resample, copy ROIs, or
+    /// fuse, subtract, multiply, divide, compose, register, resample, copy ROIs, or
     /// run a fusion plug-in. What does not apply to the two series is greyed.
     func completeDragOperation(_ vc: ViewerController!) {
         viewer.horosLoadViewerPanels()
@@ -699,13 +726,16 @@ fileprivate func blendingPercentageString(_ value: Float) -> String {
 
         let sameStudy = viewerSameString(viewer.studyInstanceUID(), vc?.studyInstanceUID())
 
-        // Subtraction and multiplication combine images of one matrix. Within a
-        // study they resample a series of another matrix onto this one's first.
+        // Subtraction, multiplication and division combine images of one
+        // matrix. Within a study they resample a series of another matrix onto
+        // this one's first. The Division button has no outlet of its own: it is
+        // found by its tag.
         if (vc?.imageView()?.curDCM?.pwidth ?? 0) != (viewer.horos_imageView?.curDCM?.pwidth ?? 0) ||
            (vc?.imageView()?.curDCM?.pheight ?? 0) != (viewer.horos_imageView?.curDCM?.pheight ?? 0) {
             if sameStudy == false {
                 viewer.blendingTypeMultiply?.isEnabled = false
                 viewer.blendingTypeSubtract?.isEnabled = false
+                (viewer.horos_blendingTypeWindow?.contentView?.viewWithTag(Int(ViewerFusion.divisionBlendingType)) as? NSControl)?.isEnabled = false
             }
             viewer.blendingTypeRGB?.isEnabled = false
         }

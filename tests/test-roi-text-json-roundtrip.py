@@ -231,6 +231,11 @@ public class ImageViewDouble: NSObject {
     public func add(_ roi: HorosVolumeLengthROI, movieIndex: Int) {}
 }
 
+/// The target of ROI > Export ROIs as CSV…, after which the JSON item goes.
+@MainActor public class ViewerStudyCommands: NSObject {
+    @objc(roiExportCSV:) public func roiExportCSV(_ sender: Any?) {}
+}
+
 func postViewerNotification(_ name: Notification.Name, _ object: Any?, _ userInfo: [AnyHashable: Any]? = nil) {
     NotificationCenter.default.post(name: name, object: object, userInfo: userInfo)
 }

@@ -41,8 +41,8 @@ import Accelerate
 import CoreGraphics
 import Foundation
 
-/// The product or the difference of two images of the same size, pixel by
-/// pixel, the second shifted by a whole number of pixels.
+/// The product, the difference or the quotient of two images of the same
+/// size, pixel by pixel, the second shifted by a whole number of pixels.
 ///
 /// The shifted image lies under pixel (x, y) at (x - dx, y + dy), the way the
 /// DSA mask is read; where it has no pixel the result is zero, instead of
@@ -63,6 +63,34 @@ public enum ImageArithmetic {
             vDSP_vsub(b, 1, a, 1, result, 1, vDSP_Length(count))
             if absolute { vDSP_vabs(result, 1, result, 1, vDSP_Length(count)) }
         }
+    }
+
+    /// The value of a pixel that has no quotient: one divided by zero, or one
+    /// whose quotient overflows Float or is not a number (a NaN in either
+    /// image). An infinity or a NaN in the image would spoil its full window,
+    /// its 8-bit picture and the statistics of a ROI over it, so the ratio
+    /// image holds 0 there instead, the value the other operations give where
+    /// the shifted image has no pixel.
+    public static let undefinedQuotient: Float = 0
+
+    /// `input ÷ other`, in a new buffer the caller frees: the ratio of the two
+    /// images. A pixel without a quotient, a divisor of zero included, is
+    /// `undefinedQuotient`, so every value of the result is finite.
+    public static func quotient(_ input: UnsafePointer<Float>, _ other: UnsafePointer<Float>,
+                                width: Int, height: Int, offset: CGPoint) -> UnsafeMutablePointer<Float>? {
+        combine(input, other, width: width, height: height, offset: offset) { a, b, result, count in
+            for index in 0..<count {
+                result[index] = quotient(a[index], b[index])
+            }
+        }
+    }
+
+    /// `dividend ÷ divisor`, or `undefinedQuotient` when it is not finite.
+    @inline(__always)
+    static func quotient(_ dividend: Float, _ divisor: Float) -> Float {
+        guard divisor != 0 else { return undefinedQuotient }
+        let value = dividend / divisor
+        return value.isFinite ? value : undefinedQuotient
     }
 
     /// The whole pixels of a shift, rounded half away from zero.

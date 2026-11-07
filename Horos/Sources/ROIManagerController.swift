@@ -282,13 +282,7 @@ public final class ROIManagerController: NSWindowController, NSOutlineViewDataSo
         let remove = NSButton(image: NSImage(named: NSImage.removeTemplateName)!, target: self, action: #selector(deleteROI(_:)))
         remove.bezelStyle = .smallSquare
         remove.toolTip = NSLocalizedString("Delete the selected ROIs", comment: "ROI Manager")
-        let export = NSPopUpButton(frame: .zero, pullsDown: true)
-        export.controlSize = .small
-        export.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
-        export.addItem(withTitle: NSLocalizedString("Export", comment: "ROI Manager: the export menu"))
-        export.addItem(withTitle: NSLocalizedString("Save as CSV…", comment: "ROI Manager"))
-        export.lastItem?.target = self
-        export.lastItem?.action = #selector(saveCSV(_:))
+        let export = button(NSLocalizedString("Export CSV…", comment: "ROI Manager: export the ROIs of the series as CSV"), #selector(saveCSV(_:)))
         let inspectorToggle = NSButton(image: NSImage(systemSymbolName: "sidebar.right", accessibilityDescription: NSLocalizedString("Inspector", comment: "")) ?? NSImage(),
                                        target: self, action: #selector(toggleInspector(_:)))
         inspectorToggle.bezelStyle = .smallSquare
@@ -959,24 +953,15 @@ public final class ROIManagerController: NSWindowController, NSOutlineViewDataSo
 
     // MARK: - CSV
 
+    /// The "Export CSV…" button: what ROI ▸ Export ROIs as CSV… writes, every
+    /// ROI of the viewer's series, asked for in a sheet on this window.
     @objc func saveCSV(_ sender: Any?) {
-        guard let window else { return }
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.commaSeparatedText]
-        panel.nameFieldStringValue = NSLocalizedString("ROIs", comment: "ROI Manager: the name of a CSV file") + ".csv"
-        panel.beginSheetModal(for: window) { response in
-            MainActor.assumeIsolated {
-                guard response == .OK, let url = panel.url else { return }
-                do {
-                    try self.writeCSV(to: url)
-                } catch {
-                    NSAlert(error: error).beginSheetModal(for: window)
-                }
-            }
-        }
+        guard let viewer, let window else { return }
+        ViewerROICSVExport.runExportPanel(for: viewer, sheetOn: window)
     }
 
-    /// The listed ROIs, one per line, with their pixel statistics.
+    /// The listed ROIs, one per line, with their pixel statistics: the file
+    /// the window used to save, kept for the callers of this selector.
     @objc(writeCSVToURL:error:)
     func writeCSV(to url: URL) throws {
         var table = [ROIManagerModel.csvHeader]

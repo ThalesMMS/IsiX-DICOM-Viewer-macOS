@@ -209,6 +209,11 @@ public final class MyOutlineView: NSOutlineView {
 
     // MARK: Dragging destination
 
+    /// The study that the images and PDFs of the drop being concluded go
+    /// into (StudyFileImporter), from concludeDragOperation: until
+    /// terminateDrag: takes the files; nil for every other drop.
+    private var studyOfConvertedDrop: DicomStudy?
+
     /// [[sender draggingSource] isEqual:self]
     private func isOwnDrag(_ sender: NSDraggingInfo?) -> Bool {
         return (sender?.draggingSource as? NSObject)?.isEqual(self) ?? false
@@ -300,6 +305,14 @@ public final class MyOutlineView: NSOutlineView {
 
     @objc(terminateDrag:)
     public func terminateDrag(_ fileArray: NSArray?) {
+        if let study = studyOfConvertedDrop {
+            studyOfConvertedDrop = nil
+            if let browser = browserWindow?.browser, let paths = fileArray as? [String] {
+                StudyFileImporter.convert(paths, into: study, browser: browser)
+                return
+            }
+        }
+
         var directory: ObjCBool = false
         var done = false
         let count = fileArray?.count ?? 0
@@ -349,6 +362,10 @@ public final class MyOutlineView: NSOutlineView {
             if desiredType == filenamesPboardType {
                 //we have a list of file names in an NSData object
                 let fileArray = paste.propertyList(forType: filenamesPboardType)
+                // Images and PDFs dropped on a study row are converted into that study.
+                studyOfConvertedDrop = StudyFileImporter.study(receivingDropOf: fileArray as? [String] ?? [],
+                                                               at: convert(sender?.draggingLocation ?? .zero, from: nil),
+                                                               in: self, browser: browserWindow?.browser)
 
                 self.perform(#selector(terminateDrag(_:)), with: fileArray, afterDelay: 0.1)
             } else {

@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXDICOMNetwork
 
 // Template for DCMTK presentation state command-line applications (sample .cfg files in DCMTK source under dcmpstat/etc)
 //
@@ -124,6 +125,94 @@ private func ayArg(_ value: Any?) -> CVarArg {
     return "(null)" as NSString
 }
 // MARK: End of tables
+
+// MARK: Print job outcome
+/// What the user is told of a failed print job. The reading of the script's
+/// output is IsiXDICOMNetwork's; the sentences stay here, with the app's
+/// localized strings.
+extension DICOMPrintJobFailure {
+    /// One sentence saying what failed.
+    var sentence: String {
+        switch self {
+        case .launch: return NSLocalizedString("The print script could not be started.", comment: "")
+        case .setup: return NSLocalizedString("Can't write to temporary directory.", comment: "")
+        case .layout: return NSLocalizedString("The film pages could not be prepared for the printer (dcmpsprt).", comment: "")
+        case .printerSettings: return NSLocalizedString("The print job could not be set up with the settings of this printer.", comment: "")
+        case .unreachable: return NSLocalizedString("The printer could not be reached, or it refused the connection.", comment: "")
+        case .refused(let code): return String(format: NSLocalizedString("The printer refused the print job (DIMSE status %@).", comment: ""), String(format: "0x%04X", code))
+        case .interrupted: return NSLocalizedString("The print job stopped while it was being sent to the printer.", comment: "")
+        case .status(let status): return String(format: NSLocalizedString("The print script ended with status %d.", comment: ""), status)
+        }
+    }
+}
+
+/// The print log, and what a failed job leaves next to it for the user to send:
+/// print.cfg, which holds the printer's address and film settings but nothing
+/// about the patient, and the job's output. The job folder itself, with the
+/// images and the Stored Prints, is still deleted.
+enum DICOMPrintJobLog {
+    static let directoryPath = (NSHomeDirectory() as NSString).appendingPathComponent("Library/Logs/HorosDicomPrint")
+    static let keptFolderPrefix = "Failed print job "
+    /// Older folders of failed jobs are removed beyond this many.
+    static let keptFolderLimit = 10
+
+    /// The entry the app writes for a job: its status, then what the script wrote.
+    static func entry(jobID: String, status: String, output: String) -> String {
+        var text = "\(NSDate().description): Print job \(jobID) \(status)\n"
+        if !output.isEmpty { text += output.hasSuffix("\n") ? output : output + "\n" }
+        return text
+    }
+
+    static func append(_ entry: String, toLogIn directory: String) {
+        let path = (directory as NSString).appendingPathComponent("print.log")
+        if !FileManager.default.fileExists(atPath: path) {
+            FileManager.default.createFile(atPath: path, contents: nil)
+        }
+        guard let handle = FileHandle(forWritingAtPath: path) else { return }
+        defer { try? handle.close() }
+        _ = try? handle.seekToEnd()
+        try? handle.write(contentsOf: Data(entry.utf8))
+    }
+
+    /// Copies print.cfg and writes the job's entry into a new folder in `directory`;
+    /// returns the folder's name, or nil when nothing could be kept.
+    static func keep(jobDirectory: String, entry: String, in directory: String) -> String? {
+        let manager = FileManager.default
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd HH-mm-ss"
+        let base = keptFolderPrefix + formatter.string(from: Date())
+        var name = base
+        var suffix = 2
+        while manager.fileExists(atPath: (directory as NSString).appendingPathComponent(name)) {
+            name = "\(base) \(suffix)"
+            suffix += 1
+        }
+        let folder = (directory as NSString).appendingPathComponent(name)
+        guard (try? manager.createDirectory(atPath: folder, withIntermediateDirectories: false)) != nil else { return nil }
+        let configuration = (jobDirectory as NSString).appendingPathComponent("print.cfg")
+        if manager.fileExists(atPath: configuration) {
+            try? manager.copyItem(atPath: configuration, toPath: (folder as NSString).appendingPathComponent("print.cfg"))
+        }
+        try? Data(entry.utf8).write(to: URL(fileURLWithPath: (folder as NSString).appendingPathComponent("print-job.log")))
+        let kept = ((try? manager.contentsOfDirectory(atPath: directory)) ?? []).filter { $0.hasPrefix(keptFolderPrefix) }.sorted()
+        for old in kept.dropLast(keptFolderLimit) {
+            try? manager.removeItem(atPath: (directory as NSString).appendingPathComponent(old))
+        }
+        return name
+    }
+
+    /// What failed, then where the details are.
+    static func alertMessage(_ failure: DICOMPrintJobFailure, logDirectory: String?, keptFolder: String?) -> String {
+        guard let logDirectory else { return failure.sentence }
+        let shown = (logDirectory as NSString).abbreviatingWithTildeInPath
+        if let keptFolder {
+            return failure.sentence + " " + String(format: NSLocalizedString("Details are in print.log in %@, and the settings and output of this job were kept there in the folder “%@”.", comment: ""), shown, keptFolder)
+        }
+        return failure.sentence + " " + String(format: NSLocalizedString("Details are in print.log in %@.", comment: ""), shown)
+    }
+}
+// MARK: End of print job outcome
 
 /// -replaceOccurrencesOfString:withString:options:range: over the whole string,
 /// with NSCaseInsensitiveSearch. A replacement that is not a string raises, as
@@ -566,7 +655,7 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
             // Create directory for print log, if it doesn't already exist.
             //
             let fileManager = FileManager.default
-            var logPath = (NSHomeDirectory() as NSString).appendingPathComponent("Library/Logs/HorosDicomPrint")
+            var logPath = DICOMPrintJobLog.directoryPath
             if !fileManager.fileExists(atPath: logPath) {
                 if (try? fileManager.createDirectory(atPath: logPath, withIntermediateDirectories: true, attributes: nil)) == nil {
                     NSLog("_createPrintjobDCMTK failed to create log directory for print job.")
@@ -629,7 +718,14 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
                 //
                 let printScript = NSMutableString()
                 // Stop before sending an incomplete job and preserve command failures.
+                // The EXIT trap still runs after a failing command: it writes the
+                // step that was running and the status to the print log, and on
+                // the output the app reads to tell the user which step failed.
                 printScript.append("set -e\n")
+                printScript.append("step=setup\n")
+                printScript.appendFormat("job_id=\"%@\"\n", printJobID)
+                printScript.appendFormat("log_file=\"%@/print.log\"\n", logPath)
+                printScript.append("trap 'status=$?; echo \"$(date): End print job $job_id [step=$step status=$status]\" >> \"$log_file\"; echo \"IsiXPrintJob: step=$step status=$status\"; exit $status' EXIT\n")
                 printScript.appendFormat("export DCMDICTPATH=\"%@/dicom.dic\"\n", ayArg(Bundle.main.resourcePath))
                 printScript.appendFormat("cd \"%@\"\n", printJobDir)
                 printScript.appendFormat("mkdir \"%@/log\"\n", printJobDir) // backup dir for log
@@ -706,6 +802,7 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
                     let divisor = UInt(bitPattern: Int(ipp))
                     let lastPage = divisor == 0 ? 0 : (UInt(images.count) &- 1) / divisor
                     var i: Int32 = 0
+                    printScript.append("step=layout\n")
                     while UInt(bitPattern: Int(i)) <= lastPage {
                         // Format command to create the presentation state for the page ("filmbox").
                         // DCMTK command-line seems to only handle setting up one page printing, so creating one for each "filmbox".
@@ -749,6 +846,7 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
 
                     // Format command to send the presentation states to the printer.
                     //
+                    printScript.append("step=send\n")
                     printScript.appendFormat("\"%@/HorosStoredPrint\" -c \"%@\" -lc \"%@\" --printer PRINTSCP --copies %d --priority %@ --destination %@ --medium-type \"%@\" \"%@/database/\"SP_*\n",
                                              ayArg(Bundle.main.resourcePath),
                                              printConfigPath,
@@ -758,8 +856,6 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
                                              ayTag(filmDestinationTag, dict, "filmDestinationTag").uppercased(),
                                              ayTag(mediumTag, dict, "mediumTag").uppercased(),
                                              printJobDir)
-
-                    printScript.appendFormat("echo \"`date`: End print job %@ [status=$?]\" >> \"%@/print.log\"\n", printJobID, logPath)
 
                     if (try? loggerConfig.write(toFile: loggerConfigPath, atomically: true, encoding: String.Encoding.windowsCP1250.rawValue)) == nil ||
                         (try? printConfig.write(toFile: printConfigPath, atomically: true, encoding: String.Encoding.windowsCP1250.rawValue)) == nil ||
@@ -789,6 +885,9 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
             printing.lock()
 
             var theTask: Process? = nil
+            var failure: DICOMPrintJobFailure? = nil
+            var status = ""
+            var output = ""
 
             do {
                 try HorosObjCException.perform {
@@ -797,21 +896,61 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
 
                     let printScriptPath = String(format: "%@/print.sh", ayArg(printJobDir))
                     task.arguments = [printScriptPath]
-                    task.launchPath = "/bin/bash"
-                    task.launch()
+                    task.executableURL = URL(fileURLWithPath: "/bin/bash")
+                    // One pipe for both streams keeps the lines in the order they
+                    // were written. It is read to its end before the exit status is
+                    // taken, so the script never blocks on a full pipe.
+                    let pipe = Pipe()
+                    task.standardOutput = pipe
+                    task.standardError = pipe
+                    task.standardInput = FileHandle.nullDevice
+                    do {
+                        try task.run()
+                    } catch {
+                        failure = .launch
+                        status = "could not start: \(error.localizedDescription)"
+                        return
+                    }
+                    output = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
                     while task.isRunning { Thread.sleep(forTimeInterval: 0.01) }
 
-                    let status = task.terminationStatus
+                    let exitStatus = task.terminationStatus
+                    status = task.terminationReason == .uncaughtSignal ? "ended by signal \(exitStatus)" : "ended with exit status \(exitStatus)"
 
-                    if status != 0 {
-                        self.performSelector(onMainThread: #selector(self.errorMessage(_:)), with: [NSLocalizedString("Print failed", comment: ""), NSLocalizedString("Couldn't print images.", comment: ""), NSLocalizedString("OK", comment: "")] as NSArray, waitUntilDone: false)
+                    if exitStatus != 0 || task.terminationReason == .uncaughtSignal {
+                        failure = DICOMPrintJobFailure.classify(output: output, status: exitStatus)
                     }
                 }
             } catch {
                 if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
                     _N2LogExceptionImpl(e, true, "-[AYDicomPrintWindowController _sendPrintjobDCMTK:]")
+                    if failure == nil {
+                        failure = .launch
+                        status = "could not start: \(e.reason ?? e.name.rawValue)"
+                    }
                 }
             }
+
+            // The script's output and status go to the print log; a failed job
+            // also keeps its print.cfg and that entry next to it, and the user
+            // is told which step failed and where to look.
+            var isDirectory: ObjCBool = false
+            let logDirectory = FileManager.default.fileExists(atPath: DICOMPrintJobLog.directoryPath, isDirectory: &isDirectory) && isDirectory.boolValue ? DICOMPrintJobLog.directoryPath : nil
+            let jobName = ((printJobDir ?? "") as NSString).lastPathComponent
+            let jobID = jobName.hasPrefix("dicomPrint-") ? String(jobName.dropFirst("dicomPrint-".count)) : jobName
+            let entry = DICOMPrintJobLog.entry(jobID: jobID, status: status, output: output)
+            if let logDirectory {
+                DICOMPrintJobLog.append(entry, toLogIn: logDirectory)
+            }
+            if let failure {
+                var keptFolder: String? = nil
+                if let logDirectory, let printJobDir {
+                    keptFolder = DICOMPrintJobLog.keep(jobDirectory: printJobDir, entry: entry, in: logDirectory)
+                }
+                let message = DICOMPrintJobLog.alertMessage(failure, logDirectory: logDirectory, keptFolder: keptFolder)
+                self.performSelector(onMainThread: #selector(self.errorMessage(_:)), with: [NSLocalizedString("Print failed", comment: ""), message, NSLocalizedString("OK", comment: "")] as NSArray, waitUntilDone: false)
+            }
+
             // @finally
             // remove temporary files
             if let printJobDir = printJobDir {

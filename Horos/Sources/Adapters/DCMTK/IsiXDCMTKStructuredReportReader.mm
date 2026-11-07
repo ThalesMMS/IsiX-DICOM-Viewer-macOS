@@ -87,6 +87,22 @@ static NSError *IsiXDCMTKReadReport(NSString *path, DcmFileFormat &file, std::un
     return read ? meaning : nil;
 }
 
++ (NSArray<NSString *> *)titleCodeOfReportAtPath:(NSString *)path error:(NSError **)error
+{
+    NSArray<NSString *> *code = nil;
+    BOOL read = IsiXDCMTKGuard(error, "HorosSRDocument::read", [&]() -> NSError * {
+        DcmFileFormat file;
+        std::unique_ptr<HorosSRDocument> document;
+        if (NSError *failure = IsiXDCMTKReadReport(path, file, document)) return failure;
+        DSRCodedEntryValue title = document->getTree().getCurrentContentItem().getConceptName();
+        code = @[[NSString stringWithUTF8String:title.getCodeValue().c_str()] ?: @"",
+                 [NSString stringWithUTF8String:title.getCodingSchemeDesignator().c_str()] ?: @"",
+                 [NSString stringWithUTF8String:title.getCodeMeaning().c_str()] ?: @""];
+        return nil;
+    });
+    return read ? code : nil;
+}
+
 + (NSArray<NSString *> *)referencedImageInstancesOfReportAtPath:(NSString *)path
 {
     NSMutableArray<NSString *> *references = [NSMutableArray array];
@@ -112,7 +128,11 @@ namespace {
 
 DSRTypes::E_DocumentType IsiXDCMTKDocumentType(IsiXDCMTKReportType type)
 {
-    return type == IsiXDCMTKReportTypeComprehensive ? DSRTypes::DT_ComprehensiveSR : DSRTypes::DT_BasicTextSR;
+    switch (type) {
+        case IsiXDCMTKReportTypeComprehensive: return DSRTypes::DT_ComprehensiveSR;
+        case IsiXDCMTKReportTypeKeyObjectSelection: return DSRTypes::DT_KeyObjectSelectionDocument;
+        default: return DSRTypes::DT_BasicTextSR;
+    }
 }
 
 DSRCodedEntryValue IsiXDCMTKCodedEntry(NSString *code, NSString *scheme, NSString *meaning)
@@ -223,6 +243,68 @@ void IsiXDCMTKReportCall(const char *operation, Body &&body)
         reference.getFrameList().putString(frames.UTF8String);
         _document->getTree().getCurrentContentItem().setImageReference(reference);
         _document->getTree().goUp(); // go up to the root element
+    });
+}
+
+- (BOOL)setRootTemplateIdentifier:(NSString *)identifier mappingResource:(NSString *)mappingResource
+{
+    BOOL set = NO;
+    IsiXDCMTKReportCall("HorosSRItem::setTemplateIdentification", [&]() {
+        OFCondition status = _document->getTree().getCurrentContentItem().setTemplateIdentification(
+            identifier.UTF8String ?: "", mappingResource.UTF8String ?: "");
+        set = status.good();
+    });
+    return set;
+}
+
+- (BOOL)addSelectedImageWithSOPClass:(NSString *)sopClass instance:(NSString *)instance frames:(NSString *)frames
+{
+    BOOL added = NO;
+    IsiXDCMTKReportCall("HorosSRTree::addContentItem", [&]() {
+        HorosSRImageReference reference(OFString(sopClass.UTF8String ?: ""), OFString(instance.UTF8String ?: ""));
+        if (frames.length && reference.getFrameList().putString(frames.UTF8String).bad()) return;
+        // Checked before the item is added: an IMAGE item left without its
+        // reference would make the whole document invalid.
+        if (!reference.isValidImage()) return;
+        HorosSRTree tree = _document->getTree();
+        if (!tree.addContentItem(DSRTypes::RT_contains, DSRTypes::VT_Image, DSRTypes::AM_belowCurrent)) return;
+        added = tree.getCurrentContentItem().setImageReference(reference).good();
+        tree.goUp(); // back to the root, which the next image is added below
+    });
+    return added;
+}
+
+- (BOOL)addEvidenceInStudy:(NSString *)study series:(NSString *)series SOPClass:(NSString *)sopClass
+                  instance:(NSString *)instance error:(NSError **)error
+{
+    return IsiXDCMTKGuard(error, "DSRSOPInstanceReferenceList::addItem", [&]() -> NSError * {
+        const OFString studyUID(study.UTF8String ?: ""), seriesUID(series.UTF8String ?: "");
+        const OFString classUID(sopClass.UTF8String ?: ""), instanceUID(instance.UTF8String ?: "");
+        if (studyUID.empty() || seriesUID.empty() || classUID.empty() || instanceUID.empty())
+            return IsiXDCMTKErrorFromCondition(EC_IllegalParameter);
+        DSRSOPInstanceReferenceList &evidence = _document->getCurrentRequestedProcedureEvidence();
+        OFCondition status = evidence.addItem(studyUID, seriesUID, classUID, instanceUID);
+        if (status.bad())
+            status = evidence.addItem(studyUID, seriesUID, classUID, instanceUID, OFFalse);
+        return IsiXDCMTKErrorFromCondition(status);
+    });
+}
+
+- (BOOL)readStudyOfFileAtPath:(NSString *)path error:(NSError **)error
+{
+    return IsiXDCMTKGuard(error, "HorosSRDocument::readStudyData", [&]() -> NSError * {
+        const char *fileSystemPath = path.length ? path.fileSystemRepresentation : NULL;
+        if (!fileSystemPath) return IsiXDCMTKFailure(@"The image has no usable path");
+        DcmFileFormat file;
+        OFCondition status = file.loadFile(fileSystemPath);
+        if (status.bad()) return IsiXDCMTKErrorFromCondition(status);
+        DcmDataset *dataset = file.getDataset();
+        status = _document->readStudyData(*dataset);
+        if (status.bad()) return IsiXDCMTKErrorFromCondition(status);
+        OFString characterSet;
+        if (dataset->findAndGetOFStringArray(DCM_SpecificCharacterSet, characterSet).good() && !characterSet.empty())
+            _document->setSpecificCharacterSet(characterSet);
+        return nil;
     });
 }
 

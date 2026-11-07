@@ -382,8 +382,11 @@ def _old_transform(text):
             '@implementation ITKTransform\n' + '\n\n'.join(methods) + '\n@end\n')
 
 
-def build(kind, folder, driver, configuration='Debug'):
-    """The probe `kind` ('old' or 'new') with the Objective-C `driver`, in `folder`. Its path."""
+def build(kind, folder, driver, configuration='Debug', swift_sources=()):
+    """The probe `kind` ('old' or 'new') with the Objective-C `driver`, in `folder`. Its path.
+
+    `swift_sources`, for `new`, are more Swift files compiled with the classes
+    (a module's rules and a shim the driver reaches by class name)."""
     itk, vtk = installs(configuration) or installs('Debug')
     folder = Path(folder) / kind
     folder.mkdir(parents=True, exist_ok=True)
@@ -434,7 +437,8 @@ def build(kind, folder, driver, configuration='Debug'):
     swift_object = folder / 'swift.o'
     _run(['xcrun', 'swiftc', '-parse-as-library', '-swift-version', '6', '-module-name', 'Harness', '-wmo',
           '-Onone' if configuration == 'Debug' else '-O', '-import-objc-header', str(bridging), *modules,
-          '-c', '-o', str(swift_object), *[str(SOURCES / name) for name in SWIFT_FILES], str(folder / 'NoViewer.swift')],
+          '-c', '-o', str(swift_object), *[str(SOURCES / name) for name in SWIFT_FILES], str(folder / 'NoViewer.swift'),
+          *[str(source) for source in swift_sources]],
          'compiling the Swift classes')
     compile_mm(folder / 'driver.mm', False)
     executable = folder / 'probe'

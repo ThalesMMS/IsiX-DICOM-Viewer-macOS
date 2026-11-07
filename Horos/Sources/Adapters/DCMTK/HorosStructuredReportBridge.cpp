@@ -27,6 +27,7 @@ OFBool HorosSRDocument::containsExtendedCharacters() const {
     return impl_->document.write(dataset).good() && dataset.containsExtendedCharacters();
 }
 OFCondition HorosSRDocument::read(DcmItem& value) { return impl_->document.read(value); }
+OFCondition HorosSRDocument::readStudyData(DcmItem& value) { return impl_->document.readStudyData(value); }
 OFCondition HorosSRDocument::write(DcmItem& value) { return impl_->document.write(value); }
 OFCondition HorosSRDocument::createNewDocument(DSRTypes::E_DocumentType value) { return impl_->document.createNewDocument(value); }
 OFCondition HorosSRDocument::createNewSeriesInStudy(const OFString& value) {
@@ -105,6 +106,14 @@ OFCondition HorosSRItem::setImageReference(const HorosSRImageReference& value) {
     DSRImageReferenceValue image(value.getSOPClassUID(), value.getSOPInstanceUID());
     image.getFrameList() = value.getFrameList();
     return static_cast<DSRContentItem*>(item_)->setImageReference(image);
+}
+OFCondition HorosSRItem::setTemplateIdentification(const OFString& identifier, const OFString& mappingResource) {
+    return static_cast<DSRContentItem*>(item_)->setTemplateIdentification(identifier, mappingResource);
+}
+OFBool HorosSRImageReference::isValidImage() const {
+    DSRImageReferenceValue image(sopClass_, instance_);
+    image.getFrameList() = frames_;
+    return image.isValid();
 }
 HorosSRItem HorosSRTree::getCurrentContentItem() { return HorosSRItem(&static_cast<DSRDocumentTree*>(tree_)->getCurrentContentItem()); }
 size_t HorosSRTree::addContentItem(DSRTypes::E_RelationshipType relation, DSRTypes::E_ValueType value, DSRTypes::E_AddMode mode) { return static_cast<DSRDocumentTree*>(tree_)->addContentItem(relation, value, mode); }

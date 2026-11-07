@@ -1285,8 +1285,8 @@
           "sha256": "456d41e399bf2c7c54ac46b5fd59abd33a6552a66e9eb365e66c430660b52a65"
         },
         "Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved": {
-          "size": 2336,
-          "sha256": "679beb04ba7b508ab2bcfafc02208c0a8ac3e146a7b403992d43d5d4669965ff"
+          "size": 2337,
+          "sha256": "724a543c59021b722dac4713f0fdede4e1f8b3261f37e2f8405bf9bedb3174f9"
         }
       }
     },
@@ -1299,7 +1299,7 @@
         "build",
         "runtime"
       ],
-      "consumer": "Web portal and XML-RPC HTTP/HTTPS servers over Network.framework; products linked statically into the app binary, no framework or library added to the bundle",
+      "consumer": "Web portal and XML-RPC HTTP/HTTPS servers over Network.framework; products linked statically into the app binary; the only library it adds to the bundle is the Swift toolchain's libswiftCompatibilitySpan.dylib",
       "source_manifest": "Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
       "selected_pins": [
         {
@@ -1307,8 +1307,8 @@
           "kind": "remoteSourceControl",
           "location": "https://github.com/apple/swift-nio.git",
           "state": {
-            "revision": "34d486b01cd891297ac615e40d5999536a1e138d",
-            "version": "2.83.0"
+            "revision": "2f58d8ef84438d6517fc78bcea2f8527e3c72936",
+            "version": "2.105.0"
           }
         },
         {
@@ -1360,7 +1360,7 @@
         }
       ],
       "resolved_only_scope": "swift-system resolves in the consumer lock for SwiftNIO products the app does not link",
-      "version_scope": "swift-nio 2.83.0 and swift-collections 1.3.0 are the last releases without the Span compatibility library, which a newer release would embed in the bundle",
+      "version_scope": "swift-nio 2.105.0 carries the fixes of the 2.100.0 advisories (header block limits, ByteBuffer index overflow, start line validation); it uses Span, so the Swift toolchain's libswiftCompatibilitySpan.dylib is embedded in Frameworks for macOS 15, by decision of the maintainer",
       "package_notice_files": {
         "Binaries/Splash/ThirdParty/SwiftNIO/swift-nio/LICENSE.txt": "swift-nio/LICENSE.txt",
         "Binaries/Splash/ThirdParty/SwiftNIO/swift-nio/NOTICE.txt": "swift-nio/NOTICE.txt",
@@ -1375,8 +1375,8 @@
           "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
         },
         "Binaries/Splash/ThirdParty/SwiftNIO/swift-nio/NOTICE.txt": {
-          "size": 3233,
-          "sha256": "5b701792f9e9ab67f654f1fd413ea09867df4f1aa6e278bd386dbbc5caf3b2c5"
+          "size": 3266,
+          "sha256": "d25ed2452b3476c342082d11e4e8bf5459174d2836124f842b499850bcebc50e"
         },
         "Binaries/Splash/ThirdParty/SwiftNIO/swift-nio-transport-services/LICENSE.txt": {
           "size": 11358,

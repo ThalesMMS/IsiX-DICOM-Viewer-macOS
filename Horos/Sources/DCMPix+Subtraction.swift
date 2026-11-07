@@ -64,6 +64,17 @@ extension DCMPix {
         free(difference)
     }
 
+    /// The quotient by `sub`, in place, under the same condition: the ratio
+    /// image, where a pixel with no quotient (a divisor of zero) is
+    /// ImageArithmetic.undefinedQuotient, 0, so the image stays finite.
+    final func divide(by sub: DCMPix?) {
+        guard let sub, sub.pwidth == horos_width, sub.pheight == horos_height, let other = sub.fImage, let image = horos_fImage else { return }
+        guard let ratio = ImageArithmetic.quotient(image, other, width: horos_width, height: horos_height,
+                                                   offset: horos_subPixOffset) else { return }
+        memcpy(image, ratio, horos_height * horos_width * MemoryLayout<Float>.size)
+        free(ratio)
+    }
+
     final func product(of input: UnsafeMutablePointer<Float>?, and other: UnsafeMutablePointer<Float>?) -> UnsafeMutablePointer<Float>? {
         guard let input, let other else { return nil }
         return ImageArithmetic.product(input, other, width: horos_width, height: horos_height, offset: horos_subPixOffset)

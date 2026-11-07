@@ -315,6 +315,7 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
 
         if let characterSetPopup {
             QueryRetrieveDownloadSettings.install(below: characterSetPopup, in: mainView)
+            ModalityWorklistSettings.install(below: characterSetPopup, in: mainView, nodes: dicomNodes)
         }
 
         var i = 0

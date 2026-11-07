@@ -358,8 +358,8 @@ public final class PluginManager: NSObject {
         // Version 1 plugins register their commands in code.
         PluginManager.addIsiXPluginMenuItems(filtersMenu, roisMenu, othersMenu, dbMenu)
 
-        // The app's own filters have no bundle to declare their items: without these, T2 Fit Map and
-        // ROI Enhancement were registered and unreachable from any menu.
+        // The app's own filters have no bundle to declare their items: without these, T1 Fit Map,
+        // T2 Fit Map and ROI Enhancement were registered and unreachable from any menu.
         // With no plugins or no menu the former call found nothing to add.
         if let plugins = Registry.plugins, let filtersMenu = filtersMenu, let roisMenu = roisMenu {
             NativeFilterMenus.addItems(for: plugins, filtersMenu: filtersMenu, roisMenu: roisMenu)
@@ -737,9 +737,8 @@ public final class PluginManager: NSObject {
                 let isolatedFolder = PluginManager.isolatedPluginsFolder()
                 let folders = StorageLocations.discoveryFolders(userDomain: PluginManager.userPluginsDomain(),
                                                                 systemDomain: PluginManager.systemPluginsDomain())
-                let userPath = folders[0], userAppStorePath = folders[1], sysPath = folders[2]
-
-                let paths = ObjC.array(upToFirstNil: [NSNull(), appPath, userPath, userAppStorePath, sysPath]) // [NSNull null] is a placeholder for launch parameters load commands
+                // NSNull stands for explicit load commands from the launch arguments.
+                let paths = ObjC.array(upToFirstNil: [NSNull(), appPath] + folders.map { $0 as Any? })
 
                 Registry.set(\.pluginsBundleDictionnary, NSMutableDictionary())
                 Registry.set(\.plugins, NSMutableDictionary())
@@ -881,6 +880,10 @@ public final class PluginManager: NSObject {
                 if let plugins = Registry.plugins {
                     T2FitMapFilter.register(in: plugins)
                     ROIEnhancementFilter.register(in: plugins)
+                    // A loaded plugin that declares the title keeps it.
+                    if plugins[T1FitMapFilter.menuTitle] == nil {
+                        plugins[T1FitMapFilter.menuTitle] = T1FitMapFilter()
+                    }
                 }
                 NSLog("|||||||||||||||||| Plugins loading END ||||||||||||||||||")
             }
@@ -923,11 +926,9 @@ public final class PluginManager: NSObject {
     /// still loaded the plugins of whoever ran them, from the user's plugins
     /// folder in Application Support. Stopping the development app while one
     /// loaded left its marker there, and the next launch offered to move that
-    /// plugin to the disabled folder. In this mode the plugins folders, the one
-    /// for Horos App, the earlier versions' folders and the marker are all
-    /// inside this folder: the user's and the computer's are never listed, read
-    /// or written, and `--LoadPlugin <bundle>` still loads a given plugin. Only
-    /// the command line counts, not a saved preference.
+    /// plugin to the disabled folder. In this mode the plugins folders and the
+    /// marker are inside the isolated folder. `--LoadPlugin <bundle>` still
+    /// loads a given plugin. Only the command line counts, not a saved preference.
     @objc public class func isolatedPluginsFolder() -> String? {
         StorageLocations.runningIsolatedFolder
     }
@@ -997,6 +998,17 @@ public final class PluginManager: NSObject {
         #else
         return ObjC.array(upToFirstNil: [PluginManager.userInactivePluginsDirectoryPath(), PluginManager.systemInactivePluginsDirectoryPath(), PluginManager.appInactivePluginsDirectoryPath()]) as? [Any]
         #endif
+    }
+
+    /// Crash recovery may only change a plugin in a managed folder.
+    public class func isInOwnPluginsFolder(_ path: String) -> Bool {
+        guard !path.isEmpty else { return false }
+        func resolved(_ folder: String) -> String {
+            URL(fileURLWithPath: folder).resolvingSymlinksInPath().standardizedFileURL.path
+        }
+        let parent = resolved((path as NSString).deletingLastPathComponent)
+        let own = ((activeDirectories() ?? []) + (inactiveDirectories() ?? [])).compactMap { $0 as? String }
+        return own.contains { resolved($0) == parent }
     }
 
     // MARK: activation
@@ -1231,9 +1243,6 @@ public final class PluginManager: NSObject {
 
         var matchingInstallations = 0
         for case let plug as NSDictionary in PluginManager.pluginsList() ?? [] {
-            // A plugin of the same name in an earlier version's folder is neither
-            // replaced nor counted.
-            if ObjC.bool(plug.object(forKey: PluginManager.legacyPluginKey)) { continue }
             if ObjC.isEqualToString(pluginBundleName, plug.object(forKey: "name") as? String) {
                 matchingInstallations += 1
                 ObjC.set(availabilities, plug.object(forKey: "availability"), path)
@@ -1468,7 +1477,6 @@ public final class PluginManager: NSObject {
             }
         }
 
-        plugins.addObjects(from: PluginManager.legacyPluginRows())
         let sortedPlugins = plugins.sortedArray(sortPluginArray, context: nil)
 
         return sortedPlugins
@@ -1508,8 +1516,6 @@ public final class PluginManager: NSObject {
             let installedPlugins = PluginManager.pluginsList() ?? []
 
             for case let installedPlugin as NSDictionary in installedPlugins {
-                // A plugin in an earlier version's folder is not this app's to update.
-                if ObjC.bool(installedPlugin.object(forKey: PluginManager.legacyPluginKey)) { continue }
                 let pluginName = installedPlugin.value(forKey: "name")
 
                 var onlinePlugin: NSDictionary? = nil
@@ -1567,8 +1573,6 @@ public final class PluginManager: NSObject {
             let installedPlugins = PluginManager.pluginsList() ?? []
 
             for case let installedPlugin as NSDictionary in installedPlugins {
-                // A plugin in an earlier version's folder is not this app's to update.
-                if ObjC.bool(installedPlugin.object(forKey: PluginManager.legacyPluginKey)) { continue }
                 let pluginName = installedPlugin.value(forKey: "name")
 
                 var onlinePlugin: NSDictionary? = nil

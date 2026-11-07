@@ -174,7 +174,8 @@ private struct ConvolvedSlices: @unchecked Sendable {
 
         if flags.contains(.shift) {
             askToDelete(title: NSLocalizedString("Remove a Color Look Up Table", comment: ""),
-                        message: NSLocalizedString("Are you sure you want to delete this CLUT : '%@'", comment: ""), name: title, in: viewer) { viewer, name in
+                        message: String(format: NSLocalizedString("Are you sure you want to delete this CLUT : '%@'", comment: ""), viewerFormatArgument(title)),
+                        name: title, in: viewer) { viewer, name in
                 viewer.sessionGraph.colourTables.deleteColourTable(name, in: viewer)
             }
 
@@ -390,7 +391,8 @@ private struct ConvolvedSlices: @unchecked Sendable {
 
         if flags.contains(.shift) {
             askToDelete(title: NSLocalizedString("Remove a Color Look Up Table", comment: ""),
-                        message: NSLocalizedString("Are you sure you want to delete this Opacity Table : '%@'", comment: ""), name: title, in: viewer) { viewer, name in
+                        message: String(format: NSLocalizedString("Are you sure you want to delete this Opacity Table : '%@'", comment: ""), viewerFormatArgument(title)),
+                        name: title, in: viewer) { viewer, name in
                 viewer.sessionGraph.colourTables.deleteOpacityTable(name, in: viewer)
             }
 
@@ -466,10 +468,12 @@ private struct ConvolvedSlices: @unchecked Sendable {
 
     /// The sheet that asks before deleting the stored entry `name`; Delete
     /// runs `delete` with the viewer, which the sheet keeps until it ends.
+    /// `message` is shown as it is: the callers format it from their literal,
+    /// so a "%" in the entry's name is never read as a specifier.
     private func askToDelete(title: String, message: String, name: String?, in viewer: ViewerController,
                              delete: @escaping @Sendable @MainActor (ViewerController, String) -> Void) {
         guard let window = viewer.window else { return }
-        HorosAlertPanel.begin(withTitle: title, message: String(format: message, viewerFormatArgument(name)),
+        HorosAlertPanel.begin(withTitle: title, message: message,
                               defaultButton: NSLocalizedString("Delete", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil,
                               modalFor: window) { returnCode in
             // The sheet ends on the main thread.
@@ -521,7 +525,8 @@ private struct ConvolvedSlices: @unchecked Sendable {
 
         if flags.contains(.shift) {
             askToDelete(title: NSLocalizedString("Remove a Convolution Filter", comment: ""),
-                        message: NSLocalizedString("Are you sure you want to delete this convolution filter : '%@'", comment: ""), name: title, in: viewer) { viewer, name in
+                        message: String(format: NSLocalizedString("Are you sure you want to delete this convolution filter : '%@'", comment: ""), viewerFormatArgument(title)),
+                        name: title, in: viewer) { viewer, name in
                 viewer.sessionGraph.colourTables.deleteFilter(name, in: viewer)
             }
 

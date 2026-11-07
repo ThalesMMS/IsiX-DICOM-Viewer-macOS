@@ -644,6 +644,17 @@ public final class DicomImage: NSManagedObject {
         }
     }
 
+    /// Makes the image a key image in the database alone, as the index does
+    /// for one a key object selection lists: the index runs inside the write of
+    /// the import, so neither the file nor the study's annotations SR is
+    /// written, unlike setIsKeyImage:, and only the value cached here is dropped.
+    func markAsKeyImageInDatabase() {
+        objc_sync_enter(self)
+        defer { objc_sync_exit(self) }
+        storedIsKeyImage = NSNumber(value: true)
+        _isKeyImage = nil
+    }
+
     @objc(setIsKeyImage:)
     public dynamic func setIsKey(_ f: NSNumber!) {
         HorosObjCException.synchronized(self) {

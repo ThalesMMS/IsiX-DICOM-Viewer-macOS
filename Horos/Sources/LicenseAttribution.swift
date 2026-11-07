@@ -217,7 +217,7 @@ public final class LicenseAttribution: NSObject {
                 sourcePath: "Binaries/Splash/ThirdParty/SwiftNIO/swift-nio/LICENSE.txt",
                 incorporated: true,
                 origin: "remote-package",
-                distributionNote: "Unmodified public swift-nio 2.83.0, swift-nio-transport-services 1.28.0, swift-collections 1.3.0 and swift-atomics 1.3.1, at the revisions of Package.resolved. The web portal and XML-RPC servers link NIOCore, NIOHTTP1, NIOTransportServices and DequeModule statically. The licenses, the Runtime Library Exception of swift-collections and swift-atomics, and the SwiftNIO NOTICE ship in Splash/ThirdParty/SwiftNIO."),
+                distributionNote: "Unmodified public swift-nio 2.105.0, swift-nio-transport-services 1.28.0, swift-collections 1.3.0 and swift-atomics 1.3.1, at the revisions of Package.resolved. The web portal and XML-RPC servers link NIOCore, NIOHTTP1, NIOTransportServices and DequeModule statically. The licenses, the Runtime Library Exception of swift-collections and swift-atomics, and the SwiftNIO NOTICE ship in Splash/ThirdParty/SwiftNIO."),
             LicensedComponent(
                 identifier: "horoscloud",
                 name: "HorosCloud / Purview",

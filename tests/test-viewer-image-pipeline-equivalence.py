@@ -412,6 +412,15 @@ NS_SWIFT_NAME(SliceIntervalRegularity)
 + (HorosSliceIntervalRegularity* _Nonnull) regularityOfOrigins:(NSArray<NSNumber*>* _Nonnull) origins normal:(NSArray<NSNumber*>* _Nonnull) normal pixelSpacing:(double) spacing NS_SWIFT_NAME(regularity(origins:normal:pixelSpacing:));
 @end
 
+// The Fill Gaps button of the irregular interval warning, which the former
+// warning did not have: its answer is the default button's, so nothing is filled.
+NS_SWIFT_NAME(ViewerSpacingGapFill)
+@interface HorosHarnessSpacingGapFill : NSObject
+- (instancetype _Nonnull) initWithViewer:(id _Nonnull) viewer;
+- (void) fillIfChosen:(NSInteger) response NS_SWIFT_NAME(fill(ifChosen:));
+@property(class, readonly, nonnull) NSString *fillGapsButton;
+@end
+
 @interface NSObject (HarnessFilter)
 - (long) prepareFilter:(id) viewer;
 - (long) filterImage:(NSString*) name;
@@ -729,6 +738,12 @@ CALIBRATION
     RecordLine([NSString stringWithFormat:@"regularity %lu %@ %@", (unsigned long)origins.count, normal, BitsD(spacing)]);
     return r;
 }
+@end
+
+@implementation HorosHarnessSpacingGapFill
+- (instancetype) initWithViewer:(id) viewer { return [super init]; }
+- (void) fillIfChosen:(NSInteger) response {}
++ (NSString*) fillGapsButton { return @"Fill Gaps"; }
 @end
 
 @implementation NSWindow (HarnessSheet)

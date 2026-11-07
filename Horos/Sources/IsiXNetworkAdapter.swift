@@ -135,37 +135,15 @@ extension IsiXPluginHost: IsiXXMLRPCBackend {
         } catch .invalidFilter(let value) {
             throw IsiXPluginError.invalidValue("\"\(value)\" cannot be a query filter: it holds a backslash or a control character.")
         }
-        let identifier = IsiXDCMTKDataset()
-        let sequence = PluginQueryKeys.scheduledProcedureStepSequence.rawValue
+        let identifier: IsiXDCMTKDataset
         do {
-            if PluginQueryKeys.needsUTF8(keys) {
-                try identifier.putValue(Data("ISO_IR 192".utf8), forTag: DICOMTag.specificCharacterSet.rawValue)
-            }
-            for key in keys {
-                let value = key.value.isEmpty ? nil : Data(key.value.utf8)
-                if key.inScheduledStep {
-                    try identifier.putValue(value, forTag: key.tag.rawValue, inItemOfSequence: sequence)
-                } else if let value {
-                    try identifier.putValue(value, forTag: key.tag.rawValue)
-                } else {
-                    try identifier.insertEmptyElement(withTag: key.tag.rawValue)
-                }
-            }
+            identifier = try CFindKeysCoding.identifier(for: keys)
         } catch {
             throw IsiXPluginError.hostFailure("The query could not be written: \(error.localizedDescription)")
         }
         let matches = try PluginCFind.run(entry: entry, abstractSyntax: PluginQueryKeys.abstractSyntax(for: level), identifier: identifier)
         return matches.map { dataset in
-            let encoding = PluginCFind.encoding(of: dataset)
-            var values: [String: String] = [:]
-            for key in keys {
-                let raw = key.inScheduledStep ? dataset.stringValues(forTag: key.tag.rawValue, inItemsOfSequence: sequence).first
-                    : dataset.stringArrayValue(forTag: key.tag.rawValue)
-                guard let raw else { continue }
-                let text = String(data: raw, encoding: encoding) ?? String(decoding: raw, as: UTF8.self)
-                if !text.isEmpty { values[key.keyword] = text }
-            }
-            return IsiXQueryMatch(level: query.level, values: values)
+            IsiXQueryMatch(level: query.level, values: CFindKeysCoding.values(of: dataset, keys: keys, encoding: PluginCFind.encoding(of: dataset)))
         }
     }
 
@@ -261,8 +239,10 @@ enum IsiXXMLRPCCoding {
     }
 }
 
-/// One C-FIND of a plugin: an association with the node of `entry`, with its
-/// TLS settings, the request, and the release.
+/// One C-FIND of a plugin or of the Modality Worklist window: an association
+/// with the node of `entry`, with its TLS settings and timeouts as the Query
+/// window's associations have them, the request, and the release. Blocks the
+/// calling thread; its failures are IsiXPluginError.networkFailure.
 enum PluginCFind {
     static func run(entry: [String: Any], abstractSyntax: String, identifier: IsiXDCMTKDataset) throws -> [IsiXDCMTKDataset] {
         let settings = DICOMAssociationSettings(extraParameters: entry)
@@ -324,10 +304,7 @@ enum PluginCFind {
     /// The encoding of a match's text, from its Specific Character Set: the
     /// first one named, Latin-1 when none is.
     static func encoding(of dataset: IsiXDCMTKDataset) -> String.Encoding {
-        guard let raw = dataset.stringArrayValue(forTag: DICOMTag.specificCharacterSet.rawValue),
-              let name = String(decoding: raw, as: UTF8.self).components(separatedBy: "\\").first(where: { !$0.isEmpty }) else {
-            return .isoLatin1
-        }
+        guard let name = CFindKeysCoding.characterSet(of: dataset) else { return .isoLatin1 }
         return String.Encoding(rawValue: NSString.encoding(forDICOMCharacterSet: name))
     }
 }

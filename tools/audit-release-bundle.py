@@ -44,6 +44,7 @@ from pathlib import Path
 
 MACHO = (b'\xcf\xfa\xed\xfe', b'\xce\xfa\xed\xfe', b'\xca\xfe\xba\xbe', b'\xbe\xba\xfe\xca')
 SYSTEM = ('/usr/lib/', '/System/')
+SWIFT_TOOLCHAIN_LIBRARIES = {'libswiftCompatibilitySpan.dylib'}
 LOADS = ('LC_LOAD_DYLIB', 'LC_LOAD_WEAK_DYLIB', 'LC_REEXPORT_DYLIB', 'LC_LOAD_UPWARD_DYLIB')
 
 def missing_bundle_notices(bundle):
@@ -107,6 +108,12 @@ def missing_bundle_notices(bundle):
     elif embedded_files:
         missing_notices.append('ExternalLibraries/embedded-libraries.txt')
     for name in embedded_files:
+        # The Swift toolchain's back-deployment library for Span, which Xcode
+        # embeds for SwiftNIO below macOS 26, is part of the Swift runtime
+        # (Apache-2.0 with the Runtime Library Exception), not a pinned
+        # external input with a bottle of its own.
+        if name in SWIFT_TOOLCHAIN_LIBRARIES:
+            continue
         bottle = recorded.get(name)
         if bottle is None:
             missing_notices.append('ExternalLibraries: no record of %s' % name)

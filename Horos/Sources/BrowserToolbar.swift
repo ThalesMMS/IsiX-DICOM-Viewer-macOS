@@ -971,6 +971,8 @@ extension BrowserMenuState: @MainActor BrowserMenuFacts {
             group = addGroup(NSLocalizedString("Convert Report", comment: ""))
             add(ellipsis("Convert to PDF"), "convertReportToPDF:", to: group)
             add(NSLocalizedString("Convert to DICOM PDF", comment: ""), "convertReportToDICOMSR:", to: group)
+            // File > Import's command on the selected study.
+            DatabaseStudyCommands.addContextualItems(to: menu)
         }
 
         if isWritable {

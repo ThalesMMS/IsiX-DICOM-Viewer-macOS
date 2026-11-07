@@ -82,6 +82,7 @@ product, decompress = str(products), str(helper)
 tests = {
     'test-dcm-host-services.py': [product],
     'test-dicom-writer.py': [product, python],
+    'test-study-file-import.py': [product, python],
     'test-hardcopy-image-storage.py': [product],
     'test-odd-frame-decode.py': [product],
     'test-jpegls-pixels.py': [product, str(jpegls)],

@@ -41,7 +41,9 @@ import UniformTypeIdentifiers
         return nil
     }
 
-    /// Adds "Export ROIs as JSON..." to the ROI menu, after "Save All ROIs of this Series...".
+    /// Adds "Export ROIs as JSON..." to the ROI menu, after "Export ROIs as
+    /// CSV…", which the nib puts right after "Save All ROIs of this Series...",
+    /// or after the latter without it.
     static func installMenuItems() {
         var owner: NSMenu? = nil
         var ignored: NSMenu? = nil
@@ -50,7 +52,11 @@ import UniformTypeIdentifiers
             return
         }
 
-        guard let anchor = findItem(NSApp.mainMenu, #selector(ViewerController.roiSaveSeries(_:)), &owner), let owner else {
+        var anchor = findItem(NSApp.mainMenu, #selector(ViewerStudyCommands.roiExportCSV(_:)), &owner)
+        if anchor == nil {
+            anchor = findItem(NSApp.mainMenu, #selector(ViewerController.roiSaveSeries(_:)), &owner)
+        }
+        guard let anchor, let owner else {
             NSLog("ROI interchange: 'Save All ROIs of this Series' menu item not found; export item not installed")
             return
         }
@@ -160,6 +166,18 @@ import UniformTypeIdentifiers
         return record
     }
 
+    /// The DICOM Series Instance UID of `series`. seriesDICOMUID is that UID;
+    /// seriesInstanceUID is Horos' composite key (series number + UID), and
+    /// only its UID part may leak into an exported file.
+    static func seriesInstanceUID(of series: DicomSeries?) -> String? {
+        if let uid = series?.seriesDICOMUID, !uid.isEmpty {
+            return uid
+        }
+        guard let composite = series?.seriesInstanceUID as NSString? else { return nil }
+        let space = composite.range(of: " ")
+        return space.location != NSNotFound ? composite.substring(from: space.location + 1) : composite as String
+    }
+
     /// The series the viewer shows, every image of every time point, with
     /// its ROIs when `includeROIs`.
     static func series(of viewer: ViewerController, includingROIs includeROIs: Bool) -> ROIInterchangeSeries {
@@ -169,18 +187,7 @@ import UniformTypeIdentifiers
         let image = first?.imageObj()
 
         series.studyInstanceUID = image?.series?.study?.studyInstanceUID
-        // seriesDICOMUID is the DICOM Series Instance UID; seriesInstanceUID is Horos' composite key
-        // (series number + UID) and must not leak into an interchange file.
-        series.seriesInstanceUID = image?.series?.seriesDICOMUID
-        if (series.seriesInstanceUID as NSString?)?.length ?? 0 == 0 {
-            let composite = image?.series?.seriesInstanceUID as NSString?
-            let space = composite?.range(of: " ") ?? NSRange(location: NSNotFound, length: 0)
-            if let composite {
-                series.seriesInstanceUID = space.location != NSNotFound ? composite.substring(from: space.location + 1) : composite as String
-            } else {
-                series.seriesInstanceUID = nil
-            }
-        }
+        series.seriesInstanceUID = seriesInstanceUID(of: image?.series)
         series.frameOfReferenceUID = first?.frameofReferenceUID
         series.modality = image?.series?.modality
         series.seriesDescription = image?.series?.name

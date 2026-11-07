@@ -54,7 +54,9 @@ public final class PluginManagerController: NSWindowController {
 }
 #else
 import AppKit
+import IsiXPluginLoading
 import Synchronization
+import UniformTypeIdentifiers
 
 /// The class methods of PluginManager this window sends, by their Objective-C
 /// selectors. PluginManager.h declares them for the application's Objective-C
@@ -119,6 +121,7 @@ public final class PluginManagerController: NSWindowController {
 
     @IBOutlet @objc var pluginsArrayController: NSArrayController?
     @IBOutlet @objc var pluginTable: PluginsTableView?
+    @IBOutlet @objc var uninstallPluginButton: NSButton?
 
     @IBOutlet @objc var tabView: NSTabView?
     @IBOutlet @objc var installedPluginsTabViewItem: NSTabViewItem?
@@ -168,6 +171,21 @@ public final class PluginManagerController: NSWindowController {
     // MARK: -
     // MARK: installed
 
+    @objc private func installPlugin(_ sender: Any?) {
+        guard let window else { return }
+        let panel = NSOpenPanel()
+        let extensions = PluginAdmission.formerExtensions.union([PluginContract.bundleExtension])
+        panel.allowedContentTypes = extensions.sorted().compactMap { UTType(filenameExtension: $0, conformingTo: .package) }
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.treatsFilePackagesAsDirectories = false
+        panel.beginSheetModal(for: window) { response in
+            guard response == .OK, let url = panel.url else { return }
+            BrowserDatabaseSource.process.processGraph.appController?.installPlugins([url.path])
+        }
+    }
+
     @objc(plugins)
     public func plugins() -> NSMutableArray! {
         return pluginsArray
@@ -185,16 +203,6 @@ public final class PluginManagerController: NSWindowController {
         return pluginsList?.object(at: row) as? NSDictionary
     }
 
-    /// A plugin in an earlier version's folder is listed, not managed: its
-    /// row's checkbox and menu are put back and nothing else happens.
-    private func refusesLegacyPlugin(atRow row: Int) -> Bool {
-        guard row >= 0, row < ((pluginsArrayController?.arrangedObjects as? NSArray)?.count ?? 0),
-              Self.boolValue(arrangedPlugin(atRow: row)?.object(forKey: PluginManager.legacyPluginKey)) else { return false }
-        NSSound.beep()
-        refreshPluginList()
-        return true
-    }
-
     private static func boolValue(_ value: Any?) -> Bool {
         if let number = value as? NSNumber { return number.boolValue }
         if let string = value as? NSString { return string.boolValue }
@@ -210,7 +218,6 @@ public final class PluginManagerController: NSWindowController {
     @IBAction @objc(modifiyActivation:)
     public func modifiyActivation(_ sender: Any!) {
         let clickedRow = pluginTable?.clickedRow ?? 0
-        if refusesLegacyPlugin(atRow: clickedRow) { return }
         let pluginName = arrangedPlugin(atRow: clickedRow)?.object(forKey: "name") as? String
         let pluginIsActive = Self.boolValue(arrangedPlugin(atRow: clickedRow)?.object(forKey: "active"))
 
@@ -236,7 +243,6 @@ public final class PluginManagerController: NSWindowController {
                                             alternateButton: NSLocalizedString("Cancel", comment: ""),
                                             otherButton: nil) == HorosAlertPanel.defaultResponse {
             let selectedRow = pluginTable?.selectedRow ?? 0
-            if refusesLegacyPlugin(atRow: selectedRow) { return }
             let pluginName = arrangedPlugin(atRow: selectedRow)?.object(forKey: "name") as? String
             let availability = arrangedPlugin(atRow: selectedRow)?.object(forKey: "availability") as? String
             let pluginIsActive = Self.boolValue(arrangedPlugin(atRow: selectedRow)?.object(forKey: "active"))
@@ -251,7 +257,6 @@ public final class PluginManagerController: NSWindowController {
 
     @IBAction @objc(modifiyAvailability:)
     public func modifiyAvailability(_ sender: Any!) {
-        if refusesLegacyPlugin(atRow: pluginTable?.clickedRow ?? 0) { return }
         let pluginName = arrangedPlugin(atRow: pluginTable?.clickedRow ?? 0)?.object(forKey: "name") as? String
 
         pluginManager.changeAvailabilityOfPlugin(withName: pluginName, to: (sender as? NSControl)?.selectedCell()?.title)
@@ -318,12 +323,20 @@ public final class PluginManagerController: NSWindowController {
 
     @objc(configurePluginLoadDetails)
     public func configurePluginLoadDetails() {
-        guard let view = installedPluginsTabViewItem?.view, view.viewWithTag(16601) == nil else { return }
-        let button = NSButton(title: NSLocalizedString("Loading Details...", comment: ""), target: self, action: #selector(showPluginLoadDetails(_:)))
-        button.frame = NSMakeRect(430, 10, 180, 32)
-        button.autoresizingMask = [.minXMargin, .maxYMargin]
-        button.tag = 16601
-        view.addSubview(button)
+        guard let view = installedPluginsTabViewItem?.view, let uninstallPluginButton,
+              view.viewWithTag(16601) == nil else { return }
+        let install = NSButton(title: NSLocalizedString("Install Plugin...", comment: ""), target: self, action: #selector(installPlugin(_:)))
+        let details = NSButton(title: NSLocalizedString("Loading Details...", comment: ""), target: self, action: #selector(showPluginLoadDetails(_:)))
+        details.tag = 16601
+        let actions = NSStackView(views: [install, details])
+        actions.alignment = .centerY
+        actions.spacing = 8
+        actions.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(actions)
+        NSLayoutConstraint.activate([
+            actions.trailingAnchor.constraint(equalTo: uninstallPluginButton.leadingAnchor, constant: -8),
+            actions.centerYAnchor.constraint(equalTo: uninstallPluginButton.centerYAnchor),
+        ])
     }
 
     @objc(showPluginLoadDetails:)

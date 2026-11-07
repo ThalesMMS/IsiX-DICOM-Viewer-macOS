@@ -163,6 +163,15 @@ ENTITLEMENTS="$STAGING_DIR/entitlements.plist"
 # Incremental builds and ditto can retain an older bundle date, keeping the
 # previous icon cached by the Dock after the application is replaced.
 /usr/bin/touch "$STAGED_APP"
+# Xcode copies the Swift toolchain's back-deployment libraries (the Span one,
+# which SwiftNIO needs below macOS 26) with every slice the toolchain has;
+# the package carries only the slice it was built for.
+for library in "$STAGED_APP"/Contents/Frameworks/libswift*.dylib; do
+    [[ -f "$library" && ! -L "$library" ]] || continue
+    if [[ "$(/usr/bin/lipo -archs "$library")" != "$ARCH" ]]; then
+        /usr/bin/lipo "$library" -thin "$ARCH" -output "$library.thin" && /bin/mv "$library.thin" "$library"
+    fi
+done
 
 # Under the hardened runtime, library validation refuses code signed by another
 # team. Third-party plugins are signed by their own developers and load into the

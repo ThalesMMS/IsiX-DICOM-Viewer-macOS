@@ -22,6 +22,9 @@ public:
     const OFString& getSOPInstanceUID() const { return instance_; }
     DSRImageFrameList& getFrameList() { return frames_; }
     const DSRImageFrameList& getFrameList() const { return frames_; }
+    // Whether DCMTK takes it as the value of an IMAGE item: valid UIDs, an
+    // image storage class, and frames it can write.
+    OFBool isValidImage() const;
 private:
     OFString sopClass_, instance_;
     DSRImageFrameList frames_;
@@ -36,6 +39,7 @@ public:
     OFCondition setConceptName(const DSRCodedEntryValue&);
     OFCondition setStringValue(const OFString&);
     OFCondition setImageReference(const HorosSRImageReference&);
+    OFCondition setTemplateIdentification(const OFString& identifier, const OFString& mappingResource);
 private:
     void* item_;
 };
@@ -70,6 +74,8 @@ public:
     DSRTypes::E_VerificationFlag getVerificationFlag() const;
     OFBool containsExtendedCharacters() const;
     OFCondition read(DcmItem&);
+    // The patient, general study and patient study modules of the dataset.
+    OFCondition readStudyData(DcmItem&);
     OFCondition write(DcmItem&);
     OFCondition createNewDocument(DSRTypes::E_DocumentType);
     OFCondition createNewSeriesInStudy(const OFString&);

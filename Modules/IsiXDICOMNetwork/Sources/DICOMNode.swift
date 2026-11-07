@@ -31,6 +31,8 @@ public struct DICOMNode: Sendable, Hashable {
         public static let retrieveMode = "retrieveMode"
         public static let transferSyntax = "TransferSyntax"
         public static let tlsEnabled = "TLSEnabled"
+        /// The node's Modality Worklist is listed in the Modality Worklist window.
+        public static let modalityWorklist = "MWL"
         /// The retrieve method before `retrieveMode`: true for C-GET.
         public static let legacyCGet = "CGET"
         /// The retrieve method before `retrieveMode`: true for C-MOVE.
@@ -116,6 +118,12 @@ public struct DICOMNode: Sendable, Hashable {
     /// Whether the node is queried and retrieved from; a node without the key is.
     public var queriesAndRetrieves: Bool {
         entry[Key.queryRetrieve]?.boolValue ?? true
+    }
+
+    /// Whether the Modality Worklist window asks the node for its worklist; a
+    /// node without the key is not asked.
+    public var providesModalityWorklist: Bool {
+        entry[Key.modalityWorklist]?.boolValue ?? false
     }
 
     /// How the node is retrieved from; nil when the key is missing.

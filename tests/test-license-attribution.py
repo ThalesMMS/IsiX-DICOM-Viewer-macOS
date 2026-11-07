@@ -336,7 +336,7 @@ precondition(!dicomSwift.distributionNote.contains("Horos/Sources/DICOM-Swift"))
 let nio = components.first { $0.identifier == "swift-nio" }!
 precondition(nio.license == "Apache-2.0" && nio.incorporated && nio.origin == "remote-package")
 precondition(nio.sourcePath == "Binaries/Splash/ThirdParty/SwiftNIO/swift-nio/LICENSE.txt")
-precondition(nio.distributionNote.contains("2.83.0") && nio.distributionNote.contains("NOTICE"))
+precondition(nio.distributionNote.contains("2.105.0") && nio.distributionNote.contains("NOTICE"))
 precondition(LicenseAttribution.requiredThirdPartyResourceNames.contains("SwiftNIO/swift-nio/NOTICE.txt"))
 
 let fork = components.first { $0.identifier == "fork" }!

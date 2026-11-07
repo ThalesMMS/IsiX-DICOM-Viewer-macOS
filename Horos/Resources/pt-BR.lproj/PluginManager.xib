@@ -15,6 +15,7 @@
                 <outlet property="pluginsArrayController" destination="26" id="125"/>
                 <outlet property="protectedModeLabel" destination="8vS-5X-10a" id="kd5-8q-WyE"/>
                 <outlet property="tabView" destination="11" id="83"/>
+                <outlet property="uninstallPluginButton" destination="dNG-hG-PSZ" id="Yio-Pm-EKC"/>
                 <outlet property="window" destination="5" id="21"/>
             </connections>
         </customObject>
@@ -41,7 +42,7 @@
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                     <subviews>
                                         <scrollView autohidesScrollers="YES" horizontalLineScroll="62" horizontalPageScroll="0.0" verticalLineScroll="62" verticalPageScroll="0.0" hasHorizontalScroller="NO" usesPredominantAxisScrolling="NO" horizontalScrollElasticity="none" id="16">
-                                            <rect key="frame" x="11" y="58" width="855" height="597"/>
+                                            <rect key="frame" x="11" y="94" width="855" height="561"/>
                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                             <clipView key="contentView" copiesOnScroll="NO" id="MkC-fR-mLK">
                                                 <rect key="frame" x="1" y="0.0" width="853" height="596"/>
@@ -200,7 +201,7 @@
                                             </connections>
                                         </button>
                                         <textField hidden="YES" horizontalHuggingPriority="251" verticalHuggingPriority="750" id="8vS-5X-10a">
-                                            <rect key="frame" x="9" y="17" width="319" height="21"/>
+                                            <rect key="frame" x="9" y="53" width="319" height="21"/>
                                             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                                             <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Plugins não são carregados em modo protegido" id="6iv-KU-g57">
                                                 <font key="font" metaFont="system" size="17"/>
@@ -209,11 +210,11 @@
                                             </textFieldCell>
                                         </textField>
                                         <progressIndicator hidden="YES" wantsLayer="YES" horizontalHuggingPriority="750" verticalHuggingPriority="750" maxValue="100" displayedWhenStopped="NO" bezeled="NO" indeterminate="YES" controlSize="small" style="spinning" id="7r0-Ju-Yye">
-                                            <rect key="frame" x="17" y="19" width="16" height="16"/>
+                                            <rect key="frame" x="17" y="55" width="16" height="16"/>
                                             <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMaxY="YES"/>
                                         </progressIndicator>
                                         <textField hidden="YES" verticalHuggingPriority="750" horizontalCompressionResistancePriority="950" id="vI0-L9-Zz4">
-                                            <rect key="frame" x="34" y="8" width="380" height="42"/>
+                                            <rect key="frame" x="34" y="44" width="380" height="42"/>
                                             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                                             <textFieldCell key="cell" lineBreakMode="wordWrapping" sendsActionOnEndEditing="YES" alignment="left" title="Baixando..." id="2VA-SR-gXX">
                                                 <font key="font" metaFont="smallSystem"/>

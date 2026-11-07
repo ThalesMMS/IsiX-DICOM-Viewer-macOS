@@ -38,6 +38,9 @@ ALLOWED = {
     'Import from the Horos folder?': 'the other application',
     '%@: already in %@. That copy was kept, and the one in the Horos folder': 'the other application',
     'Nothing in the Horos folder was changed.': 'the other application',
+    # At startup, plugins installed for Horos or OsiriX can be copied from those
+    # applications' plugin folders, and the question names the folders they come from.
+    'Copy the plugins found in the Horos or OsiriX folders to your IsiX plugin folders?': 'the other application',
     # Plugins are made for Horos or for OsiriX, and the lists say which.
     'Horos Plugins': 'plugin origin', 'OsiriX Plugins': 'plugin origin',
     'Plugin validated in Horos': 'plugin origin', 'Plugin not validated in Horos': 'plugin origin',

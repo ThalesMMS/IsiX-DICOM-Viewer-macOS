@@ -53,6 +53,7 @@ import Testing
             (NetworkPreferences.listenerCheckInterval, "LISTENERCHECKINTERVAL", Int.self, "15"),
             (NetworkPreferences.triesImageLevelRetrieveIfLocalImages, "TryIMAGELevelDICOMRetrieveIfLocalImages", Bool.self, "0"),
             (NetworkPreferences.multipleAssociationsRetrieve, "MultipleAssociationsRetrieve", Bool.self, "0"),
+            (NetworkPreferences.modalityWorklistRefreshMinutes, "ModalityWorklistRefreshMinutes", Int.self, "0"),
             (NetworkPreferences.preferredSyntaxForIncoming, "preferredSyntaxForIncoming", Int.self, "2"),
             (NetworkPreferences.singleProcessMultiThreadedListener, "SingleProcessMultiThreadedListener", Bool.self, "1"),
             (NetworkPreferences.sendControllerConcurrentThreads, "SendControllerConcurrentThreads", Int.self, "1"),

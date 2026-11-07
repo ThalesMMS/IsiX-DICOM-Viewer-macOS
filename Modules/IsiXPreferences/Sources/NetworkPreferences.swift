@@ -106,6 +106,8 @@ public enum NetworkPreferences {
     public static let maximumSendGlobalControllerConcurrentThreads = PreferenceKey<Int>("MaximumSendGlobalControllerConcurrentThreads", registered: "4")
     public static let maxNumberOfFramesForWebPortalMovies = PreferenceKey<Int>("MaxNumberOfFramesForWebPortalMovies", registered: "400")
     public static let maxNumberOfRetrieveForAutoQR = PreferenceKey<PropertyListValue?>("MaxNumberOfRetrieveForAutoQR", registered: "20")
+    /// Minutes between the Modality Worklist window's queries of its nodes; 0 asks only when the user does.
+    public static let modalityWorklistRefreshMinutes = PreferenceKey<Int>("ModalityWorklistRefreshMinutes", registered: "0")
     public static let multipleAssociationsRetrieve = PreferenceKey<Bool>("MultipleAssociationsRetrieve", registered: "0")
     public static let networkLogs = PreferenceKey<Bool>("NETWORKLOGS", registered: "0")
     public static let noOfMultipleAssociationsRetrieve = PreferenceKey<Int>("NoOfMultipleAssociationsRetrieve", registered: "3")
@@ -255,7 +257,7 @@ public enum NetworkPreferences {
         listenerCompressionSettings, maxConcurrentPODRetrieves, maximumNumberOfCFindObjects,
         maximumNumberOfConcurrentDICOMAssociations, maximumSendControllerConcurrentThreads,
         maximumSendGlobalControllerConcurrentThreads, maxNumberOfFramesForWebPortalMovies,
-        maxNumberOfRetrieveForAutoQR, multipleAssociationsRetrieve, networkLogs, noOfMultipleAssociationsRetrieve,
+        maxNumberOfRetrieveForAutoQR, modalityWorklistRefreshMinutes, multipleAssociationsRetrieve, networkLogs, noOfMultipleAssociationsRetrieve,
         notificationsEmails, notificationsEmailsInterval, osirixServers, pacsOnDemandForSearchField,
         preferredSyntaxForIncoming, publishDICOMBonjour, putsDestinationAETitleInPrivateInformationCreatorUID,
         putsSourceAETitleInSourceApplicationEntityTitle, qrRemoveDuplicateEntries, restorePasswordWebServer,

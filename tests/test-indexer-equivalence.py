@@ -430,6 +430,11 @@ struct ImportDisposal {
         Record.add("unreadable \((newFile as NSString?)?.lastPathComponent ?? "-")")
     }
 }
+// The key images of the key object selections, which the import compared did
+// not have and these files do not hold.
+enum KeyObjectSelectionIndexing {
+    static func markKeyImages(among indexed: [DicomImage]) {}
+}
 // The selector of the database, which forwards to the indexer.
 extension DicomDatabase {
     func addFilesDescribed(inDictionaries dicomFilesArray: [Any]!, postNotifications: Bool, rereadExistingItems: Bool,

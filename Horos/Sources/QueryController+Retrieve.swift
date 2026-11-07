@@ -613,7 +613,13 @@ extension QueryController {
     /// main thread, the one recorded when its retrieve started elsewhere.
     nonisolated func studyOfSeries(_ series: AnyObject) -> AnyObject? {
         if Thread.isMainThread {
-            return assumeMainActor(series) { series in self.outlineView?.parent(forItem: series) as AnyObject? }
+            // Not assumeMainActor(series): a Debug (batch mode) build of
+            // Swift 6.4 crashes in SILGen on the thunk it makes for an
+            // AnyObject value. The series and the study stay on this thread.
+            nonisolated(unsafe) let series = series
+            nonisolated(unsafe) var study: AnyObject?
+            MainActor.assumeIsolated { study = self.outlineView?.parent(forItem: series) as AnyObject? }
+            return study
         }
         return workers.study(ofSeries: series)
     }

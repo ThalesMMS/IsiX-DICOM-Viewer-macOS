@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
-"""The app's own folders resolve where they did before IsiXStorage, with one
-deliberate change: the direct build's folder is Application Support/IsiX.
+"""The app's own folders resolve where they did before IsiXStorage, except for
+the move to Application Support/IsiX and the removal of the Horos App plugin fallback.
 
 The plugin manager, the Web Portal, its preference pane and Horos.m (Weasis)
 each spelled out their folders under Application Support. They now ask the
 IsiXStorage module. Earlier versions of the direct build used
-Application Support/Horos, the folder of Horos itself; that folder became
-Application Support/IsiX, and nothing else about where the files are changed:
-the App Store build's Horos App folder, the domains (home, root of the disk,
-or the isolated folder's stand-ins), the subfolders and file names, the order
-of the folders and what the App Store build lists.
+Application Support/Horos, the folder of Horos itself. The move preserved the
+App Store build's settings paths, the domains (home, root of the disk, or the
+isolated folder's stand-ins) and the subfolders and file names.
 
 Checked against the revision before the move, read from git, with every
 `Application Support/Horos/` of its answers read as `Application Support/IsiX/`
@@ -17,8 +15,8 @@ Checked against the revision before the move, read from git, with every
 - the plugins folders: the directories section of PluginManager.swift and the
   folders plugin discovery lists, from that revision and from this one, are
   compiled into probes run as the released and the development bundle, with and
-  without -IsolatedPluginsFolder, and in the App Store build; every answer
-  must match;
+  without -IsolatedPluginsFolder, and in the App Store build; the discovery
+  paths omit the previous fallback to Horos App;
 - the Web Portal's accounts and custom pages, and the pane's copy: the paths
   that revision spelled out for each build, against the module's answer for
   the channel the app passes, which follows MACAPPSTORE;
@@ -116,6 +114,8 @@ def manager_probe(source):
     discover = swift_block(source, source.index('@objc public class func discoverPlugins()'))
     start = discover.index('try HorosObjCException.perform {') + len('try HorosObjCException.perform {')
     folders = discover[start:discover.index('                let paths')]
+    answer = 'folders' if 'let folders = StorageLocations.discoveryFolders' in folders else \
+        '[userPath as String, userAppStorePath as String, sysPath as String]'
     helpers = swift_block(source, source.index('fileprivate enum ObjC {'))
     return '''import AppKit
 import IsiXStorage
@@ -126,7 +126,7 @@ HELPERS
 SECTION
     static func discoveryFolders() -> [String] {
 FOLDERS
-        return [userPath as String, userAppStorePath as String, sysPath as String]
+        return DISCOVERY_ANSWER
     }
 }
 
@@ -145,7 +145,7 @@ let answers: [String: Any] = [
     "argument": PluginManager.isolatedPluginsFolderArgument,
 ]
 print(String(data: try! JSONSerialization.data(withJSONObject: answers, options: [.sortedKeys]), encoding: .utf8)!)
-'''.replace('HELPERS', helpers).replace('SECTION', section).replace('FOLDERS', folders)
+'''.replace('HELPERS', helpers).replace('SECTION', section).replace('FOLDERS', folders).replace('DISCOVERY_ANSWER', answer)
 
 
 with tempfile.TemporaryDirectory(prefix='horos-storage-paths-') as folder:
@@ -194,7 +194,10 @@ with tempfile.TemporaryDirectory(prefix='horos-storage-paths-') as folder:
             continue
         after = results[('after',) + key[1:]]
         for answer in sorted(set(before) | set(after)):
-            if renamed(before.get(answer)) != after.get(answer):
+            expected_paths = renamed(before.get(answer))
+            if answer == 'discovery':
+                expected_paths = [path for path in expected_paths if '/Horos App/Plugins' not in path]
+            if expected_paths != after.get(answer):
                 failures.append(f'{answer} ({"App Store" if key[1] else "direct"}, {key[2]}, '
                                 f'{"isolated" if key[3] else "not isolated"}): {before.get(answer)!r} became {after.get(answer)!r}')
 
@@ -248,6 +251,5 @@ for failure in failures:
     print('FAIL:', failure)
 if failures:
     sys.exit(1)
-print(f'PASS: the plugins folders, the Web Portal accounts and pages, the pane copy and Weasis resolve as in {previous}, '
-      'with Application Support/Horos now Application Support/IsiX and Horos App unchanged, in both builds, for the '
-      'released and the development bundle, isolated or not, now through IsiXStorage')
+print(f'PASS: plugin discovery uses IsiX without the Horos App fallback; other plugin, Web Portal and Weasis paths '
+      f'match {previous} with the move to IsiX, for the released and the development bundle, isolated or not')

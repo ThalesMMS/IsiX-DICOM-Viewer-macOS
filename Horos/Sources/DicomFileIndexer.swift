@@ -528,6 +528,8 @@ struct DicomFileIndexer {
             study.reapplyAnnotationsFromDICOMSR()
         }
 
+        markKeyObjectSelections(of: added)
+
         thread.status = NSLocalizedString("Synchronizing database...", comment: "")
         thread.progress = -1
 
@@ -545,6 +547,13 @@ struct DicomFileIndexer {
                   saveError.localizedDescription, UInt(dicomFilesArray.count))
             thread.status = String(format: NSLocalizedString("The database could not be saved: %@", comment: ""), saveError.localizedDescription)
         }
+    }
+
+    /// The key images that the key object selections "Of Interest" of the
+    /// studies of this import select, among the images it wrote: set before
+    /// the save, so that they are part of the same write.
+    private func markKeyObjectSelections(of added: DicomDatabaseImportBatch) {
+        KeyObjectSelectionIndexing.markKeyImages(among: added.indexedImages)
     }
 
     /// One described file: the body of the former loop's @try. `preparedReportPath`
@@ -1114,6 +1123,7 @@ struct DicomFileIndexer {
                 }
 
                 DicomDatabaseObjC.add(image, to: added.addedImageObjects)
+                if let image { added.indexedImages.append(image) }
 
                 added.addImage(image, forCreator: imagePrivateInformationCreatorUID, complete: false)
 
@@ -1298,6 +1308,9 @@ final class DicomDatabaseImportBatch {
     let completeAddedImageObjects: NSMutableArray?
     let addedImagesPerCreatorUID: NSMutableDictionary?
     let completeAddedImagesPerCreatorUID: NSMutableDictionary?
+    /// The images it wrote, new or written again, whether or not the caller
+    /// wants them returned: the key object selections are matched among them.
+    var indexedImages: [DicomImage] = []
 
     init(returnArray: Bool, capacity: Int) {
         addedImageObjects = returnArray ? NSMutableArray(capacity: capacity) : nil

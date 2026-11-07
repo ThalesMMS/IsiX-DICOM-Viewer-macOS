@@ -52,7 +52,7 @@ for key in residual.english_comments():
 
 # German words that are spelled identically to English; these are translations,
 # not English fallback. Technical tokens and UI sample/format strings follow.
-IDENTICAL_GERMAN = set('''April August November September Dilatation Erosion Element Engine Filter
+IDENTICAL_GERMAN = set('''April August November September Dilatation Division Erosion Element Engine Filter
 Format Fusion Global Index Info Interpolation Linear Mail Matrix Medium Name Navigation Navigator
 Oval Parallel Patient Polygon Port Position Radio Radius Rate Region Renderer Sagittal Schema Score Spline
 Standard Status Syntax System Tag Test Text Threads Upgrade Version Plugins'''.split())

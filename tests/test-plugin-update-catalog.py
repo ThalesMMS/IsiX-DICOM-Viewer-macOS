@@ -5,8 +5,7 @@ PluginManager is Swift: the two shipped scans are compiled with the
 Objective-C messaging helpers of PluginManager.swift, the version and
 download-name helpers of PluginManager+CAPI.m and +isVersion1Download: with
 IsiXPluginLoading; only the catalog transport is a fixture. Only version 1
-plugins are updated, and only to a version 1 package: a former plugin is not
-offered an update, and a former plugin package is never proposed.
+packages are proposed as updates.
 """
 from pathlib import Path
 import subprocess
@@ -80,9 +79,7 @@ func FixtureLoad(_ url: URL?, _ timeout: TimeInterval, _ error: NSErrorPointer) 
 }
 
 @objc(PluginManager) final class PluginManager: NSObject {
-    static let legacyPluginKey = "legacy"
-    // A former plugin is listed too, as the plugin manager lists one: it is never updated.
-    @objc class func pluginsList() -> [Any]! { return [["name": "Synthetic", "version": "1.0"], ["name": "Former", "version": "1.0", "legacy": true]] }
+    @objc class func pluginsList() -> [Any]! { return [["name": "Synthetic", "version": "1.0"]] }
 VERSION1_DOWNLOAD
     @objc(compareVersion:withVersion:) class func compareVersion(_ a: String!, withVersion b: String!) -> Int32 { return Int32(PluginManagerCAPICompareVersions(a, b).rawValue) }
 METHODS
@@ -101,7 +98,7 @@ METHODS
                 precondition(horos.count == (mode == 2 ? 1 : 0) && osirix.count == (mode == 2 ? 1 : 0), "Incorrect update result in mode \(mode)")
                 precondition(input.count == entries.count * (mode == 1 ? 0 : 1), "Update matching mutated the shared catalog")
             }
-            print("PASS: failed/empty/current/newer catalogs, deduplicated endpoints, timeout and immutable input; scans only propose version 1 updates of version 1 plugins")
+            print("PASS: failed/empty/current/newer catalogs, deduplicated endpoints, timeout and immutable input; scans only propose version 1 packages")
             done.signal()
         }
     }

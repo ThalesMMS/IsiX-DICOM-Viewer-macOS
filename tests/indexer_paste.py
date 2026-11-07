@@ -59,6 +59,9 @@ struct DicomFileIndexer {
                            errorsDirPath: errorsDirPath, settings: settings, rereadExistingItems: rereadExistingItems,
                            generatedByOsiriX: generatedByOsiriX, importedFiles: importedFiles, preparedReportPath: &preparedReportPath)
     }
+
+    // The key images of the key object selections, which these doubles do not have.
+    func markKeyObjectSelections(of added: DicomDatabaseImportBatch) {}
 }
 
 // The selector of the database, which forwards to the indexer.

@@ -320,10 +320,10 @@ public extension ViewerController {
                                                             pixelSpacing: spacing)
 
         if regularity.isIrregular {
-            HorosAlertPanel.runInformational(title: NSLocalizedString("Warning!", comment: ""),
+            ViewerSpacingGapFill(viewer: self).fill(ifChosen: HorosAlertPanel.runInformational(title: NSLocalizedString("Warning!", comment: ""),
                                              message: String(format: NSLocalizedString("These slices have a non regular slice interval, varying from %.3f mm to %.3f mm. This will produce distortion in 3D representations, and in measurements.", comment: ""),
                                                              regularity.minimumInterval, regularity.maximumInterval),
-                                             defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                                             defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: ViewerSpacingGapFill.fillGapsButton, otherButton: nil))
         } else if !isDataVolumicIn4D(true) {
             HorosAlertPanel.runInformational(title: NSLocalizedString("Warning!", comment: ""),
                                              message: NSLocalizedString("These slices doesn't represent a true 3D volumic data. This will produce distortion in 3D representations, and in measurements.", comment: ""),

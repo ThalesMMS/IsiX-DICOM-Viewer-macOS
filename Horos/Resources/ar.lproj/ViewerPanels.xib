@@ -1859,15 +1859,15 @@ Gw
         <window title="نافذة" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="828" userLabel="FusionType">
             <windowStyleMask key="styleMask" titled="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
-            <rect key="contentRect" x="437" y="541" width="466" height="235"/>
+            <rect key="contentRect" x="437" y="541" width="625" height="235"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
             <value key="minSize" type="size" width="382" height="234"/>
             <view key="contentView" id="829">
-                <rect key="frame" x="0.0" y="0.0" width="466" height="235"/>
+                <rect key="frame" x="0.0" y="0.0" width="625" height="235"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="831">
-                        <rect key="frame" x="355" y="5" width="97" height="32"/>
+                        <rect key="frame" x="514" y="5" width="97" height="32"/>
                         <constraints>
                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="85" id="Th9-pp-XfL"/>
                         </constraints>
@@ -1907,12 +1907,22 @@ DQ
                     </button>
                     <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="3" translatesAutoresizingMaskIntoConstraints="NO" id="834">
                         <rect key="frame" x="329" y="192" width="126" height="32"/>
-                        <buttonCell key="cell" type="push" title="الارتفاع" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="3" inset="2" id="2236">
+                        <buttonCell key="cell" type="push" title="ضرب الصور" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="3" inset="2" id="2236">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
                         <connections>
                             <action selector="endBlendingType:" target="-2" id="838"/>
+                        </connections>
+                    </button>
+                    <button toolTip="قسمة السلسلة المقصودة على السلسلة التي تم سحبها، بكسلًا ببكسل. البكسل المقسوم على صفر يُعيَّن إلى 0." verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="13" translatesAutoresizingMaskIntoConstraints="NO" id="Dvq-bT-n13">
+                        <rect key="frame" x="488" y="192" width="126" height="32"/>
+                        <buttonCell key="cell" type="push" title="قسمة الصور" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="13" inset="2" id="Dvq-cL-n13">
+                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                            <font key="font" metaFont="system"/>
+                        </buttonCell>
+                        <connections>
+                            <action selector="endBlendingType:" target="-2" id="Dvq-aC-n13"/>
                         </connections>
                     </button>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="871">
@@ -1940,13 +1950,13 @@ DQ
                         </popUpButtonCell>
                     </popUpButton>
                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="981">
-                        <rect key="frame" x="0.0" y="138" width="466" height="5"/>
+                        <rect key="frame" x="0.0" y="138" width="625" height="5"/>
                     </box>
                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="984">
-                        <rect key="frame" x="0.0" y="182" width="466" height="5"/>
+                        <rect key="frame" x="0.0" y="182" width="625" height="5"/>
                     </box>
                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="985">
-                        <rect key="frame" x="0.0" y="41" width="466" height="5"/>
+                        <rect key="frame" x="0.0" y="41" width="625" height="5"/>
                     </box>
                     <button toolTip="إجراء تسجيل ثلاثي الأبعاد من السلسلة التي تم سحبها إلى السلسلة المقصودة، وفقًا للنقاط ثلاثية الأبعاد." verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="7" translatesAutoresizingMaskIntoConstraints="NO" id="987">
                         <rect key="frame" x="329" y="144" width="126" height="32"/>
@@ -1959,7 +1969,7 @@ DQ
                         </connections>
                     </button>
                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="2015">
-                        <rect key="frame" x="0.0" y="87" width="466" height="5"/>
+                        <rect key="frame" x="0.0" y="87" width="625" height="5"/>
                     </box>
                     <button verticalHuggingPriority="750" tag="10" translatesAutoresizingMaskIntoConstraints="NO" id="2017">
                         <rect key="frame" x="170" y="47" width="126" height="32"/>
@@ -2017,9 +2027,12 @@ DQ
                     <constraint firstItem="2015" firstAttribute="leading" secondItem="985" secondAttribute="leading" id="COx-QG-iit"/>
                     <constraint firstItem="2103" firstAttribute="top" secondItem="981" secondAttribute="bottom" constant="15" id="CZY-6D-JDX"/>
                     <constraint firstItem="833" firstAttribute="width" secondItem="832" secondAttribute="width" id="Db8-aK-Nlc"/>
-                    <constraint firstAttribute="trailing" secondItem="834" secondAttribute="trailing" constant="17" id="I7W-Gm-mq7"/>
+                    <constraint firstAttribute="trailing" secondItem="Dvq-bT-n13" secondAttribute="trailing" constant="17" id="I7W-Gm-mq7"/>
                     <constraint firstItem="834" firstAttribute="leading" secondItem="833" secondAttribute="trailing" constant="45" id="JrX-zp-gN0"/>
                     <constraint firstItem="834" firstAttribute="width" secondItem="833" secondAttribute="width" id="K3z-JA-5oN"/>
+                    <constraint firstItem="Dvq-bT-n13" firstAttribute="leading" secondItem="834" secondAttribute="trailing" constant="45" id="Dvq-lD-n13"/>
+                    <constraint firstItem="Dvq-bT-n13" firstAttribute="width" secondItem="834" secondAttribute="width" id="Dvq-wD-n13"/>
+                    <constraint firstItem="834" firstAttribute="baseline" secondItem="Dvq-bT-n13" secondAttribute="baseline" id="Dvq-bL-n13"/>
                     <constraint firstItem="871" firstAttribute="leading" secondItem="829" secondAttribute="leading" constant="10" id="Ksd-5g-ikS"/>
                     <constraint firstItem="981" firstAttribute="trailing" secondItem="2015" secondAttribute="trailing" id="LTy-pS-mQi"/>
                     <constraint firstItem="2017" firstAttribute="top" secondItem="2015" secondAttribute="bottom" constant="14" id="LqO-mn-Tcd"/>
@@ -2039,7 +2052,6 @@ DQ
                     <constraint firstItem="984" firstAttribute="leading" secondItem="829" secondAttribute="leading" id="fQ0-9U-9Sx"/>
                     <constraint firstItem="G8w-oS-Z7f" firstAttribute="baseline" secondItem="2099" secondAttribute="baseline" id="gGp-Gn-rFQ"/>
                     <constraint firstItem="G8w-oS-Z7f" firstAttribute="leading" secondItem="833" secondAttribute="leading" id="gMJ-lv-MbQ"/>
-                    <constraint firstItem="2017" firstAttribute="centerX" secondItem="829" secondAttribute="centerX" id="hWn-Pu-yKH"/>
                     <constraint firstItem="2015" firstAttribute="top" secondItem="2103" secondAttribute="bottom" constant="14" id="hf0-kc-28h"/>
                     <constraint firstItem="834" firstAttribute="leading" secondItem="987" secondAttribute="leading" id="hmj-mM-dcF"/>
                     <constraint firstItem="832" firstAttribute="baseline" secondItem="833" secondAttribute="baseline" id="loP-pj-LcC"/>

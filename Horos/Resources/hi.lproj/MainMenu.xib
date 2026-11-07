@@ -228,6 +228,11 @@
                                                 </binding>
                                             </connections>
                                         </menuItem>
+                                        <menuItem title="चयनित अध्ययन में छवियाँ और PDF आयात करें…" id="Isp-im-Itm">
+                                            <connections>
+                                                <action selector="importImagesAndPDFsIntoSelectedStudy:" target="Isp-im-Obj" id="Isp-im-Act"/>
+                                            </connections>
+                                        </menuItem>
                                     </items>
                                 </menu>
                             </menuItem>
@@ -330,6 +335,11 @@
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="1728">
                                             <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                        </menuItem>
+                                        <menuItem title="अनइंडेक्स की गई फ़ाइलें खोजें…" id="Fui-db-Itm">
+                                            <connections>
+                                                <action selector="findUnindexedFiles:" target="Dbc-cm-Obj" id="Fui-db-Act"/>
+                                            </connections>
                                         </menuItem>
                                         <menuItem title="संपूर्ण डेटाबेस का पुनर्निर्माण करें..." id="1112">
                                             <connections>
@@ -440,6 +450,12 @@
                                 <modifierMask key="keyEquivalentModifierMask" shift="YES" control="YES"/>
                                 <connections>
                                     <action selector="querySelectedStudy:" target="-1" id="13799"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="मोडैलिटी वर्कलिस्ट…" id="Mwl-mn-Itm">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="showModalityWorklist:" target="Mwl-cm-Obj" id="Mwl-mn-Act"/>
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="14650">
@@ -692,6 +708,11 @@
                                     <action selector="revertSeries:" target="-1" id="13221"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="शृंखला की प्रतिलिपि बनाएँ" id="Dup-sr-Itm">
+                                <connections>
+                                    <action selector="duplicateSeriesInNewViewer:" target="Vsc-cm-Obj" id="Dup-sr-Act"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="पैमाना" id="14455">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <menu key="submenu" title="पैमाना" id="14456">
@@ -820,9 +841,29 @@
                                     <action selector="flipDataSeries:" target="-1" id="13248"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="पिक्सेल मान उलटें" id="Inv-pv-Itm">
+                                <connections>
+                                    <action selector="invertPixelValues:" target="Vsc-cm-Obj" id="Inv-pv-Act"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="सीरीज़ घटाएँ…" id="Rds-sr-Itm">
+                                <connections>
+                                    <action selector="openReducedSeries:" target="Vsc-cm-Obj" id="Rds-sr-Act"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="सभी छवियों को वर्तमान छवि के अनुसार पुनः अभिविन्यस्त करें" id="Rao-ci-Itm">
+                                <connections>
+                                    <action selector="reorientAllImagesToCurrentImage:" target="Vsc-cm-Obj" id="Rao-ci-Act"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="b-मान के अनुसार श्रृंखला विभाजित करें" id="Bvs-sp-Itm">
                                 <connections>
                                     <action selector="splitSeriesByBValue:" target="-1" id="Bvs-sp-Act"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="स्लाइस अंतराल की खाली जगहें भरें" id="Fsg-gp-Itm">
+                                <connections>
+                                    <action selector="fillSpacingGaps:" target="Vsc-cm-Obj" id="Fsg-gp-Act"/>
                                 </connections>
                             </menuItem>
                             <menuItem title="VOI LUT का प्रयोग करें" state="on" id="13192">
@@ -1048,6 +1089,11 @@
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="captureAndSetKeyImage:" target="-1" id="14837"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Key Object Selection दस्तावेज़ बनाएँ" id="Kos-dc-Itm">
+                                            <connections>
+                                                <action selector="createKeyObjectSelectionDocument:" target="Vsc-cm-Obj" id="Kos-dc-Act"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="Kim-sq-Sep"/>
@@ -1675,6 +1721,11 @@
                                     <action selector="roiSaveSeries:" target="-1" id="13659"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="ROI को CSV के रूप में निर्यात करें…" id="Rcv-ex-Itm">
+                                <connections>
+                                    <action selector="roiExportCSV:" target="Vsc-cm-Obj" id="Rcv-ex-Act"/>
+                                </connections>
+                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="12924">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
@@ -1870,12 +1921,23 @@
                                     <action selector="flipROIVertically:" target="-1" id="fqf-58-4Om"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="दो बिंदुओं के बीच बिंदु बनाएँ" id="roi-points-between-menu">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="createPointsBetweenTwoPoints:" target="Vsc-cm-Obj" id="roi-points-between-action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="ROI वॉल्यूम" id="13007">
                                 <menu key="submenu" title="ROI वॉल्यूम" id="13008">
                                     <items>
                                         <menuItem title="वॉल्यूम की गणना करें..." id="13010">
                                             <connections>
                                                 <action selector="roiVolume:" target="-1" id="13011"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="मास्क शृंखला बनाएँ" id="Rms-sr-Itm">
+                                            <connections>
+                                                <action selector="generateROIMaskSeries:" target="Rms-cm-Obj" id="Rms-sr-Act"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="13027">
@@ -1943,6 +2005,11 @@
                             <menuItem title="पिक्सेल मान को यहां सेट करें..." id="11232">
                                 <connections>
                                     <action selector="roiSetPixelsSetup:" target="-1" id="11233"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="ROI माध्य से सीरीज़ को सामान्यीकृत करें…" id="Nrm-rm-Itm">
+                                <connections>
+                                    <action selector="normalizeSeriesByROIMean:" target="Vsc-cm-Obj" id="Nrm-rm-Act"/>
                                 </connections>
                             </menuItem>
                             <menuItem title="क्षेत्र का विकास करें (2डी/3डी विभाजन)..." id="11234">
@@ -2104,6 +2171,11 @@ CA
                                     <action selector="closeAllViewers:" target="694" id="12218"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="इस अध्ययन के दर्शक बंद करें" id="Cvs-st-Itm">
+                                <connections>
+                                    <action selector="closeViewersOfThisStudy:" target="Vsc-cm-Obj" id="Cvs-st-Act"/>
+                                </connections>
+                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="14129"/>
                             <menuItem title="सभी सामने लाएँ" id="5">
                                 <connections>
@@ -2128,6 +2200,11 @@ CA
                 <outlet property="windowsTilingMenuRows" destination="14015" id="14036"/>
             </connections>
         </customObject>
+        <customObject id="Vsc-cm-Obj" userLabel="ViewerStudyCommands" customClass="IsiXViewerStudyCommands"/>
+        <customObject id="Rms-cm-Obj" userLabel="ROIMaskSeriesCommands" customClass="IsiXROIMaskSeriesCommands"/>
+        <customObject id="Dbc-cm-Obj" userLabel="DatabaseCommands" customClass="IsiXDatabaseCommands"/>
+        <customObject id="Isp-im-Obj" userLabel="DatabaseStudyCommands" customClass="IsiXDatabaseStudyCommands"/>
+        <customObject id="Mwl-cm-Obj" userLabel="NetworkWorklistCommands" customClass="IsiXNetworkWorklistCommands"/>
         <customObject id="898" userLabel="BrowserController" customClass="BrowserController">
             <connections>
                 <outlet property="CDpasswordWindow" destination="13805" id="13823"/>

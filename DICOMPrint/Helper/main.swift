@@ -50,14 +50,37 @@ let medium = options["--medium-type"] ?? "PAPER"
 guard let context = HorosStoredPrintOpen(config, logger, printer, copies, priority, destination, medium) else {
     fail("cannot initialize printer")
 }
-var status: Int32 = 0
-for filename in jobs {
-    let result = HorosStoredPrintSend(context, filename)
-    if result.operationStatus != 0 || result.cleanupStatus != 0 || result.releaseStatus != 0 {
-        FileHandle.standardError.write(Data(("HorosStoredPrint: operation=\(result.operationStatus) cleanup=\(result.cleanupStatus) release=\(result.releaseStatus) accepted=\(result.printAccepted); batch stopped, no retry\n").utf8))
-        status = 1
-        break
+/// The outcome fields every report line carries, then the step that failed and
+/// the printer's failure status when there is one. The app reads these lines to
+/// tell the user what failed.
+func describe(_ result: HorosStoredPrintResult, page: Int) -> String {
+    var text = "page=\(page) operation=\(result.operationStatus) cleanup=\(result.cleanupStatus) release=\(result.releaseStatus) accepted=\(result.printAccepted)"
+    switch Int(result.failedStage) {
+    case Int(HorosStoredPrintStageLoad): text += " stage=load"
+    case Int(HorosStoredPrintStageConnect): text += " stage=connect"
+    case Int(HorosStoredPrintStageJob): text += " stage=job"
+    default: break
     }
+    if result.dimseStatus != 0 { text += String(format: " dimse=0x%04X", result.dimseStatus) }
+    return text
+}
+
+var status: Int32 = 0
+for (offset, filename) in jobs.enumerated() {
+    let result = HorosStoredPrintSend(context, filename)
+    if result.printAccepted != 0 {
+        // The printer accepted the film box: the page prints whatever happens
+        // to the deletion of its objects or to the release of the association.
+        // Neither is a print failure, and the next page opens an association
+        // of its own, so the batch goes on.
+        if result.cleanupStatus != 0 || result.releaseStatus != 0 {
+            FileHandle.standardError.write(Data(("HorosStoredPrint: warning: \(describe(result, page: offset + 1)); the page was printed, only the cleanup after it failed\n").utf8))
+        }
+        continue
+    }
+    FileHandle.standardError.write(Data(("HorosStoredPrint: \(describe(result, page: offset + 1)); batch stopped, no retry\n").utf8))
+    status = 1
+    break
 }
 HorosStoredPrintClose(context)
 exit(status)

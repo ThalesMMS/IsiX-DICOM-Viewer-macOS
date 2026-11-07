@@ -32,6 +32,13 @@ NS_ASSUME_NONNULL_BEGIN
 + (nullable NSString *)titleMeaningOfReportAtPath:(NSString *)path error:(NSError **)error
     NS_SWIFT_NAME(titleMeaning(ofReportAtPath:));
 
+/// The whole coded concept name of that title: its code value, coding scheme
+/// designator and code meaning, in that order, as UTF-8; a key object
+/// selection is told by the first two, which the meaning only describes. nil,
+/// with an error, when the file is not a readable report.
++ (nullable NSArray<NSString *> *)titleCodeOfReportAtPath:(NSString *)path error:(NSError **)error
+    NS_SWIFT_NAME(titleCode(ofReportAtPath:));
+
 /// The SOP Instance UIDs of the image items, in the order the document tree
 /// is iterated. Empty when the file is not a readable report.
 + (NSArray<NSString *> *)referencedImageInstancesOfReportAtPath:(NSString *)path
@@ -43,6 +50,9 @@ NS_ASSUME_NONNULL_BEGIN
 typedef NS_ENUM(NSInteger, IsiXDCMTKReportType) {
     IsiXDCMTKReportTypeBasicText,
     IsiXDCMTKReportTypeComprehensive,
+    /// A Key Object Selection Document: its root CONTAINS the images it
+    /// selects, and its Current Requested Procedure Evidence lists them.
+    IsiXDCMTKReportTypeKeyObjectSelection,
 };
 
 /// The header fields of a report the app reads or sets, as DCMTK's
@@ -108,6 +118,33 @@ typedef NS_ENUM(NSInteger, IsiXDCMTKReportField) {
 /// the root.
 - (void)addImageReferenceWithCode:(NSString *)code scheme:(NSString *)scheme meaning:(NSString *)meaning
                          SOPClass:(NSString *)sopClass instance:(NSString *)instance frames:(nullable NSString *)frames;
+
+/// Makes the root container, the current item, an instance of the template
+/// `identifier` of `mappingResource` (2010 of DCMR for a key object
+/// selection). Whether DCMTK accepted it.
+- (BOOL)setRootTemplateIdentifier:(NSString *)identifier mappingResource:(NSString *)mappingResource
+    NS_SWIFT_NAME(setRootTemplate(identifier:mappingResource:));
+/// Adds an IMAGE item the root contains, below the current item, without a
+/// concept name, as a key object selection lists its images, with the frames
+/// given as text (numbers separated by commas; nil for the whole object), and
+/// goes back up to the root. An image DCMTK does not take - a class it does
+/// not know as an image storage one, an invalid UID or frame list - adds
+/// nothing and answers NO.
+- (BOOL)addSelectedImageWithSOPClass:(NSString *)sopClass instance:(NSString *)instance frames:(nullable NSString *)frames
+    NS_SWIFT_NAME(addSelectedImage(sopClass:instance:frames:));
+/// Adds an instance to the Current Requested Procedure Evidence Sequence,
+/// under its series and its study. A UID that the strict check refuses only
+/// for a component with a leading zero, as older scanners write them, is
+/// taken as it is, as -createNewSeriesInStudy:error: takes the study's.
+- (BOOL)addEvidenceInStudy:(NSString *)study series:(NSString *)series SOPClass:(NSString *)sopClass
+                  instance:(NSString *)instance error:(NSError **)error
+    NS_SWIFT_NAME(addEvidence(study:series:sopClass:instance:));
+/// Takes the patient, general study and patient study modules of the file
+/// at `path`, and its Specific Character Set, in which their text is
+/// written, as the document's own. The condition's text when the file does
+/// not load.
+- (BOOL)readStudyOfFileAtPath:(NSString *)path error:(NSError **)error
+    NS_SWIFT_NAME(readStudy(ofFileAtPath:));
 
 /// The current item's concept name meaning, as UTF-8.
 @property (readonly, nullable) NSString *currentConceptMeaning;

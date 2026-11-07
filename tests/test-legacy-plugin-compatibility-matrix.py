@@ -273,9 +273,10 @@ def synthetic():
                 "uses": 0, "imports": 1, "evidence": imported["platforms"]["OpenGL"]["evidence"]}:
             fail("an OpenGL import without use (or a use in a comment) put the plugin out: %s %s"
                  % (imported["out"], imported["platforms"]))
-        planned = row(report, "Invert Data")
-        if planned["out"] != ["incorporação prevista"] or planned["state"] != "incorporação prevista":
-            fail("plugin planned for native incorporation not kept out: %s %s" % (planned["out"], planned["state"]))
+        # Invert Data's function is native now: the maintainer's list counts it redundant.
+        native = row(report, "Invert Data")
+        if native["out"] != ["redundante"] or native["state"] != "fora":
+            fail("plugin whose function is native not counted redundant: %s %s" % (native["out"], native["state"]))
         example = row(report, "HelloWorld")
         if example["out"] != ["exemplo"] or example["state"] != "fora":
             fail("maintainer's list not applied: %s" % example["out"])

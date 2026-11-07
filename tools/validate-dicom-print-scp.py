@@ -62,6 +62,8 @@ def capture_server(columns,rows,reject="",port=0,output=None):
         captured['actions']+=1
         if output: (output/'received.json').write_text(json.dumps(captured,indent=2))
         return (0xC600 if reject=='action' else 0xB600 if reject=='warning' else 0x0000),None
+    def delete(event):
+        return 0x0110 if reject=='cleanup' else 0x0000
     def receive_pdu(event):
         if reject=='release' and isinstance(event.pdu,A_RELEASE_RQ):
             event.assoc.abort(block=False)
@@ -71,7 +73,7 @@ def capture_server(columns,rows,reject="",port=0,output=None):
     ae=AE(ae_title='PRINTQA')
     if reject!='negotiation': ae.add_supported_context(BasicGrayscalePrintManagementMeta,[ImplicitVRLittleEndian])
     ae.add_supported_context(Verification,[ImplicitVRLittleEndian])
-    server=ae.start_server(('127.0.0.1',port),block=False,evt_handlers=[(evt.EVT_ACCEPTED,accepted),(evt.EVT_C_ECHO,lambda event:0x0000),(evt.EVT_N_CREATE,create),(evt.EVT_N_SET,set_image),(evt.EVT_N_ACTION,action),(evt.EVT_N_GET,get_printer),(evt.EVT_N_DELETE,lambda event:0x0000),(evt.EVT_PDU_RECV,receive_pdu)])
+    server=ae.start_server(('127.0.0.1',port),block=False,evt_handlers=[(evt.EVT_ACCEPTED,accepted),(evt.EVT_C_ECHO,lambda event:0x0000),(evt.EVT_N_CREATE,create),(evt.EVT_N_SET,set_image),(evt.EVT_N_ACTION,action),(evt.EVT_N_GET,get_printer),(evt.EVT_N_DELETE,delete),(evt.EVT_PDU_RECV,receive_pdu)])
     return server,captured
 
 def validate(resources, output, sender='HorosStoredPrint'):
@@ -83,7 +85,7 @@ def validate(resources, output, sender='HorosStoredPrint'):
     env=os.environ.copy();env['DCMDICTPATH']=str(resources/'dicom.dic')
     results=[]
     cases=[(6,4,''),(6,5,''),(6,5,'film'),(6,5,'image'),(6,5,'action')]
-    if sender=='HorosStoredPrint': cases += [(6,4,'warning'),(6,4,'release'),(6,4,'negotiation'),(6,4,'batch')]
+    if sender=='HorosStoredPrint': cases += [(6,4,'warning'),(6,4,'release'),(6,4,'cleanup'),(6,4,'negotiation'),(6,4,'batch')]
     for columns,rows,reject in cases:
         name=f'{columns}x{rows}'+('-rejected-'+reject if reject else '')
         job=output/name;job.mkdir();(job/'database').mkdir()
@@ -112,35 +114,47 @@ def validate(resources, output, sender='HorosStoredPrint'):
             prep=[str(resources/'dcmpsprt'),'-c','print.cfg','--printer','PRINTSCP','--layout',str(columns),str(rows),'--filmsize','14INX17IN','--magnification','BILINEAR','--border','BLACK','--empty-image','BLACK','--no-trim','--portrait',*images]
             with (job/'prepare.log').open('w') as log:subprocess.run(prep,cwd=job,env=env,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
             states=sorted((job/'database').glob('SP_*'));assert len(states)==1,states
-            # An operation/release failure in the first file must stop the batch.
-            if sender=='HorosStoredPrint' and reject in ('film','image','action','release','negotiation','batch'):
+            # An operation failure in the first file must stop the batch; a page
+            # the printer accepted is printed even if its cleanup or release
+            # fails, and the batch goes on with the next one.
+            if sender=='HorosStoredPrint' and reject in ('film','image','action','release','cleanup','negotiation','batch'):
                 second=job/'database/SP_second';second.write_bytes(states[0].read_bytes());states.append(second)
             send=[str(resources/sender),'-c','print.cfg','--printer','PRINTSCP','--copies','1','--priority','MED','--destination','PROCESSOR','--medium-type','PAPER',*[str(p) for p in states]]
             with (job/'send.log').open('w') as log:process=subprocess.run(send,cwd=job,env=env,stdout=log,stderr=subprocess.STDOUT,timeout=60)
             captured['exit_status']=process.returncode
             (job/'received.json').write_text(json.dumps(captured,indent=2))
+            log=(job/'send.log').read_text()
             if reject=='negotiation':
                 assert process.returncode!=0 and not captured['film_sessions'] and not captured['actions'],captured
+                assert 'page=1 operation=1 cleanup=0 release=0 accepted=0 stage=connect; batch stopped' in log,log
                 results.append({'case':name,**captured});print('PASS:',name,'exit',process.returncode)
                 continue
-            pages=2 if reject=='batch' else 1
+            pages=2 if reject in ('batch','release','cleanup') else 1
             assert captured['associations']==[[{'abstract_syntax':str(BasicGrayscalePrintManagementMeta),'transfer_syntax':[str(ImplicitVRLittleEndian)]}]]*pages,captured
             assert captured['film_sessions']==[{'NumberOfCopies':'1','PrintPriority':'MED','MediumType':'PAPER','FilmDestination':'PROCESSOR'}]*pages,captured
             assert captured['film_boxes'],captured
             film=captured['film_boxes'][0]
             assert film['ImageDisplayFormat']==f'STANDARD\\{columns},{rows}',film
             assert film['FilmSizeID']=='14INX17IN' and film['FilmOrientation']=='PORTRAIT',film
-            if reject and reject not in ('warning','batch'):
+            if reject and reject not in ('warning','batch','release','cleanup'):
                 assert process.returncode!=0,captured
-                if reject=='film': assert not captured['images'] and not captured['actions'],captured
-                if reject=='image': assert len(captured['images'])==1 and not captured['actions'],captured
-                if reject=='action': assert len(captured['images'])==columns*rows and captured['actions']==1,captured
-                if reject=='release':
+                # The report line names the stage and the printer's own status.
+                if reject=='film':
+                    assert not captured['images'] and not captured['actions'],captured
+                    assert 'stage=job dimse=0x0106; batch stopped' in log,log
+                if reject=='image':
+                    assert len(captured['images'])==1 and not captured['actions'],captured
+                    assert 'stage=job dimse=0xC605; batch stopped' in log,log
+                if reject=='action':
                     assert len(captured['images'])==columns*rows and captured['actions']==1,captured
-                    log=(job/'send.log').read_text()
-                    assert 'operation=0 cleanup=0 release=1 accepted=1' in log,log
+                    assert 'stage=job dimse=0xC600; batch stopped' in log,log
             else:
                 assert process.returncode==0 and len(captured['images'])==columns*rows*pages and captured['actions']==pages,captured
+                if sender=='HorosStoredPrint':
+                    warned=[line for line in log.splitlines() if line.startswith('HorosStoredPrint: warning:')]
+                    if reject=='release': assert len(warned)==2 and all('operation=0 cleanup=0 release=1 accepted=1' in line for line in warned),log
+                    elif reject=='cleanup': assert len(warned)==2 and all('operation=0 cleanup=1 release=0 accepted=1' in line for line in warned),log
+                    else: assert not warned and 'HorosStoredPrint:' not in log,log
                 for index,image in enumerate(captured['images']):
                     ordinal=index%(columns*rows)
                     assert image['position']==image['referenced_position']==ordinal+1,image
@@ -172,7 +186,7 @@ if __name__=='__main__':
     parser.add_argument('--port',type=int,default=15962)
     parser.add_argument('--columns',type=int,default=2)
     parser.add_argument('--rows',type=int,default=2)
-    parser.add_argument('--reject', choices=['film','image','action'], default='', help='Reject one protocol stage in native serve mode')
+    parser.add_argument('--reject', choices=['film','image','action','cleanup','release'], default='', help='Reject one protocol stage in native serve mode; cleanup and release fail only after the printer accepted the page')
     args=parser.parse_args()
     if args.serve:
         import time
