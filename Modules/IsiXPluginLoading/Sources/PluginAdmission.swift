@@ -40,7 +40,7 @@ public enum PluginAdmission {
     }
 
     /// The extensions of the plugins made for Horos and OsiriX.
-    public static var formerExtensions: Set<String> { LegacyPluginInventory.extensions }
+    public static let formerExtensions: Set<String> = ["horosplugin", "osirixplugin"]
 
     /// What a bundle is, by the extension of its path or file name. The case of
     /// the extension does not matter: the Finder and APFS ignore it too.

@@ -4775,3 +4775,11 @@
 "%1$@ could not be downloaded: %2$@" = "%1$@을(를) 다운로드할 수 없습니다: %2$@";
 "%1$@ is not something this database can take: %2$@" = "이 데이터베이스는 %1$@을(를) 받을 수 없습니다: %2$@";
 "The database cannot be opened for this import." = "이 가져오기를 위해 데이터베이스를 열 수 없습니다.";
+
+"Copy plugins to IsiX?" = "플러그인을 IsiX로 복사할까요?";
+"Copy the plugins found in the Horos or OsiriX folders to your IsiX plugin folders? IsiX can load active plugins after copying and keeps existing plugins with the same name." = "Horos 또는 OsiriX 폴더에서 찾은 플러그인을 사용자의 IsiX 플러그인 폴더로 복사할까요? IsiX는 복사 후 활성 플러그인을 로드할 수 있으며 이름이 같은 기존 플러그인은 그대로 유지합니다.";
+"Copy Plugins" = "플러그인 복사";
+"Don't Copy" = "복사 안 함";
+"A plugin named %@ already exists in IsiX." = "IsiX에 %@ 이름의 플러그인이 이미 있습니다.";
+"Some plugins were not copied" = "일부 플러그인이 복사되지 않았습니다";
+"Install Plugin..." = "플러그인 설치...";

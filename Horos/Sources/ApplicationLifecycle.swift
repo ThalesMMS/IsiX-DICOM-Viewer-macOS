@@ -182,6 +182,8 @@ import IsiXStorage
             }
         }
 
+        LegacySupportImportPrompt.offerPluginsIfNeeded()
+
         // Plugins may read DICOM through DCMObject as they load.
         AppController.registerDCMTKCodecs()
         Once.pluginManager = PluginManager()

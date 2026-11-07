@@ -3424,3 +3424,11 @@
 "%1$@ could not be downloaded: %2$@" = "No se pudo descargar %1$@: %2$@";
 "%1$@ is not something this database can take: %2$@" = "%1$@ no es algo que esta base de datos pueda aceptar: %2$@";
 "The database cannot be opened for this import." = "No se puede abrir la base de datos para esta importación.";
+
+"Copy plugins to IsiX?" = "¿Copiar plugins a IsiX?";
+"Copy the plugins found in the Horos or OsiriX folders to your IsiX plugin folders? IsiX can load active plugins after copying and keeps existing plugins with the same name." = "¿Copiar los plugins encontrados en las carpetas de Horos u OsiriX a tus carpetas de plugins de IsiX? IsiX puede cargar los plugins activos después de copiarlos y conserva los plugins existentes con el mismo nombre.";
+"Copy Plugins" = "Copiar plugins";
+"Don't Copy" = "No copiar";
+"A plugin named %@ already exists in IsiX." = "Ya existe un plugin llamado %@ en IsiX.";
+"Some plugins were not copied" = "No se copiaron algunos plugins";
+"Install Plugin..." = "Instalar plugin...";

@@ -13,9 +13,7 @@ Horos or OsiriX (.horosplugin, .osirixplugin), the latter updated in place
 under the extension it was installed with. A former plugin renamed to
 .isixplugin, a bundle of either API for another architecture or with a broken
 signature, and a missing one are refused with an alert, before anything is
-deleted or moved and without any of their code running. A plugin of the same
-name in an earlier version's folder is neither counted as a duplicate nor
-replaced.
+deleted or moved and without any of their code running.
 """
 from pathlib import Path
 import argparse
@@ -87,14 +85,13 @@ func FixtureInstall(_ source: String?, _ destination: String?, _ error: NSErrorP
     @objc(pluginDiagnosisAtPath:) static func pluginDiagnosis(at path: String) -> String? { return nil }
 }
 @objc(PluginManager) final class PluginManager: NSObject {
-    static let legacyPluginKey = "legacy"
     @objc class func isPluginBundleSignatureValid(_ path: String!) -> Bool { return PluginManagerCAPISignatureAllowsLoading(path, nil) }
 REFUSAL
     @objc class func pluginsList() -> [Any]! {
-        // A plugin of the same name in an earlier version's folder, as the plugin manager lists it.
-        let former: [String: Any] = ["name": "QAVersion1", "availability": "User", "active": true, "legacy": true]
-        return duplicateInstallations ? [former, ["name": "QAVersion1", "availability": "User", "active": true], ["name": "QAVersion1", "availability": "App", "active": true]]
-            : (inactiveInstallation ? [former, ["name": "QAVersion1", "availability": "User", "active": false]] : [former])
+        if duplicateInstallations {
+            return [["name": "QAVersion1", "availability": "User", "active": true], ["name": "QAVersion1", "availability": "App", "active": true]]
+        }
+        return inactiveInstallation ? [["name": "QAVersion1", "availability": "User", "active": false]] : []
     }
     @objc class func availabilities() -> [Any]! { return ["User", "System", "App"] }
     @objc class func deletePlugin(withName name: String!) -> String! { deletions += 1; return nil }
@@ -140,7 +137,6 @@ PluginManager.installPlugin(fromPath: root.appendingPathComponent("QAUniversal.h
 check(moves == 3 && lastDestination == installedOsiriX, "A former plugin is updated under its installed extension: \(lastDestination ?? "nil")")
 try? FileManager.default.removeItem(atPath: installedOsiriX)
 moves = 0
-// The plugin of the same name in an earlier version's folder is not a duplicate.
 PluginManager.installPlugin(fromPath: root.appendingPathComponent("QAVersion1.isixplugin"))
 check(deletions == 0 && moves == 1, "A compatible version 1 candidate must reach the installation")
 check(lastDestination == (PluginManager.userActivePluginsDirectoryPath() as NSString).appendingPathComponent("QAVersion1.isixplugin"),
@@ -157,7 +153,7 @@ PluginManager.installPlugin(fromPath: root.appendingPathComponent("QAVersion1.is
 check(deletions == 0 && moves == 2 && alerts == rejected.count + 1, "Ambiguous duplicates must be preserved without installing")
 check(NSClassFromString("QAVersion1") == nil && NSClassFromString("QAUniversal") == nil && NSClassFromString("QAOsiriX") == nil, "Preflight must not execute candidate code")
 check(((try? FileManager.default.contentsOfDirectory(atPath: markers)) ?? []).isEmpty, "No candidate's +load ran")
-print("PASS: renamed, missing, invalid-signature and incompatible plugins of either API rejected before deletion; former and version 1 plugins install without their code running, a former one under its installed extension, beside a plugin of its name in an earlier version's folder")
+print("PASS: renamed, missing, invalid-signature and incompatible plugins of either API rejected before deletion; former and version 1 plugins install without their code running, preserving the installed extension and activation state on update")
 '''
 names = [f'{scope}{state}PluginsDirectoryPath' for scope in ('user', 'system', 'app') for state in ('Active', 'Inactive')]
 program = program.replace('DIRECTORY_METHODS', '\n'.join(f'    @objc class func {n}() -> String! {{ return installRoot.appendingPathComponent("{n}") }}' for n in names)).replace('HELPERS', helpers).replace('REFUSAL', refusal).replace('METHOD', method)

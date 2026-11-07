@@ -574,7 +574,6 @@
 		B138E0A34C9D4579902249E6 /* BrowserController+Search.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92FE22DB28114A4C8A0577EE /* BrowserController+Search.swift */; };
 		59277F150B1A417B8A7A0F5A /* BrowserController+Albums.swift in Sources */ = {isa = PBXBuildFile; fileRef = 075D0EBD51E44F4D8D97DF61 /* BrowserController+Albums.swift */; };
 		DF59C96C128D479EA5028FD9 /* BrowserController+DatabaseSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 528AE4DE76A2476CBCBFEEA5 /* BrowserController+DatabaseSupport.swift */; };
-		BC5A085F483A4E95ADD8FCE3 /* PluginManager+LegacyPlugins.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81CEF5AACA854B06895F5DE6 /* PluginManager+LegacyPlugins.swift */; };
 		348EBA9DC7984886956D2589 /* LegacySupportImportPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03C8E0E5B2FD418D9F8E0665 /* LegacySupportImportPrompt.swift */; };
 		365E8B7E91E04E74AD35AF20 /* ViewerController+StudyNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 556AC9666EE2405D9C58CFE4 /* ViewerController+StudyNavigation.swift */; };
 		9C7D7D0BB2C34B379102E327 /* ViewerController+FourDNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF48B5EFB3D642178EE89860 /* ViewerController+FourDNavigation.swift */; };
@@ -2793,7 +2792,6 @@
 		92FE22DB28114A4C8A0577EE /* BrowserController+Search.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+Search.swift"; sourceTree = "<group>"; };
 		075D0EBD51E44F4D8D97DF61 /* BrowserController+Albums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+Albums.swift"; sourceTree = "<group>"; };
 		528AE4DE76A2476CBCBFEEA5 /* BrowserController+DatabaseSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+DatabaseSupport.swift"; sourceTree = "<group>"; };
-		81CEF5AACA854B06895F5DE6 /* PluginManager+LegacyPlugins.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PluginManager+LegacyPlugins.swift"; sourceTree = "<group>"; };
 		03C8E0E5B2FD418D9F8E0665 /* LegacySupportImportPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LegacySupportImportPrompt.swift"; sourceTree = "<group>"; };
 		556AC9666EE2405D9C58CFE4 /* ViewerController+StudyNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+StudyNavigation.swift"; sourceTree = "<group>"; };
 		AF48B5EFB3D642178EE89860 /* ViewerController+FourDNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+FourDNavigation.swift"; sourceTree = "<group>"; };
@@ -7237,7 +7235,6 @@
 				92FE22DB28114A4C8A0577EE /* BrowserController+Search.swift */,
 				075D0EBD51E44F4D8D97DF61 /* BrowserController+Albums.swift */,
 				528AE4DE76A2476CBCBFEEA5 /* BrowserController+DatabaseSupport.swift */,
-				81CEF5AACA854B06895F5DE6 /* PluginManager+LegacyPlugins.swift */,
 				03C8E0E5B2FD418D9F8E0665 /* LegacySupportImportPrompt.swift */,
 				556AC9666EE2405D9C58CFE4 /* ViewerController+StudyNavigation.swift */,
 				AF48B5EFB3D642178EE89860 /* ViewerController+FourDNavigation.swift */,
@@ -10124,7 +10121,6 @@
 				B138E0A34C9D4579902249E6 /* BrowserController+Search.swift in Sources */,
 				59277F150B1A417B8A7A0F5A /* BrowserController+Albums.swift in Sources */,
 				DF59C96C128D479EA5028FD9 /* BrowserController+DatabaseSupport.swift in Sources */,
-				BC5A085F483A4E95ADD8FCE3 /* PluginManager+LegacyPlugins.swift in Sources */,
 				348EBA9DC7984886956D2589 /* LegacySupportImportPrompt.swift in Sources */,
 				365E8B7E91E04E74AD35AF20 /* ViewerController+StudyNavigation.swift in Sources */,
 				9C7D7D0BB2C34B379102E327 /* ViewerController+FourDNavigation.swift in Sources */,

@@ -14,19 +14,15 @@ folders, and puts the marker there too; `--LoadPlugin <bundle>` still loads a
 given plugin, version 1 or made for Horos or OsiriX. Checked here with the
 production `+discoverPlugins`, its folder helpers, the crash marker, the loader
 entry, the version 1 and the former loaders and `+pluginsList`, compiled from
-PluginManager.swift, PluginManager+IsiXPlugins.swift and
-PluginManager+LegacyPlugins.swift into a probe bundle with the development
-identifier or the released one; only IsiXPluginHost, which runs a version 1
+PluginManager.swift and PluginManager+IsiXPlugins.swift into a probe bundle
+with the development identifier or the released one; only IsiXPluginHost, which runs a version 1
 plugin, is a stand-in that records what it is asked to load and the marker at
 that moment. The probe runs with a temporary home that holds, in
-Application Support/IsiX/Plugins, a version 1 plugin and a former plugin, with
-a marker left behind naming the version 1 one, and, in Application
-Support/Horos, the folder earlier versions used, a former plugin and an old
-marker naming it. The former plugin in the IsiX folder is listed as the
-others; the one in the folder earlier versions used is listed as incompatible
-from its Info.plist, never loaded; nothing in either changes, and the old
-marker is not read. The probe records every folder listed and every existence
-check, and refuses listings outside the temporary folder, so the real /Library
+Application Support/IsiX/Plugins, one plugin of each supported format, with
+a marker left behind naming the version 1 one in the recovery scenarios.
+Application Support/Horos and Application Support/Horos App hold other plugins.
+Only plugins in IsiX are discovered and listed. The probe records every folder
+listed and every existence check, and refuses listings outside the temporary folder, so the real /Library
 folders are never enumerated. The real home is never used.
 
 `<git revision>` as an optional argument reads the sources from that revision:
@@ -109,6 +105,9 @@ if not launch_arguments or not re.search(r'-IsolatedPluginsFolder "\$TEST_ROOT/[
 
 # The production code, in slices the probe can compile.
 source = read('Horos/Sources/PluginManager.swift')
+startup = read('Horos/Sources/ApplicationLifecycle.swift')
+if 'LegacySupportImportPrompt.offerPluginsIfNeeded()' not in startup[:startup.index('Once.pluginManager = PluginManager()')]:
+    failures.append('startup does not offer the copy before plugin discovery')
 section = source[source.index('    // MARK: directories'):source.index('    // MARK: activation')]
 methods = [swift_block(source, source.index(anchor)) for anchor in (
     '@objc public class func crashMarkerPath()',
@@ -260,7 +259,8 @@ enum HorosAlertPanel {
         alerts.append(title ?? ""); return NSAlertAlternateReturn
     }
     @discardableResult static func runInformational(title: String?, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int {
-        alerts.append(title ?? ""); return NSAlertAlternateReturn
+        alerts.append(title ?? "")
+        return title == "Copy plugins to IsiX?" ? defaultResponse : alternateResponse
     }
     @discardableResult static func runCritical(title: String?, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int {
         alerts.append(title ?? ""); return NSAlertAlternateReturn
@@ -285,8 +285,16 @@ guard temporary.contains(where: { NSHomeDirectory().hasPrefix($0) }) else {
     print("PROBE-ABORT home is not temporary: \(NSHomeDirectory())")
     exit(3)
 }
+if ProcessInfo.processInfo.arguments.contains("--ProbeCopyLegacyPlugins") {
+    MainActor.assumeIsolated {
+        LegacySupportImportPrompt.offerPluginsIfNeeded()
+        LegacySupportImportPrompt.offerPluginsIfNeeded()
+    }
+}
 PluginManager.discoverPlugins()
-let listedDuringDiscovery = ProbeListed(), checkedDuringDiscovery = ProbeChecked()
+let rows = (PluginManager.pluginsList() ?? []).compactMap { $0 as? NSDictionary }
+let listedPlugins = rows.compactMap { $0["name"] as? String }
+let listedFolders = ProbeListed(), checkedPaths = ProbeChecked()
 let marker = PluginManager.crashMarkerPath()!
 PluginManager.startProtectForCrash(withPath: "probe")
 let markerWritten = FileManager.default.fileExists(atPath: marker)
@@ -295,7 +303,8 @@ PluginManager.endProtectForCrash()
 let arguments = ProcessInfo.processInfo.arguments
 let givenPaths = arguments.indices.filter { arguments[$0] == "--LoadPlugin" }.map { arguments[$0 + 1] }
 let given = givenPaths.first { $0.hasSuffix(".isixplugin") } ?? ""
-let homePlugin = (NSHomeDirectory() as NSString).appendingPathComponent("Library/Application Support/IsiX/Plugins/QAVersion1.isixplugin")
+let support = (NSHomeDirectory() as NSString).appendingPathComponent("Library/Application Support")
+let homePlugin = support + "/IsiX/Plugins/QAVersion1.isixplugin"
 let givenFormer = givenPaths.first { $0.hasSuffix(".horosplugin") } ?? ""
 func outcome(_ path: String) -> String {
     return PluginManagerCAPILoadOutcome((path as NSString).resolvingSymlinksInPath, true)["loadState"] as? String ?? ""
@@ -306,8 +315,8 @@ let report: [String: Any] = [
     "outcomes": ["home": outcome(homePlugin), "given": outcome(given), "givenFormer": outcome(givenFormer)],
     "bundle": Bundle.main.bundleIdentifier ?? "",
     "alerts": alerts,
-    "listed": listedDuringDiscovery,
-    "checked": checkedDuringDiscovery,
+    "listed": listedFolders,
+    "checked": checkedPaths,
     "refused": ProbeRefused(),
     "loaded": IsiXPluginHost.requested,
     "markerDuring": IsiXPluginHost.markerDuring,
@@ -316,11 +325,12 @@ let report: [String: Any] = [
     "markerRemoved": !FileManager.default.fileExists(atPath: marker),
     "active": PluginManager.activeDirectories() as? [String] ?? [],
     "inactive": PluginManager.inactiveDirectories() as? [String] ?? [],
-    "listedPlugins": (PluginManager.pluginsList() ?? []).compactMap { ($0 as? NSDictionary)?["name"] as? String },
-    "legacyPlugins": (PluginManager.pluginsList() ?? []).compactMap { row -> String? in
-        guard let row = row as? NSDictionary, (row[PluginManager.legacyPluginKey] as? NSNumber)?.boolValue == true else { return nil }
-        return "\(row["name"] ?? "") \(row["loadState"] ?? "")"
-    },
+    "listedPlugins": listedPlugins,
+    "loadedPlugins": rows.filter { ($0["loadState"] as? String) == "Loaded" }.compactMap { $0["name"] as? String },
+    "installedOutcomes": [
+        "Horos": outcome(support + "/IsiX/Plugins/QADisabled.horosplugin"),
+        "OsiriX": outcome(support + "/IsiX/Plugins/QAOsiriX.osirixplugin"),
+    ],
 ]
 let data = try! JSONSerialization.data(withJSONObject: report, options: [.sortedKeys])
 print("PROBE-REPORT " + String(data: data, encoding: .utf8)!)
@@ -357,7 +367,7 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
     (work / 'main.swift').write_text(program)
     (work / 'PluginUpdateRecovery.swift').write_text(read('Horos/Sources/PluginUpdateRecovery.swift'))
     (work / 'PluginQuarantine.swift').write_text(read('Horos/Sources/PluginQuarantine.swift'))
-    (work / 'PluginManager+LegacyPlugins.swift').write_text(read('Horos/Sources/PluginManager+LegacyPlugins.swift'))
+    (work / 'LegacySupportImportPrompt.swift').write_text(read('Horos/Sources/LegacySupportImportPrompt.swift'))
     objects = []
     for name, path in (('PluginManager+CAPI', root / 'Horos/Sources/PluginManager+CAPI.m'),
                        ('HorosObjCException', root / 'Horos/Sources/HorosObjCException.m'),
@@ -375,7 +385,7 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
     built = subprocess.run(['xcrun', 'swiftc', '-module-name', 'IsolatedPlugins', '-import-objc-header', str(work / 'bridge.h'),
                             '-Xcc', '-I' + str(root / 'Horos/Sources'), str(work / 'main.swift'),
                             str(work / 'PluginUpdateRecovery.swift'), str(work / 'PluginQuarantine.swift'),
-                            str(work / 'PluginManager+LegacyPlugins.swift'),
+                            str(work / 'LegacySupportImportPrompt.swift'),
                             *objects, *module_flags('IsiXStorage', work / 'modules'),
                             *module_flags('IsiXPluginLoading', work / 'modules'),
                             # PluginManager reads its preferences through PreferencesSource.
@@ -402,24 +412,26 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
         return app / 'Contents/MacOS/probe'
 
     probes = {DEVELOPMENT: bundle(DEVELOPMENT), RELEASE: bundle(RELEASE)}
-    # Given on the command line: a version 1 plugin, which loads, and a former
-    # one, which is refused unopened.
+    # Given on the command line: a version 1 plugin and a former one.
     shutil.copytree(fixtures / 'QAVersion1.isixplugin', fixtures / 'QAGiven.isixplugin', symlinks=True)
     load_isix = str(fixtures / 'QAGiven.isixplugin')
     load_former = str(fixtures / 'QAUniversal.horosplugin')
 
-    def scenario(label, identifier, isolated):
-        """Run discovery with a fresh temporary home holding QADisabled and a marker naming it."""
+    def scenario(label, identifier, isolated, recovery=True, copy_legacy=False):
+        """Run discovery and listing in a fresh temporary home."""
         case = work / label
         home = case / 'home'
         support = home / 'Library/Application Support'
         user_plugins = support / 'IsiX/Plugins'
         user_plugins.mkdir(parents=True)
-        (support / 'Horos App/Plugins').mkdir(parents=True)
-        # A former plugin in the app's own folder: listed, never loaded or moved.
+        store_plugins = support / 'Horos App/Plugins'
+        store_plugins.mkdir(parents=True)
+        shutil.copytree(fixtures / 'QAOsiriX.osirixplugin', store_plugins / 'QAStore.osirixplugin')
         shutil.copytree(fixtures / 'QADisabled.horosplugin', user_plugins / 'QADisabled.horosplugin')
+        shutil.copytree(fixtures / 'QAOsiriX.osirixplugin', user_plugins / 'QAOsiriX.osirixplugin')
         shutil.copytree(fixtures / 'QAVersion1.isixplugin', user_plugins / 'QAVersion1.isixplugin', symlinks=True)
-        (support / f'IsiX/Plugin_Loading.{identifier}').write_text(str(user_plugins / 'QAVersion1.isixplugin'))
+        if recovery:
+            (support / f'IsiX/Plugin_Loading.{identifier}').write_text(str(user_plugins / 'QAVersion1.isixplugin'))
         own_former_before = snapshot(user_plugins / 'QADisabled.horosplugin')
         # The folder earlier versions used: a legacy plugin and an old marker naming it.
         legacy_plugins = support / 'Horos/Plugins'
@@ -432,7 +444,13 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
         command = [str(probes[identifier])]
         if isolated:
             command += ['-IsolatedPluginsFolder', str(isolated_folder)]
-        command += ['--LoadPlugin', load_former, '--LoadPlugin', load_isix]
+        if copy_legacy:
+            isolated_support = isolated_folder / 'User/Library/Application Support'
+            shutil.copytree(fixtures / 'QAUniversal.horosplugin', isolated_support / 'Horos/Plugins/QAUniversal.horosplugin')
+            shutil.copytree(fixtures / 'QAOsiriX.osirixplugin', isolated_support / 'OsiriX/Plugins Disabled/QAOsiriX.osirixplugin')
+            command += ['--ProbeCopyLegacyPlugins']
+        else:
+            command += ['--LoadPlugin', load_former, '--LoadPlugin', load_isix]
         # The fixtures' +load would leave a file here if any of their code ran.
         ran_folder = case / 'ran'
         ran_folder.mkdir()
@@ -452,10 +470,9 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
             [entry for entry in ran.stderr.splitlines() if 'PLUGINFIXTURE' in entry]
         return report
 
-    def user_folders(report):
+    def user_folders(report, *names):
         home = report['support']
-        return [str(home / name) for name in ('IsiX', 'Horos App', 'Horos')] + \
-               [os.path.realpath(home / name) for name in ('IsiX', 'Horos App', 'Horos')]
+        return [str(home / name) for name in names] + [os.path.realpath(home / name) for name in names]
 
     SYSTEM = '/Library/Application Support/IsiX'
     LEGACY_SYSTEM = '/Library/Application Support/Horos'
@@ -467,7 +484,7 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
     isolated = scenario('isolated', DEVELOPMENT, True)
     if isolated:
         iso = [str(isolated['isolated']), os.path.realpath(isolated['isolated'])]
-        read_home = touched(isolated, user_folders(isolated))
+        read_home = touched(isolated, user_folders(isolated, 'IsiX', 'Horos App', 'Horos'))
         if read_home:
             failures.append('isolated: the user\'s plugins folders were read: ' + ', '.join(read_home))
         read_system = touched(isolated, [SYSTEM, LEGACY_SYSTEM])
@@ -517,7 +534,7 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
         report = scenario(label.replace(' ', '-'), identifier, switch)
         if not report:
             continue
-        if not touched(report, user_folders(report)):
+        if not touched(report, user_folders(report, 'IsiX')):
             failures.append(f'{label}: the user\'s plugins folder was not read, so the probe cannot see a read')
         if SYSTEM + '/Plugins' not in report['listed'] and SYSTEM + '/Plugins/' not in report['listed']:
             failures.append(f'{label}: the computer\'s plugins folder was not listed')
@@ -533,28 +550,47 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
             failures.append(f'{label}: the crash marker {report["marker"]} is not written beside the user\'s plugins')
         if report['loaded'] or report['ran']:
             failures.append(f'{label}: protected mode let the host load {report["loaded"]}, or plugin code ran: {report["ran"]}')
-        if 'QAVersion1' not in report['listedPlugins'] or 'QADisabled' not in report['listedPlugins']:
-            failures.append(f'{label}: the Plugins window would not list the user\'s plugins: {report["listedPlugins"]}')
-        # The former plugin in the folder earlier versions used: listed as
-        # incompatible, never loaded, nothing in it changed; the old marker is
-        # never read. The one in the app's own folder is the user's plugin.
-        if report['legacyPlugins'] != ['QALegacy Incompatible']:
-            failures.append(f'{label}: the former plugins are listed as {report["legacyPlugins"]}')
+        if set(report['listedPlugins']) != {'QAVersion1', 'QADisabled', 'QAOsiriX'}:
+            failures.append(f'{label}: the Plugins window listed {report["listedPlugins"]}')
+        old_paths = touched(report, user_folders(report, 'Horos App', 'Horos') + [LEGACY_SYSTEM])
+        if old_paths:
+            failures.append(f'{label}: discovery or listing accessed {old_paths}')
         if not report['ownFormerUnchanged']:
             failures.append(f'{label}: the former plugin in the app\'s own folder changed')
         if not report['legacyUnchanged']:
             failures.append(f'{label}: the folder earlier versions used changed')
         if report['alerts'].count('IsiX DICOM Viewer crashed') != 1:
             failures.append(f'{label}: expected one recovery alert, for the IsiX marker only: {report["alerts"]}')
-        if report['refused'] and not all(under(path, SYSTEM, LEGACY_SYSTEM) for path in report['refused']):
+        if report['refused'] and not all(under(path, SYSTEM) for path in report['refused']):
             failures.append(f'{label}: refused listings outside the system folder: {report["refused"]}')
+
+    normal = scenario('release-without-crash-marker', RELEASE, False, recovery=False)
+    if normal:
+        if normal['outcomes']['home'] != 'Loaded' or normal['installedOutcomes'] != {'Horos': 'Loaded', 'OsiriX': 'Loaded'}:
+            failures.append(f'release: IsiX plugins did not load: {normal["outcomes"]}, {normal["installedOutcomes"]}')
+        if set(normal['listedPlugins']) != {'QAVersion1', 'QADisabled', 'QAOsiriX'}:
+            failures.append(f'release: the Plugins window listed {normal["listedPlugins"]}')
+        old_paths = touched(normal, user_folders(normal, 'Horos App', 'Horos') + [LEGACY_SYSTEM])
+        if old_paths:
+            failures.append(f'release: discovery or listing accessed {old_paths}')
+
+    copied = scenario('copy-legacy-plugins', DEVELOPMENT, True, recovery=False, copy_legacy=True)
+    if copied:
+        if copied['alerts'] != ['Copy plugins to IsiX?']:
+            failures.append(f'import: expected a single prompt, got {copied["alerts"]}')
+        if set(copied['listedPlugins']) != {'QAUniversal', 'QAOsiriX'} or copied['loadedPlugins'] != ['QAUniversal']:
+            failures.append(f'import: listed {copied["listedPlugins"]}, loaded {copied["loadedPlugins"]}')
+        support = copied['isolated'] / 'User/Library/Application Support'
+        for product, plugin in (('Horos', 'Plugins/QAUniversal.horosplugin'),
+                                ('OsiriX', 'Plugins Disabled/QAOsiriX.osirixplugin')):
+            source = support / product / plugin
+            destination = support / 'IsiX' / plugin
+            if not source.is_dir() or not destination.is_dir() or snapshot(source) != snapshot(destination):
+                failures.append(f'import: source and copied plugin differ for {plugin}')
 
 if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('PASS: an isolated development launch lists no user or system plugins folder, raises no alert for the '
-      'marker in the home, changes nothing there, keeps its marker in the isolated folder, still loads a version 1 '
-      '--LoadPlugin and a former one; without the switch, or in a release bundle given it, the home\'s IsiX '
-      'folder is listed, its marker raises the recovery alert and a new marker is written beside it, the former plugin '
-      'of the IsiX folder is listed with the others, and the one of the Horos folder as incompatible, not loaded, unchanged, the old marker ignored')
+print('PASS: discovery and listing use only the IsiX folders; the release probe loads .isixplugin, .horosplugin '
+      'and .osirixplugin from IsiX. Crash recovery, isolated development, and the one-time copy prompt pass.')

@@ -16,8 +16,7 @@ import Foundation
 ///
 /// The direct build keeps them in `Application Support/IsiX`. Earlier versions
 /// kept them in `Application Support/Horos`, a folder that Horos itself also
-/// uses: it is only read, by `LegacySupportImport` when the user asks to import
-/// from it and by the plugin manager to list the plugins there as incompatible.
+/// uses. The importers look there for settings and plugins to offer to copy.
 /// The App Store build is sandboxed and keeps its `Horos App` folder inside its
 /// own container.
 ///
@@ -124,27 +123,16 @@ public final class StorageLocations: NSObject {
         (domain as NSString).appendingPathComponent(active ? activePluginsRelativePath : inactivePluginsRelativePath)
     }
 
-    /// The folders plugin discovery lists after the application's own, in
-    /// order: the user's, the user's App Store build's, and the computer's.
+    /// The active IsiX plugins folders, in user then system order.
     public static func discoveryFolders(userDomain: String, systemDomain: String) -> [String] {
-        let user = (supportFolder(named: supportFolderName(for: .direct)) as NSString).appendingPathComponent("Plugins/")
-        let userAppStore = (supportFolder(named: supportFolderName(for: .appStore)) as NSString).appendingPathComponent("Plugins/")
-        return [
-            (userDomain as NSString).appendingPathComponent(user),
-            (userDomain as NSString).appendingPathComponent(userAppStore),
-            (systemDomain as NSString).appendingPathComponent(user),
-        ]
+        [userDomain, systemDomain].map { pluginsFolder(inDomain: $0, active: true) }
     }
 
-    /// The plugins folders earlier versions used, in order: the user's active
-    /// and disabled ones, then the computer's. Nothing is loaded from them or
-    /// written to them; the plugin manager lists what they hold as
-    /// incompatible.
-    public static func legacyPluginsFolders(userDomain: String, systemDomain: String) -> [String] {
-        [userDomain, systemDomain].flatMap { domain in
-            ["Plugins", "Plugins Disabled"].map {
-                (legacySupportFolder(inDomain: domain) as NSString).appendingPathComponent($0)
-            }
+    static func pluginImportFolders(inDomain domain: String, active: Bool) -> [URL] {
+        [legacySupportFolderName, "OsiriX"].map { name in
+            URL(fileURLWithPath: domain, isDirectory: true)
+                .appendingPathComponent(supportFolder(named: name), isDirectory: true)
+                .appendingPathComponent(active ? "Plugins" : "Plugins Disabled", isDirectory: true)
         }
     }
 

@@ -9,6 +9,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXPluginLoading
 import IsiXPreferences
 import IsiXStorage
 
@@ -22,6 +23,46 @@ import IsiXStorage
 /// imported ones. The App Store build keeps its own folder in its container and
 /// imports nothing.
 enum LegacySupportImportPrompt {
+    @MainActor static func offerPluginsIfNeeded() {
+        #if !MACAPPSTORE
+        let migration = LegacyPluginImport(userDomain: StorageLocations.runningUserDomain,
+                                           systemDomain: StorageLocations.runningSystemDomain)
+        do {
+            let problems = try migration.offerIfNeeded(isPlugin: PluginAdmission.isPluginBundle) { names in
+                let description = NSLocalizedString("Copy the plugins found in the Horos or OsiriX folders to your IsiX plugin folders? IsiX can load active plugins after copying and keeps existing plugins with the same name.", comment: "")
+                var preview = names.prefix(8).joined(separator: "\n")
+                if names.count > 8 {
+                    preview += "\n" + String(format: NSLocalizedString("… and %ld more", comment: ""), names.count - 8)
+                }
+                let answer = HorosAlertPanel.runInformational(title: NSLocalizedString("Copy plugins to IsiX?", comment: ""),
+                                                              message: description + "\n\n" + preview,
+                                                              defaultButton: NSLocalizedString("Copy Plugins", comment: ""),
+                                                              alternateButton: NSLocalizedString("Don't Copy", comment: ""),
+                                                              otherButton: nil)
+                return answer == HorosAlertPanel.defaultResponse
+            }
+            guard !problems.isEmpty else { return }
+            let lines = problems.map { problem in
+                switch problem {
+                case .alreadyInstalled(let name):
+                    return String(format: NSLocalizedString("A plugin named %@ already exists in IsiX.", comment: ""), name)
+                case .copyFailed(let name, let reason):
+                    return String(format: NSLocalizedString("%@: %@", comment: ""), name, reason)
+                }
+            }
+            showPluginImportProblem(lines.joined(separator: "\n"))
+        } catch {
+            showPluginImportProblem(error.localizedDescription)
+        }
+        #endif
+    }
+
+    private static func showPluginImportProblem(_ message: String) {
+        HorosAlertPanel.runInformational(title: NSLocalizedString("Some plugins were not copied", comment: ""),
+                                         message: message,
+                                         defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+    }
+
     static func offerIfNeeded() {
         #if !MACAPPSTORE
         // A configured accounts database is the Web Portal's, wherever it is.
