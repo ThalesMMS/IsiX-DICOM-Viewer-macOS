@@ -247,6 +247,19 @@ for path in CONSUMERS:
     if 'StorageLocations' not in text:
         failures.append(f'{path} does not use IsiXStorage')
 
+# The App Store build replaces the direct build's folder in this title at run
+# time, so every language has to spell it the way the module does.
+web_sharing_panes = [*root.glob('Preference Panes/OSIWebSharingPreferencePane/*.lproj/OSIWebSharingPreferencePanePref.xib'),
+                     *root.glob('Horos/Resources/*.lproj/OSIWebSharingPreferencePanePref.xib')]
+if len(web_sharing_panes) != 10:
+    failures.append(f'expected 10 Web Sharing panes, found {len(web_sharing_panes)}')
+for pane in web_sharing_panes:
+    text = pane.read_text()
+    if not re.search(r'<button id="1061">.*?title="[^"]*~/Library/Application Support/IsiX/WebServicesHTML/[^"]*"', text, re.S):
+        failures.append(f'{pane}: the templates checkbox does not name the direct build\'s folder')
+    if '<outlet property="customWebPagesCheckbox" destination="1061"' not in text:
+        failures.append(f'{pane}: the templates checkbox is not connected')
+
 for failure in failures:
     print('FAIL:', failure)
 if failures:

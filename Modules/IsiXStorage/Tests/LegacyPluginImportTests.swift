@@ -81,6 +81,27 @@ import Testing
         }
     }
 
+    /// `Horos App/Plugins` in Application Support was read by earlier direct
+    /// builds, so what is there is offered with the rest; a sandbox container
+    /// is another build's and is never looked at.
+    @Test func offersHorosAppPluginsButNotAContainer() throws {
+        let folders = Folders()
+        let original = folders.user.appendingPathComponent("Horos App/Plugins/Direct.horosplugin/Contents/Info.plist")
+        try write("direct", to: original)
+        try write("disabled", to: folders.user.appendingPathComponent("Horos App/Plugins Disabled/Off.horosplugin/Contents/Info.plist"))
+        try write("sandbox", to: folders.root.appendingPathComponent(
+            "User/Library/Containers/thalesmms.isis.Isis-DICOM-Viewer/Data/Library/Application Support/Horos App/Plugins/Sandboxed.horosplugin/Contents/Info.plist"))
+
+        let problems = try folders.importer.offerIfNeeded(isPlugin: isPlugin) { names in
+            #expect(names == ["Direct.horosplugin", "Off.horosplugin"])
+            return true
+        }
+        #expect(problems.isEmpty)
+        #expect(try String(contentsOf: folders.isix.appendingPathComponent("Plugins/Direct.horosplugin/Contents/Info.plist"), encoding: .utf8) == "direct")
+        #expect(try String(contentsOf: folders.isix.appendingPathComponent("Plugins Disabled/Off.horosplugin/Contents/Info.plist"), encoding: .utf8) == "disabled")
+        #expect(try String(contentsOf: original, encoding: .utf8) == "direct")
+    }
+
     @Test func resumesOnlyTheSelectionAlreadyApproved() throws {
         struct SavedCandidate: Encodable {
             let source: URL

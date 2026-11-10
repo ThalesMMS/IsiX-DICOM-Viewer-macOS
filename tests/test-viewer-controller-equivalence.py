@@ -88,6 +88,7 @@ final class ProcessGraph: @unchecked Sendable {
     static let process = ProcessGraph()
     var preferences: UserDefaults { UserDefaults.standard }
     let viewerRegistry = ViewerRegistry()
+    let viewerSync = ViewerSyncState()
     let presetMenuCache = PresetMenuCache()
     let colourTableCache = ColourTableCache()
     @MainActor var currentBrowser: BrowserController? { BrowserController.currentBrowser() }
@@ -97,6 +98,10 @@ final class ProcessGraph: @unchecked Sendable {
 // colour tables (ViewerColourTables.swift), which these blocks never reach:
 // made, not used.
 final class PresetMenuCache: @unchecked Sendable {}
+final class ViewerSyncState: @unchecked Sendable {
+    func lockPan(of view: NSView) -> CGPoint { .zero }
+    func setLockPan(_ pan: CGPoint, of view: NSView) {}
+}
 final class ColourTableCache: @unchecked Sendable {}
 final class ViewerWindowLevel {
     init(viewer: ViewerController, preferences: UserDefaults, menus: PresetMenuCache) {}

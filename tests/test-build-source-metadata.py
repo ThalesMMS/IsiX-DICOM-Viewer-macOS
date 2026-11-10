@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix='isix-build-metadata-') as folder:
     info_path = products / 'Fixture.app/Contents/Info.plist'
     info_path.parent.mkdir(parents=True)
     info_path.write_bytes(plistlib.dumps({'CFBundleIdentifier': 'test.fixture'}))
-    environment = dict(os.environ, SCRIPT_INPUT_FILE_0=str(info_path))
+    environment = dict(os.environ, BUILT_PRODUCTS_DIR=str(products), WRAPPER_NAME='Fixture.app')
     for expected in ('clean', 'dirty'):
         if expected == 'dirty':
             (work / 'source.txt').write_text('modified source\n')

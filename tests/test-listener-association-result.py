@@ -5,7 +5,8 @@ The DCMTK adapter's association ends as before (release acknowledged, abort
 noted, anything else closes the transport) and hands each failure, with a
 message that names both AE titles, to the listener's host; the host, in
 ListenerHost.swift, keeps a peer abort in the log and shows a notice for the
-rest.
+rest. An association closed for being idle between commands is no failure: it
+stays in the log and never reaches the host.
 """
 from pathlib import Path
 import re
@@ -48,7 +49,7 @@ OFCondition ASC_acknowledgeRelease(T_ASC_Association*){releases++;return cleanup
 void ASC_closeTransportConnection(T_ASC_Association*){closes++;}
 struct DcmSCP {void notifyDIMSEError(const OFCondition&){};};
 struct Worker:DcmSCP {
- T_ASC_Association*association_;Listener listener_{[Host new]};bool cancel=false;
+ T_ASC_Association*association_;Listener listener_{[Host new]};bool cancel=false,closedForIdling=false;
  bool cancelled()const{return cancel;}
  void notifyReleaseRequest(){}void notifyAbortRequest(){aborts++;}
  REPORT
@@ -68,6 +69,8 @@ int main(){@autoreleasepool{
  assert(worker.finish(DUL_PEERREQUESTEDRELEASE).value==0);assert(message==nil);assert(releases==1&&closes==0);
  cleanup={4};message=nil;assert(worker.finish(DUL_PEERREQUESTEDRELEASE).value==4);assert(reported.code==4&&message!=nil);
  worker.cancel=true;message=nil;assert(worker.finish(EC_Normal).value==0);assert(message==nil);assert(closes==1);
+ Worker idle;idle.association_=&association;idle.closedForIdling=true;message=nil;reported=nil;closes=0;
+ assert(idle.finish({4}).value==4);assert(message==nil&&reported==nil);assert(closes==1);
  puts("PASS: each DIMSE failure reaches the host naming both AEs; release and cancellation retain their semantics");
 }}
 '''.replace('REPORT', report).replace('FINALIZE', finalize)
@@ -81,6 +84,14 @@ with tempfile.TemporaryDirectory(prefix='horos-listener-result-') as folder:
         raise SystemExit(result.stderr)
     assert 'DICOM association from SENDER to RECEIVER ended: 0006:0002 Peer abort' in result.stderr
     print(result.stdout, end='')
+
+# Only the idle branch of the loop calls the association idle: a timeout that
+# comes back from the receive, inside a message, stays a failure.
+loop = source[source.index('void handleAssociation()'):source.index('// An association its sender did not release')]
+assert loop.count('closedForIdling = true') == 1
+assert re.search(r'>= idleTimeout\) \{\s*result = DIMSE_NODATAAVAILABLE;\s*closedForIdling = true;\s*\}', loop), loop
+assert re.search(r'result = receiveDIMSECommand\(', loop)
+print('PASS: only the wait between commands closes an association as idle')
 
 # The host: a peer abort stays in the log, without a notice on the receiving
 # Mac; any other failure opens one.

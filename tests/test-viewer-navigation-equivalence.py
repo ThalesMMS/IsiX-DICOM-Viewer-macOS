@@ -165,6 +165,9 @@ import IsiXPreferences
 
 @MainActor final class ViewerSyncState {
     static let harness = ViewerSyncState()
+    private var lockPans: [ObjectIdentifier: CGPoint] = [:]
+    func lockPan(of view: NSView) -> CGPoint { lockPans[ObjectIdentifier(view)] ?? .zero }
+    func setLockPan(_ pan: CGPoint, of view: NSView) { lockPans[ObjectIdentifier(view)] = pan }
     var seriesLocked: Bool {
         get { ViewerController.horos_SYNCSERIES() }
         set { ViewerController.horos_setSYNCSERIES(newValue) }

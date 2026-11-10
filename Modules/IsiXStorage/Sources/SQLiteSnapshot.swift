@@ -77,6 +77,24 @@ enum SQLiteSnapshot {
         }
     }
 
+    /// Whether the database at `url` holds no rows of its own: every table but
+    /// SQLite's and Core Data's bookkeeping (`Z_...`) is empty. That is a store
+    /// the app made by opening a database that did not exist yet. Anything that
+    /// cannot be read this way is not assumed to be empty.
+    static func holdsNoRows(_ url: URL) -> Bool {
+        let log = url.path + "-wal"
+        guard let handle = try? open(url, parameters: FileManager.default.fileExists(atPath: log) ? "mode=ro" : "immutable=1",
+                                     flags: SQLITE_OPEN_READONLY) else { return false }
+        defer { sqlite3_close_v2(handle) }
+        let tables = "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' AND name NOT LIKE 'Z\\_%' ESCAPE '\\'"
+        guard let names = try? strings(handle, tables), !names.isEmpty else { return false }
+        for name in names {
+            let quoted = "\"" + name.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+            guard let rows = try? strings(handle, "SELECT 1 FROM \(quoted) LIMIT 1"), rows.isEmpty else { return false }
+        }
+        return true
+    }
+
     private static func open(_ url: URL, parameters: String?, flags: Int32) throws -> OpaquePointer {
         var uri = url.absoluteString
         if let parameters { uri += "?" + parameters }

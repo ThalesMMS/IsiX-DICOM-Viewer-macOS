@@ -106,6 +106,9 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
 
     @IBOutlet var usersTable: NSTableView?
 
+    /// Its title, in every language, names the direct build's folder.
+    @IBOutlet var customWebPagesCheckbox: NSButton?
+
     private var _tlos: NSArray?
 
     /// Bound by the xib (the certificate button's title). Atomic and retained
@@ -161,6 +164,15 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
         (portTextField?.cell as? NSTextFieldCell)?.placeholderString = NSNumber(value: UserDefaults.webPortalPortNumber()).stringValue
 
         usersTable?.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true, selector: #selector(NSString.localizedCaseInsensitiveCompare(_:)))]
+
+        nameTheCustomWebPagesFolderOfThisBuild()
+    }
+
+    private func nameTheCustomWebPagesFolderOfThisBuild() {
+        guard let checkbox = customWebPagesCheckbox, StorageLocations.Channel.running != .direct else { return }
+        checkbox.title = checkbox.title.replacingOccurrences(of: StorageLocations.customWebPagesFolderLabel(for: .direct),
+                                                             with: StorageLocations.customWebPagesFolderLabel(for: .running))
+        checkbox.toolTip = StorageLocations.customWebPagesPath(for: .running)
     }
 
     @objc(UniqueLabelForSelectedServer)

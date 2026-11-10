@@ -3391,7 +3391,8 @@
 "Series %@" = "Serie %@";
 "Window %ld" = "Ventana %ld";
 "%@ (already in the new folder, which is kept)" = "%@ (ya está en la carpeta nueva, que se conserva)";
-"Earlier versions of IsiX DICOM Viewer kept these items in %@, a folder that Horos also uses:\n\n%@\n\nImporting copies them to %@. Nothing in the Horos folder is changed, nothing already in the new folder is replaced, and plugins are not imported." = "Las versiones anteriores de IsiX DICOM Viewer guardaban estos elementos en %@, una carpeta que Horos también usa:\n\n%@\n\nAl importar se copian a %@. No se modifica nada en la carpeta de Horos, no se reemplaza nada que ya esté en la carpeta nueva y no se importan los plugins.";
+"%@ (from %@)" = "%@ (de %@)";
+"Earlier versions of IsiX DICOM Viewer kept these items in %@, a folder that Horos also uses:\n\n%@\n\nImporting copies them to %@. Nothing in the Horos folder is changed, and nothing already in the new folder is replaced." = "Las versiones anteriores de IsiX DICOM Viewer guardaban estos elementos en %@, una carpeta que Horos también usa:\n\n%@\n\nAl importar se copian a %@. No se modifica nada en la carpeta de Horos y no se reemplaza nada que ya esté en la carpeta nueva.";
 "Import from the Horos folder?" = "¿Importar desde la carpeta de Horos?";
 "Not Now" = "Ahora no";
 "Don't Import" = "No importar";

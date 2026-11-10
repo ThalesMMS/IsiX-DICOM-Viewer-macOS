@@ -418,10 +418,14 @@ protected:
     {
         DcmSCP::notifyDIMSEError(condition);
         if (cancelled()) return;
-        NSString* message = [NSString stringWithFormat:@"DICOM association from %.64s to %.64s ended: %04x:%04x %s",
+        [listener_.host associationEndedWithError:IsiXDCMTKErrorFromCondition(condition) message:endMessage(condition)];
+    }
+
+    NSString* endMessage(const OFCondition& condition) const
+    {
+        return [NSString stringWithFormat:@"DICOM association from %.64s to %.64s ended: %04x:%04x %s",
             association_->params->DULparams.callingAPTitle, association_->params->DULparams.calledAPTitle,
             condition.module(), condition.code(), condition.text()];
-        [listener_.host associationEndedWithError:IsiXDCMTKErrorFromCondition(condition) message:message];
     }
 
     void notifyAssociationRequest(const T_ASC_Parameters& parameters, DcmSCPActionType& action) override
@@ -496,13 +500,16 @@ protected:
         // Poll before receiving commands so idle connections can be cancelled.
         // The actual DIMSE receive retains its configured command timeout.
         OFCondition result = EC_Normal;
+        bool closedForIdling = false;
         auto idleSince = std::chrono::steady_clock::now();
         int idleTimeout = dcmConnectionTimeout.get() > 0 ? dcmConnectionTimeout.get() : 5;
         while (result.good() && !cancelled()) {
             if (!ASC_dataWaiting(association_, 1)) {
                 if (idleTimeout > 0 && std::chrono::duration_cast<std::chrono::seconds>(
-                        std::chrono::steady_clock::now() - idleSince).count() >= idleTimeout)
+                        std::chrono::steady_clock::now() - idleSince).count() >= idleTimeout) {
                     result = DIMSE_NODATAAVAILABLE;
+                    closedForIdling = true;
+                }
                 continue;
             }
             T_DIMSE_Message message = {};
@@ -527,7 +534,11 @@ protected:
             notifyAbortRequest();
             notifyDIMSEError(result);
         } else {
-            if (!cancelled()) notifyDIMSEError(result);
+            // A peer that goes quiet between commands has lost nothing: as in
+            // Horos, closing its association is not an error to show. A timeout
+            // inside a message comes back from the receive and stays one.
+            if (closedForIdling) NSLog(@"%@ - closed as idle", endMessage(result));
+            else if (!cancelled()) notifyDIMSEError(result);
             ASC_closeTransportConnection(association_);
         }
         database_.reset();

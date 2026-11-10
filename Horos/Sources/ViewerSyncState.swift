@@ -58,6 +58,18 @@ import AppKit
     /// viewers were not all of the key viewer's study when it was worked out.
     var betweenStudies = false
 
+    /// Where each view was panned when the series were locked, in pixels of
+    /// its image; a view that is gone leaves no entry behind.
+    private let lockPans = NSMapTable<NSView, NSValue>.weakToStrongObjects()
+
+    func lockPan(of view: NSView) -> CGPoint {
+        lockPans.object(forKey: view)?.pointValue ?? .zero
+    }
+
+    func setLockPan(_ pan: CGPoint, of view: NSView) {
+        lockPans.setObject(NSValue(point: pan), forKey: view)
+    }
+
     /// The viewer an image is dragged from, to fuse it with the viewer it is
     /// dropped on; not retained, and nil once that viewer is gone.
     weak var draggedViewer: ViewerController?

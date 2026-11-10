@@ -15,6 +15,12 @@ import Foundation
 /// Copies what earlier versions kept in `Application Support/Horos` into the
 /// app's own folder, when the user asks for it.
 ///
+/// A Weasis customization an administrator left in the computer's
+/// `/Library/Application Support/Horos`, read by earlier versions for every
+/// user, is copied to the user's own folder when the user has none: writing to
+/// `/Library` needs an administrator, and the user's folder is read first.
+/// When the user has one, that is what is copied, as it was the one read first.
+///
 /// Horos uses the same folder, so nothing in it is assumed to belong to this
 /// app: the app offers the import and the user decides. The import only reads
 /// the old folder. It never renames, moves or deletes anything in it, never
@@ -27,6 +33,11 @@ import Foundation
 /// the destination exists. Its state is written to `stateFileName` before and
 /// after that rename, and the import is recorded complete only once every item
 /// is either imported, absent or kept as the user already had it.
+///
+/// The one exception to not replacing what is in the new folder is an accounts
+/// database with no rows. The Web Portal makes one when it opens with nothing
+/// to open, as it does after the user answers Not Now, and it holds nothing the
+/// import could lose.
 ///
 /// A run that stops at any point - the app quits, a file cannot be read, the
 /// disk is full - leaves the originals as they were and at most a staging
@@ -93,22 +104,42 @@ public struct LegacySupportImport: Sendable {
     public let source: URL
     public let destination: URL
     public let items: [Item]
+    /// Where an item is read from when that is not `source`.
+    private let itemSources: [Item: URL]
 
     /// Where a test stops the run, as if the process had ended there.
     enum Moment: Sendable { case staged, renamed }
     var stopsAt: (@Sendable (Item, Moment) -> Bool)? = nil
 
     public init(source: URL, destination: URL, items: [Item]) {
+        self.init(source: source, destination: destination, items: items, itemSources: [:])
+    }
+
+    private init(source: URL, destination: URL, items: [Item], itemSources: [Item: URL]) {
         self.source = source.standardizedFileURL
         self.destination = destination.standardizedFileURL
         self.items = items
+        self.itemSources = itemSources
     }
 
     /// The import between the old and the new support folders of a domain.
-    public init(userDomain: String, items: [Item]) {
-        self.init(source: URL(fileURLWithPath: StorageLocations.legacySupportFolder(inDomain: userDomain), isDirectory: true),
+    /// With `systemDomain`, the Weasis customization comes from that domain's
+    /// old folder when the user has none in theirs.
+    public init(userDomain: String, systemDomain: String? = nil, items: [Item]) {
+        let source = URL(fileURLWithPath: StorageLocations.legacySupportFolder(inDomain: userDomain), isDirectory: true)
+        var sources: [Item: URL] = [:]
+        if let systemDomain, items.contains(.weasis), !Self.exists(source.appendingPathComponent(Item.weasis.name)) {
+            let system = URL(fileURLWithPath: StorageLocations.legacySupportFolder(inDomain: systemDomain), isDirectory: true)
+                .appendingPathComponent(Item.weasis.name, isDirectory: true)
+            if Self.exists(system) { sources[.weasis] = system.standardizedFileURL }
+        }
+        self.init(source: source,
                   destination: URL(fileURLWithPath: StorageLocations.supportFolder(for: .direct, inDomain: userDomain), isDirectory: true),
-                  items: items)
+                  items: items, itemSources: sources)
+    }
+
+    private func origin(of item: Item) -> URL {
+        itemSources[item] ?? source.appendingPathComponent(item.name)
     }
 
     // MARK: state
@@ -168,17 +199,19 @@ public struct LegacySupportImport: Sendable {
     }
 
     private func entry(for item: Item, status: Status) -> Entry {
-        Entry(item: item, status: status, source: source.appendingPathComponent(item.name),
+        Entry(item: item, status: status, source: origin(of: item),
               destination: destination.appendingPathComponent(item.name))
     }
 
-    private func exists(_ url: URL) -> Bool {
+    private static func exists(_ url: URL) -> Bool {
         var info = stat()
         return lstat(url.path, &info) == 0
     }
 
+    private func exists(_ url: URL) -> Bool { Self.exists(url) }
+
     private func status(of item: Item, state: State) -> Status {
-        let from = source.appendingPathComponent(item.name), to = destination.appendingPathComponent(item.name)
+        let from = origin(of: item), to = destination.appendingPathComponent(item.name)
         if let record = state.items[item.name] {
             switch record.state {
             case .imported: return .imported
@@ -191,6 +224,7 @@ public struct LegacySupportImport: Sendable {
         }
         guard exists(from) else { return .sourceAbsent }
         guard exists(to) else { return .pending }
+        if item.kind == .sqliteDatabase, SQLiteSnapshot.holdsNoRows(to) { return .pending }
         if let left = try? Self.digest(of: from), let right = try? Self.digest(of: to), left == right,
            !(item.kind == .sqliteDatabase && exists(URL(fileURLWithPath: from.path + "-wal"))) {
             return .imported
@@ -254,7 +288,7 @@ public struct LegacySupportImport: Sendable {
     private enum Outcome { case finished(Status), stopped }
 
     private func copy(_ item: Item, state: inout State) -> Outcome {
-        let from = source.appendingPathComponent(item.name), to = destination.appendingPathComponent(item.name)
+        let from = origin(of: item), to = destination.appendingPathComponent(item.name)
         let staged = stagingURL.appendingPathComponent(item.name)
         let files = FileManager.default
         do {
@@ -272,6 +306,9 @@ public struct LegacySupportImport: Sendable {
             if stopsAt?(item, .staged) == true { return .stopped }
             state.items[item.name] = .init(state: .committing, digest: try Self.digest(of: staged))
             try write(state)
+            if item.kind == .sqliteDatabase, exists(to), SQLiteSnapshot.holdsNoRows(to) {
+                try ["", "-wal", "-shm"].map { URL(fileURLWithPath: to.path + $0) }.filter(exists).forEach(files.removeItem(at:))
+            }
             guard renamex_np(staged.path, to.path, UInt32(RENAME_EXCL)) == 0 else {
                 let error = errno
                 try? files.removeItem(at: staged)

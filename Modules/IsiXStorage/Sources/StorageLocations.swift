@@ -16,9 +16,11 @@ import Foundation
 ///
 /// The direct build keeps them in `Application Support/IsiX`. Earlier versions
 /// kept them in `Application Support/Horos`, a folder that Horos itself also
-/// uses. The importers look there for settings and plugins to offer to copy.
-/// The App Store build is sandboxed and keeps its `Horos App` folder inside its
-/// own container.
+/// uses. The importers look there for settings and plugins to offer to copy,
+/// and in the `Horos App` folder that earlier direct builds also read plugins
+/// from. That one is not the App Store build's: the App Store build is
+/// sandboxed and keeps its `Horos App` folder inside its own container, where a
+/// direct build never looks.
 ///
 /// Every path is relative to a domain: the home folder (or the root of the
 /// disk, for all users), or, in an isolated development launch, their stand-ins
@@ -128,8 +130,11 @@ public final class StorageLocations: NSObject {
         [userDomain, systemDomain].map { pluginsFolder(inDomain: $0, active: true) }
     }
 
+    /// Where earlier versions, Horos and OsiriX kept plugins, for the import to
+    /// offer to copy: in a domain's Application Support, not in a sandbox
+    /// container.
     static func pluginImportFolders(inDomain domain: String, active: Bool) -> [URL] {
-        [legacySupportFolderName, "OsiriX"].map { name in
+        [legacySupportFolderName, supportFolderName(for: .appStore), "OsiriX"].map { name in
             URL(fileURLWithPath: domain, isDirectory: true)
                 .appendingPathComponent(supportFolder(named: name), isDirectory: true)
                 .appendingPathComponent(active ? "Plugins" : "Plugins Disabled", isDirectory: true)
@@ -158,6 +163,17 @@ public final class StorageLocations: NSObject {
     /// The folder of the user's customized Web Portal pages of this process.
     public static func customWebPagesPath(for channel: Channel) -> String {
         customWebPagesPath(for: channel, userDomain: runningUserDomain)
+    }
+
+    /// How a control's title names the folder of the customized Web Portal
+    /// pages. The App Store build's folder is deep inside its container, under
+    /// a home folder of its own, so the title leaves out the part in between
+    /// and stays as short as the direct build's.
+    public static func customWebPagesFolderLabel(for channel: Channel) -> String {
+        switch channel {
+        case .direct: return "~/Library/Application Support/\(supportFolderName(for: channel))/WebServicesHTML/"
+        case .appStore: return "~/Library/Containers/…/\(supportFolderName(for: channel))/WebServicesHTML/"
+        }
     }
 
     // MARK: Weasis

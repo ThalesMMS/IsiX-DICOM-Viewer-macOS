@@ -117,6 +117,10 @@ extension ViewerSessionGraph {
             }
             if let sameStudyViewer {
                 viewer.horos_imageView?.syncRelativeDiff = sameStudyViewer.imageView()?.syncRelativeDiff ?? 0
+                if let view = viewer.horos_imageView, let sameStudyView = sameStudyViewer.imageView() {
+                    let sync = processGraph.viewerSync
+                    sync.setLockPan(sync.lockPan(of: sameStudyView), of: view)
+                }
                 (viewer.findSyncSeriesButton() as? NSToolbarItem)?.image = NSImage.toolbarImageNamed("SyncLock.pdf")
                 viewer.horos_imageView?.syncSeriesIndex = 0
                 keptTheSeriesLock = true

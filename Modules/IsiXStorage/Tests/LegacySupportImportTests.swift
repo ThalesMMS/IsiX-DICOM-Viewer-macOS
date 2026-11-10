@@ -269,6 +269,80 @@ import Testing
                 == LegacySupportImport.digest(of: domain.old.appendingPathComponent("WebServicesHTML")))
     }
 
+    /// Not Now lets the Web Portal open, which makes an empty accounts database
+    /// in the new folder. It is not the user's to keep: the import still brings
+    /// the accounts when the user says so later.
+    @Test func emptyAccountsDatabaseMadeAfterNotNowIsNotAConflict() throws {
+        let domain = try Domain()
+        try fullSource(domain)
+        let dest = domain.new.appendingPathComponent("WebUsers.sql")
+        try makeAccounts(at: dest, users: [])
+        let migration = LegacySupportImport(userDomain: domain.user, items: items)
+
+        #expect(migration.survey().first { $0.item == .webPortalAccounts }?.status == .pending)
+        #expect(migration.run().first { $0.item == .webPortalAccounts }?.status == .imported)
+        #expect(users(in: dest) == ["ana", "bruno"])
+    }
+
+    /// An accounts database with accounts, or a file that is not a database,
+    /// stays a conflict and is left alone.
+    @Test func accountsDatabaseWithRowsOrUnreadableStaysAConflict() throws {
+        let domain = try Domain()
+        try fullSource(domain)
+        let dest = domain.new.appendingPathComponent("WebUsers.sql")
+        try makeAccounts(at: dest, users: ["mine"])
+        let before = try LegacySupportImport.digest(of: dest)
+        var migration = LegacySupportImport(userDomain: domain.user, items: items)
+        #expect(migration.survey().first { $0.item == .webPortalAccounts }?.status == .conflict)
+        #expect(migration.run().first { $0.item == .webPortalAccounts }?.status == .conflict)
+        #expect(try LegacySupportImport.digest(of: dest) == before)
+
+        let garbled = try Domain()
+        try fullSource(garbled)
+        try write(["WebUsers.sql": "not a database"], in: garbled.new)
+        migration = LegacySupportImport(userDomain: garbled.user, items: items)
+        #expect(migration.survey().first { $0.item == .webPortalAccounts }?.status == .conflict)
+    }
+
+    /// The computer's Weasis customization, read by earlier versions for every
+    /// user, reaches the user's own folder when the user had none.
+    @Test func systemWeasisIsCopiedWhenTheUserHasNone() throws {
+        let domain = try Domain()
+        let system = domain.root.appendingPathComponent("System", isDirectory: true).path
+        let old = URL(fileURLWithPath: StorageLocations.legacySupportFolder(inDomain: system), isDirectory: true)
+        try write(["Weasis/conf/ext-config.properties": "site"], in: old)
+        let before = try LegacySupportImport.digest(of: old.appendingPathComponent("Weasis"))
+        let migration = LegacySupportImport(userDomain: domain.user, systemDomain: system, items: items)
+
+        #expect(migration.survey().first { $0.item == .weasis }?.source.path == old.appendingPathComponent("Weasis").path)
+        #expect(migration.survey().first { $0.item == .weasis }?.status == .pending)
+        let results = migration.run()
+        #expect(results.first { $0.item == .weasis }?.status == .imported)
+        #expect(try String(contentsOf: domain.new.appendingPathComponent("Weasis/conf/ext-config.properties"), encoding: .utf8) == "site")
+        #expect(try LegacySupportImport.digest(of: old.appendingPathComponent("Weasis")) == before)
+        #expect(migration.isComplete)
+        #expect(migration.run().first { $0.item == .weasis }?.status == .imported)
+    }
+
+    /// The user's own folder was read first, so it is the one copied.
+    @Test func userWeasisIsPreferredOverTheSystemOne() throws {
+        let domain = try Domain()
+        let system = domain.root.appendingPathComponent("System", isDirectory: true).path
+        try write(["Weasis/a.properties": "site"],
+                  in: URL(fileURLWithPath: StorageLocations.legacySupportFolder(inDomain: system), isDirectory: true))
+        try write(["Weasis/a.properties": "user"], in: domain.old)
+
+        LegacySupportImport(userDomain: domain.user, systemDomain: system, items: items).run()
+        #expect(try String(contentsOf: domain.new.appendingPathComponent("Weasis/a.properties"), encoding: .utf8) == "user")
+    }
+
+    /// Without the computer's domain the import stays within the user's.
+    @Test func noSystemDomainReadsOnlyTheUsersFolder() throws {
+        let domain = try Domain()
+        let status = LegacySupportImport(userDomain: domain.user, items: items).survey().first { $0.item == .weasis }?.status
+        #expect(status == .sourceAbsent)
+    }
+
     @Test func declineCopiesNothing() throws {
         let domain = try Domain()
         try fullSource(domain)

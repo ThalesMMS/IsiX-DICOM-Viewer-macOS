@@ -151,7 +151,7 @@ extension DICOMPrintJobFailure {
 /// about the patient, and the job's output. The job folder itself, with the
 /// images and the Stored Prints, is still deleted.
 enum DICOMPrintJobLog {
-    static let directoryPath = (NSHomeDirectory() as NSString).appendingPathComponent("Library/Logs/HorosDicomPrint")
+    static let directoryPath = (NSHomeDirectory() as NSString).appendingPathComponent("Library/Logs/IsiXDicomPrint")
     static let keptFolderPrefix = "Failed print job "
     /// Older folders of failed jobs are removed beyond this many.
     static let keptFolderLimit = 10

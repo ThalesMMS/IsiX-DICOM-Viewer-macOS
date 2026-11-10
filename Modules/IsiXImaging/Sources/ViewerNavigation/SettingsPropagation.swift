@@ -125,11 +125,14 @@ public struct SettingsPropagation: Sendable {
         /// Its 4D frame and its last frame.
         public var movieIndex: Int
         public var maxMovieIndex: Int
+        /// Where it was panned when the series of different studies were
+        /// locked, in pixels of its image (`imagePan`); nil when it is not locked.
+        public var seriesLockPan: CGPoint?
 
         public init(windowLevel: WindowLevelState?, viewport: ViewportState?, pixelSpacing: Double, image: Image?,
                     isRGB: Bool, suvConverted: Bool, modality: String?, subtraction: Bool, colourTable: String?,
                     orientation: [Float], keepsSettingsInSeries: Bool, studyInstanceUID: String?,
-                    movieIndex: Int, maxMovieIndex: Int) {
+                    movieIndex: Int, maxMovieIndex: Int, seriesLockPan: CGPoint? = nil) {
             self.windowLevel = windowLevel
             self.viewport = viewport
             self.pixelSpacing = pixelSpacing
@@ -144,6 +147,7 @@ public struct SettingsPropagation: Sendable {
             self.studyInstanceUID = studyInstanceUID
             self.movieIndex = movieIndex
             self.maxMovieIndex = maxMovieIndex
+            self.seriesLockPan = seriesLockPan
         }
     }
 
@@ -199,7 +203,7 @@ public struct SettingsPropagation: Sendable {
             }
         }
 
-        if parallel && !keepsSettings, let viewport = source.viewport, target.viewport != nil {
+        if parallel && !keepsSettings, let viewport = source.viewport, let targetViewport = target.viewport {
             let sameStudy = ViewerSynchronization.same(source.studyInstanceUID, target.studyInstanceUID)
             if preferences.copiesPan && (sameStudy || registered) {
                 // Overlapping images only: not the left and right limbs of one study.
@@ -207,6 +211,11 @@ public struct SettingsPropagation: Sendable {
                    otherImage.hasOrigin && image.hasOrigin, let originDelta {
                     plan.origin = Self.pan(viewport.origin, delta: originDelta, scale: viewport.scale)
                 }
+            } else if preferences.copiesPan, let lock = source.seriesLockPan, let targetLock = target.seriesLockPan {
+                // Patient coordinates cannot be compared between studies: the
+                // pan follows from the alignment the user locked them at.
+                plan.origin = Self.pan(viewport.origin, scale: viewport.scale, pixelSpacing: source.pixelSpacing, lock: lock,
+                                       otherScale: plan.scale ?? targetViewport.scale, otherPixelSpacing: target.pixelSpacing, otherLock: targetLock)
             }
             if preferences.copiesRotation {
                 plan.rotation = viewport.rotation
@@ -261,6 +270,26 @@ public struct SettingsPropagation: Sendable {
     public static func pan(_ origin: CGPoint, delta: CGPoint, scale: Float) -> CGPoint {
         let x = delta.x * CGFloat(scale), y = delta.y * CGFloat(scale)
         return CGPoint(x: origin.x + x, y: origin.y - y)
+    }
+
+    /// A view's pan in pixels of its image, which a change of zoom leaves as
+    /// it is; zero for a view without a scale.
+    public static func imagePan(_ origin: CGPoint, scale: Float) -> CGPoint {
+        guard scale != 0 else { return .zero }
+        return CGPoint(x: origin.x / CGFloat(scale), y: origin.y / CGFloat(scale))
+    }
+
+    /// The other view's pan between locked series: its pan at the lock, moved
+    /// as far as this view has moved since its own, the same distance in
+    /// millimetres when both views know their pixel spacing and the same number
+    /// of pixels otherwise. Nil from a view without a scale.
+    public static func pan(_ origin: CGPoint, scale: Float, pixelSpacing: Double, lock: CGPoint,
+                           otherScale: Float, otherPixelSpacing: Double, otherLock: CGPoint) -> CGPoint? {
+        guard scale != 0 else { return nil }
+        let ratio = pixelSpacing != 0 && otherPixelSpacing != 0 ? CGFloat(pixelSpacing / otherPixelSpacing) : 1
+        let pan = imagePan(origin, scale: scale)
+        return CGPoint(x: ((pan.x - lock.x) * ratio + otherLock.x) * CGFloat(otherScale),
+                       y: ((pan.y - lock.y) * ratio + otherLock.y) * CGFloat(otherScale))
     }
 }
 

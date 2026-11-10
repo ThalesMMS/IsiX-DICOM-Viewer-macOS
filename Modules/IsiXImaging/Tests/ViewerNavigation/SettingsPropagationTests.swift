@@ -27,14 +27,14 @@ import Testing
                        modality: String? = "CT", isRGB: Bool = false, suv: Bool = false, subtraction: Bool = false,
                        colourTable: String? = "No CLUT", orientation: [Float] = axial, keeps: Bool = false,
                        study: String? = "1.2", movieIndex: Int = 0, maxMovieIndex: Int = 0,
-                       hasView: Bool = true) -> SettingsPropagation.Viewer {
+                       hasView: Bool = true, lock: CGPoint? = nil) -> SettingsPropagation.Viewer {
         SettingsPropagation.Viewer(
             windowLevel: hasView ? WindowLevelState(level: level, width: width) : nil,
             viewport: hasView ? ViewportState(scale: scale, origin: origin, rotation: rotation) : nil,
             pixelSpacing: pixelSpacing, image: rect.map { SettingsPropagation.Image(rect: $0, hasOrigin: true) },
             isRGB: isRGB, suvConverted: suv, modality: modality, subtraction: subtraction, colourTable: colourTable,
             orientation: orientation, keepsSettingsInSeries: keeps, studyInstanceUID: study,
-            movieIndex: movieIndex, maxMovieIndex: maxMovieIndex)
+            movieIndex: movieIndex, maxMovieIndex: maxMovieIndex, seriesLockPan: lock)
     }
 
     static func plan(_ source: SettingsPropagation.Viewer, _ target: SettingsPropagation.Viewer,
@@ -130,6 +130,55 @@ import Testing
         #expect(Self.plan(Self.viewer(), withoutOrigin).origin == nil)
         // The rotation does not need the images to overlap.
         #expect(Self.plan(Self.viewer(), Self.viewer(rotation: 0, study: "1.3")).rotation == 90)
+    }
+
+    @Test func lockedSeriesOfDifferentStudiesFollowFromTheirAlignment() {
+        // Locked at pans of 5 and 1 image pixels: the other keeps its pan while this one has not moved.
+        let source = Self.viewer(scale: 2, origin: CGPoint(x: 10, y: 10), pixelSpacing: 0.5, lock: CGPoint(x: 5, y: 5))
+        let target = Self.viewer(scale: 2, origin: CGPoint(x: 2, y: -2), pixelSpacing: 0.5, study: "1.3", lock: CGPoint(x: 1, y: -1))
+        #expect(Self.plan(source, target).origin == CGPoint(x: 2, y: -2))
+        // Panned 20 points further: the other follows, keeping the difference.
+        let moved = Self.viewer(scale: 2, origin: CGPoint(x: 30, y: 10), pixelSpacing: 0.5, lock: CGPoint(x: 5, y: 5))
+        #expect(Self.plan(moved, target).origin == CGPoint(x: 22, y: -2))
+        // Zoomed to 4 around the periphery: the difference is scaled as well.
+        let zoomed = Self.viewer(scale: 4, origin: CGPoint(x: 60, y: 20), pixelSpacing: 0.5, lock: CGPoint(x: 5, y: 5))
+        let plan = Self.plan(zoomed, target)
+        #expect(plan.scale == 4)
+        #expect(plan.origin == CGPoint(x: 44, y: -4))
+    }
+
+    @Test func lockedSeriesFollowInMillimetres() {
+        // 10 pixels at 1 mm are 20 pixels at 0.5 mm, at the scale that keeps 2 points per millimetre.
+        let source = Self.viewer(scale: 2, origin: CGPoint(x: 20, y: 0), pixelSpacing: 1, lock: .zero)
+        let target = Self.viewer(scale: 1, origin: .zero, pixelSpacing: 0.5, study: "1.3", lock: .zero)
+        let plan = Self.plan(source, target)
+        #expect(plan.scale == 1)
+        #expect(plan.origin == CGPoint(x: 20, y: 0))
+        // Spacing unknown on one side: the same number of pixels.
+        let unknown = Self.viewer(scale: 2, origin: .zero, pixelSpacing: 0, study: "1.3", lock: .zero)
+        #expect(Self.plan(source, unknown).origin == CGPoint(x: 20, y: 0))
+    }
+
+    @Test func aLockThatOnlyOneSideHasOrThePreferenceKeepsThePan() {
+        let source = Self.viewer(lock: .zero)
+        #expect(Self.plan(source, Self.viewer(origin: .zero, study: "1.3")).origin == nil)
+        #expect(Self.plan(Self.viewer(), Self.viewer(origin: .zero, study: "1.3", lock: .zero)).origin == nil)
+        var preferences = Self.everything
+        preferences.copiesPan = false
+        #expect(Self.plan(source, Self.viewer(origin: .zero, study: "1.3", lock: .zero), preferences: preferences).origin == nil)
+        // Planes that are not parallel, or a view without a scale.
+        #expect(Self.plan(source, Self.viewer(origin: .zero, orientation: Self.coronal, study: "1.3", lock: .zero)).origin == nil)
+        #expect(Self.plan(Self.viewer(scale: 0, lock: .zero), Self.viewer(origin: .zero, study: "1.3", lock: .zero)).origin == nil)
+    }
+
+    @Test func aLockChangesNothingWithinAStudy() {
+        let plan = Self.plan(Self.viewer(lock: CGPoint(x: 9, y: 9)), Self.viewer(origin: .zero, lock: .zero))
+        #expect(plan.origin == CGPoint(x: 12, y: 6))
+    }
+
+    @Test func theImagePanDoesNotChangeWithTheZoom() {
+        #expect(SettingsPropagation.imagePan(CGPoint(x: 10, y: -4), scale: 2) == CGPoint(x: 5, y: -2))
+        #expect(SettingsPropagation.imagePan(CGPoint(x: 10, y: -4), scale: 0) == .zero)
     }
 
     @Test func theFourDFrameGoesBetweenSeriesOfOneLength() {

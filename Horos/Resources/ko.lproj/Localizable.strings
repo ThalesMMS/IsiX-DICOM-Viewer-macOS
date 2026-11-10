@@ -4742,7 +4742,8 @@
 "Series %@" = "시리즈 %@";
 "Window %ld" = "창 %ld";
 "%@ (already in the new folder, which is kept)" = "%@ (새 폴더에 이미 있으며 그대로 유지됨)";
-"Earlier versions of IsiX DICOM Viewer kept these items in %@, a folder that Horos also uses:\n\n%@\n\nImporting copies them to %@. Nothing in the Horos folder is changed, nothing already in the new folder is replaced, and plugins are not imported." = "이전 버전의 IsiX DICOM Viewer는 이 항목들을 Horos도 사용하는 폴더인 %@에 보관했습니다.\n\n%@\n\n가져오면 %@(으)로 복사됩니다. Horos 폴더의 내용은 변경되지 않고, 새 폴더에 이미 있는 항목은 대체되지 않으며, 플러그인은 가져오지 않습니다.";
+"%@ (from %@)" = "%@ (%@에서)";
+"Earlier versions of IsiX DICOM Viewer kept these items in %@, a folder that Horos also uses:\n\n%@\n\nImporting copies them to %@. Nothing in the Horos folder is changed, and nothing already in the new folder is replaced." = "이전 버전의 IsiX DICOM Viewer는 이 항목들을 Horos도 사용하는 폴더인 %@에 보관했습니다.\n\n%@\n\n가져오면 %@(으)로 복사됩니다. Horos 폴더의 내용은 변경되지 않고, 새 폴더에 이미 있는 항목은 대체되지 않습니다.";
 "Import from the Horos folder?" = "Horos 폴더에서 가져오시겠습니까?";
 "Not Now" = "나중에";
 "Don't Import" = "가져오지 않음";

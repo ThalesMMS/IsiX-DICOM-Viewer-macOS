@@ -68,6 +68,7 @@ enum LegacySupportImportPrompt {
         // A configured accounts database is the Web Portal's, wherever it is.
         let configured = !(PreferencesSource.process.preferences[DatabasePreferences.webPortalDatabasePath] ?? "").isEmpty
         let migration = LegacySupportImport(userDomain: StorageLocations.runningUserDomain,
+                                            systemDomain: StorageLocations.runningSystemDomain,
                                             items: LegacySupportImport.Item.standard(includingAccounts: !configured))
         guard !migration.isSettled else { return }
         let survey = migration.survey()
@@ -80,9 +81,9 @@ enum LegacySupportImportPrompt {
             let list = survey.filter { $0.status == .pending || $0.status == .conflict }.map { entry in
                 "• " + (entry.status == .conflict
                         ? String(format: NSLocalizedString("%@ (already in the new folder, which is kept)", comment: ""), title(of: entry.item))
-                        : title(of: entry.item))
+                        : described(entry, of: migration))
             }.joined(separator: "\n")
-            let message = String(format: NSLocalizedString("Earlier versions of IsiX DICOM Viewer kept these items in %@, a folder that Horos also uses:\n\n%@\n\nImporting copies them to %@. Nothing in the Horos folder is changed, nothing already in the new folder is replaced, and plugins are not imported.", comment: ""),
+            let message = String(format: NSLocalizedString("Earlier versions of IsiX DICOM Viewer kept these items in %@, a folder that Horos also uses:\n\n%@\n\nImporting copies them to %@. Nothing in the Horos folder is changed, and nothing already in the new folder is replaced.", comment: ""),
                                  abbreviated(migration.source), list, abbreviated(migration.destination))
             let answer = HorosAlertPanel.runInformational(title: NSLocalizedString("Import from the Horos folder?", comment: ""),
                                                           message: message,
@@ -133,6 +134,16 @@ enum LegacySupportImportPrompt {
         case .weasis: return NSLocalizedString("Weasis customization", comment: "")
         default: return item.name
         }
+    }
+
+    /// An item's title, and where it is copied from when that is not the
+    /// folder the message names.
+    private static func described(_ entry: LegacySupportImport.Entry, of migration: LegacySupportImport) -> String {
+        guard entry.source.deletingLastPathComponent().standardizedFileURL != migration.source.standardizedFileURL else {
+            return title(of: entry.item)
+        }
+        return String(format: NSLocalizedString("%@ (from %@)", comment: "An item to import and the folder it comes from"),
+                      title(of: entry.item), abbreviated(entry.source.deletingLastPathComponent()))
     }
 
     private static func abbreviated(_ url: URL) -> String {

@@ -12,6 +12,7 @@
                 <outlet property="TLSChooseCertificateButton" destination="872" id="883"/>
                 <outlet property="_window" destination="12" id="26"/>
                 <outlet property="addressTextField" destination="1001" id="1050"/>
+                <outlet property="customWebPagesCheckbox" destination="1061" id="1234"/>
                 <outlet property="mainWindow" destination="12" id="1170"/>
                 <outlet property="portTextField" destination="348" id="1051"/>
                 <outlet property="studiesArrayController" destination="786" id="817"/>

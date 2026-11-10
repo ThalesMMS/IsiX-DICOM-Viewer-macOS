@@ -31,7 +31,7 @@ constants=source[source.index('// MARK: Tables'):source.index('// MARK: End of t
 # stand-in program imports as the app does.
 assert '\nimport IsiXDICOMNetwork\n' in source
 outcome=source[source.index('// MARK: Print job outcome'):source.index('// MARK: End of print job outcome')]
-log_directory='(NSHomeDirectory() as NSString).appendingPathComponent("Library/Logs/HorosDicomPrint")'
+log_directory='(NSHomeDirectory() as NSString).appendingPathComponent("Library/Logs/IsiXDicomPrint")'
 assert outcome.count(log_directory)==1
 outcome=outcome.replace(log_directory,'CommandLine.arguments[2]')
 start=source.index('    /// Runs on the thread -_createPrintjobDCMTK starts')

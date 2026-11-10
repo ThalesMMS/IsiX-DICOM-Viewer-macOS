@@ -93,6 +93,7 @@ import IsiXPreferences
                 if let imageView = viewer.horos_imageView {
                     let current = imageView.dcmPixList?.object(at: Int(imageView.curImage)) as? DCMPix
                     imageView.syncRelativeDiff = Float((current?.sliceLocation ?? 0) - Double(sliceLocation))
+                    Self.recordLockPan(of: imageView, in: sync)
                 }
                 item?.image = NSImage.toolbarImageNamed(Self.syncLockItemImage)
                 viewer.horos_imageView?.syncSeriesIndex = 0
@@ -125,7 +126,13 @@ import IsiXPreferences
         for viewer in registry.displayedViewers {
             viewer.settingsPropagator.syncItem?.image = NSImage.toolbarImageNamed(syncLockItemImage)
             viewer.horos_imageView?.syncSeriesIndex = 0
+            if let imageView = viewer.horos_imageView { recordLockPan(of: imageView, in: sync) }
         }
+    }
+
+    /// Takes where `view` is panned as its place in the alignment being locked.
+    private static func recordLockPan(of view: DCMView, in sync: ViewerSyncState) {
+        sync.setLockPan(SettingsPropagation.imagePan(view.origin, scale: view.scaleValue), of: view)
     }
 
     /// The "Sync" button: across studies it locks or unlocks the series and
@@ -196,7 +203,7 @@ import IsiXPreferences
     /// `viewer` as the propagation rules see it: its view's window and
     /// viewport, its image, and `orientation`, the planes' comparison. Only
     /// the frames when the settings do not go on (`full` false).
-    private static func snapshot(of viewer: ViewerController, movieIndex: Int, orientation: () -> [Float], full: Bool) -> SettingsPropagation.Viewer {
+    private func snapshot(of viewer: ViewerController, movieIndex: Int, orientation: () -> [Float], full: Bool) -> SettingsPropagation.Viewer {
         let maxMovieIndex = Int(viewer.horos_maxMovieIndex)
         guard full else {
             return SettingsPropagation.Viewer(windowLevel: nil, viewport: nil, pixelSpacing: 0, image: nil, isRGB: false, suvConverted: false,
@@ -213,6 +220,7 @@ import IsiXPreferences
             windowLevel = WindowLevelState(level: level, width: width)
         }
         let modality = viewer.modality()
+        let locked = sync.betweenStudies && sync.seriesLocked && view?.syncSeriesIndex != -1
         return SettingsPropagation.Viewer(
             windowLevel: windowLevel,
             viewport: view.map { ViewportState(scale: $0.scaleValue, origin: $0.origin, rotation: $0.rotation) },
@@ -221,7 +229,8 @@ import IsiXPreferences
             isRGB: pix?.isRGB ?? false, suvConverted: pix?.suvConverted ?? false,
             modality: modality, subtraction: viewer.subtractionActivated(), colourTable: viewer.curCLUTMenu(),
             orientation: orientation(), keepsSettingsInSeries: DCMView.noPropagateSettingsInSeries(forModality: modality),
-            studyInstanceUID: viewer.studyInstanceUID(), movieIndex: movieIndex, maxMovieIndex: maxMovieIndex)
+            studyInstanceUID: viewer.studyInstanceUID(), movieIndex: movieIndex, maxMovieIndex: maxMovieIndex,
+            seriesLockPan: locked ? view.map { sync.lockPan(of: $0) } : nil)
     }
 
     /// What `other` takes from this viewer, on the image it shows now.
@@ -229,12 +238,12 @@ import IsiXPreferences
         let full = preferences.propagates
         // The planes are compared by the middle slice of this viewer's first
         // frame and of the other's current one (zeros without slices).
-        let source = Self.snapshot(of: viewer, movieIndex: Int(viewer.horos_curMovieIndex), orientation: { [viewer] in
+        let source = snapshot(of: viewer, movieIndex: Int(viewer.horos_curMovieIndex), orientation: { [viewer] in
             var orientation = [Float](repeating: 0, count: 9)
             if let slices = viewer.horos_pixList(at: 0), slices.count > 0 { (slices.object(at: slices.count / 2) as? DCMPix)?.orientation(&orientation) }
             return orientation
         }, full: full)
-        let target = Self.snapshot(of: other, movieIndex: Int(other.curMovieIndex()), orientation: {
+        let target = snapshot(of: other, movieIndex: Int(other.curMovieIndex()), orientation: {
             var orientation = [Float](repeating: 0, count: 9)
             if let slices = other.pixList(), slices.count > 0 { (slices.object(at: slices.count / 2) as? DCMPix)?.orientation(&orientation) }
             return orientation
@@ -252,8 +261,8 @@ import IsiXPreferences
     /// Hands this viewer's settings on to `other`: its 4D frame (same number
     /// of frames, no navigator), and with "propagate settings" on its window
     /// level (same colour table, images of one kind), and between parallel
-    /// planes its zoom, pan (same study or registered, overlapping images) and
-    /// rotation. A fused viewer passes them on to its fusion.
+    /// planes its zoom, pan (same study or registered, overlapping images, or
+    /// series locked across studies) and rotation. A fused viewer passes them on to its fusion.
     func propagateSettings(to other: ViewerController) {
         let preferences = propagationPreferences
         var plan = plan(for: other, preferences: preferences)

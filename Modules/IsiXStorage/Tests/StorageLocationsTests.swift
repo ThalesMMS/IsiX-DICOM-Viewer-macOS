@@ -71,4 +71,9 @@ import Testing
             "/i/System/Library/Application Support/IsiX/Weasis",
         ])
     }
+
+    @Test func theWebSharingPaneNamesTheFolderOfEachBuild() {
+        #expect(StorageLocations.customWebPagesFolderLabel(for: .direct) == "~/Library/Application Support/IsiX/WebServicesHTML/")
+        #expect(StorageLocations.customWebPagesFolderLabel(for: .appStore) == "~/Library/Containers/…/Horos App/WebServicesHTML/")
+    }
 }
