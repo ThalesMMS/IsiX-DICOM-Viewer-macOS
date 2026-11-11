@@ -270,12 +270,12 @@ extension DCMTKQueryNode {
                                 for request in requests {
                                     let succeeded: Bool
                                     if get {
-                                        succeeded = setupNetwork(service: .getStudyRoot, identifier: request, destination: destination)
+                                        succeeded = setupNetwork(service: .getStudyRoot, identifier: request, destination: destination, quietly: true)
                                     } else if listener {
                                         NSLog("DICOM Network Failure: %@", NSLocalizedString("DICOM Listener is not activated", comment: ""))
                                         succeeded = false
                                     } else {
-                                        succeeded = setupNetwork(service: .moveStudyRoot, identifier: request, destination: destination)
+                                        succeeded = setupNetwork(service: .moveStudyRoot, identifier: request, destination: destination, quietly: true)
                                     }
                                     if !succeeded {
                                         NSLog("***** IMAGE Level retrieve failed... try STUDY/SERIES Level retrieve")

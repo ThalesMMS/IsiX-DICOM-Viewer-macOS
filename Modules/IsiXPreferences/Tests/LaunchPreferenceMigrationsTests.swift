@@ -197,9 +197,22 @@ import Testing
         #expect(hotKeys.count == 5 && hotKeys["w"] as? Int == 13 && hotKeys["z"] as? String == "15")
         #expect(hotKeys["dbl-click"] as? Int == 50 && hotKeys["dbl-click + alt"] as? Int == 51 && hotKeys["dbl-click + cmd"] as? Int == 52)
 
-        // One of the three already there, as a number or its text: the list is left alone.
-        let assigned = store(["HOTKEYS": ["f": "51"]])
-        LaunchPreferenceMigrations.addDoubleClickHotKeys(in: assigned)
-        #expect(assigned.writes.isEmpty)
+        // An action on another key, as a number or its text, keeps that key
+        // alone; the two gestures nothing has come back.
+        let moved = store(["HOTKEYS": ["f": "51"]])
+        LaunchPreferenceMigrations.addDoubleClickHotKeys(in: moved)
+        let completed = try #require(moved.object(forKey: "HOTKEYS") as? [String: Any])
+        #expect(completed.count == 3 && completed["f"] as? String == "51")
+        #expect(completed["dbl-click"] as? Int == 50 && completed["dbl-click + cmd"] as? Int == 52)
+
+        // The list that kept the modified double clicks and lost the plain one.
+        let partial = store(["HOTKEYS": ["dbl-click + alt": 51, "dbl-click + cmd": 52, "": 50]])
+        LaunchPreferenceMigrations.addDoubleClickHotKeys(in: partial)
+        #expect((partial.object(forKey: "HOTKEYS") as? [String: Any])?["dbl-click"] as? Int == 50)
+
+        // The double click given to another action is a choice: nothing written.
+        let chosen = store(["HOTKEYS": ["dbl-click": 17, "dbl-click + alt": 51, "dbl-click + cmd": 52]])
+        LaunchPreferenceMigrations.addDoubleClickHotKeys(in: chosen)
+        #expect(chosen.writes.isEmpty)
     }
 }

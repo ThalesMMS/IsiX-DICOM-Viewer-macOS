@@ -131,7 +131,7 @@ private let wadoTemporaryFileNumber = Mutex<Int>(1)
             do {
                 try files.createDirectory(atPath: staging, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             } catch {
-                showImportError(archive)
+                showImportError(archive, reason: error.localizedDescription)
                 return
             }
             var status: Int32 = -1
@@ -144,7 +144,7 @@ private let wadoTemporaryFileNumber = Mutex<Int>(1)
             }
             if thread.isCancelled { return }
             if !expanded {
-                showImportError(archive)
+                showImportError(archive, reason: ArchiveImport.reason(forUnzipStatus: status))
                 return
             }
             let destination = folder.path(named: "unzip-" + UUID().uuidString)
@@ -152,7 +152,7 @@ private let wadoTemporaryFileNumber = Mutex<Int>(1)
                 try files.moveItem(atPath: staging, toPath: destination)
             } catch {
                 NSLog("---- import: archive could not be handed to the import folder (%@)", error.localizedDescription)
-                showImportError(archive)
+                showImportError(archive, reason: error.localizedDescription)
                 return
             }
             DatabaseIngest.process.requestImport(of: database)
@@ -160,7 +160,7 @@ private let wadoTemporaryFileNumber = Mutex<Int>(1)
             onMainRunLoop { ArchiveImport.offerToDelete(archive, in: self.browser.window, preferences: self.preferences) }
         }) {
             BrowserObjC.log(exception, stack: true, "-[BrowserController expandArchiveThread:]")
-            showImportError(archive)
+            showImportError(archive, reason: nil)
         }
         // A successful move took the folder; only unpublished staging is ours.
         if files.fileExists(atPath: staging) {
@@ -218,12 +218,27 @@ private let wadoTemporaryFileNumber = Mutex<Int>(1)
         return request.password
     }
 
-    nonisolated private func showImportError(_ archive: String) {
+    /// Why unzip did not expand an archive, with its status for a report.
+    nonisolated static func reason(forUnzipStatus status: Int32) -> String {
+        let reason: String
+        switch ArchiveExpansionFailure(unzipStatus: status) {
+        case .damaged: reason = NSLocalizedString("The ZIP file is damaged or incomplete.", comment: "Why a ZIP archive could not be imported")
+        case .diskFull: reason = NSLocalizedString("There is not enough free space on the database's disk to expand it.", comment: "Why a ZIP archive could not be imported")
+        case .unsupportedMethod: reason = NSLocalizedString("The ZIP file uses a compression or encryption method that is not supported.", comment: "Why a ZIP archive could not be imported")
+        case .incomplete: reason = NSLocalizedString("Not every file in the ZIP file could be extracted.", comment: "Why a ZIP archive could not be imported")
+        case .other: reason = ""
+        }
+        return (reason.isEmpty ? "" : reason + " ") + "(unzip: \(status))"
+    }
+
+    /// `reason` says why, after the sentence that the archive was kept.
+    nonisolated private func showImportError(_ archive: String, reason: String?) {
         let name = (archive as NSString).lastPathComponent
         onMainRunLoop {
             let alert = NSAlert()
             alert.messageText = NSLocalizedString("Could not decompress archive", comment: "")
             alert.informativeText = String(format: NSLocalizedString("%@ could not be prepared for import. The original ZIP file has been preserved.", comment: ""), name)
+                + (reason.map { "\n\n" + $0 } ?? "")
             if let window = self.browser.window {
                 alert.beginSheetModal(for: window, completionHandler: nil)
             } else {

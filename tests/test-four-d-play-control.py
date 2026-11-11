@@ -124,7 +124,7 @@ else:
         failures.append('-MoviePlayStop: must stop through -MovieStop:, not with its own copy')
     if 'invalidate()' in toggle:
         failures.append('-MoviePlayStop: still has its own copy of the stop')
-    if 'Timer.scheduledTimer' not in toggle:
+    if 'playerTimer(rate: movieRate' not in toggle:
         failures.append('-MoviePlayStop: no longer starts the movie')
 
 # The series-load path resets maxMovieIndex to 1 and switches the control off;

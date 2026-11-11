@@ -335,12 +335,26 @@ public final class MPRDCMView: DCMView {
     }
 
     private func checkForFrame() {
+        _vrView?.setHostBackingScale(backingScaleFactor)
+
         // NSView frames are in points; vtkCocoaRenderWindow converts to pixels.
         let frameRect = self.convert(self.bounds, to: nil)
 
         if NSEqualRects(frameRect, _vrView?.frame ?? NSZeroRect) == false {
             _vrView?.frame = frameRect
         }
+    }
+
+    /// On a screen of another scale the picture must be rendered again at that
+    /// scale, or it keeps its pixels and changes size in the pane.
+    public override dynamic func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+
+        guard _vrView != nil, _camera != nil, self.window != nil else { return }
+
+        _camera?.forceUpdate = true
+        self.restoreCamera()
+        self.updateViewMPR()
     }
 
     /// DCMView's -displayedScaleValue.
@@ -1184,7 +1198,7 @@ public final class MPRDCMView: DCMView {
             if c == NSRightArrowFunctionKey { center.y -= CGFloat(move * slopeY); center.x += CGFloat(move * slopeX) }
             if c == NSLeftArrowFunctionKey { center.y += CGFloat(move * slopeY); center.x -= CGFloat(move * slopeX) }
 
-            _vrView?.setWindowCenter(center)
+            _vrView?.setWindowCenter(self.convertToBacking(center))
             self.updateViewMPR()
 
             _moveCenter = false

@@ -286,11 +286,7 @@ extension ViewerSessionGraph {
 
         let shown = viewer.horos_fileList(at: Int(viewer.horos_curMovieIndex))?.object(at: Int(viewer.horos_imageView?.curImage ?? 0)) as? DicomImage
 
-        if let status = shown?.series?.study?.stateText {
-            viewer.horos_StatusPopup?.selectItem(withTag: Int(status.int32Value))
-        } else {
-            viewer.horos_StatusPopup?.selectItem(withTitle: "empty")
-        }
+        StudyStates.select(shown?.series?.study?.stateText?.intValue ?? 0, in: viewer.horos_StatusPopup)
 
         if let comment = shown?.series?.comment, !comment.isEmpty {
             viewer.horos_CommentsField?.title = comment
@@ -306,7 +302,6 @@ extension ViewerSessionGraph {
 
         // Key-value observed: the store the graph reads is the application's preferences.
         processGraph.preferences.addObserver(viewer, forKeyPath: ViewerPreferences.seriesListVisible.name, options: .new, context: nil)
-        processGraph.preferences.addObserver(viewer, forKeyPath: SeriesListIdentification.defaultsKey, options: .new, context: nil)
 
         viewer.horos_originalOrientation = -1
         viewer.horos_orientationMatrix?.isEnabled = false
@@ -460,7 +455,6 @@ extension ViewerSessionGraph {
         let observed = processGraph.preferences
         if let exception = HorosObjCException.caught({
             observed.removeObserver(viewer, forKeyPath: ViewerPreferences.seriesListVisible.name)
-            observed.removeObserver(viewer, forKeyPath: SeriesListIdentification.defaultsKey)
         }) {
             _N2LogExceptionImpl(exception, false, "-[ViewerController dealloc]")
         }

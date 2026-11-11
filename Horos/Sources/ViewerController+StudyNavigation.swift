@@ -297,6 +297,7 @@ extension ViewerController {
         for x in 0..<viewer.horos_movieCount {
             for pix in viewer.horos_pixArray(x) { pix.revert() }
         }
+        GantryTiltPolicy.clearCorrection(of: viewer)
 
         viewer.startLoadImageThread()
 

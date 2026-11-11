@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Exercise production cine callbacks with a synthetic monotonic clock and a civil-clock jump.
 
-Cadence steps a fake systemUptime so suite load cannot starve the production
-zero-interval NSTimer. A real run-loop timer still checks that playback
+Cadence steps a fake systemUptime so suite load cannot starve a production
+timer. A real run-loop timer still checks that playback
 continues across a civil-clock rollback.
 
 This isolates scheduling from DICOM decoding, GPU rendering and synchronization.
@@ -124,6 +124,8 @@ NS_SWIFT_UI_ACTOR
 - (nullable NSMutableArray*)horos_pixListAt:(NSInteger)index;
 @property(assign) short horos_curMovieIndex;
 @property(assign) short horos_maxMovieIndex;
+@property(readonly, nullable) NSTimer* horos_timer;
+@property(readonly, nullable) NSTimer* horos_movieTimer;
 @property(assign) NSTimeInterval horos_lastTime;
 @property(assign) NSTimeInterval horos_lastTimeFrame;
 @property(assign) NSTimeInterval horos_lastMovieTime;
@@ -181,6 +183,8 @@ double testUptime(void) {
 - (void)setHoros_curMovieIndex:(short)value { curMovieIndex=value; }
 - (short)horos_maxMovieIndex { return maxMovieIndex; }
 - (void)setHoros_maxMovieIndex:(short)value { maxMovieIndex=value; }
+- (NSTimer*)horos_timer { return nil; }
+- (NSTimer*)horos_movieTimer { return nil; }
 - (NSTimeInterval)horos_lastTime { return lastTime; }
 - (void)setHoros_lastTime:(NSTimeInterval)value { lastTime=value; }
 - (NSTimeInterval)horos_lastTimeFrame { return lastTimeFrame; }

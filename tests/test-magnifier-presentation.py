@@ -155,7 +155,7 @@ panes += [root / 'Horos/Resources' / f'{language}.lproj'
           for language in ('ar', 'de', 'fr', 'hi', 'ko', 'pt-BR', 'ru', 'zh-Hans')]
 for pane in panes:
     tree = ET.parse(pane / 'OSIViewerPreferencePanePref.xib')
-    box = tree.find('.//box[@id="100"]/view/rect')
+    box = tree.find('.//box[@id="mouse-tools-box"]/view/rect')
     for key, control in ((KEY, 'magnifier-corner-control'), (MEASURING, 'measurement-magnifier-control')):
         assert len(tree.findall(f'.//binding[@keyPath="values.{key}"]')) == 1, (pane.name, key)
         button = tree.find(f'.//button[@id="{control}"]')

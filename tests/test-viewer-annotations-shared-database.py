@@ -139,6 +139,9 @@ final class ProcessGraph {
 }
 
 /// [sender title] as the comment action reads it.
+enum StudyStates {
+    @MainActor static func select(_ value: Int, in popup: NSPopUpButton?) { popup?.selectItem(withTag: value) }
+}
 enum ViewerSender {
     static func string(_ sender: Any?, _ key: String) -> String? { (sender as? NSMenuItem)?.title }
 }

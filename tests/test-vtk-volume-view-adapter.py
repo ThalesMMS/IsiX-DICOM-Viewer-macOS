@@ -107,8 +107,22 @@ int main()
         check([view makeCameraWithError:&error] && view.hasCamera && view.cameraParallelProjection, "the camera is made, in parallel projection");
         check([view makeMeasurementActorsWithNotice:@"notice" error:&error] && [view activeLinePointCount] == 0 && [view hasAngleActors],
               "the measurement actors are made, the line empty");
+        [view setTiltText:@"Tilt corrected (15.0\u00b0)" corner:YES];
+        check(view->_o->textTilt == nullptr, "before the texts are made there is no tilt text to change");
         check([view makeTextsWithWindowText:"WL: 40 WW: 400 " corner:YES tilt:nil error:&error] && view.hasWindowText && view.hasCornerText,
               "the texts are made");
+        // The gantry tilt's text follows the series: made, changed and removed.
+        check(view->_o->textTilt == nullptr, "a series that was not corrected has no tilt text");
+        [view setTiltText:@"Tilt corrected (15.0\u00b0)" corner:YES];
+        check(view->_o->textTilt != nullptr && strcmp(view->_o->textTilt->GetInput(), "Tilt corrected (15.0\u00b0)") == 0
+              && view->_o->aRenderer->HasViewProp(view->_o->textTilt), "a corrected series gets its text");
+        vtkTextActor *tiltActor = view->_o->textTilt;
+        [view setTiltText:@"Tilt corrected (7.5\u00b0)" corner:YES];
+        check(view->_o->textTilt == tiltActor && strcmp(tiltActor->GetInput(), "Tilt corrected (7.5\u00b0)") == 0, "the same text says the new angle");
+        tiltActor->Register(nullptr);
+        [view setTiltText:nil corner:YES];
+        check(view->_o->textTilt == nullptr && !view->_o->aRenderer->HasViewProp(tiltActor), "a reverted series loses its text");
+        tiltActor->Delete();
         double bounds[6];
         [view getVolumeBounds:bounds];
         check(bounds[0] == 10 && bounds[1] == 11.5 && bounds[2] == 20 && bounds[3] == 21 && bounds[4] == 30 && bounds[5] == 32,

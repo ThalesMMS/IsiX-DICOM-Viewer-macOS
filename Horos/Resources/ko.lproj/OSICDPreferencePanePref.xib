@@ -173,9 +173,6 @@
                                     <buttonCell key="cell" type="check" title="DICOM 파일에 JPEG2000 / JPEG LS 대신 표준 JPEG 압축 우선 사용" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="184">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
-                                        <connections>
-                                            <binding destination="173" name="value" keyPath="values.JPEGinsteadJPEG2000" id="186"/>
-                                        </connections>
                                     </buttonCell>
                                     <connections>
                                         <binding destination="173" name="value" keyPath="values.JPEGinsteadJPEG2000" id="187"/>

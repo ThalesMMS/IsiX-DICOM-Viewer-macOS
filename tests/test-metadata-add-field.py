@@ -56,7 +56,7 @@ int main(void) { @autoreleasepool {
 
     for (unsigned i = 0; i < sizeof(cases)/sizeof(cases[0]); i++) {
         unsigned group = cases[i].group, element = cases[i].element;
-        IsiXDICOMAttributeTag *tag = [[IsiXDICOMAttributeTag alloc] initWithGroup: group element: element];
+        DCMAttributeTag *tag = [[DCMAttributeTag alloc] initWithGroup: group element: element];
 
         NSString *searchGpEl = SEARCH;   // what the Add sheet looks for
         NSString *inTheRow = ROW;        // what the outline row carries

@@ -215,6 +215,10 @@ func make(_ name: String, _ address: String, qr: Bool, send: Bool, qido: String 
         && DICOMwebSources.inventoryEndpoint(forServer: deltaServer, in: defaults) == base + "/ok",
         "the inventory is kept under the WADO endpoint, the address without a WADO path")
   check(DICOMwebSources.storeURL(forServer: deltaServer, in: defaults) == base + "/ok/studies", "the Send sheet shows {address}/studies")
+  // A node whose services all answer under one prefix stores there too.
+  let prefixed = make("Prefixed", base, qr: true, send: true, qido: "/ok", wado: "ok")
+  check(prefixed.stowEndpoint == base + "/ok" && (try? DICOMwebSources.configuration(for: prefixed).storeURLString) == base + "/ok/studies",
+        "STOW-RS goes below the path QIDO and WADO share")
 
   // Test's messages: one per kind.
   let kinds: [DICOMwebErrorKind] = [.network, .tls, .timeout, .authentication, .notFound, .redirect, .http, .invalidResponse, .credentials, .cancelled]

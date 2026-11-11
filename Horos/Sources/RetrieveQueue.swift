@@ -119,6 +119,27 @@ public final class RetrieveQueue: NSObject, @unchecked Sendable {
         }
     }
 
+    /// The rows of Activity with the waiting retrieves in the order of the
+    /// line: they trade the places they hold among themselves, and every other
+    /// row, a retrieve under way or another task, stays where it is.
+    /// `position` is a row's place in line, nil when it does not wait.
+    static func arranged<Row>(_ rows: [Row], position: (Row) -> Int?) -> [Row] {
+        let waiting = rows.enumerated().compactMap { entry in position(entry.element).map { (slot: entry.offset, position: $0) } }
+        guard waiting.count > 1 else { return rows }
+        var arranged = rows
+        for (slot, source) in zip(waiting.map(\.slot), waiting.sorted { $0.position < $1.position }.map(\.slot)) {
+            arranged[slot] = rows[source]
+        }
+        return arranged
+    }
+
+    /// The place in line, from 0, of a waiting row dropped above `row`: the
+    /// waiting rows above the gap, the dragged one aside. `waits` says which
+    /// rows wait.
+    static func index(ofRow dragged: Int, droppedAbove row: Int, waits: [Bool]) -> Int {
+        waits.prefix(max(row, 0)).enumerated().filter { $0.element && $0.offset != dragged }.count
+    }
+
     /// Where Activity moves a waiting retrieve in the line.
     @objc(HorosRetrieveQueueMove)
     public enum Move: Int {
@@ -229,6 +250,19 @@ public final class RetrieveQueue: NSObject, @unchecked Sendable {
         case .up: index = position - 2
         case .down: index = position
         }
+        guard state.move(ticket.id, to: index) else { return false }
+        _ = state.promote(policy: .current())
+        condition.broadcast()
+        return true
+    }
+
+    /// Puts a waiting retrieve at `index` of the line, from 0, as a row
+    /// dragged in Activity asks. Returns whether its place changed.
+    @discardableResult
+    @objc(moveTicket:toIndex:)
+    public func move(_ ticket: Ticket, toIndex index: Int) -> Bool {
+        condition.lock()
+        defer { condition.unlock() }
         guard state.move(ticket.id, to: index) else { return false }
         _ = state.promote(policy: .current())
         condition.broadcast()

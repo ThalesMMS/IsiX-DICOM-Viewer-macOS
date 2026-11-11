@@ -43,6 +43,7 @@ import Foundation
 extension DCMPixelDataAttribute {
 
     /// The frame as RGB when it is YBR or palette colour, unchanged otherwise.
+    @objc(convertDataToRGBColorSpace:)
     public func convertDataToRGBColorSpace(_ data: NSData) -> NSData? {
         let object = dcmObject
         let colorspace = object?.attributeValue(withName: "PhotometricInterpretation") as? String
@@ -83,6 +84,7 @@ extension DCMPixelDataAttribute {
 
     /// YBR_FULL, YBR_PARTIAL and their 4:2:2 forms (a pair of luminances, then
     /// the two chrominances they share) as RGB; planar only for the full-sampled kinds.
+    @objc(convertYBrToRGB:kind:isPlanar:)
     public func convertYBrToRGB(_ ybrData: NSData?, kind: String, isPlanar: Bool) -> NSData? {
         // The planar configuration should be 0 whenever YBR_FULL_422 or
         // YBR_PARTIAL_422 is used.
@@ -225,6 +227,7 @@ extension DCMPixelDataAttribute {
 
     /// A palette colour frame as RGB, through its three lookup tables, 8- or
     /// 16-bit, plain or segmented. Nil when the tables cannot be read.
+    @objc(convertPaletteToRGB:)
     public func convertPaletteToRGB(_ data: NSData) -> NSData? {
         do {
             return try paletteToRGB(data)

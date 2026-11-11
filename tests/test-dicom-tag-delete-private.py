@@ -173,7 +173,6 @@ static int failures;
 
 // The tag object the editor builds from the row's path: IsiXDICOMFile's.
 #import "IsiXDICOMFile-Swift.h"
-@compatibility_alias DCMAttributeTag IsiXDICOMAttributeTag;
 
 @interface TagStep : NSObject
 @property int group, element;
@@ -307,7 +306,7 @@ static void reset(void)
     [NSFileManager.defaultManager copyItemAtPath:pristine toPath:working error:nil];
 }
 
-#define TAG(g, e) [IsiXDICOMAttributeTag tagWithGroup:0x##g element:0x##e]
+#define TAG(g, e) [DCMAttributeTag tagWithGroup:0x##g element:0x##e]
 
 static TagPath *nameInItem(int item, bool deep) {
     TagPath *path = nested(item, 0x0010, 0x0010);
@@ -697,9 +696,8 @@ character_set = """
 + (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)charset;
 @end
 @implementation NSString (HarnessEncoding)
-+ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)charset { return [IsiXDICOMCharacterSet encodingForDICOMCharacterSet:charset]; }
++ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)charset { return [DCMCharacterSet encodingForDICOMCharacterSet:charset]; }
 @end
-@compatibility_alias DCMCharacterSet IsiXDICOMCharacterSet;
 """
 parser_count = ('HorosTagEditsFromEntries(entries, NSISOLatin1StringEncoding, rejectedOut)'
                 if 'NSArray *entries, NSStringEncoding encoding' in source else

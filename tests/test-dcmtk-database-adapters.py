@@ -78,12 +78,12 @@ former_references = body('- (NSArray*) referencedObjects').replace('[[self compl
 # import through its generated header.
 STUBS = r'''
 #import <Foundation/Foundation.h>
-@interface IsiXDICOMAttributeTag : NSObject
+@interface DCMAttributeTag : NSObject
 @property (readonly) int group;
 @property (readonly) int element;
 + (id)tagWithGroup:(int)group element:(int)element;
 @end
-@interface IsiXDICOMCharacterSet : NSObject
+@interface DCMCharacterSet : NSObject
 + (NSString *)characterSetWhenAbsent;
 + (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)characterSet;
 @end
@@ -108,14 +108,14 @@ DRIVER = r'''
 #include <cstdlib>
 #include <new>
 
-@implementation IsiXDICOMAttributeTag {
+@implementation DCMAttributeTag {
     int _g, _e;
 }
-+ (id)tagWithGroup:(int)group element:(int)element { IsiXDICOMAttributeTag *t = [self new]; t->_g = group; t->_e = element; return t; }
++ (id)tagWithGroup:(int)group element:(int)element { DCMAttributeTag *t = [self new]; t->_g = group; t->_e = element; return t; }
 - (int)group { return _g; }
 - (int)element { return _e; }
 @end
-@implementation IsiXDICOMCharacterSet
+@implementation DCMCharacterSet
 + (NSString *)characterSetWhenAbsent { return @"ISO_IR 100"; }
 + (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)c { return [c isEqualToString:@"ISO_IR 192"] ? NSUTF8StringEncoding : NSISOLatin1StringEncoding; }
 @end
@@ -383,13 +383,13 @@ int main(int argc, char **argv)
         writeImage(at(@"edit.dcm"), "CT");
         NSArray *reasons = nil;
         BOOL modified = [IsiXDCMTKTagEditor modifyFiles:@[at(@"edit.dcm")]
-            withEntries:@[@[[IsiXDICOMAttributeTag tagWithGroup:0x0010 element:0x0010], @"EDITED^NAME"], @[[IsiXDICOMAttributeTag tagWithGroup:0x0020 element:0x0013]]]
+            withEntries:@[@[[DCMAttributeTag tagWithGroup:0x0010 element:0x0010], @"EDITED^NAME"], @[[DCMAttributeTag tagWithGroup:0x0020 element:0x0013]]]
             reasons:&reasons];
         check(modified && valueOf(at(@"edit.dcm"), DCM_PatientName) == "EDITED^NAME" && valueOf(at(@"edit.dcm"), DCM_InstanceNumber).empty(),
               "tags: a replacement and a removal are written");
         reasons = nil;
         modified = [IsiXDCMTKTagEditor modifyFiles:@[at(@"text.dcm")]
-            withEntries:@[@[[IsiXDICOMAttributeTag tagWithGroup:0x0010 element:0x0010], @"X"]] reasons:&reasons];
+            withEntries:@[@[[DCMAttributeTag tagWithGroup:0x0010 element:0x0010], @"X"]] reasons:&reasons];
         check(!modified && reasons.count == 2 && [reasons[1] containsString:@"could not be read"],
               "tags: a file that is not DICOM is refused with what DCMTK said");
         printf("  %s\n", [reasons[1] UTF8String]);
@@ -397,7 +397,7 @@ int main(int argc, char **argv)
         reasons = nil;
         failNew = true;
         modified = [IsiXDCMTKTagEditor modifyFiles:@[at(@"edit.dcm")]
-            withEntries:@[@[[IsiXDICOMAttributeTag tagWithGroup:0x0010 element:0x0010], @"THROWN"]] reasons:&reasons];
+            withEntries:@[@[[DCMAttributeTag tagWithGroup:0x0010 element:0x0010], @"THROWN"]] reasons:&reasons];
         failNew = false;
         check(!modified && [reasons.lastObject containsString:@"no edits were saved"] &&
               [[NSData dataWithContentsOfFile:at(@"edit.dcm")] isEqualToData:before],

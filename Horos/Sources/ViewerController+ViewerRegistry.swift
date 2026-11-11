@@ -115,26 +115,26 @@ public extension ViewerController {
         window != nil && viewerRegistry.frontMostDisplayedViewer(on: nil)?.window === window
     }
 
-    /// Each displayed series shares its colour across windows and thumbnails;
-    /// empty with a single window, which needs no colour to be told apart.
+    /// The series the active window shows, with the colour of its study: the
+    /// frame of its thumbnail. Empty with a single window, which needs none.
     @objc(horosSeriesWindowColors)
     class func horosSeriesWindowColors() -> NSMapTable<AnyObject, AnyObject>! {
         let colors = NSMapTable<AnyObject, AnyObject>.strongToStrongObjects()
-        if viewerRegistry.displayedViewers.count < 2 || !SeriesListIdentification.showsColors(in: processGraph.preferences) { return colors }
-        for (series, viewer) in viewerRegistry.displayedSeriesInColourOrder() {
-            colors.setObject(ViewerWindowColors.color(for: viewer), forKey: series)
-        }
+        guard viewerRegistry.displayedViewers.count > 1, let active = viewerRegistry.frontMostDisplayedViewer(on: nil),
+              let series = active.imageView()?.seriesObj() as AnyObject? else { return colors }
+        colors.setObject(SeriesListIdentification.color(for: active), forKey: series)
         return colors
     }
 
-    @objc(horosSeriesWindowNumbers)
-    class func horosSeriesWindowNumbers() -> NSMapTable<AnyObject, AnyObject>! {
-        let numbers = NSMapTable<AnyObject, AnyObject>.strongToStrongObjects()
-        guard SeriesListIdentification.showsNumbers(in: processGraph.preferences) else { return numbers }
-        for (series, viewer) in viewerRegistry.displayedSeriesInColourOrder() {
-            numbers.setObject(NSNumber(value: ViewerWindowColors.number(for: viewer)), forKey: series)
+    /// Each displayed series with the colour of its study: the colour of its
+    /// number in the series lists.
+    @objc(horosSeriesOpenColors)
+    class func horosSeriesOpenColors() -> NSMapTable<AnyObject, AnyObject>! {
+        let colors = NSMapTable<AnyObject, AnyObject>.strongToStrongObjects()
+        for (series, viewer) in viewerRegistry.displayedSeries() {
+            colors.setObject(SeriesListIdentification.color(for: viewer), forKey: series)
         }
-        return numbers
+        return colors
     }
 
     /// The colours of the studies, in the order they are given out

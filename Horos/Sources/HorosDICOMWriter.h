@@ -6,7 +6,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// to assemble a DCMObject and let the DCM Framework write it. A DCMObject
 /// itself is written by the DCMTK adapter (IsiXDCMTKObjectWriter).
 ///
-/// Attributes are named the way IsiXDICOMAttributeTag names them ("PatientsName",
+/// Attributes are named the way DCMAttributeTag names them ("PatientsName",
 /// "SamplesperPixel") and resolved through the host's DCMTK dictionaries.
 /// Values are NSString, NSNumber or DCMCalendarDate, formatted for the
 /// element's VR; an empty array writes an empty element. Text is written in

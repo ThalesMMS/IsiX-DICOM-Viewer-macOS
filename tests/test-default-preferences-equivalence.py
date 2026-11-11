@@ -17,7 +17,8 @@ revision. Both probes run beside copies of the application's colour tables and
 default annotations, which they look up in their main bundle, and with a
 super-sampling above the default in their argument domain, so that neither
 writes one into its preferences. A key the application dropped on purpose
-since that revision (DROPPED, with its reason) is taken out of the reference.
+since that revision (DROPPED, with its reason) is taken out of the reference,
+and one it added since (ADDED, with its reason) out of what it registers.
 
     python3 tests/test-default-preferences-equivalence.py [--reference REV]
 """
@@ -45,6 +46,15 @@ ARGUMENTS = ['-superSampling', '9']
 # since, with the reason. They are taken out of the reference before comparing.
 DROPPED = {
     'dontDeleteStudiesIfInAlbum': 'the automatic cleanup never read it: studies in an album are always kept',
+    'SeriesListIdentificationMode': 'the series are identified in one way now: the study by its colour, the series by its number',
+}
+
+# Keys the application registers that DefaultsOsiriX.m never had, with the
+# feature that added them. They are taken out of what it registers before comparing.
+ADDED = {
+    'ModalityWorklistRefreshMinutes': 'the Modality Worklist window, which that revision did not have',
+    'FirstClickOnlyActivatesViewer': 'the choice of whether the click that activates a viewer also uses the tool, made since',
+    'TwoClickLengthMeasurement': 'the choice of whether a click of the Length tool places an end of a measure, made since',
 }
 
 parser = argparse.ArgumentParser()
@@ -153,7 +163,7 @@ with tempfile.TemporaryDirectory(prefix='horos-default-preferences-') as name:
                          str(old / 'standins.m'), str(old / 'dump.m'), *frameworks, '-o', str(probe)])
         reference_xml = run([str(probe), *ARGUMENTS], bin)
         for key in DROPPED:
-            reference_xml = re.sub(r'\n\t<key>%s</key>\n\t<(?:true|false)/>' % re.escape(key), '', reference_xml)
+            reference_xml = re.sub(r'\n\t<key>%s</key>\n\t(?:<(?:true|false)/>|<integer>-?\d+</integer>)' % re.escape(key), '', reference_xml)
         references[label] = reference_xml
 
     modules = work / 'modules'
@@ -165,6 +175,8 @@ with tempfile.TemporaryDirectory(prefix='horos-default-preferences-') as name:
     failed = False
     for label, flags, viewer, store in VARIANTS:
         current = run([str(swift_probe), viewer, store, *ARGUMENTS], bin)
+        for key in ADDED:
+            current = re.sub(r'\n\t<key>%s</key>\n\t(?:<string>[^<]*</string>|<(?:true|false)/>)' % re.escape(key), '', current)
         expected = references[label]
         keys = expected.count('\n\t<key>')
         if current != expected:

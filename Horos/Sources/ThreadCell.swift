@@ -284,10 +284,13 @@ public final class ThreadCell: NSTextFieldCell {
                      context: (args.object(at: 3) as! NSValue).pointerValue)
     }
 
-    /// The row of the thread in the activity table, as
-    /// `[self.manager.threads indexOfObject:self.thread]` was: 0 without a
-    /// manager, NSNotFound without a thread.
+    /// The row of the thread in the activity table: the one its list gives
+    /// this cell, which is not the thread's place among the manager's threads
+    /// once the retrieves waiting in line have been put in the line's order.
+    /// Outside that list, as `[self.manager.threads indexOfObject:self.thread]`
+    /// was: 0 without a manager, NSNotFound without a thread.
     private func rowOfThread() -> Int {
+        if let row = (self.view?.delegate as? BrowserActivityHelper)?.row(of: self) { return row }
         guard let threads = manager?.threads() else { return 0 }
         guard let thread = self.thread else { return NSNotFound }
         return threads.index(of: thread)

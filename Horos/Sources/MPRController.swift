@@ -501,6 +501,9 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         return pixListStorage[Int(_curMovieIndex)].object
     }
 
+    /// The slices of the series fused over the MPR, or nil; compared by identity.
+    func horosMPRFusedPixList() -> AnyObject? { fusedViewer2D?.pixList() }
+
     /// volumeDataStorage[curMovieIndex].
     @objc(horosMPRCurrentVolumeData)
     func horosMPRCurrentVolumeData() -> NSData? {
@@ -747,6 +750,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
         nc.addObserver(self, selector: #selector(CloseViewerNotification(_:)), name: NSNotification.Name.OsirixCloseViewer, object: nil)
         nc.addObserver(self, selector: #selector(changeWLWW(_:)), name: NSNotification.Name.OsirixChangeWLWW, object: nil)
+        nc.addObserver(self, selector: #selector(horosMPRVolumeDataChanged(_:)), name: NSNotification.Name.OsirixUpdateVolumeData, object: nil)
 
         // Sync item: the state of the 2D synchronization, and the moves of the 2D viewers.
         nc.addObserver(self, selector: #selector(syncStateChanged(_:)), name: NSNotification.Name.OsirixSyncSeries, object: nil)
@@ -1177,6 +1181,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
     @objc(CloseViewerNotification:)
     private dynamic func CloseViewerNotification(_ note: Notification!) {
+        if PreviousSeriesHold.window(self, keepsSeriesReleasedBy: note) { return }
         if (note?.object as AnyObject?) === viewer2D || (note?.object as AnyObject?) === fusedViewer2D {
             self.offFullScreen()
             self.window?.close()

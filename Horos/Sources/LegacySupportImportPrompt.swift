@@ -13,12 +13,15 @@ import IsiXPluginLoading
 import IsiXPreferences
 import IsiXStorage
 
-/// Asks the user, at launch, whether to import what earlier versions kept in
-/// `Application Support/Horos`, and says what could not be imported.
+/// Imports, at launch, what earlier versions kept in `Application Support/Horos`,
+/// and says what could not be imported. Asks before copying plugins.
 ///
-/// Horos uses that folder too, so its contents are never assumed to be this
-/// app's: nothing is copied before the user chooses Import, and Don't Import
-/// is remembered. The copying, checking and recording are `LegacySupportImport`'s.
+/// Horos uses that folder too, and two applications writing the same accounts
+/// and pages is what the import ends, so it is not left to a question: the
+/// items are copied as soon as they are found. That is safe to do unasked
+/// because the import only reads the Horos folder and replaces nothing already
+/// in the new one. A Don't Import recorded by an earlier version is kept.
+/// The copying, checking and recording are `LegacySupportImport`'s.
 /// This runs before the Web Portal opens its accounts, so that it opens the
 /// imported ones. The App Store build keeps its own folder in its container and
 /// imports nothing.
@@ -63,7 +66,7 @@ enum LegacySupportImportPrompt {
                                          defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
     }
 
-    static func offerIfNeeded() {
+    static func importIfNeeded() {
         #if !MACAPPSTORE
         // A configured accounts database is the Web Portal's, wherever it is.
         let configured = !(PreferencesSource.process.preferences[DatabasePreferences.webPortalDatabasePath] ?? "").isEmpty
@@ -72,29 +75,11 @@ enum LegacySupportImportPrompt {
                                             items: LegacySupportImport.Item.standard(includingAccounts: !configured))
         guard !migration.isSettled else { return }
         let survey = migration.survey()
-        let pending = survey.filter { if case .pending = $0.status { return true } else { return false } }
-        let conflicts = survey.filter { $0.status == .conflict }
-        guard !pending.isEmpty || !conflicts.isEmpty else { return }
+        let pending = survey.contains { if case .pending = $0.status { return true } else { return false } }
+        guard pending || survey.contains(where: { $0.status == .conflict }) else { return }
 
         var results = survey
-        if !pending.isEmpty {
-            let list = survey.filter { $0.status == .pending || $0.status == .conflict }.map { entry in
-                "• " + (entry.status == .conflict
-                        ? String(format: NSLocalizedString("%@ (already in the new folder, which is kept)", comment: ""), title(of: entry.item))
-                        : described(entry, of: migration))
-            }.joined(separator: "\n")
-            let message = String(format: NSLocalizedString("Earlier versions of IsiX DICOM Viewer kept these items in %@, a folder that Horos also uses:\n\n%@\n\nImporting copies them to %@. Nothing in the Horos folder is changed, and nothing already in the new folder is replaced.", comment: ""),
-                                 abbreviated(migration.source), list, abbreviated(migration.destination))
-            let answer = HorosAlertPanel.runInformational(title: NSLocalizedString("Import from the Horos folder?", comment: ""),
-                                                          message: message,
-                                                          defaultButton: NSLocalizedString("Import", comment: ""),
-                                                          alternateButton: NSLocalizedString("Not Now", comment: ""),
-                                                          otherButton: NSLocalizedString("Don't Import", comment: ""))
-            if answer == HorosAlertPanel.otherResponse {
-                do { try migration.decline() } catch { NSLog("---- Import from the Horos folder: could not record the choice: %@", error.localizedDescription as NSString) }
-                return
-            }
-            guard answer == HorosAlertPanel.defaultResponse else { return }
+        if pending {
             results = migration.run()
             for entry in results {
                 NSLog("---- Import from the Horos folder: %@ %@", entry.item.name as NSString, String(describing: entry.status) as NSString)
@@ -134,16 +119,6 @@ enum LegacySupportImportPrompt {
         case .weasis: return NSLocalizedString("Weasis customization", comment: "")
         default: return item.name
         }
-    }
-
-    /// An item's title, and where it is copied from when that is not the
-    /// folder the message names.
-    private static func described(_ entry: LegacySupportImport.Entry, of migration: LegacySupportImport) -> String {
-        guard entry.source.deletingLastPathComponent().standardizedFileURL != migration.source.standardizedFileURL else {
-            return title(of: entry.item)
-        }
-        return String(format: NSLocalizedString("%@ (from %@)", comment: "An item to import and the folder it comes from"),
-                      title(of: entry.item), abbreviated(entry.source.deletingLastPathComponent()))
     }
 
     private static func abbreviated(_ url: URL) -> String {

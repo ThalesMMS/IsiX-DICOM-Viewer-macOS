@@ -18,7 +18,7 @@ import IsiXPreferences
 /// Windows code page names some equipment writes instead. A value with several
 /// terms gives one encoding per term, ten at most, the first being the one the
 /// text starts in.
-@objc(IsiXDICOMCharacterSet)
+@objc(DCMCharacterSet)
 public final class DICOMCharacterSet: NSObject, NSCopying {
     /// The value as the file states it.
     @objc public let characterSet: String
@@ -145,7 +145,7 @@ public final class DICOMCharacterSet: NSObject, NSCopying {
             if (term as NSString).length < 50 {
                 let terms = term.components(separatedBy: "\\")
                 if terms.count > 1 {
-                    NSLog("**** error: multiple encoding in +[IsiXDICOMCharacterSet encodingForDICOMCharacterSet:] : %@", term)
+                    NSLog("**** error: multiple encoding in +[DCMCharacterSet encodingForDICOMCharacterSet:] : %@", term)
                     return encoding(forDICOMCharacterSet: terms[0])
                 }
             }
@@ -165,7 +165,7 @@ public final class DICOMCharacterSet: NSObject, NSCopying {
         if length > 0 {
             fromLength = Int(length)
         } else {
-            NSLog("***** warning IsiXDICOMCharacterSet stringWithBytes, length == 0, use C String length")
+            NSLog("***** warning DCMCharacterSet stringWithBytes, length == 0, use C String length")
             fromLength = strlen(bytes)
         }
         let result = NSMutableString()

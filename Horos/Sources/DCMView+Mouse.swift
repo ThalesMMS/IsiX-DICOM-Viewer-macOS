@@ -57,13 +57,13 @@ extension DCMView {
 
     // MARK: - Mouse buttons
 
-    /// A ROI or measuring tool: within this application, the first click in a
-    /// viewer that is not the key window places its first point, as in the key
-    /// window, so two viewers side by side are measured in turn. Coming from
-    /// another application, the click only brings the window forward.
+    /// The first click in a viewer that is not the key window only activates
+    /// it, as Settings > Viewers says by default. With that choice off, a ROI
+    /// or measuring tool places its first point within this application, and
+    /// coming from another application the click only brings the window forward.
     @objc(acceptsFirstMouse:)
     public override dynamic func acceptsFirstMouse(for theEvent: NSEvent?) -> Bool {
-        return ViewInput.acceptsFirstMouse(tool: self.horos_currentTool.rawValue, applicationIsActive: NSApp.isActive)
+        return ViewInput.acceptsFirstMouse(tool: self.horos_currentTool.rawValue, applicationIsActive: NSApp.isActive, onlyActivates: PreferencesSource.process.preferences[ViewerPreferences.firstClickOnlyActivatesViewer])
     }
 
     // Event/window association routes local and remotely delivered input without

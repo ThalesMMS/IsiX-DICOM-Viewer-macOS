@@ -364,7 +364,6 @@ with tempfile.TemporaryDirectory(prefix='horos-modern-controls-') as tmp:
     build_module('IsiXImaging', modules)
     build_module('IsiXDICOMFile', modules, ['-I', str(modules)])
     (tmp/'Dates.h').write_text('#import <Foundation/Foundation.h>\n#import "IsiXDICOMFile-Swift.h"\n'
-                               '@compatibility_alias DCMCalendarDate IsiXDICOMCalendarDate;\n'
                                'NSTimeInterval HorosSUVDateInterval(id value, NSDate *acquisition);\n' +
                                ('NSUInteger HorosSUVValidate(id form, NSDate *acquisition);\n' if suv_objc else '') +
                                ('NSDate *HorosSUVLoadedDate(NSString *date, NSString *radio, NSString *time, BOOL injection);\n' if pix_objc else

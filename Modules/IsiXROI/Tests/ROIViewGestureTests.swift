@@ -40,8 +40,16 @@ struct TwoClickLengthPlacementTests {
         let a = endpoint(2, 3, image: 0, reference: "a"), b = endpoint(2, 3, image: 4, reference: "b")
         #expect(Placement(first: nil).step(at: a, viewDistance: distance) == .first(a, replacing: false))
         #expect(Placement(first: a).step(at: b, viewDistance: distance) == .measure(from: a, to: b))
-        // A slab keeps the first point.
-        #expect(Placement.waitsForThinSlices(stack: 3) && Placement.waitsForThinSlices(stack: 2) && !Placement.waitsForThinSlices(stack: 1))
+
+        // A slab takes both clicks on the image it shows; a click on another
+        // image of it waits, and its point is no end of a length in depth.
+        var slabA = endpoint(10, 10), slabB = endpoint(40, 10), slabOther = endpoint(40, 10, image: 4, reference: "slice 4")
+        slabA.onSlab = true; slabB.onSlab = true; slabOther.onSlab = true
+        #expect(Placement(first: nil).step(at: slabA, viewDistance: distance) == .first(slabA, replacing: false))
+        #expect(Placement(first: slabA).step(at: slabB, viewDistance: distance) == .drag(from: slabA.imagePoint, to: slabB.imagePoint))
+        #expect(Placement(first: slabA).step(at: slabOther, viewDistance: distance) == .needsThinSlices)
+        #expect(Placement(first: a).step(at: slabOther, viewDistance: distance) == .needsThinSlices)
+        #expect(Placement(first: slabA).step(at: b, viewDistance: distance) == .first(b, replacing: true))
     }
 
     @Test func twoClicksOnOneImageAreTheDragBetweenThem() {

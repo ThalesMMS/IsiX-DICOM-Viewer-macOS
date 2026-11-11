@@ -339,8 +339,14 @@ public class HorosCellSlider: NSSlider {
     /// The toolbar panel is never the key window; the first click must act.
     public override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
+    /// True while the mouse drags the knob, for an action that needs to tell
+    /// the user's hand from a value set by code.
+    @objc public private(set) var isTrackingMouse = false
+
     public override func mouseDown(with event: NSEvent) {
         guard isEnabled, let window else { return }
+        isTrackingMouse = true
+        defer { isTrackingMouse = false }
         apply(event: event)
         var finished = false
         while !finished {

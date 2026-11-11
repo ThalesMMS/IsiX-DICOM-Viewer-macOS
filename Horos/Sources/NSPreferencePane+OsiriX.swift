@@ -47,13 +47,8 @@ import SecurityInterface
 @MainActor
 public extension NSPreferencePane {
 
-    /// Whether the preferences window's lock is open (or authentication is off).
-    @objc func isUnlocked() -> Bool {
-        // mainView is declared nonnull but is nil until the pane has a view.
-        let window = (value(forKey: "mainView") as? NSView)?.window
-        return !PreferencesSource.process.preferences[ApplicationPreferences.authentication]
-            || (window?.windowController as? PreferencesWindowController)?.authView?.authorizationState() == SFAuthorizationViewUnlockedState
-    }
+    /// Nothing locks the preferences any more; kept for old preference bundles.
+    @objc func isUnlocked() -> Bool { true }
 
     /// -isUnlocked as an NSNumber, for bindings.
     @objc func editable() -> NSNumber {

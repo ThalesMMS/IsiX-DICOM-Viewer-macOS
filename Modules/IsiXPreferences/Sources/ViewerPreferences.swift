@@ -81,6 +81,10 @@ public enum ViewerPreferences {
     public static let displayCrossReferenceLines = PreferenceKey<Bool>("DisplayCrossReferenceLines", registered: "1")
     public static let displayDICOMOverlays = PreferenceKey<Bool>("DisplayDICOMOverlays", registered: "1")
     public static let emptyNameForNewROIs = PreferenceKey<Bool>("EmptyNameForNewROIs", registered: "0")
+    /// Whether the click that makes a viewer the key window does only that.
+    /// On, a viewer clicked to work in it starts no measure and changes no
+    /// window level; off, the tool takes that click, as before the choice.
+    public static let firstClickOnlyActivatesViewer = PreferenceKey<Bool>("FirstClickOnlyActivatesViewer", registered: true)
     public static let fontName = PreferenceKey<String?>("FONTNAME", registered: "Geneva")
     public static let fontSize = PreferenceKey<Float>("FONTSIZE", registered: "14.0")
     /// 0: ask (HorosGantryTiltPolicy).
@@ -183,7 +187,6 @@ public enum ViewerPreferences {
     public static let scrollThroughSeriesForOT = PreferenceKey<Bool>("scrollThroughSeriesForOT", registered: "1")
     public static let scrollThroughSeriesForRF = PreferenceKey<Bool>("scrollThroughSeriesForRF", registered: "1")
     public static let selectWindowScrollWheel = PreferenceKey<Bool>("SelectWindowScrollWheel", registered: "1")
-    public static let seriesListIdentificationMode = PreferenceKey<Int>("SeriesListIdentificationMode", registered: 0)
     public static let seriesListVisible = PreferenceKey<Bool>("SeriesListVisible", registered: "1")
     /// "Previous" on the viewers of an older study of the patient: HorosPreviousStudyMark.
     public static let showPreviousExamLabel = PreferenceKey<Bool>("ShowPreviousExamLabel", registered: true)
@@ -203,6 +206,9 @@ public enum ViewerPreferences {
     public static let toolPaletteSelectionStyle = PreferenceKey<Int>("ToolPaletteSelectionStyle", registered: "0")
     public static let transitionEffect = PreferenceKey<Int>("TRANSITIONEFFECT", registered: "0")
     public static let transitionType = PreferenceKey<Int>("TRANSITIONTYPE", registered: "0")
+    /// On, a click of the Length tool places an end of a measure, and the
+    /// next click the other; off, the tool measures only where it is dragged.
+    public static let twoClickLengthMeasurement = PreferenceKey<Bool>("TwoClickLengthMeasurement", registered: true)
     public static let alwaysUsesToolbarPanel = PreferenceKey<Bool>("USEALWAYSTOOLBARPANEL2", registered: "1")
     public static let useFloatingThumbnailsList = PreferenceKey<Bool>("UseFloatingThumbnailsList", registered: "1")
     public static let useFrameofReferenceUID = PreferenceKey<Bool>("UseFrameofReferenceUID", registered: "1")
@@ -332,7 +338,7 @@ public enum ViewerPreferences {
         customImageAnnotations, default2DViewerSeriesName, defaultFrameRate, defaultLeftTool, defaultMiddleTool,
         defaultModeForNonVolumicSeries, defaultMovieRate, defaultPETFusion, defaultPETWindowLevel, defaultRightTool,
         displayCalciumScore, displayCobbAngle, displayCrossReferenceLines, displayDICOMOverlays, emptyNameForNewROIs,
-        fontName, fontSize, gantryTiltCorrectionPolicy, hangingProtocols, highDynamicRangePolicy, hotKeys,
+        firstClickOnlyActivatesViewer, fontName, fontSize, gantryTiltCorrectionPolicy, hangingProtocols, highDynamicRangePolicy, hotKeys,
         includeAllTiledViews, independentCRWLWW, keepStudiesTogetherOnSameScreen, labelFONTNAME, labelFONTSIZE,
         listPODComparativesIn2DViewer, loopScrollWheel, magnifyingLens, magnifyingLensInCorner,
         magnifyingLensWhileMeasuring, maximumThirtyTwoBitViewers, maximumWindowSize, minimumTitledGantryTolerance,
@@ -351,11 +357,11 @@ public enum ViewerPreferences {
         roiThickness, sameStudy, savesROIs, scaleToFitOnOpen, screenCaptureSmartCropping, scrollWheelReversed,
         scrollThroughSeries, scrollThroughSeriesForCR, scrollThroughSeriesForDR, scrollThroughSeriesForDX,
         scrollThroughSeriesForMG, scrollThroughSeriesForOT, scrollThroughSeriesForRF, selectWindowScrollWheel,
-        seriesListIdentificationMode, seriesListVisible, showPreviousExamLabel, showScrollPositionPreview,
+        seriesListVisible, showPreviousExamLabel, showScrollPositionPreview,
         softwareInterpolation, softwareInterpolationMaximum, splineForROI, squareWindowForPrinting, stackThickness,
         strechWindows, suvConversion, tileWindowsOrderByStudyDate, reversesTileWindowsOrderByStudyDate,
         usesDatabaseScreenLast, toolPaletteSelectionStyle, transitionEffect,
-        transitionType, alwaysUsesToolbarPanel, useFloatingThumbnailsList, useFrameofReferenceUID, useShutter,
+        transitionType, twoClickLengthMeasurement, alwaysUsesToolbarPanel, useFloatingThumbnailsList, useFrameofReferenceUID, useShutter,
         useVOILUT, viewerWindowSize, zoomWithHorizonScroll,
         annotationsCustomHideROIs, annotationsCustomHideColorBar, annotationsCustomHideScaleRuler,
         annotationsCustomHideReferenceLines, annotationsCustomHideOrientation, annotationsCustomHidePatientName,

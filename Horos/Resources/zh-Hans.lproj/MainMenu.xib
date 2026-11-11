@@ -74,6 +74,12 @@
                                     <action selector="showDatabase:" target="898" id="1030"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="横向历史面板(下次启动时)" id="hzh-his-001">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <binding destination="12279" name="value" keyPath="values.horizontalHistory" id="hzh-bnd-001"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="显示/隐藏相簿与来源侧栏" id="14591">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
@@ -231,6 +237,12 @@
                                         <menuItem title="将图像和 PDF 导入所选检查…" id="Isp-im-Itm">
                                             <connections>
                                                 <action selector="importImagesAndPDFsIntoSelectedStudy:" target="Isp-im-Obj" id="Isp-im-Act"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="Lgc-im-Sep"/>
+                                        <menuItem title="从 Horos 或 OsiriX 导入检查…" id="Lgc-im-Itm">
+                                            <connections>
+                                                <action selector="importStudiesFromEarlierApplication:" target="Isp-im-Obj" id="Lgc-im-Act"/>
                                             </connections>
                                         </menuItem>
                                     </items>

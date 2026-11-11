@@ -135,9 +135,13 @@ public enum ViewInput {
     /// click in a viewer that is not the key window when the application is
     /// active, so two viewers side by side are measured in turn; coming from
     /// another application, the click only brings the window forward. The
-    /// other tools always take it.
-    public static func acceptsFirstMouse(tool: Int16, applicationIsActive: Bool) -> Bool {
-        tool >= 5 ? applicationIsActive : true
+    /// other tools always take it. With `onlyActivates` (Settings > Viewers)
+    /// no tool does: the click makes the viewer the key window and nothing
+    /// else, for those who click a viewer to work in it and found a measure
+    /// started or the window level changed.
+    public static func acceptsFirstMouse(tool: Int16, applicationIsActive: Bool, onlyActivates: Bool) -> Bool {
+        if onlyActivates { return false }
+        return tool >= 5 ? applicationIsActive : true
     }
 
     /// The cursors DCMView shows.

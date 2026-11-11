@@ -249,6 +249,7 @@ extension BrowserController {
     func outlineView(_ outlineView: NSOutlineView!, setObjectValue object: Any!, for tableColumn: NSTableColumn!, byItem item: Any!) {
         if isDistantRow(item) { return }
         if self.database?.isReadOnly ?? false { return }
+        if StudyStates.openEditorIfChosen(object, column: tableColumn) { return }
 
         setDatabaseValue(object, item: item, forKey: tableColumn?.identifier.rawValue)
     }

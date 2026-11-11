@@ -77,14 +77,13 @@ WRITER_BRIDGE = r'''
 
 # The former DCM.framework's names, for drivers and reference sources written
 # against it: its umbrella and value type headers, each the dataset model of
-# the DCMTK adapter, with the IsiXDICOMFile classes under the names the
+# the DCMTK adapter, with the IsiXDICOMFile classes, which keep the names the
 # framework gave them (same selectors).
-FORMER_ALIASES = {'DCMAttributeTag': 'IsiXDICOMAttributeTag', 'DCMCalendarDate': 'IsiXDICOMCalendarDate',
-                  'DCMAbstractSyntaxUID': 'IsiXDICOMSOPClass', 'DCMCharacterSet': 'IsiXDICOMCharacterSet',
-                  'DCMTagDictionary': 'IsiXDICOMTagDictionary', 'DCMTagForNameDictionary': 'IsiXDICOMTagDictionary'}
+FORMER_VALUE_TYPES = ['DCMAttributeTag', 'DCMCalendarDate', 'DCMAbstractSyntaxUID', 'DCMCharacterSet', 'DCMTagDictionary',
+                      'DCMTagForNameDictionary']
 UIDS = 'Horos/Sources/Adapters/DCMTK/DCMUIDs.h'
 FORMER_HEADERS = ['DCM', 'DCMObject', 'DCMAttribute', 'DCMSequenceAttribute', 'DCMPixelDataAttribute',
-                  'DCMTransferSyntax', 'DCMEncapsulatedPDF', *FORMER_ALIASES]
+                  'DCMTransferSyntax', 'DCMEncapsulatedPDF', *FORMER_VALUE_TYPES]
 
 
 def former_names(folder, model_headers=True):
@@ -96,11 +95,10 @@ def former_names(folder, model_headers=True):
     folder = Path(folder)
     (folder / 'DCM').mkdir(parents=True, exist_ok=True)
     umbrella = folder / 'DCMFormerNames.h'
-    umbrella.write_text('#import "DCMModel.h"\n#import <Accelerate/Accelerate.h>\n'
-                        + ''.join('@compatibility_alias %s %s;\n' % pair for pair in FORMER_ALIASES.items()))
+    umbrella.write_text('#import "DCMModel.h"\n#import <Accelerate/Accelerate.h>\n')
     for name in FORMER_HEADERS:
         (folder / 'DCM' / (name + '.h')).write_text('#import "DCMFormerNames.h"\n')
-        if name in FORMER_ALIASES or name == 'DCM' or model_headers:
+        if name in FORMER_VALUE_TYPES or name == 'DCM' or model_headers:
             (folder / (name + '.h')).write_text('#import "DCMFormerNames.h"\n')
     if model_headers:
         # The framework's table of UID constants, which nothing has replaced:

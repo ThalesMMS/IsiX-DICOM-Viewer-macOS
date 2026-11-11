@@ -163,19 +163,9 @@ extension SeriesListPresenter {
         return visible
     }
 
-    /// A preference the viewer observes changed: the identification of the
-    /// series rebuilds the list, the menu and the views; the visibility of a
-    /// docked list passes to every viewer.
+    /// A preference the viewer observes changed: the visibility of a docked
+    /// list passes to every viewer.
     func preferenceChanged(_ keyPath: String?, newValue: Bool) {
-        if viewerSameString(keyPath, SeriesListIdentification.defaultsKey) {
-            viewer.setWindowTitle(viewer)
-            viewer.buildMatrixPreview(false)
-            viewer.horos_needsToBuildSeriesPopupMenu = true
-            for view in imageViews() {
-                view.needsDisplay = true
-            }
-            return
-        }
         if isFloating {
             return
         }
@@ -389,19 +379,26 @@ extension SeriesListPresenter {
         }
     }
 
-    /// The frame of a thumbnail cell in the colour of the window that shows its
-    /// series, when the list identifies series by colours.
+    /// The frame of a thumbnail cell: the colour of the study of the active
+    /// window, when that window shows its series. A reused cell loses the
+    /// number it had.
     private func setFrame(_ cell: NSCell?, _ color: NSColor?) {
         if let cell = cell as? ThumbnailCell {
-            cell.frameColor = SeriesListIdentification.showsColors(in: preferences) ? color : nil
-            cell.windowNumber = 0
+            cell.frameColor = color
+            cell.seriesNumber = 0
+            cell.numberColor = nil
         }
     }
 
-    /// The number of the window that shows the series of a thumbnail cell.
-    private func setWindowNumber(_ cell: NSCell?, _ number: NSNumber?) {
+    /// The number of a series on its thumbnail: its place in its study, on the
+    /// colour of the study while a window shows the series. The windows that
+    /// show the series read the same number.
+    private func setNumber(_ cell: NSCell?, of series: DicomSeries, atPlace place: Int, in build: Build) {
+        let number = SeriesIdentity.number(atPlace: place)
+        SeriesListIdentification.setNumber(number, of: series)
         if let cell = cell as? ThumbnailCell {
-            cell.windowNumber = number?.intValue ?? 0
+            cell.seriesNumber = number
+            cell.numberColor = build.openColors?.object(forKey: series) as? NSColor
         }
     }
 
@@ -418,6 +415,33 @@ extension SeriesListPresenter {
         case .none:
             break
         }
+    }
+
+    /// The picture of a series' cell, kept scaled. A series with no thumbnail
+    /// yet shows an empty picture of the same size until SeriesListThumbnails
+    /// has decoded one, which sets it on the cells that show the series.
+    private func setSeriesPicture(_ cell: NSButtonCell?, of series: DicomSeries, image: DicomImage?, database: DicomDatabase?, inverted: Bool) {
+        let size = SeriesListPictureSize.of(fontSize: preferences[ViewerPreferences.databaseFontSize])
+        if size == .none { return }
+        let thumbnails = SeriesListThumbnails.shared
+        let picture = thumbnails.picture(of: series, size: size, inverted: inverted)
+        if picture == nil { thumbnails.make(series: series, image: image, database: database, storing: preferences[DatabasePreferences.storeThumbnailsInDB]) }
+        let shown = picture ?? thumbnails.emptyPicture(size: size)
+        cell?.image = shown
+        cell?.alternateImage = shown
+    }
+
+    /// Sets a thumbnail just made on the cells of this list that show `series`.
+    func thumbnailMade(for series: DicomSeries) {
+        guard isListVisible(), let cells = viewer.horos_previewMatrix?.cells else { return }
+        let size = SeriesListPictureSize.of(fontSize: preferences[ViewerPreferences.databaseFontSize])
+        guard let picture = SeriesListThumbnails.shared.picture(of: series, size: size, inverted: ViewerController.horos_DisplayUseInvertedPolarity()) else { return }
+        for case let cell as NSButtonCell in cells
+        where (cell.representedObject as? O2ViewerThumbnailsMatrixRepresentedObject)?.object as AnyObject? === series {
+            cell.image = picture
+            cell.alternateImage = picture
+        }
+        viewer.horos_previewMatrix?.needsDisplay = true
     }
 
     /// `attributes[key] = value`, raising as -[NSMutableDictionary setObject:forKey:]
@@ -608,9 +632,10 @@ extension SeriesListPresenter {
         /// The placeholders of each database study, by the study.
         let excluded: [ObjectIdentifier: [ExcludedSeries]]
         let model: SeriesListModel
-        /// The colour and the number of the window that shows each series.
+        /// The series the active window shows, with the colour of its study,
+        /// and every series a window shows, with the colour of its study.
         let windowColors: NSMapTable<AnyObject, AnyObject>?
-        let windowNumbers: NSMapTable<AnyObject, AnyObject>?
+        let openColors: NSMapTable<AnyObject, AnyObject>?
         /// The list shows: the thumbnails are drawn.
         let visible: Bool
         let inverted: Bool
@@ -634,8 +659,7 @@ extension SeriesListPresenter {
     /// study from a PACS becomes its database copy, a study's placeholders are
     /// those found for its database copy.
     private func model(of listed: SeriesListStudies, viewerStudy study: DicomStudy, excluded: [ObjectIdentifier: [ExcludedSeries]],
-                       countedCells: Int, windowColors: NSMapTable<AnyObject, AnyObject>?, windowNumbers: NSMapTable<AnyObject, AnyObject>?,
-                       showsSeriesColors: Bool) -> SeriesListModel {
+                       countedCells: Int, openColors: NSMapTable<AnyObject, AnyObject>?) -> SeriesListModel {
         let viewerSeries = viewer.seriesListViewerSeries(checkingNil: false)
         let fused = viewer.blending()?.currentSeries()
         var studies: [SeriesListModel.Study] = []
@@ -650,20 +674,23 @@ extension SeriesListPresenter {
             }
             let series = (listed.shownSeries.object(at: index) as? [DicomSeries] ?? []).map { each in
                 SeriesListModel.Series(isShown: viewerSeries.contains(each), isFused: fused === each,
-                                       isInAWindow: windowColors?.object(forKey: each) != nil || windowNumbers?.object(forKey: each) != nil)
+                                       isInAWindow: openColors?.object(forKey: each) != nil)
             }
             studies.append(SeriesListModel.Study(kind: kind, isViewerStudy: viewerSameString(Self.studyUID(shown), study.studyInstanceUID),
                                                  seriesHidden: (shown as? DicomStudy)?.isHidden() ?? false, series: series,
                                                  excludedCount: excluded[ObjectIdentifier(shown)]?.count ?? 0))
         }
-        return SeriesListModel(studies: studies, countedCells: countedCells, showsSeriesColors: showsSeriesColors)
+        return SeriesListModel(studies: studies, countedCells: countedCells)
     }
 
     /// Builds the series menu's first item and, when the list shows, the list:
     /// its cells from the model of the patient's studies, the comparatives
     /// button, then the views' colours and the series menu. While the window
     /// is not visible, checkBuilt() does it later: a faster opening.
-    func build(showSelected: Bool) {
+    ///
+    /// With `selectionOnly`, the cells of a list that shows the same series
+    /// only take their new colours and frames.
+    func build(showSelected: Bool, selectionOnly: Bool = false) {
         if viewer.window?.isVisible != true { return }
         if viewer.horos_windowWillClose { return }
 
@@ -692,7 +719,7 @@ extension SeriesListPresenter {
         let outcome = Outcome()
 
         if let e = HorosObjCException.caught({
-            fillCells(showSelected: showSelected, inverted: inverted, outcome: outcome)
+            fillCells(showSelected: showSelected, inverted: inverted, selectionOnly: selectionOnly, outcome: outcome)
         }) {
             _N2LogExceptionImpl(e, true, "-[ViewerController buildMatrixPreview:]")
         }
@@ -762,7 +789,7 @@ extension SeriesListPresenter {
     }
 
     /// The list's cells for the patient's studies, then its scrolling.
-    private func fillCells(showSelected: Bool, inverted: Bool, outcome: Outcome) {
+    private func fillCells(showSelected: Bool, inverted: Bool, selectionOnly: Bool, outcome: Outcome) {
         let browser = comparativeStudies
         let curImage = viewer.horos_fileList(at: 0)?.object(at: 0) as? DicomImage
         let matrix = viewer.horos_previewMatrix
@@ -785,12 +812,15 @@ extension SeriesListPresenter {
         let db = viewer.seriesMenuPresenter.database(of: study)
         let found = viewer.seriesListPatientStudies(of: study, database: db, selectingInBrowser: false)
 
+        // The series may have changed places since the last list: the numbers
+        // the windows read are given again, or found again by those that ask.
+        if !selectionOnly { SeriesListIdentification.forgetNumbers() }
+
         seriesListMakeRetrieveImage(side: seriesPopupPictureSize)
 
         if let found, found.count != 0 {
-            let showsSeriesColors = SeriesListIdentification.showsColors(in: preferences)
             let windowColors = ViewerController.horosSeriesWindowColors()
-            let windowNumbers = ViewerController.horosSeriesWindowNumbers()
+            let openColors = ViewerController.horosSeriesOpenColors()
             var excluded: [ObjectIdentifier: [ExcludedSeries]] = [:]
             var countedCells = 0
             let listed = viewer.seriesListStudies(found, viewerStudy: study, database: db) { local, children in
@@ -809,9 +839,12 @@ extension SeriesListPresenter {
             outcome.newerThanLoaded = listed.hasComparativesNewerThanLoaded
 
             let build = Build(browser: browser, database: db, viewerStudy: study, listed: listed, excluded: excluded,
-                              model: model(of: listed, viewerStudy: study, excluded: excluded, countedCells: countedCells,
-                                           windowColors: windowColors, windowNumbers: windowNumbers, showsSeriesColors: showsSeriesColors),
-                              windowColors: windowColors, windowNumbers: windowNumbers, visible: visible, inverted: inverted)
+                              model: model(of: listed, viewerStudy: study, excluded: excluded, countedCells: countedCells, openColors: openColors),
+                              windowColors: windowColors, openColors: openColors, visible: visible, inverted: inverted)
+
+            if selectionOnly, recolourCells(of: build) {
+                return
+            }
 
             matrix?.cellClass = ThumbnailCell.self
 
@@ -867,6 +900,63 @@ extension SeriesListPresenter {
         }
 
         matrix?.needsDisplay = true
+    }
+
+    /// The series a cell stands for, or its study.
+    private func listedObject(at index: Int) -> AnyObject? {
+        (cell(at: index)?.representedObject as? O2ViewerThumbnailsMatrixRepresentedObject)?.object as AnyObject?
+    }
+
+    /// Whether the cells stand, in order, for the studies and series of `build`.
+    private func cellsMatch(_ build: Build) -> Bool {
+        guard build.visible, viewer.horos_matrixPreviewBuilt, viewer.horos_previewMatrix?.cells.count == build.model.cellCount,
+              build.excluded.values.allSatisfy(\.isEmpty) else { return false }
+        var index = 0
+        for studyIndex in build.model.studies.indices {
+            guard listedObject(at: index) === build.listed.shown.object(at: studyIndex) as AnyObject else { return false }
+            index += 1
+            if build.model.studies[studyIndex].seriesHidden { continue }
+            for series in build.listed.shownSeries.object(at: studyIndex) as? [DicomSeries] ?? [] {
+                guard listedObject(at: index) === series else { return false }
+                index += 1
+            }
+        }
+        return index == build.model.cellCount
+    }
+
+    /// The colours and window frames of `build` on cells that already show its
+    /// series, without reading the images of the studies. False, with nothing
+    /// changed, when the cells stand for something else.
+    private func recolourCells(of build: Build) -> Bool {
+        guard cellsMatch(build) else { return false }
+        let model = build.model
+        var index = 0
+        for studyIndex in model.studies.indices {
+            let studyCell = cell(at: index)
+            studyCell?.backgroundColor = Self.color(of: model.background(of: .study(studyIndex)))
+            setFrame(studyCell, nil)
+            index += 1
+            let series = build.listed.shownSeries.object(at: studyIndex) as? [DicomSeries] ?? []
+            if model.studies[studyIndex].seriesHidden {
+                if let framing = model.framingSeries(ofStudy: studyIndex) {
+                    setFrame(studyCell, build.windowColors?.object(forKey: series[framing]) as? NSColor)
+                }
+                if let colour = model.colour(of: .study(studyIndex)) {
+                    studyCell?.backgroundColor = Self.color(of: colour)
+                }
+                continue
+            }
+            for (place, curSeries) in series.enumerated() {
+                let position = SeriesListModel.Cell.series(study: studyIndex, series: place)
+                let seriesCell = cell(at: index)
+                seriesCell?.backgroundColor = Self.color(of: model.colour(of: position) ?? model.background(of: position))
+                setFrame(seriesCell, build.windowColors?.object(forKey: curSeries) as? NSColor)
+                setNumber(seriesCell, of: curSeries, atPlace: place, in: build)
+                index += 1
+            }
+        }
+        viewer.horos_previewMatrix?.needsDisplay = true
+        return true
     }
 
     /// The cells of one shown study from `index` on: the study's, then its
@@ -934,7 +1024,6 @@ extension SeriesListPresenter {
             // of them in a window, and coloured when one is selected.
             if let framing = model.framingSeries(ofStudy: studyIndex) {
                 setFrame(cell, build.windowColors?.object(forKey: series[framing]) as? NSColor)
-                setWindowNumber(cell, build.windowNumbers?.object(forKey: series[framing]) as? NSNumber)
             }
             if let colour = model.colour(of: .study(studyIndex)) {
                 cell?.backgroundColor = Self.color(of: colour)
@@ -1074,19 +1163,14 @@ extension SeriesListPresenter {
         if let colour = build.model.colour(of: position) {
             cell?.backgroundColor = Self.color(of: colour)
         }
-        // Shown in a window: framed in that window's colour.
+        // Shown in the active window: framed in its study's colour. Numbered
+        // by its place in its study, whether a window shows it or not.
         setFrame(cell, build.windowColors?.object(forKey: curSeries) as? NSColor)
-        setWindowNumber(cell, build.windowNumbers?.object(forKey: curSeries) as? NSNumber)
+        if case .series(_, let place) = position { setNumber(cell, of: curSeries, atPlace: place, in: build) }
 
         if build.visible {
-            var img = viewer.seriesListThumbnail(of: curSeries, images: images.map { $0 as NSArray }, index: index,
-                                                 function: "-[ViewerController buildMatrixPreview:]")
-
-            if build.inverted {
-                img = img?.imageInverted()
-            }
-
-            setSizedPicture(cell, img)
+            setSeriesPicture(cell, of: curSeries, image: index < (images?.count ?? 0) ? images?[index] as? DicomImage : nil, database: build.database,
+                             inverted: build.inverted)
         }
     }
 

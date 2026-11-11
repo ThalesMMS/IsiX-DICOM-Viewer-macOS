@@ -138,6 +138,10 @@ private let afterChange = Date(timeIntervalSinceReferenceDate: 796_552_200)
         #expect(ArchivePasswordRule.needsPassword(afterStatus: 2) == false)
         #expect(ArchivePasswordRule.needsPasswordAgain(afterStatus: 2))
         #expect(ArchivePasswordRule.needsPasswordAgain(afterStatus: 9) == false)
+        #expect([2, 3, 9, 51].allSatisfy { ArchiveExpansionFailure(unzipStatus: $0) == .damaged })
+        #expect(ArchiveExpansionFailure(unzipStatus: 50) == .diskFull && ArchiveExpansionFailure(unzipStatus: 81) == .unsupportedMethod)
+        #expect([0, 1, 11].allSatisfy { ArchiveExpansionFailure(unzipStatus: $0) == .incomplete })
+        #expect(ArchiveExpansionFailure(unzipStatus: -1) == .other && ArchiveExpansionFailure(unzipStatus: 4) == .other)
     }
 
     @Test func copyOrLink() {

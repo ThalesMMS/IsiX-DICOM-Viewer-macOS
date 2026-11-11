@@ -19,7 +19,10 @@ the engine and checks, on the GPU:
 - an RGB volume's three channels are uploaded by the typed path and resliced
   back to their bytes;
 - the upload key (`isSameVolumeAs:`) tells the same buffer and placement from
-  another buffer with equal content and from another placement.
+  another buffer with equal content and from another placement;
+- an edit in the buffer itself keeps that key and leaves the texture as it
+  was, so only `volumeEdited` makes the next plane upload the new voxels, and
+  it drops the texture of the edited series alone.
 """
 import subprocess
 import sys
@@ -54,7 +57,7 @@ func scalar(_ owner: NSData?, w: Int = W, h: Int = H, d: Int = D, transform: [NS
 }
 
 @main struct Check {
-    static func main() throws {
+    @MainActor static func main() throws {
         guard MTLCreateSystemDefaultDevice() != nil else { exit(2) }
 
         // --- refusals at the conversion ------------------------------------
@@ -158,6 +161,33 @@ func scalar(_ owner: NSData?, w: Int = W, h: Int = H, d: Int = D, transform: [NS
             expect(floats == wanted, "RGB channel \(channel) is not its bytes")
         }
 
+        // --- voxels rewritten in the buffer the reslicer was uploaded from ---
+        let rewritable = NSMutableData(data: ramp() as Data)
+        let held = try scalar(rewritable)
+        let editedReslicer = try MPRReslicerBridge.make()
+        try editedReslicer.upload(held)
+        func editedPlane() throws -> [Float] {
+            let plane = try editedReslicer.reslice(origin: [0, 0, 2], orientation: [1, 0, 0, 0, 1, 0, 0, 0, 1].map { NSNumber(value: $0) },
+                                                   spacing: 1, width: W, height: H, thickness: 0, sampleStep: 1, projection: 1, background: -1)
+            return (plane as Data).withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+        }
+        let beforeEdit = try editedPlane()
+        let state = MPRMetalHostState()
+        let other = try scalar(ramp())
+        state.uploaded = held; state.colourUploaded = held; state.fusedUploaded = other
+        for value in 0..<(W * H) { rewritable.mutableBytes.assumingMemoryBound(to: Float.self)[2 * W * H + value] = 5000 }
+        expect(held.isSameVolume(as: state.uploaded), "an edit in place changed the upload key: nothing would need telling")
+        expect(try editedPlane() == beforeEdit, "the texture is not a copy of the buffer: the edit showed without an upload")
+        state.volumeEdited(primary: true, fused: false)
+        expect(state.uploaded == nil && state.colourUploaded == nil, "the edited volume is still taken for uploaded")
+        expect(state.fusedUploaded === other, "an edit of the viewer's series dropped the fused texture")
+        expect(!held.isSameVolume(as: state.uploaded), "the next plane would not upload the edited volume")
+        try editedReslicer.upload(held)
+        expect(try editedPlane().allSatisfy { $0 == 5000 }, "the plane after the upload does not show the edit")
+        state.uploaded = held
+        state.volumeEdited(primary: false, fused: true)
+        expect(state.fusedUploaded == nil && state.uploaded === held, "an edit of the fused series is not its own")
+
         if failures.isEmpty { print("ok") } else { failures.forEach { print("FAIL: " + $0) }; exit(1) }
     }
 }
@@ -182,7 +212,7 @@ def main():
             sys.stderr.write(result.stderr)
             return 1
     print('mpr host volume: refusals at the conversion with their reasons, a longer buffer cut without a copy, the owner kept '
-          'by the view and the engine until release, the same floats as the former upload, RGB channels, upload key')
+          'by the view and the engine until release, the same floats as the former upload, RGB channels, upload key, edits in place')
     return 0
 
 

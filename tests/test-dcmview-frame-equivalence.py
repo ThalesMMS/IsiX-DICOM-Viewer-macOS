@@ -146,9 +146,17 @@ NS_SWIFT_NAME(ViewerWindowColors)
 + (NSColor *)colorForViewer:(id)viewer NS_SWIFT_NAME(color(for:));
 @end
 
+// The Objective-C frame asked HorosViewerWindowColors for a window's colour,
+// whether the window was the active one or not, after asking whether colours
+// were shown. The frame now asks HorosSeriesListIdentification: the colour of
+// the window's study for the active window, the neutral one for the others.
+// Both answer the same colour here, so that the two frames still draw the same
+// pixels; which colour a window gets is tests/test-series-list-identification.py's.
 NS_SWIFT_NAME(SeriesListIdentification)
 @interface HorosSeriesListIdentification : NSObject
 + (BOOL)showsColorsIn:(NSUserDefaults *)defaults;
++ (NSColor *)colorForViewer:(id)viewer NS_SWIFT_NAME(color(for:));
+@property(class, readonly) NSColor *neutralColor;
 @end
 
 @interface OSIEnvironment : NSObject
@@ -306,6 +314,8 @@ void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf) { NSLog(
 @end
 @implementation HorosSeriesListIdentification
 + (BOOL)showsColorsIn:(NSUserDefaults *)defaults { return YES; }
++ (NSColor *)colorForViewer:(id)viewer { return [HorosViewerWindowColors colorForViewer:viewer]; }
++ (NSColor *)neutralColor { return [HorosViewerWindowColors colorForViewer:nil]; }
 @end
 
 @implementation DCMView

@@ -70,6 +70,8 @@ public final class VRPresenter: NSObject {
     private var depthValues: [Float]?
     private var imageTextures: [MTLTexture] = []
     private var imageCount = 0
+    private var volumePicture: MTLTexture?
+    private var showsVolumePicture = false
     private var meshBuffers: [ObjectIdentifier: (data: NSData, buffer: MTLBuffer)] = [:]
     private var meshTextures: [ObjectIdentifier: (data: NSData, texture: MTLTexture)] = [:]
     private var usedThisFrame = Set<ObjectIdentifier>()
@@ -298,6 +300,7 @@ public final class VRPresenter: NSObject {
         hasDepth = false
         depthValues = nil
         imageCount = 0
+        showsVolumePicture = false
         usedThisFrame.removeAll()
         background = MTLClearColorMake(red, green, blue, 1)
         return true
@@ -467,6 +470,23 @@ public final class VRPresenter: NSObject {
     /// Whether any opaque surface has drawn into this frame's depth.
     @objc public var hasGeometryDepth: Bool { hasDepth }
 
+    /// The texture a Metal composite render of this view writes in the format
+    /// `drawImage` samples, so the frame need not pass through the CPU. The
+    /// presenter's own, because the renderer can be shared with a preview:
+    /// `begin` waited for the frame that last read it. As large as VTK's
+    /// image, so that the quad reads it at the same coordinates.
+    public func volumePictureTarget(width: Int, height: Int) -> MTLTexture? {
+        if let volumePicture, volumePicture.width == width, volumePicture.height == height { return volumePicture }
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Unorm, width: width, height: height, mipmapped: false)
+        descriptor.usage = [.shaderRead, .shaderWrite]
+        descriptor.storageMode = .private
+        volumePicture = device.makeTexture(descriptor: descriptor)
+        return volumePicture
+    }
+
+    /// The next `drawImage` of this frame shows that texture, whatever VTK's image holds.
+    public func showVolumePicture() { showsVolumePicture = true }
+
     /// Draws a ray-cast image over the frame as VTK's display helper did:
     /// `pixels` is RGBA in 16-bit words, premultiplied, rows from the bottom,
     /// `memoryWidth` words × 4 a row, of which `usedWidth` × `usedHeight`
@@ -481,18 +501,24 @@ public final class VRPresenter: NSObject {
               viewportWidth > 0, viewportHeight > 0 else { return }
         let slot = imageCount
         imageCount += 1
-        var texture = slot < imageTextures.count ? imageTextures[slot] : nil
-        if texture == nil || texture!.width != memoryWidth || texture!.height != memoryHeight {
-            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Unorm, width: memoryWidth, height: memoryHeight, mipmapped: false)
-            descriptor.usage = [.shaderRead]
-            descriptor.storageMode = .shared
-            texture = device.makeTexture(descriptor: descriptor)
+        var texture: MTLTexture?
+        if slot == 0, showsVolumePicture, let volumePicture, volumePicture.width == memoryWidth, volumePicture.height == memoryHeight {
+            texture = volumePicture
+        } else {
+            texture = slot < imageTextures.count ? imageTextures[slot] : nil
+            if texture == nil || texture!.width != memoryWidth || texture!.height != memoryHeight {
+                let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Unorm, width: memoryWidth, height: memoryHeight, mipmapped: false)
+                descriptor.usage = [.shaderRead]
+                descriptor.storageMode = .shared
+                texture = device.makeTexture(descriptor: descriptor)
+                guard let texture else { return }
+                if slot < imageTextures.count { imageTextures[slot] = texture } else { imageTextures.append(texture) }
+            }
             guard let texture else { return }
-            if slot < imageTextures.count { imageTextures[slot] = texture } else { imageTextures.append(texture) }
+            texture.replace(region: MTLRegionMake2D(0, 0, usedWidth, usedHeight), mipmapLevel: 0,
+                            withBytes: pixels, bytesPerRow: memoryWidth * 8)
         }
         guard let texture else { return }
-        texture.replace(region: MTLRegionMake2D(0, 0, usedWidth, usedHeight), mipmapLevel: 0,
-                        withBytes: pixels, bytesPerRow: memoryWidth * 8)
         guard let encoder = pass() else { return }
         let offsetX = 0.5 / Float(memoryWidth), offsetY = 0.5 / Float(memoryHeight)
         let u0 = offsetX, u1 = Float(usedWidth) / Float(memoryWidth) - offsetX

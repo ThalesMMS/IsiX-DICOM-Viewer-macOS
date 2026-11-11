@@ -1165,7 +1165,7 @@ public final class DicomStudyTransformer: WebPortalProxyObjectTransformer {
             guard let stateText = study?.stateText?.int32Value, stateText != 0 else {
                 return nil
             }
-            return (BrowserController.statesArray() as NSArray).object(at: Int(stateText))
+            return StudyStates.name(ofStored: Int(stateText)) as NSString?
         }
 
         return super.value(forKey: key as String?, object: study, context: wpc)
@@ -1327,7 +1327,7 @@ public final class DicomSeriesTransformer: WebPortalProxyObjectTransformer {
 
         if key?.isEqual(to: "stateText") == true {
             if let stateText = series?.stateText?.int32Value, stateText != 0 {
-                return (BrowserController.statesArray() as NSArray).object(at: Int(stateText))
+                return StudyStates.name(ofStored: Int(stateText)) as NSString?
             }
             return nil
         }

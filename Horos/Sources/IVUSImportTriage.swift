@@ -118,9 +118,12 @@ public final class IVUSImportTriage: NSObject {
 
     @objc(assessPath:)
     public static func assessPath(_ path: String) -> IVUSImportAssessment {
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe),
-              hasDICOMPreamble(data),
-              let parsed = DICOMTriageMetadata.parse(data) else {
+        assess(DICOMTriageFile(path: path))
+    }
+
+    /// The assessment of a file another triage may also be reading.
+    static func assess(_ file: DICOMTriageFile) -> IVUSImportAssessment {
+        guard let data = file.data, hasDICOMPreamble(data), let parsed = file.parsed else {
             return IVUSImportAssessment(
                 detectedDICOM: false, appliesToFile: false,
                 sopClassUID: nil, modality: nil, manufacturer: nil,

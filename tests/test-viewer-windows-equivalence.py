@@ -3,8 +3,7 @@
 do what their Objective-C did.
 
 The register of the 2D viewers (+get2DViewers, +getDisplayed2DViewers, the
-front viewer, the displayed studies and series with their colours and
-numbers, +studyColors), the saved layout ("windows state"), the life of the
+front viewer, the displayed studies and series, +studyColors), the saved layout ("windows state"), the life of the
 window (loaded, titled, main, miniaturized, closed, +closeAllWindows, the wait
 windows), the tiling and frames of the windows (+newWindow:::,
 -SetWindowsTiling:, the zoom button, -setWindowFrame...) and the full screen
@@ -15,8 +14,7 @@ everything they produce:
 
 * registry: the viewers registered and displayed (closing and full screen
   windows left out), the front viewer of the key, main and ordered windows on
-  a screen or any, the studies and series shown, their window colours and
-  numbers, the study colours;
+  a screen or any, the studies and series shown, the study colours;
 * state: the property list saved into each study (as the XML written, the
   date left out), for whole and partial layouts of two patients, 4D frames of
   several series, raster series, flipped and SUV images, the sync settings,
@@ -61,6 +59,12 @@ import harness_defaults  # noqa: E402  the harness's preferences stay in its own
 ROOT = Path(__file__).resolve().parents[1]
 VC = 'Horos/Sources/ViewerController.m'
 MARK = '+ (NSMutableArray*) getDisplayed2DViewers'
+# What the Objective-C did and the application no longer does: a window took a
+# colour of its own as it loaded and gave it back as it closed. The series are
+# now told apart by study, number and active window
+# (tests/test-series-list-identification.py), and these records are left out.
+GONE = re.compile(r'(colorForViewer|releaseViewer) ')
+
 SWIFT_FILES = ['ViewerController+%s.swift' % name for name in
                ('ViewerRegistry', 'WindowsState', 'WindowLifecycle', 'WindowLayout', 'FullScreen')]
 # The register of the viewers (ViewerRegistry.swift) and the viewer's graph,
@@ -468,6 +472,8 @@ NS_SWIFT_NAME(SeriesListIdentification)
 + (BOOL) showsColorsIn:(NSUserDefaults*) defaults NS_SWIFT_NAME(showsColors(in:));
 + (BOOL) showsNumbersIn:(NSUserDefaults*) defaults NS_SWIFT_NAME(showsNumbers(in:));
 + (nonnull NSString*) windowLabelForNumber:(NSInteger) number NS_SWIFT_NAME(windowLabel(number:));
++ (nonnull NSColor*) colorForViewer:(id) viewer NS_SWIFT_NAME(color(for:));
++ (void) activeWindowChangedAmong:(NSArray*) viewers NS_SWIFT_NAME(activeWindowChanged(among:));
 @end
 
 NS_SWIFT_NAME(ToolbarPolicy)
@@ -979,6 +985,8 @@ static BrowserController *browser;
 + (BOOL) showsColorsIn:(NSUserDefaults*) defaults { return harnessShowsColors; }
 + (BOOL) showsNumbersIn:(NSUserDefaults*) defaults { return harnessShowsNumbers; }
 + (NSString*) windowLabelForNumber:(NSInteger) number { return [NSString stringWithFormat: @"#%ld", (long)number]; }
++ (NSColor*) colorForViewer:(id) viewer { return [NSColor colorWithDeviceWhite: [Name(viewer) length] / 10.0 alpha: 1]; }
++ (void) activeWindowChangedAmong:(NSArray*) viewers {}
 @end
 
 @implementation HorosToolbarPolicy
@@ -1198,20 +1206,6 @@ static void Registry(void) {
                 [ViewerController isFrontMost2DViewer: v2.window], [ViewerController isFrontMost2DViewer: nil]]);
     }
     [ViewerController clearFrontMost2DViewerCache];
-    for (int shows = 0; shows < 4; shows++) {
-        harnessShowsColors = shows & 1; harnessShowsNumbers = (shows >> 1) & 1;
-        NSMapTable *colors = [ViewerController horosSeriesWindowColors], *numbers = [ViewerController horosSeriesWindowNumbers];
-        NSMutableArray *parts = [NSMutableArray array];
-        for (id key in colors) [parts addObject: [NSString stringWithFormat: @"%@=%@", Name(key), [colors objectForKey: key]]];
-        for (id key in numbers) [parts addObject: [NSString stringWithFormat: @"%@#%@", Name(key), [numbers objectForKey: key]]];
-        [parts sortUsingSelector: @selector(compare:)];
-        Record([NSString stringWithFormat: @"colors %d numbers %d: %@ (%@ %@)", harnessShowsColors, harnessShowsNumbers, [parts componentsJoinedByString: @" "],
-                NSStringFromClass([colors class]), NSStringFromClass([numbers class])]);
-    }
-    // One displayed viewer: no colours.
-    for (ViewerController *v in @[v2, v3, v6]) v->windowWillClose = YES;
-    harnessShowsColors = YES;
-    Record([NSString stringWithFormat: @"one viewer: colors %lu", (unsigned long)[[ViewerController horosSeriesWindowColors] count]]);
     NSArray *colors = [ViewerController studyColors];
     Record([NSString stringWithFormat: @"study colours %lu same %d", (unsigned long)colors.count, colors == [ViewerController studyColors]]);
     for (NSColor *color in colors) {
@@ -1316,7 +1310,7 @@ static void Lifecycle(void) {
     // Titles.
     v1->windowWillClose = YES; [v1 setWindowTitle: nil]; v1->windowWillClose = NO;
     for (int c = 0; c < 6; c++) {
-        harnessShowsPatientName = c != 1; harnessShowsNumbers = c == 2;
+        harnessShowsPatientName = c != 1;
         [s1 setValue: c == 3 ? nil : [NSDate dateWithTimeIntervalSince1970: 0] forKey: @"dateOfBirth"];
         DCMPix *pix = v1->pixList[0][0];
         pix.generated = c == 4; pix.generatedName = @"MIP";
@@ -1760,7 +1754,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-windows-') as tmp:
             args.dump.mkdir(parents=True, exist_ok=True)
             for label, text in results.items():
                 (args.dump / ('%s-%s.txt' % (scenario, label))).write_text(text)
-        expected, got = results['reference'].splitlines(), results['current'].splitlines()
+        expected, got = ([line for line in results[side].splitlines() if not GONE.match(line)] for side in ('reference', 'current'))
         if expected == got:
             print('%s: %d records identical (%s against the Objective-C of %s)' % (scenario, len(expected), current_label, reference))
         else:

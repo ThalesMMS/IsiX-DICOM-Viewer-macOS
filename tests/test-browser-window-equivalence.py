@@ -778,10 +778,12 @@ members = '\n'.join([
     + between('        defaults.set(isSubviewHidden(horos_splitDrawer', '        defaults.set(outline?.columnState()', window_swift) + '    }',
 ])
 members = swift_common(members)
-# Import Images and PDFs into Selected Study… came after the Objective-C: the
-# list's menu adds it, among the commands of a writable database, through the
-# command object that validates it, which this comparison leaves out.
-NEW_STUDY_COMMANDS = '            DatabaseStudyCommands.addContextualItems(to: menu)\n'
+# Import Images and PDFs into Selected Study… and the Study State submenu came
+# after the Objective-C: the list's menu adds them, among the commands of a
+# writable database, through the objects that validate them, which this
+# comparison leaves out.
+NEW_STUDY_COMMANDS = ('            DatabaseStudyCommands.addContextualItems(to: menu)\n'
+                      '            StudyStates.addContextualItems(to: menu)\n')
 if members.count(NEW_STUDY_COMMANDS) != 1 or 'Convert to DICOM PDF' not in members.split(NEW_STUDY_COMMANDS)[0][-400:]:
     sys.exit('FAIL: the list menu no longer adds the study commands after Convert to DICOM PDF; this test needs a new look')
 members = members.replace(NEW_STUDY_COMMANDS, '')

@@ -298,6 +298,41 @@ static vtkMatrix4x4 *IsiXVTKVolumeMatrix(const float *cosines)
     });
 }
 
+/// The gantry tilt's text in the lower left corner, above the corner's own
+/// text when there is one: made, changed or removed so that it says `tilt`.
+static void IsiXVTKShowTilt(IsiXVTKVolumeViewObjects *o, NSString *tilt, BOOL corner)
+{
+    if (!tilt) {
+        if (o->textTilt) {
+            o->aRenderer->RemoveViewProp(o->textTilt);
+            o->textTilt->Delete();
+            o->textTilt = nullptr;
+        }
+        return;
+    }
+    if (o->textTilt) {
+        const char *shown = o->textTilt->GetInput();
+        if (!shown || strcmp(shown, [tilt UTF8String]) != 0) o->textTilt->SetInput( [tilt UTF8String]);
+        return;
+    }
+    o->textTilt = vtkTextActor::New();
+    o->textTilt->SetInput( [tilt UTF8String]);
+    o->textTilt->SetTextScaleModeToNone();
+    o->textTilt->GetPositionCoordinate()->SetCoordinateSystemToViewport();
+    o->textTilt->GetPositionCoordinate()->SetValue( 2., corner ? 20. : 2.);
+    o->textTilt->GetTextProperty()->SetShadow(true);
+    o->textTilt->GetTextProperty()->SetShadowOffset(1, 1);
+    o->aRenderer->AddViewProp(o->textTilt);
+}
+
+- (void)setTiltText:(NSString *)tilt corner:(BOOL)corner
+{
+    IsiXVTKVolumeViewObjects *o = _o;
+    // Before the texts are made there is nothing to change: they are made with the tilt of then.
+    if (!o->aRenderer || !o->textWLWW) return;
+    IsiXVTKShowTilt(o, tilt, corner);
+}
+
 - (BOOL)makeTextsWithWindowText:(const char *)windowText corner:(BOOL)corner tilt:(NSString *)tilt error:(NSError **)error
 {
     IsiXVTKVolumeViewObjects *o = _o;
@@ -327,16 +362,7 @@ static vtkMatrix4x4 *IsiXVTKVolumeMatrix(const float *cosines)
         }
 
         // A series corrected for gantry tilt says so in the lower left corner.
-        if (tilt) {
-            o->textTilt = vtkTextActor::New();
-            o->textTilt->SetInput( [tilt UTF8String]);
-            o->textTilt->SetTextScaleModeToNone();
-            o->textTilt->GetPositionCoordinate()->SetCoordinateSystemToViewport();
-            o->textTilt->GetPositionCoordinate()->SetValue( 2., corner ? 20. : 2.);
-            o->textTilt->GetTextProperty()->SetShadow(true);
-            o->textTilt->GetTextProperty()->SetShadowOffset(1, 1);
-            o->aRenderer->AddViewProp(o->textTilt);
-        }
+        IsiXVTKShowTilt(o, tilt, corner);
 
         for (long i = 0; i < 5; i++) {
             o->oText[ i] = vtkTextActor::New();

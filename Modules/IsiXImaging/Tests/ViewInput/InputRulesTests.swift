@@ -49,9 +49,12 @@ import Testing
     }
 
     @Test func firstMouseWaitsForTheApplicationWithAROITool() {
-        #expect(ViewInput.acceptsFirstMouse(tool: 4, applicationIsActive: false))
-        #expect(!ViewInput.acceptsFirstMouse(tool: 5, applicationIsActive: false))
-        #expect(ViewInput.acceptsFirstMouse(tool: 25, applicationIsActive: true))
+        #expect(ViewInput.acceptsFirstMouse(tool: 4, applicationIsActive: false, onlyActivates: false))
+        #expect(!ViewInput.acceptsFirstMouse(tool: 5, applicationIsActive: false, onlyActivates: false))
+        #expect(ViewInput.acceptsFirstMouse(tool: 25, applicationIsActive: true, onlyActivates: false))
+        // The click that only activates the viewer: no tool takes it.
+        #expect(!ViewInput.acceptsFirstMouse(tool: 5, applicationIsActive: true, onlyActivates: true))
+        #expect(!ViewInput.acceptsFirstMouse(tool: 0, applicationIsActive: true, onlyActivates: true))
     }
 
     @Test func eachToolHasItsCursor() {

@@ -323,15 +323,15 @@ Gw
         </window>
         <window title="&lt;&lt; do not localize &gt;&gt;" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" deferred="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="12" userLabel="PrefPane">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES"/>
-            <rect key="contentRect" x="0.0" y="0.0" width="721" height="575"/>
+            <rect key="contentRect" x="0.0" y="0.0" width="721" height="548"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
             <value key="minSize" type="size" width="224.66300000000001" height="10"/>
             <view key="contentView" horizontalCompressionResistancePriority="1000" id="6">
-                <rect key="frame" x="0.0" y="0.0" width="721" height="575"/>
+                <rect key="frame" x="0.0" y="0.0" width="721" height="548"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <button horizontalCompressionResistancePriority="1000" id="674">
-                        <rect key="frame" x="18" y="366" width="699" height="18"/>
+                        <rect key="frame" x="18" y="339" width="699" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Si un examen lointaine a plus d'images qu'un examen locale, affichez l'examen lointaine" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="675">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -342,7 +342,7 @@ Gw
                         </connections>
                     </button>
                     <button horizontalCompressionResistancePriority="1000" id="730">
-                        <rect key="frame" x="18" y="346" width="570" height="18"/>
+                        <rect key="frame" x="18" y="319" width="570" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Récupérer automatiquement les examens qui ont déjà quelques images locales" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="731">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -353,7 +353,7 @@ Gw
                         </connections>
                     </button>
                     <button horizontalCompressionResistancePriority="1000" id="734">
-                        <rect key="frame" x="18" y="326" width="600" height="18"/>
+                        <rect key="frame" x="18" y="299" width="600" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Utiliser PACS Sur demande, lorsque vous utilisez les champs de recherche de la barre d'outils" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="735">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -364,7 +364,7 @@ Gw
                         </connections>
                     </button>
                     <button id="399">
-                        <rect key="frame" x="8" y="541" width="245" height="18"/>
+                        <rect key="frame" x="8" y="514" width="245" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Activer PACS Sur demande" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="427">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -375,7 +375,7 @@ Gw
                         </connections>
                     </button>
                     <scrollView autohidesScrollers="YES" horizontalLineScroll="19" horizontalPageScroll="0.0" verticalLineScroll="19" verticalPageScroll="0.0" usesPredominantAxisScrolling="NO" id="480">
-                        <rect key="frame" x="20" y="404" width="685" height="114"/>
+                        <rect key="frame" x="20" y="377" width="685" height="114"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <clipView key="contentView" id="slU-lb-0hJ">
                             <rect key="frame" x="1" y="1" width="683" height="112"/>
@@ -485,7 +485,7 @@ Gw
                         </scroller>
                     </scrollView>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="481">
-                        <rect key="frame" x="362" y="390" width="345" height="11"/>
+                        <rect key="frame" x="362" y="363" width="345" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Faites glisser les sources dans l'ordre de priorité pour récupérer" id="482">
                             <font key="font" metaFont="miniSystem"/>
@@ -494,7 +494,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="495">
-                        <rect key="frame" x="18" y="390" width="340" height="11"/>
+                        <rect key="frame" x="18" y="363" width="340" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Consultez Préférences de localisation pour modifier ces nœuds DICOM" id="496">
                             <font key="font" metaFont="miniSystem"/>
@@ -503,7 +503,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" id="684">
-                        <rect key="frame" x="22" y="520" width="430" height="17"/>
+                        <rect key="frame" x="22" y="493" width="430" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Nœuds DICOM pour PACS Sur demande appariement et récupération:" id="685">
                             <font key="font" metaFont="system"/>
@@ -512,7 +512,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <button horizontalCompressionResistancePriority="1000" id="476">
-                        <rect key="frame" x="18" y="304" width="699" height="18"/>
+                        <rect key="frame" x="18" y="277" width="699" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Activer la recherche des albums intelligents suivants, avec les filtres Q &amp; R Date &amp; Modalité :" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="477">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -523,7 +523,7 @@ Gw
                         </connections>
                     </button>
                     <scrollView autohidesScrollers="YES" horizontalLineScroll="19" horizontalPageScroll="0.0" verticalLineScroll="19" verticalPageScroll="0.0" usesPredominantAxisScrolling="NO" id="535">
-                        <rect key="frame" x="21" y="163" width="684" height="138"/>
+                        <rect key="frame" x="21" y="136" width="684" height="138"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <clipView key="contentView" id="5wb-9Y-ZQp">
                             <rect key="frame" x="1" y="0.0" width="682" height="137"/>
@@ -658,7 +658,7 @@ Gw
                         </tableHeaderView>
                     </scrollView>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="646">
-                        <rect key="frame" x="18" y="150" width="370" height="11"/>
+                        <rect key="frame" x="18" y="123" width="370" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Double-Cliquer sur une ligne pour modifier les filtres Date &amp; Modalité" id="647">
                             <font key="font" metaFont="miniSystem"/>
@@ -666,30 +666,6 @@ Gw
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <textField verticalHuggingPriority="750" id="695">
-                        <rect key="frame" x="457" y="120" width="30" height="22"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="center" title="2" drawsBackground="YES" id="696">
-                            <numberFormatter key="formatter" formatterBehavior="default10_4" positiveFormat="#,##0.###" negativeFormat="#,##0.###" numberStyle="decimal" paddingCharacter="*" minimumIntegerDigits="1" maximumIntegerDigits="309" maximumFractionDigits="3" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="697">
-                                <integer key="minimum" value="1"/>
-                                <integer key="maximum" value="9"/>
-                            </numberFormatter>
-                            <font key="font" metaFont="system"/>
-                            <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
-                            <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                        </textFieldCell>
-                        <connections>
-                            <binding destination="348" name="value" keyPath="values.MaxConcurrentPODRetrieves" id="710"/>
-                        </connections>
-                    </textField>
-                    <stepper horizontalHuggingPriority="750" verticalHuggingPriority="750" id="698">
-                        <rect key="frame" x="492" y="117" width="19" height="27"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <stepperCell key="cell" continuous="YES" alignment="left" maxValue="9" id="699"/>
-                        <connections>
-                            <binding destination="348" name="value" keyPath="values.MaxConcurrentPODRetrieves" id="711"/>
-                        </connections>
-                    </stepper>
                     <box autoresizesSubviews="NO" horizontalCompressionResistancePriority="1000" title="Activer PACS Sur demande pour les fonctions suivantes du serveur Web" borderType="line" id="724">
                         <rect key="frame" x="17" y="16" width="691" height="94"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
@@ -735,15 +711,6 @@ Gw
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="xIQ-ZL-D22">
-                        <rect key="frame" x="19" y="123" width="431" height="17"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Récupérations auto en arrière-plan, max. par serveur :" id="YAw-Tn-D5O">
-                            <font key="font" metaFont="system"/>
-                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                            <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        </textFieldCell>
-                    </textField>
                 </subviews>
             </view>
         </window>

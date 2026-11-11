@@ -30,7 +30,7 @@ typedef std::shared_ptr<DcmFileFormat> HorosDCMTKFile;
 //
 // Each VR becomes what DCMAttribute -valuesForVR:length:data: made of it, so the
 // callers' isKindOfClass: checks and conversions keep working: text as strings
-// (trimmed as a whole, then split at backslashes), DA/TM/DT as IsiXDICOMCalendarDate,
+// (trimmed as a whole, then split at backslashes), DA/TM/DT as DCMCalendarDate,
 // binary numbers as NSNumber and everything else as the raw bytes.
 
 static NSString *HorosLatin1Text(const OFString &raw)
@@ -67,7 +67,7 @@ static BOOL HorosVRIs(NSString *vr, NSString *candidates)
     return vr.length == 2 && [[candidates componentsSeparatedByString: @" "] containsObject: vr];
 }
 
-static NSMutableArray *HorosValues(DcmElement *element, NSString *vr, IsiXDICOMCharacterSet *characterSet)
+static NSMutableArray *HorosValues(DcmElement *element, NSString *vr, DCMCharacterSet *characterSet)
 {
     NSMutableArray *values = [NSMutableArray array];
     const Uint32 length = element->getLength();
@@ -87,7 +87,7 @@ static NSMutableArray *HorosValues(DcmElement *element, NSString *vr, IsiXDICOMC
             [HorosDICOMCharacterSets stringWithBytes: raw.c_str() length: raw.length()
                                         characterSet: characterSet.characterSet];
         if (text == nil)
-            text = [IsiXDICOMCharacterSet stringWithBytes: (char *) raw.c_str() length: (unsigned) raw.length()
+            text = [DCMCharacterSet stringWithBytes: (char *) raw.c_str() length: (unsigned) raw.length()
                                           encodings: [characterSet encodings]];
         text = [text stringByTrimmingCharactersInSet: [NSCharacterSet whitespaceAndNewlineCharacterSet]];
         text = [text stringByTrimmingCharactersInSet: [NSCharacterSet controlCharacterSet]];
@@ -112,10 +112,10 @@ static NSMutableArray *HorosValues(DcmElement *element, NSString *vr, IsiXDICOMC
             return values;
         for (NSString *component in [text componentsSeparatedByString: @"\\"])
         {
-            IsiXDICOMCalendarDate *date = nil;
-            if ([vr isEqualToString: @"DA"]) date = [IsiXDICOMCalendarDate dicomDate: component];
-            else if ([vr isEqualToString: @"TM"]) date = [IsiXDICOMCalendarDate dicomTime: component];
-            else date = [IsiXDICOMCalendarDate dicomDateTime: component];
+            DCMCalendarDate *date = nil;
+            if ([vr isEqualToString: @"DA"]) date = [DCMCalendarDate dicomDate: component];
+            else if ([vr isEqualToString: @"TM"]) date = [DCMCalendarDate dicomTime: component];
+            else date = [DCMCalendarDate dicomDateTime: component];
             if (date)
                 [values addObject: date];
         }
@@ -183,7 +183,7 @@ static NSMutableArray *HorosValues(DcmElement *element, NSString *vr, IsiXDICOMC
 // The source and the Pixel Data attribute of `object`, whose values are what
 // -values gave: the whole native value, or the offset table followed by every
 // fragment. The bytes stay in DCMTK's memory, which the source keeps alive.
-+ (DCMPixelDataAttribute *)attributeWithFile:(HorosDCMTKFile)file pixel:(DcmPixelData *)pixel tag:(IsiXDICOMAttributeTag *)tag
++ (DCMPixelDataAttribute *)attributeWithFile:(HorosDCMTKFile)file pixel:(DcmPixelData *)pixel tag:(DCMAttributeTag *)tag
                                       object:(DCMObject *)object transferSyntax:(DCMTransferSyntax *)syntax
 {
     HorosDCMTKFrameSource *source = [[[HorosDCMTKFrameSource alloc] init] autorelease];
@@ -474,7 +474,7 @@ static DcmTagKey HorosStopTag(unsigned short lastGroup)
 // An object (+1) for `item`: the top-level dataset with the meta header, or an
 // item of a sequence, which inherits the character set and transfer syntax.
 + (DCMObject *)newObjectWithFile:(HorosDCMTKFile)file item:(DcmItem *)item
-                    characterSet:(IsiXDICOMCharacterSet *)inherited transferSyntax:(DCMTransferSyntax *)inheritedSyntax
+                    characterSet:(DCMCharacterSet *)inherited transferSyntax:(DCMTransferSyntax *)inheritedSyntax
 {
     const BOOL topLevel = inherited == nil;
     DCMTransferSyntax *syntax = topLevel ?
@@ -484,11 +484,11 @@ static DcmTagKey HorosStopTag(unsigned short lastGroup)
     // An item may state its own Specific Character Set; otherwise it inherits
     // the one of what contains it, and a file that states none is ISO_IR 100.
     OFString code;
-    IsiXDICOMCharacterSet *characterSet = nil;
+    DCMCharacterSet *characterSet = nil;
     if (item->findAndGetOFStringArray(DCM_SpecificCharacterSet, code).good() && code.length())
-        characterSet = [[[IsiXDICOMCharacterSet alloc] initWithCode: HorosLatin1Text(code)] autorelease];
+        characterSet = [[[DCMCharacterSet alloc] initWithCode: HorosLatin1Text(code)] autorelease];
     else
-        characterSet = inherited ? inherited : [[[IsiXDICOMCharacterSet alloc] initWithCode: @"ISO_IR 100"] autorelease];
+        characterSet = inherited ? inherited : [[[DCMCharacterSet alloc] initWithCode: @"ISO_IR 100"] autorelease];
 
     DCMObject *object = [[DCMObject alloc] initWithTransferSyntax: syntax characterSet: characterSet
                                                        isSequence: !topLevel];
@@ -508,7 +508,7 @@ static DcmTagKey HorosStopTag(unsigned short lastGroup)
 
 + (void)addElementsOf:(DcmItem *)item file:(HorosDCMTKFile)file to:(DCMObject *)object
 {
-    IsiXDICOMCharacterSet *specificCharacterSet = object.specificCharacterSet;
+    DCMCharacterSet *specificCharacterSet = object.specificCharacterSet;
     DCMTransferSyntax *transferSyntax = object.transferSyntax;
     for (unsigned long i = 0; i < item->card(); i++)
     {
@@ -516,7 +516,7 @@ static DcmTagKey HorosStopTag(unsigned short lastGroup)
         if (element == NULL)
             continue;
         const DcmTag &key = element->getTag();
-        IsiXDICOMAttributeTag *tag = [IsiXDICOMAttributeTag tagWithGroup: key.getGTag() element: key.getETag()];
+        DCMAttributeTag *tag = [DCMAttributeTag tagWithGroup: key.getGTag() element: key.getETag()];
         NSString *vr = [NSString stringWithUTF8String: DcmVR(element->getVR()).getValidVRName()];
         tag.vr = vr;
         DCMAttribute *attribute = nil;

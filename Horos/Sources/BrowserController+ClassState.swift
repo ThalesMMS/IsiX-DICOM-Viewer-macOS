@@ -60,7 +60,6 @@ enum BrowserClassState {
     nonisolated(unsafe) static var lastActivity: TimeInterval = 0
     nonisolated(unsafe) static var dontShowOpenSubSeries = false
     nonisolated(unsafe) static var horizontalHistory = false
-    nonisolated(unsafe) static var statesArray: NSArray?
     nonisolated(unsafe) static var waitForRunningProcess = false
     nonisolated(unsafe) static var withReset = false
     nonisolated(unsafe) static var loadingIsOver = false
@@ -128,10 +127,10 @@ extension BrowserController {
         set { BrowserClassState.current = newValue }
     }
 
-    /// String work only: any thread.
+    /// The names of the study states, by number (StudyStates). Any thread.
     @objc(statesArray)
     public nonisolated class func statesArray() -> [Any]! {
-        return BrowserClassState.statesArray as? [Any]
+        return StudyStates.names
     }
 
     @objc(updateActivity)
@@ -211,10 +210,6 @@ extension BrowserController {
     static var horos_horizontalHistory: Bool {
         get { BrowserClassState.horizontalHistory }
         set { BrowserClassState.horizontalHistory = newValue }
-    }
-    static var horos_statesArray: [Any]? {
-        get { BrowserClassState.statesArray as? [Any] }
-        set { BrowserClassState.statesArray = newValue.map { $0 as NSArray } }
     }
     nonisolated static var horos_decimalNumberFormatter: NumberFormatter { BrowserClassState.decimalNumberFormatter }
 

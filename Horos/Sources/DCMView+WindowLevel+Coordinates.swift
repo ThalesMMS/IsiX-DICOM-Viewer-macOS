@@ -95,6 +95,42 @@ private func objcProperty(_ receiver: NSObject?, _ getter: Selector) -> AnyObjec
 
 private let kImageTypeGetter = #selector(getter: DCMPix.imageType)
 
+/// What a synchronization message searches, for a view's slices: the plane of
+/// each one, and what they were read for. The view keeps the last answer and
+/// drops it with its list of slices.
+struct SyncPlanes {
+    let imageType: String?
+    let volumic: Int32
+    let ends: [SIMD3<Float>]
+    let planes: [SliceSynchronizer.Plane]
+
+    /// The planes of the images a plane search looks in: each one's normal
+    /// (the last image's for all when the series is one volume), its origin,
+    /// and whether its image type is `preferredImageType` (never for an empty one).
+    /// `kept` answers while it was read for the same search and stack.
+    static func planes(of images: NSArray?, preferredImageType: NSString?, volumic: Int32, kept: inout SyncPlanes?) -> [SliceSynchronizer.Plane] {
+        guard let images else { return [] }
+        // A geometry rewritten in the same DCMPix objects moves the ends of the stack.
+        let first = images.firstObject.map { objcObject($0, DCMPix.self) }, last = images.lastObject.map { objcObject($0, DCMPix.self) }
+        let ends = [first, last].compactMap { $0 }.flatMap { [horosPlaneNormal($0), horosPlaneOrigin($0)] }
+        if let kept, kept.imageType == preferredImageType as String?, kept.volumic == volumic, kept.ends == ends {
+            return kept.planes
+        }
+        let prefersType = (preferredImageType?.length ?? 0) != 0
+        let volumeNormal: SIMD3<Float>? = volumic == 1 ? horosPlaneNormal(last) : nil
+        var planes: [SliceSynchronizer.Plane] = []
+        planes.reserveCapacity(images.count)
+        for element in images {
+            let pix = objcObject(element, DCMPix.self)
+            // Both are NSString: -isEqual: answers as -isEqualToString:, without bridging them to String.
+            let matchesType = prefersType && ((objcProperty(pix, kImageTypeGetter) as? NSString)?.isEqual(preferredImageType) ?? false)
+            planes.append(SliceSynchronizer.Plane(normal: volumeNormal ?? horosPlaneNormal(pix), origin: horosPlaneOrigin(pix), matchesType: matchesType))
+        }
+        kept = SyncPlanes(imageType: preferredImageType as String?, volumic: volumic, ends: ends, planes: planes)
+        return planes
+    }
+}
+
 /// The annotations' texts and the orientation letters in the viewer's
 /// language, looked up once.
 private let annotationPhrases: AnnotationPhrases = {
@@ -395,24 +431,6 @@ extension DCMView {
         return r
     }
 
-    /// The planes of the images a plane search looks in: each one's normal
-    /// (the last image's for all when the series is one volume), its origin,
-    /// and whether its image type is `preferredImageType` (never for an empty one).
-    private func syncPlanes(_ images: NSArray?, preferredImageType: NSString?) -> [SliceSynchronizer.Plane] {
-        guard let images else { return [] }
-        let prefersType = (preferredImageType?.length ?? 0) != 0
-        let volumeNormal: SIMD3<Float>? = self.horos_volumicData == 1 ? horosPlaneNormal(images.lastObject.map { objcObject($0, DCMPix.self) }) : nil
-        var planes: [SliceSynchronizer.Plane] = []
-        planes.reserveCapacity(images.count)
-        for element in images {
-            let pix = objcObject(element, DCMPix.self)
-            // Both are NSString: -isEqual: answers as -isEqualToString:, without bridging them to String.
-            let matchesType = prefersType && ((objcProperty(pix, kImageTypeGetter) as? NSString)?.isEqual(preferredImageType) ?? false)
-            planes.append(SliceSynchronizer.Plane(normal: volumeNormal ?? horosPlaneNormal(pix), origin: horosPlaneOrigin(pix), matchesType: matchesType))
-        }
-        return planes
-    }
-
     @objc(findPlaneForPoint:preferParallelTo:localPoint:distanceWithPlane:)
     @discardableResult
     public dynamic func findPlane(forPoint pt: UnsafeMutablePointer<Float>!, preferParallelTo parto: UnsafeMutablePointer<Float>!, localPoint location: UnsafeMutablePointer<Float>!, distanceWithPlane distanceResult: UnsafeMutablePointer<Float>!) -> Int32 {
@@ -438,7 +456,7 @@ extension DCMView {
             // receiver's place in its sub-stack can be found in it.
             let current = self.curDCM.flatMap { here in cleanedOutDcmPixArray?.indexOfObjectIdentical(to: here) }.flatMap { $0 == NSNotFound ? nil : $0 }
             search = self.sliceSynchronizer.nearestPlane(to: SIMD3(pt[0], pt[1], pt[2]),
-                                                         among: self.syncPlanes(cleanedOutDcmPixArray, preferredImageType: preferredImageType),
+                                                         among: SyncPlanes.planes(of: cleanedOutDcmPixArray, preferredImageType: preferredImageType, volumic: self.horos_volumicData, kept: &self.horos_syncPlanes),
                                                          parallelTo: parto.map { SIMD3($0[6], $0[7], $0[8]) },
                                                          current: current, currentNormal: self.curDCM.map { horosPlaneNormal($0) })
         }
@@ -630,26 +648,19 @@ extension DCMView {
                 return
             }
 
-            // The study number box, in a 2D viewer's own view whose study has a colour.
-            let hasStudyColour = self.horos_studyColorR != 0 || self.horos_studyColorG != 0 || self.horos_studyColorB != 0
-            let colourBoxSize = AnnotationOverlayLayout.colourBoxSize(scale: sf, drawsBox: hasStudyColour && self.horos_stringID == nil && self.is2DViewer())
+            // The number of the series, in a 2D viewer's own view, on the colour
+            // of the window's study: the same number as on its thumbnail.
+            let viewer2D = self.horos_stringID == nil && self.is2DViewer() ? self.windowController() as? ViewerController : nil
+            let seriesNumber = viewer2D?.seriesMenuPresenter.numberOfShownSeries() ?? 0
+            let colourBoxSize = AnnotationOverlayLayout.colourBoxSize(scale: sf, drawsBox: seriesNumber > 0)
             var layout = AnnotationOverlayLayout(originX: size.origin.x, originY: size.origin.y, width: size.size.width, height: size.size.height,
                                                  scale: sf, characterWidth: stringSize.width, lineHeight: stringSize.height,
                                                  topLeftInset: self.horosScrollPreviewAnnotationInset(), colourBoxSize: colourBoxSize)
             if colourBoxSize != 0 {
-                if self.horos_studyDateBox == nil && self.horos_studyDateIndex != UInt(NSNotFound) {
-                    let boxColor = NSColor(calibratedRed: CGFloat(self.horos_studyColorR), green: CGFloat(self.horos_studyColorG), blue: CGFloat(self.horos_studyColorB), alpha: 1.0)
-                    let number = NSAttributedString(string: AnnotationOverlayLayout.studyNumber(dateIndex: self.horos_studyDateIndex),
-                                                    attributes: [.font: NSFont(name: "Helvetica", size: 20)!])
-                    let box = AnnotationBox(attributedString: number, boxColor: boxColor, borderColor: boxColor)
-                    self.horos_studyDateBox = box
-                }
-
-                if let studyDateBox = self.horos_studyDateBox {
-                    let boxSize = self.convertToBacking(studyDateBox.frameSize)
-                    let origin = layout.studyNumberOrigin
-                    self.horosDraw(studyDateBox, bounds: NSMakeRect(origin.x, origin.y, boxSize.width, boxSize.height))
-                }
+                let badge = SeriesListIdentification.badge(number: seriesNumber, study: SeriesListIdentification.study(of: viewer2D))
+                let boxSize = self.convertToBacking(badge.frameSize)
+                let origin = layout.studyNumberOrigin
+                self.horosDraw(badge, bounds: NSMakeRect(origin.x, origin.y, boxSize.width, boxSize.height))
             }
 
             // The fields of each position, in the dictionary's order.
@@ -675,6 +686,7 @@ extension DCMView {
 
             // Where the lines of the lower left corner end, for the tilt mark above them.
             var lowerLeftTop = Int(layout.start(of: "LowerLeft").y)
+            var lowerCorners = LowerCornerText()
             let values = ViewAnnotationValues(view: self, level: annotations)
             for position in positions {
                 let drawn = layout.commands(for: position, lines: fields[position] ?? [], fullText: fullText,
@@ -693,6 +705,7 @@ extension DCMView {
                     }
                 }
                 if position == "LowerLeft" { lowerLeftTop = drawn.endY }
+                lowerCorners.note(position: position, commands: drawn.commands, endY: drawn.endY, characterWidth: Double(stringSize.width))
             }
 
             // A 3D view of a series corrected for gantry tilt: above the lower left lines.
@@ -705,14 +718,16 @@ extension DCMView {
             }
 
             // An older study of the patient than another open viewer: centred at
-            // the bottom, above the lower orientation letter.
+            // the bottom, above the lower orientation letter, and above the lines
+            // of the lower corners where a narrow view brings them under it.
             if self.horos_stringID == nil && self.is2DViewer() && PreviousStudyMark.isEnabled
                 && PreviousStudyMark.isPrevious(self.windowController() as AnyObject?) {
                 let label = PreviousStudyMark.label
                 let labelSize = self.convertToBacking(label.frameSize)
-                self.horosDraw(label, bounds: NSMakeRect(size.origin.x + (size.size.width - labelSize.width) / 2,
-                                                         size.origin.y + size.size.height - labelSize.height - stringSize.height - CGFloat(6 * sf),
-                                                         labelSize.width, labelSize.height))
+                let x = size.origin.x + (size.size.width - labelSize.width) / 2
+                let top = lowerCorners.labelTop(preferred: Double(size.origin.y + size.size.height - labelSize.height - stringSize.height - CGFloat(6 * sf)),
+                                                minX: Double(x), maxX: Double(x + labelSize.width), height: Double(labelSize.height), gap: Double(6 * sf))
+                self.horosDraw(label, bounds: NSMakeRect(x, CGFloat(top), labelSize.width, labelSize.height))
             }
 
             if fullText && AnnotationLevel.showsText(level: annotations) {

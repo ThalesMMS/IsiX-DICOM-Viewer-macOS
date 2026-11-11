@@ -90,7 +90,7 @@ extension DCMView {
         if !ViewROIEditing.LengthPlacement.takesClick(replayingDrag: self.horos_replayingLengthDrag, is2DViewer: self.is2DViewer(),
                                                       isLeftMouseDown: event.type == .leftMouseDown, drawingROI: self.horos_drawingROI,
                                                       modifierFlags: event.modifierFlags.rawValue,
-                                                      tool: { self.getTool(event) == .tMesure }) { return false }
+                                                      tool: { ViewROIEditing.twoClickLength && self.getTool(event) == .tMesure }) { return false }
         let point = self.convert(fromNSView2GL: self.convert(event.locationInWindow, from: nil))
         // Existing ROI/handle/label selection keeps the established mouse-down path.
         for case let roi as ROI in (self.horos_curRoiList ?? []) where roi.takesLengthClick(at: point, in: self) {
@@ -160,9 +160,6 @@ extension DCMView {
     @objc(finishLengthClick:)
     public dynamic func finishLengthClick(_ event: NSEvent!) {
         self.releaseLengthClickEvent()
-        if ViewROIEditing.LengthPlacement.waitsForThinSlices(stack: Int(self.curDCM?.stack ?? 0)) {
-            NSSound.beep(); self.needsDisplay = true; return // Keep A until thin slices return.
-        }
         let point = self.convert(fromNSView2GL: self.convert(event?.locationInWindow ?? .zero, from: nil))
         // The patient-space endpoint, nil without valid patient geometry; where it
         // was clicked on its image is kept in either case.
@@ -170,6 +167,7 @@ extension DCMView {
         var endpoint = (geometry as? [AnyHashable: Any]) ?? [:]
         endpoint["imagePoint"] = NSValue(point: point)
         endpoint["imageIndex"] = NSNumber(value: self.curImage)
+        endpoint["onSlab"] = NSNumber(value: (self.curDCM?.stack ?? 0) > 1)
         if geometry == nil {
             endpoint["reference"] = HorosVolumeLengthROI.reference(for: self.curDCM)
             endpoint["temporalIndex"] = NSNumber(value: inputMessages(self.windowController())?.inputCurMovieIndex() ?? 0)
@@ -187,6 +185,7 @@ extension DCMView {
         case .drag(let first, let second):
             // Both clicks on one image measure on it, as a drag between them does.
             self.replayLengthDrag(from: first, to: second); return
+        case .needsThinSlices: NSSound.beep(); self.needsDisplay = true; return // The marker says why.
         case .needsGeometry:
             _ = HorosAlertPanel.runInformational(title: NSLocalizedString("Length", comment: ""),
                                                  message: NSLocalizedString("Measuring between slices requires valid patient geometry. Click and drag remains available for a 2D length.", comment: ""),

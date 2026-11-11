@@ -216,6 +216,10 @@ typedef BOOL (^IsiXVTKMetalImageRenderer)(IsiXVTKVolumeView *view, BOOL fused);
 /// gantry tilt's when given, and the five orientation texts.
 - (BOOL)makeTextsWithWindowText:(const char *)windowText corner:(BOOL)corner tilt:(nullable NSString *)tilt
                           error:(NSError **)error;
+/// The gantry tilt's text of a view whose texts are made: `tilt`, or none.
+/// A series read from its files again is tilted as it was, and the text made
+/// with the view would go on saying it is corrected.
+- (void)setTiltText:(nullable NSString *)tilt corner:(BOOL)corner;
 /// The camera, parallel, rolled 180° and dollied, the volume added and the
 /// camera reset.
 - (BOOL)makeCameraWithError:(NSError **)error;

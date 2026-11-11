@@ -63,6 +63,7 @@ extension DCMObject {
     /// A secondary capture of `object`: its meta header, patient, study and
     /// general attributes, new series and instance UIDs, and this computer as
     /// the capture device.
+    @objc(secondaryCaptureObjectFromTemplate:)
     public class func secondaryCaptureObject(fromTemplate object: DCMObject) -> DCMObject {
         let capture = DCMObject(object: object)
         let attributes = capture.attributes!
@@ -159,6 +160,7 @@ extension DCMObject {
     }
 
     /// A coded entry of a structured report.
+    @objc(objectWithCodeValue:codingSchemeDesignator:codeMeaning:)
     public class func object(withCodeValue codeValue: String, codingSchemeDesignator: String,
                              codeMeaning: String) -> DCMObject {
         let object = DCMObject()

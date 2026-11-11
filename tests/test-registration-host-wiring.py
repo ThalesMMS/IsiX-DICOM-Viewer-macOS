@@ -78,4 +78,20 @@ for catalog in ('it-IT', 'es'):
 for name in ('ViewerController+RegistrationHost.swift', 'ViewerController+RegistrationCopy.swift', 'ViewerRegistrationSession.swift',
              'LongitudinalRegistration.swift'):
     assert sum(name in line for line in project.splitlines()) == 4, name + ' is not fully registered in the Xcode project'
+# The drop sheet's Copy ROIs goes by patient position too, and a brush is placed with the
+# mask the plan resampled for each target image; only series that cannot be related are
+# still paired image by image.
+fusion = (root / 'Horos/Sources/ViewerFusion.swift').read_text()
+copy = fusion[fusion.index('case 10:\t// Copy ROIs'):]
+planned = copy.index('viewer.registration.guidedCopyPlan(from: bc, offsetMM: nil).plan')
+assert planned < copy.index('viewer.horosApplyGuidedCopyPlan(plan, from: bc)') < copy.index('let splash = WaitRendering('), \
+    'the drop sheet copies by position before falling back to the image order'
+assert 'plan.summary' in copy[:copy.index('let splash = WaitRendering(')], 'what the drop sheet could not copy is said'
+session = (root / 'Horos/Sources/ViewerRegistrationSession.swift').read_text()
+for needed in ('guard let mask = placement.mask else { continue }', 'record.brushMask = mask',
+               'record.brushWidth = Int(placement.rect.size.width)'):
+    assert needed in session, 'a brush is applied with its resampled mask: ' + needed
+for needed in ('static func nearestSources(', 'static func brushPlacements(', 'placed.mask = cut'):
+    assert needed in core, 'core must resample brushes: ' + needed
+
 print('registration host wiring: fused-series source, identity-or-landmarks, undoable host ROIs with provenance, explicit patient comparison, menu, strings and project membership in place')

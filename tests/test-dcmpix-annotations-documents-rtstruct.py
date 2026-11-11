@@ -202,6 +202,15 @@ static void installThreadAccessors( void)
 
 static NSMutableDictionary *gRows = nil;    // object ID -> row
 
+// The probe's object IDs are strings. DCMPix asks an image's ID for its store, to
+// find the open database that holds the row; these are of no store, which
+// leaves the database the browser shows.
+@interface NSString (ProbeObjectID)
+@end
+@implementation NSString (ProbeObjectID)
+- (id) persistentStore { return nil; }
+@end
+
 @interface ProbeContext : NSObject
 @end
 @implementation ProbeContext
@@ -320,7 +329,7 @@ static NSMutableDictionary *gTags = nil, *gNames = nil;
 + (NSDictionary*) tagForNameDictionary { return gNames; }
 @end
 
-static IsiXDICOMAttributeTag *tagFor( NSString *name, int group, int element, NSString *vr)
+static DCMAttributeTag *tagFor( NSString *name, int group, int element, NSString *vr)
 {
     if( gTags == nil) { gTags = [[NSMutableDictionary alloc] init]; gNames = [[NSMutableDictionary alloc] init]; }
     NSString *key = [gNames objectForKey: name];
@@ -331,19 +340,19 @@ static IsiXDICOMAttributeTag *tagFor( NSString *name, int group, int element, NS
         [gNames setObject: key forKey: name];
         [gTags setObject: @{@"Description": name, @"VR": vr, @"VM": @"1"} forKey: key];
     }
-    return [IsiXDICOMAttributeTag tagWithTagString: key];
+    return [DCMAttributeTag tagWithTagString: key];
 }
 
 static NSMutableDictionary *gParsed = nil;     // file name -> DCMObject
 @interface HorosDCMTKObject : NSObject <IsiXDCMReading>
 @end
 @implementation HorosDCMTKObject
-+ (IsiXDCMObject*) objectWithContentsOfFile:(NSString*) path decodingPixelData:(BOOL) decode lastGroup:(unsigned short) lastGroup
++ (DCMObject*) objectWithContentsOfFile:(NSString*) path decodingPixelData:(BOOL) decode lastGroup:(unsigned short) lastGroup
 {
     event( @"parse", [path lastPathComponent]);
     return [gParsed objectForKey: [path lastPathComponent]];
 }
-+ (IsiXDCMObject*) objectWithData:(NSData*) data transferSyntax:(NSString*) syntax decodingPixelData:(BOOL) decode lastGroup:(unsigned short) lastGroup
++ (DCMObject*) objectWithData:(NSData*) data transferSyntax:(NSString*) syntax decodingPixelData:(BOOL) decode lastGroup:(unsigned short) lastGroup
 {
     return nil;
 }
@@ -353,32 +362,26 @@ static NSMutableDictionary *gParsed = nil;     // file name -> DCMObject
 + (BOOL) isDICOMFile:(NSString*) file { return YES; }
 @end
 
-@implementation DCMAbstractSyntaxUID
-+ (NSString*) pdfStorageClassUID { return @"1.2.840.10008.5.1.4.1.1.104.1"; }
-+ (NSString*) EncapsulatedCDAStorage { return @"1.2.840.10008.5.1.4.1.1.104.2"; }
-+ (BOOL) isNonImageStorage:(NSString*) uid { return [uid hasPrefix: @"1.2.840.10008.5.1.4.1.1.481"] || [uid isEqualToString: @"1.2.840.10008.5.1.4.1.1.4.2"]; }
-@end
-
 // An attribute: a name, a tag, a value representation and its values.
-static IsiXDCMAttribute *attr( NSString *name, int group, int element, NSString *vr, NSArray *values)
+static DCMAttribute *attr( NSString *name, int group, int element, NSString *vr, NSArray *values)
 {
-    return [[[IsiXDCMAttribute alloc] initWithAttributeTag: tagFor( name, group, element, vr) vr: vr
+    return [[[DCMAttribute alloc] initWithAttributeTag: tagFor( name, group, element, vr) vr: vr
                                                     values: [[values mutableCopy] autorelease]] autorelease];
 }
-static IsiXDCMSequenceAttribute *seq( NSString *name, NSArray *items)
+static DCMSequenceAttribute *seq( NSString *name, NSArray *items)
 {
-    IsiXDCMSequenceAttribute *a = [[[IsiXDCMSequenceAttribute alloc] initWithAttributeTag: tagFor( name, 0, 0, @"SQ") vr: @"SQ"
+    DCMSequenceAttribute *a = [[[DCMSequenceAttribute alloc] initWithAttributeTag: tagFor( name, 0, 0, @"SQ") vr: @"SQ"
                                                                                   values: [[items mutableCopy] autorelease]] autorelease];
     for( id item in items) [a addItem: item];
     return a;
 }
-static IsiXDCMObject *object( NSArray *attributes)
+static DCMObject *object( NSArray *attributes)
 {
-    IsiXDCMObject *o = [[[IsiXDCMObject alloc] init] autorelease];
-    for( IsiXDCMAttribute *a in attributes) [o setAttribute: a];
+    DCMObject *o = [[[DCMObject alloc] init] autorelease];
+    for( DCMAttribute *a in attributes) [o setAttribute: a];
     return o;
 }
-static IsiXDCMAttribute *named( NSString *name, id value) { return attr( name, 0, 0, @"LO", value ? ([value isKindOfClass: [NSArray class]] ? value : @[value]) : @[]); }
+static DCMAttribute *named( NSString *name, id value) { return attr( name, 0, 0, @"LO", value ? ([value isKindOfClass: [NSArray class]] ? value : @[value]) : @[]); }
 
 // ---- Cases.
 static NSMutableArray *gRecords = nil;
@@ -421,7 +424,7 @@ static NSDictionary *templates( void)
     return @{@"CT": ct, @"MR": mr, @"Default": def, @"OT": bad};
 }
 
-static IsiXDCMObject *annotatedObject( void)
+static DCMObject *annotatedObject( void)
 {
     return object( @[
         attr( @"PatientsName", 0x10, 0x10, @"PN", @[@"DOE^JANE"]),
@@ -515,7 +518,7 @@ static void annotations( void)
     begin( @"field-values");
     {
         id pix = [[[DCMPix alloc] initWithPath: file :0 :1 :nil :0 :0 isBonjour: NO imageObj: nil] autorelease];
-        IsiXDCMObject *o = annotatedObject();
+        DCMObject *o = annotatedObject();
         NSMutableDictionary *values = [NSMutableDictionary dictionary];
         int tags[][2] = {{0x10, 0x10}, {0x18, 0x80}, {0x28, 0x30}, {0x18, 0x9087}, {0x18, 0x1316}, {0x28, 0x10}, {0x8, 0x20},
                          {0x8, 0x30}, {0x8, 0x2a}, {0x2, 0x10}, {0x8, 0x60}, {0x8, 0x103e}, {0x99, 0x99}};
@@ -624,14 +627,14 @@ static void documents( void)
 }
 
 // ---- RT STRUCT.
-static IsiXDCMObject *imageObject( NSString *uid, NSString *frame, NSArray *position, NSArray *orientation, NSArray *spacing, NSString *thickness)
+static DCMObject *imageObject( NSString *uid, NSString *frame, NSArray *position, NSArray *orientation, NSArray *spacing, NSString *thickness)
 {
     return object( @[named( @"SOPInstanceUID", uid), named( @"FrameofReferenceUID", frame), named( @"ImagePositionPatient", position),
                      named( @"ImageOrientationPatient", orientation), named( @"PixelSpacing", spacing), named( @"SliceThickness", thickness),
                      named( @"Columns", @"64"), named( @"Rows", @"48")]);
 }
 
-static IsiXDCMObject *contour( NSString *type, NSArray *points, id count, NSArray *images)
+static DCMObject *contour( NSString *type, NSArray *points, id count, NSArray *images)
 {
     NSMutableArray *attributes = [NSMutableArray arrayWithObjects: named( @"ContourGeometricType", type), named( @"ContourData", points), nil];
     if( count) [attributes addObject: named( @"NumberofContourPoints", count)];
@@ -646,7 +649,7 @@ static IsiXDCMObject *contour( NSString *type, NSArray *points, id count, NSArra
 
 static NSArray *square( double x, double y, double z, double s) { return @[@(x), @(y), @(z), @(x + s), @(y), @(z), @(x + s), @(y + s * 0.75), @(z), @(x), @(y + s), @(z), @(x - s * 0.3), @(y + s * 0.5), @(z)]; }
 
-static IsiXDCMObject *structure( void)
+static DCMObject *structure( void)
 {
     NSArray *rois = @[object( @[named( @"ROIName", @"Liver"), named( @"ROINumber", @"1"), named( @"ReferencedFrameofReferenceUID", @"FOR-A")]),
                       object( @[named( @"ROIName", @"Marker"), named( @"ROINumber", @"2"), named( @"ReferencedFrameofReferenceUID", @"")]),

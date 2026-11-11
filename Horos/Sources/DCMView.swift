@@ -101,7 +101,14 @@ public class DCMView: NSView {
     @objc final var horos_noScale = false
     @objc final var horos_stringID: NSString!
     @objc final var horos_matrix: NSMatrix!
-    @objc final var horos_cleanedOutDcmPixArray: NSArray!
+    @objc final var horos_cleanedOutDcmPixArray: NSArray! {
+        didSet { horos_syncPlanes = nil }
+    }
+    /// The planes a synchronization message searches, kept and dropped with
+    /// horos_cleanedOutDcmPixArray.
+    final var horos_syncPlanes: SyncPlanes?
+    /// The last reason logged for a viewer showing no reference lines.
+    final var horos_loggedReferenceLineReason: String?
     /// The patient's age, and at acquisition when different, of the image shown.
     @objc public internal(set) var yearOld: String?
 

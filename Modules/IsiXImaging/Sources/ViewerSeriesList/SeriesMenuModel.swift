@@ -117,12 +117,9 @@ public struct SeriesMenuModel: Sendable, Equatable {
 
     /// The studies the menu lists, most recent first.
     public var studies: [Study]
-    /// The menu colours the series shown and fused (the identification preference).
-    public var showsSeriesColors: Bool
 
-    public init(studies: [Study], showsSeriesColors: Bool) {
+    public init(studies: [Study]) {
         self.studies = studies
-        self.showsSeriesColors = showsSeriesColors
     }
 
     /// The items in the order of the menu: each study, its series, then a
@@ -149,11 +146,11 @@ public struct SeriesMenuModel: Sendable, Equatable {
         }
     }
 
-    /// The background of a series' title: shown, else fused, when the menu
-    /// colours series; else the colour of the window that shows it.
+    /// The background of a series' title: shown, else fused, else the colour
+    /// of the study of the window that shows it.
     public func highlight(of series: Series) -> Highlight {
-        if showsSeriesColors && series.isShown { return .shown }
-        if showsSeriesColors && series.isFused { return .fused }
+        if series.isShown { return .shown }
+        if series.isFused { return .fused }
         if series.hasWindowColour { return .windowColour }
         return .none
     }

@@ -21,14 +21,14 @@ import Testing
 
     /// The viewer's study with three series, an older study with one, a PACS
     /// study with none.
-    private func patient(colors: Bool = true, lastIsViewerStudyOnPACS: Bool = false) -> SeriesMenuModel {
+    private func patient(lastIsViewerStudyOnPACS: Bool = false) -> SeriesMenuModel {
         SeriesMenuModel(studies: [
             .init(title: "today / CT", picture: .number(studyIndex: 0), isViewerStudyOnPACS: false,
                   series: [Self.series("Axial", 120, shown: true, window: true), Self.series("Scout", 1), Self.series("Fused", 3, fused: true)]),
             .init(title: "last year / MR", picture: .number(studyIndex: 1), isViewerStudyOnPACS: false,
                   series: [Self.series("T1", 20, shown: true, window: true)]),
             .init(title: nil, picture: .retrieve, isViewerStudyOnPACS: lastIsViewerStudyOnPACS, series: []),
-        ], showsSeriesColors: colors)
+        ])
     }
 
     @Test func itemsInTheOrderOfTheMenu() {
@@ -37,7 +37,7 @@ import Testing
                                     .study(2)])
         // The viewer's own study listed from a PACS keeps its separator, also last.
         #expect(patient(lastIsViewerStudyOnPACS: true).items.last == .separator)
-        #expect(SeriesMenuModel(studies: [], showsSeriesColors: true).items.isEmpty)
+        #expect(SeriesMenuModel(studies: []).items.isEmpty)
     }
 
     @Test func thePopupSelectsTheLastSeriesShown() {
@@ -55,10 +55,6 @@ import Testing
         #expect(model.highlight(of: Self.series("a", 1, fused: true, window: true)) == .fused)
         #expect(model.highlight(of: Self.series("a", 1, window: true)) == .windowColour)
         #expect(model.highlight(of: Self.series("a", 1)) == SeriesMenuModel.Highlight.none)
-        // Without the identification colours, a series shown takes its window's colour.
-        let plain = patient(colors: false)
-        #expect(plain.highlight(of: Self.series("a", 1, shown: true, window: true)) == .windowColour)
-        #expect(plain.highlight(of: Self.series("a", 1, fused: true)) == SeriesMenuModel.Highlight.none)
     }
 
     @Test func seriesTitlesCountTheirImages() {

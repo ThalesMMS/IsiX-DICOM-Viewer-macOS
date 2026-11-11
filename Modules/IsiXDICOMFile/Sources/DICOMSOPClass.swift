@@ -21,7 +21,7 @@ import Synchronization
 /// `imageSyntaxes` adds the UIDs of `additionalDisplayedStorageSOPClassUIDArray`
 /// and takes out those of `hiddenDisplayedStorageSOPClassUIDArray` once, when it
 /// is first asked; the hidden ones are known from then on.
-@objc(IsiXDICOMSOPClass)
+@objc(DCMAbstractSyntaxUID)
 public final class DICOMSOPClass: NSObject {
 
     // MARK: UIDs

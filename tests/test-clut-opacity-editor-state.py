@@ -373,10 +373,15 @@ do {
     view.newCurve()
     view.selectCurve(at: 1)
     if let r = raised("-delete:", { view.delete(nil) }) { fail("deleting the selected curve 1 of 2: \(r)") }
-    if view.selectedCurveIndex() != -1 {
-        fail("after deleting the selected curve the index is \(view.selectedCurveIndex()), not -1 (none)")
+    if view.selectedCurveIndex() != 0 {
+        fail("after deleting the selected curve 1 of 2 the index is \(view.selectedCurveIndex()), not 0 (the curve left)")
     }
     if view.convertCurvesForPlist().count != 1 { fail("deleting the selected curve of 2 leaves \(view.convertCurvesForPlist().count)") }
+    // The command again removes the curve left: the curves added go one after the other.
+    if let r = raised("-delete: again", { view.delete(nil) }) { fail("deleting the curve left: \(r)") }
+    if view.convertCurvesForPlist().count != 0 || view.selectedCurveIndex() != -1 {
+        fail("a second Delete leaves \(view.convertCurvesForPlist().count) curves, selection \(view.selectedCurveIndex())")
+    }
 }
 
 // 1. "Send to back" moves the selection with the curve; delete removes that curve.

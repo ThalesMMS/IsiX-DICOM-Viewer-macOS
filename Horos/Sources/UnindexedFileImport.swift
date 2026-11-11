@@ -74,8 +74,7 @@ private struct UnindexedImportOutcome: Sendable {
             let question = String(format: NSLocalizedString("%ld DICOM file(s) in the database folder are not in the database.", comment: ""), report.unindexed.count)
                 + "\n\n" + NSLocalizedString("Import them? They are indexed where they are. As in any import, a file whose image the database already has is deleted, and a file that cannot be read is set aside as the database preferences say.", comment: "")
                 + leftAlone(report)
-            guard HorosAlertPanel.runInformational(title: title, message: question, defaultButton: NSLocalizedString("Import", comment: ""),
-                                                   alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil) == HorosAlertPanel.defaultResponse else { return }
+            guard await ask(title, question) else { return }
 
             let files = report.unindexed
             let search = found.search
@@ -181,9 +180,25 @@ private struct UnindexedImportOutcome: Sendable {
         return lines.isEmpty ? "" : "\n\n" + lines.joined(separator: "\n")
     }
 
+    /// Says how it ended, from the main run loop: a modal opened inside the
+    /// task would hold the main actor until someone answered.
     private static func tell(_ title: String, _ message: String) {
-        _ = HorosAlertPanel.runInformational(title: title, message: message, defaultButton: NSLocalizedString("OK", comment: ""),
-                                             alternateButton: nil, otherButton: nil)
+        onMainRunLoop {
+            _ = HorosAlertPanel.runInformational(title: title, message: message, defaultButton: NSLocalizedString("OK", comment: ""),
+                                                 alternateButton: nil, otherButton: nil)
+        }
+    }
+
+    /// Asks whether to import, from the main run loop, and waits for the
+    /// answer with the main actor left free meanwhile.
+    private static func ask(_ title: String, _ question: String) async -> Bool {
+        await withCheckedContinuation { (answered: CheckedContinuation<Bool, Never>) in
+            onMainRunLoop {
+                let answer = HorosAlertPanel.runInformational(title: title, message: question, defaultButton: NSLocalizedString("Import", comment: ""),
+                                                              alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil)
+                answered.resume(returning: answer == HorosAlertPanel.defaultResponse)
+            }
+        }
     }
 
     /// The browser lists the new studies at once when it shows that database.

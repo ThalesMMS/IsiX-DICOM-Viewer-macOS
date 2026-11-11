@@ -44,7 +44,7 @@
 //   NSInvocation;
 // - the constant string the local copy synchronizes on, which the copy of
 //   MediaImportJob.swift takes too;
-// - an empty DCMPix and the start of today by IsiXDICOMCalendarDate, which Swift
+// - an empty DCMPix and the start of today by DCMCalendarDate, which Swift
 //   cannot write.
 
 #import "BrowserController.h"
@@ -112,13 +112,13 @@ int HorosBrowserReportsMode(void)
 
 NSDateFormatter* HorosBrowserCalendarFormatter(NSString* format)
 {
-    return [[IsiXDICOMCalendarDate date] formatterForCalendarFormat:format];
+    return [[DCMCalendarDate date] formatterForCalendarFormat:format];
 }
 
 NSTimeInterval HorosBrowserStartOfTodayReferenceInterval(void)
 {
-    IsiXDICOMCalendarDate *now = [IsiXDICOMCalendarDate calendarDate];
-    IsiXDICOMCalendarDate *start = [IsiXDICOMCalendarDate dateWithYear:[now yearOfCommonEra] month:[now monthOfYear] day:[now dayOfMonth] hour:0 minute:0 second:0 timeZone: [now timeZone]];
+    DCMCalendarDate *now = [DCMCalendarDate calendarDate];
+    DCMCalendarDate *start = [DCMCalendarDate dateWithYear:[now yearOfCommonEra] month:[now monthOfYear] day:[now dayOfMonth] hour:0 minute:0 second:0 timeZone: [now timeZone]];
     NSDate *today = [NSDate dateWithTimeIntervalSinceNow: [start timeIntervalSinceDate: now]];
     return [today timeIntervalSinceReferenceDate];
 }

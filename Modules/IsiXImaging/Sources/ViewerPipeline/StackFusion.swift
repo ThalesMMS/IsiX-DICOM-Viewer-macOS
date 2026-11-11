@@ -58,6 +58,29 @@ public enum StackFusion {
         return requested
     }
 
+    /// What the slab's slider asks for when it stands at `stacks` slices.
+    public enum SliderMove: Equatable, Sendable {
+        /// Nothing: no slab, and none asked for.
+        case none
+        /// One slice is no slab: the fusion goes off, as at the bottom of the scroll wheel.
+        case switchOff
+        /// The fusion starts again, with the mode of the popup, at this many slices.
+        case start(Int)
+        /// This many slices, in the mode there is.
+        case set(Int)
+    }
+
+    /// One slice at the slider's thin end is the series as it is, so the fusion
+    /// goes off there. `tracking` says the mouse is dragging the slider: only
+    /// then does more than one slice start a fusion that is off, so the drag
+    /// that switched it off can bring it back. Any other sender leaves an
+    /// inactive fusion inactive and only has the count kept.
+    public static func sliderMove(to stacks: Int, active: Bool, tracking: Bool) -> SliderMove {
+        if stacks <= 1 { return active ? .switchOff : .none }
+        if !active && tracking { return .start(stacks) }
+        return .set(stacks)
+    }
+
     /// The number of fused slices after `steps` steps of the scroll wheel or the
     /// keyboard, or nil when it does not change. `maximum` is the most the
     /// slider and every phase allow (nothing changes below 2). An inactive

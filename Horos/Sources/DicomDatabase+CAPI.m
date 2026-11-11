@@ -165,15 +165,15 @@ void DicomDatabaseLogError(const char* function, const char* file, int line, NSS
 }
 
 id DicomDatabaseSmartAlbumNow(void) {
-    return [IsiXDICOMCalendarDate calendarDate];
+    return [DCMCalendarDate calendarDate];
 }
 
 id DicomDatabaseSmartAlbumStartOfToday(id now) {
-    return [NSDate dateWithTimeIntervalSinceReferenceDate: [[IsiXDICOMCalendarDate dateWithYear:[now yearOfCommonEra] month:[now monthOfYear] day:[now dayOfMonth] hour:0 minute:0 second:0 timeZone: [now timeZone]] timeIntervalSinceReferenceDate]];
+    return [NSDate dateWithTimeIntervalSinceReferenceDate: [[DCMCalendarDate dateWithYear:[now yearOfCommonEra] month:[now monthOfYear] day:[now dayOfMonth] hour:0 minute:0 second:0 timeZone: [now timeZone]] timeIntervalSinceReferenceDate]];
 }
 
 NSDate* DicomDatabaseUndefinedStudyDate(void) {
-    return [IsiXDICOMCalendarDate dateWithYear:1901 month:1 day:1 hour:0 minute:0 second:0 timeZone:nil];
+    return [DCMCalendarDate dateWithYear:1901 month:1 day:1 hour:0 minute:0 second:0 timeZone:nil];
 }
 
 BOOL DicomDatabaseCopyFileForPublication(NSString* source, NSString* destination, BOOL mountedVolume, NSError** error) {

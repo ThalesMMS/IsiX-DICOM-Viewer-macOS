@@ -94,6 +94,7 @@ import IsiXPreferences
     /// it becomes.
     func speedChanged() {
         viewer.horos_speedText?.stringValue = Self.imagesPerSecond(Double(frameRate * viewer.horos_direction))
+        CineCadence.wake(viewer.horos_timer, lastFrame: viewer.horos_lastTime, rate: frameRate)
 
         guard viewer.window?.isKeyWindow ?? false else { return }
         let rate = frameRate
@@ -113,6 +114,7 @@ import IsiXPreferences
     func movieRateChanged() {
         let rate = movieRate
         viewer.horos_movieTextSlide?.stringValue = Self.framesPerSecond(rate)
+        CineCadence.wake(viewer.horos_movieTimer, lastFrame: viewer.horos_lastMovieTime, rate: rate)
 
         guard viewer.window?.isKeyWindow ?? false else { return }
         let defaultRate = preferences[ViewerPreferences.defaultMovieRate]
@@ -133,6 +135,19 @@ import IsiXPreferences
         String(format: NSLocalizedString("%0.0f im/s", comment: "im/s = images per second"), Double(rate))
     }
 
+    // MARK: - The timers
+
+    /// A player's timer, which sleeps between frames. It stays a repeating
+    /// Timer for as long as the player plays: plugins read that it is not nil.
+    private func playerTimer(rate: Float, selector: Selector) -> Timer {
+        let interval = CineCadence.frameInterval(rate: rate)
+        let timer = Timer.scheduledTimer(timeInterval: interval, target: viewer, selector: selector, userInfo: nil, repeats: true)
+        timer.tolerance = CineCadence.tolerance(interval: interval)
+        RunLoop.current.add(timer, forMode: .modalPanel)
+        RunLoop.current.add(timer, forMode: .eventTracking)
+        return timer
+    }
+
     // MARK: - The "Browse" player
 
     /// One tick of the "Browse" player's timer: shows the speed once a second
@@ -141,6 +156,7 @@ import IsiXPreferences
     func advanceSlice() {
         // Playback intervals must not change when the civil clock is corrected.
         let thisTime = ProcessInfo.processInfo.systemUptime
+        defer { CineCadence.wake(viewer.horos_timer, lastFrame: viewer.horos_lastTime, rate: viewer.horos_speedSlider?.floatValue ?? 0) }
 
         if viewer.horos_windowWillClose { return }
         if isLoadingFirstHalf() { return }
@@ -164,7 +180,7 @@ import IsiXPreferences
             viewer.adjustSlider()
             imageView.sendSyncMessage(0)
 
-            viewer.horos_lastTime = thisTime
+            viewer.horos_lastTime = CineCadence.frameTime(now: thisTime, lastFrame: viewer.horos_lastTime, rate: viewer.horos_speedSlider?.floatValue ?? 0)
 
             imageView.displayIfNeeded()
             viewer.horos_speedometer += 1
@@ -188,10 +204,7 @@ import IsiXPreferences
         } else {
             postViewerNotification(.OsirixStopPlaying, viewer)
 
-            let timer = Timer.scheduledTimer(timeInterval: 0, target: viewer, selector: #selector(ViewerController.performAnimation(_:)), userInfo: nil, repeats: true)
-            viewer.horos_timer = timer
-            RunLoop.current.add(timer, forMode: .modalPanel)
-            RunLoop.current.add(timer, forMode: .eventTracking)
+            viewer.horos_timer = playerTimer(rate: frameRate, selector: #selector(ViewerController.performAnimation(_:)))
 
             viewer.horos_lastTime = ProcessInfo.processInfo.systemUptime
             viewer.horos_lastTimeFrame = ProcessInfo.processInfo.systemUptime
@@ -213,10 +226,11 @@ import IsiXPreferences
     /// speed, handed on to the other viewers. It waits while less than half
     /// the series is loaded.
     func advanceMovie() {
-        if isLoadingFirstHalf() { return }
-
         // Playback intervals must not change when the civil clock is corrected.
         let thisTime = ProcessInfo.processInfo.systemUptime
+        defer { CineCadence.wake(viewer.horos_movieTimer, lastFrame: viewer.horos_lastMovieTime, rate: viewer.horos_movieRateSlider?.floatValue ?? 0) }
+
+        if isLoadingFirstHalf() { return }
 
         if thisTime - viewer.horos_lastMovieTime > 1.0 / Double(viewer.horos_movieRateSlider?.floatValue ?? 0) {
             let frames = SliceNavigation(movieIndex: Int(viewer.horos_curMovieIndex), movieCount: Int(viewer.horos_maxMovieIndex))
@@ -227,7 +241,7 @@ import IsiXPreferences
             viewer.setMovieIndex(next)
             viewer.propagateSettings()
 
-            viewer.horos_lastMovieTime = thisTime
+            viewer.horos_lastMovieTime = CineCadence.frameTime(now: thisTime, lastFrame: viewer.horos_lastMovieTime, rate: viewer.horos_movieRateSlider?.floatValue ?? 0)
         }
     }
 
@@ -260,10 +274,7 @@ import IsiXPreferences
 
         viewer.checkEverythingLoaded()
 
-        let timer = Timer.scheduledTimer(timeInterval: 0, target: viewer, selector: #selector(ViewerController.performMovieAnimation(_:)), userInfo: nil, repeats: true)
-        viewer.horos_movieTimer = timer
-        RunLoop.current.add(timer, forMode: .modalPanel)
-        RunLoop.current.add(timer, forMode: .eventTracking)
+        viewer.horos_movieTimer = playerTimer(rate: movieRate, selector: #selector(ViewerController.performMovieAnimation(_:)))
 
         viewer.horos_lastMovieTime = ProcessInfo.processInfo.systemUptime
 

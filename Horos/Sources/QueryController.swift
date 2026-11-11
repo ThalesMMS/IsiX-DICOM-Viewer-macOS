@@ -429,12 +429,7 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
 
         PatientModeMatrix.selectTabViewItem(at: preferences[autoQueryValue ? NetworkPreferences.autoQueryPatientModeIndex : NetworkPreferences.queryPatientModeIndex])
 
-        for identifier in ["stateText", "serverStateText"] {
-            let buttonCell = NSPopUpButtonCell(textCell: "", pullsDown: false)
-            buttonCell.isBordered = false
-            buttonCell.addItems(withTitles: (BrowserController.statesArray() as? [String]) ?? [])
-            outlineView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(identifier))?.dataCell = buttonCell
-        }
+        StudyStates.install(on: outlineView, columns: ["stateText", "serverStateText"], editable: false)
 
         for field in [searchFieldAN, searchFieldStudyDescription, searchFieldComments, searchFieldRefPhysician, searchFieldID, searchFieldName] {
             let cellMenu = NSMenu(title: "Search Menu")

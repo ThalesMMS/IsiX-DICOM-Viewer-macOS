@@ -114,9 +114,12 @@ public struct DICOMNodeStore: Sendable {
         preferences[NetworkPreferences.syncsDICOMNodes]
     }
 
-    /// Where `SERVERS` is synced from; nil when no URL is set.
+    /// Where `SERVERS` is synced from; nil when no URL is set, or when it is
+    /// one the list may not be read from.
     public var syncURL: URL? {
-        preferences[NetworkPreferences.syncDICOMNodesURL].flatMap(URL.init(string:))
+        preferences[NetworkPreferences.syncDICOMNodesURL].flatMap(URL.init(string:)).flatMap {
+            RemoteConfigurationURL.isAcceptable($0) ? $0 : nil
+        }
     }
 
     /// Whether the nodes Bonjour finds are listed with the stored ones.

@@ -21,6 +21,9 @@ import UniformTypeIdentifiers
 // the selected study (StudyFileImporter). It is enabled only when one row of
 // the list is selected and its study can take files: a local database that
 // is not read-only, a study neither distant nor locked.
+// File > Import > Import Studies from Horos or OsiriX… brings the studies of
+// an earlier application's data folder (LegacyStudiesImport); it is enabled
+// when the database shown is local and can be written.
 
 /// The main menu's commands on the study selected in the database window.
 @MainActor @objc(IsiXDatabaseStudyCommands)
@@ -63,6 +66,26 @@ final class DatabaseStudyCommands: NSObject, NSMenuItemValidation {
         return StudyFileImporter(study: study, database: database).convert(paths).indexedCount
     }
 
+    /// File > Import > Import Studies from Horos or OsiriX…: the studies of
+    /// an earlier application's data folder come into the database shown
+    /// (LegacyStudiesImport).
+    @IBAction @objc(importStudiesFromEarlierApplication:)
+    func importStudiesFromEarlierApplication(_ sender: Any?) {
+        guard let browser else {
+            NSSound.beep()
+            return
+        }
+        LegacyStudiesImport.shared.run(in: browser)
+    }
+
+    /// The same without its dialog, for scripts and checks: the number of
+    /// files handed to the import, -1 when nothing can be imported.
+    @objc(importStudiesFromFolderAtPath:copying:)
+    func importStudies(fromFolderAtPath path: String, copying: Bool) -> Int {
+        guard let browser else { return -1 }
+        return LegacyStudiesImport.shared.importFolder(atPath: path, copying: copying, into: browser)
+    }
+
     /// The items of the list's contextual menu that the browser does not
     /// answer, aimed at `shared`, which validates them; the menu hides them
     /// when they do not apply.
@@ -77,6 +100,8 @@ final class DatabaseStudyCommands: NSObject, NSMenuItemValidation {
         switch item.action {
         case #selector(importImagesAndPDFsIntoSelectedStudy(_:)):
             return browser.flatMap { StudyFileImporter.selectedStudy(in: $0) } != nil
+        case #selector(importStudiesFromEarlierApplication(_:)):
+            return LegacyStudiesImport.canImport(into: browser)
         default:
             return true
         }

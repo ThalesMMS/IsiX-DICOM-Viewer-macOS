@@ -189,9 +189,9 @@ if uses_module:
                     else 'DCMAttributeTag')
     swift_header = r'''
 #import <Cocoa/Cocoa.h>
-@class IsiXDICOMAttributeTag;
+@class DCMAttributeTag;
 @interface O2DicomPredicateEditorView : NSView
-@property(retain) IsiXDICOMAttributeTag *''' + tag_property + r''';
+@property(retain) DCMAttributeTag *''' + tag_property + r''';
 @end
 '''
     doubles = doubles[:doubles.index('@implementation DCMAttributeTag')].replace(

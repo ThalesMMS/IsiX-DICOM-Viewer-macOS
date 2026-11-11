@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Legacy Converted Enhanced CT, MR and PET are recognised as multi-frame images.
 
-The real SOP classes of IsiXDICOMFile (IsiXDICOMSOPClass) are compiled and asked, and the UIDs are checked
+The real SOP classes of IsiXDICOMFile (DCMAbstractSyntaxUID) are compiled and asked, and the UIDs are checked
 against DCMTK's dictionary rather than against themselves.
 """
 from pathlib import Path
@@ -44,8 +44,8 @@ static int failures;
 
 static void recognised(NSString *uid, const char *label)
 {
-    if (![IsiXDICOMSOPClass isImageStorage: uid]) { printf("FAIL %s is not image storage\n", label); failures++; }
-    if (![IsiXDICOMSOPClass isMultiframe: uid])   { printf("FAIL %s is not multiframe\n", label); failures++; }
+    if (![DCMAbstractSyntaxUID isImageStorage: uid]) { printf("FAIL %s is not image storage\n", label); failures++; }
+    if (![DCMAbstractSyntaxUID isMultiframe: uid])   { printf("FAIL %s is not multiframe\n", label); failures++; }
 }
 
 int main(int argc, const char **argv) { @autoreleasepool {
@@ -69,20 +69,20 @@ int main(int argc, const char **argv) { @autoreleasepool {
     // Nothing that already worked stopped working.
     recognised(enhancedCT, "Enhanced CT");
     recognised(enhancedMR, "Enhanced MR");
-    check([IsiXDICOMSOPClass isImageStorage: plainCT]);
-    check(![IsiXDICOMSOPClass isMultiframe: plainCT]);   // one frame per instance
+    check([DCMAbstractSyntaxUID isImageStorage: plainCT]);
+    check(![DCMAbstractSyntaxUID isMultiframe: plainCT]);   // one frame per instance
 
     // And nothing became true for everything.
-    check(![IsiXDICOMSOPClass isImageStorage: @"1.2.840.10008.1.1"]);       // Verification
-    check(![IsiXDICOMSOPClass isMultiframe: @"1.2.840.10008.1.1"]);
-    check(![IsiXDICOMSOPClass isImageStorage: nil]);
-    check(![IsiXDICOMSOPClass isMultiframe: nil]);
-    check(![IsiXDICOMSOPClass isImageStorage: @""]);
+    check(![DCMAbstractSyntaxUID isImageStorage: @"1.2.840.10008.1.1"]);       // Verification
+    check(![DCMAbstractSyntaxUID isMultiframe: @"1.2.840.10008.1.1"]);
+    check(![DCMAbstractSyntaxUID isImageStorage: nil]);
+    check(![DCMAbstractSyntaxUID isMultiframe: nil]);
+    check(![DCMAbstractSyntaxUID isImageStorage: @""]);
 
     // They are not something else the browser routes elsewhere.
-    check(![IsiXDICOMSOPClass isStructuredReport: legacyCT]);
-    check(![IsiXDICOMSOPClass isPDF: legacyCT]);
-    check(![IsiXDICOMSOPClass isRadiotherapy: legacyMR]);
+    check(![DCMAbstractSyntaxUID isStructuredReport: legacyCT]);
+    check(![DCMAbstractSyntaxUID isPDF: legacyCT]);
+    check(![DCMAbstractSyntaxUID isRadiotherapy: legacyMR]);
 
     if (failures) { printf("%d failure(s)\n", failures); return 1; }
     printf("ok\n");

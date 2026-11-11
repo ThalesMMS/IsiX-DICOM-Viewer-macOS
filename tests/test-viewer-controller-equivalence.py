@@ -84,6 +84,12 @@ GRAPH_STAND_INS = r'''
 import AppKit
 import ObjectiveC
 
+// The list of study states is the application's (StudyStates); here the
+// status pop-up keeps the items the scene gave it.
+enum StudyStates {
+    @MainActor static func select(_ value: Int, in popup: NSPopUpButton?) { popup?.selectItem(withTag: value) }
+}
+
 final class ProcessGraph: @unchecked Sendable {
     static let process = ProcessGraph()
     var preferences: UserDefaults { UserDefaults.standard }
@@ -142,6 +148,8 @@ extension ViewerController {
 # IsiXLogging first: the others that log write through it.
 MODULES = ['IsiXLogging', 'IsiXPreferences', 'IsiXImaging']
 SCENARIOS = ['lifecycle', 'refresh', 'notifications', 'hotkeys', 'truncate']
+
+GONE = re.compile(r'^defaults (?:no longer )?observed by \S+ for SeriesListIdentificationMode\b')
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument('--reference')
@@ -1612,6 +1620,10 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-controller-') as tmp:
             for label, text in results.items():
                 (args.dump / ('%s-%s.txt' % (scenario, label))).write_text(text)
         expected, got = results['reference'].splitlines(), results['current'].splitlines()
+        # Deliberate: the series are identified in one way (the study by its
+        # colour, the series by its number), so the viewer no longer observes
+        # the preference that chose between colours and numbers.
+        expected = [line for line in expected if not GONE.search(line)]
         if deferred_refreshes:
             expected, got = deferred(expected), deferred(got)
         if not expected:

@@ -60,7 +60,12 @@ import Foundation
     /// symbol: the linker exports this property's offset under that name
     /// (Horos/Scripts/Horos/legacy-plugin-ivar-aliases.rsp), so it keeps its
     /// name and type.
-    var viewerController: ViewerController!
+    ///
+    /// The filter does not own the viewer, as that instance variable did not:
+    /// -prepareFilter: only assigned it, and a plugin stores a viewer there
+    /// with no retain. An owning property would release, at the next
+    /// assignment, a viewer the plugin never retained.
+    unowned(unsafe) var viewerController: ViewerController!
 
     /// `[[self alloc] init]`: allocated and initialized as the class of the
     /// receiver, a plugin's subclass included. NSObject's -init, by message,

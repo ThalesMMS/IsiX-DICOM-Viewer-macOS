@@ -48,6 +48,11 @@ import Testing
         #expect(visits == [0, 2, 0, 2, 0, 2])
         #expect(purges == 3)
         let single = ViewerMemory.plan(imageCounts: [1], image: { _, _ in image }, visit: { _ in }, allocate: { _ in false }, purge: {})
+        // What the images take in the volume, by the sizes told to them.
+        #expect(ViewerMemory.lentPixels(of: [image, MemoryImage(width: 96, height: 72, frames: 1, series: 1)]) == 512 * 512 + 96 * 72)
+        #expect(ViewerMemory.lentPixels(of: [MemoryImage(width: 64, height: 32, frames: 10, series: 1)]) == 64 * 32 * 10)
+        #expect(ViewerMemory.lentPixels(of: [MemoryImage(width: 0, height: 72, frames: 1, series: 1), MemoryImage(width: -4, height: 2, frames: 0, series: 1)]) == 0)
+        #expect(ViewerMemory.lentPixels(of: [MemoryImage(width: .max, height: .max, frames: 1, series: 1)]) == nil)
         #expect(single == .failure(.notEnoughMemory))
         let unsafe = ViewerMemory.plan(imageCounts: [2], image: { _, _ in MemoryImage(width: -1, height: 2, frames: 1, series: 1) },
                                        visit: { _ in }, allocate: { _ in true }, purge: {})

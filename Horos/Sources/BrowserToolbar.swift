@@ -973,6 +973,7 @@ extension BrowserMenuState: @MainActor BrowserMenuFacts {
             add(NSLocalizedString("Convert to DICOM PDF", comment: ""), "convertReportToDICOMSR:", to: group)
             // File > Import's command on the selected study.
             DatabaseStudyCommands.addContextualItems(to: menu)
+            StudyStates.addContextualItems(to: menu)
         }
 
         if isWritable {

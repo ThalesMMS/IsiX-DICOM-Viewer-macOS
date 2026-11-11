@@ -146,7 +146,7 @@ static void HorosEnsureVendoredDicomDictionary(void)
 
 // ---- The DCM Framework's tag dictionaries, from DCMTK ---------------------
 //
-// IsiXDICOMAttributeTag names and types every element through two dictionaries that
+// DCMAttributeTag names and types every element through two dictionaries that
 // used to be read from tagDictionary.plist and nameDictionary.plist: tag
 // ("GGGG,EEEE") to {Description, VR, VM}, and name to tag. They are built here
 // from the DCMTK dictionary the process loads. The names stay the ones the DCM

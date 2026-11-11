@@ -136,8 +136,7 @@ extension VRView {
             // The 4D min/max guard is applied to the 16-bit copy after conversion
             // (applyMovieRangeGuardTo16BitVolume), not to the shared float volume.
             computeValueFactor()
-            BrowserController.multiThreadedImageConvert("FTo16U", srcf, dst8, -horos_OFFSET16, Float(1.0 / Double(horos_valueFactor)))
-            applyMovieRangeGuardTo16BitVolume()
+            horos_data8IsCurrent = false
         }
 
         var built: Int16? = nil
@@ -225,11 +224,7 @@ extension VRView {
         _ = strlcpy(windowText, text, 200)
 
         // A series corrected for gantry tilt says so in the lower left corner.
-        let tiltViewer = horos_controller?.viewer2D()
-        let tiltDegrees = GantryTiltPolicy.correctedDegrees(of: tiltViewer)
-        let tiltText = tiltDegrees.map { GantryTiltPolicy.overlayText(degrees: $0.floatValue) }
-
-        if buildFailed({ try vtk.makeTexts(withWindowText: windowText, corner: isViewportResizable(), tilt: tiltText) }) {
+        if buildFailed({ try vtk.makeTexts(withWindowText: windowText, corner: isViewportResizable(), tilt: tiltMarkText()) }) {
             return -1
         }
 
@@ -285,7 +280,7 @@ extension VRView {
     // patches the private 16-bit copy after each conversion, for every time.
     @objc(applyMovieRangeGuardTo16BitVolume)
     func applyMovieRangeGuardTo16BitVolume() {
-        guard !horos_isRGB, let data8 = horos_data8, let firstObject = horos_firstObject, let controller = horos_controller else {
+        guard horos_data8IsCurrent, !horos_isRGB, let data8 = horos_data8, let firstObject = horos_firstObject, let controller = horos_controller else {
             return
         }
 
@@ -377,8 +372,7 @@ extension VRView {
             vtk.setImportVoxels(UnsafeMutableRawPointer(volumeData))
         } else {
             horos_srcf.pointee.data = UnsafeMutableRawPointer(volumeData)
-            BrowserController.multiThreadedImageConvert("FTo16U", horos_srcf, horos_dst8, -horos_OFFSET16, Float(1.0 / Double(horos_valueFactor)))
-            applyMovieRangeGuardTo16BitVolume()
+            horos_data8IsCurrent = false
 
             vtk.setImportVoxels(UnsafeMutableRawPointer(horos_data8!))
         }
@@ -423,6 +417,21 @@ extension VRView {
     @objc(movieChangeSource:)
     func movieChangeSource(_ volumeData: UnsafeMutablePointer<Float>!) {
         movieChangeSource(volumeData, showWait: true)
+    }
+
+    // MARK: - The 16-bit copy
+
+    /// Converts the float volume into the 16-bit copy, if that has not been
+    /// done since the volume changed. Only VTK's CPU mapper reads the copy,
+    /// and the Metal engine does not: until something asks for it, its pages
+    /// are never touched. 2 bytes a voxel, for each 3D window.
+    @objc(horosEnsureData8)
+    func horosEnsureData8() {
+        guard !horos_data8IsCurrent, !horos_isRGB, horos_data8 != nil, horos_data != nil, horos_srcf.pointee.data != nil else { return }
+        BrowserController.multiThreadedImageConvert("FTo16U", horos_srcf, horos_dst8, -horos_OFFSET16, Float(1.0 / Double(horos_valueFactor)))
+        horos_data8IsCurrent = true
+        applyMovieRangeGuardTo16BitVolume()
+        horos_vtk.markImportModified()
     }
 
     // MARK: - The fused series
@@ -562,5 +571,21 @@ extension VRView {
 
             needsDisplay = true
         }
+    }
+}
+
+extension VRView {
+
+    /// What the gantry tilt's mark says of the series now: nothing once its
+    /// viewer has read the slices from their files again.
+    func tiltMarkText() -> String? {
+        GantryTiltPolicy.correctedDegrees(of: horos_controller?.viewer2D())
+            .map { GantryTiltPolicy.overlayText(degrees: $0.floatValue) }
+    }
+
+    /// Before a frame: the mark follows the series. The text made with the
+    /// view stayed after Revert Series, over slices that were tilted again.
+    func updateTiltMark() {
+        horos_vtk.setTiltText(tiltMarkText(), corner: isViewportResizable())
     }
 }

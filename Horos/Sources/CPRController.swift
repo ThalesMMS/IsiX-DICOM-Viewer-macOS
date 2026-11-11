@@ -1341,6 +1341,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     @objc(CloseViewerNotification:)
     private dynamic func CloseViewerNotification(_ note: Notification!) {
+        if PreviousSeriesHold.window(self, keepsSeriesReleasedBy: note) { return }
         if (note?.object as AnyObject?) === viewer2D || (note?.object as AnyObject?) === fusedViewer2D {
             self.offFullScreen()
             self.window?.close()

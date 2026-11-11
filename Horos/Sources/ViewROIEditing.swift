@@ -159,6 +159,12 @@ enum ViewROIEditing {
         }
     }
 
+    /// The Viewers settings' choice: on, a click of the Length tool places an
+    /// end of a measure; off, the tool measures only where it is dragged.
+    static var twoClickLength: Bool {
+        PreferencesSource.process.preferences[ViewerPreferences.twoClickLengthMeasurement]
+    }
+
     // MARK: - Two-click Length
 
     /// An object compared as Objective-C compares it, with -isEqual:.
@@ -171,6 +177,17 @@ enum ViewROIEditing {
     }
 
     typealias LengthPlacement = TwoClickLengthPlacement<ObjectValue>
+
+    /// Whether the pending first point of a two-click Length waits for thin
+    /// slices on the image shown: a slab takes the second point on the image
+    /// of the first, and on any other image has to give way to thin slices.
+    /// `firstImage` and `firstReference` are the first point's image index and reference.
+    @MainActor static func lengthWaitsForThinSlices(firstImage: Any?, firstReference: Any?, image: Int, pix: DCMPix?) -> Bool {
+        guard (pix?.stack ?? 0) > 1 else { return false }
+        let sameImage = (firstImage as? NSObject)?.isEqual(NSNumber(value: image)) ?? false
+        let sameReference = (firstReference as? NSObject)?.isEqual(HorosVolumeLengthROI.reference(for: pix)) ?? false
+        return !(sameImage && sameReference)
+    }
 
     /// An endpoint of the two-click Length, from the dictionary the view
     /// keeps for it: where it was clicked, on which image and time point,
@@ -188,6 +205,7 @@ enum ViewROIEditing {
                                         imageIndex: (dictionary["imageIndex"] as? NSNumber)?.intValue ?? Int.min,
                                         temporalIndex: (dictionary["temporalIndex"] as? NSNumber)?.intValue ?? Int.min,
                                         reference: (dictionary["reference"] as? NSObject).map(ObjectValue.init),
-                                        patient: patient)
+                                        patient: patient,
+                                        onSlab: (dictionary["onSlab"] as? NSNumber)?.boolValue ?? false)
     }
 }

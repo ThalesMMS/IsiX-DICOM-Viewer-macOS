@@ -116,10 +116,10 @@ public extension ViewerController {
     }
 
     /// The thick slab's slider: the number of fused slices, in every movie
-    /// frame, kept as the "stackThickness" preference.
+    /// frame, kept as the "stackThickness" preference; one slice is no slab.
     @objc(sliderFusionAction:)
     func sliderFusionAction(_ sender: Any!) {
-        ViewerThickSlab(viewer: self, preferences: sessionGraph.preferences).setStacks(ViewerSender.intValue(sender))
+        ViewerThickSlab(viewer: self, preferences: sessionGraph.preferences).sliderMoved(sender)
     }
 }
 
@@ -166,6 +166,8 @@ public extension ViewerController {
             }
         }
 
+        // A slider left at its thin end, where there is no slab, starts at two slices.
+        if m != 0, let slider = viewer.horos_sliderFusion, slider.integerValue < 2 { slider.integerValue = 2 }
         let stacks = Int16(truncatingIfNeeded: viewer.horos_sliderFusion?.intValue ?? 0)
         viewer.horos_imageView?.setFusion(Int16(truncatingIfNeeded: m), stacks)
 
@@ -200,25 +202,37 @@ public extension ViewerController {
         guard let next = StackFusion.thickness(afterSteps: steps, active: active, current: viewer.horos_sliderFusion?.integerValue ?? 0,
                                                maximum: maximum) else { return }
         if next == 1 {
-            viewer.setFusionMode(0)
-            viewer.horos_stacksFusion?.intValue = 1
-            viewer.horos_imageView?.sendSyncMessage(0)
-            return // The disabled slider keeps a valid value of 2 or more.
+            switchOff()
+            return
         }
 
         viewer.horos_sliderFusion?.integerValue = next
         if !active {
-            viewer.popFusionAction(viewer.horos_popFusion) // The usual preparation, mode and refusals.
-            if viewer.horos_activatedFusion?.state != .on {
-                viewer.horos_stacksFusion?.intValue = 1
-                return
-            }
-            // setFusionMode already updated every phase: not twice.
-            viewer.horos_stacksFusion?.integerValue = next
-            preferences.set(next, for: ViewerPreferences.stackThickness)
+            start(at: next)
         } else {
             viewer.sliderFusionAction(viewer.horos_sliderFusion)
         }
+    }
+
+    /// No slab: the fusion off, and the knob at its thin end, where a thinning
+    /// in one large step used to leave it standing at the thickness it came from.
+    private func switchOff() {
+        viewer.setFusionMode(0)
+        viewer.horos_sliderFusion?.integerValue = 1
+        viewer.horos_stacksFusion?.intValue = 1
+        viewer.horos_imageView?.sendSyncMessage(0)
+    }
+
+    /// Starts the fusion, with the mode of the popup, at the `stacks` slices the slider shows.
+    private func start(at stacks: Int) {
+        viewer.popFusionAction(viewer.horos_popFusion) // The usual preparation, mode and refusals.
+        if viewer.horos_activatedFusion?.state != .on {
+            viewer.horos_stacksFusion?.intValue = 1
+            return
+        }
+        // setFusionMode already updated every phase: not twice.
+        viewer.horos_stacksFusion?.integerValue = stacks
+        preferences.set(stacks, for: ViewerPreferences.stackThickness)
     }
 
     /// Fuses `stacks` slices in every movie frame, kept as the
@@ -238,6 +252,21 @@ public extension ViewerController {
         preferences.set(Int(stacks), for: ViewerPreferences.stackThickness)
 
         viewer.horos_imageView?.sendSyncMessage(0)
+    }
+
+    /// The slider's action, for the number of slices `sender` shows. Its thin
+    /// end switches the fusion off, and the mouse that did it can drag the
+    /// fusion back; a sender that is not being dragged never starts one.
+    func sliderMoved(_ sender: Any?) {
+        let stacks = ViewerSender.intValue(sender)
+        let tracking = (sender as? HorosCellSlider)?.isTrackingMouse ?? false
+        let active = viewer.horos_activatedFusion?.state == .on
+        switch StackFusion.sliderMove(to: Int(stacks), active: active, tracking: tracking) {
+        case .none: break
+        case .switchOff: switchOff()
+        case .start(let count): start(at: count)
+        case .set(let count): setStacks(Int32(truncatingIfNeeded: count))
+        }
     }
 
     /// Tells the toolbar, bound to "self.thicknessInMm", to read it again.

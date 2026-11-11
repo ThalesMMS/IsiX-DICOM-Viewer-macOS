@@ -209,19 +209,24 @@ public enum LaunchPreferenceMigrations {
     }
 
     /// The hot keys of the double click (full screen, the 3D synchronization,
-    /// the key image), added to a list of an earlier version that has none of
-    /// the three. A list with every action already has them.
+    /// the key image), each given back to a stored list that lost it: a
+    /// gesture no action has goes to its own action when that action has no
+    /// key either. A gesture given to another action, or an action moved to
+    /// another key, is a choice and stays. A list of an earlier version has
+    /// none of the three; one that kept two of them was never completed.
     public static func addDoubleClickHotKeys(in store: any PreferenceStore) {
         let key = ViewerPreferences.hotKeys.name
-        let hotKeys = store.object(forKey: key) as? [String: Any]
-        guard (hotKeys?.count ?? 0) < HotKeyAction.setKeyImage else { return }
-        let doubleClick = [HotKeyAction.fullScreen, HotKeyAction.sync3D, HotKeyAction.setKeyImage]
-        if hotKeys?.values.contains(where: { doubleClick.contains(integer($0)) }) == true { return }
-        var updated = hotKeys
-        updated?["dbl-click"] = HotKeyAction.fullScreen
-        updated?["dbl-click + alt"] = HotKeyAction.sync3D
-        updated?["dbl-click + cmd"] = HotKeyAction.setKeyImage
-        store.set(updated, forKey: key)
+        guard var hotKeys = store.object(forKey: key) as? [String: Any] else { return }
+        let doubleClick = [("dbl-click", HotKeyAction.fullScreen), ("dbl-click + alt", HotKeyAction.sync3D),
+                           ("dbl-click + cmd", HotKeyAction.setKeyImage)]
+        // An action whose only key is the empty one has no hot key.
+        let assigned = Set(hotKeys.filter { !$0.key.isEmpty }.values.map(integer))
+        var changed = false
+        for (gesture, action) in doubleClick where hotKeys[gesture] == nil && !assigned.contains(action) {
+            hotKeys[gesture] = action
+            changed = true
+        }
+        if changed { store.set(hotKeys, forKey: key) }
     }
 
     /// The actions of the double click, as the HotKeyActions enum of the

@@ -107,7 +107,8 @@ extension VRController {
     }
 
     func horosVolumeMetalRender(_ snapshot: NSDictionary, fused: Bool, width: Int, height: Int, imageRegion: [NSNumber],
-                                geometryDepth: Data?, scalarOut: NSMutableData?, forVTK: Bool) throws -> NSData {
+                                geometryDepth: Data?, scalarOut: NSMutableData?, forVTK: Bool,
+                                picture: MTLTexture? = nil) throws -> NSData {
         let rendererSlot = fused ? VolumeMetalSlots.key(&VolumeMetalSlots.fusedRenderer) : VolumeMetalSlots.key(&VolumeMetalSlots.renderer)
         let uploadedSlot = fused ? VolumeMetalSlots.key(&VolumeMetalSlots.fusedUploaded) : VolumeMetalSlots.key(&VolumeMetalSlots.uploaded)
         var reason = snapshot["error"] as? String
@@ -150,6 +151,8 @@ extension VRController {
         if reason == nil, let renderer {
             func number(_ key: String) -> Double { (snapshot[key] as? NSNumber)?.doubleValue ?? 0 }
             var failure: Error?
+            renderer.pictureTarget = picture
+            defer { renderer.pictureTarget = nil }
             do {
                 bytes = try renderer.render(camera: snapshot["camera"] as? [NSNumber] ?? [], near: number("near"), far: number("far"),
                                             level: number("level"), width: number("width"), clut: snapshot["clut"] as? NSData ?? NSData(),
@@ -203,6 +206,11 @@ extension VRController {
             throw NSError(domain: "HorosVolumeMetal", code: 1, userInfo: [NSLocalizedDescriptionKey: reason ?? ""])
         }
         return bytes
+    }
+
+    /// The renderer of the image's volume, once it has made one.
+    var horosVolumeMetalRenderer: VolumeRendererBridge? {
+        VolumeMetalSlots.get(self, VolumeMetalSlots.key(&VolumeMetalSlots.renderer)) as? VolumeRendererBridge
     }
 
     /// The reason the last render declined, or nil.

@@ -13,7 +13,8 @@ filled (`cachedPapyGroups`, `-clearCachedPapyGroups`); the unused
 the lock in files that never take it.
 
 Kept: the `PapyrusLock` global, allocated at launch and still taken around the
-parsed-file cache, the annotations and the DCMTK reads in DicomFile; the store
+parsed-file cache, the annotations and the single-field and crop reads in
+DicomFile, the import's header reading having moved outside it; the store
 listener locks; the photometric interpretation codes of the YBR conversion;
 `-loadDICOMPapyrus` and `-releaseParsedFile` (formerly `-clearCachedDCMFrameworkFiles`) in the SDK header;
 `TOOLKITPARSER4`, whose presence DicomFile reads; the annotations method named
@@ -84,8 +85,8 @@ unlocks = pix.count("PapyrusLock?.unlock()")
 check(cache.count("PapyrusLock?.lock()") >= 3 and annotations.count("PapyrusLock?.lock()") >= 1 and locks == unlocks,
       "DCMPix no longer takes PapyrusLock in balanced pairs around the parsed-file cache and annotations")
 dcmtk = "".join(text("Horos/Sources/" + name) for name in DCMTK_READING)
-check(dcmtk.count("PapyrusLock?.lock()") >= 4 and dcmtk.count("PapyrusLock?.lock()") == dcmtk.count("PapyrusLock?.unlock()"),
-      "the DCMTK reading of DicomFile no longer takes PapyrusLock in balanced pairs around DCMTK reads")
+check(dcmtk.count("PapyrusLock?.lock()") >= 3 and dcmtk.count("PapyrusLock?.lock()") == dcmtk.count("PapyrusLock?.unlock()"),
+      "the field and crop reads of DicomFile no longer take PapyrusLock in balanced pairs")
 codes = re.search(r"enum EPhoto_Interpret\s*\{([^}]+)\}", pix)
 if codes is None and "loadNonDICOMImage" in pix:
     # The YBR conversion is in Swift (IsiXImaging), with the three codes it converts

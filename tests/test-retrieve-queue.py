@@ -122,6 +122,24 @@ check(m.remove(1, policy: sequential) == [4], "the one moved to the top starts n
 check(m.remove(3, policy: sequential).isEmpty && m.waiting.map { $0.id } == [2], "removing a waiting one keeps the order")
 check(m.remove(4, policy: sequential) == [2], "and the last one is promoted")
 
+// The rows of Activity: the waiting ones trade the places they hold among
+// themselves, in the order of the line; the others stay where they are.
+let rows = ["running", "third", "import", "first", "second"]
+let places = ["third": 3, "first": 1, "second": 2]
+check(RetrieveQueue.arranged(rows) { places[$0] } == ["running", "first", "import", "second", "third"], "rows follow the line")
+check(RetrieveQueue.arranged(["a", "b"]) { ["b": 1][$0] } == ["a", "b"], "one waiting row stays")
+check(RetrieveQueue.arranged(["a", "b"]) { _ in nil } == ["a", "b"], "no waiting row, no change")
+// A drop between rows: the place in line is the waiting rows above the gap,
+// the dragged one aside.
+let waits = [false, true, false, true, true]
+check(RetrieveQueue.index(ofRow: 4, droppedAbove: 0, waits: waits) == 0, "dropped at the top of the list: first in line")
+check(RetrieveQueue.index(ofRow: 4, droppedAbove: 3, waits: waits) == 1, "dropped above the second waiting row")
+check(RetrieveQueue.index(ofRow: 1, droppedAbove: 5, waits: waits) == 2, "dropped at the end: last in line")
+check(RetrieveQueue.index(ofRow: 1, droppedAbove: 2, waits: waits) == 0, "dropped just below itself: no move")
+var d = RetrieveQueue.State()
+_ = (1...4).map { d.submit($0, explicitlyQueued: false, policy: sequential) }
+check(d.move(4, to: RetrieveQueue.index(ofRow: 3, droppedAbove: 1, waits: [false, true, true, true])) && d.waiting.map { $0.id } == [4, 2, 3], "a row dragged to the top goes first")
+
 // The shared queue in Sequential: Move to Top on the third, names, and the
 // place a waiting thread hears.
 // In the argument domain: nothing is written to the preferences.
@@ -145,6 +163,8 @@ check(shared.move(.top, third) && [third, second, fourth].map { shared.position(
 check(!shared.move(.up, third) && !shared.move(.top, first), "nothing above the first in line, nothing to move under way")
 check(shared.move(.down, third) && shared.move(.up, third) && shared.position(of: third) == 1, "Move Down and Move Up")
 check(shared.move(.top, fourth) && shared.position(of: fourth) == 1, "the waiting thread moves too")
+check(shared.move(second, toIndex: 1) && [fourth, second, third].map { shared.position(of: $0) } == [1, 2, 3], "a dragged row moves to an index")
+check(shared.move(second, toIndex: 2) && !shared.move(second, toIndex: 2) && !shared.move(first, toIndex: 1), "and back; nothing to move twice or under way")
 Thread.sleep(forTimeInterval: 0.4)
 shared.setLabel("  Chest CT  ", of: second)
 check(shared.label(of: second) == "Chest CT", "a name, trimmed")
@@ -207,6 +227,18 @@ for needle, what in [
 activity = source_text('BrowserController+Activity')
 if 'RetrieveQueueActivity.menu(for: thread)' not in activity or 'NSMenu.popUpContextMenu(menu, with: evt, for: self)' not in activity:
     failures.append('the Activity list does not offer the queue menu on a line')
+for needle, what in [
+    ('RetrieveQueue.arranged(rows, position: queuePosition)', 'the rows follow the line'),
+    ('pasteboardWriterForRow row: Int', 'a waiting row can be dragged'),
+    ('validateDrop info: NSDraggingInfo', 'a drop is checked'),
+    ('RetrieveQueue.shared.move(ticket, toIndex: RetrieveQueue.index(ofRow: dragged, droppedAbove: row, waits: waits))', 'a drop moves the retrieve in the line'),
+    ('registerForDraggedTypes([Self.queuedRowType])', 'the list takes its own rows'),
+    ('if helper?.canDragRow(row(at: convert(evt.locationInWindow, from: nil))) == true { super.mouseDown(with: evt) }', 'only a waiting row takes the click that drags'),
+]:
+    if needle not in activity:
+        failures.append(f'Activity: {what}')
+if 'if let row = (self.view?.delegate as? BrowserActivityHelper)?.row(of: self) { return row }' not in source_text('ThreadCell'):
+    failures.append('a line draws its status at its thread\'s place among the threads, not on its own row')
 menu = source_text('RetrieveQueueActivity')
 for title in ['"Move to Top"', '"Move Up"', '"Move Down"', '"Rename…"']:
     if title not in menu:

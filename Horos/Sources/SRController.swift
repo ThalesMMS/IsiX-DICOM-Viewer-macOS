@@ -251,6 +251,7 @@ final class SRController: Window3DController, NSToolbarDelegate, NSToolbarItemVa
 
     @objc(CloseViewerNotification:)
     func closeViewerNotification(_ note: Notification?) {
+        if PreviousSeriesHold.window(self, keepsSeriesReleasedBy: note) { return }
         if let viewer2D = viewer2DStorage, (note?.object as AnyObject?) === viewer2D {
             offFullScreen()
             window?.close()

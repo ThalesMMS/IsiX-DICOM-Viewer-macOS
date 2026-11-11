@@ -679,6 +679,8 @@ let memory=Memory()
     let split=try DICOMwebNodeConfiguration(address:"https://pacs.example/dicom-web/",qidoPath:"/qido",wadoPath:"wado/rs",credentialIdentifier:"",retrieveTransferSyntax:"*")
     check(split.qidoURLString=="https://pacs.example/dicom-web/qido" && split.wadoURLString=="https://pacs.example/dicom-web/wado/rs"
           && split.storeURLString=="https://pacs.example/dicom-web/studies" && split.retrieveTransferSyntax=="","paths resolve below the address")
+    let shared=try DICOMwebNodeConfiguration(address:"https://pacs.example",qidoPath:"/wado",wadoPath:"wado/",credentialIdentifier:"",retrieveTransferSyntax:"")
+    check(shared.storeURLString=="https://pacs.example/wado/studies","STOW-RS stores below the path QIDO and WADO share")
 
     // Credentials: each kind sends its header; the server records them.
     let basic=try DICOMwebCredentials.store(kind:.basic,username:"reader",secret:secrets[0],headerName:"")

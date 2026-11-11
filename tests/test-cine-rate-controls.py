@@ -67,6 +67,10 @@ NS_SWIFT_UI_ACTOR
 @property(readonly) NSTextField *speedText,*movieTextSlide;
 + (NSMutableArray*)getDisplayed2DViewers;
 // The accessors of ViewerController+SwiftIvars.h, on the same ivars.
+@property(readonly, nullable) NSTimer* horos_timer;
+@property(readonly, nullable) NSTimer* horos_movieTimer;
+@property(readonly) NSTimeInterval horos_lastTime;
+@property(readonly) NSTimeInterval horos_lastMovieTime;
 @property(readonly, nullable) NSSlider* horos_speedSlider;
 @property(readonly, nullable) NSSlider* horos_movieRateSlider;
 @property(readonly, nullable) NSTextField* horos_speedText;
@@ -88,6 +92,10 @@ code=r'''
 static NSMutableArray *viewers;
 @implementation ViewerController
 @synthesize speedSlider,movieRateSlider,speedText,movieTextSlide;
+- (NSTimer*)horos_timer{return nil;}
+- (NSTimer*)horos_movieTimer{return nil;}
+- (NSTimeInterval)horos_lastTime{return 0;}
+- (NSTimeInterval)horos_lastMovieTime{return 0;}
 - (NSSlider*)horos_speedSlider{return speedSlider;}
 - (NSSlider*)horos_movieRateSlider{return movieRateSlider;}
 - (NSTextField*)horos_speedText{return speedText;}
@@ -130,12 +138,12 @@ int main(void){@autoreleasepool {
 '''
 with tempfile.TemporaryDirectory(prefix='horos-cine-controls-') as tmp:
  p=Path(tmp);(p/'Harness.h').write_text(header);(p/'test.m').write_text(code + harness_defaults.OBJC)
- (p/'Rates.swift').write_text('import AppKit\nimport IsiXPreferences\n\n'
+ (p/'Rates.swift').write_text('import AppKit\nimport IsiXImaging\nimport IsiXPreferences\n\n'
                              '// The viewer\'s graph, whose preferences are the harness\'s.\n'
                              '@MainActor struct HarnessGraph {\n    var preferences: any PreferenceStore { UserDefaults.standard }\n}\n\n'
                              'extension ViewerController {\n    var sessionGraph: HarnessGraph! { HarnessGraph() }\n\n'+methods+'}\n\n'
                              +shell+speeds+'}\n')
  subprocess.run(['xcrun','clang','-c','-fno-objc-arc','-I',str(p),str(p/'test.m'),'-o',str(p/'test.o')],check=True)
- subprocess.run(['xcrun','swiftc','-parse-as-library',*module_flags('IsiXPreferences', p / 'modules'),'-import-objc-header',str(p/'Harness.h'),str(p/'Rates.swift'),
+ subprocess.run(['xcrun','swiftc','-parse-as-library',*module_flags('IsiXImaging', p / 'modules'),*module_flags('IsiXPreferences', p / 'modules'),'-import-objc-header',str(p/'Harness.h'),str(p/'Rates.swift'),
                  str(p/'test.o'),'-framework','AppKit','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True,timeout=60)

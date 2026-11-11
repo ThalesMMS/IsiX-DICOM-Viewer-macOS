@@ -45,7 +45,7 @@ import Foundation
 /// HorosDICOMTransferSyntaxes); the table here is used only where no host
 /// provides it. A UID neither knows is an encapsulated, explicit little-endian
 /// "Unknown Syntax".
-@objc(IsiXDCMTransferSyntax)
+@objc(DCMTransferSyntax)
 public final class DCMTransferSyntax: NSObject, NSCopying {
 
     @objc public let transferSyntax: String!
@@ -64,15 +64,25 @@ public final class DCMTransferSyntax: NSObject, NSCopying {
     public class func explicitVRLittleEndianTransferSyntax() -> DCMTransferSyntax { named(explicitVRLittleEndianUID) }
     @objc(ImplicitVRLittleEndianTransferSyntax)
     public class func implicitVRLittleEndianTransferSyntax() -> DCMTransferSyntax { named(implicitVRLittleEndianUID) }
+    @objc(ExplicitVRBigEndianTransferSyntax)
     public class func explicitVRBigEndianTransferSyntax() -> DCMTransferSyntax { named(explicitVRBigEndianUID) }
+    @objc(JPEG2000LosslessTransferSyntax)
     public class func jpeg2000LosslessTransferSyntax() -> DCMTransferSyntax { named("1.2.840.10008.1.2.4.90") }
+    @objc(JPEG2000LossyTransferSyntax)
     public class func jpeg2000LossyTransferSyntax() -> DCMTransferSyntax { named("1.2.840.10008.1.2.4.91") }
+    @objc(JPEGBaselineTransferSyntax)
     public class func jpegBaselineTransferSyntax() -> DCMTransferSyntax { named("1.2.840.10008.1.2.4.50") }
+    @objc(JPEGExtendedTransferSyntax)
     public class func jpegExtendedTransferSyntax() -> DCMTransferSyntax { named("1.2.840.10008.1.2.4.51") }
+    @objc(JPEGLosslessTransferSyntax)
     public class func jpegLosslessTransferSyntax() -> DCMTransferSyntax { named("1.2.840.10008.1.2.4.70") }
+    @objc(JPEGLossless14TransferSyntax)
     public class func jpegLossless14TransferSyntax() -> DCMTransferSyntax { named("1.2.840.10008.1.2.4.57") }
+    @objc(JPEGLSLosslessTransferSyntax)
     public class func jpeglsLosslessTransferSyntax() -> DCMTransferSyntax { named("1.2.840.10008.1.2.4.80") }
+    @objc(JPEGLSLossyTransferSyntax)
     public class func jpeglsLossyTransferSyntax() -> DCMTransferSyntax { named("1.2.840.10008.1.2.4.81") }
+    @objc(RLELosslessTransferSyntax)
     public class func rleLosslessTransferSyntax() -> DCMTransferSyntax { named("1.2.840.10008.1.2.5") }
     public class func mpeg2TransferSyntax() -> DCMTransferSyntax { named("1.2.840.10008.1.2.4.100") }
 

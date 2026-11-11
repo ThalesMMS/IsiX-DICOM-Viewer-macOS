@@ -68,7 +68,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="" editable="NO" width="120" minWidth="120" maxWidth="120" id="OCE-FJ-HJu">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="装入状态">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="加载状态">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>

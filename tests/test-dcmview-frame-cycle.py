@@ -228,8 +228,10 @@ if swift_frame:
                    ('self.horos_hasChanged = true', 'the frame marks the view changed')]
     render_pieces = ('rendered = (try? self.horos_vtk.renderWindow()) != nil', 'self.updateLineMeasurementProjections()',
                      'self.computeOrientationText()')
+    # The 16-bit copy is made again from the restored pixels when VTK's CPU
+    # mapper next reads it, with the movie range guard applied then.
     first_pieces = ('data[0 + width] = horos_firstPixel', 'data[1 + width] = horos_secondPixel',
-                    'applyMovieRangeGuardTo16BitVolume()')
+                    'horos_data8IsCurrent = false')
 else:
     draw = code(block(vr, '- (void) drawRect:(NSRect)aRect'))
     render = code(block(vr, '- (BOOL) horosRenderFrame'))

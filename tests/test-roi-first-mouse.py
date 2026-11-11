@@ -36,6 +36,11 @@ final class TestApplication: NSApplication {
     override var isActive: Bool { active }
 }
 struct ToolMode { var rawValue: Int16 }
+// The preference the method reads, with the two types it reaches it through.
+nonisolated(unsafe) var onlyActivates = false
+enum ViewerPreferences { static let firstClickOnlyActivatesViewer = 0 }
+struct Preferences { subscript(_ key: Int) -> Bool { onlyActivates } }
+enum PreferencesSource { static let process = (preferences: Preferences(), other: 0) }
 class DCMView: NSView {
     var horos_currentTool = ToolMode(rawValue: 0)
 }
@@ -47,16 +52,19 @@ METHOD
         _ = TestApplication.shared
         let view = DCMView(frame: NSRect(x: 0, y: 0, width: 10, height: 10))
         var failures = 0
-        let cases: [(Int16, Bool, Bool, String)] = [
-            (5, true, true, "a ROI tool, the click from another viewer of the application"),
-            (5, false, false, "a ROI tool, the click bringing the application forward"),
-            (20, true, true, "another ROI tool, within the application"),
-            (0, false, true, "window level, from another application"),
-            (0, true, true, "window level, within the application"),
+        let cases: [(Int16, Bool, Bool, Bool, String)] = [
+            (5, true, false, true, "a ROI tool, the click from another viewer of the application"),
+            (5, false, false, false, "a ROI tool, the click bringing the application forward"),
+            (20, true, false, true, "another ROI tool, within the application"),
+            (0, false, false, true, "window level, from another application"),
+            (0, true, false, true, "window level, within the application"),
+            (5, true, true, false, "a ROI tool, the click only activating the viewer"),
+            (0, true, true, false, "window level, the click only activating the viewer"),
         ]
-        for (tool, isActive, expected, what) in cases {
+        for (tool, isActive, only, expected, what) in cases {
             view.horos_currentTool = ToolMode(rawValue: tool)
             active = isActive
+            onlyActivates = only
             if view.acceptsFirstMouse(for: nil) != expected { FileHandle.standardError.write("FAIL: \(what)\n".data(using: .utf8)!); failures += 1 }
         }
         if failures > 0 { exit(1) }

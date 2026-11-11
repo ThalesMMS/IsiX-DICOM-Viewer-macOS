@@ -48,7 +48,7 @@
 #else
 #import "Horos-Swift.h"
 
-@class IsiXDICOMAttributeTag;
+@class DCMAttributeTag;
 
 // The former -tag and -setTag:. The getter has the selector of NSView's -tag,
 // which Swift cannot redeclare with another type: this category, implemented
@@ -58,7 +58,7 @@
 #pragma clang diagnostic ignored "-Wincompatible-property-type"
 @interface O2DicomPredicateEditorView (AttributeTagAsTag)
 
-@property(retain) IsiXDICOMAttributeTag* tag NS_UNAVAILABLE;
+@property(retain) DCMAttributeTag* tag NS_UNAVAILABLE;
 
 @end
 #pragma clang diagnostic pop

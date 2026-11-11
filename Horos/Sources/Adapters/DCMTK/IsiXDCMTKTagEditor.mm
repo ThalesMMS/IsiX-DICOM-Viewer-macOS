@@ -162,9 +162,9 @@ static std::vector<HorosTagEdit> HorosTagEditsFromEntries( NSArray *entries, NSU
                     continue;
                 }
             }
-            else if( [first isKindOfClass: [IsiXDICOMAttributeTag class]])
+            else if( [first isKindOfClass: [DCMAttributeTag class]])
             {
-                IsiXDICOMAttributeTag *tag = (IsiXDICOMAttributeTag*) first;
+                DCMAttributeTag *tag = (DCMAttributeTag*) first;
                 edit.group = tag.group;
                 edit.element = tag.element;
             }
@@ -223,7 +223,7 @@ static NSString *HorosEffectiveCharacterSet(DcmItem &dataset, NSString *inherite
     if (dataset.findAndGetElement(DCM_SpecificCharacterSet, element, OFFalse).bad() || !element)
     {
         if (inherited) return inherited;
-        NSString *chosen = [IsiXDICOMCharacterSet characterSetWhenAbsent];
+        NSString *chosen = [DCMCharacterSet characterSetWhenAbsent];
         return chosen.length ? chosen : @"ISO_IR 100";
     }
     OFString bytes;
@@ -267,7 +267,7 @@ static bool HorosEncodeEditValue(const std::string &utf8, DcmEVR vr, NSString *c
             return false;
         }
         if (normalized.length && ![normalized isEqualToString:@"ISO IR 6"])
-            encoding = [IsiXDICOMCharacterSet encodingForDICOMCharacterSet:charset];
+            encoding = [DCMCharacterSet encodingForDICOMCharacterSet:charset];
     }
     NSData *bytes = [value dataUsingEncoding:encoding allowLossyConversion:NO];
     if (!bytes)

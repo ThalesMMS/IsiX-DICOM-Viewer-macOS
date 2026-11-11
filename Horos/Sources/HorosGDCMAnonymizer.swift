@@ -146,7 +146,7 @@ import IsiXDICOMFile
 
 // MARK: - Helpers
 
-/// The group and element of a tag object (an IsiXDICOMAttributeTag, or any object
+/// The group and element of a tag object (an DCMAttributeTag, or any object
 /// answering -group and -element), as (group << 16) | element.
 fileprivate func anonymizationTagNumber(_ tag: Any) -> UInt32 {
     let object = tag as AnyObject

@@ -83,10 +83,27 @@ public final class DICOMTagDictionary: NSObject {
     }
 }
 
+/// The two dictionaries under the classes DCM.framework had them in, which a
+/// plugin built for Horos or OsiriX asks by name. They were subclasses of
+/// NSDictionary that only answered the shared dictionary; none is ever made.
+@objc(DCMTagDictionary)
+public final class DICOMLegacyTagDictionary: NSDictionary {
+    @objc public static func sharedTagDictionary() -> NSDictionary! {
+        DICOMTagDictionary.sharedTagDictionary()
+    }
+}
+
+@objc(DCMTagForNameDictionary)
+public final class DICOMLegacyTagForNameDictionary: NSDictionary {
+    @objc public static func sharedTagForNameDictionary() -> NSDictionary! {
+        DICOMTagDictionary.sharedTagForNameDictionary()
+    }
+}
+
 /// An attribute tag, (group, element), with the name and value representation
 /// the dictionary gives it: "Unknown" and "UN" for a tag it does not know.
 /// Tags compare and are equal by their "GGGG,EEEE" text.
-@objc(IsiXDICOMAttributeTag)
+@objc(DCMAttributeTag)
 open class DICOMAttributeTag: NSObject, NSCopying {
     @objc public let group: Int32
     @objc public let element: Int32

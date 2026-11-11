@@ -343,6 +343,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
     @objc(CloseViewerNotification:)
     private dynamic func CloseViewerNotification(_ note: Notification!) {
+        if PreviousSeriesHold.window(self, keepsSeriesReleasedBy: note) { return }
         let v = note?.object as AnyObject?
 
         // The PET viewer: the former code compared with the viewer of the PET

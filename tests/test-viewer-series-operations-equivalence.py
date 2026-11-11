@@ -1365,7 +1365,13 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-series-') as tmp:
                 '@MainActor final class HarnessSessionGraph {\n'
                 '    var processGraph: HarnessProcessGraph { HarnessProcessGraph.process }\n}\n\n'
                 'extension ViewerController {\n'
-                '    var sessionGraph: HarnessSessionGraph { HarnessSessionGraph() }\n}\n')
+                '    var sessionGraph: HarnessSessionGraph { HarnessSessionGraph() }\n}\n\n'
+                # The viewer's series load, which a reslice asks to leave the series
+                # it replaces to the 3D windows open on it: none here.
+                '@MainActor struct HarnessSeriesLoad {\n'
+                '    func keepingPreviousSeriesForOtherWindows(_ change: () -> Void) { change() }\n}\n\n'
+                'extension ViewerController {\n'
+                '    var horosSeriesLoad: HarnessSeriesLoad { HarnessSeriesLoad() }\n}\n')
             sources.append(str(swift / 'SessionGraph.swift'))
         # [sender tag] as the blocks send it, the @try of the blocks, and the
         # viewer's slices of a time point as an array.

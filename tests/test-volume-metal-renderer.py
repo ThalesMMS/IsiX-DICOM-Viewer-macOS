@@ -703,6 +703,25 @@ import simd
     let saved = destination.copy() as! NSData
     _ = try bridge.render(camera:camera,near:0,far:-1,level:100,width:240,clut:clut as NSData,opacityPoints:[],mode:mode.rawValue,shading:[0,0.15,0.9,0.3,15],crop:[],width:9,height:7,sampleStep:1,scalarBackground:.nan,scalarOut:destination)
     precondition(saved as Data == expected.scalar, "a prior scalar output changed")
+    let target = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba16Unorm,width:37,height:29,mipmapped:false)
+    target.usage = [.shaderWrite]; target.storageMode = .shared
+    let picture = engine.device.makeTexture(descriptor:target)!
+    let direct = try engine.render(request,scalarInto:NSMutableData(),picture:picture)
+    if mode == .composite {
+     precondition(direct.bgra.isEmpty, "a render into the picture copied its bytes")
+     let last = engine.lastComposite(width:37,height:29)!
+     precondition(last.bgra == expected.bgra && last.scalar == expected.scalar, "the last composite differs")
+     var words = [UInt16](repeating:0,count:37*29*4)
+     words.withUnsafeMutableBytes { picture.getBytes($0.baseAddress!,bytesPerRow:37*8,from:MTLRegionMake2D(0,0,37,29),mipmapLevel:0) }
+     let bgra = [UInt8](expected.bgra)
+     let alpha = expected.scalar.withUnsafeBytes { Array($0.bindMemory(to:Float.self)) }
+     for y in 0..<29 { for x in 0..<37 {
+      let from = y*37+x, to = (28-y)*37+x
+      let colour = [bgra[from*4+2],bgra[from*4+1],bgra[from*4]].map { UInt16((UInt32($0)*32767+127)/255) }
+      let a = alpha[from].isNaN ? 0 : min(1,max(0,alpha[from]))
+      precondition(Array(words[(to*4)..<(to*4+3)]) == colour && words[to*4+3] == UInt16(a*32767+0.5), "the picture is not the converted buffers")
+     } }
+    } else { precondition(direct.bgra == expected.bgra, "only a composite render writes the picture") }
    }
    for size in [32,1024] {
     var samples = [Double]()

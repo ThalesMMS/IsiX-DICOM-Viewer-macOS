@@ -69,18 +69,22 @@ public class HorosThickSlabSlider: HorosCellSlider {
         storesNormalizedPosition ? super.fraction : CGFloat(scale.position(for: doubleValue))
     }
 
+    /// A slider with no marks in its nib has none; one with marks has the
+    /// ruler of its scale, however many the nib counted.
     public override var tickMarkFractions: [CGFloat] {
         let length = isHorizontalSlider ? trackRect.width : trackRect.height
-        guard length > 0 else { return [] }
-        return scale.tickPositions(count: numberOfTickMarks, minimumSpacing: 6 / Double(length),
-                                   integral: !storesNormalizedPosition).map { CGFloat($0) }
+        guard length > 0, numberOfTickMarks >= 2 else { return [] }
+        return scale.tickPositions(minimumSpacing: 3 / Double(length)).map { CGFloat($0) }
     }
 
     public override var highlightsSelectedTickMarks: Bool { true }
 
     public override func value(at point: NSPoint) -> Double {
-        if storesNormalizedPosition { return super.value(at: point) }
         let curve = scale
+        if storesNormalizedPosition {
+            // The knob's position is kept; it stands where a whole millimeter is.
+            return curve.position(for: curve.wholeThickness(at: super.value(at: point)))
+        }
         guard curve.exponential else { return super.value(at: point) }
         let track = trackRect
         let position = isHorizontalSlider
@@ -91,7 +95,7 @@ public class HorosThickSlabSlider: HorosCellSlider {
 }
 
 /// MPR bindings already convert the slider's 0…1 value into millimeters.
-/// These bounds describe its ruler only; input keeps the existing precision.
+/// These bounds describe its ruler, and let the knob stop at whole millimeters.
 @objc(HorosMPRThickSlabSlider)
 public final class HorosMPRThickSlabSlider: HorosThickSlabSlider {
     @objc public var minimumThickness: Double = 0 { didSet { needsDisplay = true } }

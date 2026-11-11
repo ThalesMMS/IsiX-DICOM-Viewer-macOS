@@ -44,7 +44,7 @@ if 'associationAttributesWithStudyInstanceUID' not in pages.read_text():
     failures.append('PagesPDFConversion no longer exposes association attributes')
 if 'HorosPagesPDFConversion' not in report_mm and 'PagesPDFConversion.' not in report_mm:
     failures.append('DicomStudy+Report no longer uses HorosPagesPDFConversion')
-if 'associateCloudReports(dicomFilesArray, studiesArray, context)' not in database:
+if 'associateCloudReports(dicomFilesArray, allStudies: {' not in database:
     failures.append('addFilesDescribedInDictionaries does not associate the Cloud reports')
 if 'CloudReportAssociation.associateReports(inFiles: dicomFilesArray, existingStudies: known' not in database:
     failures.append('the import path does not ask Swift to associate Cloud reports')

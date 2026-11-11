@@ -95,8 +95,8 @@ engine = (root / 'Horos/Sources/VRView+Engine.swift').read_text()
 assert 'case 0, 2: horos_vtk.attachVolumeMapper()' in engine
 # The hook itself is Swift (VRView+Render.swift), an extension of VRView.
 view_render = (root / 'Horos/Sources/VRView+Render.swift').read_text()
-assert 'return horosRenderMetalImage(in: scene, fused: fused, mprPlane: mprPlane)' in view_render and \
-    'guard let scene = horos_vtk.renderingScene() else { return false }' in view_render and 'CPU fallback: ' in host
+assert 'horosRenderMetalImage(in: scene, fused: fused, mprPlane: mprPlane) {' in view_render and \
+    'let scene = horos_vtk.renderingScene(),' in view_render and 'CPU fallback: ' in host
 assert 'imageRegion: region' in host and 'mprVoxelToWorldTransform()' in host
 assert mapper.index('this->RenderImage(this->RenderImageContext') < mapper.index('this->PerImageInitialization( ren, vol, 0')
 for catalog in ('en', 'ja-JP'):

@@ -137,8 +137,7 @@ void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf);
 // The current tag is IsiXDICOMFile's; the harness spells the former name.
 // Swift imports the module itself.
 #import "IsiXDICOMFile-Swift.h"
-@compatibility_alias DCMAttributeTag IsiXDICOMAttributeTag;
-@interface IsiXDICOMAttributeTag (Harness)
+@interface DCMAttributeTag (Harness)
 + (id)tagWithGroup:(int)group element:(int)element vr:(NSString *)vr name:(NSString *)name;
 @end
 #endif
@@ -233,7 +232,7 @@ static NSDictionary *fixtureTags() {
  return d;
 }
 @end
-@implementation IsiXDICOMAttributeTag (Harness)
+@implementation DCMAttributeTag (Harness)
 + (id)tagWithGroup:(int)g element:(int)e vr:(NSString *)v name:(NSString *)n { return [[[self alloc] initWithGroup:g element:e vr:v name:n] autorelease]; }
 @end
 #endif

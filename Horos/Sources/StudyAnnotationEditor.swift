@@ -170,7 +170,7 @@ import AppKit
             let status = NSNumber(value: value)
             write("series.study.stateText", status) { $0?.series?.study?.stateText = status }
 
-            viewer.horos_StatusPopup?.selectItem(withTag: Int(value))
+            StudyStates.select(Int(value), in: viewer.horos_StatusPopup)
 
             browser.reloadStudies()
             viewer.buildMatrixPreview(false)

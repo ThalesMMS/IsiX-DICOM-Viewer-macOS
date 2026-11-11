@@ -25,6 +25,9 @@ loaded by the host, which checks that:
 - the bundle loads: every _OBJC_IVAR_$_ symbol it needs is found;
 - after -prepareFilter:, the subclass's direct read of viewerController answers
   the viewer, and its direct write is what the property answers;
+- viewerController holds its viewer without owning it, as the former SDK's
+  variable did: replacing a viewer the subclass stored with no retain does not
+  release it, and the filter does not keep a viewer alive;
 - a decoder starts with _isRGB YES, as the former -init set it;
 - after the subclass's -checkLoadAtPath: stores the values directly, the
   inherited -height, -width, -rowBytes, -windowWidth, -windowLevel, -isRGB,
@@ -67,6 +70,8 @@ stand_ins = r'''
 import Foundation
 
 @objc(ViewerController) public final class ViewerController: NSObject {
+    nonisolated(unsafe) public static var released = 0
+    deinit { ViewerController.released += 1 }
     @objc(getDisplayed2DViewers) public class func getDisplayed2DViewers() -> NSMutableArray! { NSMutableArray() }
     @MainActor @objc(horosDuplicatedViewerWindow) public func horosDuplicatedViewerWindow() -> ViewerController? { nil }
 }
@@ -101,7 +106,29 @@ check(send(filter, "readViewer", nil) === viewer, "the subclass reads the viewer
 let other = ViewerController()
 _ = send(filter, "writeViewer:", other)
 check(filter.viewerController === other, "what the subclass stores in viewerController is what the property answers")
-_ = send(filter, "writeViewer:", nil)
+
+// The variable holds its viewer without owning it, as the former SDK's did: a
+// plugin stores a viewer there with no retain, and what replaces it must not
+// release what the plugin never retained.
+autoreleasepool {
+    var stored: ViewerController? = ViewerController()
+    _ = send(filter, "writeViewer:", stored)
+    check(sendLong(filter, "prepareFilter:", nil) == 0 && filter.viewerController == nil, "-prepareFilter: with no viewer empties the variable")
+    if ViewerController.released != 0 {
+        print("FAIL: replacing a viewer the subclass stored without a retain released it"); exit(1)
+    }
+    stored = nil
+}
+check(ViewerController.released == 1, "the viewer the subclass stored is released once, by its owner: \(ViewerController.released)")
+// Nor does the filter keep alive the viewer -prepareFilter: gave it.
+autoreleasepool {
+    var kept: ViewerController? = ViewerController()
+    weak let watched = kept
+    _ = sendLong(filter, "prepareFilter:", kept)
+    kept = nil
+    check(watched == nil, "the filter does not own the viewer -prepareFilter: gave it")
+}
+_ = sendLong(filter, "prepareFilter:", nil)
 
 // PluginFileFormatDecoder._height, ...
 autoreleasepool {

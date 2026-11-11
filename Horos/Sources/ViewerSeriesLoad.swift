@@ -165,6 +165,9 @@ public final class ViewerSeriesLoad: NSObject {
     private unowned(unsafe) let viewer: ViewerController
     private let preferences: any PreferenceStore
     private let loader = SeriesImageLoader()
+    /// While a change of plane gives the viewer its new slices: the other
+    /// windows on the volume keep the series being released and stay open.
+    private var otherWindowsKeepPreviousSeries = false
     /// The series this window has shown, by their objects' ids.
     private var shownSeries: Set<NSManagedObjectID> = []
 
@@ -440,6 +443,53 @@ extension ViewerSeriesLoad {
 
     // MARK: Changing the series
 
+    /// Whether other post-processing windows (MPR, volume rendering…) use the
+    /// volume of the viewer's series. It cannot be released under them, so
+    /// the series is not replaced in this window while they are open, and
+    /// nothing that rewrites the volume in place may run either: they would
+    /// show the new pixels with the geometry of the old ones.
+    var volumeIsUsedByOtherWindows: Bool {
+        var minWindows = 1
+        if viewer.fullScreenON() { minWindows += 1 }
+        return (graph.processGraph.appController?.FindRelatedViewers(viewer.horos_pixList(at: 0))?.count ?? 0) > minWindows
+    }
+
+    /// The windows that show the viewer's series with it: the 3D windows
+    /// opened on its volume.
+    private var otherWindowsOnVolume: [AnyObject] {
+        let related = graph.processGraph.appController?.FindRelatedViewers(viewer.horos_pixList(at: 0)) ?? []
+        return related.map { $0 as AnyObject }.filter { $0 !== viewer }
+    }
+
+    /// Runs `change`, which gives the viewer another series in place (a
+    /// change of plane), letting the other windows on its volume keep the
+    /// series it releases instead of refusing the change because of them.
+    func keepingPreviousSeriesForOtherWindows(_ change: () -> Void) {
+        let before = otherWindowsKeepPreviousSeries
+        otherWindowsKeepPreviousSeries = true
+        defer { otherWindowsKeepPreviousSeries = before }
+        change()
+    }
+
+    /// Gives the other windows on the volume a hold on every time point of
+    /// the series, which the viewer is about to release: they do not retain
+    /// what they show. Returns those windows.
+    private func holdSeriesForOtherWindows() -> [AnyObject] {
+        let windows = otherWindowsOnVolume
+        guard !windows.isEmpty else { return [] }
+        var series: [AnyObject] = []
+        for movie in 0..<max(Int(viewer.horos_maxMovieIndex), 0) {
+            if let pixels = viewer.horos_pixList(at: movie) { series.append(pixels) }
+            if let files = viewer.horos_fileList(at: movie) { series.append(files) }
+            if let rois = viewer.horos_roiList(at: movie) { series.append(rois) }
+            if let volume = viewer.horos_volumeData(at: movie) { series.append(volume) }
+        }
+        for window in windows {
+            PreviousSeriesHold.hold(series, releasedBy: viewer, for: window)
+        }
+        return windows
+    }
+
     /// -changeImageData::::. The viewer shows the pixels `f`, the images `d`
     /// and the volume `v` instead of its series, unless other post-processing
     /// windows use its volume (`newViewerWindow` when the window was just
@@ -508,10 +558,7 @@ extension ViewerSeriesLoad {
             }
             // Check if another post-processing viewer is open : we CANNOT release the fVolumePtr -> OsiriX WILL crash
 
-            var minWindows = 1
-            if viewer.fullScreenON() { minWindows += 1 }
-
-            if !newViewerWindow && (graph.processGraph.appController?.FindRelatedViewers(viewer.horos_pixList(at: 0))?.count ?? 0) > minWindows {
+            if !newViewerWindow && volumeIsUsedByOtherWindows && !otherWindowsKeepPreviousSeries {
                 NSSound.beep()
                 NSLog("changeImageData not possible with other post-processing windows opened")
             } else {
@@ -572,6 +619,13 @@ extension ViewerSeriesLoad {
 
         var closeInfo: [AnyHashable: Any] = [:]
         if let newStudyID = (d?.firstObject as? DicomImage)?.series?.study?.objectID { closeInfo["newStudyID"] = newStudyID }
+        // The 3D windows on the volume close on this announcement, unless a
+        // change of plane leaves them the series: then they hold it and stay.
+        // Those that already hold a former series of this viewer read the
+        // same entry, which is there for every change of plane.
+        if otherWindowsKeepPreviousSeries {
+            closeInfo[PreviousSeriesHold.keptWindowsKey] = holdSeriesForOtherWindows()
+        }
         postViewerNotification(.OsirixCloseViewer, viewer, closeInfo)
 
         viewer.horos_windowWillClose = true
@@ -709,7 +763,7 @@ extension ViewerSeriesLoad {
                 viewer.horos_nonVolumicDataWarningDisplayed = false
 
                 for other in graph.registry.displayedViewers {
-                    other.buildMatrixPreview(false)
+                    other.seriesListPresenter.build(showSelected: false, selectionOnly: true)
                 }
 
                 let subtractionOffset = viewer.horos_imageView?.curDCM?.subPixOffset ?? NSPoint.zero
@@ -814,11 +868,7 @@ extension ViewerSeriesLoad {
         }
         let shown = (files?.count ?? 0) > Int(curImage) ? files?.object(at: Int(curImage)) as? DicomImage : nil
 
-        if let status = shown?.series?.study?.stateText {
-            _ = viewer.horos_StatusPopup?.selectItem(withTag: Int(status.int32Value))
-        } else {
-            viewer.horos_StatusPopup?.selectItem(withTitle: NSLocalizedString("empty", comment: ""))
-        }
+        StudyStates.select(shown?.series?.study?.stateText?.intValue ?? 0, in: viewer.horos_StatusPopup)
 
         var comment = shown?.series?.comment
         if comment?.isEmpty ?? true {

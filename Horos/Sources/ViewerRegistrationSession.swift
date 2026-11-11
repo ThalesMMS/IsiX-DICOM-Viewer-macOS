@@ -438,8 +438,13 @@ import ObjectiveC
                   let targetPix = targetPixes[placement.targetImageIndex] as? DCMPix,
                   let record = source.interchangeROI(for: sources[placement.sourceROIIndex], pix: sourcePix) else { continue }
             if record.typeCode == Int(ToolMode.tPlain.rawValue) {
+                // The mask as the plan resampled it for this image.
+                guard let mask = placement.mask else { continue }
                 record.brushOriginX = Int(llround(placement.rect.origin.x))
                 record.brushOriginY = Int(llround(placement.rect.origin.y))
+                record.brushWidth = Int(placement.rect.size.width)
+                record.brushHeight = Int(placement.rect.size.height)
+                record.brushMask = mask
             } else if record.hasRect {
                 record.rect = placement.rect
             } else {

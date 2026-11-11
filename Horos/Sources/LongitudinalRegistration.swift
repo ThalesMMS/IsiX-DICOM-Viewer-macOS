@@ -528,6 +528,9 @@ public final class GuidedCopyPlacement: NSObject {
     @objc public var points: [[Double]] = []
     @objc public var rect: NSRect = NSRect(x: 0, y: 0, width: 0, height: 0)
     @objc public var throughPlaneMM: Double = 0
+    /// A brush resampled onto the target image's grid: its mask, a byte per
+    /// pixel of `rect`. Nil for a brush carried over as it is.
+    @objc public var mask: Data?
     @objc public var status: GuidedCopyStatus = .invalidSource
     @objc public var reason: String = ""
     @objc public var provenance: String = ""
@@ -543,18 +546,39 @@ public final class GuidedCopyPlan: NSObject {
     }
     @objc public var placed: [GuidedCopyPlacement] { placements.filter { $0.status == .placed } }
     @objc public var refused: [GuidedCopyPlacement] { placements.filter { $0.status != .placed } }
+    /// What the plan does, in a few lines whatever the number of ROIs: how
+    /// many are placed and on how many images, the first placements, and each
+    /// reason for a refusal once, with how many ROIs it refuses.
     @objc public var summary: String {
         var lines: [String] = []
-        for p in placements {
-            if p.status == .placed {
+        let placed = self.placed
+        if !placed.isEmpty {
+            lines.append(String(format: "%ld ROI(s) placed on %ld target image(s) by patient position.", placed.count, Set(placed.map(\.targetImageIndex)).count))
+            for p in placed.prefix(Self.summaryExamples) {
                 lines.append(String(format: "%@ (source slice %ld) → target slice %ld, %.2f mm through-plane",
                                     p.name, p.sourceImageIndex + 1, p.targetImageIndex + 1, p.throughPlaneMM))
-            } else {
-                lines.append("\(p.name) (source slice \(p.sourceImageIndex + 1)): \(p.reason)")
             }
+            if placed.count > Self.summaryExamples { lines.append(String(format: "… and %ld more.", placed.count - Self.summaryExamples)) }
+        }
+        var reasons: [(reason: String, count: Int, first: GuidedCopyPlacement)] = []
+        for p in refused {
+            // The reason without the ROI's own name, so that alike refusals are counted together.
+            let reason = p.name.isEmpty ? p.reason : p.reason.replacingOccurrences(of: p.name + " ", with: "")
+            if let index = reasons.firstIndex(where: { $0.reason == reason }) {
+                reasons[index].count += 1
+            } else {
+                reasons.append((reason, 1, p))
+            }
+        }
+        for entry in reasons {
+            lines.append(entry.count == 1 ? "\(entry.first.name) (source slice \(entry.first.sourceImageIndex + 1)): \(entry.first.reason)"
+                                          : String(format: "%ld ROI(s) not copied: %@", entry.count, entry.reason))
         }
         return lines.joined(separator: "\n")
     }
+
+    /// How many placements the summary lists one by one.
+    static let summaryExamples = 4
 }
 
 /// Plans the copy of every ROI of `source` onto `target` through `transform`
@@ -562,9 +586,17 @@ public final class GuidedCopyPlan: NSObject {
 /// target millimetres. Each ROI goes to the target image whose plane is
 /// nearest to its transformed points; nothing lands on "the current slice",
 /// and a ROI whose plane is farther than the tolerance from every target
-/// image is refused by name. Brush, rectangle and oval ROIs keep their pixel
+/// image is refused by name. Rectangle and oval ROIs keep their pixel
 /// geometry, so they are copied only onto an aligned target with the same
 /// pixel spacing; polygons, pencils, lines and points are reprojected.
+///
+/// A brush is a mask of pixels, and a stack of them a volume: it is placed the
+/// other way round. Each target image takes the brushes of the source image
+/// nearest to it, so a target series with thinner slices is filled slice by
+/// slice; onto the same grid the mask is carried as it is, and onto a parallel
+/// grid of another pixel spacing or origin it is resampled, each target pixel
+/// reading the source pixel at its position in the patient. A brush is not
+/// resampled onto another orientation, where a slice is a line.
 @objc(HorosGuidedROICopy)
 public final class GuidedROICopy: NSObject {
     @objc public static let spacingTolerance = 0.001
@@ -588,8 +620,14 @@ public final class GuidedROICopy: NSObject {
         let tolerance = planeTolerance(for: target)
         var placements: [GuidedCopyPlacement] = []
         let targetSlices = target.images.map { slicePoint(for: $0) }
-        for image in source.images {
+        let targetsOfSource = nearestSources(source: source, target: target, targetSlices: targetSlices, transform: transform, offset: offset)
+        for (sourcePosition, image) in source.images.enumerated() {
             for (roiIndex, roi) in image.rois.enumerated() {
+                if roi.typeCode == ROIInterchangeType.brush.rawValue {
+                    placements.append(contentsOf: brushPlacements(of: roi, at: roiIndex, in: image, targets: targetsOfSource[sourcePosition] ?? [],
+                                                                  source: source, target: target, targetSlices: targetSlices, transform: transform, offset: offset))
+                    continue
+                }
                 let placement = GuidedCopyPlacement()
                 placement.sourceImageIndex = image.index; placement.sourceTemporalIndex = image.temporalIndex
                 placement.sourceROIIndex = roiIndex; placement.name = roi.name; placement.typeCode = roi.typeCode
@@ -602,9 +640,6 @@ public final class GuidedROICopy: NSObject {
                 if rectBased(roi.typeCode) {
                     guard roi.hasRect else { placement.status = .invalidSource; placement.reason = "The ROI has no rectangle."; continue }
                     pixels = [SIMD2(Double(roi.rect.origin.x) + Double(roi.rect.size.width) / 2, Double(roi.rect.origin.y) + Double(roi.rect.size.height) / 2)]
-                } else if roi.typeCode == ROIInterchangeType.brush.rawValue {
-                    guard roi.brushWidth > 0, roi.brushHeight > 0 else { placement.status = .invalidSource; placement.reason = "The brush has no mask."; continue }
-                    pixels = [SIMD2(Double(roi.brushOriginX) + Double(roi.brushWidth) / 2, Double(roi.brushOriginY) + Double(roi.brushHeight) / 2)]
                 } else {
                     guard !roi.points.isEmpty else { placement.status = .invalidSource; placement.reason = "The ROI has no points."; continue }
                     pixels = roi.points.map { SIMD2(Double($0.pointValue.x), Double($0.pointValue.y)) }
@@ -639,10 +674,10 @@ public final class GuidedROICopy: NSObject {
                 let aligned = orientationsAlign(image, targetImage)
                 let sameSpacing = abs(image.pixelSpacingX - targetImage.pixelSpacingX) <= spacingTolerance * max(1, image.pixelSpacingX) &&
                                   abs(image.pixelSpacingY - targetImage.pixelSpacingY) <= spacingTolerance * max(1, image.pixelSpacingY)
-                let rigidPixelGeometry = rectBased(roi.typeCode) || roi.typeCode == ROIInterchangeType.brush.rawValue
+                let rigidPixelGeometry = rectBased(roi.typeCode)
                 if rigidPixelGeometry && !(aligned && sameSpacing && transform.isRigidInPlane(sourceSlice: sourceSlice, targetSlice: targetSlice)) {
                     placement.status = .unsupportedGeometry
-                    placement.reason = "\(roi.name) keeps pixel geometry (brush/rectangle/oval/point); the target image is not aligned with the same pixel spacing, so it is not resampled."
+                    placement.reason = "\(roi.name) keeps pixel geometry (rectangle/oval/point); the target image is not aligned with the same pixel spacing, so it is not resampled."
                     continue
                 }
                 var projected: [[Double]] = []
@@ -660,14 +695,8 @@ public final class GuidedROICopy: NSObject {
                 placement.throughPlaneMM = worst
                 if rigidPixelGeometry {
                     let shift = SIMD2(projected[0][0] - pixels[0].x, projected[0][1] - pixels[0].y)
-                    if rectBased(roi.typeCode) {
-                        placement.rect = NSRect(x: Double(roi.rect.origin.x) + shift.x, y: Double(roi.rect.origin.y) + shift.y,
-                                                width: Double(roi.rect.size.width), height: Double(roi.rect.size.height))
-                    } else {
-                        let brushX = Double(roi.brushOriginX) + shift.x
-                        let brushY = Double(roi.brushOriginY) + shift.y
-                        placement.rect = NSRect(x: brushX, y: brushY, width: Double(roi.brushWidth), height: Double(roi.brushHeight))
-                    }
+                    placement.rect = NSRect(x: Double(roi.rect.origin.x) + shift.x, y: Double(roi.rect.origin.y) + shift.y,
+                                            width: Double(roi.rect.size.width), height: Double(roi.rect.size.height))
                     placement.points = projected
                 } else {
                     placement.points = projected
@@ -677,6 +706,145 @@ public final class GuidedROICopy: NSObject {
             }
         }
         return GuidedCopyPlan(placements: placements, transform: transform, offsetMM: [offset.x, offset.y, offset.z])
+    }
+
+    // MARK: - Brushes
+
+    /// For each source image (by its place in `source.images`), the target
+    /// images it is the nearest source image of: the target image's first
+    /// pixel is taken back to the source's frame and measured against each
+    /// source plane of the same time frame. A target image farther from every
+    /// source plane than half the source's slice spacing takes none.
+    static func nearestSources(source: ROIInterchangeSeries, target: ROIInterchangeSeries, targetSlices: [ROISlicePoint?],
+                               transform: RegistrationTransform, offset: SIMD3<Double>) -> [Int: [Int]] {
+        guard source.images.contains(where: { $0.rois.contains { $0.typeCode == ROIInterchangeType.brush.rawValue } }) else { return [:] }
+        let reach = max(planeTolerance(for: source), planeTolerance(for: target))
+        let back = transform.inverse
+        let sourcePlanes = source.images.map { image -> (origin: SIMD3<Double>, normal: SIMD3<Double>)? in
+            guard image.imagePosition.count == 3, let n = normal(of: image) else { return nil }
+            return (SIMD3(image.imagePosition[0], image.imagePosition[1], image.imagePosition[2]), n)
+        }
+        var targets: [Int: [Int]] = [:]
+        for (targetPosition, slice) in targetSlices.enumerated() {
+            guard let slice else { continue }
+            let point = back.apply(SIMD3(slice.originX, slice.originY, slice.originZ) - offset)
+            var best: (position: Int, distance: Double)?
+            for (sourcePosition, plane) in sourcePlanes.enumerated() {
+                guard let plane, source.images[sourcePosition].temporalIndex == target.images[targetPosition].temporalIndex else { continue }
+                let distance = abs(simd_dot(point - plane.origin, plane.normal))
+                // Of two planes as near, the first: a slice half way between two takes the one before it.
+                if distance <= reach, distance < (best?.distance ?? .infinity) - 1e-9 { best = (sourcePosition, distance) }
+            }
+            if let best { targets[best.position, default: []].append(targetPosition) }
+        }
+        return targets
+    }
+
+    /// The largest mask a resampled brush may have, in pixels a side.
+    static let brushSideLimit = 8192
+
+    /// The placements of one brush: one per target image the brush's image is
+    /// the nearest source of, or one refusal.
+    static func brushPlacements(of roi: ROIInterchangeROI, at roiIndex: Int, in image: ROIInterchangeImage, targets: [Int],
+                                source: ROIInterchangeSeries, target: ROIInterchangeSeries, targetSlices: [ROISlicePoint?],
+                                transform: RegistrationTransform, offset: SIMD3<Double>) -> [GuidedCopyPlacement] {
+        func placement() -> GuidedCopyPlacement {
+            let placement = GuidedCopyPlacement()
+            placement.sourceImageIndex = image.index; placement.sourceTemporalIndex = image.temporalIndex
+            placement.sourceROIIndex = roiIndex; placement.name = roi.name; placement.typeCode = roi.typeCode
+            placement.provenance = provenance(source: source, image: image, roi: roi, transform: transform, offset: offset)
+            return placement
+        }
+        func refusal(_ status: GuidedCopyStatus, _ reason: String) -> [GuidedCopyPlacement] {
+            let refused = placement()
+            refused.status = status; refused.reason = reason
+            return [refused]
+        }
+        guard let sourceSlice = slicePoint(for: image) else { return refusal(.invalidSource, "The source image has no position or orientation.") }
+        guard roi.brushWidth > 0, roi.brushHeight > 0, let mask = roi.brushMask, mask.count == roi.brushWidth * roi.brushHeight else {
+            return refusal(.invalidSource, "The brush has no mask.")
+        }
+        let otherOrientation = "\(roi.name) is a brush mask; the target image has another orientation, so it is not resampled."
+        guard !targets.isEmpty else {
+            return target.images.contains { orientationsAlign(image, $0) }
+                ? refusal(.noSlice, "No target image has the ROI's image as its nearest source image after registration.")
+                : refusal(.unsupportedGeometry, otherOrientation)
+        }
+        let back = transform.inverse
+        var placements: [GuidedCopyPlacement] = []
+        var unaligned = false
+        for targetPosition in targets {
+            guard let targetSlice = targetSlices[targetPosition] else { continue }
+            let targetImage = target.images[targetPosition]
+            // A slice of another orientation crosses the mask along a line: that is not a mask of the target image.
+            guard orientationsAlign(image, targetImage), transform.isRigidInPlane(sourceSlice: sourceSlice, targetSlice: targetSlice) else {
+                unaligned = true
+                continue
+            }
+            // Where the corners of the mask fall on the target image: pixel i covers i - 0.5 to i + 0.5.
+            let corners = [(-0.5, -0.5), (Double(roi.brushWidth) - 0.5, -0.5), (-0.5, Double(roi.brushHeight) - 0.5), (Double(roi.brushWidth) - 0.5, Double(roi.brushHeight) - 0.5)]
+            var low = SIMD2<Double>(repeating: .infinity), high = SIMD2<Double>(repeating: -.infinity), through = 0.0
+            for corner in corners {
+                let p = ROIIntersliceGeometry.patientPoint(from: point(sourceSlice, Double(roi.brushOriginX) + corner.0, Double(roi.brushOriginY) + corner.1))
+                let moved = transform.apply(SIMD3(p.x, p.y, p.z)) + offset
+                guard let projection = ROIIntersliceGeometry.projection(of: ROIPatientPoint(x: moved.x, y: moved.y, z: moved.z), onto: targetSlice) else { continue }
+                low = simd_min(low, SIMD2(projection.pixelX, projection.pixelY)); high = simd_max(high, SIMD2(projection.pixelX, projection.pixelY))
+                through = max(through, abs(projection.throughPlane))
+            }
+            guard low.x.isFinite, low.y.isFinite, high.x.isFinite, high.y.isFinite else { continue }
+            var minX = Int((low.x + 0.5).rounded(.down)), maxX = Int((high.x - 0.5).rounded(.up))
+            var minY = Int((low.y + 0.5).rounded(.down)), maxY = Int((high.y - 0.5).rounded(.up))
+            if targetImage.columns > 0 { minX = max(minX, 0); maxX = min(maxX, targetImage.columns - 1) }
+            if targetImage.rows > 0 { minY = max(minY, 0); maxY = min(maxY, targetImage.rows - 1) }
+            guard maxX >= minX, maxY >= minY, maxX - minX < brushSideLimit, maxY - minY < brushSideLimit else { continue }
+
+            // Each target pixel reads the source pixel at its place in the patient.
+            let width = maxX - minX + 1, height = maxY - minY + 1
+            var resampled = [UInt8](repeating: 0, count: width * height)
+            var filled = (minX: Int.max, maxX: Int.min, minY: Int.max, maxY: Int.min)
+            mask.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) in
+                for y in 0..<height {
+                    for x in 0..<width {
+                        let p = ROIIntersliceGeometry.patientPoint(from: point(targetSlice, Double(minX + x), Double(minY + y)))
+                        let origin = back.apply(SIMD3(p.x, p.y, p.z) - offset)
+                        guard let projection = ROIIntersliceGeometry.projection(of: ROIPatientPoint(x: origin.x, y: origin.y, z: origin.z), onto: sourceSlice) else { continue }
+                        let sx = Int(projection.pixelX.rounded()) - roi.brushOriginX, sy = Int(projection.pixelY.rounded()) - roi.brushOriginY
+                        guard sx >= 0, sx < roi.brushWidth, sy >= 0, sy < roi.brushHeight, bytes[sy * roi.brushWidth + sx] != 0 else { continue }
+                        resampled[y * width + x] = 0xFF
+                        filled = (min(filled.minX, x), max(filled.maxX, x), min(filled.minY, y), max(filled.maxY, y))
+                    }
+                }
+            }
+            guard filled.maxX >= filled.minX else { continue }
+            // The mask is cut to the pixels it has.
+            let cutWidth = filled.maxX - filled.minX + 1, cutHeight = filled.maxY - filled.minY + 1
+            var cut = Data(count: cutWidth * cutHeight)
+            cut.withUnsafeMutableBytes { (out: UnsafeMutableRawBufferPointer) in
+                for y in 0..<cutHeight {
+                    for x in 0..<cutWidth { out[y * cutWidth + x] = resampled[(filled.minY + y) * width + filled.minX + x] }
+                }
+            }
+            let placed = placement()
+            placed.targetImageIndex = targetPosition; placed.targetTemporalIndex = targetImage.temporalIndex
+            placed.throughPlaneMM = through
+            placed.rect = NSRect(x: Double(minX + filled.minX), y: Double(minY + filled.minY), width: Double(cutWidth), height: Double(cutHeight))
+            placed.mask = cut
+            placed.status = .placed
+            placed.reason = "Placed by patient position."
+            placements.append(placed)
+        }
+        if placements.isEmpty {
+            return unaligned ? refusal(.unsupportedGeometry, otherOrientation) : refusal(.noSlice, "The brush falls outside the target images nearest to it.")
+        }
+        return placements
+    }
+
+    /// The pixel (x, y) of a slice, a pixel's centre at whole numbers.
+    private static func point(_ slice: ROISlicePoint, _ x: Double, _ y: Double) -> ROISlicePoint {
+        ROISlicePoint(pixelX: x, pixelY: y, originX: slice.originX, originY: slice.originY, originZ: slice.originZ,
+                      rowX: slice.rowX, rowY: slice.rowY, rowZ: slice.rowZ, colX: slice.colX, colY: slice.colY, colZ: slice.colZ,
+                      normalX: slice.normalX, normalY: slice.normalY, normalZ: slice.normalZ,
+                      spacingX: slice.spacingX, spacingY: slice.spacingY, pixelCenter: false)
     }
 
     static func rectBased(_ typeCode: Int) -> Bool {

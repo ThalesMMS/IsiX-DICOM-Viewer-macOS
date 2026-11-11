@@ -62,7 +62,6 @@ BRIDGING = """#define HOROS_BRIDGING_HEADER 1
 #import "DefaultsOsiriX.h"
 #import "HorosObjCException.h"
 #import "HorosAlertPanel.h"
-#import "HorosLanguagePreferences.h"
 #import "Window3DController.h"
 #import "Notifications.h"
 """

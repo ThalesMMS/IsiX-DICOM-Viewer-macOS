@@ -21,7 +21,7 @@ import IsiXPreferences
 // MARK: - Node
 
 /// Where a DICOMweb node answers: an address, and QIDO-RS and WADO-RS
-/// paths relative to it. STOW-RS goes to `{address}/studies`.
+/// paths relative to it. STOW-RS goes to `studies` below the address, or below the path the two share.
 @objc(HorosDICOMwebNodeConfiguration)
 public final class DICOMwebNodeConfiguration: NSObject, Sendable {
     /// The base URL, such as `https://pacs.example/dicom-web`, without a trailing slash.
@@ -140,7 +140,7 @@ public final class DICOMwebNodeConfiguration: NSObject, Sendable {
     /// The full URLs, for display next to the node. They carry no credential.
     @objc public var qidoURLString: String { qidoURL.absoluteString }
     @objc public var wadoURLString: String { wadoURL.absoluteString }
-    @objc public var storeURLString: String { addressURL.appendingPathComponent("studies").absoluteString }
+    @objc public var storeURLString: String { DICOMwebNode.storeBaseURL(address: addressURL, qidoPath: qidoPath, wadoPath: wadoPath).appendingPathComponent("studies").absoluteString }
 }
 
 // MARK: - Errors
@@ -1993,7 +1993,7 @@ public final class DICOMwebClient: NSObject {
 
     // MARK: Store
 
-    /// STOW-RS of `files` to `{address}/studies`, in requests of at most
+    /// STOW-RS of `files` to the node's store URL, in requests of at most
     /// `storeBatchMaximumCount` files and `storeBatchMaximumBytes` bytes, each
     /// streamed from disk, by DICOM-Swift's `storeFiles`. Returns one result
     /// per file, in order. A request that fails marks its files failed;
@@ -2072,7 +2072,7 @@ public final class DICOMwebClient: NSObject {
         let bodyLimit = largest.addingReportingOverflow(64 * 1024 + options.maximumFilesPerBatch * 1024)
         let (web, transport): (DicomWebClient, DICOMwebTransport)
         do {
-            (web, transport) = try connect(base: node.addressURL, cancelled: cancelled,
+            (web, transport) = try connect(base: DICOMwebNode.storeBaseURL(address: node.addressURL, qidoPath: node.qidoPath, wadoPath: node.wadoPath), cancelled: cancelled,
                                            storeBodyLimit: bodyLimit.overflow ? Int.max : bodyLimit.partialValue,
                                            transferCeiling: transferCeiling, responseOperation: .store)
         } catch {

@@ -46,6 +46,15 @@ ROOT = Path(__file__).resolve().parents[1]
 FRAMEWORK = 'DCM Framework'
 OLD_FILES = ['DCMCalendarDate', 'DCMAbstractSyntaxUID', 'DCMCharacterSet', 'DCMAttributeTag', 'DCMTagDictionary',
              'DCMTagForNameDictionary', 'DCMTagNameAlias']
+# The module's classes have, in the Objective-C runtime, the names the
+# framework's had. The framework's are compiled here as Former<name>, so that
+# one driver holds both: the driver below is written with the framework's
+# names for the former side and IsiXDICOM... for the module's, and
+# driver_text() gives each side the name it has in this process.
+OLD_CLASSES = OLD_FILES[:-1]
+FORMER = ['-D%s=Former%s' % (name, name) for name in OLD_CLASSES]
+MODULE_NAMES = {'IsiXDICOMCalendarDate': 'DCMCalendarDate', 'IsiXDICOMSOPClass': 'DCMAbstractSyntaxUID',
+                'IsiXDICOMCharacterSet': 'DCMCharacterSet', 'IsiXDICOMAttributeTag': 'DCMAttributeTag'}
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--reference', help='revision of the former Objective-C (default: the last that has it)')
@@ -404,7 +413,19 @@ def driver_text():
                        ('TERMS', objc_array(TERMS)), ('CODES', objc_array(CODES)),
                        ('TAGSTRINGS', objc_array(TAG_STRINGS)), ('NAMESEXTRA', objc_array(NAMES_EXTRA))]:
         text = text.replace('@@%s@@' % key, value)
-    return text
+    former = re.compile(r'\b(%s)\b' % '|'.join(OLD_CLASSES))
+    lines = []
+    for line in text.split('\n'):
+        if not line.startswith('#import'):
+            line = former.sub(r'Former\1', line)
+            for module_name, runtime_name in MODULE_NAMES.items():
+                line = re.sub(r'\b%s\b' % module_name, runtime_name, line)
+        elif line == '#import "IsiXDICOMFile-Swift.h"':
+            line = ''.join('#undef %s\n' % name for name in OLD_CLASSES) + line
+        elif line == '#import "%s.h"' % OLD_FILES[0]:
+            line = ''.join('#define %s Former%s\n' % (name, name) for name in OLD_CLASSES) + line
+        lines.append(line)
+    return '\n'.join(lines)
 
 
 def compile_and_run(work, host):
@@ -433,7 +454,7 @@ def compile_and_run(work, host):
     objects = []
     for source in [*(framework / (n + '.m') for n in OLD_FILES), work / 'horos-date-string.m']:
         obj = work / (source.stem + '.o')
-        subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-w', '-mmacosx-version-min=15.0', '-I', str(framework),
+        subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-w', '-mmacosx-version-min=15.0', *FORMER, '-I', str(framework),
                         '-c', str(source), '-o', str(obj)], check=True)
         objects.append(str(obj))
     link = []

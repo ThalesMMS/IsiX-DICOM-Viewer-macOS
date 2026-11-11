@@ -147,6 +147,34 @@ public final class MPRHostVolume: NSObject {
     static func refusal(_ reason: String) -> NSError { ResliceFailure.geometry(reason).nsError }
 }
 
+/// What an MPR window holds for its Metal planes: the reslicers of its
+/// volume (one, or three for an RGB volume's channels) and of a fused series,
+/// each with the volume it holds, and the outcome of the last plane.
+@MainActor final class MPRMetalHostState {
+    var reslicer: MPRReslicerBridge?
+    var uploaded: MPRHostVolume?
+    var fusedReslicer: MPRReslicerBridge?
+    var fusedUploaded: MPRHostVolume?
+    var colourReslicers: [MPRReslicerBridge]?
+    var colourUploaded: MPRHostVolume?
+    /// Why the last plane kept the original pixels, or nil.
+    var fallbackReason: String?
+    /// Wall milliseconds of the last synchronous Metal reslice.
+    var lastMilliseconds: Double?
+    /// An edit asked the planes to be reconstructed and they have not been yet.
+    var reconstructionPending = false
+
+    /// The voxels of a held volume were rewritten in its own buffer. The next
+    /// plane uploads that volume again; the other one keeps its texture.
+    func volumeEdited(primary: Bool, fused: Bool) {
+        if primary {
+            uploaded = nil
+            colourUploaded = nil
+        }
+        if fused { fusedUploaded = nil }
+    }
+}
+
 extension MPRReslicerBridge {
     /// Uploads a scalar volume, the viewer's or the fused one, from its
     /// validated conversion: the engine reads `voxels`, which keeps its owner.

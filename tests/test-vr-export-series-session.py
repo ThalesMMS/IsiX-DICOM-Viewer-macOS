@@ -74,7 +74,7 @@ print("PASS: 100 requests within the same clock second create fresh sessions, re
 s=(revision_source(rev) if rev else (root/'Horos/Sources/VRView.m').read_bytes()).decode('latin1')
 a=s.index('\n        {',s.index('// CURRENT image only'))+len('\n        {')
 b=s.index('// 4th dimension',a)
-body=s[a:b].rsplit('        }',1)[0].replace('[NSCalendarDate date]','[FixedDate date]').replace('[DCMCalendarDate date]','[FixedDate date]').replace('[IsiXDICOMCalendarDate date]','[FixedDate date]')
+body=s[a:b].rsplit('        }',1)[0].replace('[NSCalendarDate date]','[FixedDate date]').replace('[DCMCalendarDate date]','[FixedDate date]').replace('[DCMCalendarDate date]','[FixedDate date]')
 code=r'''
 #import <Foundation/Foundation.h>
 #include <cassert>

@@ -130,16 +130,12 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
         }
         mainViewDidLoad()
 
-        NSUserDefaultsController.shared.addObserver(self, forKeyPath: "values.eraseEntireDBAtStartup", options: .new, context: nil)
         NSUserDefaultsController.shared.addObserver(self, forKeyPath: "values.dbFontSize", options: .new, context: nil)
-        NSUserDefaultsController.shared.addObserver(self, forKeyPath: "values.horizontalHistory", options: .new, context: nil)
     }
 
     deinit {
         NSLog("dealloc OSIDatabasePreferencePanePref")
 
-        // As before, values.horizontalHistory is not removed.
-        NSUserDefaultsController.shared.removeObserver(self, forKeyPath: "values.eraseEntireDBAtStartup")
         NSUserDefaultsController.shared.removeObserver(self, forKeyPath: "values.dbFontSize")
     }
 
@@ -155,16 +151,6 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
         let fromDefaults = (object as AnyObject?) === NSUserDefaultsController.shared
         onMainActor {
             if fromDefaults {
-                if keyPath == "values.eraseEntireDBAtStartup" {
-                    if UserDefaults.standard.bool(forKey: "eraseEntireDBAtStartup") {
-                        _ = runAlertPanel(.critical, NSLocalizedString("Erase Entire Database", comment: ""), NSLocalizedString("Warning! With this option, each time IsiX DICOM Viewer is restarted, the entire database will be erased. All studies will be deleted. This cannot be undone.", comment: ""), NSLocalizedString("OK", comment: ""))
-                    }
-                }
-
-                if keyPath == "values.horizontalHistory" {
-                    _ = runAlertPanel(.critical, NSLocalizedString("Restart", comment: ""), NSLocalizedString("Restart IsiX DICOM Viewer to apply this change.", comment: ""), NSLocalizedString("OK", comment: ""))
-                }
-
                 if keyPath == "values.dbFontSize" {
                     // -refreshMatrix: does not read its sender, formerly the pane.
                     if let browser = BrowserController.currentBrowser() {
@@ -462,6 +448,21 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
         commentsElement?.stringValue = title.substring(with: NSRange(location: 8, length: 6))
 
         setAutoComments(sender)
+    }
+
+    /// Switching the kiosk mode on deletes the whole database at the next
+    /// start, so it asks first.
+    @IBAction public func eraseEntireDatabaseChanged(_ sender: Any?) {
+        guard let button = sender as? NSButton, button.state == .on else { return }
+        let answer = HorosAlertPanel.runInformational(
+            title: NSLocalizedString("Delete the Entire Database at Each Startup?", comment: "Kiosk mode confirmation"),
+            message: NSLocalizedString("Every time IsiX DICOM Viewer starts, all the studies in the default database will be deleted. This cannot be undone.",
+                                       comment: "Kiosk mode confirmation"),
+            defaultButton: NSLocalizedString("Cancel", comment: ""), alternateButton: NSLocalizedString("OK", comment: ""), otherButton: nil)
+        if answer != HorosAlertPanel.alternateResponse {
+            button.state = .off
+            UserDefaults.standard.set(false, forKey: "eraseEntireDBAtStartup")
+        }
     }
 
     @IBAction public func databaseCleaning(_ sender: Any?) {

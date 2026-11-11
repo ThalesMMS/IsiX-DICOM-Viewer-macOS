@@ -304,7 +304,7 @@ public final class PluginManagerController: NSWindowController {
 
         refreshPluginList()
 
-        protectedModeLabel?.isHidden = !DCMPix.isRunOsiriXInProtectedModeActivated()
+        showProtectedModeNotice()
 
         configurePluginLoadDetails()
 
@@ -338,6 +338,29 @@ public final class PluginManagerController: NSWindowController {
             actions.centerYAnchor.constraint(equalTo: uninstallPluginButton.centerYAnchor),
         ])
     }
+
+    /// Why every plugin reads Blocked while protected mode is on, and how to
+    /// get them back. The nib's label is one line of a fixed width, which cut
+    /// the sentence in the longer languages: here it takes the width of the
+    /// list and the lines it needs between the list and the buttons.
+    private func showProtectedModeNotice() {
+        guard let label = protectedModeLabel else { return }
+        label.isHidden = !DCMPix.isRunOsiriXInProtectedModeActivated()
+        guard !label.isHidden, let container = label.superview else { return }
+        label.stringValue = NSLocalizedString("Protected Mode: plugins are not loaded in this session. Quit IsiX DICOM Viewer and open it again to load them.", comment: "")
+        label.font = .systemFont(ofSize: NSFont.systemFontSize)
+        label.cell?.isScrollable = false
+        label.cell?.wraps = true
+        label.lineBreakMode = .byWordWrapping
+        label.maximumNumberOfLines = 0
+        label.frame = NSRect(x: Self.protectedModeNoticeInset, y: 46, width: container.bounds.width - 2 * Self.protectedModeNoticeInset, height: Self.protectedModeNoticeHeight)
+        label.autoresizingMask = [.width, .maxYMargin]
+    }
+
+    /// The notice's margin in the tab, the list's own, and the height left
+    /// between the list and the buttons.
+    static let protectedModeNoticeInset: CGFloat = 11
+    static let protectedModeNoticeHeight: CGFloat = 44
 
     @objc(showPluginLoadDetails:)
     public func showPluginLoadDetails(_ sender: Any!) {

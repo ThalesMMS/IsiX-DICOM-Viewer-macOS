@@ -179,7 +179,7 @@ extension DicomFile {
         return nil
     }
 
-    /// +[IsiXDICOMCalendarDate dateWithString:calendarFormat:]: nil when the text is not in the format.
+    /// +[DCMCalendarDate dateWithString:calendarFormat:]: nil when the text is not in the format.
     static func calendarDate(_ text: String, _ format: String) -> NSDate? {
         DICOMCalendarDate.date(with: text, calendarFormat: format)
     }

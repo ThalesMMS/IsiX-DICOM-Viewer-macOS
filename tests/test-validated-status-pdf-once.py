@@ -109,6 +109,11 @@ struct PreferencesSource {
     var preferences: Preferences { Preferences() }
 }
 
+// What a state does by itself when applied (StudyStates) is not this test's.
+enum StudyStates {
+    static func stateChanged(of study: DicomStudy, from previous: Int32, to state: Int32) {}
+}
+
 final class DicomDatabase {
     init?(for context: NSManagedObjectContext?) {}
     func isLocal() -> Bool { true }

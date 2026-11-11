@@ -13,11 +13,11 @@
 // The DCMTK adapter fills it (HorosDCMTKObject) and writes it
 // (IsiXDCMTKObjectWriter).
 //
-// The module names its classes IsiXDCM...; the aliases keep the names the
-// Objective-C code and the plugin headers have always used. Swift imports the
-// module itself, so it reads none of this. The generated headers are found in
-// GENERATED_MODULEMAP_DIR, because the targets compiling these files build
-// without clang modules.
+// The classes keep, in the Objective-C runtime, the names DCM.framework gave
+// them (DCMObject, DCMAttributeTag, ...): a plugin built for Horos or OsiriX
+// looks them up by those names. Swift imports the module itself, so it reads
+// none of this. The generated headers are found in GENERATED_MODULEMAP_DIR,
+// because the targets compiling these files build without clang modules.
 
 #if !defined(__swift__)
 #import <Foundation/Foundation.h>
@@ -25,9 +25,4 @@
 #import "IsiXDICOMFile-Swift.h"
 #import "IsiXDICOMDataset-Swift.h"
 
-@compatibility_alias DCMObject IsiXDCMObject;
-@compatibility_alias DCMAttribute IsiXDCMAttribute;
-@compatibility_alias DCMSequenceAttribute IsiXDCMSequenceAttribute;
-@compatibility_alias DCMPixelDataAttribute IsiXDCMPixelDataAttribute;
-@compatibility_alias DCMTransferSyntax IsiXDCMTransferSyntax;
 #endif

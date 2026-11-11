@@ -23,7 +23,7 @@ root = Path(__file__).resolve().parents[1]
 failures = []
 
 database = dicom_database_sources.class_text('DicomDatabase')  # Swift
-if 'EnhancedImportTriage.assessPath' not in database or 'mayMergeIntoIncoming' not in database:
+if 'EnhancedImportTriage.assess(triageFile)' not in database or 'mayMergeIntoIncoming' not in database:
     failures.append('incoming scan still merges a DICOM without asking the isolated stack gate')
 
 pix = class_text('DCMPix')

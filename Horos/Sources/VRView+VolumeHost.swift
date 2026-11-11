@@ -18,6 +18,9 @@ import IsiXPreferences
 private enum MPRVolumeMetalSlots {
     nonisolated(unsafe) static var on: UInt8 = 0
     nonisolated(unsafe) static var drawn: UInt8 = 0
+    /// The renderer's count at the frame shown from its texture, while VTK's
+    /// image does not hold that frame.
+    static let unwrittenFrame = IdentityToken()
 }
 
 /// The 3D view's state as the Metal volume renderer takes it. VTK's objects
@@ -44,7 +47,40 @@ extension VRView {
         return autoreleasepool { renderMetalImage(in: scene, fused: fused) }
     }
 
+    /// Where a plain composite render goes without passing through the CPU.
+    /// VTK's image stays the way for what composes in it (surfaces, a fused
+    /// series, either eye of a stereo pair) and for what reads its words (a
+    /// full-depth capture, the MPR's hidden view).
+    private func directPicture(fused: Bool, hasGeometry: Bool, image: IsiXVTKRayCastImageInfo) -> MTLTexture? {
+        let forMPR = objc_getAssociatedObject(self, &MPRVolumeMetalSlots.on) != nil
+        guard !fused, !forMPR, !hasGeometry, renderingMode == 0, !horosHasBlendingVolume, !horosFullDepthMode,
+              horosStereoMode() == StereoMode.off.rawValue else { return nil }
+        return (horos_horosPresenter as? VRPresenter)?.volumePictureTarget(width: image.memoryWidth, height: image.memoryHeight)
+    }
+
+    /// Writes into VTK's image the frame that was shown straight from the GPU,
+    /// for a reader of its words. Another view sharing the renderer may have
+    /// replaced the frame by then; the image is left as it is.
+    func horosWriteDirectPictureIntoImage() {
+        guard let frame = objc_getAssociatedObject(self, MPRVolumeMetalSlots.unwrittenFrame.key) as? Int else { return }
+        objc_setAssociatedObject(self, MPRVolumeMetalSlots.unwrittenFrame.key, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        let controller: VRController = self.controller()
+        let scene = horosVTKScene(fused: false)
+        guard let renderer = controller.horosVolumeMetalRenderer, renderer.renderCount == frame else { return }
+        var image = IsiXVTKRayCastImageInfo()
+        guard (try? scene.readRayCastImage(&image)) != nil,
+              let last = renderer.lastComposite(width: image.usedWidth, height: image.usedHeight),
+              let picture = RayCastPicture.composite(bgra: last.bgra, opacity: last.scalar) as NSData? else { return }
+        try? scene.accessRayCastImage { rgba, info in
+            guard let rgba else { return }
+            RayCastPicture.replace(rgba, memoryWidth: info.memoryWidth, memoryHeight: info.memoryHeight,
+                                   with: picture.bytes.assumingMemoryBound(to: UInt16.self),
+                                   usedWidth: info.usedWidth, usedHeight: info.usedHeight)
+        }
+    }
+
     private func renderMetalImage(in scene: IsiXVTKVolumeScene, fused: Bool) -> Bool {
+        if !fused { objc_setAssociatedObject(self, MPRVolumeMetalSlots.unwrittenFrame.key, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
         // A fused series has its own mapper and volume, drawn after the image's:
         // each fills its own ray-cast image, and VTK composes the two, the fused
         // one over the image, premultiplied.
@@ -75,7 +111,7 @@ extension VRView {
             reason = fusedSnapshot["error"] as? String
         }
 
-        var pixels: NSData?, picture: NSData?
+        var pixels: NSData?, picture: NSData?, direct: MTLTexture?
         let opacity = NSMutableData()
         var image = IsiXVTKRayCastImageInfo()
         if (try? scene.readRayCastImage(&image)) == nil, reason == nil { reason = "The 3D view has no volume yet." }
@@ -94,9 +130,11 @@ extension VRView {
                 snapshot = horosVolumeSnapshot()
                 MetalPerformanceTrace.recordHost("vr.host_snapshot", startedAt: snapshotFrom)
             }
+            direct = directPicture(fused: fused, hasGeometry: depth != nil, image: image)
             do {
                 pixels = try controller.horosVolumeMetalRender(snapshot ?? [:], fused: fused, width: width, height: height,
-                                                               imageRegion: region, geometryDepth: depth, scalarOut: opacity, forVTK: true)
+                                                               imageRegion: region, geometryDepth: depth, scalarOut: opacity, forVTK: true,
+                                                               picture: direct)
             } catch {
                 reason = error.localizedDescription
             }
@@ -104,10 +142,11 @@ extension VRView {
         let count = width * height
         // An RGB volume's projection hands back three values a pixel.
         let colourProjection = (fused ? horosIsBlendingRGB : isRGB()) && renderingMode != 0
-        let ready = pixels?.length == count * 4 && opacity.length == count * MemoryLayout<Float>.size * (colourProjection ? 3 : 1) && count > 0
+        let ready = count > 0 && (direct != nil ? pixels != nil
+            : pixels?.length == count * 4 && opacity.length == count * MemoryLayout<Float>.size * (colourProjection ? 3 : 1))
         if reason == nil && !ready { reason = "Metal returned an incomplete image." }
         let convertedFrom = MetalPerformanceTrace.hostTime()
-        if reason == nil, let pixels {
+        if reason == nil, direct == nil, let pixels {
             picture = Self.volumePicture(bgra: pixels, scalar: opacity, projection: renderingMode == 0 ? nil : snapshot)
             if picture?.length != count * 4 * MemoryLayout<UInt16>.size { reason = "Metal returned an incomplete image." }
         }
@@ -122,7 +161,14 @@ extension VRView {
             getWLWW(&wl, &ww)
             horosSetWindowText(String(format: "WL: %.4g WW: %.4g\n%@", Double(wl), Double(ww), status))
         }
-        guard reason == nil, let picture else { return false }
+        guard reason == nil else { return false }
+        if direct != nil, let presenter = horos_horosPresenter as? VRPresenter, let renderer = controller.horosVolumeMetalRenderer {
+            presenter.showVolumePicture()
+            objc_setAssociatedObject(self, MPRVolumeMetalSlots.unwrittenFrame.key, renderer.renderCount, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            MetalPerformanceTrace.recordHost("vr.host_convert", startedAt: convertedFrom)
+            return true
+        }
+        guard let picture else { return false }
 
         // A projection captured in full depth (-prepareFullDepthCapture): the
         // fourth word is the projected value as the volume stores it, which
@@ -215,7 +261,10 @@ extension VRView {
     /// What the view shows: the in-use rectangle of VTK's ray-cast image,
     /// premultiplied RGBA in 15 bits, rows as VTK keeps them (bottom row first),
     /// whichever engine filled it. The native comparison reads it.
-    @objc func horosRayCastImagePixels() -> NSData? { rayCastImagePixels(horosVTKScene(fused: false)) }
+    @objc func horosRayCastImagePixels() -> NSData? {
+        horosWriteDirectPictureIntoImage()
+        return rayCastImagePixels(horosVTKScene(fused: false))
+    }
 
     /// Whether a series is fused over the volume.
     @objc func horosHasFusedVolume() -> Bool { horosHasBlendingVolume }

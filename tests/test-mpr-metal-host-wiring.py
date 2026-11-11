@@ -76,7 +76,8 @@ assert 'imagePtr = _vrView?.image(inFullDepthWidth: &w, height: &h, isRGB: &isRG
 vr = (root / 'Horos/Sources/VRView+Render.swift').read_text()
 # The VTK adapter checks the renderer and the volume before the view's hook.
 vr_adapter = (root / 'Horos/Sources/Adapters/VTK/IsiXVTKVolumeView.mm').read_text()
-assert 'if mprPlane ? !horosMPRVolumeMetal() : engine != 2 { return false }' in vr and \
+assert re.search(r'if !\(mprPlane \? !horosMPRVolumeMetal\(\) : engine != 2\), let scene = horos_vtk\.renderingScene\(\),\s*'
+                 r'horosRenderMetalImage\(in: scene, fused: fused, mprPlane: mprPlane\) \{\s*return true\s*\}', vr) and \
     'if (renderer != o->aRenderer || (volume != o->volume && !fused)) return false;' in vr_adapter, \
     'the ray-cast hook runs for the MPR\'s hidden view only when the MPR asks for it'
 # A reversed stack is resliced through the voxel-to-world transform VTK places
@@ -157,6 +158,15 @@ dcmpix = sources.class_text('DCMPix')
 measure = root / 'Horos/Sources/DCMPix+ROIMeasure.swift'
 assert 'computedfImage = [self computefImageForMeasurement];' in dcmpix or \
     (measure.is_file() and 'computed = self.computefImageForMeasurement()' in measure.read_text(encoding='utf-8'))
+
+# An edit in the volume's own buffer reaches the planes: only the series the
+# window shows or fuses, once per pass of the run loop.
+mpr = sources.class_text('MPRController')
+assert '#selector(horosMPRVolumeDataChanged(_:)), name: NSNotification.Name.OsirixUpdateVolumeData' in mpr
+edited = controller[controller.index('func horosMPRVolumeDataChanged('):controller.index('/// Closing the window frees')]
+assert 'edited === horosMPRCurrentPixList()' in edited and 'edited === horosMPRFusedPixList()' in edited
+assert edited.index('state.volumeEdited(primary: primary, fused: fused)') < edited.index('state.reconstructionPending = true')
+assert 'guard !state.reconstructionPending else { return }' in edited and 'self.horosMPRReconstructPlanes()' in edited
 
 # Strings and project membership.
 for catalog in ('it-IT', 'es'):

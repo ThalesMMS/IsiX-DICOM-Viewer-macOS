@@ -12,13 +12,17 @@
 
 import AppKit
 
-/// One identity per displayed series, shared by every window showing it and
-/// by its thumbnail.
+/// One identity per displayed series, shared by every window showing it: a
+/// slot, its number and a colour of a palette.
+///
+/// The application used it to give each window a colour and a number of its
+/// own. It no longer does: the series are told apart by the colour of their
+/// study and their number in it (SeriesListIdentification), and nothing in
+/// the application calls this class. It stays, as it was, for the plugins
+/// that were linked against it.
 ///
 /// A series takes the first free slot and keeps it until its last window
-/// closes or changes series. The palette leaves out the thumbnails' orange (this window's
-/// series) and green (the fused series) and the yellow of key images and of
-/// the opening flash. Past the palette's length, colours repeat.
+/// closes or changes series. Past the palette's length, colours repeat.
 @MainActor
 @objc(HorosViewerWindowColors)
 public final class ViewerWindowColors: NSObject {

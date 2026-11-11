@@ -54,6 +54,35 @@ public enum ViewerSynchronization {
         otherStudies.contains { !same(study, $0) }
     }
 
+    /// What a viewer shows, as synchronization places it: its study and the
+    /// frame of reference of its series.
+    public struct World: Sendable, Equatable {
+        public var study: String?
+        public var frameOfReference: String?
+
+        public init(study: String?, frameOfReference: String?) {
+            self.study = study
+            self.frameOfReference = frameOfReference
+        }
+    }
+
+    /// Whether the "Sync" button locks the series at their current offset
+    /// instead of switching the syncro mode: when the other displayed viewers
+    /// are not all of this one's study, and, where the frame of reference
+    /// counts, of its frame. Two series of one study in different frames (a
+    /// colonography supine and prone) do not follow each other by location,
+    /// and with the button of a single study nothing else linked them.
+    /// Frames are compared when both are known.
+    public static func syncsBetweenWorlds(_ world: World, others: [World], usesFrameOfReference: Bool) -> Bool {
+        others.contains { other in
+            if !same(world.study, other.study) { return true }
+            guard usesFrameOfReference else { return false }
+            let frame = (world.frameOfReference ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let otherFrame = (other.frameOfReference ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return !frame.isEmpty && !otherFrame.isEmpty && frame != otherFrame
+        }
+    }
+
     /// Whether the series lock is reset after the button's behaviour is worked
     /// out again: always when it works within a study, and when it has just
     /// started working between studies.

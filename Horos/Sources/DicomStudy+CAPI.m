@@ -174,8 +174,8 @@ NSString* soundex4( NSString *inString)
 
 void HorosDicomStudyYearsMonthsDays(NSDate *later, NSDate *sinceDate, NSInteger *years, NSInteger *months, NSInteger *days)
 {
-    IsiXDICOMCalendarDate *momsBDay = [IsiXDICOMCalendarDate dateWithTimeIntervalSinceReferenceDate: [sinceDate timeIntervalSinceReferenceDate]];
-    IsiXDICOMCalendarDate *dateOfBirth = later ? [IsiXDICOMCalendarDate dateWithTimeIntervalSinceReferenceDate: [later timeIntervalSinceReferenceDate]] : [IsiXDICOMCalendarDate date];
+    DCMCalendarDate *momsBDay = [DCMCalendarDate dateWithTimeIntervalSinceReferenceDate: [sinceDate timeIntervalSinceReferenceDate]];
+    DCMCalendarDate *dateOfBirth = later ? [DCMCalendarDate dateWithTimeIntervalSinceReferenceDate: [later timeIntervalSinceReferenceDate]] : [DCMCalendarDate date];
     
     [dateOfBirth years:years months:months days:days hours:NULL minutes:NULL seconds:NULL sinceDate:momsBDay];
 }

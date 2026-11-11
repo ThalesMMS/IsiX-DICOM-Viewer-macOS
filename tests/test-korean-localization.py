@@ -60,14 +60,14 @@ assert en.keys() <= ko.keys(), 'Missing English catalog entries'
 assert load_tool('collect-localized-strings').keys().keys() <= ko.keys(), 'Missing current source keys'
 # Additional UI literals are identifiers, product/format labels or explicit XIB
 # nonlocalized placeholders; the shared residual contract must register these.
-TECHNICAL_UI = {'JPEG Baseline', 'Soundex', 'return', 'option return', '%1.2f GB', '%1.2f KB', '%1.2f MB', '10 im/s', '10 im/s\n', '3D MPR', '3D SR', '3D VR', '3DCut', '60 im/s', 'AE Title:', 'AETitle', 'AETitleValue', 'BILINEAR', 'BLACK', 'CUBIC', 'Cobb', 'DatabaseAlbums.albums', 'Delaunay', 'LibreOffice (.odt)', 'Power Crust', 'Quicktime', 'REPLICATE', 'RLE', 'Return', 'SQL', 'TLS', 'TRUEPREDICATE', 'WL/WW', 'WL: WW:', 'YES', 'asdasd', 'asdasdasdqq', 'dd/bb/cc', 'http://www.dicom.dcm/dicomNodes.plist', 'macOS', 'mm:\t\tx:0 y:0 z:0', 'mmm', 'px:\t\tx:0 y:0 z:0', 'SCAN', 'wado', 'HTTPS', 'github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS',
-    'DICOMCD', 'Pages (.pages)', 'http://www.dicom.dcm/OsiriXDB.plist',
+TECHNICAL_UI = {'JPEG Baseline', 'Soundex', 'return', 'option return', '%1.2f GB', '%1.2f KB', '%1.2f MB', '10 im/s', '10 im/s\n', '3D MPR', '3D SR', '3D VR', '3DCut', '60 im/s', 'AE Title:', 'AETitle', 'AETitleValue', 'BILINEAR', 'BLACK', 'CUBIC', 'Cobb', 'DatabaseAlbums.albums', 'Delaunay', 'LibreOffice (.odt)', 'Power Crust', 'Quicktime', 'REPLICATE', 'RLE', 'Return', 'SQL', 'TLS', 'TRUEPREDICATE', 'WL/WW', 'WL: WW:', 'YES', 'asdasd', 'asdasdasdqq', 'dd/bb/cc', 'https://www.dicom.dcm/dicomNodes.plist', 'macOS', 'mm:\t\tx:0 y:0 z:0', 'mmm', 'px:\t\tx:0 y:0 z:0', 'SCAN', 'wado', 'HTTPS', 'github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS',
+    'DICOMCD', 'Pages (.pages)', 'https://www.dicom.dcm/OsiriXDB.plist',
     'ROIs:', 'BW -> RGB', '<< do not localize >>', 'OsiriX CT - 129',
     'Mail.app', 'ROI 1', '%{value1}@ im/s', 'Mail',
     '<<do not localize window title>>', 'Microsoft Word (.doc)', 'RGB ->BW',
     '<<A disc named %@ and containing %d DICOM files was mounted. THIS STRING IS JUST A PLACEHOLDER, no need to localize it.>>',
     'DICOMDIR:', 'WL/WW:', 'CLUT:', 'DICOM 1', 'URL:',
-    'http://www.preferences-server.com/preferences.plist',
+    'https://www.preferences-server.com/preferences.plist',
 }
 residual = load_tool('host-localization-residual')
 for key, translated in ko.items():

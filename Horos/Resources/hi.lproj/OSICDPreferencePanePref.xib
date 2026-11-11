@@ -173,9 +173,6 @@
                                     <buttonCell key="cell" type="check" title="DICOM फ़ाइलों के लिए JPEG2000 / JPEG LS संपीड़न के बजाय मानक JPEG को प्राथमिकता दें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="184">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
-                                        <connections>
-                                            <binding destination="173" name="value" keyPath="values.JPEGinsteadJPEG2000" id="186"/>
-                                        </connections>
                                     </buttonCell>
                                     <connections>
                                         <binding destination="173" name="value" keyPath="values.JPEGinsteadJPEG2000" id="187"/>

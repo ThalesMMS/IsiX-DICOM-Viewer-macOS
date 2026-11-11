@@ -13,7 +13,7 @@ import Darwin
 import Foundation
 
 /// Copies what earlier versions kept in `Application Support/Horos` into the
-/// app's own folder, when the user asks for it.
+/// app's own folder.
 ///
 /// A Weasis customization an administrator left in the computer's
 /// `/Library/Application Support/Horos`, read by earlier versions for every
@@ -22,7 +22,7 @@ import Foundation
 /// When the user has one, that is what is copied, as it was the one read first.
 ///
 /// Horos uses the same folder, so nothing in it is assumed to belong to this
-/// app: the app offers the import and the user decides. The import only reads
+/// app. The import is still made without asking, because it only reads
 /// the old folder. It never renames, moves or deletes anything in it, never
 /// replaces anything already in the new folder, and never copies plugins.
 ///
@@ -36,8 +36,8 @@ import Foundation
 ///
 /// The one exception to not replacing what is in the new folder is an accounts
 /// database with no rows. The Web Portal makes one when it opens with nothing
-/// to open, as it does after the user answers Not Now, and it holds nothing the
-/// import could lose.
+/// to open, as it did after a Not Now in the versions that asked, and it holds
+/// nothing the import could lose.
 ///
 /// A run that stops at any point - the app quits, a file cannot be read, the
 /// disk is full - leaves the originals as they were and at most a staging

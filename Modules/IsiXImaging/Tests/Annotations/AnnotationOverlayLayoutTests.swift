@@ -611,6 +611,33 @@ struct AnnotationOverlayLayoutTests {
 
     // MARK: Orientation letters
 
+    @Test func aLabelAtTheBottomKeepsClearOfTheLowerCorners() {
+        var corners = LowerCornerText()
+        // Nothing noted: the label stands where it is asked to.
+        #expect(corners.labelTop(preferred: 700, minX: 300, maxX: 500, height: 30, gap: 6) == 700)
+        // Twenty characters of 8 from x 10 in the lower left corner, ending at
+        // raster 660; the middles and the upper corners do not count.
+        corners.note(position: "LowerLeft", commands: [.text("Zoom: 526% Angle: 0", x: 10, y: 730, alignment: .left),
+                                                       .text("12345678901234567890", x: 10, y: 700, alignment: .left)],
+                     endY: 660, characterWidth: 8)
+        corners.note(position: "TopLeft", commands: [.text(String(repeating: "x", count: 90), x: 10, y: 20, alignment: .left)], endY: 60, characterWidth: 8)
+        corners.note(position: "LowerMiddle", commands: [.text(String(repeating: "x", count: 90), x: 400, y: 730, alignment: .center)], endY: 700, characterWidth: 8)
+        #expect(corners.left?.maxX == 170 && corners.left?.top == 660 && corners.right == nil)
+        // A wide view: the label is clear of the lines, and stays.
+        #expect(corners.labelTop(preferred: 700, minX: 300, maxX: 500, height: 30, gap: 6) == 700)
+        // A narrow one: it would cover them, and goes above them.
+        #expect(corners.labelTop(preferred: 700, minX: 150, maxX: 350, height: 30, gap: 6) == 624)
+        // The lower right lines end to the left of their raster.
+        corners.note(position: "LowerRight", commands: [.text("Made In IsiX DICOM Viewer", x: 600, y: 730, alignment: .right)], endY: 640, characterWidth: 8)
+        #expect(corners.right?.minX == 400 && corners.right?.top == 640)
+        #expect(corners.labelTop(preferred: 700, minX: 300, maxX: 500, height: 30, gap: 6) == 604)
+        #expect(corners.labelTop(preferred: 700, minX: 200, maxX: 380, height: 30, gap: 6) == 700)
+        // A corner without text notes nothing.
+        var empty = LowerCornerText()
+        empty.note(position: "LowerLeft", commands: [.orientation], endY: 700, characterWidth: 8)
+        #expect(empty == LowerCornerText())
+    }
+
     @Test func theOrientationLettersAreTheFormerCStrings() {
         let components: [Float] = [0, 0.2, 0.2000001, -0.2000001, 0.5, -0.5, 0.7071, -0.7071, 1, -1, .nan, -0.0]
         for x in components {

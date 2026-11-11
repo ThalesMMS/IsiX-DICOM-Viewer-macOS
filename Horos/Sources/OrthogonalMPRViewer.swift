@@ -332,6 +332,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
     @objc(CloseViewerNotification:)
     private dynamic func CloseViewerNotification(_ note: Notification!) {
+        if PreviousSeriesHold.window(self, keepsSeriesReleasedBy: note) { return }
         let v = note?.object as AnyObject?
 
         if v === viewerIvar {

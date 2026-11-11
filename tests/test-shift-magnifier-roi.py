@@ -222,6 +222,14 @@ begin = body(length, 'public dynamic func beginLengthClick(')
 # Which modifiers keep a click from the two-click Length is IsiXROI's
 # TwoClickLengthPlacement.takesClick: Command, Option and Control, not Shift.
 assert '.shift' not in begin and 'LengthPlacement.takesClick(' in begin and 'modifierFlags: event.modifierFlags.rawValue' in begin
+# The Viewers settings can leave the Length to the drag alone: the click is
+# then not taken, and the mouse-down goes on as it did before the two clicks.
+assert 'tool: { ViewROIEditing.twoClickLength && self.getTool(event) == .tMesure }' in begin, \
+    'the two-click Length does not follow its preference'
+editing = (root / 'Horos/Sources/ViewROIEditing.swift').read_text()
+assert 'PreferencesSource.process.preferences[ViewerPreferences.twoClickLengthMeasurement]' in editing
+assert 'PreferenceKey<Bool>("TwoClickLengthMeasurement", registered: true)' in \
+    (root / 'Modules/IsiXPreferences/Sources/ViewerPreferences.swift').read_text()
 placement = (root / 'Modules/IsiXROI/Sources/TwoClickLengthPlacement.swift').read_text()
 takes = placement[placement.index('public static func takesClick('):]
 takes = takes[:takes.index('\n    }\n')]

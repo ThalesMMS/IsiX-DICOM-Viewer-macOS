@@ -152,6 +152,11 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
     private var currentContextStorage: PreferencesWindowContext?
 
+    /// What the search field holds, trimmed, and the index it reads.
+    private var searchTerm = ""
+    private var searchIndex: PreferencesSearchIndex<ObjectIdentifier>?
+    private var searchHighlight: NSView?
+
     /// The window's `currentContext` binding reads this; -setCurrentContext:
     /// sends its change notifications.
     @objc var currentContext: PreferencesWindowContext? {
@@ -338,7 +343,6 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     func pane(_ pane: NSPreferencePane?, enable: Bool) {
         willChangeValue(forKey: "isUnlocked")
 
-        authButton.image = NSImage(named: enable ? "NSLockUnlockedTemplate" : "NSLockLockedTemplate")
 
         didChangeValue(forKey: "isUnlocked")
 
@@ -365,8 +369,10 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         }
     }
 
+    /// Nothing locks the preferences any more. This, `authView`, `authButton`
+    /// and the two delegate methods above stay for old preference bundles.
     @objc public func isUnlocked() -> Bool {
-        return !preferences[ApplicationPreferences.authentication] || authView?.authorizationState() == SFAuthorizationViewUnlockedState
+        return true
     }
 
     @IBAction @objc(authAction:)
@@ -374,27 +380,15 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         authView?.buttonPressed(sender)
     }
 
-    /// The authorization right: SFAuthorizationView may keep the pointer, so it
-    /// is a literal's static storage, as the former C string literal was.
-    private static func cString(_ string: StaticString) -> UnsafePointer<CChar> {
-        return UnsafeRawPointer(string.utf8Start).assumingMemoryBound(to: CChar.self)
-    }
-
     public override func awakeFromNib() {
         MainActor.assumeIsolated {
-            authView.setDelegate(self)
-
-            if preferences[ApplicationPreferences.authentication] {
-                authView.setString(PreferencesWindowController.cString("BUNDLE_IDENTIFIER.preferences.database"))
-            } else {
-                authView.setString(PreferencesWindowController.cString("BUNDLE_IDENTIFIER.preferences.allowalways"))
-                authView.setEnabled(false)
+            // The window returns to where it was left. The corner of the main
+            // screen is only the place of the first opening: put there at
+            // every launch, it covered the first of the tiled viewers again.
+            if let window, !window.setFrameUsingName(window.frameAutosaveName) {
+                let mainScreenFrame = NSScreen.main?.visibleFrame ?? .zero
+                window.setFrameTopLeftPoint(NSPoint(x: mainScreenFrame.origin.x, y: mainScreenFrame.origin.y + mainScreenFrame.size.height))
             }
-
-            _ = authView.updateStatus(self)
-
-            let mainScreenFrame = NSScreen.main?.visibleFrame ?? .zero
-            window?.setFrameTopLeftPoint(NSPoint(x: mainScreenFrame.origin.x, y: mainScreenFrame.origin.y + mainScreenFrame.size.height))
 
             panesListView.buttonActionTarget = self
             panesListView.buttonActionSelector = #selector(setCurrentContext(_:))
@@ -412,9 +406,13 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
             name = NSLocalizedString("Display", comment: "Section in preferences window")
             addPane(withResourceNamed: "OSIViewerPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Viewers", comment: "Panel in preferences window"), image: NSImage(named: "AxialSmall"), toGroupWithName: name)
+            addPane(withResourceNamed: "OSIViewerROIPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("ROIs & Measurements", comment: "Panel in preferences window"), image: NSImage(named: "ROIs"), toGroupWithName: name)
+            addPane(withResourceNamed: "OSIViewerMousePreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Mouse & Scrolling", comment: "Panel in preferences window"), image: NSImage(named: "MousePreferences"), toGroupWithName: name)
+            addPane(withResourceNamed: "OSIViewerScreensPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Windows & Screens", comment: "Panel in preferences window"), image: NSImage(named: "windows"), toGroupWithName: name)
+            addPane(withResourceNamed: "OSIViewerExportPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Exports", comment: "Panel in preferences window"), image: NSImage(named: "Export"), toGroupWithName: name)
             addPane(withResourceNamed: "OSI3DPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("3D", comment: "Panel in preferences window"), image: NSImage(named: "VolumeRendering"), toGroupWithName: name)
             addPane(withResourceNamed: "OSIPETPreferencePane", inBundle: bundle, withTitle: NSLocalizedString("PET", comment: "Panel in preferences window"), image: NSImage(named: "SUV"), toGroupWithName: name)
-            addPane(withResourceNamed: "OSICustomImageAnnotations", inBundle: bundle, withTitle: NSLocalizedString("Annotations", comment: "Panel in preferences window"), image: NSImage(named: "CustomImageAnnotations"), toGroupWithName: name)
+            addPane(withResourceNamed: "OSICustomImageAnnotations", inBundle: bundle, withTitle: NSLocalizedString("Annotation Layout", comment: "Panel in preferences window: where each annotation goes on the image, for the Basic, Full and Custom levels"), image: NSImage(named: "CustomImageAnnotations"), toGroupWithName: name)
             addPane(withResourceNamed: "AYDicomPrintPref", inBundle: bundle, withTitle: NSLocalizedString("DICOM Print", comment: "Panel in preferences window"), image: NSImage(named: "Print"), toGroupWithName: name)
 
             name = NSLocalizedString("Sharing", comment: "Section in preferences window")
@@ -453,6 +451,8 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
     public override func windowDidLoad() {
         super.windowDidLoad()
+        // The panes' grid is narrow: its title would push the search field off the toolbar.
+        window?.titleVisibility = .hidden
         showAllAction(nil)
     }
 
@@ -570,6 +570,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
             }
 
             window?.title = title
+            window?.titleVisibility = context == nil ? .hidden : .visible
 
             currentContextStorage?.pane?.didUnselect()
             currentContextStorage = context
@@ -578,6 +579,8 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
             synchronizeSize(withContent: newSize)
 
             didChangeValue(forKey: "currentContext")
+
+            revealSearchMatch()
         }
     }
 
@@ -649,5 +652,148 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         defaults.set(defaults[DatabasePreferences.defaultDatabaseLocation], for: DatabasePreferences.databaseLocation)
         defaults.set(defaults[DatabasePreferences.defaultDatabaseLocationURL], for: DatabasePreferences.databaseLocationURL)
         processGraph.currentBrowser?.resetToLocalDatabase()
+    }
+}
+
+// MARK: - Searching
+
+/// The text of a pane's controls. A label is what the user reads on it, in
+/// the language the nib was loaded in; a control on a tab that is not shown
+/// comes with the tab to select.
+@MainActor private enum PreferencesPaneText {
+    static func labels(of view: NSView) -> [String] {
+        switch view {
+        case let popUp as NSPopUpButton:
+            return popUp.itemTitles
+        case let button as NSButton:
+            return [button.title]
+        case let matrix as NSMatrix:
+            return matrix.cells.map { $0.title }
+        case let segments as NSSegmentedControl:
+            return (0..<segments.segmentCount).compactMap { segments.label(forSegment: $0) }
+        case let field as NSTextField:
+            return field.isEditable ? [field.placeholderString ?? ""] : [field.stringValue]
+        case let box as NSBox:
+            return [box.title]
+        case let table as NSTableView:
+            return table.tableColumns.map { $0.title }
+        default:
+            return []
+        }
+    }
+
+    /// Calls `visit` for each view under `view`, with the tab it is on.
+    static func walk(_ view: NSView, tab: NSTabViewItem? = nil, visit: (NSView, NSTabViewItem?) -> Void) {
+        if view.isHidden { return }
+        visit(view, tab)
+        if let tabs = view as? NSTabView {
+            for item in tabs.tabViewItems {
+                if let content = item.view { walk(content, tab: item, visit: visit) }
+            }
+            return
+        }
+        for subview in view.subviews { walk(subview, tab: tab, visit: visit) }
+    }
+}
+
+/// The frame drawn for a moment around the control a search found.
+private final class PreferencesSearchHighlight: NSView {
+    override func draw(_ dirtyRect: NSRect) {
+        let outline = NSBezierPath(roundedRect: bounds.insetBy(dx: 1.5, dy: 1.5), xRadius: 4, yRadius: 4)
+        outline.lineWidth = 3
+        NSColor.controlAccentColor.setStroke()
+        outline.stroke()
+    }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+extension PreferencesWindowController {
+    /// The panes and what they say, read once: loading every pane's nib is
+    /// not free, and only a search needs it. A plugin's pane is known by its title.
+    private func paneIndex() -> PreferencesSearchIndex<ObjectIdentifier> {
+        let count = Int(bitPattern: panesListView.itemsCount())
+        if let searchIndex, searchIndex.paneCount == count { return searchIndex }
+        var index = PreferencesSearchIndex<ObjectIdentifier>()
+        for item in 0..<count {
+            guard let context = panesListView.contextForItem(at: UInt(bitPattern: item)) as? PreferencesWindowContext else { continue }
+            var labels: [String] = []
+            if context.parentBundle == Bundle.main {
+                if let raised = HorosObjCException.caught({
+                    guard let pane = context.pane else { return }
+                    if pane.value(forKey: "mainView") == nil { _ = pane.loadMainView() }
+                    guard let root = pane.value(forKey: "mainView") as? NSView else { return }
+                    PreferencesPaneText.walk(root) { view, _ in labels += PreferencesPaneText.labels(of: view) }
+                }) {
+                    NSLog("Preferences search could not read %@: %@", context.resourceName ?? "(null)", raised.reason ?? "")
+                }
+            }
+            index.add(pane: ObjectIdentifier(context), title: context.title ?? "", labels: labels)
+        }
+        searchIndex = index
+        return index
+    }
+
+    /// The search field: an empty one gives the panes back, a term dims those
+    /// that do not hold it, and Return opens the first that does.
+    @IBAction @objc(searchAction:)
+    public func searchAction(_ sender: Any?) {
+        let field = sender as? NSSearchField
+        let term = (field?.stringValue ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        searchTerm = term
+        guard !term.isEmpty else {
+            panesListView.setSearchMatches(nil)
+            removeSearchHighlight()
+            return
+        }
+
+        // Going back to the panes takes the focus from the field; the next key is for it.
+        let opening = NSApp.currentEvent?.type == .keyDown && NSApp.currentEvent?.keyCode == 36
+        if currentContextStorage != nil && !opening {
+            let length = (field?.stringValue as NSString?)?.length ?? 0
+            showAllAction(nil)
+            if currentContextStorage != nil { return }
+            if let field {
+                window?.makeFirstResponder(field)
+                field.currentEditor()?.selectedRange = NSRange(location: length, length: 0)
+            }
+        }
+
+        let matches = paneIndex().panes(matching: term)
+        panesListView.setSearchMatches(Set(matches))
+        guard opening, let first = matches.first else { return }
+        for item in 0..<Int(bitPattern: panesListView.itemsCount()) {
+            if let context = panesListView.contextForItem(at: UInt(bitPattern: item)) as? PreferencesWindowContext, ObjectIdentifier(context) == first {
+                setCurrentContext(context)
+                return
+            }
+        }
+    }
+
+    private func removeSearchHighlight() {
+        searchHighlight?.removeFromSuperview()
+        searchHighlight = nil
+    }
+
+    /// Frames, in the pane just opened, the first control that holds the term.
+    private func revealSearchMatch() {
+        removeSearchHighlight()
+        guard !searchTerm.isEmpty, let root = currentContextStorage?.pane?.mainView else { return }
+        var found: (view: NSView, tab: NSTabViewItem?)?
+        PreferencesPaneText.walk(root) { view, tab in
+            guard found == nil else { return }
+            if PreferencesPaneText.labels(of: view).contains(where: { PreferencesSearchIndex<ObjectIdentifier>.label($0, matches: searchTerm) }) {
+                found = (view, tab)
+            }
+        }
+        guard let found else { return }
+        found.tab?.tabView?.selectTabViewItem(found.tab)
+        found.view.scrollToVisible(found.view.bounds)
+        let highlight = PreferencesSearchHighlight(frame: root.convert(found.view.bounds, from: found.view).insetBy(dx: -4, dy: -3))
+        root.addSubview(highlight)
+        searchHighlight = highlight
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self, weak highlight] in
+            guard let self, let highlight, self.searchHighlight === highlight else { return }
+            self.removeSearchHighlight()
+        }
     }
 }

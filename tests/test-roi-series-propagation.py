@@ -46,6 +46,16 @@ check(ROISeriesTransfer.isFlat(depths: [0.2, 0.25, 0.21], tolerance: 1.5), "para
 check(!ROISeriesTransfer.isFlat(depths: [-4, 0, 4], tolerance: 1.5), "oblique planes")
 check(!ROISeriesTransfer.isFlat(depths: [], tolerance: 1.5), "no points")
 
+// A rectangle or an oval is probed along both axes, at least 20 mm away: on a
+// plane across its own, one of the three points is that far in depth.
+let probe = ROISeriesTransfer.planeProbe(rect: NSRect(x: 100, y: 80, width: 4, height: -6), spacingX: 0.5, spacingY: 2)
+check(probe == [NSPoint(x: 100, y: 80), NSPoint(x: 140, y: 80), NSPoint(x: 100, y: 90)], "a small ROI reaches 20 mm: \(probe)")
+let wide = ROISeriesTransfer.planeProbe(rect: NSRect(x: 0, y: 0, width: -300, height: 50), spacingX: 0.5, spacingY: 0)
+check(wide == [NSPoint(x: 0, y: 0), NSPoint(x: 300, y: 0), NSPoint(x: 0, y: 50)], "a large ROI reaches its own extent: \(wide)")
+// Sagittal onto coronal: the depth there is the source's x, in millimetres.
+check(!ROISeriesTransfer.isFlat(depths: probe.map { Double($0.x) * 0.5 }, tolerance: 1.5), "an orthogonal plane is refused")
+check(ROISeriesTransfer.isFlat(depths: probe.map { _ in 0.3 }, tolerance: 1.5), "a parallel plane is taken")
+
 // A series with half the pixel size and its origin 10 pixels further.
 let map: (NSPoint) -> NSPoint = { NSPoint(x: $0.x * 2 + 10, y: $0.y * 2 + 10) }
 let oval = ROISeriesTransfer.mapRect(NSRect(x: 20, y: 30, width: 5, height: 8), kind: .centreAndRadii, map: map)
@@ -85,6 +95,8 @@ for needle, why in (
     ('ROISeriesTransfer.isFlat(', 'refuses planes that are not parallel'),
     ('!Self.isCopy(roi)', 'does not propagate a copy back'),
     ('!viewer.windowWillClose()', 'keeps the copies when the viewer that drew the ROI closes'),
+    ('ROISeriesTransfer.planeProbe(', 'probes the plane of a ROI kept as a rectangle'),
+    ('roi !== view.horos_lengthPendingMarker', 'leaves the hint of a two-click Length in its own view'),
 ):
     if needle not in glue:
         fail(f'the propagation no longer {why}: {needle!r} is missing')

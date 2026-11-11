@@ -323,10 +323,15 @@ final class ViewerSeriesLoader {
                 if preFlippedData { toOpenArray = resortedToOpenArray }
 
                 for (x, loadList) in toOpenArray.enumerated() {
-                    let block = x < blocks.count ? blocks[x] : 0
-                    guard let volume = malloc(Int(block) * MemoryLayout<Float>.size)?.assumingMemoryBound(to: Float.self) else { continue }
-                    let volumeData = NSData(bytesNoCopy: volume, length: Int(block) * MemoryLayout<Float>.size, freeWhenDone: true)
-                    multiFrame = self.load(loadList, into: volume, volumeData: volumeData, multiFrame: multiFrame, movie: movieViewer,
+                    // The sizes each image is told, read once: the volume holds
+                    // at least what they take, whatever the plan counted before
+                    // a size was corrected in the database.
+                    let sizes = loadList.map { memoryImage($0) }
+                    guard let lent = ViewerMemory.lentPixels(of: sizes) else { continue }
+                    let block = max(x < blocks.count ? Int(blocks[x]) : 0, lent)
+                    guard let volume = malloc(block * MemoryLayout<Float>.size)?.assumingMemoryBound(to: Float.self) else { continue }
+                    let volumeData = NSData(bytesNoCopy: volume, length: block * MemoryLayout<Float>.size, freeWhenDone: true)
+                    multiFrame = self.load(loadList, sizes: sizes, into: volume, volumeData: volumeData, multiFrame: multiFrame, movie: movieViewer,
                                            viewer: viewer, flipped: isFlippedData[x], created: &createdViewer, movieController: &movieController)
                 }
             }
@@ -386,10 +391,19 @@ final class ViewerSeriesLoader {
         }
     }
 
+    /// Tells `pix` the size its place in the volume was reserved with, which
+    /// is the most it reads into it, and answers the pixels of that place.
+    private static func lend(_ size: MemoryImage, to pix: DCMPix) -> Int {
+        let width = max(size.width, 0), height = max(size.height, 0)
+        pix.horos_savedWidthInDB = Int32(clamping: width)
+        pix.horos_savedHeightInDB = Int32(clamping: height)
+        return Int(width * height)
+    }
+
     /// Reads the images of one list into `volume` and shows them: in the
     /// viewer given or a new 2D viewer, or as a time of the 4D viewer.
     /// Returns whether the list was one multi-frame file (or an earlier was).
-    private func load(_ loadList: [Any], into volume: UnsafeMutablePointer<Float>, volumeData: NSData, multiFrame: Bool, movie movieViewer: Bool,
+    private func load(_ loadList: [Any], sizes: [MemoryImage], into volume: UnsafeMutablePointer<Float>, volumeData: NSData, multiFrame: Bool, movie movieViewer: Bool,
                       viewer: ViewerController?, flipped: Bool, created createdViewer: inout ViewerController?,
                       movieController: inout ViewerController?) -> Bool {
         var multiFrame = multiFrame
@@ -418,7 +432,7 @@ final class ViewerSeriesLoader {
                 if let dcmPix = DCMPix(path: curFile.value(forKey: "completePath") as? String, i, frames, volume + mem, i,
                                        Int(BrowserObjC.intValue(curFile.value(forKeyPath: "series.id"))), isBonjour: isBonjour,
                                        imageObj: curFile as? NSManagedObject) {
-                    mem += Int(BrowserObjC.intValue(curFile.value(forKey: "width"))) * Int(BrowserObjC.intValue(curFile.value(forKey: "height")))
+                    mem += Self.lend(sizes[0], to: dcmPix)
                     viewerPix.add(dcmPix)
                     correspondingObjects.add(curFile)
                 }
@@ -430,7 +444,7 @@ final class ViewerSeriesLoader {
                                        Int(BrowserObjC.intValue(curFile.value(forKey: "frameID"))),
                                        Int(BrowserObjC.intValue(curFile.value(forKeyPath: "series.id"))), isBonjour: isShared(curFile),
                                        imageObj: curFile as? NSManagedObject) {
-                    mem += Int(BrowserObjC.intValue(curFile.value(forKey: "width"))) * Int(BrowserObjC.intValue(curFile.value(forKey: "height")))
+                    mem += Self.lend(sizes[i], to: dcmPix)
                     viewerPix.add(dcmPix)
                     correspondingObjects.add(curFile)
                 } else {

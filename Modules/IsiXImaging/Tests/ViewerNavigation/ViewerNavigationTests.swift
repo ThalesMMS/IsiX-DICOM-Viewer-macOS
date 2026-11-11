@@ -48,6 +48,14 @@ import Testing
         #expect(!ViewerSynchronization.syncsBetweenStudies(study: "1.2", otherStudies: ["1.2", "1.2"]))
         #expect(ViewerSynchronization.syncsBetweenStudies(study: "1.2", otherStudies: ["1.2", "1.3"]))
         #expect(ViewerSynchronization.syncsBetweenStudies(study: nil, otherStudies: [nil]))
+        // One study in two frames of reference is two worlds, where the frame counts and both are known.
+        typealias World = ViewerSynchronization.World
+        let supine = World(study: "1.2", frameOfReference: "9.1"), prone = World(study: "1.2", frameOfReference: " 9.2 ")
+        #expect(ViewerSynchronization.syncsBetweenWorlds(supine, others: [supine, prone], usesFrameOfReference: true))
+        #expect(!ViewerSynchronization.syncsBetweenWorlds(supine, others: [supine, prone], usesFrameOfReference: false))
+        #expect(!ViewerSynchronization.syncsBetweenWorlds(supine, others: [World(study: "1.2", frameOfReference: nil)], usesFrameOfReference: true))
+        #expect(!ViewerSynchronization.syncsBetweenWorlds(supine, others: [], usesFrameOfReference: true))
+        #expect(ViewerSynchronization.syncsBetweenWorlds(supine, others: [World(study: "1.3", frameOfReference: "9.1")], usesFrameOfReference: false))
         #expect(ViewerSynchronization.resetsSeriesLock(betweenStudies: false, wasBetweenStudies: true))
         #expect(ViewerSynchronization.resetsSeriesLock(betweenStudies: true, wasBetweenStudies: false))
         #expect(!ViewerSynchronization.resetsSeriesLock(betweenStudies: true, wasBetweenStudies: true))

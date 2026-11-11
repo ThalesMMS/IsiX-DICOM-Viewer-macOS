@@ -1990,7 +1990,7 @@ extension WebPortalConnection {
                 // (NSString*)study.stateText: a number, replaced by its label when not zero
                 var stateText: AnyObject? = study.stateText
                 if objcIntValue(stateText) != 0 {
-                    stateText = (BrowserController.statesArray() as NSArray?)?.object(at: Int(objcIntValue(stateText))) as AnyObject?
+                    stateText = StudyStates.name(ofStored: Int(objcIntValue(stateText))) as NSString?
                 }
                 s.setObject(stateText ?? ("" as NSString), forKey: "stateText" as NSString)
 

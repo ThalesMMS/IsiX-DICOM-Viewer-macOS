@@ -82,6 +82,19 @@ else:
     if 'Get Failed' not in get:
         failures.append('an incomplete retrieval is not reported to the user at all')
 
+# --- the attempt another level follows fails without a notice -----------------
+# A peer that refuses a retrieve by image is asked again by series or study. The
+# refusal used to be told as a failure over a retrieve that then arrived.
+image_level = node[node.find('IMAGE level retrieve'):node.find('IMAGE Level retrieve failed')]
+if len(re.findall(r'setupNetwork\(service: \.(?:get|move)StudyRoot,[^\n]*quietly: true\)', image_level)) != 2:
+    failures.append('the retrieve by image, which the retrieve by series or study follows, tells '
+                    'its own failure: a refused image level shows a failure although the series arrives')
+for signature, what in (('private func getSCU(', 'C-GET'), ('private func moveSCU(', 'C-MOVE')):
+    if 'showErrorMessageValue && !quietly' not in body(signature, node):
+        failures.append('a quiet %s still posts its failure notice' % what)
+if 'if quietly {' not in body('private func associate(', node):
+    failures.append('a quiet attempt still posts the notice of the association that failed')
+
 for failure in failures:
     print('FAIL: %s' % failure)
 if failures:

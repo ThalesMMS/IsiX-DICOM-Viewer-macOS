@@ -155,7 +155,7 @@ import IsiXStorage
 
         // Before the main menu's nib binds the Web Portal's accounts, which
         // opens them: an import from the earlier versions' folder must come first.
-        LegacySupportImportPrompt.offerIfNeeded()
+        LegacySupportImportPrompt.importIfNeeded()
 
         // A temporary file during the start. Before the plugins: Protected
         // Mode chosen here must keep them out, and a plugin marker left by the
@@ -453,10 +453,6 @@ import IsiXStorage
         if ProtectedMode.isActive {
             ProtectedMode.skip("automatic update checks for the application and its plugins")
         } else {
-            if preferences[ApplicationPreferences.checkForUpdatesPlugins] {
-                Once.pluginManager?.checkForUpdates(nil)
-            }
-
             // If Horos crashed before, the check looks for the release that may fix it.
             let horosCrashed = (FileManager.default.tmpDirPath() as NSString).appendingPathComponent("HorosCrashed")
             let crashed = FileManager.default.fileExists(atPath: horosCrashed)
@@ -485,6 +481,7 @@ import IsiXStorage
         }
 
         if preferences[ApplicationPreferences.syncsPreferencesFromURL] {
+            // A plain http: address is refused where the list is read, and said so.
             let url = preferences[ApplicationPreferences.preferencesSyncURL].flatMap { URL(string: $0) }
             Task { await ActivityThread.runUnlisted(name: "Preferences from URL") { OSIGeneralPreferencePanePref.addPreferences(from: url) } }
         }
@@ -607,7 +604,6 @@ import IsiXStorage
 
         processGraph.preferences.synchronize()
 
-        OSIGeneralPreferencePanePref.applyLanguagesIfNeeded()
 
         NSApp.terminate(sender)
     }

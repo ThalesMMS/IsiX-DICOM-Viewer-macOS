@@ -144,17 +144,18 @@ public final class EnhancedImportTriage: NSObject {
     /// inflates it to Explicit VR Little Endian and puts it back in INCOMING.
     @objc(isDeflatedDICOMAtPath:)
     public static func isDeflatedDICOM(atPath path: String) -> Bool {
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe) else { return false }
-        return DICOMTriageMetadata.transferSyntax(data) == DICOMTriageMetadata.deflatedTransferSyntax
+        DICOMTriageFile(path: path).isDeflated
     }
 
     @objc(assessPath:)
     public static func assessPath(_ path: String) -> EnhancedImportAssessment {
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe),
-              hasDICOMPreamble(data),
-              let parsed = DICOMTriageMetadata.parse(data) else {
-            let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe)
-            if let data, DICOMTriageMetadata.transferSyntax(data) == DICOMTriageMetadata.deflatedTransferSyntax {
+        assess(DICOMTriageFile(path: path))
+    }
+
+    /// The assessment of a file another triage may also be reading.
+    static func assess(_ file: DICOMTriageFile) -> EnhancedImportAssessment {
+        guard let data = file.data, hasDICOMPreamble(data), let parsed = file.parsed else {
+            if file.isDeflated {
                 // DICOM, but not readable here until it is inflated.
                 let text = "is deflated, and is indexed once the decompression helper has inflated it"
                 return EnhancedImportAssessment(

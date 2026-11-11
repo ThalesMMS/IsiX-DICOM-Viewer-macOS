@@ -23,7 +23,7 @@ NS_ASSUME_NONNULL_BEGIN
 ///
 /// Text keeps the Specific Character Set it declares when every value can be
 /// written in it; otherwise, or when it declares several, the object is written
-/// in UTF-8 as ISO_IR 192: the rule is in IsiXDICOMCharacterSet's terms, which no
+/// in UTF-8 as ISO_IR 192: the rule is in DCMCharacterSet's terms, which no
 /// internal module can see. `quality` is a DCM_CompressionQuality (0 lossless).
 /// A DCMTK condition or a C++ exception is logged and answers NO or nil.
 @interface IsiXDCMTKObjectWriter : NSObject

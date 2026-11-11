@@ -52,11 +52,11 @@
 #pragma clang diagnostic ignored "-Wobjc-property-implementation"
 @implementation O2DicomPredicateEditorView (AttributeTagAsTag)
 
-- (void)setTag:(IsiXDICOMAttributeTag *)tag {
+- (void)setTag:(DCMAttributeTag *)tag {
     self.attributeTag = tag;
 }
 
-- (IsiXDICOMAttributeTag *)tag {
+- (DCMAttributeTag *)tag {
     return self.attributeTag;
 }
 

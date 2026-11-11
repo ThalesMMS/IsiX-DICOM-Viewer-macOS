@@ -124,7 +124,7 @@ public final class DICOMwebSources: NSObject {
         inventoryEndpoint(forServer: server, in: .standard)
     }
 
-    /// Where the Send sheet says the files go: {address}/studies.
+    /// Where the Send sheet says the files go: the node's store URL.
     public static func storeURL(forServer server: [AnyHashable: Any]?, in defaults: UserDefaults) -> String {
         guard let node = node(forServer: server, in: defaults), !node.stowEndpoint.isEmpty else { return address(forServer: server) }
         return node.stowEndpoint + "/studies"

@@ -127,7 +127,9 @@ let count = 5
     check(cellAt(m, count) == nil, "\(step): no cell past the end of the list")
     let clip = m.enclosingScrollView!.contentView
     scrollTo(m, count - 1)
-    check(NSContainsRect(clip.documentVisibleRect.insetBy(dx: -1, dy: -1), m.cellFrame(atRow: row ? 0 : count - 1, column: row ? count - 1 : 0)),
+    // Along the list only: a legacy scroller across the strip takes height from the clip view.
+    let visible = clip.documentVisibleRect, last = m.cellFrame(atRow: row ? 0 : count - 1, column: row ? count - 1 : 0)
+    check(row ? (last.minX >= visible.minX - 1 && last.maxX <= visible.maxX + 1) : (last.minY >= visible.minY - 1 && last.maxY <= visible.maxY + 1),
           "\(step): the list scrolls to the current series")
     scrollTo(m, 0)
 }

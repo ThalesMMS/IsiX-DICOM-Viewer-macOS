@@ -42,9 +42,9 @@
 // A value as the element's VR writes it.
 static NSString *HorosValueText(id value, DcmEVR vr)
 {
-    if ([value isKindOfClass: [IsiXDICOMCalendarDate class]])
+    if ([value isKindOfClass: [DCMCalendarDate class]])
     {
-        IsiXDICOMCalendarDate *date = value;
+        DCMCalendarDate *date = value;
         switch (vr)
         {
             case EVR_DA: return [date dateString];
@@ -79,7 +79,7 @@ static BOOL HorosIsCharacterSetText(NSString *vr)
 
 static DCMAttribute *HorosAttribute(DCMObject *object, int group, int element)
 {
-    return [object attributeForTag: [IsiXDICOMAttributeTag tagWithGroup: group element: element]];
+    return [object attributeForTag: [DCMAttributeTag tagWithGroup: group element: element]];
 }
 
 // Every text value the character set applies to, in the object and its items.
@@ -122,7 +122,7 @@ static NSStringEncoding HorosTextEncoding(DCMObject *object, NSString **declared
     }
     if (term.length && [term isEqualToString: @"ISO_IR 192"] == NO)
     {
-        NSStringEncoding encoding = [IsiXDICOMCharacterSet encodingForDICOMCharacterSet: term];
+        NSStringEncoding encoding = [DCMCharacterSet encodingForDICOMCharacterSet: term];
         BOOL fits = YES;
         for (NSString *text in texts)
             if ([text canBeConvertedToEncoding: encoding] == NO) { fits = NO; break; }
@@ -138,8 +138,8 @@ static NSStringEncoding HorosTextEncoding(DCMObject *object, NSString **declared
 
 static NSString *HorosObjectValueText(id value, DcmEVR vr)
 {
-    if ([value isKindOfClass: [IsiXDICOMCalendarDate class]] && [(IsiXDICOMCalendarDate *) value isQuery])
-        return [(IsiXDICOMCalendarDate *) value queryString];
+    if ([value isKindOfClass: [DCMCalendarDate class]] && [(DCMCalendarDate *) value isQuery])
+        return [(DCMCalendarDate *) value queryString];
     return HorosValueText(value, vr);
 }
 
@@ -277,9 +277,9 @@ static OFCondition HorosInsertAttribute(DcmItem *item, DCMAttribute *attribute, 
             {
                 id value = values[i];
                 // The DCM Framework held an AT as one 32-bit word: element high, group low.
-                const BOOL isTag = [value isKindOfClass: [IsiXDICOMAttributeTag class]];
+                const BOOL isTag = [value isKindOfClass: [DCMAttributeTag class]];
                 const unsigned long word = isTag ?
-                    ((unsigned long) [(IsiXDICOMAttributeTag *) value element] << 16 | (unsigned long) [(IsiXDICOMAttributeTag *) value group]) :
+                    ((unsigned long) [(DCMAttributeTag *) value element] << 16 | (unsigned long) [(DCMAttributeTag *) value group]) :
                     (unsigned long) [value unsignedLongLongValue];
                 result = element->putTagVal(DcmTagKey((Uint16) (word & 0xFFFF), (Uint16) (word >> 16)), i);
             }

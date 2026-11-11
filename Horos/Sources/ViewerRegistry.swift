@@ -160,10 +160,10 @@ nonisolated final class ViewerRegistry: Sendable {
     }
 
     /// Each series of the displayed viewers once, with the first of its
-    /// viewers in the order the window colours are given out.
-    @MainActor func displayedSeriesInColourOrder() -> [(series: AnyObject, viewer: ViewerController)] {
+    /// viewers.
+    @MainActor func displayedSeries() -> [(series: AnyObject, viewer: ViewerController)] {
         var shown: [(series: AnyObject, viewer: ViewerController)] = []
-        for case let viewer as ViewerController in ViewerWindowColors.viewersInColorOrder(displayedViewers) {
+        for viewer in displayedViewers {
             guard let series = viewer.imageView()?.seriesObj() as AnyObject? else { continue }
             if !shown.contains(where: { $0.series === series }) {
                 shown.append((series, viewer))

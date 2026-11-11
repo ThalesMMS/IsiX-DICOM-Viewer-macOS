@@ -132,6 +132,8 @@ func dicomFileString(_ value: UnsafePointer<CChar>?, _ encoding: String.Encoding
 /// identifiers that group it into a series and a study. DCMTK reads the file
 /// through the adapter (Adapters/DCMTK/IsiXDCMTKFile); the rules are the
 /// IsiXDICOMFile module's (DICOMImportRules).
+private let structuredReportReading = NSLock()
+
 @objc(DICOMReading) @implementation extension DicomFile {
 
     @objc(getDicomFileDCMTK) func getDCMTK() -> Int16 {
@@ -139,10 +141,9 @@ func dicomFileString(_ value: UnsafePointer<CChar>?, _ encoding: String.Encoding
         // autoreleased: the dataset goes when this file has been read, not when
         // the import's pool drains after a batch.
         autoreleasepool {
-            PapyrusLock?.lock()
-            let file = try? IsiXDCMTKFile.file(atPath: horos_filePath)
-            PapyrusLock?.unlock()
-            guard let file else { return -1 }
+            // No lock: DCMTK is built with WITH_THREADS, each file has its own
+            // objects, and the data dictionary is behind DCMTK's own lock.
+            guard let file = try? IsiXDCMTKFile.file(atPath: horos_filePath) else { return -1 }
             return withExtendedLifetime(file) { read(file) ? 0 : -1 }
         }
     }
@@ -723,6 +724,10 @@ func dicomFileString(_ value: UnsafePointer<CChar>?, _ encoding: String.Encoding
     /// A structured report: rendered when the database shows it as a document,
     /// with the image it refers to and, for an ROI report, the ROIs it holds.
     private final func readStructuredReport(sopClassUID: String, path: String?) {
+        // Files are read side by side, and the rendering goes through a
+        // temporary file named after the file alone, which two folders can share.
+        structuredReportReading.lock()
+        defer { structuredReportReading.unlock() }
         let elements = horos_dicomElements
         if DicomStudy.displaySeries(withSOPClassUID: sopClassUID,
                                     andSeriesDescription: elements.object(forKey: "seriesDescription") as? String) {
@@ -802,5 +807,62 @@ func dicomFileString(_ value: UnsafePointer<CChar>?, _ encoding: String.Encoding
         let problem = "its document could not be rendered, so it is kept but cannot be displayed"
         elements.setObject(problem, forKey: "pixelDataProblem" as NSString)
         NSLog("---- %@: %@", ((horos_filePath ?? "") as NSString).lastPathComponent, problem)
+    }
+}
+
+/// The headers of the next files of a batch, read side by side: reading them
+/// touches neither the database nor another file's objects. What is not
+/// plainly a DICOM file, a plugin's format or anything the other readers
+/// recognise by its name, is left to the serial read, one file at a time.
+struct ParsedDICOMFiles {
+    private var first = 0, files: [DicomFile?] = []
+    private static let batch = 256
+    /// The names the readers of other formats never claim.
+    private static let dicomExtensions: Set<String> = ["", "dcm", "dicom", "ima"]
+
+    func holds(_ index: Int) -> Bool { index >= first && index < first + files.count }
+
+    mutating func take(_ index: Int) -> DicomFile? {
+        guard holds(index) else { return nil }
+        let file = files[index - first]
+        files[index - first] = nil
+        return file
+    }
+
+    private static func isPlainDICOM(_ path: String, pluginExtensions: Set<String>) -> Bool {
+        let fileExtension = (path as NSString).pathExtension.lowercased()
+        guard dicomExtensions.contains(fileExtension), !pluginExtensions.contains(fileExtension),
+              let handle = FileHandle(forReadingAtPath: path) else { return false }
+        defer { handle.closeFile() }
+        let head = handle.readData(ofLength: 132)
+        return head.count == 132 && head[128..<132].elementsEqual("DICM".utf8)
+    }
+
+    /// Reads the files from `start`, up to a batch of them, keeping their order.
+    mutating func parse(_ paths: NSArray?, from start: Int, to end: Int) {
+        first = start
+        let count = min(Self.batch, end - start)
+        guard count > 1, let paths else { files = []; return }
+        let names = (0..<count).map { paths.object(at: start + $0) as? String }
+        let pluginExtensions = Set((PluginManager.fileFormatPlugins()?.allKeys as? [String]) ?? [])
+        let results = Results(count: count)
+        DispatchQueue.concurrentPerform(iterations: count) { index in
+            autoreleasepool {
+                guard let path = names[index], Self.isPlainDICOM(path, pluginExtensions: pluginExtensions) else { return }
+                var file: DicomFile?
+                _ = HorosObjCException.caught { file = DicomFile(path, dicomOnly: true) }
+                results.store(file, at: index)
+            }
+        }
+        files = results.files
+    }
+
+    private final class Results: @unchecked Sendable {
+        private(set) var files: [DicomFile?]
+        init(count: Int) { files = Array(repeating: nil, count: count) }
+        /// Each index is written by one iteration alone.
+        func store(_ file: DicomFile?, at index: Int) {
+            files.withUnsafeMutableBufferPointer { $0[index] = file }
+        }
     }
 }

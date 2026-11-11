@@ -40,9 +40,10 @@ assert registered in ('0', '1'), 'plugin update default registration missing'
 action = block(manager, '@IBAction @objc(checkForUpdates:)')
 worker_marker = '@objc(checkForUpdatesInBackground:)'
 worker = block(manager, worker_marker) if worker_marker in manager else ''
-startup = block(app, 'if preferences[ApplicationPreferences.checkForUpdatesPlugins]').replace(
-    'preferences[ApplicationPreferences.checkForUpdatesPlugins]', 'settings.bool(forKey: "checkForUpdatesPlugins")').replace(
-    'Once.pluginManager', 'State.pluginManager')
+# There is no plugin list of the application's own yet, so no launch asks for one.
+assert 'checkForUpdates(nil)' not in app and 'preferences[ApplicationPreferences.checkForUpdatesPlugins] {' not in app, \
+    'the launch must not check for plugin updates'
+startup = ''
 header = (root / 'Horos/Sources/MainActorCallbacks.swift').read_text().split('import Foundation')[0]
 
 program = r'''
@@ -110,19 +111,13 @@ settings.set(false, forKey: "checkForUpdatesPlugins")
 startup(settings)
 RunLoop.current.run(until: Date().addingTimeInterval(0.1))
 precondition(probe.counts.0 == 0, "disabled startup must not load catalogs")
-settings.set(true, forKey: "checkForUpdatesPlugins")
-startup(settings)
-waitForMessages(1)
 let before = Date()
 State.pluginManager!.checkForUpdates(nil)
 precondition(Date().timeIntervalSince(before) < 1, "manual action must not block main")
-waitForMessages(2)
+waitForMessages(1)
 settings.removeObject(forKey: "checkForUpdatesPlugins")
 precondition(!settings.bool(forKey: "checkForUpdatesPlugins"), "new installations default off")
-settings.set(true, forKey: "checkForUpdatesPlugins")
-precondition(UserDefaults(suiteName: suite)!.bool(forKey: "checkForUpdatesPlugins"),
-             "an explicit opt-in remains enabled")
-print("PASS: disabled default, persisted opt-in, enabled startup worker, responsive manual action and main-thread results")
+print("PASS: no check at launch, a responsive manual action and main-thread results")
 '''.replace('ACTION', action).replace('WORKER', worker).replace(
     'STARTUP', startup.replace('UserDefaults.standard', 'settings')).replace('DEFAULT', registered)
 

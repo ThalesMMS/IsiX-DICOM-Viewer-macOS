@@ -36,7 +36,7 @@ public protocol DICOMDateParsing: NSObjectProtocol {
 ///
 /// Archived, it keeps the name the app's earlier versions archived it under,
 /// `DCMCalendarDate`, and reads those archives (`registerArchiveName()`).
-@objc(IsiXDICOMCalendarDate)
+@objc(DCMCalendarDate)
 public final class DICOMCalendarDate: NSDate, @unchecked Sendable {
     private var referenceInterval: TimeInterval = 0
     private var dicomTimeZone = TimeZone.current as NSTimeZone

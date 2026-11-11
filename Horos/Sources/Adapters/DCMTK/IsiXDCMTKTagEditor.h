@@ -22,7 +22,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)init NS_UNAVAILABLE;
 
 /// Applies `tagAndValues` to each file. An entry is an array whose first
-/// element is an IsiXDICOMAttributeTag, or a path answering -steps, -group and
+/// element is an DCMAttributeTag, or a path answering -steps, -group and
 /// -element; an entry of one element removes that tag, of two replaces it
 /// with the second (a string; an empty one is a value, NSNull a removal).
 /// Accepted edits are published per file atomically; NO may mean partial

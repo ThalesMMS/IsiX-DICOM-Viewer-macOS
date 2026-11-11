@@ -201,6 +201,33 @@ public enum ArchivePasswordRule {
     }
 }
 
+/// Why a ZIP archive was not expanded, read from `unzip`'s termination
+/// status, for the alert that refuses it: "could not be prepared" alone left
+/// the user, and whoever they wrote to, nothing to go by.
+public enum ArchiveExpansionFailure: Equatable, Sendable {
+    /// The archive is damaged or cut short (2, 3, 9, 51).
+    case damaged
+    /// The disk filled up (50).
+    case diskFull
+    /// A compression or encryption method `unzip` does not have (81).
+    case unsupportedMethod
+    /// `unzip` ended well or with warnings, and files are missing or empty
+    /// (0, 1, 11).
+    case incomplete
+    /// Anything else, and `unzip` that did not run (-1).
+    case other
+
+    public init(unzipStatus status: Int32) {
+        switch status {
+        case 2, 3, 9, 51: self = .damaged
+        case 50: self = .diskFull
+        case 81: self = .unsupportedMethod
+        case 0, 1, 11: self = .incomplete
+        default: self = .other
+        }
+    }
+}
+
 /// Whether files imported from outside the database are copied into it or
 /// only linked, under the "Copy files" preference (`COPYDATABASE`) and its
 /// mode (`COPYDATABASEMODE`).

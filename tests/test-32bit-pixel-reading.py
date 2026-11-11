@@ -63,7 +63,11 @@ else:
                         'to be present, so its values arrive as denormals')
     elif 'layout.slope != 1' not in condition or 'layout.offset != 0' not in condition:
         failures.append('the conversion no longer covers the cases it used to: %r' % condition)
-    if '32bitDICOMAreAlwaysIntegers' not in pix or 'thirtyTwoBitPixelsAreIntegers' not in asked:
+    # The preference has a typed key, declared in the IsiXPreferences module.
+    keys = (root / 'Modules/IsiXPreferences/Sources/ViewerPreferences.swift').read_text()
+    if 'thirtyTwoBitImagesAreIntegers = PreferenceKey<Bool>("32bitDICOMAreAlwaysIntegers"' not in keys \
+            or 'load.thirtyTwoBitPixelsAreIntegers = preferences[ViewerPreferences.thirtyTwoBitImagesAreIntegers]' not in pix \
+            or 'thirtyTwoBitPixelsAreIntegers' not in asked:
         failures.append('the preference that 32-bit pixels are always integers is no longer read')
 
 # --- and a picture in another attribute is named, not denied -------------------

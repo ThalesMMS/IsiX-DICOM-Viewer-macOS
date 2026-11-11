@@ -56,9 +56,6 @@ extension ViewerSessionGraph {
     func windowDidLoad() {
         guard let viewer else { return }
 
-        // Reserve the series' identity as the window opens.
-        _ = ViewerWindowColors.color(for: viewer)
-
         // Keep independently tiled viewers in the database full-screen Space, and out
         // of one of their own: this window's full screen is fullScreenMenu:.
         FullScreenWindowSupport.declineNativeFullScreen(viewer.window)
@@ -145,14 +142,14 @@ extension ViewerSessionGraph {
         viewer.refreshToolbar()
         viewer.updateNavigator()
         viewer.horos_imageView?.needsDisplay = true
+        SeriesListIdentification.activeWindowChanged(among: registry.displayedViewers)
     }
 
     // MARK: - Title
 
     /// The title: patient (when the annotations show it), birth date and age,
     /// series and its number, the generated series' name, "SUV Converted" and
-    /// the loading percentage (updated until loaded); the window number when
-    /// the series list shows numbers.
+    /// the loading percentage (updated until loaded).
     func updateWindowTitle() {
         guard let viewer, !viewer.horos_windowWillClose else { return }
         let window = viewer.window
@@ -221,10 +218,6 @@ extension ViewerSessionGraph {
             window?.title = "Viewer"
         }
 
-        if SeriesListIdentification.showsNumbers(in: processGraph.preferences) {
-            window?.title = "\(SeriesListIdentification.windowLabel(number: ViewerWindowColors.number(for: viewer))) — \(window?.title ?? "")"
-        }
-
         viewer.horos_imageView?.checkCursor() // <- To avoid a stupid bug between setTitle and NSTrackingArea.....
     }
 
@@ -239,7 +232,6 @@ extension ViewerSessionGraph {
     func closeWindow() {
         guard let viewer else { return }
         viewer.cancelOpeningScaleToFit()
-        ViewerWindowColors.release(viewer)
         ViewerController.clearFrontMost2DViewerCache()
 
         OSIEnvironment.shared()?.removeViewerController(viewer)

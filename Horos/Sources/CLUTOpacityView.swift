@@ -1893,9 +1893,9 @@ public final class CLUTOpacityView: NSView {
     @objc(delete:)
     @IBAction public func delete(_ sender: Any?) {
         let curveIndex = selectedCurveIndex()
-
         if curveIndex >= 0 && Int(curveIndex) < curves.count {
             deleteCurveAtIndex(curveIndex)
+            if curves.count > 0 { selectCurve(at: min(curveIndex, Int32(curves.count - 1))) } // Delete again removes the next.
             vrViewLowResolution = false
             updateView()
         } else {

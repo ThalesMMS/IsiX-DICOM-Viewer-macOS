@@ -11,6 +11,10 @@
             <connections>
                 <outlet property="_window" destination="12" id="26"/>
                 <outlet property="mainWindow" destination="12" id="467"/>
+                <outlet property="roiWindow" destination="roi-pane-window" id="roiWindow-outlet"/>
+                <outlet property="mouseWindow" destination="mouse-pane-window" id="mouseWindow-outlet"/>
+                <outlet property="screensWindow" destination="screens-pane-window" id="screensWindow-outlet"/>
+                <outlet property="exportWindow" destination="export-pane-window" id="exportWindow-outlet"/>
                 <outlet property="captureSeriesNameField" destination="capture-series-field" id="capture-series-outlet"/>
             </connections>
         </customObject>
@@ -18,10 +22,376 @@
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <window title="&lt;&lt; do not localize &gt;&gt;" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" deferred="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="12" userLabel="PrefPane">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES"/>
-            <rect key="contentRect" x="0.0" y="0" width="788" height="1075"/>
+            <rect key="contentRect" x="0.0" y="0" width="788" height="554"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
             <view key="contentView" horizontalCompressionResistancePriority="1000" misplaced="YES" id="6">
-                <rect key="frame" x="0.0" y="0" width="788" height="1075"/>
+                <rect key="frame" x="0.0" y="0.0" width="788" height="554"/>
+                <autoresizingMask key="autoresizingMask"/>
+                <subviews>
+                    <box horizontalCompressionResistancePriority="1000" title="माउस और इंटरैक्शन" id="viewer-mouse-box">
+                        <rect key="frame" x="8" y="376" width="770" height="154"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <view key="contentView" id="viewer-mouse-box-content">
+                            <rect key="frame" x="2" y="2" width="766" height="134"/>
+                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                            <subviews>
+                                <button horizontalCompressionResistancePriority="1000" id="first-click-control">
+                                    <rect key="frame" x="10" y="110" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="निष्क्रिय व्यूअर पर पहला क्लिक उसे केवल सक्रिय करता है" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="first-click-control-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.FirstClickOnlyActivatesViewer" id="first-click-control-binding"/>
+                                    </connections>
+                                </button>
+                                <button horizontalCompressionResistancePriority="1000" id="two-click-length-control">
+                                    <rect key="frame" x="10" y="90" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="दो क्लिक से लंबाई मापें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="two-click-length-control-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.TwoClickLengthMeasurement" id="two-click-length-control-binding"/>
+                                    </connections>
+                                </button>
+                                <button horizontalCompressionResistancePriority="1000" id="precise-mouse-control">
+                                    <rect key="frame" x="10" y="70" width="400" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="माप और ज़ूम के लिए सटीक माउस" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="precise-mouse-control-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.PreciseMouseForMeasuringAndZoom" id="precise-mouse-control-binding"/>
+                                    </connections>
+                                </button>
+                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="precise-mouse-factor-label">
+                                    <rect key="frame" x="416" y="71" width="250" height="16"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="माउस की गति:" id="precise-mouse-factor-label-cell">
+                                        <font key="font" metaFont="system"/>
+                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                </textField>
+                                <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="precise-mouse-factor-popup">
+                                    <rect key="frame" x="670" y="67" width="86" height="22"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <popUpButtonCell key="cell" type="push" title="50%" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" selectedItem="precise-mouse-factor-popup-item-50" id="precise-mouse-factor-popup-cell">
+                                        <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
+                                        <font key="font" metaFont="smallSystem"/>
+                                        <menu key="menu" id="precise-mouse-factor-popup-menu">
+                                            <items>
+                                                <menuItem title="25%" tag="25" id="precise-mouse-factor-popup-item-25"/>
+                                                <menuItem title="50%" state="on" tag="50" id="precise-mouse-factor-popup-item-50"/>
+                                                <menuItem title="75%" tag="75" id="precise-mouse-factor-popup-item-75"/>
+                                            </items>
+                                        </menu>
+                                    </popUpButtonCell>
+                                    <connections>
+                                        <binding destination="-2" name="selectedTag" keyPath="preciseMouseFactorTag" id="precise-mouse-factor-popup-selectedTag-binding"/>
+                                        <binding destination="308" name="enabled" keyPath="values.PreciseMouseForMeasuringAndZoom" id="precise-mouse-factor-popup-enabled-binding"/>
+                                    </connections>
+                                </popUpButton>
+                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="tool-style-label">
+                                    <rect key="frame" x="10" y="51" width="186" height="16"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="चयनित माउस टूल:" id="tool-style-label-cell">
+                                        <font key="font" metaFont="system"/>
+                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                </textField>
+                                <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="tool-style-popup">
+                                    <rect key="frame" x="200" y="47" width="160" height="22"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <popUpButtonCell key="cell" type="push" title="फ़्रेमयुक्त वर्ग" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" selectedItem="tool-style-framed" id="tool-style-popup-cell">
+                                        <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
+                                        <font key="font" metaFont="smallSystem"/>
+                                        <menu key="menu" id="tool-style-menu">
+                                            <items>
+                                                <menuItem title="फ़्रेमयुक्त वर्ग" state="on" id="tool-style-framed"/>
+                                                <menuItem title="नीला घेरा" tag="1" id="tool-style-circle"/>
+                                            </items>
+                                        </menu>
+                                    </popUpButtonCell>
+                                    <connections>
+                                        <binding destination="308" name="selectedTag" keyPath="values.ToolPaletteSelectionStyle" id="tool-style-binding"/>
+                                    </connections>
+                                </popUpButton>
+                                <button horizontalCompressionResistancePriority="1000" id="104">
+                                    <rect key="frame" x="10" y="30" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="बायां बटन माउस टूल सहेजें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="342">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.RestoreLeftMouseTool" id="441"/>
+                                    </connections>
+                                </button>
+                                <button horizontalCompressionResistancePriority="1000" id="scroll-preview-control">
+                                    <rect key="frame" x="10" y="10" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="स्क्रॉल करते समय स्लाइस स्थिति पूर्वावलोकन दिखाएँ" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="scroll-preview-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.ShowScrollPositionPreview" id="scroll-preview-binding"/>
+                                    </connections>
+                                </button>
+                            </subviews>
+                        </view>
+                        <font key="titleFont" metaFont="system"/>
+                    </box>
+                    <box horizontalCompressionResistancePriority="1000" title="श्रृंखलाएँ और विंडो" id="viewer-series-box">
+                        <rect key="frame" x="8" y="216" width="770" height="154"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <view key="contentView" id="viewer-series-box-content">
+                            <rect key="frame" x="2" y="2" width="766" height="134"/>
+                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                            <subviews>
+                                <button horizontalCompressionResistancePriority="1000" id="323">
+                                    <rect key="frame" x="10" y="110" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="सभी खोले गए दर्शकों के लिए अगली/पिछली श्रृंखला बटन लागू करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="350">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.nextSeriesToAllViewers" id="324"/>
+                                    </connections>
+                                </button>
+                                <button horizontalCompressionResistancePriority="1000" id="555">
+                                    <rect key="frame" x="10" y="90" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="यदि पहले से ही प्रदर्शित है तो श्रृंखला न बदलें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="556">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.showWindowInsteadOfSwitching" id="558"/>
+                                    </connections>
+                                </button>
+                                <button horizontalCompressionResistancePriority="1000" id="437">
+                                    <rect key="frame" x="10" y="70" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="केवल उसी रोगी की छवियाँ प्रदर्शित करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="438">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.onlyDisplayImagesOfSamePatient" id="439"/>
+                                    </connections>
+                                </button>
+                                <button horizontalCompressionResistancePriority="1000" id="previous-exam-control">
+                                    <rect key="frame" x="10" y="50" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="पुराने अध्ययनों पर «पिछला» दिखाएँ" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="previous-exam-control-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.ShowPreviousExamLabel" id="previous-exam-control-binding"/>
+                                    </connections>
+                                </button>
+                                <button horizontalCompressionResistancePriority="1000" id="480">
+                                    <rect key="frame" x="10" y="30" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="फुलस्क्रीन मोड में 1x1 टाइलिंग पर स्विच करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="481">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.NoImageTilingInFullscreen" id="484"/>
+                                    </connections>
+                                </button>
+                                <button horizontalCompressionResistancePriority="1000" id="412">
+                                    <rect key="frame" x="10" y="10" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="पूर्वावलोकन एप्लिकेशन के साथ PDF खोलें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="413">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.openPDFwithPreview" id="440"/>
+                                    </connections>
+                                </button>
+                            </subviews>
+                        </view>
+                        <font key="titleFont" metaFont="system"/>
+                    </box>
+                    <box horizontalCompressionResistancePriority="1000" title="छवि प्रदर्शन" id="viewer-display-box">
+                        <rect key="frame" x="8" y="96" width="770" height="114"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <view key="contentView" id="viewer-display-box-content">
+                            <rect key="frame" x="2" y="2" width="766" height="94"/>
+                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                            <subviews>
+                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="interpolation-label">
+                                    <rect key="frame" x="10" y="71" width="186" height="16"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <textFieldCell key="cell" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="इंटरपोलेशन:" id="interpolation-label-cell">
+                                        <font key="font" metaFont="system"/>
+                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                </textField>
+                                <popUpButton verticalHuggingPriority="750" id="interpolation-popup">
+                                    <rect key="frame" x="200" y="67" width="200" height="22"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <popUpButtonCell key="cell" type="push" title="डिफ़ॉल्ट" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="interpolation-item-default" id="interpolation-popup-cell">
+                                        <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
+                                        <font key="font" metaFont="smallSystem"/>
+                                        <menu key="menu" title="अन्य दृश्य" id="interpolation-menu">
+                                            <items>
+                                                <menuItem title="कोई नहीं" id="interpolation-item-none"/>
+                                                <menuItem title="डिफ़ॉल्ट" state="on" tag="1" id="interpolation-item-default"/>
+                                                <menuItem title="उच्च गुणवत्ता" tag="2" id="interpolation-item-high"/>
+                                            </items>
+                                        </menu>
+                                    </popUpButtonCell>
+                                    <connections>
+                                        <binding destination="-2" name="selectedTag" keyPath="interpolationMode" id="interpolation-binding"/>
+                                    </connections>
+                                </popUpButton>
+                                <button horizontalCompressionResistancePriority="1000" id="fit-open-control">
+                                    <rect key="frame" x="10" y="50" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="किसी शृंखला को खोलते समय सामग्री पर स्वतः ज़ूम करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="fit-open-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.ScaleToFitOnOpen" id="fit-open-binding"/>
+                                    </connections>
+                                </button>
+                                <button horizontalCompressionResistancePriority="1000" id="313">
+                                    <rect key="frame" x="10" y="30" width="286" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="इसके लिए कोई 'श्रृंखला में प्रचार सेटिंग्स' नहीं:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="349">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.IndependentCRWLWW" id="315"/>
+                                    </connections>
+                                </button>
+                                <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="1Xf-Mw-WhA">
+                                    <rect key="frame" x="300" y="26" width="112" height="26"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <popUpButtonCell key="cell" type="push" title="रूपात्मकता" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" pullsDown="YES" selectedItem="5Jf-1n-5Bm" id="fhV-XV-SCY">
+                                        <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
+                                        <font key="font" metaFont="menu"/>
+                                        <menu key="menu" title="अन्य दृश्य" id="jDc-fg-eC3">
+                                            <items>
+                                                <menuItem title="रूपात्मकता" hidden="YES" id="rUf-a6-mNm">
+                                                    <modifierMask key="keyEquivalentModifierMask"/>
+                                                </menuItem>
+                                                <menuItem title="CR" state="on" id="FOf-lv-Yw4">
+                                                    <connections>
+                                                        <binding destination="308" name="value" keyPath="values.noPropagateInSeriesForCR" id="F8f-OF-O5Z"/>
+                                                    </connections>
+                                                </menuItem>
+                                                <menuItem title="DX" id="jbC-CP-MNd">
+                                                    <connections>
+                                                        <binding destination="308" name="value" keyPath="values.noPropagateInSeriesForDX" id="SYc-fl-hLB"/>
+                                                    </connections>
+                                                </menuItem>
+                                                <menuItem title="डॉ" id="WGV-vh-73b">
+                                                    <connections>
+                                                        <binding destination="308" name="value" keyPath="values.noPropagateInSeriesForDR" id="p4b-ru-lzE"/>
+                                                    </connections>
+                                                </menuItem>
+                                                <menuItem title="RF" id="uMP-Y0-V9I">
+                                                    <connections>
+                                                        <binding destination="308" name="value" keyPath="values.noPropagateInSeriesForRF" id="1Hb-Hi-T3N"/>
+                                                    </connections>
+                                                </menuItem>
+                                                <menuItem title="XA" id="bs8-nn-AfS">
+                                                    <connections>
+                                                        <binding destination="308" name="value" keyPath="values.noPropagateInSeriesForXA" id="2ry-T6-XZ2"/>
+                                                    </connections>
+                                                </menuItem>
+                                                <menuItem title="MG" id="6kW-Wr-Cu0">
+                                                    <connections>
+                                                        <binding destination="308" name="value" keyPath="values.noPropagateInSeriesForMG" id="CeE-wL-CzV"/>
+                                                    </connections>
+                                                </menuItem>
+                                                <menuItem title="US" id="5Jf-1n-5Bm">
+                                                    <connections>
+                                                        <binding destination="308" name="value" keyPath="values.noPropagateInSeriesForUS" id="zYM-1T-AAJ"/>
+                                                    </connections>
+                                                </menuItem>
+                                            </items>
+                                        </menu>
+                                    </popUpButtonCell>
+                                    <connections>
+                                        <binding destination="308" name="enabled" keyPath="values.IndependentCRWLWW" id="l3E-9x-q7V"/>
+                                    </connections>
+                                </popUpButton>
+                                <button horizontalCompressionResistancePriority="1000" id="overflow-lines-control">
+                                    <rect key="frame" x="10" y="10" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="जहाँ छवि विंडो से बाहर जाती है वहाँ बिंदीदार रेखाएँ दिखाएँ" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="overflow-lines-control-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.OVERFLOWLINES" id="overflow-lines-control-binding"/>
+                                    </connections>
+                                </button>
+                            </subviews>
+                        </view>
+                        <font key="titleFont" metaFont="system"/>
+                    </box>
+                    <box horizontalCompressionResistancePriority="1000" title="MPR और मोटा स्लैब" id="viewer-slab-box">
+                        <rect key="frame" x="8" y="16" width="770" height="74"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <view key="contentView" id="viewer-slab-box-content">
+                            <rect key="frame" x="2" y="2" width="766" height="54"/>
+                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                            <subviews>
+                                <button horizontalCompressionResistancePriority="1000" id="remember-mpr-angles-control">
+                                    <rect key="frame" x="10" y="30" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="MPR तल के कोण याद रखें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="remember-mpr-angles-control-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.RememberMPRPlaneAngles" id="remember-mpr-angles-control-binding"/>
+                                    </connections>
+                                </button>
+                                <button horizontalCompressionResistancePriority="1000" id="exponential-slab-control">
+                                    <rect key="frame" x="10" y="10" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="स्लैब की मोटाई का घातांकीय स्लाइडर" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="exponential-slab-control-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.LogarithmicThickSlabSlider" id="exponential-slab-control-binding"/>
+                                    </connections>
+                                </button>
+                            </subviews>
+                        </view>
+                        <font key="titleFont" metaFont="system"/>
+                    </box>
+                </subviews>
+            </view>
+            <point key="canvasLocation" x="139" y="176.5"/>
+        </window>
+        <window title="&lt;&lt; do not localize &gt;&gt;" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" deferred="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="roi-pane-window" userLabel="ROI Pane">
+            <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES"/>
+            <rect key="contentRect" x="0.0" y="0" width="788" height="340"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
+            <view key="contentView" horizontalCompressionResistancePriority="1000" id="roi-pane-window-v">
+                <rect key="frame" x="0.0" y="0.0" width="788" height="340"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <box horizontalCompressionResistancePriority="1000" title="ROI लेबल" id="roi-labels-box">
@@ -201,210 +571,15 @@
                         </view>
                         <font key="titleFont" metaFont="system"/>
                     </box>
-                    <box horizontalCompressionResistancePriority="1000" misplaced="YES" title="मिश्रित" id="100">
-                        <rect key="frame" x="8" y="146" width="770" height="402"/>
+                    <box horizontalCompressionResistancePriority="1000" titlePosition="noTitle" id="roi-tools-box">
+                        <rect key="frame" x="8" y="146" width="770" height="170"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <view key="contentView" id="ooz-Jl-NPP">
-                            <rect key="frame" x="2" y="2" width="766" height="382"/>
+                        <view key="contentView" id="roi-tools-box-c">
+                            <rect key="frame" x="2" y="2" width="766" height="166"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button horizontalCompressionResistancePriority="1000" id="magnifier-corner-control">
-                                    <rect key="frame" x="416" y="361" width="346" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="आवर्धक लेंस निचले दाएँ कोने में दिखाएँ" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="magnifier-corner-cell">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.magnifyingLensInCorner" id="magnifier-corner-binding"/>
-                                    </connections>
-                                </button>
-                                <button horizontalCompressionResistancePriority="1000" id="measurement-magnifier-control">
-                                    <rect key="frame" x="10" y="361" width="400" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="माप बिंदु रखते समय आवर्धन दिखाएँ" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="measurement-magnifier-cell">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.magnifyingLensWhileMeasuring" id="measurement-magnifier-binding"/>
-                                    </connections>
-                                </button>
-                                <button horizontalCompressionResistancePriority="1000" id="scroll-preview-control">
-                                    <rect key="frame" x="10" y="341" width="400" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="स्क्रॉल करते समय स्लाइस स्थिति पूर्वावलोकन दिखाएँ" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="scroll-preview-cell">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.ShowScrollPositionPreview" id="scroll-preview-binding"/>
-                                    </connections>
-                                </button>
-                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="tool-style-label">
-                                    <rect key="frame" x="416" y="342" width="186" height="16"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="चयनित माउस टूल:" id="tool-style-label-cell">
-                                        <font key="font" metaFont="system"/>
-                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    </textFieldCell>
-                                </textField>
-                                <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="tool-style-popup">
-                                    <rect key="frame" x="606" y="338" width="160" height="22"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="फ़्रेमयुक्त वर्ग" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" selectedItem="tool-style-framed" id="tool-style-popup-cell">
-                                        <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
-                                        <font key="font" metaFont="smallSystem"/>
-                                        <menu key="menu" id="tool-style-menu">
-                                            <items>
-                                                <menuItem title="फ़्रेमयुक्त वर्ग" state="on" id="tool-style-framed"/>
-                                                <menuItem title="नीला घेरा" tag="1" id="tool-style-circle"/>
-                                            </items>
-                                        </menu>
-                                    </popUpButtonCell>
-                                    <connections>
-                                        <binding destination="308" name="selectedTag" keyPath="values.ToolPaletteSelectionStyle" id="tool-style-binding"/>
-                                    </connections>
-                                </popUpButton>
-                                <button horizontalCompressionResistancePriority="1000" id="fit-open-control">
-                                    <rect key="frame" x="416" y="15" width="346" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="किसी शृंखला को खोलते समय सामग्री पर स्वतः ज़ूम करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="fit-open-cell">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.ScaleToFitOnOpen" id="fit-open-binding"/>
-                                    </connections>
-                                </button>
-                                <button horizontalCompressionResistancePriority="1000" id="104">
-                                    <rect key="frame" x="10" y="321" width="400" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="बायां बटन माउस टूल सहेजें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="342">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.RestoreLeftMouseTool" id="441"/>
-                                    </connections>
-                                </button>
-                                <button horizontalCompressionResistancePriority="1000" id="197">
-                                    <rect key="frame" x="10" y="301" width="400" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="स्क्रॉल व्हील की दिशा उलटें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="343">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.Scroll Wheel Reversed" id="537"/>
-                                    </connections>
-                                </button>
-                                <button horizontalCompressionResistancePriority="1000" id="229">
-                                    <rect key="frame" x="416" y="261" width="346" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="ज़ूम के लिए कोई प्रक्षेप नहीं" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="345">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.NOINTERPOLATION" id="329"/>
-                                    </connections>
-                                </button>
-                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" id="275">
-                                    <rect key="frame" x="111" y="13" width="272" height="22"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="left" drawsBackground="YES" id="346">
-                                        <font key="font" metaFont="system"/>
-                                        <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
-                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                    </textFieldCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.ALBUMNAME" id="535"/>
-                                    </connections>
-                                </textField>
-                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" id="276">
-                                    <rect key="frame" x="4" y="15" width="103" height="17"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="फ़ोटो एलबम:" id="347">
-                                        <font key="font" metaFont="system"/>
-                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    </textFieldCell>
-                                </textField>
-                                <button horizontalCompressionResistancePriority="1000" id="301">
-                                    <rect key="frame" x="10" y="261" width="286" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="क्षैतिज स्क्रॉलव्हील के साथ ज़ूम करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="348">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.ZoomWithHorizonScroll" id="309"/>
-                                    </connections>
-                                </button>
-                                <button horizontalCompressionResistancePriority="1000" id="425">
-                                    <rect key="frame" x="10" y="281" width="400" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="माउस स्क्रॉल व्हील के साथ श्रृंखला में लूप करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="426">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.loopScrollWheel" id="427"/>
-                                    </connections>
-                                </button>
-                                <button horizontalCompressionResistancePriority="1000" id="313">
-                                    <rect key="frame" x="10" y="241" width="286" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="इसके लिए कोई 'श्रृंखला में प्रचार सेटिंग्स' नहीं:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="349">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.IndependentCRWLWW" id="315"/>
-                                    </connections>
-                                </button>
-                                <button horizontalCompressionResistancePriority="1000" id="323">
-                                    <rect key="frame" x="10" y="221" width="400" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="सभी खोले गए दर्शकों के लिए अगली/पिछली श्रृंखला बटन लागू करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="350">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.nextSeriesToAllViewers" id="324"/>
-                                    </connections>
-                                </button>
-                                <button horizontalCompressionResistancePriority="1000" id="327">
-                                    <rect key="frame" x="416" y="241" width="346" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="उच्च गुणवत्ता ज़ूम (लैंक्ज़ोस 5)" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="351">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="enabled" keyPath="values.NOINTERPOLATION" id="331">
-                                            <dictionary key="options">
-                                                <string key="NSValueTransformerName">NSNegateBoolean</string>
-                                            </dictionary>
-                                        </binding>
-                                        <binding destination="308" name="value" keyPath="values.SOFTWAREINTERPOLATION" id="328"/>
-                                    </connections>
-                                </button>
-                                <button horizontalCompressionResistancePriority="1000" id="415">
-                                    <rect key="frame" x="416" y="221" width="346" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="'शिफ्ट' कुंजी के साथ आवर्धक लेंस दिखाएँ" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="416">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.magnifyingLens" id="417"/>
-                                    </connections>
-                                </button>
                                 <button horizontalCompressionResistancePriority="1000" id="421">
-                                    <rect key="frame" x="416" y="201" width="346" height="18"/>
+                                    <rect key="frame" x="10" y="142" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="ROI छवि को मुख्य छवि के रूप में चिह्नित करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="422">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -415,7 +590,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="roi-delete-successor-control">
-                                    <rect key="frame" x="416" y="141" width="346" height="18"/>
+                                    <rect key="frame" x="10" y="122" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="एक ROI हटाने के बाद पिछला ROI चुनें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="roi-delete-successor-cell">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -425,30 +600,8 @@
                                         <binding destination="308" name="value" keyPath="values.ROISelectPreviousAfterDelete" id="roi-delete-successor-binding"/>
                                     </connections>
                                 </button>
-                                <button horizontalCompressionResistancePriority="1000" id="458">
-                                    <rect key="frame" x="416" y="121" width="346" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="स्क्रॉल व्हील का उपयोग करते समय विंडो का चयन करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="459">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.SelectWindowScrollWheel" id="462"/>
-                                    </connections>
-                                </button>
-                                <button horizontalCompressionResistancePriority="1000" id="480">
-                                    <rect key="frame" x="416" y="101" width="346" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="फुलस्क्रीन मोड में 1x1 टाइलिंग पर स्विच करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="481">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.NoImageTilingInFullscreen" id="484"/>
-                                    </connections>
-                                </button>
                                 <button horizontalCompressionResistancePriority="1000" id="372">
-                                    <rect key="frame" x="10" y="181" width="400" height="18"/>
+                                    <rect key="frame" x="10" y="102" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="बहुभुज और पेंसिल ROIs के लिए तख़्ता प्रतिपादन" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="373">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -459,7 +612,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="418">
-                                    <rect key="frame" x="10" y="141" width="286" height="18"/>
+                                    <rect key="frame" x="10" y="82" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="नए ROIs का नाम नहीं रखा गया है" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="419">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -470,7 +623,7 @@
                                     </connections>
                                 </button>
                                 <button toolTip="पहले या बाद की दो छवियों में से किसी पर बने ROI के ऊपर खींचा गया नया ROI उसका नाम ले लेता है, ताकि वॉल्यूम, नाम बदलने और प्रसार के लिए दोनों एक ही ऑब्जेक्ट हों।" horizontalCompressionResistancePriority="1000" id="roi-join-overlap-control">
-                                    <rect key="frame" x="10" y="161" width="400" height="18"/>
+                                    <rect key="frame" x="10" y="62" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="आसन्न छवियों पर ओवरलैप होने वाले ROI जोड़ें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="roi-join-overlap-cell">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -480,107 +633,8 @@
                                         <binding destination="308" name="value" keyPath="values.ROIJoinOverlappingOnAdjacentImage" id="roi-join-overlap-binding"/>
                                     </connections>
                                 </button>
-                                <button horizontalCompressionResistancePriority="1000" id="431">
-                                    <rect key="frame" x="10" y="121" width="286" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="छवि और श्रृंखला के माध्यम से स्क्रॉल करें:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="432">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.scrollThroughSeries" id="433"/>
-                                    </connections>
-                                </button>
-                                <button horizontalCompressionResistancePriority="1000" id="454">
-                                    <rect key="frame" x="10" y="101" width="400" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="स्क्रीन कैप्चर निर्यात करते समय CLUT बार्स रखें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="455">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.keepCLUTBarsForSecondaryCapture" id="457"/>
-                                    </connections>
-                                </button>
-                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="capture-series-label">
-                                    <rect key="frame" x="416" y="41" width="174" height="16"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="मुख्य छवि कैप्चर श्रृंखला:" id="capture-series-label-cell">
-                                        <font key="font" metaFont="system"/>
-                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    </textFieldCell>
-                                </textField>
-                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" toolTip="उस श्रृंखला का नाम जिसमें मुख्य छवि के रूप में सहेजे गए स्क्रीन कैप्चर (Command-Option-K) जाते हैं। डिफ़ॉल्ट नाम के लिए खाली छोड़ें। स्वराघात चिह्न हटा दिए जाते हैं।" id="capture-series-field">
-                                    <rect key="frame" x="592" y="38" width="164" height="22"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="left" drawsBackground="YES" id="capture-series-field-cell">
-                                        <font key="font" metaFont="system"/>
-                                        <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
-                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                    </textFieldCell>
-                                    <connections>
-                                        <action selector="captureSeriesNameChanged:" target="-2" id="capture-series-action"/>
-                                        <binding destination="308" name="value" keyPath="values.screenCaptureKeyImageSeriesName" id="capture-series-binding"/>
-                                    </connections>
-                                </textField>
-                                <button horizontalCompressionResistancePriority="1000" id="463">
-                                    <rect key="frame" x="10" y="41" width="400" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="ज़ूम माउस की स्थिति के आसपास केंद्रित है" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="464">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.MouseClickZoomCentered" id="466"/>
-                                    </connections>
-                                </button>
-                                <button horizontalCompressionResistancePriority="1000" id="mzt-vU-47c">
-                                    <rect key="frame" x="416" y="321" width="346" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="RTSTRUCT ROIs को ब्रश ROIs में बदलें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="zMF-Em-hzR">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.RSTRUCTConvertToBrush" id="dYU-iE-hXn"/>
-                                    </connections>
-                                </button>
-                                <button horizontalCompressionResistancePriority="1000" id="472">
-                                    <rect key="frame" x="10" y="61" width="400" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="क्रॉस रेफरेंस लाइनों के लिए FrameofReferenceUID का उपयोग करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="473">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.UseFrameofReferenceUID" id="479"/>
-                                    </connections>
-                                </button>
-                                <button horizontalCompressionResistancePriority="1000" id="540">
-                                    <rect key="frame" x="10" y="81" width="400" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="ROI के लिए तिरछापन और कुर्टोसिस की गणना करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="541">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.ROIComputeSkewnessAndKurtosis" id="543"/>
-                                    </connections>
-                                </button>
-                                <button horizontalCompressionResistancePriority="1000" id="544">
-                                    <rect key="frame" x="416" y="81" width="346" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="अतिप्रवाह रेखाएँ प्रदर्शित करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="545">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.OVERFLOWLINES" id="547"/>
-                                    </connections>
-                                </button>
                                 <button horizontalCompressionResistancePriority="1000" id="JNW-Zo-Pk3">
-                                    <rect key="frame" x="416" y="61" width="346" height="18"/>
+                                    <rect key="frame" x="10" y="42" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="वृत्त ROIs का केंद्र प्रदर्शित करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="cnn-XX-QeR">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -590,105 +644,86 @@
                                         <binding destination="308" name="value" keyPath="values.drawROICircleCenter" id="YHd-Bw-WPz"/>
                                     </connections>
                                 </button>
-                                <button horizontalCompressionResistancePriority="1000" id="437">
-                                    <rect key="frame" x="416" y="181" width="346" height="18"/>
+                                <button horizontalCompressionResistancePriority="1000" id="mzt-vU-47c">
+                                    <rect key="frame" x="10" y="22" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="केवल उसी रोगी की छवियाँ प्रदर्शित करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="438">
+                                    <buttonCell key="cell" type="check" title="RTSTRUCT ROIs को ब्रश ROIs में बदलें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="zMF-Em-hzR">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
                                     <connections>
-                                        <binding destination="308" name="value" keyPath="values.onlyDisplayImagesOfSamePatient" id="439"/>
+                                        <binding destination="308" name="value" keyPath="values.RSTRUCTConvertToBrush" id="dYU-iE-hXn"/>
                                     </connections>
                                 </button>
-                                <button horizontalCompressionResistancePriority="1000" id="375">
-                                    <rect key="frame" x="10" y="201" width="400" height="18"/>
+                            </subviews>
+                        </view>
+                        <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
+                        <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
+                    </box>
+                </subviews>
+            </view>
+        </window>
+        <window title="&lt;&lt; do not localize &gt;&gt;" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" deferred="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="mouse-pane-window" userLabel="Mouse Pane">
+            <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES"/>
+            <rect key="contentRect" x="0.0" y="0" width="788" height="250"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
+            <view key="contentView" horizontalCompressionResistancePriority="1000" id="mouse-pane-window-v">
+                <rect key="frame" x="0.0" y="0.0" width="788" height="250"/>
+                <autoresizingMask key="autoresizingMask"/>
+                <subviews>
+                    <box horizontalCompressionResistancePriority="1000" titlePosition="noTitle" id="mouse-tools-box">
+                        <rect key="frame" x="8" y="16" width="770" height="210"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <view key="contentView" id="mouse-tools-box-c">
+                            <rect key="frame" x="2" y="2" width="766" height="206"/>
+                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                            <subviews>
+                                <button horizontalCompressionResistancePriority="1000" id="197">
+                                    <rect key="frame" x="10" y="182" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="यदि उपलब्ध हो तो VOI LUT का उपयोग करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="376">
+                                    <buttonCell key="cell" type="check" title="स्क्रॉल व्हील की दिशा उलटें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="343">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
                                     <connections>
-                                        <binding destination="308" name="value" keyPath="values.UseVOILUT" id="377"/>
+                                        <binding destination="308" name="value" keyPath="values.Scroll Wheel Reversed" id="537"/>
                                     </connections>
                                 </button>
-                                <button horizontalCompressionResistancePriority="1000" id="555">
-                                    <rect key="frame" x="416" y="301" width="346" height="18"/>
+                                <button horizontalCompressionResistancePriority="1000" id="301">
+                                    <rect key="frame" x="10" y="162" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="यदि पहले से ही प्रदर्शित है तो श्रृंखला न बदलें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="556">
+                                    <buttonCell key="cell" type="check" title="क्षैतिज स्क्रॉलव्हील के साथ ज़ूम करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="348">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
                                     <connections>
-                                        <binding destination="308" name="value" keyPath="values.showWindowInsteadOfSwitching" id="558"/>
+                                        <binding destination="308" name="value" keyPath="values.ZoomWithHorizonScroll" id="309"/>
                                     </connections>
                                 </button>
-                                <button horizontalCompressionResistancePriority="1000" id="412">
-                                    <rect key="frame" x="416" y="281" width="346" height="18"/>
+                                <button horizontalCompressionResistancePriority="1000" id="425">
+                                    <rect key="frame" x="10" y="142" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="पूर्वावलोकन एप्लिकेशन के साथ PDF खोलें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="413">
+                                    <buttonCell key="cell" type="check" title="माउस स्क्रॉल व्हील के साथ श्रृंखला में लूप करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="426">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
                                     <connections>
-                                        <binding destination="308" name="value" keyPath="values.openPDFwithPreview" id="440"/>
+                                        <binding destination="308" name="value" keyPath="values.loopScrollWheel" id="427"/>
                                     </connections>
                                 </button>
-                                <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="1Xf-Mw-WhA">
-                                    <rect key="frame" x="300" y="237" width="112" height="26"/>
+                                <button horizontalCompressionResistancePriority="1000" id="431">
+                                    <rect key="frame" x="10" y="123" width="286" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="रूपात्मकता" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" pullsDown="YES" selectedItem="5Jf-1n-5Bm" id="fhV-XV-SCY">
-                                        <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
-                                        <font key="font" metaFont="menu"/>
-                                        <menu key="menu" title="अन्य दृश्य" id="jDc-fg-eC3">
-                                            <items>
-                                                <menuItem title="रूपात्मकता" hidden="YES" id="rUf-a6-mNm">
-                                                    <modifierMask key="keyEquivalentModifierMask"/>
-                                                </menuItem>
-                                                <menuItem title="CR" state="on" id="FOf-lv-Yw4">
-                                                    <connections>
-                                                        <binding destination="308" name="value" keyPath="values.noPropagateInSeriesForCR" id="F8f-OF-O5Z"/>
-                                                    </connections>
-                                                </menuItem>
-                                                <menuItem title="DX" id="jbC-CP-MNd">
-                                                    <connections>
-                                                        <binding destination="308" name="value" keyPath="values.noPropagateInSeriesForDX" id="SYc-fl-hLB"/>
-                                                    </connections>
-                                                </menuItem>
-                                                <menuItem title="डॉ" id="WGV-vh-73b">
-                                                    <connections>
-                                                        <binding destination="308" name="value" keyPath="values.noPropagateInSeriesForDR" id="p4b-ru-lzE"/>
-                                                    </connections>
-                                                </menuItem>
-                                                <menuItem title="RF" id="uMP-Y0-V9I">
-                                                    <connections>
-                                                        <binding destination="308" name="value" keyPath="values.noPropagateInSeriesForRF" id="1Hb-Hi-T3N"/>
-                                                    </connections>
-                                                </menuItem>
-                                                <menuItem title="XA" id="bs8-nn-AfS">
-                                                    <connections>
-                                                        <binding destination="308" name="value" keyPath="values.noPropagateInSeriesForXA" id="2ry-T6-XZ2"/>
-                                                    </connections>
-                                                </menuItem>
-                                                <menuItem title="MG" id="6kW-Wr-Cu0">
-                                                    <connections>
-                                                        <binding destination="308" name="value" keyPath="values.noPropagateInSeriesForMG" id="CeE-wL-CzV"/>
-                                                    </connections>
-                                                </menuItem>
-                                                <menuItem title="US" id="5Jf-1n-5Bm">
-                                                    <connections>
-                                                        <binding destination="308" name="value" keyPath="values.noPropagateInSeriesForUS" id="zYM-1T-AAJ"/>
-                                                    </connections>
-                                                </menuItem>
-                                            </items>
-                                        </menu>
-                                    </popUpButtonCell>
+                                    <buttonCell key="cell" type="check" title="छवि और श्रृंखला के माध्यम से स्क्रॉल करें:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="432">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
                                     <connections>
-                                        <binding destination="308" name="enabled" keyPath="values.IndependentCRWLWW" id="l3E-9x-q7V"/>
+                                        <binding destination="308" name="value" keyPath="values.scrollThroughSeries" id="433"/>
                                     </connections>
-                                </popUpButton>
+                                </button>
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="Pyh-nV-fiK">
-                                    <rect key="frame" x="300" y="117" width="112" height="26"/>
+                                    <rect key="frame" x="300" y="119" width="112" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="रूपात्मकता" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" pullsDown="YES" id="XCc-0E-TE4">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -755,56 +790,79 @@
                                         <binding destination="308" name="enabled" keyPath="values.scrollThroughSeries" id="g5L-aQ-wtn"/>
                                     </connections>
                                 </popUpButton>
+                                <button horizontalCompressionResistancePriority="1000" id="458">
+                                    <rect key="frame" x="10" y="102" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="स्क्रॉल व्हील का उपयोग करते समय विंडो का चयन करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="459">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.SelectWindowScrollWheel" id="462"/>
+                                    </connections>
+                                </button>
+                                <button horizontalCompressionResistancePriority="1000" id="463">
+                                    <rect key="frame" x="10" y="82" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="ज़ूम माउस की स्थिति के आसपास केंद्रित है" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="464">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.MouseClickZoomCentered" id="466"/>
+                                    </connections>
+                                </button>
+                                <button horizontalCompressionResistancePriority="1000" id="415">
+                                    <rect key="frame" x="10" y="62" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="'शिफ्ट' कुंजी के साथ आवर्धक लेंस दिखाएँ" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="416">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.magnifyingLens" id="417"/>
+                                    </connections>
+                                </button>
+                                <button horizontalCompressionResistancePriority="1000" id="measurement-magnifier-control">
+                                    <rect key="frame" x="10" y="42" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="माप बिंदु रखते समय आवर्धन दिखाएँ" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="measurement-magnifier-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.magnifyingLensWhileMeasuring" id="measurement-magnifier-binding"/>
+                                    </connections>
+                                </button>
+                                <button horizontalCompressionResistancePriority="1000" id="magnifier-corner-control">
+                                    <rect key="frame" x="10" y="22" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="आवर्धक लेंस निचले दाएँ कोने में दिखाएँ" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="magnifier-corner-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.magnifyingLensInCorner" id="magnifier-corner-binding"/>
+                                    </connections>
+                                </button>
                             </subviews>
                         </view>
-                        <font key="titleFont" metaFont="system"/>
+                        <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
+                        <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box horizontalCompressionResistancePriority="1000" title="TIFF, JPEG, क्विकटाइम, DICOM निर्यात" id="110">
-                        <rect key="frame" x="8" y="975" width="770" height="92"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <view key="contentView" id="By2-Ex-NNc">
-                            <rect key="frame" x="2" y="2" width="766" height="72"/>
-                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                            <subviews>
-                                <button id="133">
-                                    <rect key="frame" x="18" y="12" width="744" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="पूर्वावलोकन या क्विकटाइम प्लेयर के साथ निर्यात करने के बाद निर्यात की गई छवियों को स्वचालित रूप से खोलें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="352">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.OPENVIEWER" id="538"/>
-                                    </connections>
-                                </button>
-                                <button id="339">
-                                    <rect key="frame" x="18" y="30" width="744" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="यदि टाइल वाले दृश्य हैं, तो केवल चयनित दृश्य को ही नहीं, बल्कि सभी टाइल वाले दृश्यों को निर्यात करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="353">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.includeAllTiledViews" id="340"/>
-                                    </connections>
-                                </button>
-                                <button id="405">
-                                    <rect key="frame" x="18" y="48" width="744" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="छवि क्षेत्र में दृश्य को स्वचालित रूप से क्रॉप करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="406">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.ScreenCaptureSmartCropping" id="407"/>
-                                    </connections>
-                                </button>
-                            </subviews>
-                        </view>
-                        <font key="titleFont" metaFont="system"/>
-                    </box>
+                </subviews>
+            </view>
+        </window>
+        <window title="&lt;&lt; do not localize &gt;&gt;" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" deferred="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="screens-pane-window" userLabel="Screens Pane">
+            <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES"/>
+            <rect key="contentRect" x="0.0" y="0" width="788" height="463"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
+            <view key="contentView" horizontalCompressionResistancePriority="1000" id="screens-pane-window-v">
+                <rect key="frame" x="0.0" y="0.0" width="788" height="463"/>
+                <autoresizingMask key="autoresizingMask"/>
+                <subviews>
                     <box horizontalCompressionResistancePriority="1000" title="स्क्रीन और विंडो का आकार" id="149">
-                        <rect key="frame" x="8" y="552" width="770" height="423"/>
+                        <rect key="frame" x="8" y="16" width="770" height="423"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="mWb-81-f5v">
                             <rect key="frame" x="2" y="2" width="766" height="403"/>
@@ -988,22 +1046,23 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="390">
-                                    <rect key="frame" x="130" y="39" width="632" height="18"/>
+                                    <rect key="frame" x="130" y="15" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="सीआर, एमजी, डीएक्स, डीआर, एक्सए और आरएफ के लिए 12 बिट टोटोकू डिस्प्ले समर्थन स्वचालित रूप से सक्षम करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="391">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
-                                        <connections>
-                                            <binding destination="308" name="value" keyPath="values.automatic12BitTotoku" id="399"/>
-                                        </connections>
                                     </buttonCell>
                                     <connections>
                                         <binding destination="308" name="value" keyPath="values.automatic12BitTotoku" id="394"/>
-                                        <binding destination="308" name="enabled" keyPath="values.is12bitPluginAvailable" id="443"/>
+                                        <binding destination="308" name="hidden" keyPath="values.is12bitPluginAvailable" id="443">
+                                            <dictionary key="options">
+                                                <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                            </dictionary>
+                                        </binding>
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="401">
-                                    <rect key="frame" x="130" y="15" width="632" height="18"/>
+                                    <rect key="frame" x="130" y="39" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="विंडोज़ प्रदर्शित या आकार बदलते समय हमेशा 'फ़िट करने के लिए स्केल' करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="402">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -1059,16 +1118,23 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="515">
-                                    <rect key="frame" x="8" y="40" width="122" height="17"/>
+                                    <rect key="frame" x="8" y="17" width="122" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="12 बिट डिस्प्ले:" id="516">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
+                                    <connections>
+                                        <binding destination="308" name="hidden" keyPath="values.is12bitPluginAvailable" id="hd1-83-3Bt">
+                                            <dictionary key="options">
+                                                <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                            </dictionary>
+                                        </binding>
+                                    </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="517">
-                                    <rect key="frame" x="8" y="17" width="122" height="17"/>
+                                    <rect key="frame" x="8" y="40" width="122" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="पैमाना:" id="518">
                                         <font key="font" metaFont="system"/>
@@ -1102,7 +1168,115 @@
                     </box>
                 </subviews>
             </view>
-            <point key="canvasLocation" x="139" y="176.5"/>
+        </window>
+        <window title="&lt;&lt; do not localize &gt;&gt;" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" deferred="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="export-pane-window" userLabel="Export Pane">
+            <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES"/>
+            <rect key="contentRect" x="0.0" y="0" width="788" height="216"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
+            <view key="contentView" horizontalCompressionResistancePriority="1000" id="export-pane-window-v">
+                <rect key="frame" x="0.0" y="0.0" width="788" height="216"/>
+                <autoresizingMask key="autoresizingMask"/>
+                <subviews>
+                    <box horizontalCompressionResistancePriority="1000" title="TIFF, JPEG, मूवी, DICOM निर्यात" id="110">
+                        <rect key="frame" x="8" y="16" width="770" height="176"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <view key="contentView" id="By2-Ex-NNc">
+                            <rect key="frame" x="2" y="2" width="766" height="156"/>
+                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                            <subviews>
+                                <button horizontalCompressionResistancePriority="1000" id="454">
+                                    <rect key="frame" x="10" y="60" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="स्क्रीन कैप्चर निर्यात करते समय CLUT बार्स रखें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="455">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.keepCLUTBarsForSecondaryCapture" id="457"/>
+                                    </connections>
+                                </button>
+                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="capture-series-label">
+                                    <rect key="frame" x="10" y="33" width="174" height="16"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="मुख्य छवि कैप्चर श्रृंखला:" id="capture-series-label-cell">
+                                        <font key="font" metaFont="system"/>
+                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                </textField>
+                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" toolTip="उस श्रृंखला का नाम जिसमें मुख्य छवि के रूप में सहेजे गए स्क्रीन कैप्चर (Command-Option-K) जाते हैं। डिफ़ॉल्ट नाम के लिए खाली छोड़ें। स्वराघात चिह्न हटा दिए जाते हैं।" id="capture-series-field">
+                                    <rect key="frame" x="188" y="30" width="280" height="22"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="left" drawsBackground="YES" id="capture-series-field-cell">
+                                        <font key="font" metaFont="system"/>
+                                        <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                    <connections>
+                                        <action selector="captureSeriesNameChanged:" target="-2" id="capture-series-action"/>
+                                        <binding destination="308" name="value" keyPath="values.screenCaptureKeyImageSeriesName" id="capture-series-binding"/>
+                                    </connections>
+                                </textField>
+                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" id="276">
+                                    <rect key="frame" x="10" y="7" width="103" height="17"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="फ़ोटो एलबम:" id="347">
+                                        <font key="font" metaFont="system"/>
+                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                </textField>
+                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" id="275">
+                                    <rect key="frame" x="117" y="4" width="351" height="22"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="left" drawsBackground="YES" id="346">
+                                        <font key="font" metaFont="system"/>
+                                        <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.ALBUMNAME" id="535"/>
+                                    </connections>
+                                </textField>
+                                <button id="133">
+                                    <rect key="frame" x="18" y="96" width="744" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="निर्यात करने के बाद निर्यात की गई छवियों को स्वचालित रूप से खोलें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="352">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.OPENVIEWER" id="538"/>
+                                    </connections>
+                                </button>
+                                <button id="339">
+                                    <rect key="frame" x="18" y="114" width="744" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="यदि टाइल वाले दृश्य हैं, तो केवल चयनित दृश्य को ही नहीं, बल्कि सभी टाइल वाले दृश्यों को निर्यात करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="353">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.includeAllTiledViews" id="340"/>
+                                    </connections>
+                                </button>
+                                <button id="405">
+                                    <rect key="frame" x="18" y="132" width="744" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="छवि क्षेत्र में दृश्य को स्वचालित रूप से क्रॉप करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="406">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.ScreenCaptureSmartCropping" id="407"/>
+                                    </connections>
+                                </button>
+                            </subviews>
+                        </view>
+                        <font key="titleFont" metaFont="system"/>
+                    </box>
+                </subviews>
+            </view>
         </window>
         <userDefaultsController representsSharedInstance="YES" id="308" userLabel="Shared Defaults"/>
     </objects>

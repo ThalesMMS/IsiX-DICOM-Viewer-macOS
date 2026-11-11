@@ -80,6 +80,8 @@ public final class Wait: NSWindowController, NSWindowDelegate {
     private var lastTimeFrame: TimeInterval = 0
     private var lastTimeFrameUpdate: TimeInterval = 0
     private var firstTime: TimeInterval = 0
+    /// The window the panel took the keyboard from, which gets it back.
+    private var keyWindowReturn = KeyWindowReturn()
 
     /// The xib's `progress` outlet, set through KVC.
     @objc(setProgress:)
@@ -105,6 +107,7 @@ public final class Wait: NSWindowController, NSWindowDelegate {
             window.setFrameTopLeftPoint(NSMakePoint(window.frame.origin.x, window.frame.origin.y - CGFloat(winList.count) * (10 + window.frame.size.height)))
         }
 
+        keyWindowReturn.remember(NSApp.keyWindow, before: self.window)
         super.showWindow(sender)
         self.window?.makeKeyAndOrderFront(sender)
         self.window?.delegate = self
@@ -121,12 +124,15 @@ public final class Wait: NSWindowController, NSWindowDelegate {
         // The panel used to stay on screen at least half a second, by sleeping
         // the main thread for it: a 0.1 s reslice of the 2D viewer held the
         // viewer 0.5 s. It goes when the work is done.
-        self.window?.orderOut(self)
-
-        if let session {
-            NSApp.endModalSession(session)
+        //
+        // The window that was key before the panel is key again when it goes:
+        // without a modal session nothing else hands the keyboard back.
+        keyWindowReturn.orderOut(self.window) {
+            if let session {
+                NSApp.endModalSession(session)
+            }
+            self.session = nil
         }
-        session = nil
     }
 
     // Isolated: it closes the panel, on the main thread that shows it.

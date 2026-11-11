@@ -108,7 +108,6 @@
 #import "AYDicomPrintWindowController.h"
 // PreferencesWindowController.authView, and the General pane's language rows.
 #import "SFHorosAuthorizationView.h"
-#import "../../Preference Panes/OSIGeneralPreferencePane/HorosLanguagePreferences.h"
 // The anonymization engine and interface (the panels' AnonymizationPanelEnds
 // and AnonymizationSavePanelEnds values, and the DICOM tags they list).
 #import "Adapters/DCMTK/HorosDICOMServices.h"

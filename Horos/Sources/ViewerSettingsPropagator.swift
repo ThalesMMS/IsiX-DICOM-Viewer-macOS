@@ -165,14 +165,18 @@ import IsiXPreferences
     }
 
     /// Works out what the "Sync" button does: across studies when the other
-    /// displayed viewers are not all of this one's study. Within a study, or on
-    /// switching to across studies, the series are unlocked.
+    /// displayed viewers are not all of this one's study, or, with the frame
+    /// of reference in use, of its frame within the study. Within one of
+    /// these, or on switching to across them, the series are unlocked.
     func updateSyncButtonBehavior() {
         let wasBetweenStudies = sync.betweenStudies
         let others = registry.displayedViewers.filter { $0 !== viewer }
 
-        let study = others.isEmpty ? nil : viewer.studyInstanceUID()
-        let betweenStudies = ViewerSynchronization.syncsBetweenStudies(study: study, otherStudies: others.map { $0.studyInstanceUID() })
+        func world(of viewer: ViewerController) -> ViewerSynchronization.World {
+            .init(study: viewer.studyInstanceUID(), frameOfReference: viewer.imageView()?.curDCM?.frameofReferenceUID)
+        }
+        let betweenStudies = !others.isEmpty && ViewerSynchronization.syncsBetweenWorlds(
+            world(of: viewer), others: others.map(world(of:)), usesFrameOfReference: preferences[ViewerPreferences.useFrameofReferenceUID])
         sync.betweenStudies = betweenStudies
 
         if ViewerSynchronization.resetsSeriesLock(betweenStudies: betweenStudies, wasBetweenStudies: wasBetweenStudies) {

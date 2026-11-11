@@ -293,6 +293,10 @@ with tempfile.TemporaryDirectory(prefix='horos-scp-matching-') as temporary:
     (folder / 'DCM').mkdir()
     for name in ('DCMCalendarDate.h', 'DCMCalendarDate.m'):
         (folder / name).write_bytes(history_reference.show(calendar_revision, 'DCM Framework/' + name))
+    # The module's date class has the framework's name in the Objective-C runtime;
+    # the framework's is compiled as FormerDCMCalendarDate, so that one process holds both.
+    (folder / 'DCMCalendarDate.h').write_bytes(b'#define DCMCalendarDate FormerDCMCalendarDate\n'
+                                              + (folder / 'DCMCalendarDate.h').read_bytes())
     os.symlink(folder / 'DCMCalendarDate.h', folder / 'DCM/DCMCalendarDate.h')
     (folder / 'DCM.h').write_text('#import <Foundation/Foundation.h>\n#define DCMDEBUG 0\n#import "DCMCalendarDate.h"\n')
     (folder / 'harness.h').write_text(HEADER)

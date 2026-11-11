@@ -42,18 +42,17 @@ header = r'''
 #import <Foundation/Foundation.h>
 extern void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf);
 // IsiXDICOMFile's tag, which the sort names as DICOMAttributeTag.
-@interface IsiXDICOMAttributeTag:NSObject
+@interface DCMAttributeTag:NSObject
 + (instancetype)tagWithGroup:(int)group element:(int)element NS_SWIFT_NAME(tag(withGroup:element:));
 @property(readonly) NSString *stringValue;
 @end
-@compatibility_alias DCMAttributeTag IsiXDICOMAttributeTag;
 @interface DCMAttribute:NSObject
 @property(retain) NSMutableArray *values;
 @end
 @interface DCMObject:NSObject
 @property(retain) DCMAttribute *attribute;
 @property(readonly) NSMutableDictionary *attributes;
-- (DCMAttribute *)attributeForTag:(IsiXDICOMAttributeTag *)tag;
+- (DCMAttribute *)attributeForTag:(DCMAttributeTag *)tag;
 @end
 // The reader the method uses, which +[DCMObject objectWithContentsOfFile:] forwards to.
 @interface HorosDCMTKObject:DCMObject
@@ -126,14 +125,14 @@ code = r'''
 #define check(c) NSCAssert((c), @"failed: %s", #c)
 void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf) { NSLog(@"%s %@", pf, e); }
 static NSDictionary *attributes;
-@implementation IsiXDICOMAttributeTag
+@implementation DCMAttributeTag
 + (instancetype)tagWithGroup:(int)group element:(int)element { return [[self new] autorelease]; }
 - (NSString *)stringValue { return @"TAG"; }
 @end
 @implementation DCMAttribute
 @end
 @implementation DCMObject
-- (DCMAttribute*)attributeForTag:(IsiXDICOMAttributeTag *)tag {return self.attribute;}
+- (DCMAttribute*)attributeForTag:(DCMAttributeTag *)tag {return self.attribute;}
 // Every tag of the case reads the one attribute, by its key.
 - (NSMutableDictionary *)attributes {
  return self.attribute ? [NSMutableDictionary dictionaryWithObject:self.attribute forKey:@"TAG"] : [NSMutableDictionary dictionary];
@@ -280,7 +279,7 @@ int main(void) {@autoreleasepool {
 }}
 '''
 # On the main actor, as the real extension of the window controller.
-extension = 'import AppKit\n\ntypealias DICOMAttributeTag = IsiXDICOMAttributeTag\n\n' + helpers + bridge + '@MainActor extension ViewerController {\n' + method + '}\n'
+extension = 'import AppKit\n\ntypealias DICOMAttributeTag = DCMAttributeTag\n\n' + helpers + bridge + '@MainActor extension ViewerController {\n' + method + '}\n'
 with tempfile.TemporaryDirectory(prefix='horos-tag-sort-') as directory:
     p = Path(directory)
     (p/'Harness.h').write_text(header)

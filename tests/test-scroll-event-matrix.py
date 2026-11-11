@@ -346,7 +346,7 @@ int main(){@autoreleasepool{
  check([defaults integerForKey:@"stackThickness"]==2);
  [v scrollWheel:(NSEvent*)e];check(c->sliderFusion.integerValue==3);
  e.scrollY=2.5;[v scrollWheel:(NSEvent*)e];check(c->sliderFusion.integerValue==2);
- [v scrollWheel:(NSEvent*)e];check(c->activatedFusion.state==NSOffState && c->sliderFusion.integerValue==2 && c->stacksFusion.integerValue==1);
+ [v scrollWheel:(NSEvent*)e];check(c->activatedFusion.state==NSOffState && c->sliderFusion.integerValue==1 && c->stacksFusion.integerValue==1);
  NSInteger calls=c.projections;[v scrollWheel:(NSEvent*)e];check(c.projections==calls && v->curImage==10);
  // Single slices and refused activations consume input without navigation.
  c->pixList[0]=@[v.curDCM];e.scrollY=-1000;[v scrollWheel:(NSEvent*)e];check(c.projections==calls && v->curImage==10);

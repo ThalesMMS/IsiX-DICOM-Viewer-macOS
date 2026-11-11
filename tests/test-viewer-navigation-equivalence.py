@@ -119,6 +119,12 @@ import AppKit
 import IsiXImaging
 import IsiXPreferences
 
+/// The record of a corrected gantry tilt, which a revert forgets: no series
+/// is corrected here.
+enum GantryTiltPolicy {
+    @MainActor static func clearCorrection(of viewer: AnyObject) {}
+}
+
 typealias ProcessGraph = HarnessSessionProcessGraph
 
 @MainActor struct HarnessBrowserWindow {
@@ -283,6 +289,8 @@ FOUNDATION_EXPORT NSInteger HorosRunCriticalAlertPanel(NSString * _Nullable titl
 @property(nonatomic) long pwidth, pheight;
 @property double pixelSpacingX, pixelSpacingY;
 @property double sliceLocation;
+// Never set here: without a frame of reference the Sync button follows the studies alone.
+@property (copy) NSString *frameofReferenceUID;
 @property(nonatomic, setter=setRGB:) BOOL isRGB;
 @property BOOL SUVConverted;
 @property(nonatomic, retain) NSData *transferFunction;

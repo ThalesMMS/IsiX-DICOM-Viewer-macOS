@@ -34,9 +34,10 @@ assert 'LUTDataUS/SS/OW' not in legacy and '"LUTData' not in legacy, \
 pix = class_text('DCMPix')
 assert 'VOILUT is not supported with DCMFramework' not in pix, \
     'the preference still turns itself off on the first image loaded'
-assert 'UserDefaults.standard.set(false, forKey: "UseVOILUT")' in pix, \
+settings = (root / 'Horos/Sources/DCMPixSettings.swift').read_text(errors='replace')
+assert 'source.preferences.set(false, for: ViewerPreferences.useVOILUT)' in settings, \
     'a corrupt table should still turn the feature off'
-assert pix.count('forKey: "UseVOILUT")') == 1 and 'set(true, forKey: "UseVOILUT")' not in pix, \
+assert 'forKey: "UseVOILUT")' not in pix and settings.count('ViewerPreferences.useVOILUT)') == 1, \
     'more than one place writes the preference away from what the user chose'
 # The frame loading, in the IsiXImaging module, hands the samples of a whole
 # frame to the step DCMPix gives it; tests/test-dcmpix-frame-loading.py checks

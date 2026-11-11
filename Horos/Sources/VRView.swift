@@ -75,6 +75,32 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
     /// preferences from their store.
     let processGraph = PreferencesSource.process.processGraph
 
+    // MARK: - Scale of the window that shows the pictures
+
+    /// The MPR and CPR panes show, pixel for pixel, what a VRView renders in a
+    /// hidden window, which can be on a screen of another scale than theirs. They
+    /// give it their window's scale; 0 leaves the view with its own window's.
+    @objc var hostBackingScale: CGFloat = 0 {
+        didSet {
+            if hostBackingScale != oldValue { _ = prepareRenderWindow() }
+        }
+    }
+
+    public override func convertToBacking(_ rect: NSRect) -> NSRect {
+        hostBackingScale > 0 ? VTKRetinaGeometry.backingRect(rect, hostScale: hostBackingScale)
+            : super.convertToBacking(rect)
+    }
+
+    public override func convertToBacking(_ size: NSSize) -> NSSize {
+        hostBackingScale > 0 ? VTKRetinaGeometry.backingRect(NSRect(origin: .zero, size: size), hostScale: hostBackingScale).size
+            : super.convertToBacking(size)
+    }
+
+    public override func convertToBacking(_ point: NSPoint) -> NSPoint {
+        hostBackingScale > 0 ? VTKRetinaGeometry.backingRect(NSRect(origin: point, size: .zero), hostScale: hostBackingScale).origin
+            : super.convertToBacking(point)
+    }
+
     // MARK: - Outlets of VR.xib and Endoscopy.xib
 
     @IBOutlet unowned(unsafe) var export3DWindow: NSWindow?
@@ -127,6 +153,8 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
     final var horos_data: UnsafeMutablePointer<Float>?
     /// The 16-bit copy of the volume VTK imports.
     final var horos_data8: UnsafeMutablePointer<CChar>?
+    /// Whether horos_data8 holds the current float volume: see -horosEnsureData8.
+    final var horos_data8IsCurrent = false
     final var horos_factor: Float = 0
     final var horos_superSampling: Float = 0
     final var horos_valueFactor: Float = 0
@@ -509,12 +537,17 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
     @objc(setVolume:)
     public func setVolume(_ aVolume: UnsafeMutableRawPointer!) { horos_vtk.takeVolumeHandle(aVolume) }
 
-    @objc public func data8() -> UnsafeMutablePointer<CChar>! { horos_data8 }
+    @objc public func data8() -> UnsafeMutablePointer<CChar>! {
+        horosEnsureData8()
+        return horos_data8
+    }
 
     @objc(setData8:)
     public func setData8(_ someData: UnsafeMutablePointer<CChar>!) {
         if let data8 = horos_data8 { free(data8) }
         horos_data8 = someData
+        // Lent by a view that converted it: this view has nothing to convert.
+        horos_data8IsCurrent = someData != nil
     }
 
     // MARK: - Dragging source

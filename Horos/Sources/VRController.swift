@@ -695,6 +695,7 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
 
     @objc(CloseViewerNotification:)
     public final func closeViewerNotification(_ note: Notification!) {
+        if PreviousSeriesHold.window(self, keepsSeriesReleasedBy: note) { return }
         if (note?.object as AnyObject?) === viewer2DStorage {
             horosViewerClosing = true
             offFullScreen()

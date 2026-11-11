@@ -58,6 +58,24 @@ need('selectCurvedPathDrawingTool' in curved, 'Do not drop Curved MPR tool selec
 need('HorosCurvedMPRPathSession' in path, 'Do not drop CurvedMPRPath')
 need('SetClippingPlanes' in crop, 'Crop must still clip the volume through vtkPlanes')
 
+# The MPR and CPR panes and the hidden VRView they show can be on screens of
+# different scales: the view renders, and takes points, at the pane's scale.
+panes = {name: strip((root / 'Horos/Sources' / f'{name}.swift').read_text(encoding='utf-8'))
+         for name in ('MPRDCMView', 'CPRMPRDCMView')}
+render = strip((root / 'Horos/Sources/VRView+Render.swift').read_text(encoding='utf-8'))
+need('hostBackingScale > 0 ? VTKRetinaGeometry.backingRect(rect, hostScale: hostBackingScale)' in volume,
+     'VRView must convert to the backing of the window that shows its pictures')
+need(volume.count('public override func convertToBacking(') == 3,
+     'VRView must answer the rect, size and point conversions alike')
+need('hostBackingScale > 0 ? hostBackingScale' in render, 'The render window must follow the same scale')
+for name, text in panes.items():
+    frame_check = text[text.index('func checkForFrame()'):]
+    need('_vrView?.setHostBackingScale(backingScaleFactor)' in frame_check[:frame_check.index('.frame = ')],
+         f'{name} must give the VRView its scale before its frame')
+    need('func viewDidChangeBackingProperties()' in text, f'{name} must render again on a change of screen')
+    need('setWindowCenter(center)' not in text and 'setWindowCenter(point)' in text.replace('self.convertToBacking(point)', 'point'),
+         f'{name} must send setWindowCenter: backing pixels')
+
 if failures:
     print('FAIL:')
     print('\n'.join(failures))

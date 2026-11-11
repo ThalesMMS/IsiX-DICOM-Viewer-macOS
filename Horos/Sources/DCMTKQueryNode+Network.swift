@@ -189,19 +189,23 @@ extension DCMTKQueryNode {
     /// The association for `service`, the service itself with `identifier`,
     /// and its release: shared by verification, query and retrieve. Says what
     /// failed in the notices panel, unless verifying or given up, and answers
-    /// whether it all went through.
+    /// whether it all went through. `quietly` is for an attempt that another
+    /// follows when it fails (the IMAGE level of a retrieve, before the series
+    /// or study level): its failure is logged and not told, since a notice
+    /// for a request the peer refused stood over a retrieve that then arrived.
     @discardableResult
-    func setupNetwork(service: QueryRetrieveService, identifier: DICOMQueryIdentifier?, destination: String? = nil) -> Bool {
+    func setupNetwork(service: QueryRetrieveService, identifier: DICOMQueryIdentifier?, destination: String? = nil,
+                      quietly: Bool = false) -> Bool {
         autoreleasepool {
             var succeed = true
             let completed = endedNormally(HorosObjCException.caught {
-                succeed = associate(service: service, identifier: identifier, destination: destination)
+                succeed = associate(service: service, identifier: identifier, destination: destination, quietly: quietly)
             })
             return completed && succeed
         }
     }
 
-    private func associate(service: QueryRetrieveService, identifier: DICOMQueryIdentifier?, destination: String?) -> Bool {
+    private func associate(service: QueryRetrieveService, identifier: DICOMQueryIdentifier?, destination: String?, quietly: Bool) -> Bool {
         let verbose = Self.verboseAssociations
         let verifying = service == .verification
         _abortAssociation = false
@@ -277,10 +281,10 @@ extension DCMTKQueryNode {
                     wait?.end()
                 }
             case .moveStudyRoot:
-                condition = dataset.map { cMove(on: association, identifier: $0, destination: destination) }
+                condition = dataset.map { cMove(on: association, identifier: $0, destination: destination, quietly: quietly) }
                     ?? IsiXDCMTKError.error(for: .illegalParameter)
             case .getStudyRoot, .getPatientStudyOnly:
-                condition = dataset.map { cGet(on: association, identifier: $0) } ?? IsiXDCMTKError.error(for: .illegalParameter)
+                condition = dataset.map { cGet(on: association, identifier: $0, quietly: quietly) } ?? IsiXDCMTKError.error(for: .illegalParameter)
             case .getPatientRoot:
                 NSLog("Q/R SCU bad Abstract Sytnax: %@", service.rawValue)
             }
@@ -323,7 +327,9 @@ extension DCMTKQueryNode {
             // machine that works and the report from one that does not differ
             // only where the configurations do.
             let response = "\(called)  /  \(host):\(_port)\r\r\(failure.name)\r\(failure.reason)\r\r\(nodeConfigurationDescription)"
-            if !verifying && !_abortAssociation && !Thread.current.isCancelled {
+            if quietly {
+                NSLog("---- %@: %@ (another level follows)", failure.name, failure.reason)
+            } else if !verifying && !_abortAssociation && !Thread.current.isCancelled {
                 if showErrorMessageValue {
                     Self.postNotice(NSLocalizedString("Query Failed (1)", comment: ""), response)
                 } else {
@@ -488,11 +494,12 @@ extension DCMTKQueryNode {
 
     /// One C-MOVE, unless this node is already being moved. Listed among the
     /// moves while it runs, so that a new query does not let it go.
-    private func cMove(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset, destination: String?) -> (any Error)? {
-        Self.retrieveOperations.run(for: self) { moveSCU(on: association, identifier: identifier, destination: destination) } ?? nil
+    private func cMove(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset, destination: String?, quietly: Bool) -> (any Error)? {
+        Self.retrieveOperations.run(for: self) { moveSCU(on: association, identifier: identifier, destination: destination, quietly: quietly) } ?? nil
     }
 
-    private func moveSCU(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset, destination: String?) -> (any Error)? {
+    private func moveSCU(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset, destination: String?, quietly: Bool) -> (any Error)? {
+        let showErrorMessageValue = showErrorMessageValue && !quietly
         guard association.acceptsAbstractSyntax(QueryRetrieveService.moveStudyRoot.rawValue) else {
             return IsiXDCMTKError.error(for: .noPresentationContext)
         }
@@ -537,11 +544,12 @@ extension DCMTKQueryNode {
 
     /// One C-GET, unless this node is already being moved; listed among the
     /// moves while it runs.
-    private func cGet(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset) -> (any Error)? {
-        Self.retrieveOperations.run(for: self) { getSCU(on: association, identifier: identifier) } ?? nil
+    private func cGet(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset, quietly: Bool) -> (any Error)? {
+        Self.retrieveOperations.run(for: self) { getSCU(on: association, identifier: identifier, quietly: quietly) } ?? nil
     }
 
-    private func getSCU(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset) -> (any Error)? {
+    private func getSCU(on association: IsiXDCMTKAssociation, identifier: IsiXDCMTKDataset, quietly: Bool) -> (any Error)? {
+        let showErrorMessageValue = showErrorMessageValue && !quietly
         countOfSuboperations = 0
         countOfSuccessfulSuboperations = 0
         guard association.acceptsAbstractSyntax(QueryRetrieveService.getStudyRoot.rawValue) else {

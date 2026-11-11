@@ -81,6 +81,7 @@ class DCMPix: NSObject {
  func origin(_ v: UnsafeMutablePointer<Float>!) { v[0] = 0; v[1] = 0; v[2] = self.z }
 }
 IMAGE_TYPE_GETTER
+SYNC_PLANES
 // What DCMView+WindowLevel.swift gives the plane search: the images' planes
 // and the tolerance of the preferences.
 func horosPlaneNormal(_ pix: DCMPix?) -> SIMD3<Float> { var o = [Float](repeating: 0, count: 9); o.withUnsafeMutableBufferPointer { pix?.orientation($0.baseAddress) }; return SIMD3(o[6], o[7], o[8]) }
@@ -88,7 +89,8 @@ func horosPlaneOrigin(_ pix: DCMPix) -> SIMD3<Float> { var o = [Float](repeating
 extension DCMView { var sliceSynchronizer: SliceSynchronizer { SliceSynchronizer(parallelPlaneTolerance: UserDefaults.standard.float(forKey: "PARALLELPLANETOLERANCE"), syncPlaneTolerance: 0.1) } }
 class DCMView: NSObject {
  var horos_dcmPixList: NSMutableArray! = nil
- var horos_cleanedOutDcmPixArray: NSArray! = nil
+ var horos_cleanedOutDcmPixArray: NSArray! = nil { didSet { horos_syncPlanes = nil } }
+ var horos_syncPlanes: SyncPlanes?
  var horos_volumicData: Int32 = 0
  var curDCM: DCMPix? = nil
  @objc(angleBetweenVector:andVector:) class func angleBetweenVector(_ a: UnsafeMutablePointer<Float>!, andVector b: UnsafeMutablePointer<Float>!) -> Float { return 0 }
@@ -138,6 +140,14 @@ autoreleasepool {
  v.horos_dcmPixList = NSMutableArray(array: types); v.horos_cleanedOutDcmPixArray = nil; v.curDCM = types[0]
  check(v.findPlane(forPoint: &p, preferParallelTo: &o, localPoint: nil, distanceWithPlane: nil, preferImageType: "W") == 3, "type before nearness to the current image")
  check(v.findPlane(forPoint: &p, preferParallelTo: &o, localPoint: nil, distanceWithPlane: nil, preferImageType: "") == 1, "no type: the receiver's own sub-stack")
+ // The planes are kept between messages, and read again when the stack moves in place.
+ let moved = [pix("T", 0), pix("T", 1), pix("T", 2)]
+ v.horos_dcmPixList = NSMutableArray(array: moved); v.horos_cleanedOutDcmPixArray = nil; v.curDCM = moved[0]
+ p[2] = 2; check(v.findPlane(forPoint: &p, preferParallelTo: &o, localPoint: nil, distanceWithPlane: nil, preferImageType: "T") == 2, "before the stack moved")
+ check(v.horos_syncPlanes?.planes.count == 3, "the planes are kept for the next message")
+ moved[2].z = 9
+ p[2] = 9; check(v.findPlane(forPoint: &p, preferParallelTo: &o, localPoint: nil, distanceWithPlane: nil, preferImageType: "T") == 2, "a plane kept from before the stack moved")
+ v.horos_cleanedOutDcmPixArray = nil; check(v.horos_syncPlanes == nil, "the planes go with the cleaned array")
  // The manual and partly loaded path applies the same rule.
  let locations: [Float] = [0, 1, 2, 0, 1, 2, 0, 1, 2]
  for current in 0..<9 {
@@ -161,7 +171,11 @@ if swift:
     end=next(m for m in ('/// `[[dictionary objectForKey:', '/// N2LogExceptionWithStackTrace', 'private let kImageTypeGetter') if m in s[h:])
     helpers=s[h:s.index(end,h)]
     getter=re.search(r'private let kImageTypeGetter = .*',s).group(0)
-    code=swift_code.replace('METHODS',s[a:b]).replace('HELPERS',helpers).replace('IMAGE_TYPE_GETTER',getter)
+    # The planes a view keeps for the search are a type of their own, after the
+    # getter; a revision from before has them among the methods.
+    kept=s.find('/// What a synchronization message searches',h)
+    planes=s[kept:s.index('\n}\n',kept)+3] if 0<=kept<a else ''
+    code=swift_code.replace('METHODS',s[a:b]).replace('HELPERS',helpers).replace('IMAGE_TYPE_GETTER',getter).replace('SYNC_PLANES',planes)
     # The sub-stack rules are SliceSynchronizer's; a revision from before has them on DCMView.
     rules='SliceSynchronizer.' if 'SliceSynchronizer.' in s[a:b] else 'DCMView.sync'
     code=code.replace('EXPECTED(', 'SliceSynchronizer.expectedIndex(' if rules=='SliceSynchronizer.' else 'DCMView.syncExpectedIndex(')

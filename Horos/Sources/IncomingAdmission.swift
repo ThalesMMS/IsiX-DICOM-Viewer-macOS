@@ -58,9 +58,9 @@ private let reportedUnmovableArchives = Mutex<Set<String>>([])
 
 /// Whether an incoming file is DICOM in the Deflated Explicit VR Little Endian
 /// transfer syntax, which the decompression helper inflates.
-private func isDeflatedDICOM(_ path: String) -> Bool {
+private func isDeflatedDICOM(_ file: DICOMTriageFile) -> Bool {
     #if !OSIRIX_LIGHT
-    return EnhancedImportTriage.isDeflatedDICOM(atPath: path)
+    return file.isDeflated
     #else
     return false
     #endif
@@ -330,6 +330,7 @@ struct IncomingAdmission {
                         continue
                     }
 
+                    let triageFile = DICOMTriageFile(path: srcPath)
                     if ArchiveImportLedger.isArchiveName(srcPath) {
                         // A name of its own there: files of the same name come from
                         // different folders of INCOMING.
@@ -348,7 +349,7 @@ struct IncomingAdmission {
                                 ArchiveImportLedger.shared.recordNestedArchive(inArchive: enclosingArchive)
                             }
                         }
-                    } else if isDeflatedDICOM(srcPath) {
+                    } else if isDeflatedDICOM(triageFile) {
                         // Deflated Explicit VR Little Endian: nothing on this side
                         // reads the dataset, and it used to be refused as "not
                         // DICOM" - and deleted with DELETEFILELISTENER.
@@ -365,7 +366,7 @@ struct IncomingAdmission {
                             }
                         }
                     } else {
-                        takeIncomingFile(srcPath, originalPath: originalPath, lastPathComponent: lastPathComponent, isAlias: isAlias,
+                        takeIncomingFile(srcPath, triageFile: triageFile, originalPath: originalPath, lastPathComponent: lastPathComponent, isAlias: isAlias,
                                               enclosingArchive: enclosingArchive, listenerCompressionSettings: listenerCompressionSettings,
                                               filesArray: filesArray, compressedPathArray: &compressedPathArray)
                     }
@@ -508,7 +509,7 @@ struct IncomingAdmission {
     /// moved into the database folder if the database indexes it, to the
     /// decompression folder if the listener converts it, kept aside or deleted
     /// otherwise.
-    private func takeIncomingFile(_ srcPath: String, originalPath: String, lastPathComponent: String, isAlias: Bool, enclosingArchive: String?,
+    private func takeIncomingFile(_ srcPath: String, triageFile: DICOMTriageFile, originalPath: String, lastPathComponent: String, isAlias: Bool, enclosingArchive: String?,
                                   listenerCompressionSettings: Int32, filesArray: NSMutableArray, compressedPathArray: inout [String]) {
         var isJPEGCompressed: ObjCBool = false, isImage: ObjCBool = false, mayTranscode: ObjCBool = false
         var dstPath = DicomDatabaseObjC.appending(database.dataDirPath(), lastPathComponent)
@@ -521,8 +522,8 @@ struct IncomingAdmission {
         // out of the indexed store and say why. The manufacturer
         // is not consulted - the same gate applies to any vendor.
         if isDicomFile {
-            let stack = EnhancedImportTriage.assessPath(srcPath)
-            let ivus = IVUSImportTriage.assessPath(srcPath)
+            let stack = EnhancedImportTriage.assess(triageFile)
+            let ivus = IVUSImportTriage.assess(triageFile)
             // IVUS/US objects decide for themselves: Implicit VR
             // Volcano-shaped cines that the Enhanced parser does
             // not read still have a size and a diagnosis here.

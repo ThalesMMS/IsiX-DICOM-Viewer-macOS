@@ -66,7 +66,7 @@ ALLOWED = {
     'Only CLUT created in Horos 1.3.1': 'file format history',
     # Names stored in data or in other applications' files.
     'Horos Screen Captures': 'stored series name',
-    'OsiriXDB.plist': 'file name', 'http://www.dicom.dcm/OsiriXDB.plist': 'file name', 'OsiriX CT - 129': 'stored preset name',
+    'OsiriXDB.plist': 'file name', 'https://www.dicom.dcm/OsiriXDB.plist': 'file name', 'OsiriX CT - 129': 'stored preset name',
 }
 PREFIXES = tuple(ALLOWED)
 

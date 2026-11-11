@@ -1,20 +1,16 @@
 #!/usr/bin/env python3
-"""Each displayed series has one colour across its windows and thumbnails.
+"""The window colours a former plugin may ask for, and the thumbnail cell's scalars.
 
-A series takes the first free colour, shared by its windows until the last
-one closes or changes series. Other series keep their identities. The
-palette stays clear of the thumbnails' orange (this window's
-series) and green (the fused series) and of the key-image yellow.
-HorosViewerWindowColors itself is compiled and asked.
+HorosViewerWindowColors gave each displayed series a colour and a number of
+its own, shared by its windows until the last one closed or changed series.
+The application no longer uses it: the series are told apart by study, number
+and active window (tests/test-series-list-identification.py). The class stays
+for the plugins that were linked against it, and is compiled and asked here: a
+series takes the first free slot, other series keep theirs, a closed window
+frees its own.
 
-In the viewer: with more than one window, every window's image is framed in
-its colour, thick on the key view of the frontmost one, in place of the red
-border the frontmost window alone used to have. In the thumbnail column, the
-series a window shows is framed in that window's colour instead of yellow; this
-window's own series keeps its orange; a collapsed study takes the colour of
-its first series that is shown; the series menu uses the colour as the
-background the yellow was. The thumbnail cell keeps the colour as numbers: it
-is copied bitwise and must hold no object of its own.
+The thumbnail cell is copied bitwise by AppKit and must hold no object of its
+own: the colour of its frame and of its number are kept as components.
 """
 from pathlib import Path
 import re
@@ -126,83 +122,10 @@ def fail(message):
     raise SystemExit(1)
 
 
-def between(text, start, end):
-    i = text.index(start)
-    return text[i:text.index(end, i)]
-
-
-# DCMView is Swift: its class and its extensions, and the C of DCMView+CAPI.m.
-view = '\n'.join(path.read_text() for path in sorted((root / 'Horos/Sources').glob('DCMView*.swift'))) + \
-    (root / 'Horos/Sources/DCMView+CAPI.m').read_bytes().decode('latin1')
-# The frame is drawn by DCMView+Drawing.swift.
-drawing = (root / 'Horos/Sources/DCMView+Drawing.swift').read_text()
-frame = between(drawing, '@objc(drawFrame:)', 'PlanarFrameGraphics.enterImage(rotation:')
-if 'PlanarFrameGraphics.drawWindowBorder(size:' not in frame or 'color: ViewerWindowColors.color(for: viewer)' not in frame:
-    fail("the image is not framed in its window's colour")
-border = frame[frame.index('ViewerController.numberOf2DViewer() > 1'):frame.index('PlanarFrameGraphics.drawWindowBorder(size:')]
-if 'isKeyView &&' in border:
-    fail('only the key view is framed')
-if 'drawKeyViewBorderSize:' in view or 'drawKeyViewBorder(' in drawing:
-    fail('the red key-view border is still drawn')
-
-controller = (((root / 'Horos/Sources/ViewerController.m').read_text()) if (root / 'Horos/Sources/ViewerController.m').exists() else '')
-if '- (void) buildMatrixPreview: (BOOL) showSelected' in controller:
-    matrix = between(controller, '- (void) buildMatrixPreview: (BOOL) showSelected', '- (void) matrixPreviewSelectCurrentSeries')
-    # The Comparatives button, after the cells, keeps its own yellow.
-    cells = matrix[:matrix.index('@finally')]
-    framings = matrix.count('HorosSetThumbnailFrame(')
-    popup = between(controller, '- (void) buildSeriesPopup', '- (void) loadSelectedSeries:')
-    menu_framed = 'seriesWindowColors objectForKey: curSeries' in popup
-elif (root / 'Horos/Sources/SeriesListPresenter.swift').is_file():
-    # The list is built by SeriesListPresenter.swift, the menu by
-    # ViewerController+SeriesPopup.swift.
-    presenter = (root / 'Horos/Sources/SeriesListPresenter.swift').read_text()
-    matrix = presenter[presenter.index('// MARK: - Building the list'):]
-    # The Comparatives button keeps its own yellow; the cells are filled after it.
-    cells = matrix[matrix.index('private func fillCells('):]
-    framings = matrix.count('setFrame(')
-    menu = (root / 'Horos/Sources/ViewerController+SeriesPopup.swift').read_text()
-    if 'private func fill(_ menu: NSMenu?, from model: SeriesMenuModel' in menu:
-        # SeriesMenuPresenter: a series another window shows takes that
-        # window's colour in the menu.
-        popup = between(menu, 'private func fill(_ menu: NSMenu?, from model: SeriesMenuModel', 'private func newItem()')
-        menu_framed = ('case .windowColour:' in popup and 'horosSeriesWindowColors()?.object(forKey: curSeries)' in popup
-                       and 'hasWindowColour: seriesWindowColors?.object(forKey: series) is NSColor' in menu)
-    else:
-        popup = between(menu, 'func buildSeriesPopup()', 'func loadSelectedSeries(')
-        menu_framed = 'seriesWindowColors?.object(forKey: curSeries)' in popup
-else:
-    # The list and the menu are Swift (ViewerController+SeriesThumbnails.swift,
-    # +SeriesPopup.swift).
-    thumbnails = (root / 'Horos/Sources/ViewerController+SeriesThumbnails.swift').read_text()
-    matrix = between(thumbnails, 'func buildMatrixPreview(_ showSelected: Bool)', 'func matrixPreviewSelectCurrentSeries()')
-    cells = matrix[:matrix.index('// The comparatives button')]
-    framings = matrix.count('setThumbnailFrame(')
-    popup = between((root / 'Horos/Sources/ViewerController+SeriesPopup.swift').read_text(), 'func buildSeriesPopup()', 'func loadSelectedSeries(')
-    menu_framed = 'seriesWindowColors?.object(forKey: curSeries)' in popup
-if '_openItemColor' in cells or 'getDisplayedSeries' in cells:
-    fail('the thumbnail column still paints open series yellow')
-if framings < 3:
-    fail('the thumbnails are not reset and framed with the window colours')
-if '_openItemColor' in popup or not menu_framed:
-    fail('the series menu still paints open series yellow')
-if '- (void)windowWillClose:(NSNotification *)notification' in controller:
-    close = between(controller, '- (void)windowWillClose:(NSNotification *)notification', '\n}\n')
-    load = between(controller, '- (void)windowDidLoad', '\n}\n')
-    released, taken = 'releaseViewer: self', 'colorForViewer: self'
-else:
-    # The window's life is Swift: the viewer's graph runs it (ViewerSessionGraph+WindowLife.swift).
-    lifecycle = (root / 'Horos/Sources/ViewerSessionGraph+WindowLife.swift').read_text()
-    close = between(lifecycle, '    func closeWindow() {', '\n    }\n')
-    load = between(lifecycle, '    func windowDidLoad() {', '\n    }\n')
-    released, taken = 'ViewerWindowColors.release(viewer)', 'ViewerWindowColors.color(for: viewer)'
-if released not in close:
-    fail('a closing window keeps its colour')
-if taken not in load:
-    fail('a window does not take its colour as it opens')
-colors = (root / 'Horos/Sources/ViewerWindowColors.swift').read_text()
-if '@discardableResult\n    @objc(colorForViewer:)' not in colors:
-    fail('taking the colour at windowDidLoad leaves a result the compiler warns about (-Wunused-result)')
+# Nothing in the application calls the class any more.
+for path in sorted((root / 'Horos/Sources').glob('*.swift')):
+    if path.name != 'ViewerWindowColors.swift' and 'ViewerWindowColors.' in path.read_text(errors='replace'):
+        fail(f'{path.name} still uses the window colours')
 
 cell = (root / 'Horos/Sources/ThumbnailCell.swift').read_text()
 stored = re.findall(r'^\s*(?:private |public |@objc )*(?:var|let) (\w+)\s*(?::\s*([\w?<>\[\]]+))?\s*=', cell, re.M)
@@ -211,4 +134,6 @@ for name, kind in stored:
         fail(f'the cell stores an object, {name}: {kind}, which a bitwise copy does not retain')
 if 'framed' not in cell or 'frameRed' not in cell:
     fail('the cell does not keep the frame colour')
-print('ok: window colours assigned, kept and freed; drawn on images, thumbnails and the series menu')
+if 'numberColoured' not in cell or 'numberRed' not in cell:
+    fail('the cell does not keep the colour of its number')
+print('ok: window colours assigned, kept and freed for former plugins; the thumbnail cell stores scalars only')

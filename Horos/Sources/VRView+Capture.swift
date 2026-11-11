@@ -119,6 +119,7 @@ extension VRView {
 
         let rayCastImage = vtk.rayCastImageInfoFused(blendingView)
 
+        if !blendingView { horosWriteDirectPictureIntoImage() }
         let im = vtk.rayCastImageFused(blendingView)!
 
         let fullSize0 = Int(rayCastImage.memorySize.0)

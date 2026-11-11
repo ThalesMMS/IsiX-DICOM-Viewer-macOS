@@ -71,7 +71,16 @@ for name, text, pattern, guarded in conversions:
         if guarded not in text[match.end():match.end() + 200]:
             line = text.count('\n', 0, match.start()) + 1
             failures.append('FTo16U conversion at %s:%d is not followed by the 4D range guard' % (name, line))
-if found < 4:
+if swift_methods:
+    # One conversion, made when VTK's CPU mapper is about to read the copy
+    # (-horosEnsureData8). What changes the float volume marks the copy stale
+    # instead of converting it: the first frame of a 4D series, the scissors,
+    # the bone removal and a change of the volume's values.
+    stale = sum(text.count('horos_data8IsCurrent = false') for text in extensions.values())
+    if found != 1 or stale < 4:
+        failures.append('expected one FTo16U conversion of the main volume and at least four places that mark '
+                        'the 16-bit copy stale, found %d and %d' % (found, stale))
+elif found < 4:
     failures.append('expected the main-volume FTo16U conversion at least four times, found %d' % found)
 
 if any(re.search(r'horos_data\??\[[^\]\n]*pwidth[^\]\n]*\] = [^\n]*minimumValue\(\)', text) for text in extensions.values()):
@@ -106,6 +115,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property float horos_valueFactor, horos_OFFSET16;
 @property (readonly) BOOL horos_isRGB;
 @property (readonly, nullable) char *horos_data8;
+// The copy is current in every case here: the guard patches a converted copy.
+@property (readonly) BOOL horos_data8IsCurrent;
 @property (readonly) vImage_Buffer *horos_dst8 NS_RETURNS_INNER_POINTER;
 @end
 NS_ASSUME_NONNULL_END
@@ -260,6 +271,7 @@ if swift_methods:
 - (void) setHoros_OFFSET16:(float) value { OFFSET16 = value; }
 - (BOOL) horos_isRGB { return isRGB; }
 - (char *) horos_data8 { return data8; }
+- (BOOL) horos_data8IsCurrent { return YES; }
 - (vImage_Buffer *) horos_dst8 { return &dst8; }
 ''')
     assert DRIVER.count('#import "harness.h"') == 1 and DRIVER.count('- (vImage_Buffer *) horos_dst8') == 1

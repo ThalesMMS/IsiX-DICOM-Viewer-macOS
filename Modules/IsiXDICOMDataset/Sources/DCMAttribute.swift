@@ -81,9 +81,9 @@ func dcmVRCode(_ vr: String?) -> Int32 {
 }
 
 /// One element of a dataset: its tag, its value representation and its
-/// values - NSString, NSNumber, NSData or IsiXDICOMCalendarDate, as the reader
+/// values - NSString, NSNumber, NSData or DCMCalendarDate, as the reader
 /// made them or the caller set them.
-@objc(IsiXDCMAttribute)
+@objc(DCMAttribute)
 public class DCMAttribute: NSObject, NSCopying {
 
     @objc public private(set) var attrTag: DICOMAttributeTag!
@@ -150,7 +150,8 @@ public class DCMAttribute: NSObject, NSCopying {
     @objc public var group: Int32 { attrTag?.group ?? 0 }
     @objc public var element: Int32 { attrTag?.element ?? 0 }
     @objc public var valueMultiplicity: Int32 { Int32(values?.count ?? 0) }
-    public var vrStringValue: String! { attrTag?.stringValue }
+    @objc public var vrStringValue: String! { attrTag?.stringValue }
+    @objc
     public var paddedValueLength: Int { 0 }
 
     @objc public func value() -> Any! {
@@ -164,6 +165,7 @@ public class DCMAttribute: NSObject, NSCopying {
     }
 
     /// The length of the value as it would be written, in bytes.
+    @objc
     public var valueLength: Int {
         let values = self.values ?? NSMutableArray()
         let multiplicity = values.count
@@ -205,6 +207,7 @@ public class DCMAttribute: NSObject, NSCopying {
         return 0
     }
 
+    @objc
     public var paddedLength: Int {
         let length = valueLength
         return length % 2 != 0 ? length + 1 : length
@@ -215,6 +218,7 @@ public class DCMAttribute: NSObject, NSCopying {
         return values.description
     }
 
+    @objc(swapBytes:)
     public func swapBytes(_ data: NSMutableData) {
     }
 
@@ -230,12 +234,14 @@ public class DCMAttribute: NSObject, NSCopying {
                       valueMultiplicity)
     }
 
+    @objc(readableDescription)
     public func readableDescription() -> String {
         guard valueLength < 100 else { return "" }
         return String(format: "%@ : %@", attrTag?.readableDescription() ?? "(null)",
                       values?.componentsJoined(by: ",") ?? "")
     }
 
+    @objc(xmlNode)
     public func xmlNode() -> XMLNode {
         let tag = attrTag!
         let attributes = [XMLNode.attribute(withName: "group", stringValue: String(format: "%04x", tag.group)),

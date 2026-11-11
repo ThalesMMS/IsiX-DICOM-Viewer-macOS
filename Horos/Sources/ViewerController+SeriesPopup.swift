@@ -278,6 +278,21 @@ extension BrowserComparativeStudies: SeriesMenuBrowsing {
         return studies?.sortedArray(using: [NSSortDescriptor(key: "date", ascending: false)]) as NSArray?
     }
 
+    /// The number of the series the window shows: the one a series list gave
+    /// it, or, when none has listed it, its place among the series of its
+    /// study as the database lists them, which is the list's order. 0 when it
+    /// has no study.
+    func numberOfShownSeries() -> Int {
+        guard let series = viewer.currentSeries() else { return 0 }
+        let known = SeriesListIdentification.number(of: series)
+        if known > 0 { return known }
+        guard let study = series.study, let listed = browser.series(of: study),
+              let place = listed.firstIndex(where: { ($0 as AnyObject) === series }) else { return 0 }
+        let number = SeriesIdentity.number(atPlace: place)
+        SeriesListIdentification.setNumber(number, of: series)
+        return number
+    }
+
     /// The studies, the local copy of a PACS study when there is one, and the
     /// series of each; `countingCells` is told the series of each local study.
     func studies(_ studiesArray: NSArray, viewerStudy study: DicomStudy, database db: DicomDatabase?,
@@ -404,8 +419,6 @@ extension SeriesMenuPresenter {
         let inverted = ViewerController.horos_DisplayUseInvertedPolarity()
         var noStudy = false
         var read = Read()
-        var showsSeriesColors = false
-
         if let e = HorosObjCException.caught({
             let curImage = viewer.horos_fileList(at: 0)?.object(at: 0) as? DicomImage
 
@@ -423,8 +436,7 @@ extension SeriesMenuPresenter {
 
             guard let studiesArray = found, studiesArray.count != 0 else { return }
 
-            showsSeriesColors = SeriesListIdentification.showsColors(in: preferences)
-            let seriesWindowColors = ViewerController.horosSeriesWindowColors()
+            let seriesWindowColors = ViewerController.horosSeriesOpenColors()
             let listed = studies(NSArray(array: studiesArray as [AnyObject]), viewerStudy: study, database: db, countingCells: nil)
 
             for index in 0..<listed.shown.count {
@@ -438,7 +450,7 @@ extension SeriesMenuPresenter {
                           viewerStudy: study, database: db, inverted: inverted, into: &read) { series in
                     let isShown = viewerSeries.contains(series)
                     return SeriesMenuModel.Series(name: Self.menuName(of: series), imageCount: series.images?.count ?? 0, isShown: isShown,
-                                                  isFused: showsSeriesColors && !isShown && self.viewer.blending()?.currentSeries() === series,
+                                                  isFused: !isShown && self.viewer.blending()?.currentSeries() === series,
                                                   hasWindowColour: seriesWindowColors?.object(forKey: series) is NSColor)
                 }
             }
@@ -447,7 +459,7 @@ extension SeriesMenuPresenter {
         }
         if noStudy { return }
 
-        let model = SeriesMenuModel(studies: read.studies, showsSeriesColors: showsSeriesColors)
+        let model = SeriesMenuModel(studies: read.studies)
         fill(menu, from: model, read: read, inverted: inverted)
 
         viewer.horos_seriesPopupContextualMenu?.submenu = menu?.copy() as? NSMenu
@@ -586,8 +598,8 @@ extension SeriesMenuPresenter {
                 case .fused:
                     attributes[.backgroundColor] = SeriesListColors.fused
                 case .windowColour:
-                    // The colour of the window that shows it.
-                    attributes[.backgroundColor] = (ViewerController.horosSeriesWindowColors()?.object(forKey: curSeries) as? NSColor)?.withAlphaComponent(0.5)
+                    // The colour of the study of the window that shows it.
+                    attributes[.backgroundColor] = (ViewerController.horosSeriesOpenColors()?.object(forKey: curSeries) as? NSColor)?.withAlphaComponent(0.5)
                 case .none:
                     break
                 }

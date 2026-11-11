@@ -53,6 +53,11 @@ func write(_ name: String, _ data: Data) -> String { let p = directory.appending
 let pdfBytes = Data("%PDF-1.4 synthetic".utf8)
 let pdf = write("pdf.dcm", file(uiElement(0x0008, 0x0016, "1.2.840.10008.5.1.4.1.1.104.1") + element(0x0042, 0x0011, "OB", pdfBytes)))
 let pdfAssessment = EnhancedImportTriage.assessPath(pdf)
+// The incoming scan hands one mapped and parsed file to its triages.
+let shared = DICOMTriageFile(path: pdf)
+expect(shared.parsed != nil && !shared.isDeflated, "the shared file is parsed")
+expect(EnhancedImportTriage.assess(shared).mayMergeIntoIncoming == pdfAssessment.mayMergeIntoIncoming, "the shared file assesses as the path does")
+expect(EnhancedImportTriage.isDeflatedDICOM(atPath: pdf) == shared.isDeflated, "the deflate check reads as the path does")
 expect(pdfAssessment.detectedDICOM, "the encapsulated PDF is DICOM")
 expect(pdfAssessment.mayMergeIntoIncoming, "an encapsulated PDF is merged into incoming: \(pdfAssessment.recordedError ?? "")")
 expect(pdfAssessment.thumbnailCompatible, "an encapsulated PDF does not claim a broken thumbnail")

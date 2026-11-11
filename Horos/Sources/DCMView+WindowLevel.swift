@@ -696,11 +696,14 @@ extension DCMView {
                                                                             useFrameOfReference: useFrameOfReference,
                                                                             sameStudyOnly: sameStudyOnly,
                                                                             registered: registeredViewer)
-                // Kept for diagnosis and logged, never drawn; nothing is
-                // missing while the lines are turned off.
+                // Kept for diagnosis and logged when it changes, never drawn;
+                // nothing is missing while the lines are turned off.
                 self.referenceLineAbsenceReason = DISPLAYCROSSREFERENCELINES != 0 ? relationshipReason : nil
-                if let relationshipReason, !relationshipReason.isEmpty {
-                    NSLog("-- %@%@\r%@\r%@", ViewerReferenceLines.logPrefix() as NSString, relationshipReason as NSString, objcLogArg(oFrameofReferenceUIDObject), objcLogArg(self.curDCM?.frameofReferenceUID as NSString?))
+                if relationshipReason != self.horos_loggedReferenceLineReason {
+                    self.horos_loggedReferenceLineReason = relationshipReason
+                    if let relationshipReason, !relationshipReason.isEmpty {
+                        NSLog("-- %@%@\r%@\r%@", ViewerReferenceLines.logPrefix() as NSString, relationshipReason as NSString, objcLogArg(oFrameofReferenceUIDObject), objcLogArg(self.curDCM?.frameofReferenceUID as NSString?))
+                    }
                 }
 
                 if ViewerReferenceLines.admitSynchronization(sameWorld: same3DReferenceWorld,

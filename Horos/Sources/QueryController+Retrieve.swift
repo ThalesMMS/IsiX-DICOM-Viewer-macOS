@@ -156,15 +156,22 @@ extension QueryController {
                 // A retrieve the user asks for here waits its turn in the queue
                 // of Settings > Locations; Command queues it behind the ones
                 // under way. Retrieve & View and auto-retrieves do not wait.
-                var status = QueryController.singularPluralCount(selectedItems.count, NSLocalizedString("study", comment: ""), NSLocalizedString("studies", comment: ""))
+                // What is retrieved, for its line in Activity: series as
+                // series, and whose they are, which the study a series was
+                // listed under knows.
+                let summary = RetrieveRequestSummary(items: selectedItems.compactMap { item -> RetrieveRequestSummary.Item? in
+                    guard let node = item as? DCMTKQueryNode else { return nil }
+                    guard node is DCMTKSeriesQueryNode else { return .init(isSeries: false, patientName: node.name()) }
+                    let description = node.theDescription() ?? ""
+                    return .init(isSeries: true, patientName: (outlineView.parent(forItem: node) as? DCMTKQueryNode)?.name(),
+                                 seriesLabel: description.isEmpty ? node.name() : description)
+                })
+                let status = summary.text(
+                    studyCount: { QueryController.singularPluralCount($0, NSLocalizedString("study", comment: ""), NSLocalizedString("studies", comment: "")) },
+                    seriesCount: { String(format: NSLocalizedString("%d series", comment: ""), Int32($0)) })
                 var ticket: RetrieveQueue.Ticket?
                 var shown = status
                 if showGUI && !forViewing && !onlyIfNotAvailable {
-                    // Who is waiting: the patient of a single study, as the
-                    // line reads once the retrieve runs.
-                    if selectedItems.count == 1, let name = (selectedItems.lastObject as? DCMTKQueryNode)?.name(), !name.isEmpty {
-                        status += " - " + name.replacingOccurrences(of: "^", with: " ")
-                    }
                     let explicitlyQueued = NSApp.currentEvent?.modifierFlags.contains(.command) == true
                     let queued = RetrieveQueue.shared.ticket(explicitlyQueued: explicitlyQueued)
                     ticket = queued

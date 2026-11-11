@@ -22,9 +22,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources as dicom_database_sources  # noqa: E402
 import isix_modules  # noqa: E402
 database = dicom_database_sources.class_text('DicomDatabase')
-if 'EnhancedImportTriage.assessPath' not in database or 'mayMergeIntoIncoming' not in database:
+if 'EnhancedImportTriage.assess(triageFile)' not in database or 'mayMergeIntoIncoming' not in database:
     failures.append('incoming scan no longer asks the Enhanced stack gate')
-if 'IVUSImportTriage.assessPath' not in database or 'appliesToFile' not in database:
+if 'IVUSImportTriage.assess(triageFile)' not in database or 'appliesToFile' not in database:
     failures.append('incoming scan still merges an IVUS/US object without asking the isolated IVUS gate')
 
 # DicomSeries is Swift; the assertions read its Swift spelling.

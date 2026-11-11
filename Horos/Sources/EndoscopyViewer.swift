@@ -879,6 +879,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
     private dynamic func CloseViewerNotification(_ note: Notification?) {
         // ViewerController *v = [note object]: [v pixList] is a message to
         // the object, which raises as before if it does not answer it.
+        if PreviousSeriesHold.window(self, keepsSeriesReleasedBy: note) { return }
         let v = note?.object as AnyObject?
         let vPixList = v?.perform(NSSelectorFromString("pixList"))?.takeUnretainedValue()
 

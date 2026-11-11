@@ -114,7 +114,7 @@ if bridge is None:
     hook_entry = view_render[view_render.index('func horosRenderMetalImageFused('):]
     hook_entry = hook_entry[:hook_entry.index('\n    }\n')]
     if ('[vtk setMetalImageRenderer:' if objc_view else 'horos_vtk.setMetalImageRenderer {') not in view or \
-            'return horosRenderMetalImage(in: scene, fused: fused, mprPlane: mprPlane)' not in hook_entry:
+            'horosRenderMetalImage(in: scene, fused: fused, mprPlane: mprPlane) {' not in hook_entry:
         failures.append('the view does not hand its hook to the adapter')
     if 'Fusion keeps the original renderer' in host:
         failures.append('the snapshot still refuses fusion')

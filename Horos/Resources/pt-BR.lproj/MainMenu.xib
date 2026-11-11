@@ -74,6 +74,12 @@
                                     <action selector="showDatabase:" target="898" id="1030"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Painel de histórico horizontal (na próxima abertura)" id="hzh-his-001">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <binding destination="12279" name="value" keyPath="values.horizontalHistory" id="hzh-bnd-001"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="Alternar gaveta de álbuns e fontes" id="14591">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
@@ -231,6 +237,12 @@
                                         <menuItem title="Importar imagens e PDFs para o estudo selecionado…" id="Isp-im-Itm">
                                             <connections>
                                                 <action selector="importImagesAndPDFsIntoSelectedStudy:" target="Isp-im-Obj" id="Isp-im-Act"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="Lgc-im-Sep"/>
+                                        <menuItem title="Importar estudos do Horos ou OsiriX…" id="Lgc-im-Itm">
+                                            <connections>
+                                                <action selector="importStudiesFromEarlierApplication:" target="Isp-im-Obj" id="Lgc-im-Act"/>
                                             </connections>
                                         </menuItem>
                                     </items>

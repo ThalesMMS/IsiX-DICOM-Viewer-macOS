@@ -13,22 +13,6 @@ import IsiXImaging
 import IsiXPreferences
 import ObjectiveC
 
-/// What an MPR window holds for its Metal planes: the reslicers of its
-/// volume (one, or three for an RGB volume's channels) and of a fused series,
-/// each with the volume it holds, and the outcome of the last plane.
-@MainActor final class MPRMetalHostState {
-    var reslicer: MPRReslicerBridge?
-    var uploaded: MPRHostVolume?
-    var fusedReslicer: MPRReslicerBridge?
-    var fusedUploaded: MPRHostVolume?
-    var colourReslicers: [MPRReslicerBridge]?
-    var colourUploaded: MPRHostVolume?
-    /// Why the last plane kept the original pixels, or nil.
-    var fallbackReason: String?
-    /// Wall milliseconds of the last synchronous Metal reslice.
-    var lastMilliseconds: Double?
-}
-
 /// Settings → 3D holds the MPR's cubic display option. An open MPR follows a
 /// change at once: this observer reconstructs its planes. There is one, made
 /// on first use and kept for the life of the app; the defaults do not retain
@@ -128,6 +112,32 @@ extension MPRController {
         state.uploaded = nil
         state.fusedUploaded = nil
         state.lastMilliseconds = nil
+    }
+
+    // MARK: - Voxels rewritten in place
+
+    /// Scissors or bone removal in a 3D window and «set pixels» or a filter in
+    /// the 2D viewer write into the buffer the reslicers were uploaded from.
+    /// The buffer stays the same one, so the upload key cannot see the change:
+    /// the textures are dropped here and the planes reconstructed. Several
+    /// notifications in one pass of the run loop make one upload.
+    @objc(horosMPRVolumeDataChanged:)
+    func horosMPRVolumeDataChanged(_ note: Notification) {
+        guard let edited = note.object as AnyObject? else { return }
+        let primary = edited === horosMPRCurrentPixList(), fused = edited === horosMPRFusedPixList()
+        guard primary || fused else { return }
+        let state = metalHost
+        state.volumeEdited(primary: primary, fused: fused)
+        guard !state.reconstructionPending else { return }
+        state.reconstructionPending = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let state = self.metalHost
+            state.reconstructionPending = false
+            // Nothing was drawn yet, or the window has closed.
+            guard state.reslicer != nil || state.colourReslicers != nil else { return }
+            self.horosMPRReconstructPlanes()
+        }
     }
 
     /// Closing the window frees the GPU volumes and the reslicers.

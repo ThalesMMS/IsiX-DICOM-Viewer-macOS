@@ -441,3 +441,48 @@ struct AnnotationLineTexts {
         }
     }
 }
+
+/// Where the lines of the two lower corners end, as they are drawn, so that a
+/// label centred at the bottom of the view can keep clear of them: in a
+/// narrow view the zoom and the thickness lines reach the middle.
+public struct LowerCornerText: Sendable, Equatable {
+    /// The right end of the lower left lines and the raster above them.
+    public private(set) var left: (maxX: Double, top: Double)?
+    /// The left end of the lower right lines and the raster above them.
+    public private(set) var right: (minX: Double, top: Double)?
+
+    public init() {}
+
+    public static func == (a: LowerCornerText, b: LowerCornerText) -> Bool {
+        a.left?.maxX == b.left?.maxX && a.left?.top == b.left?.top && a.right?.minX == b.right?.minX && a.right?.top == b.right?.top
+    }
+
+    /// Notes the text lines of a position, of which only the two lower
+    /// corners count. A line is as wide as its characters, each
+    /// `characterWidth` wide; `endY` is the raster after its last line.
+    public mutating func note(position: String, commands: [AnnotationOverlayLayout.Command], endY: Int, characterWidth: Double) {
+        guard position == "LowerLeft" || position == "LowerRight" else { return }
+        var longest = 0.0, anchor: Double?
+        for case .text(let text, let x, _, _) in commands {
+            longest = max(longest, Double(text.count) * characterWidth)
+            anchor = Double(x)
+        }
+        guard let anchor, longest > 0 else { return }
+        if position == "LowerLeft" {
+            left = (anchor + longest, Double(endY))
+        } else {
+            right = (anchor - longest, Double(endY))
+        }
+    }
+
+    /// The top of a label `height` tall between `minX` and `maxX`, which would
+    /// stand at `preferred`: there when the corners' lines leave it room, else
+    /// above the lines it would cover, `gap` away from them. The view's y
+    /// grows downwards.
+    public func labelTop(preferred: Double, minX: Double, maxX: Double, height: Double, gap: Double) -> Double {
+        var top = preferred
+        if let left, minX < left.maxX + gap { top = min(top, left.top - height - gap) }
+        if let right, maxX > right.minX - gap { top = min(top, right.top - height - gap) }
+        return top
+    }
+}

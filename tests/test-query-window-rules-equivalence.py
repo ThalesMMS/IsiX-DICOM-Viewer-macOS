@@ -251,7 +251,7 @@ func describe(_ value: Any?) -> String {
     guard let value else { return "nil" }
     // The DICOM date type: the old code's DCMCalendarDate, the current
     // code's DICOMCalendarDate (IsiXDICOMFile); one name for both.
-    if let date = value as? DCMCalendarDate {
+    if let date = value as? FormerDCMCalendarDate {
         // A query date is its text; the instant it holds is when it was made.
         return date.isQuery() ? "DCMCalendarDate query \(date.dateString() ?? "")" : "DCMCalendarDate(\(date.timeIntervalSinceReferenceDate))"
     }
@@ -398,6 +398,10 @@ with tempfile.TemporaryDirectory(prefix='isix-query-rules-') as folder:
     for path in ('DCM Framework/DCMCalendarDate.h', 'DCM Framework/DCMCalendarDate.m',
                  'Horos/Sources/Horos.h', 'Horos/Sources/Horos.m'):
         (work / Path(path).name).write_bytes(history_reference.show(reference, path))
+    # The module's date class has the framework's name in the Objective-C runtime;
+    # the framework's is compiled as FormerDCMCalendarDate, so that one process holds both.
+    (work / 'DCMCalendarDate.h').write_bytes(b'#define DCMCalendarDate FormerDCMCalendarDate\n'
+                                            + (work / 'DCMCalendarDate.h').read_bytes())
     (work / 'DCM/DCMCalendarDate.h').symlink_to(work / 'DCMCalendarDate.h')
     (work / 'DCM.h').write_text('#import <Foundation/Foundation.h>\n#define DCMDEBUG 0\n#import "DCMCalendarDate.h"\n')
     (work / 'Old.h').write_text(OLD_HEADER)

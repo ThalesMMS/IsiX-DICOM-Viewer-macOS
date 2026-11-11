@@ -59,8 +59,9 @@
 @interface PluginFilter : NSObject
 
 /** Current (frontmost and active) 2D viewer containing an image serie, as
-    -prepareFilter: was given it. */
-@property (nonatomic, retain) ViewerController *viewerController;
+    -prepareFilter: was given it. Not owned, as the instance variable the
+    former SDK declared was not. */
+@property (nonatomic, assign) ViewerController *viewerController;
 
 /** [[self alloc] init]; -init calls -initPlugin. */
 + (PluginFilter *)filter NS_SWIFT_NAME(filter());

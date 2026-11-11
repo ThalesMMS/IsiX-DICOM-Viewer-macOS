@@ -622,9 +622,7 @@ public final class DicomStudy: NSManagedObject {
 
             HorosObjCException.logged("-[DicomStudy setStateText:]", stack: true) {
                 if self.hasDICOM?.boolValue == true && PreferencesSource.process.preferences[DatabasePreferences.savedCommentsAndStatusInDICOMFiles] && (DicomDatabase(for: self.managedObjectContext)?.isLocal() ?? false) {
-                    if c == nil {
-                        c = NSNumber(value: 0 as Int32)
-                    }
+                    c = c ?? NSNumber(value: 0 as Int32)
 
                     if (c?.int32Value ?? 0) != ((self.primitiveValue(forKey: "stateText") as? NSNumber)?.int32Value ?? 0) {
                         let dict = dicomStudyModifyDictionary(self.paths()?.allObjects, "(4008,0212)", c?.stringValue)
@@ -653,6 +651,7 @@ public final class DicomStudy: NSManagedObject {
 
             if (c?.int32Value ?? 0) != (previousState?.int32Value ?? 0) {
                 self.archiveAnnotationsAsDICOMSR()
+                StudyStates.stateChanged(of: self, from: previousState?.int32Value ?? 0, to: c?.int32Value ?? 0)
             }
         }
     }

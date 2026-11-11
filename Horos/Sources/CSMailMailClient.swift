@@ -63,7 +63,7 @@ public final class CSMailMailClient: NSObject {
     private var defaultSMTPAccount: [String: Any]?
     private var fromAddress: String?
 
-    /// The preferences: whether Mail sends the emails, the sender's address and Mail's own domain.
+    /// The preferences: the sender's address and Mail's own domain.
     private static var preferences: UserDefaults { PreferencesSource.process.preferences }
 
     /// Mail's preferences domain, whose UserHeaders a message with a Reply-To changes for its delivery.
@@ -173,16 +173,6 @@ public final class CSMailMailClient: NSObject {
 
     public override init() {
         super.init()
-
-        if CSMailMailClient.preferences[NetworkPreferences.webServerUseMailAppForEmails] == false {
-            if defaultSMTPAccount == nil {
-                defaultSMTPAccount = smtpAccountFromMail()
-                if defaultSMTPAccount == nil {
-                    //We can't do anything without an account.
-                    NSLog("**** MailMe: No suitable SMTP account found")
-                }
-            }
-        }
     }
 
     @objc(script)
@@ -629,9 +619,9 @@ public final class CSMailMailClient: NSObject {
 
     @objc(deliverMessage:headers:)
     public func deliverMessage(_ messageBody: String!, headers messageHeaders: NSDictionary!) -> Bool {
-        let useMail = CSMailMailClient.preferences[NetworkPreferences.webServerUseMailAppForEmails]
-
-        return deliverMessage(messageBody, headers: messageHeaders, withMailApp: useMail)
+        // The SMTP path reads the account from a Mail file that macOS no longer
+        // has. Plugins can still ask for it through -deliverMessage:headers:withMailApp:.
+        return deliverMessage(messageBody, headers: messageHeaders, withMailApp: true)
     }
 
     @objc(deliverMessage:headers:withMailApp:)

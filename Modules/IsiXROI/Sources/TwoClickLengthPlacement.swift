@@ -62,13 +62,18 @@ public struct TwoClickLengthPlacement<Reference: Equatable>: Equatable {
         public var reference: Reference?
         /// The series and the frame of reference, with patient geometry only.
         public var patient: Patient?
+        /// Clicked on a slab of several slices: the point is on the image
+        /// shown, and has no depth of its own in the volume.
+        public var onSlab: Bool
 
-        public init(imagePoint: CGPoint, imageIndex: Int, temporalIndex: Int, reference: Reference?, patient: Patient?) {
+        public init(imagePoint: CGPoint, imageIndex: Int, temporalIndex: Int, reference: Reference?, patient: Patient?,
+                    onSlab: Bool = false) {
             self.imagePoint = imagePoint
             self.imageIndex = imageIndex
             self.temporalIndex = temporalIndex
             self.reference = reference
             self.patient = patient
+            self.onSlab = onSlab
         }
 
         /// Whether the two were clicked on one image: the same one in the
@@ -98,6 +103,9 @@ public struct TwoClickLengthPlacement<Reference: Equatable>: Equatable {
         case samePlace
         /// A second image without patient geometry: an alert, the first point stays.
         case needsGeometry
+        /// A second image shown as a slab: a beep, the first point stays
+        /// until thin slices return.
+        case needsThinSlices
         /// The click is the first point; `replacing` when a first point of
         /// another series, frame of reference or time point is dropped.
         case first(Endpoint, replacing: Bool)
@@ -142,14 +150,10 @@ public struct TwoClickLengthPlacement<Reference: Equatable>: Equatable {
         clickCount == 2 && hasHotKeyAction
     }
 
-    /// Whether a click on an image of a stack of `stack` slices only beeps:
-    /// over a slab the first point waits for thin slices to return.
-    public static func waitsForThinSlices(stack: Int) -> Bool {
-        stack > 1
-    }
-
-    /// What the mouse-up of a click at `endpoint` does, on thin slices.
-    /// `viewDistance` measures two image points in view points.
+    /// What the mouse-up of a click at `endpoint` does. `viewDistance`
+    /// measures two image points in view points. A slab takes both clicks on
+    /// the image it shows, as it takes a drag; a point of a slab has no depth,
+    /// so it is neither end of a length through the volume.
     public func step(at endpoint: Endpoint, viewDistance: (CGPoint, CGPoint) -> Double) -> Step {
         // Both clicks on one image measure on it, as a drag between them
         // does: the length through the volume is for points on different slices.
@@ -157,6 +161,9 @@ public struct TwoClickLengthPlacement<Reference: Equatable>: Equatable {
             if viewDistance(first.imagePoint, endpoint.imagePoint) < Self.dragDistance { return .samePlace }
             return .drag(from: first.imagePoint, to: endpoint.imagePoint)
         }
+
+        if endpoint.onSlab { return first == nil ? .first(endpoint, replacing: false) : .needsThinSlices }
+        if let first, first.onSlab { return .first(endpoint, replacing: true) }
 
         guard let patient = endpoint.patient else {
             return first == nil ? .first(endpoint, replacing: false) : .needsGeometry

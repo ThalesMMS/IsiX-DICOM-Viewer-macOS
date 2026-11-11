@@ -202,6 +202,14 @@ import IsiXPreferences
         #expect(StackFusion.mode(3, imageSizes: [(4, 4), (5, 4)]) == 0)
         #expect(StackFusion.mode(3, imageSizes: []) == 3)
         #expect(StackFusion.isVolumeRendering(5) && StackFusion.flipsVolumeRendering(4) && !StackFusion.flipsVolumeRendering(5))
+        // The slider's thin end is one slice, which is no slab.
+        #expect(StackFusion.sliderMove(to: 1, active: true, tracking: true) == .switchOff)
+        #expect(StackFusion.sliderMove(to: 0, active: true, tracking: false) == .switchOff)
+        #expect(StackFusion.sliderMove(to: 1, active: false, tracking: true) == .none)
+        // The drag that switched the fusion off brings it back; nothing else starts one.
+        #expect(StackFusion.sliderMove(to: 7, active: false, tracking: true) == .start(7))
+        #expect(StackFusion.sliderMove(to: 7, active: false, tracking: false) == .set(7))
+        #expect(StackFusion.sliderMove(to: 2, active: true, tracking: true) == .set(2))
         #expect(StackFusion.thickness(afterSteps: 3, active: false, current: 7, maximum: 10) == 2)
         #expect(StackFusion.thickness(afterSteps: -1, active: false, current: 7, maximum: 10) == nil)
         #expect(StackFusion.thickness(afterSteps: 500, active: true, current: 2, maximum: 300) == 130)

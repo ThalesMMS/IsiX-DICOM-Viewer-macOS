@@ -401,8 +401,22 @@ public final class CPRMPRDCMView: DCMView {
         }
     }
 
+    /// On a screen of another scale the picture must be rendered again at that
+    /// scale, or it keeps its pixels and changes size in the pane.
+    public override dynamic func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+
+        guard _vrView != nil, _camera != nil, self.window != nil else { return }
+
+        _camera?.forceUpdate = true
+        self.restoreCamera()
+        self.updateViewMPR()
+    }
+
     @objc(checkForFrame)
     private dynamic func checkForFrame() {
+        _vrView?.setHostBackingScale(backingScaleFactor)
+
         let frame = self.convert(self.bounds, to: nil)
 
         if NSEqualRects(frame, _vrView?.frame ?? NSZeroRect) == false {

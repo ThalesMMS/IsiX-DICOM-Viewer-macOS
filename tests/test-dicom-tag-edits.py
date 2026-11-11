@@ -29,26 +29,24 @@ code = r'''
 #include <vector>
 
 // Stands in for the IsiXDICOMFile tag: the parser only reads group/element.
-@interface IsiXDICOMAttributeTag : NSObject
+@interface DCMAttributeTag : NSObject
 @property unsigned short group;
 @property unsigned short element;
 + (instancetype) group:(unsigned short)g element:(unsigned short)e;
 @end
-@implementation IsiXDICOMAttributeTag
+@implementation DCMAttributeTag
 + (instancetype) group:(unsigned short)g element:(unsigned short)e {
-    IsiXDICOMAttributeTag *t = [IsiXDICOMAttributeTag new]; t.group = g; t.element = e; return t;
+    DCMAttributeTag *t = [DCMAttributeTag new]; t.group = g; t.element = e; return t;
 }
 @end
-// The parser of an earlier revision names the DCM framework's class.
-@compatibility_alias DCMAttributeTag IsiXDICOMAttributeTag;
 
 PARSER
 
 #define check(...) do{if(!(__VA_ARGS__)){NSLog(@"FAIL: %s",#__VA_ARGS__);return 1;}}while(0)
 
 int main(){@autoreleasepool{
- IsiXDICOMAttributeTag *comment = [IsiXDICOMAttributeTag group:0x0032 element:0x4000];
- IsiXDICOMAttributeTag *name = [IsiXDICOMAttributeTag group:0x0010 element:0x0010];
+ DCMAttributeTag *comment = [DCMAttributeTag group:0x0032 element:0x4000];
+ DCMAttributeTag *name = [DCMAttributeTag group:0x0010 element:0x0010];
  NSUInteger rejected = 0;
 
  // One element removes; two replace, and an empty second element is a value.

@@ -173,7 +173,7 @@ panes += [root / 'Horos/Resources' / f'{language}.lproj' for language in ('ar', 
 for pane in panes:
     tree = ET.parse(pane / 'OSIViewerPreferencePanePref.xib')
     assert len(tree.findall(f'.//binding[@keyPath="values.{KEY}"]')) == 1, pane.name
-    box = tree.find('.//box[@id="100"]/view')
+    box = tree.find('.//box[@id="roi-tools-box"]/view')
     button = box.find('.//button[@id="roi-delete-successor-control"]')
     assert button is not None and button.find('buttonCell').get('title'), pane.name
     frame = button.find('rect')

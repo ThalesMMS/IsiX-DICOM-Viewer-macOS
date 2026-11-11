@@ -41,6 +41,7 @@ import AppKit
 import CoreData
 import UniformTypeIdentifiers
 import IsiXDICOMFile
+import IsiXImaging
 
 // The thumbnails of the selected row: the database preview asks for them with
 // a ThumbnailRequest when the selection changes, and ThumbnailLoader makes them
@@ -224,5 +225,109 @@ actor ThumbnailLoader {
         pix.revert(false) // <- Kill the raw data
         guard let decoded, !pix.notAbleToLoadImage else { return (notFound, pix) }
         return (decoded, pix)
+    }
+}
+
+/// The pictures of the viewers' series lists. One per series is kept scaled,
+/// so that rebuilding a list does not decode and scale them again, and a
+/// series with no stored thumbnail has one decoded off the main thread: an
+/// image takes tenths of a second, which the list must not wait for.
+@MainActor final class SeriesListThumbnails {
+    static let shared = SeriesListThumbnails()
+
+    private final class Picture {
+        let stored: Data?, size: SeriesListPictureSize, inverted: Bool, image: NSImage
+        init(stored: Data?, size: SeriesListPictureSize, inverted: Bool, image: NSImage) {
+            self.stored = stored; self.size = size; self.inverted = inverted; self.image = image
+        }
+    }
+
+    /// What is carried to the decoding queue and back. The series is only
+    /// touched on the main actor.
+    private struct Job: @unchecked Sendable {
+        let id: NSManagedObjectID, series: DicomSeries, imageID: NSManagedObjectID?, database: DicomDatabase?, storing: Bool
+    }
+
+    private let pictures = NSCache<NSManagedObjectID, Picture>()
+    /// Thumbnails made while the preference does not store them, or of a file that cannot be read.
+    private let made = NSCache<NSManagedObjectID, NSImage>()
+    private var pending = Set<NSManagedObjectID>()
+    private let queue = DispatchQueue(label: "Series list thumbnails", qos: .userInitiated)
+
+    init() {
+        pictures.countLimit = 4000
+        made.countLimit = 4000
+    }
+
+    private func scaled(_ image: NSImage, to size: SeriesListPictureSize) -> NSImage {
+        if case .scaled(let factor) = size { return image.imageByScalingProportionallyUsingNSImage(Float(factor)) ?? image }
+        return image
+    }
+
+    /// An empty picture of the size of a scaled thumbnail, or nil for none.
+    func emptyPicture(size: SeriesListPictureSize) -> NSImage? {
+        scaled(NSImage(size: NSSize(width: CGFloat(THUMBNAILSIZE), height: CGFloat(THUMBNAILSIZE))), to: size)
+    }
+
+    /// The series' picture, or nil while it has no thumbnail.
+    func picture(of series: DicomSeries, size: SeriesListPictureSize, inverted: Bool) -> NSImage? {
+        let stored = series.primitiveValue(forKey: "thumbnail") as? Data
+        if let kept = pictures.object(forKey: series.objectID), kept.stored == stored, kept.size == size, kept.inverted == inverted {
+            return kept.image
+        }
+        guard var image = stored.flatMap({ NSImage(data: $0) }) ?? made.object(forKey: series.objectID) else { return nil }
+        if inverted { image = image.imageInverted() }
+        let picture = scaled(image, to: size)
+        pictures.setObject(Picture(stored: stored, size: size, inverted: inverted, image: picture), forKey: series.objectID)
+        return picture
+    }
+
+    /// Decodes `image` for `series`, once however many lists ask, and sets
+    /// the result on every list that shows the series.
+    func make(series: DicomSeries, image: DicomImage?, database: DicomDatabase?, storing: Bool) {
+        guard pending.insert(series.objectID).inserted else { return }
+        let job = Job(id: series.objectID, series: series, imageID: image?.objectID, database: database, storing: storing)
+        queue.async {
+            let decoded = Self.decode(job)
+            let result = LentImage(image: decoded)
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { SeriesListThumbnails.shared.finish(job, result.image) }
+            }
+        }
+    }
+
+    private struct LentImage: @unchecked Sendable { let image: NSImage? }
+
+    /// The series' first image, decoded on the queue through a context of its own.
+    private nonisolated static func decode(_ job: Job) -> NSImage? {
+        autoreleasepool {
+            guard let imageID = job.imageID, let database = job.database?.privateQueueIndependentDatabase() as? DicomDatabase else { return nil }
+            var result: NSImage?
+            N2ManagedObjectContextPerformAndWait(database.managedObjectContext) {
+                if let raised = HorosObjCException.caught({
+                    guard let image = database.object(withID: imageID) as? DicomImage else { return }
+                    let seriesID = (image.series?.id?.intValue).map { Int($0) } ?? 0
+                    let pix = DCMPix(path: image.completePath(), 0, 0, nil, 0, seriesID, isBonjour: !database.isLocal(), imageObj: image)
+                    pix?.checkLoad()
+                    if let pix, !pix.notAbleToLoadImage { result = pix.generateThumbnailImage(withWW: 0, wl: 0) }
+                }) {
+                    _N2LogExceptionImpl(raised, true, "-[SeriesListThumbnails decode]")
+                }
+            }
+            return result
+        }
+    }
+
+    private func finish(_ job: Job, _ image: NSImage?) {
+        pending.remove(job.id)
+        guard job.series.managedObjectContext != nil, !job.series.isDeleted else { return }
+        if let image, job.storing {
+            job.series.thumbnail = BrowserController.produceJPEGThumbnail(image)
+        } else if let shown = image ?? NSImage(named: "FileNotFound.tif") {
+            made.setObject(shown, forKey: job.id)
+        }
+        for case let viewer as ViewerController in ViewerController.getDisplayed2DViewers() {
+            viewer.seriesListPresenter.thumbnailMade(for: job.series)
+        }
     }
 }

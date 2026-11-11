@@ -175,7 +175,7 @@ with tempfile.TemporaryDirectory(prefix='horos-import-syntax-') as directory:
 # DICOM" or, with DELETEFILELISTENER, deleted.
 database = (root/'Horos/Sources/IncomingAdmission.swift').read_text()
 rules = (root/'Modules/IsiXDatabase/Sources/DatabaseImportRules.swift').read_text()
-routed = database.find('} else if isDeflatedDICOM(srcPath) {')
+routed = database.find('} else if isDeflatedDICOM(triageFile) {')
 checked = database.find('let isDicomFile = DicomFile.isDICOMFile(srcPath, compressed:')
 assert 0 <= routed < checked, 'deflated files are not routed before the probe'
 assert 'conversion.convertScanned(deflatedPathArray, mode: .decompress)' in database, \

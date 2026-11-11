@@ -143,7 +143,7 @@ private func incomingLooksLikeCloudReport(_ dict: NSDictionary) -> Bool {
 
 /// Groups a Cloud/PDF report with the study it references. Name alone does not
 /// join patients or studies. The file keeps its original Study Instance UID.
-private func associateCloudReports(_ dicomFilesArray: NSArray, _ studiesArray: NSArray, _ context: NSManagedObjectContext?) {
+private func associateCloudReports(_ dicomFilesArray: NSArray, allStudies: () -> NSArray, _ context: NSManagedObjectContext?) {
     var maybeReport = false
     for case let item as NSDictionary in dicomFilesArray where incomingLooksLikeCloudReport(item) {
         maybeReport = true
@@ -154,7 +154,7 @@ private func associateCloudReports(_ dicomFilesArray: NSArray, _ studiesArray: N
     // Study identity only. SOP Instances are looked up on demand, for the few
     // reports that match neither by Study UID nor by referenced study.
     var known: [Any] = []
-    for case let study as DicomStudy in studiesArray {
+    for case let study as DicomStudy in allStudies() {
         let entry = NSMutableDictionary()
         if let uid = study.studyInstanceUID { entry.setObject(uid, forKey: "studyID" as NSString) }
         if let uid = study.patientUID { entry.setObject(uid, forKey: "patientUID" as NSString) }
@@ -251,7 +251,9 @@ struct DicomFileIndexer {
 
                 let end = chunkRange.location + chunkRange.length
                 var i = chunkRange.location
+                var parsed = ParsedDICOMFiles()
                 while i < end {
+                    if !parsed.holds(i) { parsed.parse(paths, from: i, to: end) }
                     if Date.timeIntervalSinceReferenceDate - start > 0.5 || i == end - 1 {
                         thread.progress = CGFloat(1.0 * Double(i) / Double(total))
                         ActivityProgressCount.set(done: ImportShortfall.progressDone(index: i, total: total), total: total, on: thread)
@@ -260,8 +262,8 @@ struct DicomFileIndexer {
 
                     autoreleasepool {
                         if let exception = HorosObjCException.caught({
-                            self.readFile(paths?.object(at: i) as? String, dicomOnly: dicomOnly, dataDirPath: dataDirPath, errorsDirPath: errorsDirPath,
-                                          deleteFileListener: deleteFileListener, refusals: refusals, into: dicomFilesArray)
+                            self.readFile(paths?.object(at: i) as? String, parsed: parsed.take(i), dicomOnly: dicomOnly, dataDirPath: dataDirPath,
+                                          errorsDirPath: errorsDirPath, deleteFileListener: deleteFileListener, refusals: refusals, into: dicomFilesArray)
                         }) {
                             DicomDatabaseObjC.log(exception, stack: true, "-[DicomDatabase addFilesAtPaths:postNotifications:dicomOnly:rereadExistingItems:generatedByOsiriX:importedFiles:returnArray:unindexedPaths:]")
                         }
@@ -325,12 +327,12 @@ struct DicomFileIndexer {
 
     /// Reads one file of -addFilesAtPaths: into `dicomFilesArray`, or refuses it
     /// and disposes of it.
-    private func readFile(_ path: String?, dicomOnly: Bool, dataDirPath: String?, errorsDirPath: String?, deleteFileListener: Bool,
+    private func readFile(_ path: String?, parsed: DicomFile?, dicomOnly: Bool, dataDirPath: String?, errorsDirPath: String?, deleteFileListener: Bool,
                           refusals: ImportRefusals, into dicomFilesArray: NSMutableArray) {
         var newFile = path
-        var curFile: DicomFile? = nil
+        var curFile: DicomFile? = parsed
 
-        if let exception = HorosObjCException.caught({ curFile = DicomFile(newFile) }) {
+        if curFile == nil, let exception = HorosObjCException.caught({ curFile = DicomFile(newFile) }) {
             DicomDatabaseObjC.log(exception, stack: true, "-[DicomDatabase addFilesAtPaths:postNotifications:dicomOnly:rereadExistingItems:generatedByOsiriX:importedFiles:returnArray:unindexedPaths:]")
         }
 
@@ -468,12 +470,15 @@ struct DicomFileIndexer {
     /// those of the import before it. `thread`, the import's, shows the progress.
     private func indexDescribedFiles(_ dicomFilesArray: NSArray, into added: DicomDatabaseImportBatch, thread: Thread, rereadExistingItems: Bool, generatedByOsiriX: Bool, importedFiles: Bool) {
         let context = database.managedObjectContext
-        let studiesArray = ((database.objects(forEntity: database.studyEntity()) as NSArray?)?.mutableCopy() as? NSMutableArray) ?? NSMutableArray()
+        // Before the studies are read: a report can take the Study UID of a study already in the database.
+        associateCloudReports(dicomFilesArray, allStudies: { (database.objects(forEntity: database.studyEntity()) as NSArray?) ?? NSArray() }, context)
+
+        let studiesArray = studies(describedIn: dicomFilesArray)
         let modifiedStudiesArray = NSMutableArray()
 
         let defaultDate = DicomDatabaseUndefinedStudyDate()
 
-        let studiesArrayStudyInstanceUID = ((studiesArray.value(forKey: "studyInstanceUID") as? NSArray)?.mutableCopy() as? NSMutableArray) ?? NSMutableArray()
+        let studiesArrayStudyInstanceUID = DicomDatabaseImportStudyUIDs(studiesArray)
         let cursor = DicomDatabaseImportCursor()
 
         let today = Date()
@@ -488,8 +493,6 @@ struct DicomFileIndexer {
             commentField: preferences[DatabasePreferences.commentFieldForAutoFill],
             commentsAutoFillSeriesLevel: preferences[DatabasePreferences.commentsAutoFillSeriesLevel],
             commentsAutoFillStudyLevel: preferences[DatabasePreferences.commentsAutoFillStudyLevel])
-
-        associateCloudReports(dicomFilesArray, studiesArray, context)
 
         var start = Date.timeIntervalSinceReferenceDate
         // Add the new files
@@ -549,6 +552,44 @@ struct DicomFileIndexer {
         }
     }
 
+    /// The studies of the UIDs these files name, not every study of the
+    /// database: a study this batch does not name cannot be one of its files'.
+    /// A few hundred UIDs a query, within what SQLite takes in one statement.
+    private func studies(describedIn files: NSArray) -> NSMutableArray {
+        let found = NSMutableArray()
+        guard let context = database.managedObjectContext else { return found }
+        var uids = Set<String>()
+        for case let file as NSDictionary in files {
+            if let uid = file.object(forKey: "studyID") as? String { uids.insert(uid) }
+        }
+        let names = Array(uids)
+        for start in stride(from: 0, to: names.count, by: 500) {
+            let request = NSFetchRequest<NSManagedObject>()
+            request.entity = database.studyEntity()
+            request.predicate = NSPredicate(format: "studyInstanceUID IN %@", Array(names[start..<min(start + 500, names.count)]))
+            if let studies = try? context.fetch(request) { found.addObjects(from: studies) }
+        }
+        return found
+    }
+
+    /// The rows of a series by SOP Instance UID and frame, read once per
+    /// batch: going through the series for each file was quadratic.
+    private func imageRows(of series: DicomSeries, cursor: DicomDatabaseImportCursor) -> [DicomDatabaseImportImageKey: DicomImage] {
+        if let rows = cursor.imageRows[series.objectID] { return rows }
+        var rows: [DicomDatabaseImportImageKey: DicomImage] = [:]
+        let request = NSFetchRequest<NSManagedObject>()
+        request.entity = database.imageEntity()
+        request.predicate = NSPredicate(format: "series == %@", series)
+        request.returnsObjectsAsFaults = false
+        for case let image as DicomImage in (try? database.managedObjectContext?.fetch(request)) ?? [] {
+            guard let uid = image.sopInstanceUID() else { continue }
+            let key = DicomDatabaseImportImageKey(sopInstanceUID: uid, frame: objcIntValue(image.frameID))
+            if rows[key] == nil { rows[key] = image }
+        }
+        cursor.imageRows[series.objectID] = rows
+        return rows
+    }
+
     /// The key images that the key object selections "Of Interest" of the
     /// studies of this import select, among the images it wrote: set before
     /// the save, so that they are part of the same write.
@@ -559,7 +600,7 @@ struct DicomFileIndexer {
     /// One described file: the body of the former loop's @try. `preparedReportPath`
     /// is the report extracted from it, which the caller removes afterwards.
     private func indexFile(_ curDict: NSMutableDictionary?, cursor: DicomDatabaseImportCursor, added: DicomDatabaseImportBatch,
-                           studiesArray: NSMutableArray, studiesArrayStudyInstanceUID: NSMutableArray, modifiedStudiesArray: NSMutableArray,
+                           studiesArray: NSMutableArray, studiesArrayStudyInstanceUID: DicomDatabaseImportStudyUIDs, modifiedStudiesArray: NSMutableArray,
                            defaultDate: Date, today: Date, dataDirPath: String?, reportsDirPath: String?, errorsDirPath: String?,
                            settings: DicomDatabaseImportSettings, rereadExistingItems: Bool, generatedByOsiriX: Bool, importedFiles: Bool,
                            preparedReportPath: inout String?) {
@@ -711,7 +752,7 @@ struct DicomFileIndexer {
     /// patient UID (see patientUID function in DicomFile, based on patientName,
     /// patientID and patientBirthDate), or makes it; then fills it.
     private func findStudy(_ curDict: NSMutableDictionary, cursor: DicomDatabaseImportCursor, added: DicomDatabaseImportBatch,
-                           studiesArray: NSMutableArray, studiesArrayStudyInstanceUID: NSMutableArray, modifiedStudiesArray: NSMutableArray,
+                           studiesArray: NSMutableArray, studiesArrayStudyInstanceUID: DicomDatabaseImportStudyUIDs, modifiedStudiesArray: NSMutableArray,
                            defaultDate: Date, today: Date, SOPClassUID: String?, inParseExistingObject: Bool) {
         /*******************************************/
         /*********** Find study object *************/
@@ -719,7 +760,7 @@ struct DicomFileIndexer {
         var study: DicomStudy? = nil
         cursor.seriesID = nil
 
-        let index = indexOfObject(curDict.object(forKey: "studyID"), in: studiesArrayStudyInstanceUID)
+        let index = studiesArrayStudyInstanceUID.first(curDict.object(forKey: "studyID"))
 
         cursor.newObject = false
 
@@ -746,14 +787,9 @@ struct DicomFileIndexer {
                     study = tstudy
                 } else {
                     // Are there multiple studies with same studyInstanceUID ???
-                    let curUID = curDict.object(forKey: "studyID") as? String
-                    for i in 0..<studiesArrayStudyInstanceUID.count {
-                        let uid = studiesArrayStudyInstanceUID.object(at: i)
-
-                        if isEqualString(uid, curUID) {
-                            if ImportMatching.isSamePatient(file: curDict.object(forKey: "patientUID") as? String, study: (studiesArray.object(at: i) as? DicomStudy)?.patientUID) {
-                                study = studiesArray.object(at: i) as? DicomStudy
-                            }
+                    for i in studiesArrayStudyInstanceUID.all(curDict.object(forKey: "studyID")) {
+                        if ImportMatching.isSamePatient(file: curDict.object(forKey: "patientUID") as? String, study: (studiesArray.object(at: i) as? DicomStudy)?.patientUID) {
+                            study = studiesArray.object(at: i) as? DicomStudy
                         }
                     }
 
@@ -789,10 +825,10 @@ struct DicomFileIndexer {
                 studiesArray.add(study)
             }
             if let studyID = curDict.object(forKey: "studyID") {
-                studiesArrayStudyInstanceUID.add(studyID)
+                studiesArrayStudyInstanceUID.append(studyID)
             } else {
                 DicomDatabaseObjC.logStackTrace("no studyID !")
-                studiesArrayStudyInstanceUID.add("noStudyID")
+                studiesArrayStudyInstanceUID.append("noStudyID")
             }
 
             cursor.seriesID = nil
@@ -893,7 +929,6 @@ struct DicomFileIndexer {
         let searchedSeries = (seriesTable as? DicomSeries).map {
             ImportMatching.seriesHoldingRows(of: $0, ownSR: DICOMSR, studySeries: studySeries, id: { $0.seriesInstanceUID })
         } ?? []
-        let imagesArray = searchedSeries.flatMap { Array($0.images ?? []) }
         var numberOfFrames = objcIntValue(curDict.object(forKey: "numberOfFrames"))
         if numberOfFrames == 0 {
             numberOfFrames = 1
@@ -906,10 +941,11 @@ struct DicomFileIndexer {
 
             let SOPUID = curDict.object(forKey: "SOPUID" + seriesNum) as? String
 
-            autoreleasepool {
-                for case let ii as DicomImage in imagesArray {
-                    if isEqualString(ii.sopInstanceUID() as NSString?, SOPUID) && objcIntValue(ii.frameID) == f {
-                        image = ii
+            if let SOPUID {
+                let key = DicomDatabaseImportImageKey(sopInstanceUID: SOPUID, frame: f)
+                for series in searchedSeries {
+                    if let row = imageRows(of: series, cursor: cursor)[key] {
+                        image = row
                         break
                     }
                 }
@@ -1056,6 +1092,10 @@ struct DicomFileIndexer {
 
                 // Relations
                 image?.setValue(seriesTable, forKey: "series")
+                if let series = seriesTable as? DicomSeries, let image, let SOPUID {
+                    _ = imageRows(of: series, cursor: cursor)
+                    cursor.imageRows[series.objectID]?[DicomDatabaseImportImageKey(sopInstanceUID: SOPUID, frame: f)] = image
+                }
 
                 if DICOMSR == false {
                     fillComments(curDict, image: image, seriesTable: seriesTable, study: study, frame: f, settings: settings, generatedByOsiriX: generatedByOsiriX)
@@ -1341,6 +1381,8 @@ final class DicomDatabaseImportBatch {
 /// The study, the series and the identifiers of the file read last, which the
 /// next file of the same study and series reuses.
 final class DicomDatabaseImportCursor {
+    /// The image rows of each series the batch has met, see imageRows(of:cursor:).
+    var imageRows: [NSManagedObjectID: [DicomDatabaseImportImageKey: DicomImage]] = [:]
     var study: DicomStudy?
     var series: NSManagedObject?
     var studyID: String?
@@ -1348,6 +1390,36 @@ final class DicomDatabaseImportCursor {
     var seriesID: String?
     var newObject = false
     var newFile: String?
+}
+
+/// One row of a series: an instance, and the frame of a multi-frame file.
+struct DicomDatabaseImportImageKey: Hashable {
+    let sopInstanceUID: String
+    let frame: Int32
+}
+
+/// The Study Instance UIDs of the studies a batch can meet, each with its place
+/// in the array of those studies. A study without a UID has its place and no name.
+final class DicomDatabaseImportStudyUIDs {
+    private var places: [String: [Int]] = [:]
+    private var count = 0
+
+    init(_ studies: NSArray) {
+        for case let study as DicomStudy in studies { append(study.studyInstanceUID) }
+    }
+
+    func append(_ uid: Any?) {
+        if let uid = uid as? String { places[uid, default: []].append(count) }
+        count += 1
+    }
+
+    /// The first study of this UID, or NSNotFound.
+    func first(_ uid: Any?) -> Int { all(uid).first ?? NSNotFound }
+
+    func all(_ uid: Any?) -> [Int] {
+        guard let uid = uid as? String else { return [] }
+        return places[uid] ?? []
+    }
 }
 
 /// The preferences an import reads once.

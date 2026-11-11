@@ -100,6 +100,7 @@
 - (void) render;
 - (void) renderBlendedVolume;
 - (void) setWindowCenter: (NSPoint) loc;
+- (void) setHostBackingScale: (CGFloat) scale;
 - (double) getClippingRangeThickness;
 - (double) getClippingRangeThicknessInMm;
 - (void) setClippingRangeThicknessInMm:(double) c;

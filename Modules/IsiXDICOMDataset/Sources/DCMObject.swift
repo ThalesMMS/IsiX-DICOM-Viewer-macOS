@@ -61,12 +61,18 @@ public enum DCMCompressionQuality: Int32 {
 /// conformance stays in this file, which the linker always loads with the
 /// class: the frame reading reaches it only through the Objective-C runtime,
 /// so in a file of its own nothing would pull it from the static library.
-@objc(IsiXDCMObject)
+///
+/// The class and those of its attributes keep, in the Objective-C runtime, the
+/// names and selectors DCM.framework gave them: a plugin built for Horos or
+/// OsiriX looks them up by those names, in the application, without being
+/// rebuilt.
+@objc(DCMObject)
 public final class DCMObject: NSObject, NSCopying, DICOMAttributeSource {
 
     @objc public private(set) var attributes: NSMutableDictionary! = NSMutableDictionary()
     @objc public private(set) var transferSyntax: DCMTransferSyntax!
     @objc public private(set) var specificCharacterSet: DICOMCharacterSet!
+    @objc
     public internal(set) var pixelDataIsDecoded = false
     @objc public var isSequence = false
 
@@ -96,6 +102,7 @@ public final class DCMObject: NSObject, NSCopying, DICOMAttributeSource {
     }
 
     /// A copy: the same attribute objects in a new dictionary.
+    @objc(initWithObject:)
     public init(object: DCMObject) {
         specificCharacterSet = object.specificCharacterSet?.copy() as? DICOMCharacterSet
         attributes = object.attributes?.mutableCopy() as? NSMutableDictionary
@@ -108,11 +115,45 @@ public final class DCMObject: NSObject, NSCopying, DICOMAttributeSource {
         DCMObject(object: self)
     }
 
+    // -init... as a plugin built for Horos or OsiriX sends them to +alloc. The
+    // former class released the receiver and answered the object its reader
+    // made; an initializer here cannot answer another object, so the receiver
+    // takes over what the reader made.
+
+    private convenience init?(taking read: DCMObject?) {
+        guard let read else { return nil }
+        self.init(object: read)
+        isSequence = read.isSequence
+        // The Pixel Data asks its object for the geometry of the frames.
+        (attribute(withName: "PixelData") as? DCMPixelDataAttribute)?.dcmObject = self
+    }
+
+    @objc(initWithContentsOfFile:decodingPixelData:)
+    public convenience init?(contentsOfFile path: String?, decodingPixelData: Bool) {
+        self.init(taking: DCMObject.object(withContentsOfFile: path, decodingPixelData: decodingPixelData))
+    }
+
+    @objc(initWithContentsOfURL:decodingPixelData:)
+    public convenience init?(contentsOf url: URL, decodingPixelData: Bool) {
+        self.init(taking: DCMObject.object(withContentsOf: url, decodingPixelData: decodingPixelData))
+    }
+
+    @objc(initWithData:decodingPixelData:)
+    public convenience init?(data: Data, decodingPixelData: Bool) {
+        self.init(taking: DCMObject.object(with: data, decodingPixelData: decodingPixelData))
+    }
+
+    @objc(initWithData:transferSyntax:)
+    public convenience init?(data: Data, transferSyntax syntax: DCMTransferSyntax?) {
+        self.init(taking: DCMObject.object(with: data, transferSyntax: syntax))
+    }
+
     /// An empty object.
     @objc public class func dcmObject() -> DCMObject {
         DCMObject()
     }
 
+    @objc(objectWithObject:)
     public class func object(with object: DCMObject) -> DCMObject {
         DCMObject(object: object)
     }
@@ -154,6 +195,7 @@ public final class DCMObject: NSObject, NSCopying, DICOMAttributeSource {
                                lastGroup: 0xFFFF)
     }
 
+    @objc(objectWithContentsOfURL:decodingPixelData:)
     public class func object(withContentsOf url: URL, decodingPixelData: Bool) -> DCMObject? {
         if url.isFileURL {
             return object(withContentsOfFile: url.path, decodingPixelData: decodingPixelData)
@@ -221,6 +263,7 @@ public final class DCMObject: NSObject, NSCopying, DICOMAttributeSource {
     }
 
     /// Adds a value to the named attribute, making it when absent.
+    @objc(addAttributeValue:forName:)
     public func addAttributeValue(_ value: Any?, forName name: String?) {
         guard let tag = DICOMAttributeTag.tag(withName: name) else {
             NSLog("*** tagname not found in dictionary: %@", name ?? "(null)")
@@ -248,6 +291,7 @@ public final class DCMObject: NSObject, NSCopying, DICOMAttributeSource {
     }
 
     /// Sets the Specific Character Set of the object and of every attribute.
+    @objc(setCharacterSet:)
     public func setCharacterSet(_ characterSet: DICOMCharacterSet?) {
         specificCharacterSet = characterSet
         for key in sortedKeys() {
@@ -273,20 +317,24 @@ public final class DCMObject: NSObject, NSCopying, DICOMAttributeSource {
     // MARK: Editing
 
     /// Removes group 0002.
+    @objc(removeMetaInformation)
     public func removeMetaInformation() {
         attributes?.removeObjects(forKeys: keys { $0.attrTag?.group == 0x0002 })
     }
 
     /// Removes every group length but the meta header's.
+    @objc(removeGroupLengths)
     public func removeGroupLengths() {
         attributes?.removeObjects(forKeys: keys { $0.attrTag?.element == 0x0000 && $0.attrTag?.group != 0x0002 })
     }
 
+    @objc(removePrivateTags)
     public func removePrivateTags() {
         attributes?.removeObjects(forKeys: keys { ($0.attrTag?.group ?? 0) % 2 != 0 })
     }
 
     /// For a change of the pixel encapsulation or a rescaling of the pixels.
+    @objc(removePlanarAndRescaleAttributes)
     public func removePlanarAndRescaleAttributes() {
         for name in ["RescaleSlope", "RescaleIntercept", "PlanarConfiguration"] {
             if let key = DICOMAttributeTag.tag(withName: name)?.stringValue {
@@ -299,6 +347,7 @@ public final class DCMObject: NSObject, NSCopying, DICOMAttributeSource {
     /// Class and Instance UIDs (copied from the SOP ones when absent), the
     /// Transfer Syntax UID, the implementation, the source AE title and the
     /// group length.
+    @objc(updateMetaInformationWithTransferSyntax:aet:)
     public func updateMetaInformation(withTransferSyntax ts: DCMTransferSyntax?, aet: String?) {
         var groupLength = 0
         func put(_ name: String, _ value: Any?) -> DCMAttribute {
@@ -352,6 +401,7 @@ public final class DCMObject: NSObject, NSCopying, DICOMAttributeSource {
                               quality: quality, aet: aet) ?? false
     }
 
+    @objc(writeToURL:withTransferSyntax:quality:atomically:)
     public func write(to url: URL, with ts: DCMTransferSyntax?, quality: Int32, atomically flag: Bool) -> Bool {
         write(to: url, with: ts, quality: quality, aet: "ISIX", atomically: flag)
     }
@@ -375,16 +425,19 @@ public final class DCMObject: NSObject, NSCopying, DICOMAttributeSource {
     }
 
     /// Every attribute is read: DCMTK reads the whole dataset.
+    @objc(isNeededAttribute:)
     public func isNeededAttribute(_ tagString: UnsafeMutablePointer<CChar>?) -> Bool {
         true
     }
 
     // MARK: Sequences
 
+    @objc(referencedSeriesSequence)
     public func referencedSeriesSequence() -> NSMutableArray! {
         (attribute(withName: "ReferencedSeriesSequence") as? DCMSequenceAttribute)?.sequenceItems
     }
 
+    @objc(referencedImageSequenceForObject:)
     public func referencedImageSequence(for object: DCMObject) -> NSMutableArray! {
         (object.attribute(withName: "ReferencedImageSequence") as? DCMSequenceAttribute)?.sequenceItems
     }
@@ -403,11 +456,13 @@ public final class DCMObject: NSObject, NSCopying, DICOMAttributeSource {
         }
     }
 
+    @objc(xmlNode)
     public func xmlNode() -> XMLNode {
         let elements = sortedKeys().compactMap { (attributes?.object(forKey: $0) as? DCMAttribute)?.xmlNode() }
         return XMLNode.element(withName: "item", children: elements, attributes: nil) as! XMLNode
     }
 
+    @objc
     public var xmlDocument: XMLDocument! {
         let root = XMLElement(name: "DICOMObject")
         for key in sortedKeys() {

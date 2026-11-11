@@ -275,23 +275,13 @@ extension BrowserController {
         horos_albumTable?.registerForDraggedTypes(((BrowserController.databaseObjectXIDsPasteboardTypes() ?? []) + ["Osirix Album drag"])
             .map { NSPasteboard.PasteboardType($0) })
 
-        let states = [NSLocalizedString("empty", comment: ""), NSLocalizedString("unread", comment: ""), NSLocalizedString("reviewed", comment: ""),
-                      NSLocalizedString("dictated", comment: ""), NSLocalizedString("validated", comment: "")]
-        BrowserController.horos_statesArray = states
-
         outline?.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("name"))?.dataCell = ImageAndTextCell()
         outline?.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("reportURL"))?.dataCell = ImageAndTextCell()
 
         // Set International dates for columns
         setDBDate()
 
-        let stateColumn = outline?.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("stateText"))
-        let buttonCell = NSPopUpButtonCell(textCell: "", pullsDown: false)
-        buttonCell.isEditable = true
-        buttonCell.isBordered = false
-        buttonCell.addItems(withTitles: states)
-
-        stateColumn?.dataCell = buttonCell
+        StudyStates.install(on: outline, columns: ["stateText"], editable: true)
 
         // setInitialState was a compatibility no-op; tableColumns is authoritative.
 

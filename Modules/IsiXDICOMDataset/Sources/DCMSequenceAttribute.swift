@@ -42,17 +42,20 @@ import IsiXDICOMFile
 
 /// A sequence: its items are DCMObjects, each kept with the offset it was
 /// read at (`sequenceItems` holds {item, offset} dictionaries).
-@objc(IsiXDCMSequenceAttribute)
+@objc(DCMSequenceAttribute)
 public final class DCMSequenceAttribute: DCMAttribute {
 
+    @objc
     public var sequenceItems: NSMutableArray! = NSMutableArray()
 
     // MARK: For structured reports
 
+    @objc(contentSequence)
     public class func contentSequence() -> DCMSequenceAttribute {
         sequenceAttribute(withName: "ContentSequence")
     }
 
+    @objc(conceptNameCodeSequenceWithCodeValue:codeSchemeDesignator:codeMeaning:)
     public class func conceptNameCodeSequence(withCodeValue codeValue: String, codeSchemeDesignator: String,
                                               codeMeaning: String) -> DCMSequenceAttribute {
         let sequence = sequenceAttribute(withName: "ConceptNameCodeSequence")

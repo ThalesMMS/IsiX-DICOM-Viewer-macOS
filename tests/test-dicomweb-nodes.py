@@ -216,6 +216,9 @@ expect(node.isValid, "a node with an address and a name is valid")
 expect(node.qidoEndpoint == "https://pacs.example/dicom-web/rs/qido", "QIDO: address + QIDO path")
 expect(node.wadoEndpoint == "https://pacs.example/dicom-web", "WADO: an empty path is the address")
 expect(node.stowEndpoint == "https://pacs.example/dicom-web", "STOW: the address")
+node.wadoPath = "/rs/qido/"
+expect(node.stowEndpoint == "https://pacs.example/dicom-web/rs/qido", "STOW: the path QIDO and WADO share")
+node.wadoPath = ""
 node.retrieveSyntax = "1.2.3"
 expect(throwsError { try node.validate() }, "a syntax outside the list is refused")
 node.retrieveSyntax = "1.2.840.10008.1.2.1"

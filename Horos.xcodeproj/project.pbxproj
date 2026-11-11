@@ -401,6 +401,9 @@
 		2062C41AA7E4C64D7220A667 /* ViewerSpacingGapFill.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDA6CEFFAD6853E5379937E8 /* ViewerSpacingGapFill.swift */; };
 		2F9ECFC2486D969055A2ECCB /* ViewerKeyObjectDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52A2B933B2AFA620BC168E2F /* ViewerKeyObjectDocument.swift */; };
 		A284F4A7C06BF46E67B5E558 /* DatabaseStudyCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EFBD00A371C904807AD7ABE /* DatabaseStudyCommands.swift */; };
+		A1868C0DE5EC0F0000000006 /* StudyStatesEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1868C0DE5EC0F0000000005 /* StudyStatesEditor.swift */; };
+		A1868C0DE5EC0F0000000004 /* StudyStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1868C0DE5EC0F0000000003 /* StudyStates.swift */; };
+		A1871C0DE5EC0F0000000002 /* LegacyStudiesImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1871C0DE5EC0F0000000001 /* LegacyStudiesImport.swift */; };
 		AA0EF968A1A812707AE0AE53 /* StudyFileImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7CBD7569A3C2A1B7D521550 /* StudyFileImporter.swift */; };
 		532272C3704BDD1A14178048 /* StudyFileDICOMWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18752B59447B22B89C36A4B3 /* StudyFileDICOMWriter.swift */; };
 		9118AAA212294D929D51BEDD /* DicomFile+NonDICOMReaders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F1EA783CA1049F1B18DAEA4 /* DicomFile+NonDICOMReaders.swift */; };
@@ -878,6 +881,8 @@
 		5F9A0C000000000000002034 /* DraggedImageFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001034 /* DraggedImageFile.swift */; };
 		5F9A0C000000000000002270 /* DraggedImagePromise.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001270 /* DraggedImagePromise.swift */; };
 		5F9A0C000000000000002271 /* ViewerImageDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001271 /* ViewerImageDrag.swift */; };
+		5FA10C831831000000002831 /* PreviousSeriesHold.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FA10C831831000000001831 /* PreviousSeriesHold.swift */; };
+		5FA10C831811000000002831 /* KeyWindowReturn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FA10C831811000000001831 /* KeyWindowReturn.swift */; };
 		5F9A0C000000000000002289 /* SeriesReplaceLoadPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001289 /* SeriesReplaceLoadPolicy.swift */; };
 		5F9A0C000000000000002222 /* FlyThruWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001222 /* FlyThruWindow.swift */; };
 		5F9A0C000000000000002031 /* ExportArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001031 /* ExportArchive.swift */; };
@@ -1111,6 +1116,7 @@
 		7E2BE3D10715DB9A0017898A /* route.tif in Resources */ = {isa = PBXBuildFile; fileRef = 7E2BE3D00715DB9A0017898A /* route.tif */; };
 		7E2BE3DA0715DBC50017898A /* cd.icns in Resources */ = {isa = PBXBuildFile; fileRef = 7E2BE3D90715DBC50017898A /* cd.icns */; };
 		7E2BE3E30715DBD40017898A /* GeneralPreferences.tif in Resources */ = {isa = PBXBuildFile; fileRef = 7E2BE3E20715DBD40017898A /* GeneralPreferences.tif */; };
+		A7E1F4C12D9B4E6F00C18431 /* MousePreferences.tif in Resources */ = {isa = PBXBuildFile; fileRef = A7E1F4C02D9B4E6F00C18431 /* MousePreferences.tif */; };
 		7E2BE3EC0715DBE80017898A /* AccountPreferences.tif in Resources */ = {isa = PBXBuildFile; fileRef = 7E2BE3EB0715DBE80017898A /* AccountPreferences.tif */; };
 		7E2BE3F50715DBFB0017898A /* Network.tif in Resources */ = {isa = PBXBuildFile; fileRef = 7E2BE3F40715DBFB0017898A /* Network.tif */; };
 		7E2BE3FE0715DC0D0017898A /* StartupDisk.tif in Resources */ = {isa = PBXBuildFile; fileRef = 7E2BE3FD0715DC0D0017898A /* StartupDisk.tif */; };
@@ -2642,6 +2648,9 @@
 		CDA6CEFFAD6853E5379937E8 /* ViewerSpacingGapFill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerSpacingGapFill.swift; sourceTree = "<group>"; };
 		52A2B933B2AFA620BC168E2F /* ViewerKeyObjectDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerKeyObjectDocument.swift; sourceTree = "<group>"; };
 		2EFBD00A371C904807AD7ABE /* DatabaseStudyCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseStudyCommands.swift; sourceTree = "<group>"; };
+		A1868C0DE5EC0F0000000005 /* StudyStatesEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyStatesEditor.swift; sourceTree = "<group>"; };
+		A1868C0DE5EC0F0000000003 /* StudyStates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyStates.swift; sourceTree = "<group>"; };
+		A1871C0DE5EC0F0000000001 /* LegacyStudiesImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyStudiesImport.swift; sourceTree = "<group>"; };
 		D7CBD7569A3C2A1B7D521550 /* StudyFileImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyFileImporter.swift; sourceTree = "<group>"; };
 		18752B59447B22B89C36A4B3 /* StudyFileDICOMWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyFileDICOMWriter.swift; sourceTree = "<group>"; };
 		4F1EA783CA1049F1B18DAEA4 /* DicomFile+NonDICOMReaders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DicomFile+NonDICOMReaders.swift"; sourceTree = "<group>"; };
@@ -3122,6 +3131,8 @@
 		5F9A0C000000000000001034 /* DraggedImageFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DraggedImageFile.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001270 /* DraggedImagePromise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DraggedImagePromise.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001271 /* ViewerImageDrag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerImageDrag.swift"; sourceTree = "<group>"; };
+		5FA10C831831000000001831 /* PreviousSeriesHold.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PreviousSeriesHold.swift"; sourceTree = "<group>"; };
+		5FA10C831811000000001831 /* KeyWindowReturn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KeyWindowReturn.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001289 /* SeriesReplaceLoadPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SeriesReplaceLoadPolicy.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001222 /* FlyThruWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FlyThruWindow.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001031 /* ExportArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ExportArchive.swift"; sourceTree = "<group>"; };
@@ -3432,6 +3443,7 @@
 		7E2BE3D00715DB9A0017898A /* route.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = route.tif; sourceTree = "<group>"; };
 		7E2BE3D90715DBC50017898A /* cd.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = cd.icns; sourceTree = "<group>"; };
 		7E2BE3E20715DBD40017898A /* GeneralPreferences.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = GeneralPreferences.tif; sourceTree = "<group>"; };
+		A7E1F4C02D9B4E6F00C18431 /* MousePreferences.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = MousePreferences.tif; sourceTree = "<group>"; };
 		7E2BE3EB0715DBE80017898A /* AccountPreferences.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = AccountPreferences.tif; sourceTree = "<group>"; };
 		7E2BE3F40715DBFB0017898A /* Network.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Network.tif; sourceTree = "<group>"; };
 		7E2BE3FD0715DC0D0017898A /* StartupDisk.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = StartupDisk.tif; sourceTree = "<group>"; };
@@ -6611,6 +6623,7 @@
 				A9B23D4015D00304000E47C3 /* FlipVertical.pdf */,
 				CE1D97CE0883B65E005A3A22 /* FlyThru.pdf */,
 				7E2BE3E20715DBD40017898A /* GeneralPreferences.tif */,
+				A7E1F4C02D9B4E6F00C18431 /* MousePreferences.tif */,
 				7E9C6D24066D2BCD00D33966 /* greenLight.tif */,
 				CED1FD1A1035E9BB0076AB33 /* GrowingRegion.png */,
 				A9B23D6815D018A4000E47C3 /* horizontalPosition.pdf */,
@@ -7106,6 +7119,9 @@
 				CDA6CEFFAD6853E5379937E8 /* ViewerSpacingGapFill.swift */,
 				52A2B933B2AFA620BC168E2F /* ViewerKeyObjectDocument.swift */,
 				2EFBD00A371C904807AD7ABE /* DatabaseStudyCommands.swift */,
+				A1868C0DE5EC0F0000000005 /* StudyStatesEditor.swift */,
+				A1868C0DE5EC0F0000000003 /* StudyStates.swift */,
+				A1871C0DE5EC0F0000000001 /* LegacyStudiesImport.swift */,
 				D7CBD7569A3C2A1B7D521550 /* StudyFileImporter.swift */,
 				18752B59447B22B89C36A4B3 /* StudyFileDICOMWriter.swift */,
 				4F1EA783CA1049F1B18DAEA4 /* DicomFile+NonDICOMReaders.swift */,
@@ -7605,6 +7621,8 @@
 				5F9A0C000000000000001034 /* DraggedImageFile.swift */,
 				5F9A0C000000000000001270 /* DraggedImagePromise.swift */,
 				5F9A0C000000000000001271 /* ViewerImageDrag.swift */,
+				5FA10C831831000000001831 /* PreviousSeriesHold.swift */,
+				5FA10C831811000000001831 /* KeyWindowReturn.swift */,
 				5F9A0C000000000000001289 /* SeriesReplaceLoadPolicy.swift */,
 				5F9A0C000000000000001222 /* FlyThruWindow.swift */,
 				5F9A0C000000000000001031 /* ExportArchive.swift */,
@@ -8798,6 +8816,7 @@
 				7E2BE3DA0715DBC50017898A /* cd.icns in Resources */,
 				71AD675C1FC4248100A1E2F8 /* Rainbow3.plist in Resources */,
 				7E2BE3E30715DBD40017898A /* GeneralPreferences.tif in Resources */,
+				A7E1F4C12D9B4E6F00C18431 /* MousePreferences.tif in Resources */,
 				7E2BE3EC0715DBE80017898A /* AccountPreferences.tif in Resources */,
 				7E2BE3F50715DBFB0017898A /* Network.tif in Resources */,
 				7E2BE3FE0715DC0D0017898A /* StartupDisk.tif in Resources */,
@@ -10015,6 +10034,9 @@
 				2062C41AA7E4C64D7220A667 /* ViewerSpacingGapFill.swift in Sources */,
 				2F9ECFC2486D969055A2ECCB /* ViewerKeyObjectDocument.swift in Sources */,
 				A284F4A7C06BF46E67B5E558 /* DatabaseStudyCommands.swift in Sources */,
+				A1868C0DE5EC0F0000000006 /* StudyStatesEditor.swift in Sources */,
+				A1868C0DE5EC0F0000000004 /* StudyStates.swift in Sources */,
+				A1871C0DE5EC0F0000000002 /* LegacyStudiesImport.swift in Sources */,
 				AA0EF968A1A812707AE0AE53 /* StudyFileImporter.swift in Sources */,
 				532272C3704BDD1A14178048 /* StudyFileDICOMWriter.swift in Sources */,
 				9118AAA212294D929D51BEDD /* DicomFile+NonDICOMReaders.swift in Sources */,
@@ -10510,6 +10532,8 @@
 				5F9A0C000000000000002034 /* DraggedImageFile.swift in Sources */,
 				5F9A0C000000000000002270 /* DraggedImagePromise.swift in Sources */,
 				5F9A0C000000000000002271 /* ViewerImageDrag.swift in Sources */,
+				5FA10C831831000000002831 /* PreviousSeriesHold.swift in Sources */,
+				5FA10C831811000000002831 /* KeyWindowReturn.swift in Sources */,
 				5F9A0C000000000000002289 /* SeriesReplaceLoadPolicy.swift in Sources */,
 				5F9A0C000000000000002222 /* FlyThruWindow.swift in Sources */,
 				5F9A0C000000000000002031 /* ExportArchive.swift in Sources */,

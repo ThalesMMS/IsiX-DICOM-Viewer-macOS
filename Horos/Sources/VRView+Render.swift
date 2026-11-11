@@ -126,6 +126,7 @@ extension VRView {
         if HorosObjCException.caught({
             self.updateLineMeasurementProjections()
             self.computeOrientationText()
+            self.updateTiltMark()
 
             if self.prepareRenderWindow() {
                 rendered = (try? self.horos_vtk.renderWindow()) != nil
@@ -145,9 +146,7 @@ extension VRView {
             data[0 + width] = horos_firstPixel
             data[1 + width] = horos_secondPixel
 
-            BrowserController.multiThreadedImageConvert("FTo16U", horos_srcf, horos_dst8, -horos_OFFSET16,
-                                                        Float(1.0 / Double(horos_valueFactor)))
-            applyMovieRangeGuardTo16BitVolume()
+            horos_data8IsCurrent = false
         }
     }
 
@@ -235,7 +234,8 @@ extension VRView {
     func prepareRenderWindow() -> Bool {
         // The view's frame is set by NSView's initializer, before the adapter exists.
         guard let vtk = horos_vtkIfAny else { return false }
-        let scale: CGFloat = (window?.backingScaleFactor ?? 0) > 0 ? window!.backingScaleFactor : 1
+        let scale: CGFloat = hostBackingScale > 0 ? hostBackingScale
+            : (window?.backingScaleFactor ?? 0) > 0 ? window!.backingScaleFactor : 1
         var size = window != nil ? convertToBacking(bounds.size) : bounds.size
         let stereo = horos_horosStereo as? StereoPresentation
         // The two eyes side by side render at half the width each.
@@ -484,9 +484,13 @@ extension VRView {
         // The MPR's hidden view is on the CPU engine; it asks for Metal plane by
         // plane, in volume rendering mode.
         let mprPlane = horos_controller?.style() == "noNib"
-        if mprPlane ? !horosMPRVolumeMetal() : engine != 2 { return false }
         // The mapper and volume being rendered: the snapshots read the view's own.
-        guard let scene = horos_vtk.renderingScene() else { return false }
-        return horosRenderMetalImage(in: scene, fused: fused, mprPlane: mprPlane)
+        if !(mprPlane ? !horosMPRVolumeMetal() : engine != 2), let scene = horos_vtk.renderingScene(),
+           horosRenderMetalImage(in: scene, fused: fused, mprPlane: mprPlane) {
+            return true
+        }
+        // VTK's CPU mapper draws this frame, and it reads the 16-bit copy.
+        horosEnsureData8()
+        return false
     }
 }

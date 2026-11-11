@@ -87,9 +87,8 @@ character_set = """
 + (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)charset;
 @end
 @implementation NSString (HarnessEncoding)
-+ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)charset { return [IsiXDICOMCharacterSet encodingForDICOMCharacterSet:charset]; }
++ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)charset { return [DCMCharacterSet encodingForDICOMCharacterSet:charset]; }
 @end
-@compatibility_alias DCMCharacterSet IsiXDICOMCharacterSet;
 """
 
 
@@ -127,7 +126,6 @@ code = r'''
 
 // The DICOM value types, IsiXDICOMFile's, which the editor uses.
 #import "IsiXDICOMFile-Swift.h"
-@compatibility_alias DCMAttributeTag IsiXDICOMAttributeTag;
 @interface TagStep : NSObject
 @end
 @implementation TagStep

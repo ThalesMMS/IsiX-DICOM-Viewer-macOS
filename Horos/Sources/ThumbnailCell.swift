@@ -68,10 +68,30 @@ public final class ThumbnailCell: NSButtonCell {
     /// is copied bitwise, so it keeps no object of its own.
     private var frameRed: CGFloat = 0, frameGreen: CGFloat = 0, frameBlue: CGFloat = 0
     private var framed = false
-    /// Zero means no window marker. Scalar storage survives NSCell's bitwise copy.
-    @objc public var windowNumber: Int = 0
+    /// The number of the series in its study; zero, no number (a study's
+    /// cell). Scalar storage survives NSCell's bitwise copy.
+    @objc public var seriesNumber: Int = 0
+    /// The name former plugins know the number by.
+    @objc public var windowNumber: Int {
+        get { seriesNumber }
+        set { seriesNumber = newValue }
+    }
+    private var numberRed: CGFloat = 0, numberGreen: CGFloat = 0, numberBlue: CGFloat = 0
+    private var numberColoured = false
 
-    /// A frame in the colour of the 2D window that shows the series; nil, none.
+    /// The colour behind the number: the study's while a window shows the
+    /// series; nil, the neutral one of a series no window shows.
+    @objc public var numberColor: NSColor? {
+        get { numberColoured ? NSColor(calibratedRed: numberRed, green: numberGreen, blue: numberBlue, alpha: 1) : nil }
+        set {
+            guard let color = newValue?.usingColorSpace(.genericRGB) else { numberColoured = false; return }
+            numberRed = color.redComponent; numberGreen = color.greenComponent; numberBlue = color.blueComponent
+            numberColoured = true
+        }
+    }
+
+    /// A frame in the colour of the study, around the series the active 2D
+    /// window shows; nil, none.
     @objc public var frameColor: NSColor? {
         get { framed ? NSColor(calibratedRed: frameRed, green: frameGreen, blue: frameBlue, alpha: 1) : nil }
         set {
@@ -141,25 +161,27 @@ public final class ThumbnailCell: NSButtonCell {
         return super.drawTitle(title, withFrame: NSInsetRect(frame, -2, 0), in: controlView) // very precioussss 4px/pt
     }
 
+    /// The number of the series at the top left of its thumbnail, in every
+    /// cell of a series: on the colour of its study while a window shows it.
     public override func draw(withFrame frame: NSRect, in controlView: NSView) {
         super.draw(withFrame: frame, in: controlView)
-        guard windowNumber > 0 else { return }
+        guard seriesNumber > 0 else { return }
 
-        let label = SeriesListIdentification.windowLabel(number: windowNumber) as NSString
+        let label = String(seriesNumber) as NSString
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.boldSystemFont(ofSize: 10),
-            .foregroundColor: SeriesListIdentification.badgeTextColor
+            .foregroundColor: SeriesListIdentification.numberTextColor
         ]
         let size = label.size(withAttributes: attributes)
-        let width = min(size.width + 10, frame.width - 8)
-        let height = size.height + 4
-        let y = controlView.isFlipped ? frame.maxY - height - 4 : frame.minY + 4
-        let badge = NSRect(x: frame.midX - width / 2, y: y, width: width, height: height)
+        let height = size.height + 2
+        let width = min(max(size.width + 8, height), frame.width - 8)
+        let y = controlView.isFlipped ? frame.minY + 4 : frame.maxY - height - 4
+        let badge = NSRect(x: frame.minX + 4, y: y, width: width, height: height)
         NSGraphicsContext.saveGraphicsState()
-        SeriesListIdentification.badgeBackgroundColor.setFill()
+        (numberColor ?? SeriesListIdentification.neutralColor).setFill()
         NSBezierPath(roundedRect: badge, xRadius: 3, yRadius: 3).fill()
         NSBezierPath(rect: badge).addClip()
-        label.draw(at: NSPoint(x: badge.midX - size.width / 2, y: badge.minY + 2), withAttributes: attributes)
+        label.draw(at: NSPoint(x: badge.midX - size.width / 2, y: badge.minY + 1), withAttributes: attributes)
         NSGraphicsContext.restoreGraphicsState()
     }
 

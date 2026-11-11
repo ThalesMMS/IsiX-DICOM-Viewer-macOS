@@ -91,7 +91,7 @@ public extension ViewerController {
                     new2DViewer?.setImageIndex(frame.pixes.count / 2)
                     new2DViewer?.window?.makeKeyAndOrderFront(self)
                 } else {
-                    changeImageData(pixes, files, frame.volume, false)
+                    horosSeriesLoad.keepingPreviousSeriesForOtherWindows { changeImageData(pixes, files, frame.volume, false) }
                 }
             } else {
                 reslicedViewer?.addMovieSerie(pixes, files, frame.volume)

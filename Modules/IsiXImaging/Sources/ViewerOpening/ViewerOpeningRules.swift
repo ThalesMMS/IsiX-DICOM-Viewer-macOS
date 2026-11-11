@@ -386,6 +386,28 @@ extension ViewerMemory {
         return (enough, requiredMegabytes(paddedPixels: paddedPixels))
     }
 
+    /// The pixels the images of a list take in the volume lent to them, one
+    /// after the other: width × height each, and once per frame for a list of
+    /// one multi-frame file. The opening reserves at least this much when it
+    /// allocates the volume, from the sizes it then tells each image: a size
+    /// corrected in the database after the plan was made (a document first
+    /// measured at another scale) was drawn past the block planned for the
+    /// old one. Nil when the sum overflows; a size not above 0 takes nothing.
+    public static func lentPixels(of images: [MemoryImage]) -> Int? {
+        var total = 0
+        for image in images {
+            let width = Swift.max(image.width, 0), height = Swift.max(image.height, 0)
+            let frames = images.count == 1 ? Swift.max(image.frames, 1) : 1
+            let (area, areaOverflow) = width.multipliedReportingOverflow(by: height)
+            let (pixels, framesOverflow) = area.multipliedReportingOverflow(by: frames)
+            guard !areaOverflow, !framesOverflow, let count = Int(exactly: pixels) else { return nil }
+            let (sum, sumOverflow) = total.addingReportingOverflow(count)
+            if sumOverflow { return nil }
+            total = sum
+        }
+        return total
+    }
+
     /// The memory step of -openViewerFromImages:…: each pass sizes a block
     /// per list (`visit(list)` first) and tries to allocate it, `purge`-ing
     /// caches and trying once more; when one still fails, every other image

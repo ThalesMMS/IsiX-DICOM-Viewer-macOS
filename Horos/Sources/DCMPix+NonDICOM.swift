@@ -171,7 +171,9 @@ extension DCMPix {
             sizes[key] = NSNumber(value: Int32(truncatingIfNeeded: value))
             if !clampAlways && value > Int(saved) && external { value = Int(saved) }
         }
-        if clampAlways && value > Int(saved) && external { value = Int(saved) }
+        // In the volume's buffer the place is of the size saved, whatever it
+        // is: an image with no size there had none reserved.
+        if (clampAlways || saved == 0) && value > Int(saved) && external { value = Int(saved) }
         return value
     }
 

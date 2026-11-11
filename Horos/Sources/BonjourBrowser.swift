@@ -159,6 +159,7 @@ public final class BonjourBrowser: NSObject {
     private nonisolated static func serverListURL(_ preferences: UserDefaults) -> URL? {
         // Text only, as `object(forKey:) as? String` took it.
         preferences[NetworkPreferences.syncOsiriXDBURL.reading(as: PropertyListValue?.self)]?.stringValue.flatMap { NSURL(string: $0) as URL? }
+            .flatMap { RemoteConfigurationURL.isAcceptable($0) ? $0 : nil }
     }
 
     /// A property list whose root is a list, as -[NSArray initWithContentsOfURL:] read it.

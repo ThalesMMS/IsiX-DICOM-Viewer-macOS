@@ -26,7 +26,7 @@ Checked here:
   size), and lets the mouse through.
 
 `<git revision>` as an optional argument reads the sources of that revision,
-the negative control. The study number box is built and drawn by
+the negative control. The series number box is built and drawn by
 `-drawTextualData:...` in DCMView+WindowLevel+Coordinates.swift, and blocks of
 DCMView.m live in Swift extensions (DCMView+*.swift), which are read too when
 the revision has them.
@@ -123,10 +123,13 @@ else:
     # until it moved to DCMView+Drawing.swift.
     large = ('self.horos_showDescriptionInLargeText = AnnotationBox(attributedString:' in drawing if drawing
              else '[[HorosAnnotationBox alloc]' in view)
-    boxes = (large and 'box = AnnotationBox(attributedString:' in textual
-             and 'self.horosDraw(studyDateBox, bounds:' in textual)
+    # The box at the top left is the series' number since the series are
+    # identified by study: SeriesListIdentification builds it.
+    identification = (root / 'Horos/Sources/SeriesListIdentification.swift').read_text()
+    boxes = (large and 'let box = AnnotationBox(attributedString:' in identification
+             and 'self.horosDraw(badge, bounds:' in textual)
 if not boxes:
-    failures.append('the study number box and the large description are not overlay boxes')
+    failures.append('the series number box and the large description are not overlay boxes')
 if 'AnnotationOverlay.swift in Sources' not in (root / 'Horos.xcodeproj/project.pbxproj').read_text():
     failures.append('AnnotationOverlay.swift is not in the app target')
 if failures:

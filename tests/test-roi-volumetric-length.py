@@ -45,7 +45,11 @@ drag=swift[swift.index('    @objc(mouseDragged:)'):];drag=drag[:drag.index('    
 assert drag.count('IsiXPluginHost.shared.takesViewerInput(event, in: self)')==1
 host='final class IsiXPluginHost {\n    static let shared = IsiXPluginHost()\n    func takesViewerInput(_ event: NSEvent, in view: DCMView) -> Bool { false }\n}\n'
 view_editing=source_text('ViewROIEditing')
-placement='enum ViewROIEditing {\n'+view_editing[view_editing.index('    // MARK: - Two-click Length'):view_editing.rindex('\n}\n')]+'\n}\n'
+# The Viewers settings' choice, which the app reads through its preferences:
+# here from the arguments, where the driver turns it off and on again.
+choice='    static var twoClickLength: Bool { UserDefaults.standard.object(forKey: "TwoClickLengthMeasurement") as? Bool ?? true }\n'
+assert 'static var twoClickLength: Bool {' in view_editing and 'ViewROIEditing.twoClickLength && self.getTool(event) == .tMesure' in source_text('DCMView+LengthClick')
+placement='enum ViewROIEditing {\n'+choice+view_editing[view_editing.index('    // MARK: - Two-click Length'):view_editing.rindex('\n}\n')]+'\n}\n'
 assert placement.count('typealias LengthPlacement = TwoClickLengthPlacement<ObjectValue>')==1
 extension='import Cocoa\nimport IsiXROI\n'+messages+host+placement+hit_test+'extension DCMView {\n'+drag+remove+gesture+'}\n'
 bridge=r'''
@@ -293,6 +297,17 @@ int main(){@autoreleasepool{
   p.originZ=30;p.originZ=12;
   [g beginLengthClick:event(NSEventTypeLeftMouseDown,4,15)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,4,15)];
   check(!g->lengthFirstEndpoint&&g->dragReplayCount==replays+2&&g.controller.added.count==added);
+  // A slab takes both clicks on the image it shows, as the drag between
+  // them; its first point on another slice starts again on thin slices.
+  replays=g->dragReplayCount;p.stack=2;
+  [g beginLengthClick:event(NSEventTypeLeftMouseDown,4,5)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,4,5)];check(g->lengthFirstEndpoint);
+  [g beginLengthClick:event(NSEventTypeLeftMouseDown,14,9)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,14,9)];
+  check(!g->lengthFirstEndpoint&&g->dragReplayCount==replays+2&&g.controller.added.count==added);
+  [g beginLengthClick:event(NSEventTypeLeftMouseDown,4,5)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,4,5)];
+  p.stack=1;p.originZ=30;
+  [g beginLengthClick:event(NSEventTypeLeftMouseDown,4,5)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,4,5)];
+  check(g->lengthFirstEndpoint&&g.controller.added.count==added);
+  [g cancelLengthPlacement];p.originZ=12;
   // Different slices still give the length through the volume, and so do two
   // images that only their place in the stack tells apart.
   [g beginLengthClick:event(NSEventTypeLeftMouseDown,4,5)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,4,5)];
@@ -334,6 +349,12 @@ int main(){@autoreleasepool{
  check(![g beginLengthClick:event(NSEventTypeLeftMouseDown,22,21)]&&!g->lengthClickEvent&&!g->lengthFirstEndpoint);
  check([g beginLengthClick:event(NSEventTypeLeftMouseDown,28,21)]);[g cancelLengthPlacement];
  [g->curRoiList removeObject:labelled];
+ // The choice turned off: the click is not the Length's, and the mouse-down
+ // goes on as a drag's does; on again, the click is taken.
+ [NSUserDefaults.standardUserDefaults setVolatileDomain:@{@"TwoClickLengthMeasurement":@NO} forName:NSArgumentDomain];
+ check(![g beginLengthClick:event(NSEventTypeLeftMouseDown,28,21)]&&!g->lengthClickEvent&&!g->lengthFirstEndpoint);
+ [NSUserDefaults.standardUserDefaults setVolatileDomain:@{} forName:NSArgumentDomain];
+ check([g beginLengthClick:event(NSEventTypeLeftMouseDown,28,21)]);[g cancelLengthPlacement];
  g.viewer2D=NO;check(![g beginLengthClick:event(NSEventTypeLeftMouseDown,2,3)]);p.originZ=0;
  p.pixelSpacingX=.5;p.orientation=@[@1,@0,@0,@1,@0,@0,@0,@0,@0];
  // Without valid patient geometry a click is still a point of its own image:

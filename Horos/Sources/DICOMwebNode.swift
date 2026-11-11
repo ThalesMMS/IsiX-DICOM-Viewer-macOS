@@ -418,8 +418,27 @@ public final class DICOMwebNode: NSObject {
     @objc public var qidoEndpoint: String { endpoint(qidoPath) }
     /// The WADO-RS base URL: the address, with the WADO path when there is one. Empty when the node is not valid.
     @objc public var wadoEndpoint: String { endpoint(wadoPath) }
-    /// The STOW-RS base URL: the address; STOW-RS posts to {Address}/studies.
-    @objc public var stowEndpoint: String { endpoint("") }
+    /// The STOW-RS base URL, which STOW-RS posts its /studies to: the
+    /// address, with the path QIDO and WADO share when they have the same one.
+    @objc public var stowEndpoint: String { endpoint(DICOMwebNode.storePath(qidoPath: qidoPath, wadoPath: wadoPath)) }
+
+    /// The path STOW-RS stores below. The node has no path of its own for
+    /// it: with QIDO-RS and WADO-RS under one prefix, the node's services
+    /// are all there, and a store sent to the bare address is not found.
+    /// Two different paths say nothing of a third, and the address stays.
+    static func storePath(qidoPath: String, wadoPath: String) -> String {
+        guard let qido = relativePath(qidoPath), let wado = relativePath(wadoPath), qido == wado else { return "" }
+        return qido
+    }
+
+    /// Where STOW-RS posts its `studies` for a node at `address`: the address,
+    /// or below the path its QIDO-RS and WADO-RS share.
+    static func storeBaseURL(address: URL, qidoPath: String, wadoPath: String) -> URL {
+        let path = storePath(qidoPath: qidoPath, wadoPath: wadoPath)
+        guard !path.isEmpty, var components = URLComponents(url: address, resolvingAgainstBaseURL: false) else { return address }
+        components.percentEncodedPath += "/" + path
+        return components.url ?? address
+    }
 
     // MARK: The stored list
 

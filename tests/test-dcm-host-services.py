@@ -79,7 +79,6 @@ driver = r'''
 // The current classes, under the names the former framework gave them.
 #import "DCMModel.h"
 #import "HorosDICOMServices.h"
-@compatibility_alias DCMCalendarDate IsiXDICOMCalendarDate;
 #else
 #import "DCM.h"
 #endif

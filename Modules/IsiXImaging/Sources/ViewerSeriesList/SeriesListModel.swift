@@ -49,7 +49,7 @@ public struct SeriesListModel: Sendable, Equatable {
         public var isShown: Bool
         /// The viewer fuses it.
         public var isFused: Bool
-        /// A window shows it (its frame takes that window's colour or number).
+        /// A window shows it (a study with its series hidden is marked by it).
         public var isInAWindow: Bool
 
         public init(isShown: Bool, isFused: Bool, isInAWindow: Bool) {
@@ -92,16 +92,12 @@ public struct SeriesListModel: Sendable, Equatable {
     /// The cells the list is laid out for: one per listed study and the
     /// cells counted for the series and placeholders of the patient's studies.
     public var cellCount: Int
-    /// The list colours the series shown and fused (the identification preference).
-    public var showsSeriesColors: Bool
-
     /// `countedCells` is what the patient's studies count for their series and
     /// placeholders: the series of each database study whose series show, its
     /// placeholders, counted over every study of the patient, listed or not.
-    public init(studies: [Study], countedCells: Int, showsSeriesColors: Bool) {
+    public init(studies: [Study], countedCells: Int) {
         self.studies = studies
         cellCount = countedCells + studies.count
-        self.showsSeriesColors = showsSeriesColors
     }
 
     /// The cells in the order the list fills them: each study, then, unless
@@ -131,8 +127,7 @@ public struct SeriesListModel: Sendable, Equatable {
         }
     }
 
-    /// The colour that comes over the background, when the list colours
-    /// series: a series shown, else fused; a study whose series are hidden
+    /// The colour that comes over the background: a series shown, else fused; a study whose series are hidden
     /// takes it from the first of its series that has one. Nil for none.
     public func colour(of cell: Cell) -> Tint? {
         switch cell {
@@ -160,7 +155,6 @@ public struct SeriesListModel: Sendable, Equatable {
     }
 
     private func seriesTint(_ series: Series) -> Tint? {
-        guard showsSeriesColors else { return nil }
         if series.isShown { return .shown }
         if series.isFused { return .fused }
         return nil

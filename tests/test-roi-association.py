@@ -228,6 +228,15 @@ precondition(otherCount.bindings[0].status == .geometryMismatch)
 precondition(otherCount.bindings[0].targetIndex == -1)
 precondition(otherCount.summary.contains("30") && otherCount.summary.contains("41"), otherCount.summary)
 
+// A whole volume of them: the first problems are written out and the rest counted,
+// so that the alert fits the screen.
+let volume = ROIAssociation.plan(sources: (0..<30).map { archived(.seriesSlot, slice: $0, of: 30) }, targets: series)
+precondition(!volume.canApply && volume.bindings.count == 30)
+let volumeLines = volume.summary.split(separator: "\n")
+precondition(volumeLines.count == ROIAssociationPlan.problemsListed + 1, volume.summary)
+precondition(volumeLines[0].hasPrefix("ROI 1: ") && volumeLines.last!.contains("30 of 30 ROI(s) could not be placed"), volume.summary)
+precondition(otherCount.summary.split(separator: "\n").count == 1, "one problem is one line")
+
 // A phase the open series does not have.
 let otherPhase = ROIAssociation.plan(sources: [archived(.seriesSlot, slice: 0, of: 41, time: 3)], targets: cine)
 precondition(!otherPhase.canApply)

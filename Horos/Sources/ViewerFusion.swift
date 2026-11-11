@@ -620,6 +620,21 @@ fileprivate func blendingPercentageString(_ value: Float) -> String {
             //		#endif
 
         case 10:	// Copy ROIs
+            // Two series that can be related in the patient (the same frame of reference, or a
+            // registration) are copied by position: each ROI goes to the image where it lies, and a
+            // brush is resampled onto this series' pixels and slices (GuidedROICopy). Series that
+            // cannot be related are paired image by image, below, as they always were.
+            if let plan = viewer.registration.guidedCopyPlan(from: bc, offsetMM: nil).plan {
+                let added = viewer.horosApplyGuidedCopyPlan(plan, from: bc)
+                if added == 0 || !plan.refused.isEmpty {
+                    let alert = NSAlert()
+                    alert.messageText = NSLocalizedString("Copy ROIs between series...", comment: "")
+                    alert.informativeText = plan.placements.isEmpty ? NSLocalizedString("No ROIs in this series!", comment: "") : plan.summary
+                    alert.runModal()
+                }
+                break
+            }
+
             let splash = WaitRendering(NSLocalizedString("Copy ROIs between series...", comment: ""))
             splash?.showWindow(viewer)
 

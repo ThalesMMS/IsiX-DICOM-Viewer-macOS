@@ -353,7 +353,7 @@ panes += [root / 'Horos/Resources' / f'{language}.lproj' for language in ('ar', 
 for pane in panes:
     tree = ET.parse(pane / 'OSIViewerPreferencePanePref.xib')
     assert len(tree.findall(f'.//binding[@keyPath="values.{KEY}"]')) == 1, pane.name
-    box = tree.find('.//box[@id="100"]')
+    box = tree.find('.//box[@id="roi-tools-box"]')
     view_frame = box.find('view/rect')
     controls = box.find('view/subviews')
     button = controls.find('button[@id="roi-join-overlap-control"]')

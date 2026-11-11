@@ -81,16 +81,29 @@ if not recorded:
     failures.append('a corrected series is not recorded')
 if '!viewer.titledGantry' not in policy:
     failures.append('a reverted series still says it is corrected')
+navigation = (root / 'Horos/Sources/ViewerController+StudyNavigation.swift').read_text()
+revert = navigation[navigation.index('    func revert() {'):navigation.index('    func revertUnlessPostprocessed()')]
+if 'corrected.removeObject(forKey: viewer)' not in policy or 'GantryTiltPolicy.clearCorrection(of: viewer)' not in revert:
+    failures.append('a series read from its files again keeps its correction recorded')
 if 'GantryTiltCorrectionPolicy' not in defaults:
     failures.append('the policy is not registered')
 # The VR view asks the policy; its VTK adapter makes the text and deletes it.
 vr_pipeline = (root / 'Horos/Sources/Adapters/VTK/IsiXVTKVolumePipeline.mm').read_text()
 vr_release = (root / 'Horos/Sources/Adapters/VTK/IsiXVTKVolumeView.mm').read_text()
-asks_policy = 'HorosGantryTiltPolicy correctedDegreesOfViewer:' in vr or 'GantryTiltPolicy.correctedDegrees(of: tiltViewer)' in vr
-hands_text = 'tilt: tiltText error:' in vr or 'tilt: tiltText) }' in vr
+asks_policy = 'HorosGantryTiltPolicy correctedDegreesOfViewer:' in vr or 'GantryTiltPolicy.correctedDegrees(of: tiltViewer)' in vr \
+    or 'GantryTiltPolicy.correctedDegrees(of: horos_controller?.viewer2D())' in vr
+hands_text = 'tilt: tiltText error:' in vr or 'tilt: tiltText) }' in vr or 'tilt: tiltMarkText()) }' in vr
 if 'o->textTilt = vtkTextActor::New();' not in vr_pipeline or not asks_policy \
         or not hands_text or 'o->textTilt->Delete();' not in vr_release:
     failures.append('the VR views do not draw the mark, or leak it')
+# The text is made with the view; each frame brings it up to the series, which
+# Revert Series leaves tilted again.
+frame = (root / 'Horos/Sources/VRView+Render.swift').read_text()
+frame = frame[frame.index('    func horosRenderFrame() -> Bool {'):]
+if 'self.updateTiltMark()' not in frame[:frame.index('rendered = (try?')] \
+        or 'horos_vtk.setTiltText(tiltMarkText(), corner: isViewportResizable())' not in vr \
+        or 'o->aRenderer->RemoveViewProp(o->textTilt);' not in vr_pipeline:
+    failures.append('a 3D view keeps the mark it was made with after its series is reverted')
 if 'GantryTiltPolicy.label(degrees:' not in text or 'lowerLeftTop' not in text or '!self.is2DViewer()' not in text:
     failures.append('the MPR views do not draw the mark above their lower left lines')
 row = pane[pane.index('private func addGantryTiltRow()'):]

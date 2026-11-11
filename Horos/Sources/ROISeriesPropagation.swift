@@ -95,6 +95,10 @@ public final class ROISeriesPropagation: NSObject {
         guard !updating, isOn, let roi = note.object as? ROI, !Self.isCopy(roi),
               Self.rectKind(of: roi.type) != nil,
               let view = roi.curView, view.is2DViewer(),
+              // The marker of a two-click Length's first point is the view's
+              // own hint, not a ROI of the series: copied, it showed the hint
+              // as a point with coordinates in the other viewers.
+              roi !== view.horos_lengthPendingMarker,
               let viewer = view.windowController() as? ViewerController, !viewer.windowWillClose()
         else { return }
         pruneLinks()
@@ -242,7 +246,11 @@ public final class ROISeriesPropagation: NSObject {
             return NSPoint(x: s[0] / sx, y: s[1] / sy)
         }
 
-        let depths = anchors.map { local(patient($0), on: pix)[2] }
+        // A ROI kept as a rectangle has one anchor, which is at one depth on
+        // any plane: its plane is probed along both axes of its image.
+        let probe = kind == .pointsOnly ? anchors :
+            ROISeriesTransfer.planeProbe(rect: roi.rect, spacingX: sourcePix.pixelSpacingX, spacingY: sourcePix.pixelSpacingY)
+        let depths = probe.map { local(patient($0), on: pix)[2] }
         guard ROISeriesTransfer.isFlat(depths: depths, tolerance: tolerance) else { return nil }
 
         let points = NSMutableArray()

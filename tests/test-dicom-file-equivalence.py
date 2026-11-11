@@ -447,7 +447,7 @@ static id Describe(id value)
         return @{@"d": @([value timeIntervalSinceReferenceDate]),
                  // The DICOM date type: the DCM framework's, then IsiXDICOMFile's.
                  @"c": ([value isKindOfClass:NSClassFromString(@"DCMCalendarDate")] ||
-                        [value isKindOfClass:NSClassFromString(@"IsiXDICOMCalendarDate")]) ? @"DCMCalendarDate" : @"NSDate"};
+                        [value isKindOfClass:NSClassFromString(@"DCMCalendarDate")]) ? @"DCMCalendarDate" : @"NSDate"};
     if ([value isKindOfClass:NSArray.class]) {
         NSMutableArray *items = [NSMutableArray array];
         for (id item in value) [items addObject:Describe(item)];

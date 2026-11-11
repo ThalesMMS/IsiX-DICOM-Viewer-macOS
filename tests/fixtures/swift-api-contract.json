@@ -4211,7 +4211,7 @@
         "+frontMostDisplayed2DViewer",
         "+isFrontMost2DViewer:",
         "+horosSeriesWindowColors",
-        "+horosSeriesWindowNumbers",
+        "+horosSeriesOpenColors",
         "+studyColors",
         "+numberOf2DViewer",
         "-is2DViewer"

@@ -636,7 +636,7 @@ extension DCMView {
         marker.curView = self
         marker.pix = pix
         marker.rect = NSMakeRect(point.x, point.y, 0, 0)
-        marker.name = (pix?.stack ?? 0) > 1 ?
+        marker.name = ViewROIEditing.lengthWaitsForThinSlices(firstImage: first.object(forKey: "imageIndex"), firstReference: first.object(forKey: "reference"), image: self.curImage, pix: pix) ?
             NSLocalizedString("Length: return to thin slices to place the second point", comment: "") :
             NSLocalizedString("Length: select the second point (Esc to cancel)", comment: "")
         marker.draw(self.horos_scaleValue, Float(Double(pix?.pwidth ?? 0) / 2.0), Float(Double(pix?.pheight ?? 0) / 2.0),
@@ -1059,15 +1059,13 @@ extension DCMView {
                     let drawingFrameRect = self.horos_drawingFrameRect
                     PlanarFrameGraphics.beginBorders(size: drawingFrameRect.size, xFlipped: self.horos_xFlipped, yFlipped: self.horos_yFlipped)
 
-                    // More than one window: each has a frame in its own colour, the
-                    // colour of its series' thumbnails, thick on the key view of the
-                    // frontmost one.
-                    if ViewerController.numberOf2DViewer() > 1 && is2DViewer && self.stringID == nil &&
-                        SeriesListIdentification.showsColors(in: UserDefaults.standard),
-                       let viewer, !viewer.fullScreenON() {
-                        PlanarFrameGraphics.drawWindowBorder(size: drawingFrameRect.size, scale: CGFloat(sf),
-                                                             color: ViewerWindowColors.color(for: viewer),
-                                                             active: self.horos_isKeyView && (frontMost || ViewerController.frontMostDisplayed2DViewer(for: self.window?.screen) === viewer))
+                    // More than one window: the key view of the frontmost one has a
+                    // thick frame in the colour of its study, the others a thin neutral one.
+                    var frameInset: CGFloat = 0
+                    if ViewerController.numberOf2DViewer() > 1 && is2DViewer && self.stringID == nil, let viewer, !viewer.fullScreenON() {
+                        let active = self.horos_isKeyView && (frontMost || ViewerController.frontMostDisplayed2DViewer(for: self.window?.screen) === viewer)
+                        frameInset = PlanarFrameGraphics.drawWindowBorder(size: drawingFrameRect.size, scale: CGFloat(sf),
+                                                             color: active ? SeriesListIdentification.color(for: viewer) : SeriesListIdentification.neutralColor, active: active)
                     }
 
                     // A dotted line where the image overflows the view.
@@ -1077,7 +1075,7 @@ extension DCMView {
                         let oo = DCMPix.rotatePoint(self.origin, aroundPoint: NSMakePoint(0, 0), angle: Float(Double(-rotation) * DCMView.horos_static_deg2rad))
                         dstRect.origin = NSMakePoint(drawingFrameRect.size.width / 2 + oo.x - dstRect.size.width / 2,
                                                      drawingFrameRect.size.height / 2 - oo.y - dstRect.size.height / 2)
-                        PlanarFrameGraphics.drawOverflow(image: dstRect, size: drawingFrameRect.size, scale: CGFloat(sf))
+                        PlanarFrameGraphics.drawOverflow(image: dstRect, size: drawingFrameRect.size, scale: CGFloat(sf), inset: frameInset)
                     }
 
                     if (self.horos_imageColumns > 1 || self.horos_imageRows > 1) && is2DViewer && self.stringID == nil {

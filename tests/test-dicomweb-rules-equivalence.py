@@ -347,7 +347,12 @@ out("saved password", WADOCredentials.password(forServer: saved).password)
 out("saved authorization", try? WADOCredentials.authorization(forServer: saved))
 out("plain password", WADOCredentials.password(forServer: ["WADOPassword": "plain"]).password)
 out("no password", [show(WADOCredentials.password(forServer: [:]).password), "\(WADOCredentials.password(forServer: [:]).unavailable)"])
-let suite = UserDefaults(suiteName: harnessDomainName("dicomweb-rules-equivalence"))!
+// Each probe starts from an empty suite: the one of the reference run stays
+// in the test's folder with its passwords already moved, and the second
+// probe then found nothing left to migrate.
+let suiteName = harnessDomainName("dicomweb-rules-equivalence-" + (CommandLine.arguments[0] as NSString).lastPathComponent)
+let suite = UserDefaults(suiteName: suiteName)!
+suite.removePersistentDomain(forName: suiteName)
 suite.set([["WADOUsername": "a", "WADOPassword": "one", "AETitle": "A"], ["WADOPassword": "orphan", "AETitle": "B"],
            ["WADOUsername": "c", "WADOPassword": "", "AETitle": "C"], ["AETitle": "D"], "not a node"] as [Any], forKey: "SERVERS")
 out("migrated", WADOCredentials.migrateServers(in: suite))

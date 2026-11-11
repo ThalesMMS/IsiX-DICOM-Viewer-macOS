@@ -581,10 +581,7 @@ extension VRView {
                 NSLog("**** Set Pixels")
 
                 // Update 3D image
-                if !horos_isRGB {
-                    BrowserController.multiThreadedImageConvert("FTo16U", horos_srcf, horos_dst8, -horos_OFFSET16, Float(1.0 / Double(horos_valueFactor)))
-                }
-                applyMovieRangeGuardTo16BitVolume()
+                horos_data8IsCurrent = false
 
                 m += 1
             }

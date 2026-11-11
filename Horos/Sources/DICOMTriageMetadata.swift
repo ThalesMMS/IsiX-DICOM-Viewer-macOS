@@ -223,3 +223,16 @@ struct DICOMTriageMetadata {
         }
     }
 }
+
+/// One incoming file as the triages read it: mapped once and parsed once,
+/// however many of them ask. Used on one thread, by one scan of the folder.
+final class DICOMTriageFile {
+    private let path: String
+    private(set) lazy var data: Data? = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe)
+    private(set) lazy var transferSyntax: String? = data.flatMap { DICOMTriageMetadata.transferSyntax($0) }
+    private(set) lazy var parsed: DICOMTriageMetadata? = data.flatMap { DICOMTriageMetadata.parse($0) }
+
+    init(path: String) { self.path = path }
+
+    var isDeflated: Bool { transferSyntax == DICOMTriageMetadata.deflatedTransferSyntax }
+}

@@ -253,6 +253,11 @@ NS_SWIFT_NAME(ExcludedSeries)
 @property BOOL harnessRightClick;
 @property(retain, nonatomic) NSColor *frameColor;
 @property(nonatomic) NSInteger windowNumber;
+// The number of the series and its colour, which the list sets on every
+// series cell since the series are identified by study: not recorded, the
+// Objective-C had neither (tests/test-series-list-identification.py checks them).
+@property(nonatomic) NSInteger seriesNumber;
+@property(retain, nonatomic) NSColor *numberColor;
 + (float) thumbnailCellWidth;
 @end
 
@@ -291,6 +296,10 @@ NS_SWIFT_NAME(SeriesListIdentification)
 @interface HorosSeriesListIdentification : NSObject
 @property(class, readonly) NSString *defaultsKey;
 + (BOOL) showsColorsIn:(NSUserDefaults*)defaults NS_SWIFT_NAME(showsColors(in:));
+// What the Swift list tells and asks since the series are identified by study.
++ (void) setNumber:(NSInteger)number ofSeries:(id)series NS_SWIFT_NAME(setNumber(_:of:));
++ (NSInteger) numberOfSeries:(id)series NS_SWIFT_NAME(number(of:));
++ (void) forgetNumbers;
 @end
 
 NS_SWIFT_NAME(SeriesListColors)
@@ -465,6 +474,7 @@ extern BOOL harnessNoBrowser;
 + (NSArray*) studyColors NS_SWIFT_NONISOLATED;
 + (NSMapTable*) horosSeriesWindowColors;
 + (NSMapTable*) horosSeriesWindowNumbers;
++ (NSMapTable*) horosSeriesOpenColors;
 + (NSMutableArray*) getDisplayed2DViewers NS_SWIFT_NONISOLATED;
 + (NSMutableArray*) get2DViewers NS_SWIFT_NONISOLATED;
 + (BOOL) horos_DisplayUseInvertedPolarity;
@@ -1012,6 +1022,9 @@ static long harnessCells = 0;
 @implementation HorosSeriesListIdentification
 + (NSString*) defaultsKey { return @"SeriesListIdentificationMode"; }
 + (BOOL) showsColorsIn:(NSUserDefaults*)defaults { return [defaults integerForKey: @"SeriesListIdentificationMode"] == 0; }
++ (void) setNumber:(NSInteger)number ofSeries:(id)series {}
++ (NSInteger) numberOfSeries:(id)series { return 0; }
++ (void) forgetNumbers {}
 @end
 
 @implementation HorosSeriesListColors
@@ -1221,6 +1234,14 @@ static NSMapTable *windowColors, *windowNumbers;
 }
 + (NSMapTable*) horosSeriesWindowColors { return windowColors; }
 + (NSMapTable*) horosSeriesWindowNumbers { return windowNumbers; }
+// The series a window shows: here those the Objective-C took for shown in a
+// window, which had a window colour or a window number.
++ (NSMapTable*) horosSeriesOpenColors {
+    NSMapTable *open = [NSMapTable strongToStrongObjectsMapTable];
+    for (id series in windowNumbers) [open setObject: [NSNull null] forKey: series];
+    for (id series in windowColors) [open setObject: [windowColors objectForKey: series] forKey: series];
+    return open;
+}
 + (NSMutableArray*) getDisplayed2DViewers { return harnessDisplayed; }
 + (NSMutableArray*) get2DViewers { return viewers; }
 + (BOOL) horos_DisplayUseInvertedPolarity { return harnessInverted; }
@@ -1573,8 +1594,7 @@ static void Popup(void) {
         v->needsToBuildSeriesPopupMenu = YES;
         [v buildSeriesPopup];
         DumpViewer(v);
-        // Numbers instead of colours, inverted display, hidden names.
-        [defaults setInteger: 1 forKey: @"SeriesListIdentificationMode"];
+        // Inverted display, hidden names.
         [defaults setBool: YES forKey: @"StoreThumbnailsInDB"];
         harnessInverted = YES;
         harnessShowsPatientName = NO;
@@ -1583,7 +1603,6 @@ static void Popup(void) {
         [v buildSeriesPopup];
         DumpViewer(v);
         harnessInverted = NO; harnessShowsPatientName = YES; p.current.harnessRaises = NO;
-        [defaults removeObjectForKey: @"SeriesListIdentificationMode"];
         [defaults removeObjectForKey: @"StoreThumbnailsInDB"];
     });
     RUN("series menu from the browser's history of comparatives", {
@@ -1675,9 +1694,7 @@ static void Matrix(void) {
         v.harnessBlending = Viewer(@"fused older", p.olderSeries[1], 1);
         [v buildMatrixPreview: NO];
         DumpViewer(v);
-        [defaults setInteger: 1 forKey: @"SeriesListIdentificationMode"];
         [v buildMatrixPreview: NO];
-        [defaults removeObjectForKey: @"SeriesListIdentificationMode"];
         p.current.harnessHidden = YES;
         [v buildMatrixPreview: NO];
         p.current.harnessHidden = NO;
@@ -1914,7 +1931,6 @@ static void Dock(void) {
         [defaults setBool: NO forKey: @"UseFloatingThumbnailsList"];
         Record([NSString stringWithFormat: @"views %@ %@", Name([v previewMatrixScrollView]), Name([v previewRootView])]);
         // The KVO of the preferences.
-        [v observeValueForKeyPath: @"SeriesListIdentificationMode" ofObject: defaults change: @{} context: NULL];
         [v observeValueForKeyPath: @"SeriesListVisible" ofObject: defaults change: @{NSKeyValueChangeNewKey: @1} context: NULL];
         [v observeValueForKeyPath: @"SeriesListVisible" ofObject: defaults change: @{NSKeyValueChangeNewKey: @256} context: NULL];
         [v observeValueForKeyPath: @"Other" ofObject: defaults change: @{NSKeyValueChangeNewKey: @1} context: NULL];
@@ -2516,10 +2532,17 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-series-list-') as tmp:
             raise_nil = re.search(r'\nfunc viewerRaiseNilInsertion\(.*?\n}\n', undo, re.S).group(0)
             fusion = (raise_nil + '@MainActor final class ViewerSyncState {\n    static let harness = ViewerSyncState()\n'
                       '    weak var draggedViewer: ViewerController?\n}\n'
-                      '@MainActor final class ViewerFusion {\n    let viewer: ViewerController\n    let sync = ViewerSyncState.harness\n'
+                      '@MainActor final class ViewerFusion {\n    static let divisionBlendingType: Int32 = 13\n    let viewer: ViewerController\n    let sync = ViewerSyncState.harness\n'
                       '    init(viewer: ViewerController) { self.viewer = viewer }\n'
                       '    func activateBlending(_ bC: ViewerController!) { viewer.activateBlending(bC) }\n' + complete + '}\n'
-                      'extension ViewerController {\n    var fusion: ViewerFusion { ViewerFusion(viewer: self) }\n}\n')
+                      'extension ViewerController {\n    var fusion: ViewerFusion { ViewerFusion(viewer: self) }\n}\n'
+                      # The pictures of the list, as the checkout's SeriesListThumbnails serves
+                      # them without a decoding queue: a series without one gets the menu's.
+                      '@MainActor final class SeriesListThumbnails {\n    static let shared = SeriesListThumbnails()\n'
+                      '    func picture<Size>(of series: DicomSeries, size: Size, inverted: Bool) -> NSImage? {\n'
+                      '        guard let data = series.primitiveValue(forKey: "thumbnail") as? Data else { return nil }\n        return NSImage(data: data)\n    }\n'
+                      '    func make(series: DicomSeries, image: DicomImage?, database: DicomDatabase?, storing: Bool) {}\n'
+                      '    func emptyPicture<Size>(size: Size) -> NSImage? { nil }\n}\n')
         # Once the menu asks an image's own database (whether its file is a
         # shared database's, the file of the window) and the list and the menu
         # the database of the viewer's study: the stand-ins' rows are rows of the
@@ -2607,6 +2630,17 @@ int main(int argc, const char **argv) { @autoreleasepool {
             if scenario == 'dock' and not re.search(r'(?:self|viewer)\.window\?\.contentView\?\.needsDisplay = true', dock):
                 failures += 1
                 print('FAIL: the series list no longer redraws its window while its split view resizes')
+        # The cells no longer carry the number of a window: the series are
+        # identified by study, and every series cell has the number of its
+        # series instead, which the Objective-C did not have.
+        if 'cell.windowNumber' not in dock:
+            expected = [line for line in expected if ' windowNumber ' not in line]
+        # The list's pictures are decoded off the main thread now, and arrive
+        # after the cells are filled: what is compared is everything else.
+        picture = re.compile(r'^(DCMPix |CheckLoad |generateThumbnail |exception HarnessPix cannot read |cell\d+ set(Alternate)?Image: )')
+        if 'SeriesListThumbnails.shared' in dock:
+            expected = [line for line in expected if not picture.match(line)]
+            got = [line for line in got if not picture.match(line)]
         if expected == got:
             print('%s: %d records identical (%s against the Objective-C of %s)' % (scenario, len(expected), current_label, reference))
         else:

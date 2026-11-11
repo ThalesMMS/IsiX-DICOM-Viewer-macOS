@@ -82,7 +82,7 @@ compress = importer[importer.index('IncomingScanRules.queuesForConversion('):]
 compress = compress[:compress.index('return\n')]
 if not re.search(r'if let moveError = moveItem\(srcPath, compressedPath\) \{.*?\} else if let compressedPath \{\s*compressedPathArray\.append\(compressedPath\)', compress, re.S):
     failures.append('a file to compress is queued whether or not it reached the decompression folder')
-if '} else if isDeflatedDICOM(srcPath) {' not in importer or 'deflatedPathArray.append(compressedPath)' not in importer:
+if '} else if isDeflatedDICOM(triageFile) {' not in importer or 'deflatedPathArray.append(compressedPath)' not in importer:
     failures.append('the routing of deflated files is gone')
 
 if failures:

@@ -196,6 +196,38 @@ def region(text):
     return text[start:text.index('#pragma mark 4.1.3 Anchored graphical layer')]
 
 
+# What the viewer does differently from that Objective-C on purpose, written as
+# the Objective-C would have it. One slice is the thin end of the slab's
+# slider: steps that switch the fusion off take the knob there, where it used
+# to stay at the thickness it came from, and a fusion that starts from there
+# starts at two slices.
+DELIBERATE = [
+    ("        [stacksFusion setIntValue:1];\n"
+     "        [imageView sendSyncMessage:0];\n"
+     "        return; // The disabled slider retains a valid value >= 2.\n",
+     "        [sliderFusion setIntValue:1];\n"
+     "        [stacksFusion setIntValue:1];\n"
+     "        [imageView sendSyncMessage:0];\n"
+     "        return;\n"),
+    ("    //\telse [OpacityPopup setEnabled:NO];\n"
+     "    \n"
+     "    [imageView setFusion:m :[sliderFusion intValue]];\n",
+     "    //\telse [OpacityPopup setEnabled:NO];\n"
+     "    \n"
+     "    if (m != 0 && [sliderFusion intValue] < 2) [sliderFusion setIntValue:2];\n"
+     "    [imageView setFusion:m :[sliderFusion intValue]];\n"),
+]
+
+
+def amended(text):
+    """`text`, the reference's region, with the deliberate differences."""
+    for former, now in DELIBERATE:
+        if text.count(former) != 1:
+            sys.exit('FAIL: the reference no longer has, once, what a deliberate difference replaces:\n%s' % former)
+        text = text.replace(former, now)
+    return text
+
+
 def function(text, signature):
     start = text.index(signature)
     return text[start:text.index('\n}\n', start) + 3]
@@ -818,6 +850,12 @@ public final class ThickSlabController: NSObject {
     public func setOpacity(_ array: NSArray?) { RecordLine("thickSlab setOpacity \(array.map { "\($0)" } ?? "nil")") }
 }
 
+/// The app's slider, which tells its action when the mouse is dragging it:
+/// no control of these scenarios is one, so none of them is being dragged.
+class HorosCellSlider: NSSlider {
+    var isTrackingMouse: Bool { false }
+}
+
 @objc(OpacityTransferView)
 public final class OpacityTransferView: NSView {
     let points = NSMutableArray()
@@ -1400,7 +1438,7 @@ def build(folder, name, objc_region, swift_sources, module):
 
 failures = []
 with tempfile.TemporaryDirectory(prefix='horos-pipeline-equivalence-') as work:
-    reference_program = build(work, 'pipeline-reference', region(reference_vc), None, None)
+    reference_program = build(work, 'pipeline-reference', amended(region(reference_vc)), None, None)
     if current_is_objc:
         current_program = build(work, 'pipeline-current', region(current_vc), None, None)
         kind = 'Objective-C'

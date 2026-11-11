@@ -73,6 +73,14 @@ public final class GantryTiltPolicy: NSObject {
         corrected.setObject(NSNumber(value: degrees), forKey: viewer)
     }
 
+    /// Forgets the correction of a viewer whose series is read from its files
+    /// again: the slices are tilted as they were, and the mark of the 3D
+    /// views opened from it would go on saying they are not.
+    @objc(clearCorrectionOfViewer:)
+    public static func clearCorrection(of viewer: AnyObject) {
+        corrected.removeObject(forKey: viewer)
+    }
+
     /// The degrees a viewer's series was corrected by, while it still is: a
     /// viewer that found the tilt again (its series reverted) has none.
     @MainActor

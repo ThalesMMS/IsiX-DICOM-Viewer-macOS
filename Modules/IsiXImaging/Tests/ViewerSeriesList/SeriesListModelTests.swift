@@ -22,12 +22,12 @@ import Testing
 
     /// The viewer's study with three series, an older study with its series
     /// hidden, a PACS study with a local copy of one series.
-    private func patient(colors: Bool = true) -> SeriesListModel {
+    private func patient() -> SeriesListModel {
         SeriesListModel(studies: [
             .init(kind: .local, isViewerStudy: true, seriesHidden: false, series: [Self.shown, Self.plain, Self.fused], excludedCount: 2),
             .init(kind: .local, isViewerStudy: false, seriesHidden: true, series: [Self.plain, Self.elsewhere, Self.fused, Self.shown], excludedCount: 1),
             .init(kind: .distant, isViewerStudy: false, seriesHidden: false, series: [Self.plain], excludedCount: 0),
-        ], countedCells: 6, showsSeriesColors: colors)
+        ], countedCells: 6)
     }
 
     @Test func cellsInTheOrderTheListFillsThem() {
@@ -53,20 +53,12 @@ import Testing
         #expect(model.tint(of: .series(study: 2, series: 0)) == .otherStudy)
     }
 
-    @Test func withoutColoursOnlyTheStudiesAreTinted() {
-        let model = patient(colors: false)
-        #expect(model.tint(of: .series(study: 0, series: 0)) == .none)
-        #expect(model.tint(of: .study(1)) == .otherStudy)
-        // Every series is looked at then: the framing one is the first in a window.
-        #expect(model.framingSeries(ofStudy: 1) == 1)
-    }
-
     @Test func framingStopsAtTheSeriesThatTints() {
         let model = patient()
         #expect(model.framingSeries(ofStudy: 1) == 1)
         let tintedFirst = SeriesListModel(studies: [
             .init(kind: .local, isViewerStudy: false, seriesHidden: true, series: [Self.fused, Self.elsewhere], excludedCount: 0),
-        ], countedCells: 0, showsSeriesColors: true)
+        ], countedCells: 0)
         #expect(tintedFirst.framingSeries(ofStudy: 0) == nil)
         #expect(tintedFirst.tint(of: .study(0)) == .fused)
         // A study whose series show is framed by none.
@@ -79,7 +71,7 @@ import Testing
             .init(kind: .local, isViewerStudy: false, seriesHidden: true, series: [], excludedCount: 0),
             .init(kind: .viewerStudyOnPACS, isViewerStudy: true, seriesHidden: false, series: [], excludedCount: 0),
             .init(kind: .distant, isViewerStudy: false, seriesHidden: false, series: [], excludedCount: 0),
-        ], countedCells: 0, showsSeriesColors: true)
+        ], countedCells: 0)
         #expect(model.action(ofStudy: 0) == .hideSeries)
         #expect(model.action(ofStudy: 1) == .showSeries)
         #expect(model.action(ofStudy: 2) == nil)

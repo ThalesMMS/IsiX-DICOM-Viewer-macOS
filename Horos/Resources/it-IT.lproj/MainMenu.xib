@@ -74,6 +74,12 @@
                                     <action selector="showDatabase:" target="898" id="1030"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Pannello cronologia orizzontale (al prossimo avvio)" id="hzh-his-001">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <binding destination="12279" name="value" keyPath="values.horizontalHistory" id="hzh-bnd-001"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="Attiva / Disattiva cassetto Album &amp; Fonti" id="14591">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
@@ -231,6 +237,12 @@
                                         <menuItem title="Importa immagini e PDF nello studio selezionato…" id="Isp-im-Itm">
                                             <connections>
                                                 <action selector="importImagesAndPDFsIntoSelectedStudy:" target="Isp-im-Obj" id="Isp-im-Act"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="Lgc-im-Sep"/>
+                                        <menuItem title="Importa studi da Horos o OsiriX…" id="Lgc-im-Itm">
+                                            <connections>
+                                                <action selector="importStudiesFromEarlierApplication:" target="Isp-im-Obj" id="Lgc-im-Act"/>
                                             </connections>
                                         </menuItem>
                                     </items>
@@ -924,7 +936,7 @@
                                                         </connections>
                                                     </menuItem>
                                                     <menuItem isSeparatorItem="YES" id="Ppb-s1-Sep"/>
-                                                    <menuItem title="Propagare" enabled="NO" identifier="org.horos.menu.section-header.propagate" id="Ppb-hd-Itm"/>
+                                                    <menuItem title="Propaga" enabled="NO" identifier="org.horos.menu.section-header.propagate" id="Ppb-hd-Itm"/>
                                                     <menuItem title="WL e WW" state="on" keyEquivalent="g" id="13571">
                                                         <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                                         <connections>
@@ -1969,8 +1981,8 @@
                                     </items>
                                 </menu>
                             </menuItem>
-                            <menuItem title="Propagare" id="Rpr-gp-Itm">
-                                <menu key="submenu" title="Propagare" id="Rpr-gp-Mnu">
+                            <menuItem title="Propaga" id="Rpr-gp-Itm">
+                                <menu key="submenu" title="Propaga" id="Rpr-gp-Mnu">
                                     <items>
                                         <menuItem title="Propaga la ROI selezionata..." id="1408">
                                             <connections>

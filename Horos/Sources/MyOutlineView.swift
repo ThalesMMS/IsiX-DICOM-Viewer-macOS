@@ -98,6 +98,8 @@ public final class MyOutlineView: NSOutlineView {
     }
 
     public override func keyDown(with event: NSEvent) {
+        // Option and a digit: the state of that number, in the database list.
+        if StudyStates.applyShortcut(event, in: self.window?.windowController) { return }
         guard let characters = event.characters as NSString?, characters.length > 0 else { return }
 
         let c = characters.character(at: 0)

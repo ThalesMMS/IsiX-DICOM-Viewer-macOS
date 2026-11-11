@@ -67,6 +67,22 @@ public enum ROISeriesTransfer {
         return high - low <= tolerance
     }
 
+    /// The points whose depths in the other series tell whether its plane is
+    /// parallel, for a ROI kept as a rectangle: its origin and one point along
+    /// each axis of its image. A single point is at one depth on any plane, so
+    /// an oval drawn on a sagittal series was copied onto the coronal one. The
+    /// points are as far apart as the ROI reaches, and never nearer than
+    /// `least` millimetres, so a small ROI is not within the tolerance of a
+    /// plane across its own. `spacingX` and `spacingY` are the millimetres of
+    /// a pixel; one that is not known counts as 1.
+    public static func planeProbe(rect: NSRect, spacingX: Double, spacingY: Double, least: Double = 20) -> [NSPoint] {
+        let reachX = max(abs(Double(rect.size.width)), least / (spacingX > 0 ? spacingX : 1))
+        let reachY = max(abs(Double(rect.size.height)), least / (spacingY > 0 ? spacingY : 1))
+        return [rect.origin,
+                NSPoint(x: rect.origin.x + CGFloat(reachX), y: rect.origin.y),
+                NSPoint(x: rect.origin.x, y: rect.origin.y + CGFloat(reachY))]
+    }
+
     /// The rectangle of a ROI, carried by `map` from one image's pixels to the
     /// other's.
     public static func mapRect(_ rect: NSRect, kind: RectKind, map: (NSPoint) -> NSPoint) -> NSRect {
