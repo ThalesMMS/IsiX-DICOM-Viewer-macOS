@@ -204,9 +204,9 @@ if (root / 'Horos/Sources/DICOM-Swift').exists():
 import json
 package_lock = json.loads((root / 'Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved').read_text())
 client_pin = next(pin for pin in package_lock['pins'] if pin['identity'] == 'dicom-swift')
-if client_pin['location'] != 'https://github.com/ThalesMMS/DICOM-Swift.git' or client_pin['state']['version'] != '3.1.1':
+if client_pin['location'] != 'https://github.com/ThalesMMS/DICOM-Swift.git' or client_pin['state']['version'] != '3.3.0':
     fail('the public client pin is not the approved exact release')
-if client_pin['state']['revision'] != '229714f81e3090a937a17c344ca804fa4473cbe7':
+if client_pin['state']['revision'] != 'cf9b5bf403dd6b002f827f51aa9d9e3266f41d31':
     fail('the public client revision differs from the selected release')
 client_family = next(component for component in provenance['components'] if component['id'] == 'dicom-swift')
 if client_family['selected_pin'] != client_pin:
@@ -330,7 +330,7 @@ let dicomSwift = components.first { $0.identifier == "dicom-swift" }!
 precondition(dicomSwift.license == "Apache-2.0" && dicomSwift.incorporated)
 precondition(dicomSwift.sourcePath == "Binaries/Splash/DICOM-Swift-LICENSE.txt")
 precondition(dicomSwift.origin == "remote-package")
-precondition(dicomSwift.distributionNote.contains("3.1.1") && dicomSwift.distributionNote.contains("229714f81e3090a937a17c344ca804fa4473cbe7"))
+precondition(dicomSwift.distributionNote.contains("3.3.0") && dicomSwift.distributionNote.contains("cf9b5bf403dd6b002f827f51aa9d9e3266f41d31"))
 precondition(!dicomSwift.distributionNote.contains("Horos/Sources/DICOM-Swift"))
 
 let nio = components.first { $0.identifier == "swift-nio" }!

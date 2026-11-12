@@ -35,7 +35,8 @@ Where the Objective-C read a file wrongly, the case is not compared with the
 reference but checked against the values written (CORRECTED): a 16-bit TIFF
 whose SampleFormat is signed integer is read with its sign; a Bio-Rad PIC's
 16-bit samples are unsigned, and its last note is read once; an Analyze float
-image in big endian has the values of its little-endian twin.
+image in big endian has the values of its little-endian twin; a PDF page is
+drawn on white paper, where it was black wherever the page has no ink.
 
 Usage: test-dcmpix-non-dicom-formats.py [REFERENCE_REVISION]
 """
@@ -805,7 +806,9 @@ CORRECTED = ('tiff-16-signed', 'tiff-16-signed-negative',
              # Bio-Rad: 16-bit samples were read signed, and the last note twice.
              'biorad-16-high',
              # Analyze floats in the other byte order were not swapped.
-             'analyze-float-big-endian')
+             'analyze-float-big-endian',
+             # A PDF page had no paper: black wherever nothing was drawn.
+             'pdf-page0', 'pdf-page1')
 
 
 def check_expectations(records, cases_folder):
@@ -877,6 +880,12 @@ def check_expectations(records, cases_folder):
     expect(records['png-rgb']['rgb'] and records['png-rgb']['size'] == [6, 4], 'a PNG is %r' % records['png-rgb']['size'])
     expect(records['png-in-volume']['size'] == [4, 3], 'a PNG in a volume is %r' % records['png-in-volume']['size'])
     expect(records['pdf-page0']['pixels'] != records['pdf-page1']['pixels'], 'the two PDF pages are the same image')
+    # The pages paint one rectangle away from the top: the first row is paper,
+    # white and opaque, at 2 pixels a point.
+    for name in ('pdf-page0', 'pdf-page1'):
+        page = records[name]
+        expect(page['rgb'] and page['size'] == [96, 72] and page['head'] == ['ffffffff'] * 6,
+               '%s is %r %r, not a page of 96 x 72 on white paper' % (name, page['size'], page['head']))
     expect(records['plugin-format']['size'] == [5, 3] and [fl(v) for v in records['plugin-format']['head']] == [i * 2.5 - 7 for i in range(6)],
            'the plugin image is %r' % records['plugin-format'])
     expect(records['unknown-extension']['notAbleToLoad'] and records['unknown-extension']['size'] == [128, 128],

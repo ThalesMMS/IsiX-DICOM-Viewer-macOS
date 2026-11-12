@@ -63,6 +63,16 @@ public enum SeriesListDock {
         return snapped
     }
 
+    /// The width of the floating panel that holds the list: a thumbnail
+    /// (`cellWidth`) and ten points to spare. A scroller that takes room of
+    /// its own (`scrollerWidth`, 0 for an overlay one) needs more than that:
+    /// the thumbnail, the scroller and two points, as a docked strip. A
+    /// narrower panel cuts the thumbnails on the right and lets the column
+    /// scroll sideways.
+    public static func floatingWidth(cellWidth: CGFloat, scrollerWidth: CGFloat) -> CGFloat {
+        cellWidth + max(10, scrollerWidth != 0 ? scrollerWidth + 2 : 0)
+    }
+
     /// The mouse is where an automatically hidden list shows: along the
     /// list's edge, `cellWidth` plus 13 points wide, over the split view's
     /// height (20 points less while the list is hidden).

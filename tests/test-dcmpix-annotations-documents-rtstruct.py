@@ -63,6 +63,9 @@ MOVED = ('DCMPix+Database', 'DCMPix+Annotations', 'DCMPix+EncapsulatedDocuments'
 APP_SWIFT = ('MissingPixelsReason',)
 SKIPPED = 2
 configuration = roi_harness.configuration()
+# The cases that draw a PDF page: the encapsulated PDF and the rendering of a
+# structured report.
+PAGES = ('document-pdf-0', 'document-pdf-1', 'document-sr-rendered-0')
 
 
 def pdf(path, pages):
@@ -620,7 +623,9 @@ static void documents( void)
             [pix CheckLoad];
             long w = [pix pwidth], h = [pix pheight];
             float *f = [pix fImage];
-            record( name, @{@"size": @[@(w), @(h)], @"rgb": @([pix isRGB]), @"pixels": fnv( f, w * h), @"external": @(f == buffer && f != NULL),
+            NSString *corner = f && w * h > 0 ? [NSString stringWithFormat: @"%08x", *(unsigned int*) f] : @"none";
+            record( name, @{@"size": @[@(w), @(h)], @"rgb": @([pix isRGB]), @"pixels": fnv( f, w * h), @"corner": corner,
+                           @"external": @(f == buffer && f != NULL),
                            @"notAbleToLoad": @([pix notAbleToLoadImage]), @"reason": describe( [pix missingPixelsReason]),
                            @"sop": describe( [pix SOPClassUID]), @"annotations": describe( [pix annotationsDictionary])});
         }
@@ -875,6 +880,16 @@ def main():
         print(f'FAIL: {error}')
         sys.exit(1)
     check_expectations(current, failures)
+    # A page is drawn on white paper, where the Objective-C left it black
+    # wherever the page has no ink: the pixels of the pages are not those of
+    # its records, and check_expectations looks at the paper instead. The
+    # records have no corner.
+    for records in (previous, current):
+        for name, record in records.items():
+            if isinstance(record, dict):
+                record.pop('corner', None)
+                if name in PAGES:
+                    record.pop('pixels', None)
     for problem in roi_harness.diff(previous, current):
         failures.append('differs from the reference: ' + problem)
     for failure in failures:
@@ -900,6 +915,11 @@ def check_expectations(records, failures):
         failures.append('the encapsulated PDF was not drawn')
     if records.get('document-pdf-0', {}).get('pixels') == records.get('document-pdf-1', {}).get('pixels'):
         failures.append('the two pages of the PDF are the same image')
+    # The pages paint one rectangle away from their edges: the first pixel is
+    # paper, white and opaque.
+    for name in PAGES:
+        if records.get(name, {}).get('corner') != 'ffffffff':
+            failures.append('%s is not drawn on white paper: its first pixel is %s' % (name, records.get(name, {}).get('corner')))
 
 
 if __name__ == '__main__':

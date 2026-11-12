@@ -161,8 +161,11 @@ public final class ThumbnailCell: NSButtonCell {
         return super.drawTitle(title, withFrame: NSInsetRect(frame, -2, 0), in: controlView) // very precioussss 4px/pt
     }
 
-    /// The number of the series at the top left of its thumbnail, in every
-    /// cell of a series: on the colour of its study while a window shows it.
+    /// The number of the series, in every cell of a series: on the colour of
+    /// its study while a window shows it. At the bottom left, beside the
+    /// picture and inside the window's frame: the lines of the title fill the
+    /// top of the cell from edge to edge, and a number there hid the start of
+    /// the series' name.
     public override func draw(withFrame frame: NSRect, in controlView: NSView) {
         super.draw(withFrame: frame, in: controlView)
         guard seriesNumber > 0 else { return }
@@ -174,9 +177,10 @@ public final class ThumbnailCell: NSButtonCell {
         ]
         let size = label.size(withAttributes: attributes)
         let height = size.height + 2
-        let width = min(max(size.width + 8, height), frame.width - 8)
-        let y = controlView.isFlipped ? frame.minY + 4 : frame.maxY - height - 4
-        let badge = NSRect(x: frame.minX + 4, y: y, width: width, height: height)
+        let inset: CGFloat = 5
+        let width = min(max(size.width + 8, height), frame.width - 2 * inset)
+        let y = controlView.isFlipped ? frame.maxY - height - inset : frame.minY + inset
+        let badge = NSRect(x: frame.minX + inset, y: y, width: width, height: height)
         NSGraphicsContext.saveGraphicsState()
         (numberColor ?? SeriesListIdentification.neutralColor).setFill()
         NSBezierPath(roundedRect: badge, xRadius: 3, yRadius: 3).fill()

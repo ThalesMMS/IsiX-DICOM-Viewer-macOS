@@ -198,6 +198,10 @@ extension DCMPix {
     /// a point, the Retina density the app has always given, whatever the
     /// screen. An image that has pixels of its own (a PNG, a JPEG) keeps them:
     /// AppKit hands its bitmap over as it is, at any scale.
+    ///
+    /// A PDF page is drawn on white paper. The page itself is only its ink:
+    /// where nothing was drawn AppKit gives no pixel at all, and those came
+    /// out black, under text that is black too.
     @objc(getDataFromNSImage:)
     public dynamic func getData(from otherImage: NSImage?) {
         autoreleasepool {
@@ -224,7 +228,8 @@ extension DCMPix {
                 storeSizes(sizes)
                 let external = horos_fExternalOwnedImage != nil
                 guard let argb = imageBuffer(width * 4 * height) else { return }
-                guard ARGBImages.draw(image, width: width, height: height, into: argb) else {
+                let paper: CGColor? = otherImage.representations.contains { $0 is NSPDFImageRep } ? .white : nil
+                guard ARGBImages.draw(image, width: width, height: height, into: argb, paper: paper) else {
                     if !external { free(argb) }
                     return
                 }

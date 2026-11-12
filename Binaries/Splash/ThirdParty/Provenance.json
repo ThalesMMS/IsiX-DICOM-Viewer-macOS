@@ -1204,11 +1204,11 @@
         "kind": "remoteSourceControl",
         "location": "https://github.com/ThalesMMS/DICOM-Swift.git",
         "state": {
-          "revision": "229714f81e3090a937a17c344ca804fa4473cbe7",
-          "version": "3.1.1"
+          "revision": "cf9b5bf403dd6b002f827f51aa9d9e3266f41d31",
+          "version": "3.3.0"
         }
       },
-      "public_tree": "22c2c750cfbf36db7d120fdfa45875f5bc0509e9",
+      "public_tree": "563e5a2191e27cac957a6a0c326ec9e89c0a962a",
       "direct_products": [
         "DicomWebClient",
         "DicomWebOIDC"
@@ -1266,7 +1266,7 @@
         },
         "Binaries/Splash/ThirdParty/DICOMSwift/DistributionProvenance.json": {
           "size": 74447,
-          "sha256": "ee0435ee4eb74dd1d174578d51f5e3c49e289873ee9c3feb76572724f19ff3f6"
+          "sha256": "3aa1e1e5cd12fb27fdaad3e59c8855c2975c35a3488cf676d11b9d0cdf0b6109"
         },
         "Binaries/Splash/ThirdParty/DICOMSwift/pydicom/LICENSE": {
           "size": 3140,
@@ -1286,7 +1286,7 @@
         },
         "Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved": {
           "size": 2337,
-          "sha256": "724a543c59021b722dac4713f0fdede4e1f8b3261f37e2f8405bf9bedb3174f9"
+          "sha256": "f446cd04eea82cda13b9ecde09bbfc638839119bb1b54e92759aecdc379b5663"
         }
       }
     },

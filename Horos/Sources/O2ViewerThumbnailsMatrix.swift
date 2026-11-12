@@ -343,6 +343,19 @@ public final class O2ViewerThumbnailsMatrix: NSMatrix, NSDraggingSource {
             cell.draw(withFrame: rects[i], in: self)
         }
     }
+
+    /// The list moves along its strip only. A column wider than what shows of
+    /// it does not slide sideways, which would cut its thumbnails on one side,
+    /// nor a row up and down.
+    public override func adjustScroll(_ newVisible: NSRect) -> NSRect {
+        var visible = super.adjustScroll(newVisible)
+        if self.isRow {
+            visible.origin.y = self.bounds.minY
+        } else {
+            visible.origin.x = self.bounds.minX
+        }
+        return visible
+    }
 }
 
 /// What a thumbnail cell of the matrix stands for: a study with its series, or

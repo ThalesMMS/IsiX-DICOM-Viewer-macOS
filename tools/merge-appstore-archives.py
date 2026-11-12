@@ -8,6 +8,7 @@ from pathlib import Path
 import plistlib
 import shutil
 import subprocess
+import tempfile
 import zipfile
 
 
@@ -45,11 +46,25 @@ def merge_tree(arm, intel, output):
                 raise ValueError(f'Archive symlinks differ: {relative}')
             continue
         if macho(a):
-            for arch, source in [('arm64', a), ('x86_64', b)]:
-                found = subprocess.check_output(['lipo', '-archs', str(source)], text=True).split()
-                if found != [arch]:
-                    raise ValueError(f'{relative}: expected {arch}, found {found}')
-            subprocess.run(['lipo', '-create', str(a), str(b), '-output', str(target)], check=True)
+            # Xcode can embed a multi-architecture back-deployment library in
+            # each archive. Extract its requested slice into temporary files,
+            # keeping the signed input archives intact.
+            compatibility_library = (relative.parent.name == 'Frameworks'
+                                     and relative.parent.parent.name == 'Contents'
+                                     and relative.name.startswith('libswiftCompatibility')
+                                     and relative.suffix == '.dylib')
+            with tempfile.TemporaryDirectory(prefix='appstore-slices-') as temporary:
+                sources = []
+                for arch, source in [('arm64', a), ('x86_64', b)]:
+                    found = subprocess.check_output(['lipo', '-archs', str(source)], text=True).split()
+                    if found != [arch]:
+                        if not compatibility_library or arch not in found:
+                            raise ValueError(f'{relative}: expected {arch}, found {found}')
+                        thinned = Path(temporary) / arch
+                        subprocess.run(['lipo', str(source), '-thin', arch, '-output', str(thinned)], check=True)
+                        source = thinned
+                    sources.append(str(source))
+                subprocess.run(['lipo', '-create', *sources, '-output', str(target)], check=True)
         elif a.read_bytes() != b.read_bytes():
             if relative.name == 'embedded.provisionprofile':
                 continue

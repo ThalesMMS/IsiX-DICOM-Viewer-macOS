@@ -101,6 +101,41 @@ class UniversalArchiveTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'only one architecture'):
             merger.merge(*self.inputs, self.output)
 
+    def test_mergesFatSwiftCompatibilityLibraryWithoutChangingInputs(self):
+        relative = 'Products/Applications/Fixture.app/Contents/Frameworks/libswiftCompatibilitySpan.dylib'
+        fat = self.work / 'toolchain-library.dylib'
+        subprocess.run(['lipo', '-create',
+                        *[str(p / 'Products/Applications/Fixture.app/Contents/MacOS/Fixture')
+                          for p in self.inputs], '-output', str(fat)], check=True)
+        for archive in self.inputs:
+            library = archive / relative
+            library.parent.mkdir(parents=True)
+            shutil.copy2(fat, library)
+        merger.merge(*self.inputs, self.output)
+        binary = self.output / relative
+        self.assertEqual(set(subprocess.check_output(['lipo', '-archs', binary], text=True).split()),
+                         {'arm64', 'x86_64'})
+        for archive in self.inputs:
+            self.assertEqual((archive / relative).read_bytes(), fat.read_bytes())
+
+    def test_rejectsFatApplicationExecutable(self):
+        relative = 'Products/Applications/Fixture.app/Contents/MacOS/Fixture'
+        fat = self.work / 'fat-app'
+        subprocess.run(['lipo', '-create', *[str(p / relative) for p in self.inputs],
+                        '-output', str(fat)], check=True)
+        shutil.copy2(fat, self.inputs[0] / relative)
+        with self.assertRaisesRegex(ValueError, 'expected arm64'):
+            merger.merge(*self.inputs, self.output)
+
+    def test_rejectsSwiftCompatibilityLibraryMissingRequiredArchitecture(self):
+        relative = 'Products/Applications/Fixture.app/Contents/Frameworks/libswiftCompatibilitySpan.dylib'
+        for archive in self.inputs:
+            library = archive / relative
+            library.parent.mkdir(parents=True)
+            shutil.copy2(self.inputs[1] / 'Products/Applications/Fixture.app/Contents/MacOS/Fixture', library)
+        with self.assertRaisesRegex(ValueError, 'expected arm64'):
+            merger.merge(*self.inputs, self.output)
+
     def test_mergesDebugSymbols(self):
         for archive in self.inputs:
             symbols = archive / 'dSYMs/Fixture.app.dSYM'

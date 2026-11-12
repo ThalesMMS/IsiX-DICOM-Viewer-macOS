@@ -8,6 +8,7 @@
 //  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
+import CoreGraphics
 import Foundation
 import Testing
 @testable import IsiXImaging
@@ -151,6 +152,30 @@ struct NonDICOMFormatsTests {
         #expect(buffer == [2, 3, 9, 9])
         // As fread into a variable already holding the fallback: only the low byte is replaced.
         #expect(file.uint16(at: 2, fallback: 0x0102) == 0x0103)
+    }
+
+    /// A picture of two pixels: black ink, then nothing drawn at all.
+    private func inkAndNothing() throws -> CGImage {
+        let context = try #require(CGContext(data: nil, width: 2, height: 1, bitsPerComponent: 8, bytesPerRow: 8,
+                                             space: CGColorSpaceCreateDeviceRGB(),
+                                             bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
+        context.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 1, height: 1))
+        return try #require(context.makeImage())
+    }
+
+    @Test func aPictureOnPaperShowsThePaperWhereNothingWasDrawn() throws {
+        let image = try inkAndNothing()
+        var argb = [UInt8](repeating: 7, count: 8)
+        #expect(argb.withUnsafeMutableBytes { ARGBImages.draw(image, width: 2, height: 1, into: $0.baseAddress!, paper: .white) })
+        #expect(argb == [255, 0, 0, 0, 255, 255, 255, 255])
+    }
+
+    @Test func aPictureWithoutPaperIsCopiedWithItsTransparency() throws {
+        let image = try inkAndNothing()
+        var argb = [UInt8](repeating: 7, count: 8)
+        #expect(argb.withUnsafeMutableBytes { ARGBImages.draw(image, width: 2, height: 1, into: $0.baseAddress!) })
+        #expect(argb == [255, 0, 0, 0, 0, 0, 0, 0])
     }
 }
 

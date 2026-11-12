@@ -137,6 +137,16 @@ import Testing
         #expect(SeriesListDock.snappedThickness(55, stripThickness: 110, scrollerWidth: 15, across: true) == 0)
     }
 
+    @Test func floatingPanelHoldsAThumbnailAndItsScroller() {
+        // An overlay scroller takes no room: the thumbnail and ten points.
+        #expect(SeriesListDock.floatingWidth(cellWidth: 100, scrollerWidth: 0) == 110)
+        // A scroller of its own leaves the whole thumbnail beside it.
+        #expect(SeriesListDock.floatingWidth(cellWidth: 100, scrollerWidth: 16) == 118)
+        #expect(SeriesListDock.floatingWidth(cellWidth: 130, scrollerWidth: 15) == 147)
+        // Never narrower than without one.
+        #expect(SeriesListDock.floatingWidth(cellWidth: 80, scrollerWidth: 4) == 90)
+    }
+
     @Test func mouseKeepsTheListShown() {
         #expect(SeriesListDock.mouseKeepsListShown(x: 50, y: 10, cellWidth: 100, height: 500, listShown: false))
         #expect(SeriesListDock.mouseKeepsListShown(x: 113, y: 500, cellWidth: 100, height: 500, listShown: true))

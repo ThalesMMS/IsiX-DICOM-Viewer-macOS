@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXImaging
 import IsiXPreferences
 
 /// The screen each borrowed list was last shown on, keyed by the list's address
@@ -81,9 +82,12 @@ public final class ThumbnailsListPanel: NSWindowController {
         default: break
         }
 
-        w += 10
+        // The list borrowed from a viewer scrolls down this panel. A scroller
+        // that is always shown takes its width from the thumbnails.
+        let scroller = NSScroller.preferredScrollerStyle == .legacy
+            ? NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy) : 0
 
-        return Int(w)
+        return Int(SeriesListDock.floatingWidth(cellWidth: CGFloat(w), scrollerWidth: scroller).rounded(.up))
     }
 
     @objc public class func checkScreenParameters() {
@@ -139,6 +143,8 @@ public final class ThumbnailsListPanel: NSWindowController {
         self.applicationDidChangeScreenParameters(nil)
 
         NotificationCenter.default.addObserver(self, selector: #selector(applicationDidChangeScreenParameters(_:)), name: NSApplication.didChangeScreenParametersNotification, object: NSApp)
+        // The panel's width follows the scrollers: shown always or over the list.
+        NotificationCenter.default.addObserver(self, selector: #selector(applicationDidChangeScreenParameters(_:)), name: NSScroller.preferredScrollerStyleDidChangeNotification, object: nil)
 
         NotificationCenter.default.addObserver(self, selector: #selector(viewerWillClose(_:)), name: .OsirixCloseViewer, object: nil)
 

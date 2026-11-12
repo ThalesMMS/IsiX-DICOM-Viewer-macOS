@@ -112,6 +112,10 @@ public final class SeriesListLayout: NSObject {
         let row = placement.isHorizontalStrip && !floating
         scrollView.hasHorizontalScroller = row
         scrollView.hasVerticalScroller = !row
+        // The list moves along its strip only: a column never slides or
+        // bounces sideways, nor a row up and down.
+        scrollView.horizontalScrollElasticity = row ? .automatic : .none
+        scrollView.verticalScrollElasticity = row ? .none : .automatic
         scrollView.frame = dock.bounds
         splitView.dividerStyle = floating ? .thin : .thick
     }

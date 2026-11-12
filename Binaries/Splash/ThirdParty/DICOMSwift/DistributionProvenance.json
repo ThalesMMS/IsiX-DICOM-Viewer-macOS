@@ -996,7 +996,7 @@
     },
     {
       "destination": "Sources/DicomData/Generated/DicomStandardDictionaryTable.swift",
-      "sha256": "6e2687fd678ec7565321d54eac3fee2f447549f7da4015c7aab739f2fa610596",
+      "sha256": "ba0ec8507ae9b543bb718e69665f07307ad28a079fc0491e17a45fc3269d56b4",
       "mode": "format-conversion",
       "repository": "https://github.com/pydicom/pydicom",
       "commit": "f1eb627599020bcffd1eb171be9d1a71d10652f3",

@@ -132,6 +132,21 @@ let count = 5
     check(row ? (last.minX >= visible.minX - 1 && last.maxX <= visible.maxX + 1) : (last.minY >= visible.minY - 1 && last.maxY <= visible.maxY + 1),
           "\(step): the list scrolls to the current series")
     scrollTo(m, 0)
+    // Shown narrower than its thumbnails, the list still moves along its strip
+    // only: sideways, a column would show its thumbnails cut on one side.
+    let scroll = m.enclosingScrollView!, shown = scroll.frame
+    scroll.frame = row ? NSRect(x: shown.minX, y: shown.minY, width: shown.width, height: 60)
+                       : NSRect(x: shown.minX, y: shown.minY, width: 60, height: shown.height)
+    scroll.tile()
+    m.scroll(NSPoint(x: 30, y: 30))
+    check(row ? clip.bounds.minY == 0 : clip.bounds.minX == 0,
+          "\(step): the list does not move across its strip (\(clip.bounds.origin))")
+    check(row ? clip.bounds.minX == 30 : clip.bounds.minY == 30, "\(step): the list moves along its strip (\(clip.bounds.origin))")
+    check(row ? scroll.verticalScrollElasticity == .none : scroll.horizontalScrollElasticity == .none,
+          "\(step): the list does not bounce across its strip")
+    scroll.frame = shown
+    scroll.tile()
+    scrollTo(m, 0)
 }
 
 @main struct Check {

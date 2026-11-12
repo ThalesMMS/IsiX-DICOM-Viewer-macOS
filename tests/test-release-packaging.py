@@ -29,6 +29,7 @@ xcodebuild replaced by a stand-in that either fails or "builds" a small bundle:
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import hashlib
+import importlib.util
 import json
 import plistlib
 import os
@@ -38,6 +39,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from unittest.mock import patch
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -46,6 +48,21 @@ failures = []
 def report(ok, message):
     if not ok:
         failures.append(message)
+
+
+sdk_spec = importlib.util.spec_from_file_location('sdk_export', root / 'tools/export-isix-plugin-kit.py')
+sdk_export = importlib.util.module_from_spec(sdk_spec)
+sdk_spec.loader.exec_module(sdk_export)
+with tempfile.TemporaryDirectory() as sdk_scratch, patch.object(sdk_export.subprocess, 'run') as sdk_build:
+    sdk_build.return_value.returncode = 0
+    sdk_export.build_with_xcode('Release', ['arm64', 'x86_64'], sdk_scratch)
+    sdk_command = sdk_build.call_args.args[0]
+    report('-disableAutomaticPackageResolution' in sdk_command
+           and '-onlyUsePackageVersionsFromResolvedFile' in sdk_command,
+           'the SDK export must preserve the reviewed package resolution')
+    cache_index = sdk_command.index('-clonedSourcePackagesDirPath')
+    report(sdk_command[cache_index + 1] == str(root / 'build/SourcePackages'),
+           'the SDK export must share the release package checkout')
 
 
 if shutil.which('xcrun') is None:

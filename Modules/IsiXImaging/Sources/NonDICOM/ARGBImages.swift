@@ -45,14 +45,25 @@ import Foundation
 public enum ARGBImages {
     /// Draws `image` into `argb` (`width` x `height`), alpha premultiplied, copying
     /// rather than blending; false when no context could be made.
-    public static func draw(_ image: CGImage, width: Int, height: Int, into argb: UnsafeMutableRawPointer) -> Bool {
+    ///
+    /// With `paper`, the image is laid over that colour instead of copied. A
+    /// picture that is only ink, as a PDF page is, has no pixel where nothing
+    /// was drawn: copied, those come out as zeroes, which is black, and the
+    /// black text of a page on it cannot be seen.
+    public static func draw(_ image: CGImage, width: Int, height: Int, into argb: UnsafeMutableRawPointer, paper: CGColor? = nil) -> Bool {
         let bytesPerRow = width * 4
         let space = CGColorSpaceCreateDeviceRGB()
         let info = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
         guard let context = CGContext(data: argb, width: width, height: height, bitsPerComponent: 8, bytesPerRow: bytesPerRow,
                                       space: space, bitmapInfo: info) else { return false }
+        let bounds = CGRect(x: 0, y: 0, width: width, height: height)
         context.setBlendMode(.copy)
-        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        if let paper {
+            context.setFillColor(paper)
+            context.fill(bounds)
+            context.setBlendMode(.normal)
+        }
+        context.draw(image, in: bounds)
         return true
     }
 

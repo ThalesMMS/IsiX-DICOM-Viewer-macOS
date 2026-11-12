@@ -1,9 +1,34 @@
 # IsiX DICOM Viewer
 
-[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0/IsiX-DICOM-Viewer-6.0.0-Apple-Silicon-Macs.zip)
-[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0/IsiX-DICOM-Viewer-6.0.0-Intel-Macs.zip)
+[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.1/IsiX-DICOM-Viewer-6.0.1-Apple-Silicon-Macs.zip)
+[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.1/IsiX-DICOM-Viewer-6.0.1-Intel-Macs.zip)
+[![Get it from App Store](https://img.shields.io/badge/Get_it_from_App_Store-000000?style=for-the-badge&logo=apple&logoColor=white)](https://apps.apple.com/app/isix-dicom-viewer/id6792369880)
 
-**6.0.0 stable release:** [release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/tag/v6.0.0) · [IsiXPluginKit SDK](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0/IsiXPluginKit-SDK-6.0.0.zip).
+<p align="center"><b>macOS</b></p>
+<p align="center">
+  <img src="screenshots/macOS.png" alt="IsiX DICOM Viewer on Mac: the study database with a CT series preview" width="80%">
+</p>
+<p align="center"><b>iPhone and iPad</b></p>
+<p align="center">
+  <img src="screenshots/iPhone1.png" alt="IsiX DICOM Viewer on iPhone: 2D viewer with a CT image" width="18.5%">
+  <img src="screenshots/iPhone2.png" alt="IsiX DICOM Viewer on iPhone: the details and series of a study" width="18.5%">
+  <img src="screenshots/iPad.png" alt="IsiX DICOM Viewer on iPad: 3D reconstruction of a head CT" width="58.4%">
+</p>
+<p align="center"><b>Apple Watch and Apple TV companions</b></p>
+<p align="center">
+  <img src="screenshots/AppleWatch1.png" alt="IsiX DICOM Viewer on Apple Watch: the list of series of a study" width="21%">
+  <img src="screenshots/AppleWatch2.png" alt="IsiX DICOM Viewer on Apple Watch: a CT image" width="21%">
+  <img src="screenshots/AppleTV.png" alt="IsiX DICOM Viewer on Apple TV: a CT series with its image slider" width="44.5%">
+</p>
+<p align="center"><b>Apple Vision Pro</b></p>
+<p align="center">
+  <img src="screenshots/VisionPro.jpg" alt="IsiX DICOM Viewer on Apple Vision Pro: multiplanar reconstruction of a head CT" width="80%">
+</p>
+<p align="center">
+  <sub>This repository holds the macOS version.</sub>
+</p>
+
+**6.0.1 stable release:** [release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/tag/v6.0.1) · [IsiXPluginKit SDK](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.1/IsiXPluginKit-SDK-6.0.1.zip).
 This release supports IsiXPluginKit v1 and compatible Horos and OsiriX plugins built for the running architecture.
 
 Browse the [latest release](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest)
@@ -470,7 +495,7 @@ xcodebuild -project Horos.xcodeproj -scheme Horos \
 
 `Horos.xcodeproj` requires the public
 [DICOM-Swift package](https://github.com/ThalesMMS/DICOM-Swift) at exact version
-`3.1.1` (revision `229714f81e3090a937a17c344ca804fa4473cbe7`). The app
+`3.3.0` (revision `cf9b5bf403dd6b002f827f51aa9d9e3266f41d31`). The app
 links `DicomWebClient`, `DicomWebOIDC` and their `DicomData` dependency. Optional codecs, server,
 UI and ZIP products are not linked. Resolver downloads of optional dependencies
 do not imply that their code is part of the app.
