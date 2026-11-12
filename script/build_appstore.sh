@@ -33,6 +33,11 @@ if ! [[ "$RELEASE_BUILD" =~ ^[1-9][0-9]{0,3}(\.[0-9]{1,2}){0,2}$ ]]; then
 fi
 
 cd "$ROOT_DIR"
+SOURCE_COMMIT="$(git rev-parse HEAD)"
+SOURCE_STATE=clean
+if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+    SOURCE_STATE=dirty
+fi
 OUTPUT="$ROOT_DIR/build/AppStore"
 mkdir -p "$OUTPUT" "$ROOT_DIR/build/logs"
 ARCHIVE="$OUTPUT/IsiX DICOM Viewer.xcarchive"
@@ -98,7 +103,7 @@ for ARCH in arm64 x86_64; do
     echo "Falha no archive assinado. Log: $LOG" >&2
     exit 1
 fi
-    python3 - "$OUTPUT/$ARCH.xcarchive" "${ISIS_APPSTORE_VERSION:-1.0}" "$RELEASE_BUILD" <<'PYTHON'
+    python3 - "$OUTPUT/$ARCH.xcarchive" "${ISIS_APPSTORE_VERSION:-1.0}" "$RELEASE_BUILD" "$SOURCE_COMMIT" "$SOURCE_STATE" <<'PYTHON'
 from pathlib import Path
 import plistlib, sys
 archive = Path(sys.argv[1])
@@ -110,6 +115,10 @@ for path in [app / 'Contents/Info.plist', *app.glob('Contents/PlugIns/*.appex/Co
     for key, value in expected.items():
         if info.get(key) != value:
             raise SystemExit(f'{path}: expected {key}={value}, found {info.get(key)}')
+info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
+for key, value in {'GitHash': sys.argv[4], 'GitState': sys.argv[5]}.items():
+    if info.get(key) != value:
+        raise SystemExit(f'{app}: expected {key}={value}, found {info.get(key)}')
 PYTHON
 done
 # The two archives compile the same macOS icon and interface sources. These
@@ -169,12 +178,16 @@ for package in "$EXPORT"/*.pkg; do
     FOUND_PACKAGE=YES
     pkgutil --check-signature "$package" >> "$LOG" 2>&1
     pkgutil --expand-full "$package" "$VALIDATION/Expanded" >> "$LOG" 2>&1
-    python3 - "$VALIDATION/Expanded" "$ROOT_DIR" <<'PYTHON'
+    python3 - "$VALIDATION/Expanded" "$ROOT_DIR" "$SOURCE_COMMIT" "$SOURCE_STATE" <<'PYTHON'
 from pathlib import Path
-import subprocess, sys
+import plistlib, subprocess, sys
 apps = list(Path(sys.argv[1]).rglob('IsiX DICOM Viewer.app'))
 if len(apps) != 1:
     raise SystemExit('O pacote exportado deve conter exatamente um aplicativo.')
+info = plistlib.loads((apps[0] / 'Contents/Info.plist').read_bytes())
+for key, value in {'GitHash': sys.argv[3], 'GitState': sys.argv[4]}.items():
+    if info.get(key) != value:
+        raise SystemExit(f'{apps[0]}: expected {key}={value}, found {info.get(key)}')
 for arch in ('arm64', 'x86_64'):
     subprocess.run([sys.executable, str(Path(sys.argv[2]) / 'tools/audit-release-bundle.py'),
                     str(apps[0]), '--strict', '--notices', '--channel', 'appstore',
