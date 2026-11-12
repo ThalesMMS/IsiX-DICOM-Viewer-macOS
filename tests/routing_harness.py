@@ -222,9 +222,15 @@ extension Thread {
     func exitOperation() {}
 }
 
+/// What the sources read of the send's failure: a category of a closed set,
+/// what the user is shown and what the log writes.
 struct StoreSendFailure: Error {
-    let name: String
+    enum Category: String {
+        case store = "DICOM Network Failure (STORE-SCU)"
+    }
+    let category: Category
     let reason: String
+    var logReason: String { reason }
 }
 
 final class DCMTKStoreSCU: NSObject {
@@ -247,12 +253,12 @@ final class DCMTKStoreSCU: NSObject {
     private func perform() -> StoreSendFailure? {
         record(line)
         return files.contains { ($0 as NSString).lastPathComponent.contains("fail") }
-            ? StoreSendFailure(name: "DICOM Network Failure (STORE-SCU)", reason: "files not sent") : nil
+            ? StoreSendFailure(category: .store, reason: "files not sent") : nil
     }
 
     func run(_ operation: Operation!) {
         if let failure = perform() {
-            NSException(name: NSExceptionName(failure.name), reason: failure.reason, userInfo: nil).raise()
+            NSException(name: NSExceptionName(failure.category.rawValue), reason: failure.reason, userInfo: nil).raise()
         }
     }
 
@@ -632,6 +638,8 @@ def build(folder, sources, driver, name, routing_actor):
     (work / 'main.swift').write_text(driver)
     (work / 'bridging.h').write_text('#import <Cocoa/Cocoa.h>\n#import "HorosObjCException.h"\n')
     paths += [work / 'main.swift', work / 'Doubles.swift', ROOT / 'Horos/Sources/MainActorCallbacks.swift']
+    # LogText: what the routing tells the log of an exception.
+    paths += isix_modules.log_text_sources()
     flags = []
     if routing_actor:
         activity = (ROOT / 'Horos/Sources/ActivityThread.swift').read_text(encoding='utf-8')

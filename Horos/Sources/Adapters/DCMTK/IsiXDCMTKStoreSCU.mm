@@ -29,7 +29,6 @@
 #include <dcmtk/dcmdata/dcrlerp.h>
 #include <dcmtk/dcmjpeg/djrploss.h>
 #include <dcmtk/dcmjpeg/djrplol.h>
-#include <dcmtk/oflog/oflog.h>
 #include <dcmtk/ofstd/ofstd.h>
 #include <memory>
 #include <unistd.h>
@@ -265,12 +264,18 @@ static NSString *IsiXDCMTKString(const char *text)
         if (condition == EC_Normal && !result.accepted)
             DIMSE_printCStoreRSP(stdout, &response);
         if (condition != EC_Normal) {
-            fprintf(stderr, "%s: Store Failed, file: %s:\n", OFFIS_CONSOLE_APPLICATION, path);
+            // The instance by its UID, not the file by its path: a file sent
+            // from where its owner keeps it has the name and the folders the
+            // owner gave it, which may be the patient's.
+            fprintf(stderr, "%s: Store Failed, instance: %s:\n", OFFIS_CONSOLE_APPLICATION, request.AffectedSOPInstanceUID);
             IsiXDCMTKStoreDumpCondition(condition);
         }
         if (statusDetail) {
-            printf("  Status Detail:\n");
-            statusDetail->print(COUT);
+            // What the peer wrote of its refusal, in its own words.
+            if (IsiXDCMTKAssociationDumpsDatasets(self)) {
+                printf("  Status Detail:\n");
+                statusDetail->print(COUT);
+            }
             delete statusDetail;
         }
         return IsiXDCMTKErrorFromCondition(condition);
@@ -279,10 +284,10 @@ static NSString *IsiXDCMTKString(const char *text)
     return result;
 }
 
-+ (void)configureForSendingVerbose:(BOOL)verbose deflateLevel:(NSInteger)level deflated:(BOOL)deflated
++ (void)configureForSendingDumpingDatasets:(BOOL)dumpsDatasets deflateLevel:(NSInteger)level deflated:(BOOL)deflated
 {
     IsiXDCMTKGuard(NULL, "OFLog::configure", [&]() -> NSError * {
-        OFLog::configure(verbose ? OFLogger::DEBUG_LOG_LEVEL : OFLogger::WARN_LOG_LEVEL);
+        IsiXDCMTKConfigureLog(dumpsDatasets);
 #ifdef WITH_ZLIB
         if (deflated) dcmZlibCompressionLevel.set((int)level);
 #endif

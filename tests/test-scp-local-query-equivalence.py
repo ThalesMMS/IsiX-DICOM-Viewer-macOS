@@ -588,6 +588,8 @@ def build(side, work, n2_folder, archives, objects, modules):
     sources += [str(ROOT / path) for path in SHARED_SOURCES]
     if side == 'new':
         sources += [str(ROOT / path) for path in NEW_SOURCES]
+        # LogText: what the session tells the log of what the database raised.
+        sources += isix_modules.log_text_sources()
     (work / 'standins.swift').write_text(STAND_INS + (NEW_STAND_INS if side == 'new' else ''))
     (work / 'main.swift').write_text(DRIVER)
     executable = work / 'driver'

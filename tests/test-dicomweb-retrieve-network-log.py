@@ -304,7 +304,7 @@ def dicomweb(work):
     (work / 'driver.swift').write_text(DRIVER)
     (work / 'graph.swift').write_text(GRAPH_LOGS)
     sources = [str(ROOT / 'Horos/Sources' / name) for name in
-               ('DICOMwebClient.swift', 'DICOMwebNode.swift', 'DICOMwebCredentials.swift', 'DICOMwebMultipart.swift',
+               ('DICOMwebClient.swift', 'DICOMwebClient+LogText.swift', 'DICOMwebNode.swift', 'DICOMwebCredentials.swift', 'DICOMwebMultipart.swift',
                 'NonInteractiveKeychainRead.swift', 'LogManager.swift', 'DICOMwebRetrieveLog.swift',
                 'HorosObjCException+Guards.swift')]
     executable = work / 'dicomweb'

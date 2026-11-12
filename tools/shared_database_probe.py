@@ -208,6 +208,27 @@ __attribute__((swiftcall)) ProbeMetadataResponse ProbeDicomDatabaseMetadata(size
     return (ProbeMetadataResponse){ swift_getObjCClassMetadata((const void *)[NSClassFromString(@"DicomDatabase") self]), 0 };
 }
 """
+# AnnotationsSRPruning is Swift of module Horos: once the publisher has indexed a
+# peer's generated objects (SENDG), it orders the earlier annotations SRs of
+# their studies out of that database, by the Swift symbol of
+# removeEarlier(than:in:). The real one deletes rows of a Core Data store, which
+# the probe's database does not have: the stand-in hands the order to the
+# database's recorder, with what it was given.
+PRUNING_STAND_IN = """
+import Foundation
+
+enum AnnotationsSRPruning {
+    static func removeEarlier(than added: [Any]?, in database: DicomDatabase) {
+        database.removeAnnotationsSRs(earlierThan: added)
+    }
+}
+"""
+PRUNING_STAND_IN_HEADER = """
+#import <Foundation/Foundation.h>
+@interface DicomDatabase : NSObject
+- (void)removeAnnotationsSRsEarlierThan:(NSArray *)added NS_SWIFT_NAME(removeAnnotationsSRs(earlierThan:));
+@end
+"""
 
 
 class MissingObject(Exception):
@@ -274,6 +295,20 @@ def _stand_ins(work: Path) -> list[Path]:
         made.append(work / "AppControllerFieldOffsets.o")
         made += [work / "support" / f"lib{flag[2:]}.a" for flag in flags if flag.startswith("-l")]
     return made
+
+
+def _pruning_stand_in(work: Path) -> list[Path]:
+    """The object of PRUNING_STAND_IN, for a publisher that orders the earlier
+    annotations SRs out once an upload is indexed."""
+    if "AnnotationsSRPruning." not in sources.source_text("BonjourPublisher"):
+        return []
+    source, header, output = work / "PruningStandIn.swift", work / "PruningStandIn.h", work / "PruningStandIn.o"
+    source.write_text(PRUNING_STAND_IN)
+    header.write_text(PRUNING_STAND_IN_HEADER)
+    subprocess.run(["xcrun", "swiftc", "-module-name", "Horos", "-parse-as-library", "-suppress-warnings", "-wmo", "-c",
+                    "-target", "arm64-apple-macos26.0", "-import-objc-header", str(header), str(source),
+                    "-o", str(output)], check=True, capture_output=True)
+    return [output]
 
 
 def _protocol_module(work: Path, optimized: bool) -> list[Path]:
@@ -346,6 +381,7 @@ def link(objects: list[Path], swift_publisher: bool, work: Path, output: Path, o
             # ... and the worker that reslices the series of the viewers.
             object_probe.build_internal_module("IsiXImaging", modules, "arm64-apple-macos26.0")
             objects += sorted(modules.glob("lib*.a"))
+        objects += _pruning_stand_in(work)
         probe_source, helpers = _probe_source(work)
         objects += helpers
         objects += _protocol_module(work, "/Release/" in str(objects[0]))

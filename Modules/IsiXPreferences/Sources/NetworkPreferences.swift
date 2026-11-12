@@ -190,6 +190,10 @@ public enum NetworkPreferences {
     public static let moveWithoutJPEG = PreferenceKey<Bool>("DontSupportJPEGForCSMove")
     /// Seconds a DICOMweb request may last while it progresses; 0 is a day.
     public static let dicomwebTransferCeiling = PreferenceKey<Double>("DICOMwebTransferCeiling")
+    /// A diagnostic switch with no control in the panes, off while never written: the DICOM associations
+    /// print the datasets they exchange (request and response identifiers, status details) to the standard
+    /// output. Those hold patients' names, IDs, birth dates and accession numbers.
+    public static let dumpsDICOMDatasets = PreferenceKey<Bool>("DICOMDatasetDump")
     public static let syncsOsiriXDB = PreferenceKey<Bool>("syncOsiriXDB")
     /// Whether the browser's federated search includes the default database; on while never written.
     public static let federatedSearchIncludesDefaultDatabase = PreferenceKey<Bool>("HorosDefaultDatabaseFederatedSearch")
@@ -275,7 +279,7 @@ public enum NetworkPreferences {
         tlsListener, tlsListenerAETitle, tlsListenerPort, tlsListenerUsesDHParameterFile, tlsListenerDHParameterFile,
         usesHostNameForAETitle, externalStoreSCP,
         tlsListenerCertificateVerification, tlsListenerCipherSuites, moveWithoutJPEG, dicomwebTransferCeiling,
-        syncsOsiriXDB, federatedSearchIncludesDefaultDatabase, keepsDuplicateStudyInstanceUIDs, queryPresets,
+        dumpsDICOMDatasets, syncsOsiriXDB, federatedSearchIncludesDefaultDatabase, keepsDuplicateStudyInstanceUIDs, queryPresets,
         queryPresetsIncludeDICOMNodes, savedQuerySettings, autoRetrieving, restartsAutoQueryAndRetrieve, querySources,
         autoQuerySources, queryLastDateFilter, queryPatientModeIndex, autoQueryPatientModeIndex, queryRefreshSetting,
         autoQueryRefreshSetting, keepsQueryWindowOnTop, betweenDatesMode, customIntervalWithHoursAndMinutes,

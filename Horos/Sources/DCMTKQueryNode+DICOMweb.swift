@@ -482,7 +482,7 @@ extension DCMTKQueryNode {
         if let cut = session.queue.firstCut, !session.failed, !thread.isCancelled, succeeded,
            let fallback = client.retrieveFallbackTransferSyntax, cut.isCutAfterObjects {
             NSLog("---- retrieve: the response in %@ stopped after some objects (%@); asking for the missing ones in %@",
-                  wantedSyntax, cut.error.localizedDescription, fallback)
+                  wantedSyntax, DICOMwebClient.logReason(for: cut.error as NSError) ?? "(null)", fallback)
             session.queue.useFallbackOnly()
         }
         if !session.failed && !thread.isCancelled {

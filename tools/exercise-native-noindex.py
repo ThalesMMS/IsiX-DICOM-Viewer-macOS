@@ -153,9 +153,11 @@ def act_import(root, data, context, result):
     import subprocess
     probe = ("import sys, json, pydicom\n"
              "print(json.dumps([str(pydicom.dcmread(p, stop_before_pixels=True).file_meta.TransferSyntaxUID) for p in sys.argv[1:]]))")
-    venv = ROOT / "local-validation/venv/bin/python"
-    if venv.is_file() and stored:
-        syntaxes = json.loads(subprocess.run([str(venv), "-c", probe] + [str(p) for p in stored],
+    sys.path.insert(0, str(ROOT / "tests"))
+    from python_with import interpreter
+    python = interpreter("import pydicom")
+    if python and stored:
+        syntaxes = json.loads(subprocess.run([python, "-c", probe] + [str(p) for p in stored],
                                              capture_output=True, text=True, check=True).stdout)
     result["stored_transfer_syntaxes"] = sorted(set(syntaxes))
     result["stored_files"] = len(stored)

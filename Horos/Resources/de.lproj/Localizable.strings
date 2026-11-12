@@ -4952,3 +4952,17 @@
 "A state keeps its number: a new state goes at the end, and only the last one can be removed. In the database list, Option and a digit give the selected studies the state of that number." = "Ein Status behält seine Nummer: Ein neuer Status kommt ans Ende, und nur der letzte kann entfernt werden. In der Datenbankliste geben die Wahltaste und eine Ziffer den ausgewählten Studien den Status mit dieser Nummer.";
 "No." = "Nr.";
 "When Applied" = "Beim Zuweisen";
+"Export as Synthetic DWI…" = "Als synthetische DWI exportieren…";
+"Synthetic DWI" = "Synthetische DWI";
+"Computes the diffusion-weighted image at a b-value that was not acquired, from the b-values of this series, and adds it to the study as a new series." = "Berechnet das diffusionsgewichtete Bild bei einem nicht aufgenommenen b-Wert aus den b-Werten dieser Serie und fügt es der Studie als neue Serie hinzu.";
+"b-values of the 4D frames (s/mm²):" = "b-Werte der 4D-Einzelbilder (s/mm²):";
+"b-values of the series (s/mm²):" = "b-Werte der Serie (s/mm²):";
+"Synthetic b-value (s/mm²):" = "Synthetischer b-Wert (s/mm²):";
+"Enter one b-value for each of the %ld 4D frames, separated by commas, for example: 0, 50, 800." = "Geben Sie für jedes der %ld 4D-Einzelbilder einen b-Wert ein, durch Kommas getrennt, zum Beispiel: 0, 50, 800.";
+"Enter at least two different b-values." = "Geben Sie mindestens zwei verschiedene b-Werte ein.";
+"Enter the b-value to compute, a number of 0 or more, for example 1600." = "Geben Sie den zu berechnenden b-Wert ein, eine Zahl ab 0, zum Beispiel 1600.";
+"Enter a name for the new series." = "Geben Sie einen Namen für die neue Serie ein.";
+"Synthetic DWI needs a 2D viewer showing a diffusion series: either opened in 4D, with one b-value per frame, or a single series that holds two or more b-values at each position." = "Synthetische DWI benötigt einen 2D-Viewer, der eine Diffusionsserie zeigt: entweder in 4D geöffnet, mit einem b-Wert pro Einzelbild, oder eine einzelne Serie, die an jeder Position zwei oder mehr b-Werte enthält.";
+"Synthetic DWI needs images that all have pixels and the same width and height." = "Synthetische DWI benötigt Bilder, die alle Pixel und dieselbe Breite und Höhe haben.";
+"Synthetic DWI needs the original files of the series." = "Synthetische DWI benötigt die Originaldateien der Serie.";
+"The synthetic DWI could not be written." = "Die synthetische DWI konnte nicht geschrieben werden.";

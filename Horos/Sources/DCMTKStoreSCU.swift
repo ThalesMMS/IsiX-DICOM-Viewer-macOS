@@ -39,19 +39,43 @@
 
 import Foundation
 import IsiXDICOMNetwork
+import IsiXPreferences
 
 /// What ends a send: the exception -run: raises, by name and reason.
 /// `recorded` is false for a failure that only stops the send and is logged
 /// (it was an exception the send did not raise itself): the exception raised
 /// at the end is then the report's, if files are missing.
 struct StoreSendFailure: Error {
-    let name: String
-    let reason: String
-    var recorded = true
+    /// What failed, as the alerts title it and as -run: names its exception.
+    /// A closed set: it cannot take text from a file, a peer or a request.
+    enum Category: String {
+        case store = "DICOM Network Failure (STORE-SCU)"
+        case secureStore = "DICOM Network Failure (STORE-SCU TLS)"
+        case network = "DICOM Network Failure"
+        /// A failure of the send's own making, under NSGenericException's name.
+        case generic = "NSGenericException"
+    }
 
-    static let store = "DICOM Network Failure (STORE-SCU)"
-    static let secureStore = "DICOM Network Failure (STORE-SCU TLS)"
-    static let network = "DICOM Network Failure"
+    let category: Category
+    /// What the user is shown, and the reason of the exception -run: raises:
+    /// the step that failed with its DCMTK condition, the diagnosis of the
+    /// connection, or the report's detail, which names each file that did not
+    /// arrive.
+    let reason: String
+    /// What the log writes: `reason`, with each file of the report told by its
+    /// place in the send and the shape of its name. A file the database copied
+    /// is named by a number; one it indexed where it lies, or one a plugin
+    /// handed over, keeps the name its owner gave it, which may be the
+    /// patient's.
+    let logReason: String
+    var recorded: Bool
+
+    init(category: Category, reason: String, logReason: String? = nil, recorded: Bool = true) {
+        self.category = category
+        self.reason = reason
+        self.logReason = logReason ?? reason
+        self.recorded = recorded
+    }
 }
 
 /// The diagnostics a send prints to the standard error, under storescu's name.
@@ -152,7 +176,7 @@ public final class DCMTKStoreSCU: NSObject, @unchecked Sendable {
         do {
             try sendFiles(operation)
         } catch let failure as StoreSendFailure {
-            NSException(name: NSExceptionName(failure.name), reason: failure.reason, userInfo: nil).raise()
+            NSException(name: NSExceptionName(failure.category.rawValue), reason: failure.reason, userInfo: nil).raise()
         } catch {
             NSException(name: .genericException, reason: error.localizedDescription, userInfo: nil).raise()
         }
@@ -179,6 +203,16 @@ public final class DCMTKStoreSCU: NSObject, @unchecked Sendable {
         return failure
     }
 
+    /// The send of -run: for a caller with no one to show what ended it to,
+    /// which writes it to the log: `log` is given the reason that tells the
+    /// files by their place in the send. Such a caller used to log the
+    /// exception of -run:, whose reason names each file that did not arrive.
+    func sendLoggingFailure(_ log: (String) -> Void) {
+        if let failure = sendReportingFailure() {
+            log(failure.logReason)
+        }
+    }
+
     /// The send itself; the failure -run: raises, if any.
     private func send(_ operation: Operation?, temporaryFiles: StoreTemporaryFiles) -> StoreSendFailure? {
         let notifications = PreferencesSource.process.processGraph.userNotifications
@@ -189,12 +223,12 @@ public final class DCMTKStoreSCU: NSObject, @unchecked Sendable {
                                 calledAET ?? "(null)", hostname ?? "(null)"),
             name: "send")
 
-        // Never verbose: the send used to clear verbose_dcmtkStoreScu and then
-        // read it back, and nothing else reads that setting.
-        let verbose = false
+        // DCMTK's log keeps the level the application started it with: its
+        // warnings and errors, and its datasets only when the dump switch asks.
+        let preferences = PreferencesSource.process.preferences
         let network = StoreSendSyntax.network(forSetting: Int(transferSyntax))
-        IsiXDCMTKAssociation.configureForSending(verbose: verbose, deflateLevel: Int(compression),
-                                                        deflated: network.transferSyntax == TransferSyntaxUID.deflatedExplicitLittleEndian)
+        IsiXDCMTKAssociation.configureForSending(dumpsDatasets: preferences[NetworkPreferences.dumpsDICOMDatasets], deflateLevel: Int(compression),
+                                                 deflated: network.transferSyntax == TransferSyntaxUID.deflatedExplicitLittleEndian)
 
         var recorded: StoreSendFailure?
         let link = StoreAssociation(store: self)
@@ -202,9 +236,9 @@ public final class DCMTKStoreSCU: NSObject, @unchecked Sendable {
             try sendFiles(over: link, network: network, temporaryFiles: temporaryFiles, operation: operation)
         } catch let stopped as StoreSendFailure {
             if stopped.recorded { recorded = stopped }
-            NSLog("********* Store Exception: %@", stopped.reason)
+            NSLog("********* Store Exception: %@", stopped.logReason)
         } catch {
-            NSLog("********* Store Exception: %@", error.localizedDescription)
+            NSLog("********* Store Exception: %@", LogText.error(error))
         }
 
         // Other threads may still be using the association.
@@ -222,11 +256,14 @@ public final class DCMTKStoreSCU: NSObject, @unchecked Sendable {
                                     storeSCUCount(numberOfFiles, NSLocalizedString("file", comment: ""), NSLocalizedString("files", comment: ""))),
                 name: "send")
             NSLog("DCMTKStoreSCU: _numberSent: %d / _numberOfFiles : %d", numberSent, numberOfFiles)
-            NSLog("DCMTKStoreSCU: %@", report.detail(limit: 20))
+            // The log tells each file by its place in the send, not by its name.
+            NSLog("DCMTKStoreSCU: %@", report.logDetail(limit: 20))
             // The reason used to be "see Console.app for more detailed
             // informations", and what was there to see was the standard error
             // of a released application.
-            if recorded == nil { recorded = StoreSendFailure(name: StoreSendFailure.store, reason: report.detail(limit: 5)) }
+            if recorded == nil {
+                recorded = StoreSendFailure(category: .store, reason: report.detail(limit: 5), logReason: report.logDetail(limit: 5))
+            }
         } else {
             message = "Complete"
         }
@@ -282,7 +319,7 @@ public final class DCMTKStoreSCU: NSObject, @unchecked Sendable {
             if associationLost || cancelled(operation) { break }
         }
 
-        if report.failedCount > 0 { NSLog("**** DICOM send: %@", report.detail(limit: 20)) }
+        if report.failedCount > 0 { NSLog("**** DICOM send: %@", report.logDetail(limit: 20)) }
         try link.end(after: condition)
     }
 

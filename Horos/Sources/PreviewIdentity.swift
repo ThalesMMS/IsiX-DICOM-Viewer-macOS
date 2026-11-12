@@ -58,8 +58,8 @@ public final class PreviewIdentity: NSObject {
 
     /// SOP classes of the same, by their DICOM UID roots: Structured Reports
     /// (1.2.840.10008.5.1.4.1.1.88.*), Segmentation (…66.4), Presentation
-    /// States (…11.*), Key Object Selection (…88.59) and Encapsulated PDF
-    /// (…104.1).
+    /// States (…11.*), Key Object Selection (…88.59) and the encapsulated
+    /// documents (…104.*), Encapsulated PDF aside (renderedDocumentSOPClass).
     @objc public static let nonPixelSOPClassPrefixes: [String] = [
         "1.2.840.10008.5.1.4.1.1.88.", "1.2.840.10008.5.1.4.1.1.66.4",
         "1.2.840.10008.5.1.4.1.1.11.", "1.2.840.10008.5.1.4.1.1.104.",
@@ -70,14 +70,21 @@ public final class PreviewIdentity: NSObject {
         refusalForPreviewing(frame) == nil
     }
 
+    /// Encapsulated PDF Storage. Its pages are its frames: the database
+    /// indexes one per page, with the page's size, and DCMPix draws each as a
+    /// colour image. Its modality is DOC, or whatever the writer chose.
+    public static let renderedDocumentSOPClass = "1.2.840.10008.5.1.4.1.1.104.1"
+
     /// The reason this frame cannot be previewed as an image, or nil.
     @objc public static func refusalForPreviewing(_ frame: PreviewFrame) -> String? {
-        let modality = frame.modality.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        if nonPixelModalities.contains(modality) {
-            return "\(modality) instances carry no displayable frame; the preview keeps its icon."
-        }
-        for prefix in nonPixelSOPClassPrefixes where frame.sopClassUID.hasPrefix(prefix) {
-            return "SOP class \(frame.sopClassUID) carries no displayable frame; the preview keeps its icon."
+        if frame.sopClassUID != renderedDocumentSOPClass {
+            let modality = frame.modality.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            if nonPixelModalities.contains(modality) {
+                return "\(modality) instances carry no displayable frame; the preview keeps its icon."
+            }
+            for prefix in nonPixelSOPClassPrefixes where frame.sopClassUID.hasPrefix(prefix) {
+                return "SOP class \(frame.sopClassUID) carries no displayable frame; the preview keeps its icon."
+            }
         }
         if frame.rows <= 0 || frame.columns <= 0 {
             return "The frame has no dimensions (\(frame.columns)×\(frame.rows))."

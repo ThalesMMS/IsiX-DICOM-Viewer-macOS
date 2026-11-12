@@ -282,6 +282,11 @@
                                                 <action selector="exportDICOMFile:" target="-1" id="11559"/>
                                             </connections>
                                         </menuItem>
+                                        <menuItem title="Exportar como DWI sintética…" id="Sdw-ex-Itm">
+                                            <connections>
+                                                <action selector="exportSyntheticDWI:" target="-1" id="Sdw-ex-Act"/>
+                                            </connections>
+                                        </menuItem>
                                         <menuItem title="Exportar por correo electrónico…" id="11549">
                                             <connections>
                                                 <action selector="sendMail:" target="-1" id="11552"/>
@@ -1103,7 +1108,7 @@
                                                 <action selector="captureAndSetKeyImage:" target="-1" id="14837"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Crear documento Key Object Selection" id="Kos-dc-Itm">
+                                        <menuItem title="Crear documento de selección de objetos clave" id="Kos-dc-Itm">
                                             <connections>
                                                 <action selector="createKeyObjectSelectionDocument:" target="Vsc-cm-Obj" id="Kos-dc-Act"/>
                                             </connections>

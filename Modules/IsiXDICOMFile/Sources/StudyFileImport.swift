@@ -82,20 +82,20 @@ public enum StudyFileImport {
 
     // MARK: - Numbering
 
-    /// The application numbers the series it generates itself from 5000 up
-    /// (exports, the annotation and ROI SRs, pasted images): a converted
-    /// series follows the study's acquired series, below those.
-    public static let generatedSeriesNumbers = 5000
-
     /// The numbers of `count` new series, ascending: each above every number
-    /// below `generatedSeriesNumbers` the study has, and taken by no series
-    /// of it.
+    /// the study has, so that the series come last in the study, which lists
+    /// its series by number, and taken by no series of it. The app's own SR
+    /// series (KeyObjectDocumentContent.ownSeriesNumbers) are not listed and
+    /// do not count, and their numbers are left to them. An acquired series
+    /// can be numbered in the thousands, as the reconstructions of some
+    /// workstations are: only the highest number says where the study ends.
     public static func newSeriesNumbers(existing: [Int], count: Int) -> [Int] {
+        let own = KeyObjectDocumentContent.ownSeriesNumbers
         var used = Set(existing)
-        var next = max(existing.filter { $0 < generatedSeriesNumbers }.max() ?? 0, 0) + 1
+        var next = max(existing.filter { !own.contains($0) }.max() ?? 0, 0) + 1
         var numbers: [Int] = []
         while numbers.count < count {
-            if !used.contains(next) {
+            if !used.contains(next) && !own.contains(next) {
                 numbers.append(next)
                 used.insert(next)
             }

@@ -29,8 +29,10 @@ captured, the sending reported as done) and runs:
   cannot convert;
 - the deadline: a connection closes itself 10 seconds after it opens.
 
-Each case's written bytes, closes, request document, result and error, and
-the lines it logged, must be the same in both.
+Each case's written bytes, closes, request document, result and error must be
+the same in both, and so must the lines it logged, but for what a line carried
+of what the caller sent or was answered: the log is now told how long that
+text is, the method that failed and the code of an error (`same_log`).
 
 Optional argument: the revision to compare with. Exit status: 0 the same,
 1 a difference, 2 the reference or a compiler is not available.
@@ -470,6 +472,37 @@ def build_after(work):
                 + isix_modules.link_flags('IsiXLogging', modules))
 
 
+HANDLE = 'Warning: [N2XMLRPCConnection handleRequest:] '
+DOCUMENT = '--- incomplete/corrupted XML document: '
+
+
+def same_log(old, new):
+    """Whether `new` is what the connection writes now where it wrote `old`.
+
+    The connection logged what a caller sent and what it was answered: the
+    reason a request could not be read, what a method raised over its
+    parameters, the fault document of an error. The log is now told how long
+    that text is, with the method that failed, and an error by its domain and
+    code; the caller is answered as before, which the records compare. A line
+    that carried none of it is the same line."""
+    if old == new:
+        return True
+    if old.startswith(HANDLE) and new.startswith(HANDLE):
+        said, says = old[len(HANDLE):], new[len(HANDLE):]
+        if says == 'the request has no body':
+            return said.endswith('nil argument')
+        shaped = re.fullmatch(r'(?:\S+ failed: )?<(\d+) characters?>', says)
+        if shaped:
+            return int(shaped.group(1)) == len(said)
+        # The error of a method: its description was the document the caller is answered.
+        coded = re.fullmatch(r'NSCocoaErrorDomain (-?\d+)', says)
+        if coded:
+            return 'faultCode' not in said or '<int>%s</int>' % coded.group(1) in said
+    if old.startswith(DOCUMENT) and new.startswith(DOCUMENT):
+        return re.fullmatch(r'[\w.]+ -?\d+(?: \(.*\))?', new[len(DOCUMENT):]) is not None
+    return False
+
+
 def outcomes(probe, *arguments):
     """{case: (record, log lines)} of one run of the probe."""
     ran = run([str(probe), *arguments], timeout=60)
@@ -481,7 +514,11 @@ def outcomes(probe, *arguments):
             case = line[4:]
             logs[case] = []
         elif case is not None:
-            logs[case].append(LOG_PREFIX.sub('', line))
+            if LOG_PREFIX.match(line) or not logs[case]:
+                logs[case].append(LOG_PREFIX.sub('', line))
+            else:
+                # A text of several lines, as the parser's description is, is one log line.
+                logs[case][-1] += '\n' + line
     records = {}
     for line in ran.stdout.splitlines():
         record = json.loads(line)
@@ -521,7 +558,7 @@ def main():
             for key in sorted(set(old_record) | set(new_record)):
                 if old_record.get(key) != new_record.get(key):
                     failures.append(f'{case}: {key}\n  before: {old_record.get(key)!r}\n  after:  {new_record.get(key)!r}')
-        if old_log != new_log:
+        if len(old_log) != len(new_log) or not all(same_log(was, now) for was, now in zip(old_log, new_log)):
             failures.append(f'{case}: log\n  before: {old_log!r}\n  after:  {new_log!r}')
     deadline = new.get('deadline', ({}, []))[0]
     if deadline.get('closesAt9.5s') != 0 or deadline.get('closesAt11s') != 1:
@@ -532,7 +569,8 @@ def main():
     if failures:
         return 1
     print(f'PASS: {len(new)} cases against {revision}, {answered} with an answer on the wire: '
-          'the same bytes, closes, results, errors and log lines')
+          'the same bytes, closes, results and errors, and the same log lines with what a caller sent or was '
+          'answered told by its length or its code')
     return 0
 
 

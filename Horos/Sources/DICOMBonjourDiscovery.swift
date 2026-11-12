@@ -89,7 +89,7 @@ final class DICOMBonjourDiscovery: NSObject, @MainActor HorosBonjourBrowserDeleg
     }
 
     func netService(_ sender: NetService, didNotResolve errorDict: [String: NSNumber]) {
-        NSLog("There was an error while attempting to resolve address for %@", sender.name)
+        NSLog("There was an error while attempting to resolve address for %@", sender)
         sender.stop()
     }
 }

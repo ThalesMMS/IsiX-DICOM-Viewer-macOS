@@ -303,6 +303,8 @@ func make(_ name: String, _ address: String, qr: Bool, send: Bool, qido: String 
           "the refused instance has its Failure Reason: \(report.results[2].reason)")
     check(report.results[2].sopInstanceUID == "2.25.799.13", "the refused instance is named by its SOP Instance UID")
     check(report.detail(limit: 5).contains("2.25.799.13"), "the detail lists the refused instance")
+    check(report.logDetail(limit: 5) == report.summary + "\n  2.25.799.13: " + report.results[2].reason,
+          "the log is told the refused instance by its UID and its Failure Reason: \(report.logDetail(limit: 5))")
     check(calls.isEmpty && leftovers().isEmpty, "as stored converts nothing and makes no folder")
     check(fractions.last == 1.0 && fractions == fractions.sorted(), "progress rises to 1: \(fractions)")
    } catch { check(false, "as stored: \(error)") }
@@ -318,6 +320,8 @@ func make(_ name: String, _ address: String, qr: Bool, send: Bool, qido: String 
     check(report.results.map(\.status) == [.success, .success, .success, .failure], "three stored, the unconvertible one not: \(report.detail(limit: 9))")
     check(report.results[3].reason.contains("could not be converted") && report.results[3].sopInstanceUID == "2.25.799.16",
           "the unconvertible file is reported: \(report.results[3].reason)")
+    check(report.results[3].logReason == "Not sent: it could not be converted to the Send Syntax 1.2.840.10008.1.2.4.70.",
+          "the log is told the syntax by its UID: \(report.results[3].logReason)")
     check(report.results.map(\.path) == [path("plain-1.dcm"), path("lossless.dcm"), path("plain-3.dcm"), path("unconvertible.dcm")],
           "results name the original files, not the converted copies")
     check(leftovers().isEmpty, "the converted files' folder is removed")
@@ -331,6 +335,12 @@ func make(_ name: String, _ address: String, qr: Bool, send: Bool, qido: String 
     let report = try sender.send(files: [path("plain-1.dcm"), path("plain-2.dcm"), path("plain-3.dcm")], cancelled: { progressCalls >= 1 })
     check(report.cancelled && report.sentCount == 0 && report.failedCount == 3, "a cancelled send stores nothing more: \(report.summary)")
     check(report.results.allSatisfy { $0.reason.contains("cancelled") }, "each file not sent says the send was cancelled")
+    // A file the send never read has no UID to be told by: the user is shown
+    // its name, and the log its place and the shape of its name.
+    let logged = report.logDetail(limit: 9)
+    check(report.detail(limit: 9).contains("  plain-2.dcm: ") && !logged.contains("plain")
+          && logged.contains("  file 2 <name of 11 characters>: Not sent: the send was cancelled."),
+          "a cancelled send names its files to the user and not to the log: \(logged)")
     check(leftovers().isEmpty, "a cancelled send removes its folder")
    } catch { check(false, "cancelled send: \(error)") }
    print("PASS: STOW-RS as stored and converted, per-instance results, cancellation, no folder left")
@@ -347,7 +357,9 @@ def sources_at(folder):
     names = ['Horos/Sources/DICOMwebIntegration.swift', 'Horos/Sources/DICOMwebNode.swift', 'Horos/Sources/DICOMwebClient.swift',
              'Horos/Sources/DICOMwebCredentials.swift', 'Horos/Sources/DICOMwebMultipart.swift',
              'Horos/Sources/DicomNodeConfiguration.swift']
-    if not revision: names += ['Horos/Sources/NonInteractiveKeychainRead.swift', 'Horos/Sources/DICOMwebOIDC.swift']
+    if not revision:
+        names += ['Horos/Sources/NonInteractiveKeychainRead.swift', 'Horos/Sources/DICOMwebOIDC.swift',
+                  'Horos/Sources/StoreReport.swift', 'Horos/Sources/DICOMwebClient+LogText.swift']
     if revision:
         listed = subprocess.run(['git', 'ls-tree', '--name-only', revision, 'Horos/Sources/DICOM-Swift/'], cwd=root,
                                 capture_output=True, text=True).stdout.split()
@@ -517,7 +529,8 @@ activity = text('Horos/Sources/DICOMwebSendActivity.swift') or ''
 check('DICOMwebSender(node: node)' in activity and 'HorosDICOMWriter.transcodeFile(atPath:' in activity
       and 'cancelled: { thread.isCancelled }' in activity and 'thread.progress = CGFloat(fraction)' in activity,
       'STOW-RS with DCMTK conversion, progress and the activity panel\'s Cancel')
-check('addLogLine' in activity and 'report.detail(limit: 20)' in activity and 'runCritical' in activity,
+check('addLogLine' in activity and 'report.detail(limit: 20)' in activity and 'runCritical' in activity
+      and 'report.logDetail(limit: 20))' in activity,
       'per-instance results reach the log, the network log and an alert')
 adapter = text('Horos/Sources/Adapters/DCMTK/IsiXDCMTKFile.mm') or ''
 transcode = adapter[adapter.find('+ (BOOL)transcodeFileAtPath:'):]

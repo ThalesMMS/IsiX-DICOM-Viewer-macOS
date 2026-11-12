@@ -125,7 +125,10 @@ public final class RISRequestAlert: NSObject {
     /// Logs a failed request and shows it. Callable from any thread.
     @objc(reportMessage:code:)
     public static func report(_ message: String, code: Int) {
-        NSLog("RIS request failed (%d): %@", code, message)
+        // The message names the request with the values of its filters: a
+        // patient's identifier, an accession number. Whoever reports logs
+        // the request by its keys.
+        NSLog("RIS request failed (%d): %@", code, LogText.shape(of: message))
         guard PreferencesSource.process.preferences[NetworkPreferences.xmlrpcServerShowsFailureAlerts] else { return }
         show(text(message, code: code))
     }

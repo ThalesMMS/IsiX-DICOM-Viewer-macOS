@@ -350,6 +350,9 @@ def main():
                             *isix_modules.module_flags('IsiXContracts', work / 'modules'),
                             *[str(root / 'Horos/Sources' / name) for name in
                               ('URLImportOperation.swift', 'URLImportDownloads.swift', 'URLImportReport.swift')],
+                            # LogText: what the report tells the log of each URL that brought nothing.
+                            str(root / 'Modules/IsiXLogging/Sources/LogText.swift'),
+                            str(root / 'Modules/IsiXLogging/Sources/UnifiedLog.swift'),
                             str(work / 'ingest.swift'), str(work / 'main.swift'), str(work / 'Database.o'), '-o', str(work / 'check')], check=True)
             run = subprocess.run([str(work / 'check'), 'http://127.0.0.1:%d' % server.server_port, str(work / 'db')],
                                  capture_output=True, text=True, timeout=60)

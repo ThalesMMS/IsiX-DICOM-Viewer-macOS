@@ -248,7 +248,7 @@ with tempfile.TemporaryDirectory(prefix='horos-ris-request-') as tmp:
     modules = isix_modules.module_flags('IsiXDICOMNetwork', p / 'modules')
     build = subprocess.run(['swiftc', '-suppress-warnings', '-swift-version', '6', *modules,
                             str(root / 'Horos/Sources/RISRequestServers.swift'),
-                            str(root / 'Horos/Sources/RISRequestAlert.swift'),
+                            str(root / 'Horos/Sources/RISRequestAlert.swift'), *isix_modules.log_text_sources(),
                             str(root / 'Horos/Sources/MainActorCallbacks.swift'),
                             # The preferences, from PreferencesSource over a stand-in of the graph.
                             str(process_graph_stand_in.source(p)),

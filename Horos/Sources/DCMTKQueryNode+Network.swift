@@ -91,13 +91,23 @@ private struct AssociationHandOff<Request>: @unchecked Sendable {
     let request: Request
 }
 
-/// A failure of an association, as the notices and the log name it.
+/// A failure of an association, as the notices and the log say it.
 struct AssociationFailure: Error {
-    let name: String
-    let reason: String
+    /// What failed, as the notice and the log title it. A closed set: the log
+    /// writes it as it is, so it cannot take text from a peer or a request.
+    enum Category: String {
+        case query = "DICOM Network Failure (query)"
+        case secureQuery = "DICOM Network Failure (TLS query)"
+        case peerAddress = "DICOM Network Failure"
+        case verification = "DICOM Verification Failed"
+    }
 
-    static let query = "DICOM Network Failure (query)"
-    static let secureQuery = "DICOM Network Failure (TLS query)"
+    let category: Category
+    /// The step that failed with its DCMTK condition, a status, or the
+    /// diagnosis of the connection: codes, counts, the peer's address and
+    /// paths of files the app named itself (the TLS set-up, a received file),
+    /// never a value of the request's identifier or of a received object.
+    let reason: String
 }
 
 /// What the adapter's NSErrors say of a DCMTK condition; Swift sees them as Error.
@@ -119,7 +129,16 @@ extension DCMTKQueryNode {
     /// Where a query that failed with no window to show it is said.
     static let applicationNotices = ApplicationNetworkNotices.process
 
-    /// Verbose output, as the service class users have always had it on.
+    /// Verbose output, as the service class users have always had it on: the
+    /// progress of the association, its negotiation and the command of each
+    /// response. The datasets exchanged are not part of it. The service class
+    /// users printed them on every request: the identifier of each C-FIND,
+    /// C-MOVE and C-GET, which holds the values of the keys asked (a patient's
+    /// name, ID and birth date, an accession number), and what the peer
+    /// answered. The standard output of an application started from a
+    /// terminal or by a script is on screen or in a transcript, so they are
+    /// printed only while the user default of
+    /// `NetworkPreferences.dumpsDICOMDatasets` asks for them.
     static let verboseAssociations = true
 
     private static func standardError(_ text: String) {
@@ -227,6 +246,7 @@ extension DCMTKQueryNode {
             parameters.dimseTimeout = self.association.dimseTimeout
             parameters.connectionTimeout = preferences[NetworkPreferences.dicomConnectionTimeout]
             parameters.verbose = verbose
+            parameters.dumpsDatasets = preferences[NetworkPreferences.dumpsDICOMDatasets]
             if self.association.secureConnection {
                 prepareSecureTransport(parameters, uniqueStringID: uniqueStringID)
             }
@@ -234,11 +254,11 @@ extension DCMTKQueryNode {
             do {
                 association = try IsiXDCMTKAssociation(parameters: parameters)
             } catch let error as NSError {
-                let name = (error.userInfo[IsiXDCMTKSecureTransportKey] as? NSNumber)?.boolValue == true ? AssociationFailure.secureQuery
-                    : (error.userInfo[IsiXDCMTKPeerAddressKey] as? NSNumber)?.boolValue == true ? "DICOM Network Failure" : AssociationFailure.query
-                throw AssociationFailure(name: name, reason: error.localizedDescription)
+                let category: AssociationFailure.Category = (error.userInfo[IsiXDCMTKSecureTransportKey] as? NSNumber)?.boolValue == true ? .secureQuery
+                    : (error.userInfo[IsiXDCMTKPeerAddressKey] as? NSNumber)?.boolValue == true ? .peerAddress : .query
+                throw AssociationFailure(category: category, reason: error.localizedDescription)
             }
-            guard let association else { throw AssociationFailure(name: AssociationFailure.query, reason: "no association") }
+            guard let association else { throw AssociationFailure(category: .query, reason: "no association") }
 
             // Asked for on a thread of its own, so that the window can be
             // cancelled and this thread's cancellation stops waiting for it.
@@ -257,12 +277,12 @@ extension DCMTKQueryNode {
                 // name, a firewall and a denied Local Network permission:
                 // the diagnosis establishes which it was.
                 let what = failure.conditionKind == .associationRejected ? "Association Rejected : " : "Association Request Failed : "
-                throw AssociationFailure(name: AssociationFailure.query, reason: NetworkDiagnosis.explainFailure(
+                throw AssociationFailure(category: .query, reason: NetworkDiagnosis.explainFailure(
                     toHost: host, port: Int(_port), condition: what + failure.conditionDescription))
             }
             if association.acceptedPresentationContextCount == 0 {
                 Self.errmsg("No Acceptable Presentation Contexts")
-                throw AssociationFailure(name: AssociationFailure.query, reason: "No acceptable presentation contexts")
+                throw AssociationFailure(category: .query, reason: "No acceptable presentation contexts")
             }
 
             let dataset = identifier?.dataset()
@@ -271,7 +291,7 @@ extension DCMTKQueryNode {
                 var status: UInt16 = 0xffff
                 condition = association.echo(withStatus: &status)
                 if condition == nil && status != 0 {
-                    throw AssociationFailure(name: "DICOM Verification Failed", reason: String(format: "C-ECHO returned status 0x%04x", status))
+                    throw AssociationFailure(category: .verification, reason: String(format: "C-ECHO returned status 0x%04x", status))
                 }
                 if condition != nil { succeed = false }
             case .findStudyRoot:
@@ -295,13 +315,13 @@ extension DCMTKQueryNode {
                     if verbose { print("Aborting Association") }
                     if let failure = association.closeTransportConnection() {
                         if verbose { Self.errmsg("Association Abort Failed:\n\(failure.conditionDescription)") }
-                        throw AssociationFailure(name: AssociationFailure.query, reason: "Association Abort Failed " + failure.conditionDescription)
+                        throw AssociationFailure(category: .query, reason: "Association Abort Failed " + failure.conditionDescription)
                     }
                 } else {
                     if verbose { print("Releasing Association") }
                     if let failure = association.releaseAssociation() {
                         if verbose { Self.errmsg("Association Release Failed:\n\(failure.conditionDescription)") }
-                        throw AssociationFailure(name: AssociationFailure.query, reason: "Association Release Failed " + failure.conditionDescription)
+                        throw AssociationFailure(category: .query, reason: "Association Release Failed " + failure.conditionDescription)
                     }
                 }
             } else if let failure = condition, failure.conditionKind == .peerRequestedRelease {
@@ -309,7 +329,7 @@ extension DCMTKQueryNode {
                 if verbose { print("Aborting Association") }
                 let reason = "Protocol Error: peer requested release (Aborting) " + failure.conditionDescription
                 if let abort = association.closeTransportConnection(), verbose { Self.errmsg("Association Abort Failed:\n\(abort.conditionDescription)") }
-                throw AssociationFailure(name: AssociationFailure.query, reason: reason)
+                throw AssociationFailure(category: .query, reason: reason)
             } else if let failure = condition, failure.conditionKind == .peerAbortedAssociation {
                 if verbose { print("Peer Aborted Association") }
             } else if let failure = condition {
@@ -319,16 +339,16 @@ extension DCMTKQueryNode {
                 }
                 let reason = "SCU Failed " + failure.conditionDescription
                 if let abort = association.closeTransportConnection(), verbose { Self.errmsg("Association Abort Failed:\n\(abort.conditionDescription)") }
-                throw AssociationFailure(name: AssociationFailure.query, reason: reason)
+                throw AssociationFailure(category: .query, reason: reason)
             }
         } catch {
-            let failure = error as? AssociationFailure ?? AssociationFailure(name: AssociationFailure.query, reason: "\(error)")
+            let failure = error as? AssociationFailure ?? AssociationFailure(category: .query, reason: "\(error)")
             // The whole configuration, in a fixed order, so the report from a
             // machine that works and the report from one that does not differ
             // only where the configurations do.
-            let response = "\(called)  /  \(host):\(_port)\r\r\(failure.name)\r\(failure.reason)\r\r\(nodeConfigurationDescription)"
+            let response = "\(called)  /  \(host):\(_port)\r\r\(failure.category.rawValue)\r\(failure.reason)\r\r\(nodeConfigurationDescription)"
             if quietly {
-                NSLog("---- %@: %@ (another level follows)", failure.name, failure.reason)
+                NSLog("---- %@: %@ (another level follows)", failure.category.rawValue, failure.reason)
             } else if !verifying && !_abortAssociation && !Thread.current.isCancelled {
                 if showErrorMessageValue {
                     Self.postNotice(NSLocalizedString("Query Failed (1)", comment: ""), response)
@@ -519,6 +539,7 @@ extension DCMTKQueryNode {
         recordFailedIdentifiers(result.failedSOPInstanceUIDs)
         if Thread.current.isCancelled { reportRetrieveCancellation("C-MOVE", confirmed: result.conditionGood && result.status == 0xfe00) }
         if let condition = result.condition {
+            NSLog("---- C-MOVE failed: %@", condition.conditionText)
             if showErrorMessageValue && !Thread.current.isCancelled {
                 Self.postNotice(NSLocalizedString("Move Failed", comment: ""), "\(condition.conditionText)\r\r\(nodeConfigurationDescription)")
             }
@@ -581,6 +602,7 @@ extension DCMTKQueryNode {
         if Thread.current.isCancelled { reportRetrieveCancellation("C-GET", confirmed: result.conditionGood && result.status == 0xfe00) }
         var condition = result.condition
         if let failure = result.condition {
+            NSLog("---- C-GET failed: %@", failure.conditionText)
             if showErrorMessageValue && !Thread.current.isCancelled {
                 Self.postNotice(NSLocalizedString("Get Failed", comment: ""), "\(failure.conditionText)\r\r\(nodeConfigurationDescription)")
             }

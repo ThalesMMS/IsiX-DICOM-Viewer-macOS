@@ -50,8 +50,14 @@ import Testing
     @Test func numbersTheNewSeriesAfterTheAcquiredOnes() {
         #expect(Rules.newSeriesNumbers(existing: [], count: 1) == [1])
         #expect(Rules.newSeriesNumbers(existing: [1, 2, 3], count: 2) == [4, 5])
-        // The generated series (5000 and up) do not push the number past them.
-        #expect(Rules.newSeriesNumbers(existing: [1, 2, 5002, 66541], count: 2) == [3, 4])
+        // The app's own SR series (5002 to 5006) do not push the number past them.
+        #expect(Rules.newSeriesNumbers(existing: [1, 2, 5002, 5004], count: 2) == [3, 4])
+        // Series numbered in the thousands are the study's as any other: the
+        // new ones come after them, not first.
+        #expect(Rules.newSeriesNumbers(existing: [5305, 5533, 5577], count: 2) == [5578, 5579])
+        #expect(Rules.newSeriesNumbers(existing: [1, 2, 5002, 66541], count: 2) == [66542, 66543])
+        // Past the app's own series, their numbers stay theirs.
+        #expect(Rules.newSeriesNumbers(existing: [5001, 5003], count: 2) == [5007, 5008])
         // A number already taken is skipped; 0 (a report) does not count.
         #expect(Rules.newSeriesNumbers(existing: [0, 7, 8, 9], count: 1) == [10])
         #expect(Rules.newSeriesNumbers(existing: [3, 4], count: 2) == [5, 6])

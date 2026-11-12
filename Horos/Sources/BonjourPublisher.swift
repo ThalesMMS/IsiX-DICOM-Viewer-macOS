@@ -383,9 +383,7 @@ actor SharedDatabaseDICOMSender {
         autoreleasepool {
             guard let database = processGraph.defaultDatabase else {
                 // +[NSDictionary dictionaryWithObject:forKey:] refused the nil database.
-                _N2LogExceptionImpl(NSException(name: .invalidArgumentException,
-                                                reason: "*** +[NSDictionary dictionaryWithObject:forKey:]: object cannot be nil", userInfo: nil),
-                                    true, "-[BonjourPublisher sendDICOMFilesToOsiriXNode:]")
+                NSLog("NSInvalidArgumentException (in -[BonjourPublisher sendDICOMFilesToOsiriXNode:]): there is no database to send from")
                 return
             }
             let storeSCU = DCMTKStoreSCU(callingAET: processGraph.preferences[NetworkPreferences.aeTitle],
@@ -402,8 +400,8 @@ actor SharedDatabaseDICOMSender {
             } catch {
                 let failure = error as? StoreSendFailure
                 NSLog("Bonjour DICOM Send FAILED")
-                NSLog("%@", (failure?.name ?? "") as NSString)
-                NSLog("%@", (failure?.reason ?? error.localizedDescription) as NSString)
+                NSLog("%@", (failure?.category.rawValue ?? "") as NSString)
+                NSLog("%@", (failure?.logReason ?? LogText.error(error)) as NSString)
             }
         }
     }
@@ -506,7 +504,7 @@ public final class O2DatabaseConnection: NSObject {
                     do {
                         try _peer.appendReceivedData(to: _readBuffer)
                     } catch {
-                        NSLog("Shared database: request from %@ ended: %@", address, error.localizedDescription)
+                        NSLog("Shared database: request from %@ ended: %@", address, LogText.error(error))
                         return true
                     }
                     if _readBuffer.length == before {
@@ -534,12 +532,12 @@ public final class O2DatabaseConnection: NSObject {
             do {
                 try _peer.finish()
             } catch {
-                NSLog("Shared database: answer to %@ not completed: %@", address, error.localizedDescription)
+                NSLog("Shared database: answer to %@ not completed: %@", address, LogText.error(error))
             }
         } catch O2Interrupt.exception(let exception) {
-            _N2LogExceptionImpl(exception, true, "-[O2DatabaseConnection run]")
+            LogText.log(exception, stack: true, in: "-[O2DatabaseConnection run]")
         } catch {
-            NSLog("Shared database: request from %@ ended: %@", address, "\(error)")
+            NSLog("Shared database: request from %@ ended: %@", address, LogText.error(error))
         }
     }
 
@@ -556,7 +554,7 @@ public final class O2DatabaseConnection: NSObject {
         do {
             try _peer.writeData(data)
         } catch {
-            NSLog("Shared database: sending to %@ failed: %@", address, error.localizedDescription)
+            NSLog("Shared database: sending to %@ failed: %@", address, LogText.error(error))
             close()
         }
     }
@@ -726,7 +724,8 @@ public final class O2DatabaseConnection: NSObject {
         var resolved: NSString?
         let kind = _requestPaths!.kind(ofRequestedPath: requested as NSString, resolvedPath: &resolved)
         guard kind != .refused, let resolved else {
-            throw _rejectRequest("path \(requested) does not name a file of the database")
+            // The path is what the peer sent: the log is told how long it is.
+            throw _rejectRequest("a path of \(LogText.shape(of: requested)) does not name a file of the database")
         }
         if kind == .linked {
             if _linkedPaths == nil {
@@ -770,7 +769,8 @@ public final class O2DatabaseConnection: NSObject {
             throw O2Interrupt.exception(raised)
         }
         if !known {
-            throw _rejectRequest(String(format: "a path outside the database that no image links to, among %@", linkedPaths))
+            // How many, not which: they are paths of files outside the database.
+            throw _rejectRequest(String(format: "a path outside the database that no image links to, among %ld", linkedPaths.count))
         }
     }
 

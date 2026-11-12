@@ -177,9 +177,15 @@ final class DirectTransferService: NSObject, @unchecked Sendable {
     }
 }
 
+/// What the sources read of the send's failure: a category of a closed set,
+/// what the user is shown and what the log writes.
 struct StoreSendFailure: Error {
-    let name: String
+    enum Category: String {
+        case store = "DICOM Network Failure (STORE-SCU)"
+    }
+    let category: Category
     let reason: String
+    var logReason: String { reason }
 }
 
 final class DCMTKStoreSCU: NSObject {
@@ -215,13 +221,13 @@ final class DCMTKStoreSCU: NSObject {
             Thread.sleep(forTimeInterval: 0.01)
         }
         recordLock.lock(); running -= 1; recordLock.unlock()
-        if waits { return StoreSendFailure(name: "DICOM Network Failure (STORE-SCU)", reason: "Aborted") }
-        return files.contains { $0.contains("fail") } ? StoreSendFailure(name: "DICOM Network Failure (STORE-SCU)", reason: "1 file not sent") : nil
+        if waits { return StoreSendFailure(category: .store, reason: "Aborted") }
+        return files.contains { $0.contains("fail") } ? StoreSendFailure(category: .store, reason: "1 file not sent") : nil
     }
 
     func run(_ operation: Operation!) {
         if let failure = perform(operation) {
-            NSException(name: NSExceptionName(failure.name), reason: failure.reason, userInfo: nil).raise()
+            NSException(name: NSExceptionName(failure.category.rawValue), reason: failure.reason, userInfo: nil).raise()
         }
     }
 
@@ -372,7 +378,8 @@ def build(folder, send_source, driver, name, sanitize=False, activity_text=None)
     subprocess.run(['xcrun', 'swiftc', '-module-name', 'Horos', '-swift-version', '5', *extra, *modules,
                     *(['-D', 'SEND_QUEUE'] if queue else []),
                     '-import-objc-header', str(work / 'bridging.h'), '-I', str(ROOT / 'Horos/Sources'),
-                    *map(str, sources), str(work / 'exception.o'), '-o', str(executable)],
+                    # LogText: what the Send sheet tells the log of an error.
+                    *map(str, sources), *isix_modules.log_text_sources(), str(work / 'exception.o'), '-o', str(executable)],
                    check=True, capture_output=True)
     return executable
 

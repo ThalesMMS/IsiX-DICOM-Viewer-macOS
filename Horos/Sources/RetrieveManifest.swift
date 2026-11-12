@@ -42,6 +42,11 @@ public final class RetrieveManifest: NSObject {
     private let urls: [String: URL]
     private var receivedCounts: [String: Int] = [:]
     private var failures: [String: Failure] = [:]
+    /// Why each missing instance is not here, as the log may write it: a
+    /// status, a kind of failure, a count. The reason a caller gives for the
+    /// record can be the description the system has of an error, which is not
+    /// for the log.
+    private var logReasons: [String: String] = [:]
     /// The HTTP status each missing instance was last answered with. The alert
     /// shows it: "refused by the server" alone does not tell a credential the
     /// server will not take (401, 403) from a wrong path (404) or a transfer
@@ -95,6 +100,7 @@ public final class RetrieveManifest: NSObject {
         let uid = RetrieveManifest.objectUID(for: url)
         receivedCounts[uid, default: 0] += 1
         failures[uid] = nil
+        logReasons[uid] = nil
         statusCodes[uid] = nil
     }
 
@@ -102,8 +108,17 @@ public final class RetrieveManifest: NSObject {
     /// the request never got one.
     @objc(recordFailureForURL:statusCode:reason:)
     public func recordFailure(forURL url: URL, statusCode: Int, reason: String) {
+        recordFailure(forURL: url, statusCode: statusCode, reason: reason, logReason: nil)
+    }
+
+    /// The same, with what the log is told of it when `reason` is not for the
+    /// log: the description of an error. Without one, the log is told the
+    /// status, or that the request got none.
+    @objc(recordFailureForURL:statusCode:reason:logReason:)
+    public func recordFailure(forURL url: URL, statusCode: Int, reason: String, logReason: String?) {
         let uid = RetrieveManifest.objectUID(for: url)
         guard receivedCounts[uid] == nil else { return }
+        logReasons[uid] = logReason ?? (statusCode > 0 ? "HTTP \(statusCode)" : "no answer")
         // 408 request timeout, 425 too early and 429 too many requests are the
         // server asking for a later attempt; so is anything it blames on itself.
         let worthRepeating = statusCode == 0 || statusCode >= 500
@@ -118,6 +133,7 @@ public final class RetrieveManifest: NSObject {
         let uid = RetrieveManifest.objectUID(for: url)
         guard receivedCounts[uid] == nil, failures[uid] == nil else { return }
         failures[uid] = .transient("the retrieval ended before this instance arrived")
+        logReasons[uid] = "the retrieval ended before this instance arrived"
     }
 
     /// Asked for from a server whose certificate the system did not trust.
@@ -126,6 +142,7 @@ public final class RetrieveManifest: NSObject {
         let uid = RetrieveManifest.objectUID(for: url)
         guard receivedCounts[uid] == nil else { return }
         failures[uid] = .untrusted(reason)
+        logReasons[uid] = "the server's certificate is not trusted"
         statusCodes[uid] = nil
     }
 
@@ -229,18 +246,41 @@ public final class RetrieveManifest: NSObject {
         return parts.joined(separator: ", ") + "."
     }
 
-    /// The missing instances themselves, so a log says which ones rather than
-    /// how many. Bounded, because a large study loses a large number.
+    /// The missing instances themselves, which ones rather than how many,
+    /// each with the reason it was recorded with. Bounded, because a large
+    /// study loses a large number. Not for the log: `logDetail(limit:)`.
     @objc(detailWithLimit:)
     public func detail(limit: Int) -> String {
+        detail(limit: limit) { uid in "\(uid): \(self.reason(forObjectUID: uid) ?? "not received")" }
+    }
+
+    /// `detail(limit:)` as the log may write it. An instance is told by its
+    /// SOP Instance UID; what a URL without `objectUID` is known by is the
+    /// URL itself, whose query string and path are not for the log, so it is
+    /// told by its place among what was asked for and its length. Each reason
+    /// is the one recorded for the log: a status, a kind of failure, never
+    /// the description of an error.
+    @objc(logDetailWithLimit:)
+    public func logDetail(limit: Int) -> String {
+        detail(limit: limit) { uid in
+            let named = Self.hasFormOfUID(uid) ? uid
+                : "request \((self.order.firstIndex(of: uid) ?? 0) + 1) <an address of \(uid.count) characters>"
+            return "\(named): \(self.logReasons[uid] ?? "not received")"
+        }
+    }
+
+    /// Whether `text` has the form of a UID: digits and dots, at most 64.
+    static func hasFormOfUID(_ text: String) -> Bool {
+        !text.isEmpty && text.utf8.count <= 64 && text.utf8.allSatisfy { ($0 >= 48 && $0 <= 57) || $0 == 46 }
+    }
+
+    private func detail(limit: Int, line: (String) -> String) -> String {
         let missing = missingObjectUIDs
         if missing.isEmpty {
             return summary
         }
         let shown = missing.prefix(max(limit, 0))
-        var lines = shown.map { uid -> String in
-            "  \(uid): \(reason(forObjectUID: uid) ?? "not received")"
-        }
+        var lines = shown.map { "  " + line($0) }
         if missing.count > shown.count {
             lines.append("  … and \(missing.count - shown.count) more")
         }

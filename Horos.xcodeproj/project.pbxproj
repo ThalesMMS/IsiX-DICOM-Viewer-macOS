@@ -282,6 +282,7 @@
 		16E928A2A6A047A4A5035DD7 /* DatabaseRebuildService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9446D8CC830344D68C007E8B /* DatabaseRebuildService.swift */; };
 		5756ACDD366C44438BF0A6AD /* QueryWindowWorkerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04675D64DCF34D1B9C815579 /* QueryWindowWorkerState.swift */; };
 		236D9EE7CCD7461CA8266C07 /* DICOMwebClient+Retrieving.swift in Sources */ = {isa = PBXBuildFile; fileRef = B65EFA2CBD9543578BF9FE8B /* DICOMwebClient+Retrieving.swift */; };
+		1C8B958013114AF9A50C7FA5 /* DICOMwebClient+LogText.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0BB1D4BE13042CCB65C0087 /* DICOMwebClient+LogText.swift */; };
 		4F1F2D697DC14BE2885FE9E4 /* LocalDatabaseStudyReader+Series.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40ED155369DA4F44B57D7876 /* LocalDatabaseStudyReader+Series.swift */; };
 		B862004471F6405886871A3E /* DICOMSendSelection+DicomImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24981F25B9AD41E987CEB7EB /* DICOMSendSelection+DicomImage.swift */; };
 		BA736592C430429198B5A1C6 /* ActivitySendTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21899FD3121143AFA105B3E7 /* ActivitySendTransport.swift */; };
@@ -644,6 +645,7 @@
 		7B46788DD11E3E284CD38360 /* PatientIdentityChoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24B76D16F3AA8BBD295B9029 /* PatientIdentityChoice.swift */; };
 		B3F637E7581A62D6479A0407 /* AnnotationLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13058D83F939F6896415D9B5 /* AnnotationLevel.swift */; };
 		AD1C7BBF78634ADB9BD7B133 /* ViewerController+BValueSplit.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3E36D41ED484E8EBB65F715 /* ViewerController+BValueSplit.swift */; };
+		15845D98EB7948689391F278 /* ViewerSyntheticDWI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C6D70BFAE84D21B49525C0 /* ViewerSyntheticDWI.swift */; };
 		D7342D911838245272489798 /* ViewerPixelValues.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44269D52908748600AFBF2A9 /* ViewerPixelValues.swift */; };
 		BB07823747990E02F7DFD59A /* ViewerSeriesReduction.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF2621382D8822BFDDFF12CF /* ViewerSeriesReduction.swift */; };
 		9ECCF84303E745DCA20EC4DE /* ROISeriesPropagation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6CB51DF6B9044E6AF8DEC65 /* ROISeriesPropagation.swift */; };
@@ -2533,6 +2535,7 @@
 		9446D8CC830344D68C007E8B /* DatabaseRebuildService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DatabaseRebuildService.swift"; sourceTree = "<group>"; };
 		04675D64DCF34D1B9C815579 /* QueryWindowWorkerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "QueryWindowWorkerState.swift"; sourceTree = "<group>"; };
 		B65EFA2CBD9543578BF9FE8B /* DICOMwebClient+Retrieving.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMwebClient+Retrieving.swift"; sourceTree = "<group>"; };
+		A0BB1D4BE13042CCB65C0087 /* DICOMwebClient+LogText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMwebClient+LogText.swift"; sourceTree = "<group>"; };
 		40ED155369DA4F44B57D7876 /* LocalDatabaseStudyReader+Series.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LocalDatabaseStudyReader+Series.swift"; sourceTree = "<group>"; };
 		24981F25B9AD41E987CEB7EB /* DICOMSendSelection+DicomImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMSendSelection+DicomImage.swift"; sourceTree = "<group>"; };
 		21899FD3121143AFA105B3E7 /* ActivitySendTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ActivitySendTransport.swift"; sourceTree = "<group>"; };
@@ -2891,6 +2894,7 @@
 		86853F45333346619FE18B36 /* ROISaveJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROISaveJob.swift"; sourceTree = "<group>"; };
 		9F6C75E925F740B9A8B14500 /* BrushLabelAnchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrushLabelAnchor.swift"; sourceTree = "<group>"; };
 		B3E36D41ED484E8EBB65F715 /* ViewerController+BValueSplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+BValueSplit.swift"; sourceTree = "<group>"; };
+		A1C6D70BFAE84D21B49525C0 /* ViewerSyntheticDWI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerSyntheticDWI.swift; sourceTree = "<group>"; };
 		44269D52908748600AFBF2A9 /* ViewerPixelValues.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerPixelValues.swift; sourceTree = "<group>"; };
 		BF2621382D8822BFDDFF12CF /* ViewerSeriesReduction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerSeriesReduction.swift; sourceTree = "<group>"; };
 		E6CB51DF6B9044E6AF8DEC65 /* ROISeriesPropagation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROISeriesPropagation.swift"; sourceTree = "<group>"; };
@@ -7000,6 +7004,7 @@
 				9446D8CC830344D68C007E8B /* DatabaseRebuildService.swift */,
 				04675D64DCF34D1B9C815579 /* QueryWindowWorkerState.swift */,
 				B65EFA2CBD9543578BF9FE8B /* DICOMwebClient+Retrieving.swift */,
+				A0BB1D4BE13042CCB65C0087 /* DICOMwebClient+LogText.swift */,
 				40ED155369DA4F44B57D7876 /* LocalDatabaseStudyReader+Series.swift */,
 				24981F25B9AD41E987CEB7EB /* DICOMSendSelection+DicomImage.swift */,
 				21899FD3121143AFA105B3E7 /* ActivitySendTransport.swift */,
@@ -7362,6 +7367,7 @@
 				24B76D16F3AA8BBD295B9029 /* PatientIdentityChoice.swift */,
 				13058D83F939F6896415D9B5 /* AnnotationLevel.swift */,
 				B3E36D41ED484E8EBB65F715 /* ViewerController+BValueSplit.swift */,
+				A1C6D70BFAE84D21B49525C0 /* ViewerSyntheticDWI.swift */,
 				44269D52908748600AFBF2A9 /* ViewerPixelValues.swift */,
 				BF2621382D8822BFDDFF12CF /* ViewerSeriesReduction.swift */,
 				E6CB51DF6B9044E6AF8DEC65 /* ROISeriesPropagation.swift */,
@@ -9915,6 +9921,7 @@
 				16E928A2A6A047A4A5035DD7 /* DatabaseRebuildService.swift in Sources */,
 				5756ACDD366C44438BF0A6AD /* QueryWindowWorkerState.swift in Sources */,
 				236D9EE7CCD7461CA8266C07 /* DICOMwebClient+Retrieving.swift in Sources */,
+				1C8B958013114AF9A50C7FA5 /* DICOMwebClient+LogText.swift in Sources */,
 				4F1F2D697DC14BE2885FE9E4 /* LocalDatabaseStudyReader+Series.swift in Sources */,
 				B862004471F6405886871A3E /* DICOMSendSelection+DicomImage.swift in Sources */,
 				BA736592C430429198B5A1C6 /* ActivitySendTransport.swift in Sources */,
@@ -10277,6 +10284,7 @@
 				7B46788DD11E3E284CD38360 /* PatientIdentityChoice.swift in Sources */,
 				B3F637E7581A62D6479A0407 /* AnnotationLevel.swift in Sources */,
 				AD1C7BBF78634ADB9BD7B133 /* ViewerController+BValueSplit.swift in Sources */,
+				15845D98EB7948689391F278 /* ViewerSyntheticDWI.swift in Sources */,
 				D7342D911838245272489798 /* ViewerPixelValues.swift in Sources */,
 				BB07823747990E02F7DFD59A /* ViewerSeriesReduction.swift in Sources */,
 				9ECCF84303E745DCA20EC4DE /* ROISeriesPropagation.swift in Sources */,

@@ -40,6 +40,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import private_tmpdir  # noqa: F401,E402
 import isix_modules  # noqa: E402
+from python_with import interpreter_or_skip  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -59,18 +60,6 @@ ROWS, COLUMNS = 48, 64
 # One chrominance pair for two pixels, and the integer matrix: the picture's
 # red and green change by 4 a column, so a pixel's colour is off by a few levels.
 TOLERANCE = 12
-
-
-def find_python():
-    candidates = [os.environ.get('HOROS_PYTHON'), str(ROOT / 'local-validation/venv/bin/python'),
-                  str(ROOT.parent.parent.parent / 'local-validation/net-venv/bin/python')
-                  if ROOT.parent.name == 'worktrees' else None,
-                  str(ROOT / 'local-validation/net-venv/bin/python'), sys.executable]
-    for candidate in filter(None, candidates):
-        if Path(candidate).exists() and subprocess.run([candidate, '-c', 'import pydicom, numpy, PIL'],
-                                                       capture_output=True).returncode == 0:
-            return candidate
-    return None
 
 
 def source(path):
@@ -268,10 +257,8 @@ def compare(answers, expected):
     return failures
 
 
-python = find_python()
-if python is None:
-    print('skipped: the files need a Python with pydicom, numpy and Pillow (HOROS_PYTHON)')
-    raise SystemExit(2)
+python = interpreter_or_skip('import pydicom', 'import numpy', 'import PIL', need='the files need',
+                             packages="'pydicom>=3,<4' numpy Pillow")
 
 with tempfile.TemporaryDirectory(prefix='isix-ybr-422-') as directory:
     work = Path(directory)

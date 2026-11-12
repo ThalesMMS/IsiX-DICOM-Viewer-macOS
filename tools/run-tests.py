@@ -12,8 +12,9 @@ per test: {"tests": {"test-dcm-host-services.py": {"args": ["PRODUCTS_DIR"],
 "env": {"HOROS_TEST_CONFIGURATION": "Debug"}}}}. Keep machine-specific paths
 in an ignored local manifest; absent entries retain the usual no-argument run.
 Without the option, local-validation/test-inputs.json is read when it exists:
-tools/prepare-test-inputs.py writes it, with the built products and the
-synthetic fixtures the tests that take arguments need.
+tools/prepare-test-inputs.py writes it, with the built products, the
+synthetic fixtures and the external checkouts it finds in local-validation/
+that the tests that take arguments need.
 --jobs N only runs entries marked "parallel_safe": true concurrently. Mark only
 independent tests with private temporary workspaces; benchmarks, native/AppKit
 checks and nested builds are conservatively forced into the serial lane.

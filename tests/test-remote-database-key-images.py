@@ -1028,7 +1028,7 @@ def main():
                                 *(str(work / name) for name in ('stage.swift', 'generated.swift', 'capture.swift', 'windows-state.swift',
                                                                 'study-archives.swift', 'key-database.swift', 'validated-pdf.swift',
                                                                 'main.swift')),
-                                str(work / 'Support.o'), '-o', str(work / 'check')],
+                                *isix_modules.log_text_sources(), str(work / 'Support.o'), '-o', str(work / 'check')],
                                capture_output=True, text=True, timeout=300)
         if built.returncode:
             print('FAIL: the sources do not compile with their doubles\n' + built.stderr[-3000:])

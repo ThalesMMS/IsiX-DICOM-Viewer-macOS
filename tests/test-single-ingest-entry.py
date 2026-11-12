@@ -20,17 +20,27 @@ as tools/swift-idiom-indicator.py reads them, and every place is found that:
   `DicomFileIndexer(...)`, in Objective-C `addFilesAtPaths:`,
   `addFilesDescribedInDictionaries:` and `addFiles:`, and a selector string that
   starts with one of them;
-- reaches the incoming folder (`incoming`): `incomingDirPath`, `incomingDirPathC`,
-  the import of the folder (`importFilesFromIncomingDir`,
-  `importFiles(fromIncomingDir:`, `initiateImportFilesFromIncomingDirUnlessAlreadyImporting`)
-  and a literal "INCOMING.noindex".
+- reaches the incoming folder (`incoming`): the database's `incomingDirPath` and
+  `incomingDirPathC`; the names the storage module gives it, `incomingFolderName`,
+  `incomingDirectory`, `DataFolder.incoming` and the same case written `.incoming`
+  with its type left to the context, as in `path(of: .incoming)`; the accessors
+  the plugin API keeps, `INCOMINGPATH` (`incomingpath` in Swift),
+  `cfixedIncomingDirectory` and `cfixedIncomingNoIndexDirectory`; the import of
+  the folder (`importFilesFromIncomingDir`, `importFiles(fromIncomingDir:`,
+  `initiateImportFilesFromIncomingDirUnlessAlreadyImporting`); and a string
+  literal that is "INCOMING.noindex" or holds it as a component of a path.
+  The folder asked of the single entry (`admissionFolder`, `listenerFolder`,
+  `incomingFolderPath(of:)`) is not a place: that is the entry reaching it. Nor
+  is the ingest preset of the scan, `IngestPreset.incoming` or `preset: .incoming`,
+  nor another member that happens to be called `incoming` (`self.incoming`).
 
 Insertions of a DICOM entity (or of an entity not known) are allowed only in the
 indexer, DicomFileIndexer; the index and the incoming folder only in the single
 entry, DatabaseIngest. Every other place is named in EXCEPTIONS, by file and by
 the function it is in (not by line), with how many places of each kind and
 why: a real exception, or a false positive (the Study entity of the web
-portal's own database, a routing method that happens to be called addFiles).
+portal's own database, a routing method that happens to be called addFiles,
+the source of an ingest preset that is called incoming).
 A place that is not named fails, and so does a name whose places changed in
 number or went away.
 
@@ -40,7 +50,10 @@ own in memory, which is not a database of the app.
 The test proves on itself, in a working copy of those folders in a temporary
 directory, that it refuses an insertion, an addFiles and a use of the incoming
 folder injected in each of their spellings, and one more insertion in a named
-function; and that it accepts an album, a comment and a string.
+function; that it accepts an album, a comment, a string, a log line that names
+the folder, the preset of the scan, another member called incoming and the
+folder asked of the single entry; and that every name of the incoming folder
+is accepted inside the single entry, and refused in another file.
 
     python3 tests/test-single-ingest-entry.py [--list]
 """
@@ -108,11 +121,24 @@ EXCEPTIONS = {
                                         "hands the files to the plugin kit's import, and so to the single "
                                         "entry, and its folders are the kit's"),
     # --- the incoming folder -----------------------------------------------------------
-    ('Horos/Sources/DicomDatabase+Instance.swift', None):
-        ({'incoming': 2}, 'the accessor of the folder, in the data folder of the database'),
+    ('Horos/Sources/DicomDatabase+Instance.swift', 'incomingDirPath'):
+        ({'incoming': 3}, 'the accessor of the folder, in the data folder of the database: its Objective-C name, '
+                          "its declaration and the case of the storage module's folders it asks the path of"),
     ('Modules/IsiXStorage/Sources/DocumentsLocation.swift', None):
-        ({'incoming': 1}, "the folder's name in the data folder, for the path that the database's accessor and "
-                          'the deprecated accessor of the plugin API (-INCOMINGPATH) hand out; nothing is written or read there'),
+        ({'incoming': 2}, "the folder's name in the data folder, as the case of the data folder's folders and as the "
+                          "constant that hands the name out, for the path that the database's accessor and the "
+                          'deprecated accessor of the plugin API (-INCOMINGPATH) hand out; nothing is written or read there'),
+    ('Modules/IsiXStorage/Sources/DocumentsLocation.swift', 'incomingDirectory'):
+        ({'incoming': 1}, 'the path of the folder in a data folder, through its links and aliases, which the '
+                          'deprecated accessor of the plugin API hands out; it resolves a path and neither lists, '
+                          'reads nor writes the folder'),
+    ('Modules/IsiXContracts/Sources/DICOMIngesting.swift', None):
+        ({'incoming': 1}, 'a false positive: the source that the preset of the scan names, a case of the sources '
+                          "of the ingest contract that is called incoming, not the folder of the storage module"),
+    ('Modules/IsiXDatabase/Sources/UnindexedFileSearch.swift', None):
+        ({'incoming': 1}, "the folder's name among the names of the folders that the search for files the index lacks "
+                          'never goes into, so that it leaves to the import what the import takes; the search lists and '
+                          'reads only the folders it goes into, and what it finds is indexed by the single entry'),
     ('Horos/Sources/DicomDatabase.swift', None):
         ({'incoming': 7}, 'the folders a database makes when it opens and the C copy of the path that '
                           "the listener's threads read"),
@@ -140,9 +166,15 @@ EXCEPTIONS = {
         ({'incoming': 1}, 'what a cancelled pass of the single entry took and did not index goes '
                           'back to the folder it came from'),
     ('Horos/Sources/BrowserController+Plugins.swift', 'cfixedIncomingDirectory'):
-        ({'incoming': 1}, 'a deprecated accessor of the folder that the plugin API keeps'),
+        ({'incoming': 2}, 'a deprecated accessor of the folder that the plugin API keeps, by its Objective-C '
+                          "name and where it hands out the database's C copy of the path"),
     ('Horos/Sources/BrowserController+Plugins.swift', 'cfixedIncomingNoIndexDirectory'):
-        ({'incoming': 1}, 'a deprecated accessor of the folder that the plugin API keeps'),
+        ({'incoming': 2}, 'a deprecated accessor of the folder that the plugin API keeps, by its Objective-C '
+                          "name and where it hands out the database's C copy of the path"),
+    ('Horos/Sources/BrowserController+Plugins.swift', 'incomingpath'):
+        ({'incoming': 3}, 'the deprecated -INCOMINGPATH that the plugin API keeps, by its Objective-C name, its '
+                          'declaration and the path it asks of the storage module; it hands a plugin the path, the '
+                          'app does not call it, and it neither lists, reads nor writes the folder'),
     ('Horos/Sources/RemoteDicomDatabase.swift', 'initiateImportFilesFromIncomingDirUnlessAlreadyImporting'):
         ({'incoming': 1}, 'the override of a shared database, which asks the single entry for a pass '
                           'only when its own folder holds files'),
@@ -156,14 +188,25 @@ INDEX_SWIFT = re.compile(r'\baddFiles\s*\(|\baddFilesDescribed\s*\(|\bDicomFileI
 INDEX_OBJC = re.compile(r'\baddFilesAtPaths\s*:|\baddFilesDescribedInDictionaries\s*:|\baddFiles\s*:')
 INDEX_SELECTOR = re.compile(r'"addFiles(?:AtPaths|DescribedInDictionaries)?:')
 INCOMING = re.compile(r'\bincomingDirPathC?\b|\bimportFilesFromIncomingDir(?:Thread)?\b|\bimportFiles\s*\(\s*fromIncomingDir\b'
-                      r'|\binitiateImportFilesFromIncomingDirUnlessAlreadyImporting\b')
-INCOMING_LITERAL = re.compile(r'"INCOMING\.noindex"')
+                      r'|\binitiateImportFilesFromIncomingDirUnlessAlreadyImporting\b'
+                      r'|\bincomingFolderName\b|\bincomingDirectory\b|\bDataFolder\s*\.\s*incoming\b'
+                      r'|\bINCOMINGPATH\b|\bincomingpath\b|\bcfixedIncoming(?:NoIndex)?Directory\b')
+# Swift's `.incoming` with its type left to the context: the case of the data
+# folder's folders, as in path(of: .incoming). A member of something written
+# before it (IngestPreset.incoming, self.incoming) is not that, and neither is
+# the argument labelled `preset:`, which is an ingest preset.
+INCOMING_MEMBER = re.compile(r'(?<![\w)\]}?!>"])\.incoming\b')
+INGEST_PRESET_LABEL = re.compile(r'\bpreset\s*:\s*\Z')
+# The folder's name alone, or as a component of a path: not a sentence that names it.
+INCOMING_LITERAL = re.compile(r'"(?:[^"\n]*/)?INCOMING\.noindex(?:/[^"\n]*)?"')
 DICOM_ENTITY = re.compile(r'"(?:Study|Series|Image)"|\b(?:study|series|image)Entity\s*\(')
 OTHER_ENTITY = re.compile(r'"\w+"|\b\w+Entity\s*\(|\b(?!forEntityName\b)\w+EntityName\b')
 
 # Functions, initializers and computed properties: a stored or local `let` or
 # `var` is not a place of its own.
 SWIFT_DECLARATION = re.compile(r'\bfunc\s+(\w+)|\b(init|deinit|subscript)\b|\bvar\s+(\w+)\s*:[^=\n{]*\{')
+# What a Swift declaration has before its keyword on the line: attributes and modifiers.
+SWIFT_PREFIX = re.compile(r'[ \t]*(?:(?:@\w+(?:\([^()\n]*\))?|\w+(?:\(\w+\))?)[ \t]+)*')
 OBJC_DECLARATION = re.compile(r'^[ \t]*[-+][ \t]*\([^)]*\)[ \t]*(\w+)|^[ \t]*(?:static[ \t]+)?[\w \t\*]*?\b(\w+)[ \t]*\([^;{}]*\)[ \t]*$',
                               re.M)
 
@@ -179,6 +222,20 @@ def braces(code, start):
             if depth == 0:
                 return at + 1
     return len(code)
+
+
+def declared_from(code, at):
+    """`at`, the keyword of a Swift declaration, moved back over its modifiers on the line and its
+    attributes on the lines above, so that the name in an `@objc(...)` is a place of the declaration."""
+    start = code.rfind('\n', 0, at) + 1
+    if not SWIFT_PREFIX.fullmatch(code, start, at):
+        return at
+    while start > 0:
+        above = code.rfind('\n', 0, start - 1) + 1
+        if not code[above:start].lstrip().startswith('@'):
+            break
+        start = above
+    return start
 
 
 def bodies(code, swift):
@@ -197,7 +254,7 @@ def bodies(code, swift):
         if not swift and code[match.end():brace].strip(' \t\n') not in ('', ) and ';' in code[match.end():brace]:
             continue
         # From the declaration, so that a place in the signature is the function's.
-        found.append((match.start(), braces(code, brace), name))
+        found.append((declared_from(code, match.start()) if swift else match.start(), braces(code, brace), name))
     return found
 
 
@@ -241,12 +298,19 @@ def places(path, text):
         found.append(('index', function(match.start()), None, line(match.start())))
     # Literals are read in the text, where the code keeps their quote: not in a
     # comment. A selector string, not a log line that quotes the selector after "-[".
-    for kind, pattern in (('index', INDEX_SELECTOR), ('incoming', INCOMING_LITERAL)):
-        for match in pattern.finditer(text):
-            if code[match.start()] == '"':
-                found.append((kind, function(match.start()), None, line(match.start())))
+    for match in INDEX_SELECTOR.finditer(text):
+        if code[match.start()] == '"':
+            found.append(('index', function(match.start()), None, line(match.start())))
+    # The whole literal, from its quote to its quote.
+    for match in INCOMING_LITERAL.finditer(text):
+        if code[match.start()] == '"' and code[match.end() - 1] == '"':
+            found.append(('incoming', function(match.start()), None, line(match.start())))
     for match in INCOMING.finditer(code):
         found.append(('incoming', function(match.start()), None, line(match.start())))
+    if swift:
+        for match in INCOMING_MEMBER.finditer(code):
+            if not INGEST_PRESET_LABEL.search(code, max(0, match.start() - 80), match.start()):
+                found.append(('incoming', function(match.start()), None, line(match.start())))
     # One place per line and kind, as the indicator counts.
     unique = {}
     for kind, name, entity, number in found:
@@ -326,18 +390,50 @@ def main():
         'incomingDirPath': 'let s = (database.incomingDirPath() as NSString).appendingPathComponent(name)',
         'importFilesFromIncomingDir': 'let s = database.importFilesFromIncomingDir()',
         'a literal INCOMING.noindex': 'let s = base + "/" + "INCOMING.noindex"',
+        'a literal path through INCOMING.noindex': 'let s = base + "/INCOMING.noindex/" + name',
+        'an interpolated path to INCOMING.noindex': r'let s = "\(base)/INCOMING.noindex"',
+        'incomingFolderName': 'let s = (base as NSString).appendingPathComponent(DocumentsLocation.incomingFolderName)',
+        'incomingDirectory': 'let s = location.incomingDirectory',
+        'DataFolder.incoming': 'let s = (base as NSString).appendingPathComponent(DocumentsLocation.DataFolder.incoming.rawValue)',
+        'path(of: .incoming)': 'let s = location.path(of: .incoming)',
+        'a folder compared with .incoming': 'let s = folders.filter { $0 == .incoming }',
+        'incomingpath()': 'let s = browser.incomingpath()',
+        'cfixedIncomingDirectory': 'let s = browser.cfixedIncomingDirectory',
+        'cfixedIncomingNoIndexDirectory': 'let s = browser.cfixedIncomingNoIndexDirectory',
     }
     OBJC_PROBES = {
         'insertNewObjectForEntityForName:': '[NSEntityDescription insertNewObjectForEntityForName: @"Image" inManagedObjectContext: context];',
         'newObjectForEntity:': '[database newObjectForEntity: database.studyEntity];',
         'addFilesAtPaths:': '[database addFilesAtPaths: paths];',
         'incomingDirPath': '[database.incomingDirPath stringByAppendingPathComponent: name];',
+        'INCOMINGPATH': '[[[BrowserController currentBrowser] INCOMINGPATH] stringByAppendingPathComponent: name];',
+        'cfixedIncomingDirectory': 'strlen([[BrowserController currentBrowser] cfixedIncomingDirectory]);',
+        'cfixedIncomingNoIndexDirectory': 'strlen([[BrowserController currentBrowser] cfixedIncomingNoIndexDirectory]);',
+        'literal path through INCOMING.noindex': '[base stringByAppendingString: @"/INCOMING.noindex/"];',
     }
     ACCEPTED = {
         'an album': 'let s = NSEntityDescription.insertNewObject(forEntityName: "Album", into: context)',
         'a comment': '// NSEntityDescription.insertNewObject(forEntityName: "Study", into: context) and addFiles(atPaths:)',
         'a string': 'let s = "database.addFiles(atPaths: paths) into incomingDirPath()"',
+        'a comment that names the incoming folder': '// location.incomingDirectory, path(of: .incoming), "x/INCOMING.noindex" and INCOMINGPATH',
+        'a string that names the accessors': 'let s = "location.incomingDirectory, path(of: .incoming) and INCOMINGPATH"',
+        'a log line that names the folder': 'NSLog("could not empty the INCOMING.noindex directory of %@", base)',
+        'the preset of the scan': 'let s = ingest.publish(draft, preset: .incoming)',
+        'the preset of the scan by its type': 'let s = IngestPreset.incoming.options',
+        'another member called incoming': 'self.incoming = incoming',
+        'the folder asked of the single entry': 'let incomingDirectoryPath = ingest.incomingFolderPath(of: database)',
     }
+    # Every name of the incoming folder, on four lines, as the single entry may write them.
+    NAMES_OF_THE_FOLDER = '''
+extension DatabaseIngest {
+    func probe(_ location: DocumentsLocation, _ browser: BrowserController, _ base: String) -> [String?] {
+        [location.incomingDirectory, location.path(of: .incoming), browser.incomingpath(),
+         base + "/" + DocumentsLocation.incomingFolderName, base + "/" + DocumentsLocation.DataFolder.incoming.rawValue,
+         base + "/INCOMING.noindex/", String(cString: browser.cfixedIncomingDirectory),
+         String(cString: browser.cfixedIncomingNoIndexDirectory)]
+    }
+}
+'''
     probes = 0
     with tempfile.TemporaryDirectory(prefix='horos-single-ingest-') as directory:
         copy = Path(directory)
@@ -385,6 +481,21 @@ def main():
             if not any('importStudy' in problem for problem in judge(copy, paths)):
                 fail('a named place that went away is not refused')
             albums.write_text(original)
+        # The names of the incoming folder inside the single entry, and the same
+        # lines in a file that is not the entry.
+        probes += 1
+        entry = copy / SINGLE_ENTRY
+        original = entry.read_text(encoding='utf-8')
+        entry.write_text(original + NAMES_OF_THE_FOLDER)
+        if [problem for problem in judge(copy, paths) if problem not in failures]:
+            fail('the names of the incoming folder are refused inside the single entry')
+        entry.write_text(original)
+        probes += 1
+        (copy / INJECTED).write_text(NAMES_OF_THE_FOLDER)
+        refused = [problem for problem in judge(copy, paths + [INJECTED]) if INJECTED in problem]
+        (copy / INJECTED).unlink()
+        if len(refused) != 4:
+            fail(f'{len(refused)} of the 4 lines that name the incoming folder are refused outside the single entry')
         # An addFiles injected into an existing file outside the single entry.
         probes += 1
         queue = copy / 'Horos/Sources/BrowserController+DeleteQueue.swift'

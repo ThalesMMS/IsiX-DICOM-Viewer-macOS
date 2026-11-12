@@ -13,6 +13,13 @@ DicomFileIndexer, in DicomFileIndexer.swift, which reaches the database as
 `database` and the alert as `feedback`, and the database's selector forwards
 to it. `pasted(source)` gives the Swift to paste for either shape, and
 `source_at(revision)` the indexer's file at a revision, under either name.
+
+The Study Instance UIDs of the studies an import can meet were an array beside
+the array of the studies. Since the import reads only the studies its files
+name, they are DicomDatabaseImportStudyUIDs, which answers the places of a UID
+without walking the list. The double of indexFile asks either one through
+`ImportStudyUIDList`, and for a source that has the type `pasted(source)` adds
+the type and `studies(describedIn:)`, the read of the studies, as written.
 """
 from pathlib import Path
 import subprocess
@@ -30,6 +37,35 @@ INDEXER = str(sources.source_path('DicomFileIndexer').relative_to(ROOT))
 ADD = ('func addDescribedFiles(_ dicomFilesArray: [Any]?, postNotifications: Bool, rereadExistingItems: Bool, '
        'generatedByOsiriX: Bool, importedFiles: Bool, returnArray: Bool) -> [Any]? {')
 INDEX = 'private func indexDescribedFiles('
+STUDY_UIDS = 'final class DicomDatabaseImportStudyUIDs'
+STUDIES = 'private func studies(describedIn files: NSArray) -> NSMutableArray {'
+
+# The list of Study Instance UIDs as the double of indexFile asks it: where the
+# first study of a UID is in the array of the studies, and that the study it
+# adds to that array has this UID.
+UID_LIST = r'''
+protocol ImportStudyUIDList {
+    func place(of uid: String) -> Int
+    func remember(_ uid: String)
+}
+
+extension NSMutableArray: ImportStudyUIDList {
+    func place(of uid: String) -> Int { index(of: uid) }
+    func remember(_ uid: String) { add(uid) }
+}
+'''
+
+# The same over the type of the indexer, and the association of the reports of
+# the cloud as the indexer calls it since: these doubles have no such report,
+# for which alone it reads every study.
+UID_TYPE_STANDINS = r'''
+extension DicomDatabaseImportStudyUIDs: ImportStudyUIDList {
+    func place(of uid: String) -> Int { first(uid) }
+    func remember(_ uid: String) { append(uid) }
+}
+
+func associateCloudReports(_ files: NSArray, allStudies: () -> NSArray, _ context: NSManagedObjectContext?) {}
+'''
 
 # What the indexer reaches besides the database, for the shape of a type of its own.
 INDEXER_STANDINS = r'''
@@ -49,7 +85,7 @@ struct DicomFileIndexer {
     }
 
     func indexFile(_ curDict: NSMutableDictionary?, cursor: DicomDatabaseImportCursor, added: DicomDatabaseImportBatch,
-                   studiesArray: NSMutableArray, studiesArrayStudyInstanceUID: NSMutableArray, modifiedStudiesArray: NSMutableArray,
+                   studiesArray: NSMutableArray, studiesArrayStudyInstanceUID: any ImportStudyUIDList, modifiedStudiesArray: NSMutableArray,
                    defaultDate: Date, today: Date, dataDirPath: String?, reportsDirPath: String?, errorsDirPath: String?,
                    settings: DicomDatabaseImportSettings, rereadExistingItems: Bool, generatedByOsiriX: Bool, importedFiles: Bool,
                    preparedReportPath: inout String?) {
@@ -97,6 +133,11 @@ def is_type(source):
     return 'struct DicomFileIndexer' in source
 
 
+def has_uid_type(source):
+    """Whether `source` keeps the Study Instance UIDs in a type of their own."""
+    return STUDY_UIDS in source
+
+
 def gated(source):
     """(the gated import, the indexing) of either shape."""
     if is_type(source):
@@ -107,9 +148,13 @@ def gated(source):
 def pasted(source):
     """The Swift that puts the two methods of `source` on the double."""
     add, index = gated(source)
-    if is_type(source):
-        return INDEXER_STANDINS + '\nextension DicomFileIndexer {\n' + add + '\n\n' + index + '\n}\n'
-    return 'extension ImportDatabase {\n' + add + '\n\n' + index + '\n}\n'
+    if not is_type(source):
+        return UID_LIST + '\nextension ImportDatabase {\n' + add + '\n\n' + index + '\n}\n'
+    standins, members = UID_LIST + INDEXER_STANDINS, [add, index]
+    if has_uid_type(source):
+        standins += '\n' + method(source, STUDY_UIDS) + '\n' + UID_TYPE_STANDINS
+        members.append(method(source, STUDIES))
+    return standins + '\nextension DicomFileIndexer {\n' + '\n\n'.join(members) + '\n}\n'
 
 
 def source_at(revision):

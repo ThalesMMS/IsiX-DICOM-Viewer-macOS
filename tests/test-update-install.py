@@ -308,5 +308,8 @@ with tempfile.TemporaryDirectory(prefix='horos-update-install-') as folder:
         arguments.append(str(release))
     subprocess.run(arguments, check=True, timeout=180)
     if not release.is_dir():
-        print('skipped: no installed Developer ID release at %s (set HOROS_TEST_RELEASE_APP)' % release)
+        # On the error output, after what the administrator script wrote there
+        # when its move was meant to fail: the run reports its last line.
+        print('skipped: no installed Developer ID release at %s (set HOROS_TEST_RELEASE_APP)' % release,
+              file=sys.stderr)
         sys.exit(2)

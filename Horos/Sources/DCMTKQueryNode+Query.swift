@@ -58,8 +58,9 @@ extension DCMTKQueryNode {
         guard let exception else { return true }
         if dontCatchExceptions { exception.raise() }
         if !Thread.current.isCancelled {
-            let kind = exception.name.rawValue
-            NSLog("******* %@: %@\n%@", kind, exception.reason ?? kind, exception.callStackSymbols.joined(separator: "\n"))
+            // The name, how long the reason is, and the stack: a reason raised
+            // over a filter quotes the value typed for it.
+            NSLog("******* %@\n%@", LogText.exception(exception), exception.callStackSymbols.joined(separator: "\n"))
         }
         return false
     }
@@ -82,7 +83,7 @@ extension DCMTKQueryNode {
             endedNormally(HorosObjCException.caught {
                 purgeChildren()
                 guard var identifier = given ?? queryPrototype() else {
-                    NSLog("---- a query of %@ has nothing to ask", description)
+                    NSLog("---- a query of %@ has nothing to ask", uid() ?? "(null)")
                     return
                 }
                 let characterSet = PreferencesSource.process.preferences[NetworkPreferences.queryCharacterSet]
@@ -120,7 +121,7 @@ extension DCMTKQueryNode {
                     // A value its attribute cannot take ended the search before
                     // anything was asked, as the exception of the message it was
                     // sent did.
-                    if !Thread.current.isCancelled { NSLog("******* NSInvalidArgumentException: %@", "\(error)") }
+                    if !Thread.current.isCancelled { NSLog("******* NSInvalidArgumentException: %@", LogText.error(error)) }
                     return
                 }
                 if !sentKeys.isEmpty || !unsentKeys.isEmpty {
@@ -245,6 +246,7 @@ extension DCMTKQueryNode {
         lastQueryNotImplementedValue = DICOMwebClient.searchNotImplemented(error)
         if let error, !Thread.current.isCancelled {
             Thread.current.status = error.localizedDescription
+            NSLog("---- DICOMweb query failed: %@", DICOMwebClient.logReason(for: error) ?? "(null)")
             if showErrorMessageValue { Self.postNotice(NSLocalizedString("DICOMweb Query Failed", comment: ""), error.localizedDescription) }
         }
         // The search stopped before the node's last result: what arrived is

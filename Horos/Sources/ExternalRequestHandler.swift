@@ -124,7 +124,9 @@ struct LinkRequest: Sendable {
             // The request is named, since it is dropped: a link from a RIS
             // otherwise only brings the app to the front.
             let request = RISRequestAlert.describe(method: invocation.methodName, parameters: invocation.parameters)
-            NSLog("horos URL not carried out, URL support is off: %@", request as NSString)
+            // The alert names the request with its values; the log, the method and which parameters it had.
+            NSLog("horos URL not carried out, URL support is off: %@ with %@", (invocation.methodName ?? "image") as NSString,
+                  invocation.parameters.keys.filter { $0 != "methodName" }.sorted().joined(separator: ", ") as NSString)
             let message = NSLocalizedString("IsiX DICOM Viewer URL scheme [horos:// , osirix://] is currently not activated!\r\rShould I activate it now? Restart is necessary.", comment: "")
                 + "\r\r" + RISRequestAlert.notCarriedOut(request)
             let result = HorosAlertPanel.runInformational(title: NSLocalizedString("URL scheme", comment: ""), message: message, defaultButton: NSLocalizedString("No", comment: ""), alternateButton: NSLocalizedString("Activate & Restart", comment: ""), otherButton: nil)
@@ -181,7 +183,7 @@ struct LinkRequest: Sendable {
                     succeeded = self.browser?.display(image.series?.study, object: image, command: "Open") ?? false
                 }
             }) {
-                _N2LogExceptionImpl(exception, true, "-[AppController getUrl:withReplyEvent:]")
+                LogText.log(exception, stack: true, in: "-[AppController getUrl:withReplyEvent:]")
             }
         }
 
@@ -214,7 +216,7 @@ struct LinkRequest: Sendable {
                         succeeded = self.browser?.display(found.series?.study, object: found, command: "Open") ?? false
                     }
                 }) {
-                    _N2LogExceptionImpl(exception, true, "-[AppController getUrl:withReplyEvent:]")
+                    LogText.log(exception, stack: true, in: "-[AppController getUrl:withReplyEvent:]")
                 }
                 wait?.end()
                 wait?.close()

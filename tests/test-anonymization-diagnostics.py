@@ -70,34 +70,48 @@ def _method(text, signature):
     raise SystemExit('cannot find %s' % signature)
 
 
-# The DCM framework's character set table and date class, which the harness
-# carries as stand-ins, from the last revision that has the framework.
+# DCMCharacterSet and DCMCalendarDate are IsiXDICOMFile's in the current build,
+# under the names the DCM framework gave them. The former build has no module:
+# its harness carries the framework's character set table and date class as
+# stand-ins, from the last revision that has the framework. Neither executable
+# holds both, which would define each class twice.
 import history_reference  # noqa: E402
 FRAMEWORK_PROBE = 'DCM Framework/DCMCalendarDate.m'
-framework_revision = 'HEAD' if subprocess.run(['git', '-C', str(root), 'cat-file', '-e', 'HEAD:' + FRAMEWORK_PROBE],
-                                              capture_output=True).returncode == 0 \
-    else history_reference.before_removal(FRAMEWORK_PROBE)
-if framework_revision is None:
-    print('skipped: needs the history that has DCM.framework', file=sys.stderr)
-    raise SystemExit(2)
+framework_revision = None
+if compare:
+    framework_revision = 'HEAD' if subprocess.run(['git', '-C', str(root), 'cat-file', '-e', 'HEAD:' + FRAMEWORK_PROBE],
+                                                  capture_output=True).returncode == 0 \
+        else history_reference.before_removal(FRAMEWORK_PROBE)
+    if framework_revision is None:
+        print('skipped: --compare needs the history that has DCM.framework', file=sys.stderr)
+        raise SystemExit(2)
 
 
 def framework_file(name):
     return history_reference.show(framework_revision, 'DCM Framework/' + name)
 
 
-# The category delegates to the one table, which lived in the framework, so the
-# harness carries that table and a stand-in class to hang it on.
-encoding_source = framework_file('DCMCharacterSet.m').decode('latin1')
+def former_character_set():
+    """The framework's table, on a stand-in class, for the former build."""
+    encoding_source = framework_file('DCMCharacterSet.m').decode('latin1')
+    return '\n'.join([
+        '@interface DCMCharacterSet : NSObject',
+        '+ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)characterSet;',
+        '+ (NSString*) characterSetWhenAbsent;',
+        '@end',
+        '@implementation DCMCharacterSet',
+        _method(encoding_source, '+ (NSString*) characterSetWhenAbsent'),
+        _method(encoding_source, '+ (NSStringEncoding)encodingForDICOMCharacterSet:'),
+        '@end',
+    ])
+
+
+# The category delegates to the one table, as the app's does: the module's
+# DCMCharacterSet in the current build, the framework's in the former.
 encoding_methods = '\n'.join([
-    '@interface DCMCharacterSet : NSObject',
-    '+ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)characterSet;',
-    '+ (NSString*) characterSetWhenAbsent;',
-    '@end',
-    '@implementation DCMCharacterSet',
-    _method(encoding_source, '+ (NSString*) characterSetWhenAbsent'),
-    _method(encoding_source, '+ (NSStringEncoding)encodingForDICOMCharacterSet:'),
-    '@end',
+    '#ifdef HARNESS_FORMER',
+    former_character_set() if compare else '#error the former build needs --compare',
+    '#endif',
     '@implementation NSString (DICOMToNSString)',
     '+ (NSStringEncoding)encodingForDICOMCharacterSet:(NSString *)characterSet',
     '{ return [DCMCharacterSet encodingForDICOMCharacterSet: characterSet]; }',
@@ -113,7 +127,6 @@ stubs_header = r'''
 #import "HorosAnonymizationSafety.h"
 #import "HorosGDCMAnonymizer.h"
 #import "IsiXDCMTKAnonymizer.h"
-#import "DCMCalendarDate.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -123,6 +136,7 @@ void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf);
 #endif
 #define N2LogExceptionWithStackTrace(e, ...) _N2LogExceptionImpl(e, YES, __PRETTY_FUNCTION__)
 #ifdef HARNESS_FORMER
+#import "DCMCalendarDate.h"
 @interface DCMAttributeTag : NSObject
 + (id)tagWithGroup:(int)group element:(int)element vr:(NSString *)vr name:(NSString *)name;
 + (id)tagWithName:(NSString *)name;
@@ -134,8 +148,8 @@ void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf);
 @property(readonly) NSString *stringValue;
 @end
 #elif !defined(HARNESS_SWIFT)
-// The current tag is IsiXDICOMFile's; the harness spells the former name.
-// Swift imports the module itself.
+// The current tag, date and character set are IsiXDICOMFile's. Swift imports
+// the module itself.
 #import "IsiXDICOMFile-Swift.h"
 @interface DCMAttributeTag (Harness)
 + (id)tagWithGroup:(int)group element:(int)element vr:(NSString *)vr name:(NSString *)name;
@@ -506,10 +520,11 @@ def build(path, former, fail_empty_sequence=False):
     for name in redirected:
         (common/name).write_text('#import "fixture-stubs.h"\n')
     (common/'stubs.mm').write_text(stubs)
-    # DCMCalendarDate.m is compiled as it is, without the framework umbrella.
-    (common/'DCM.h').write_text('#import <Foundation/Foundation.h>\n#define DCMDEBUG 0\n')
-    (common/'DCMCalendarDate.m').write_bytes(framework_file('DCMCalendarDate.m'))
-    (common/'DCMCalendarDate.h').write_bytes(framework_file('DCMCalendarDate.h'))
+    if former:
+        # DCMCalendarDate.m is compiled as it is, without the framework umbrella.
+        (common/'DCM.h').write_text('#import <Foundation/Foundation.h>\n#define DCMDEBUG 0\n')
+        (common/'DCMCalendarDate.m').write_bytes(framework_file('DCMCalendarDate.m'))
+        (common/'DCMCalendarDate.h').write_bytes(framework_file('DCMCalendarDate.h'))
     includes = ['-I' + str(common), '-I' + str(root/'Horos/Sources'),
                 '-I' + str(install/'include'), '-I' + str(gdcm_install/'include'), '-I' + str(gdcm_install/'include/GDCM')]
     flags = ['-fno-objc-arc', '-fblocks', '-Wno-deprecated-declarations', '-Wno-objc-method-access', '-Wno-incomplete-implementation']
@@ -540,7 +555,8 @@ def build(path, former, fail_empty_sequence=False):
         '-emit-objc-header-path', path/'Horos-Swift.h', '-c', *swift, '-o', path/'swift.o')
     objects.append(path/'swift.o')
     objc(common/'stubs.mm', 'objective-c++')
-    objc(common/'DCMCalendarDate.m', 'objective-c')
+    if former:
+        objc(common/'DCMCalendarDate.m', 'objective-c')
     objc(root/'Horos/Sources/HorosObjCException.m', 'objective-c')
     objc(root/'Horos/Sources/HorosAlertPanel.m', 'objective-c')
     if former:

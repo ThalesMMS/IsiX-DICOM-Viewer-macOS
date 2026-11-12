@@ -29,6 +29,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import isix_modules
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
@@ -319,7 +320,7 @@ with tempfile.TemporaryDirectory(prefix='horos-remote-download-') as temporary:
                   '-c', str(folder / 'HorosObjCException.m'), '-o', str(folder / 'exception.o')],
                  ['xcrun', 'swiftc', '-parse-as-library', '-suppress-warnings', '-module-name', 'Probe',
                   '-import-objc-header', str(folder / 'harness.h'), str(folder / 'remote.swift'),
-                  str(folder / 'HorosObjCException+Guards.swift'),
+                  *isix_modules.log_text_sources(), str(folder / 'HorosObjCException+Guards.swift'),
                   str(folder / 'main.o'), str(folder / 'exception.o'), '-framework', 'Foundation', '-o', str(binary)]]
     else:
         driver.write_text(code.replace('FUNCTIONS', functions).replace('METHODS', methods))

@@ -68,7 +68,7 @@ final class DatabaseRouting: Sendable {
             let delay = RoutingSchedule.delay(for: rule, at: Date())
             if delay.windowIsUnreadable {
                 NSLog(" Autorouting rule \"%@\": its time window (%@ - %@) cannot be read; applied now",
-                      rule.name ?? "(null)", rule.fromTime?.text ?? "(null)", rule.toTime?.text ?? "(null)")
+                      rule.loggedName, rule.fromTime?.text ?? "(null)", rule.toTime?.text ?? "(null)")
             }
             schedule(rule, for: images, after: delay.seconds)
         }
@@ -86,7 +86,7 @@ final class DatabaseRouting: Sendable {
               let key = DatabaseRoutingDelivery.key(of: database) else { return }
         var files: [RoutedFile] = []
         if let exception = HorosObjCException.caught({ files = DatabaseRoutingCatalog(database: database).snapshots(of: images) }) {
-            DicomDatabaseObjC.log(exception, stack: true, "-[DicomDatabase(Routing) addImages:toSendQueueForRoutingRule:]")
+            LogText.log(exception, stack: true, in: "-[DicomDatabase(Routing) addImages:toSendQueueForRoutingRule:]")
             return
         }
         let queue = processGraph.routingQueue
@@ -98,7 +98,7 @@ final class DatabaseRouting: Sendable {
         let catalog = DatabaseRoutingCatalog(database: database)
         var files: [RoutedFile] = []
         if let exception = HorosObjCException.caught({ files = catalog.snapshots(of: images) }) {
-            DicomDatabaseObjC.log(exception, stack: true, "-[DicomDatabase(Routing) __applyRoutingRules:toImages:]")
+            LogText.log(exception, stack: true, in: "-[DicomDatabase(Routing) __applyRoutingRules:toImages:]")
             return
         }
         let picks = RoutingSelection.apply(rules, to: files, nodes: DICOMNodeService.store.dicomNodes(),

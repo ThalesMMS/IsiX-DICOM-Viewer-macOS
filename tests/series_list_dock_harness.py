@@ -17,6 +17,12 @@ SeriesListPresenter.swift, the presenter's part before the list's cells, with
 IsiXPreferences; the stand-in's accessors and methods are declared
 as ViewerController+SwiftIvars.h and the viewer's headers declare them.
 
+SeriesListIdentification.swift is compiled with the dock's code only where
+that code names it: the dock's observer followed the key of the former
+colour and number modes. It no longer does, and the type has since become how
+the windows and the list's cells tell the series apart, over the list's
+building, the image view and the overlay's boxes, none of which is the dock's.
+
 A test gives its scenario: Objective-C that defines main() over these names:
 
     ViewerController *v = [[ViewerController alloc] initWithSplitViewClass: [NSSplitView class]
@@ -41,6 +47,10 @@ DOCK = 'Horos/Sources/ViewerController+SeriesListDock.swift'
 # list's cells is the dock's.
 PRESENTER = 'Horos/Sources/SeriesListPresenter.swift'
 CELLS_MARK = "\n// MARK: - The list's cells\n"
+# How the series are told apart: the dock's code named it while its observer
+# followed the key of the former modes.
+IDENTIFICATION = 'Horos/Sources/SeriesListIdentification.swift'
+IDENTIFICATION_TYPE = 'SeriesListIdentification'
 
 # The dock's methods in ViewerController.m.
 OBJC_METHODS = (
@@ -280,17 +290,24 @@ def build(revision, scenario, folder):
     """The harness program for `scenario`, built in `folder`."""
     folder = Path(folder)
     layout = read(revision, 'Horos/Sources/SeriesListLayout.swift')
-    identification = read(revision, 'Horos/Sources/SeriesListIdentification.swift')
     (folder / 'SeriesListLayout.swift').write_text(layout)
     swift = [str(folder / 'SeriesListLayout.swift')]
-    if identification:
-        (folder / 'SeriesListIdentification.swift').write_text(identification)
-        swift.append(str(folder / 'SeriesListIdentification.swift'))
+
+    def with_identification(*dock):
+        """Adds SeriesListIdentification.swift to the Swift compiled, where the
+        dock's code, `dock`, names the type."""
+        identification = read(revision, IDENTIFICATION)
+        if identification and any(IDENTIFICATION_TYPE in text for text in dock):
+            (folder / 'SeriesListIdentification.swift').write_text(identification)
+            swift.append(str(folder / 'SeriesListIdentification.swift'))
+
     objects = []
     if has_objc_dock(revision):
+        check = _objc(revision, scenario)
+        with_identification(layout, check)
         run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library', '-module-name', 'SeriesListLayoutCheck', '-wmo',
              '-c', *swift, '-o', str(folder / 'layout.o'), '-emit-objc-header-path', str(folder / 'SeriesListLayoutCheck-Swift.h')])
-        (folder / 'check.m').write_text(_objc(revision, scenario), encoding='latin1')
+        (folder / 'check.m').write_text(check, encoding='latin1')
         objects.append(str(folder / 'layout.o'))
     else:
         # The rules of the dock in IsiXImaging, as a module of their own.
@@ -302,7 +319,8 @@ def build(revision, scenario, folder):
              str(module / 'SeriesListDock.swift'), '-o', str(folder / 'rules.o'),
              '-emit-module', '-emit-module-path', str(module / 'IsiXImaging.swiftmodule')])
         (folder / 'StandIn.h').write_text(_swift_declarations(revision), encoding='latin1')
-        (folder / 'ViewerController+SeriesListDock.swift').write_text(read(revision, DOCK))
+        dock = read(revision, DOCK)
+        (folder / 'ViewerController+SeriesListDock.swift').write_text(dock)
         (folder / 'Helpers.swift').write_text(_helpers(revision))
         swift += [str(folder / 'ViewerController+SeriesListDock.swift'), str(folder / 'Helpers.swift')]
         preferences = []
@@ -310,10 +328,12 @@ def build(revision, scenario, folder):
         if presenter is not None:
             if CELLS_MARK not in presenter:
                 raise SystemExit(f'FAIL: {PRESENTER} has no "{CELLS_MARK.strip()}"; this harness needs a new look')
-            (folder / 'SeriesListPresenter.swift').write_text(presenter[:presenter.index(CELLS_MARK)])
+            presenter = presenter[:presenter.index(CELLS_MARK)]
+            (folder / 'SeriesListPresenter.swift').write_text(presenter)
             swift.append(str(folder / 'SeriesListPresenter.swift'))
             # The presenter reads the preferences through their catalog keys.
             preferences = isix_modules.module_flags('IsiXPreferences', folder / 'preferences')
+        with_identification(layout, dock, presenter or '')
         run(['xcrun', 'swiftc', '-swift-version', '6', '-parse-as-library', '-module-name', 'SeriesListLayoutCheck', '-wmo',
              '-I', str(module), *preferences[:2], '-import-objc-header', str(folder / 'StandIn.h'),
              '-c', *swift, '-o', str(folder / 'layout.o'), '-emit-objc-header-path', str(folder / 'SeriesListLayoutCheck-Swift.h')])

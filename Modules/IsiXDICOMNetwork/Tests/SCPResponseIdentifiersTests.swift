@@ -83,8 +83,22 @@ struct SCPResponseIdentifiersTests {
         #expect(encode("Müller") == Array("Müller".data(using: .isoLatin1)!))
         #expect(set.name == "ISO_IR 100" && logged.isEmpty)
         #expect(encode("山田") == Array("山田".utf8))
-        #expect(set.name == "ISO_IR 192" && logged == ["--- cannot encode 山田 -> switch to UTF-8 (ISO_IR 192) encoding"])
+        // The log is told how long the value is, never the value: it is a patient's name here.
+        #expect(set.name == "ISO_IR 192" && logged == ["--- cannot encode <2 characters> in ISO_IR 100 -> switch to UTF-8 (ISO_IR 192) encoding"])
         #expect(encode("Müller") == Array("Müller".utf8))
         #expect(encode(nil) == nil)
+    }
+
+    @Test func aValueNoCharacterSetCarriesIsLoggedByItsLength() {
+        // No encoding takes the text: neither the answer's, nor UTF-8, nor the file's.
+        var set = SCPResponseCharacterSet(name: "ISO_IR 100", encoding: String.Encoding.ascii.rawValue)
+        var logged: [String] = []
+        let bytes = set.encode("山田^太郎", encodingFor: { _ in String.Encoding.ascii.rawValue }, fileCharacterSets: { ["ISO_IR 6"] },
+                               file: { "/Volumes/CD/YAMADA^TARO/IM1" }, log: { logged.append($0) })
+        #expect(bytes == nil && logged.count == 3)
+        for line in logged {
+            #expect(line.contains("<5 characters>"))
+            #expect(!line.contains("山田") && !line.contains("YAMADA") && !line.contains("IM1"))
+        }
     }
 }

@@ -58,6 +58,11 @@ ALLOWED = {
     '%@ is the database of Horos': 'the other application',
     'Move to IsiX Data opens a database of IsiX DICOM Viewer beside it': 'the other application',
     'Keep Using Horos Data': 'folder name',
+    # File > Import brings in the studies of a data folder of Horos or OsiriX: the command
+    # and its dialogs say whose studies they are, and the chooser names the folders to pick.
+    'Import Studies from Horos or OsiriX': 'the other application',
+    'Choose the Horos Data or OsiriX Data folder': 'folder name',
+    'No Horos or OsiriX database was found in this folder.': 'the other application',
     NAME + ' detected you have OsiriX pre-installed': 'the other application',
     # The XML-RPC warning says the open server behaves as Horos's and OsiriX's do.
     'Without a password, any computer that can reach this machine can list': 'the other application',

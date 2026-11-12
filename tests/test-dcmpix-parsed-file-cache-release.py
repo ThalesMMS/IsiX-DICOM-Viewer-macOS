@@ -52,6 +52,7 @@ sys.path.insert(0, str(ROOT / 'tools'))
 sys.path.insert(0, str(ROOT / 'tests'))
 import object_probe  # noqa: E402
 from isix_modules import build_module, link_flags  # noqa: E402
+import link_placeholders  # noqa: E402
 
 parser = argparse.ArgumentParser()
 parser.add_argument('revision', nargs='?', help='read DCMPix.m from this revision (the negative control)')
@@ -277,7 +278,9 @@ with tempfile.TemporaryDirectory(prefix='horos-parsed-cache-') as name:
     sdk = subprocess.run(['xcrun', '--show-sdk-path'], capture_output=True, text=True, check=True).stdout.strip()
     module_link = [*link_flags('IsiXImaging', modules), '-L' + sdk + '/usr/lib/swift']
     (work / 'probe.mm').write_text(PROBE)
-    (work / 'stubs.mm').write_text('#import <Foundation/Foundation.h>\n' + objective_c_stubs(pix))
+    # With the stubs, what answers the probe's link run once it has loaded.
+    (work / 'stubs.mm').write_text('#import <Foundation/Foundation.h>\n' + objective_c_stubs(pix)
+                                   + link_placeholders.LINK_RUN_SOURCE)
     placeholders = set()
     for _ in range(200):
         assembly = ''.join('.globl %s\n%s: .quad 0\n' % (s, s) for s in sorted(placeholders))
@@ -289,14 +292,15 @@ with tempfile.TemporaryDirectory(prefix='horos-parsed-cache-') as name:
         for framework in FRAMEWORKS:
             link += ['-framework', framework]
         subprocess.run(link, check=True, capture_output=True)
-        run = subprocess.run([str(work / 'probe')], capture_output=True, text=True, timeout=120)
-        missing = re.search(r"symbol not found in flat namespace '([^']+)'", run.stderr)
-        if not missing:
-            break
-        if missing.group(1) in placeholders:
-            print('cannot satisfy %s' % missing.group(1), file=sys.stderr)
-            raise SystemExit(1)
-        placeholders.add(missing.group(1))
+        # The probe's own run is the test's result. Whether it loads is not:
+        # a probe killed while its image loads is not built (link_placeholders).
+        missing = link_placeholders.probe(work / 'probe', placeholders, 'the link probe of DCMPix.m')
+        if missing is None:
+            run = subprocess.run([str(work / 'probe')], capture_output=True, text=True, timeout=120)
+            missing = link_placeholders.missing_symbol(run, placeholders)
+            if missing is None:
+                break
+        placeholders.add(missing)
     else:
         print('too many unresolved symbols in %s' % pix, file=sys.stderr)
         raise SystemExit(1)

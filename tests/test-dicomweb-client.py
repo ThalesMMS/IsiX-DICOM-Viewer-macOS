@@ -843,7 +843,7 @@ let memory=Memory()
 def sources_at(revision, folder):
     names = ['Horos/Sources/DICOMwebCredentials.swift', 'Horos/Sources/DICOMwebMultipart.swift', 'Horos/Sources/DICOMwebClient.swift',
              'Horos/Sources/DICOMwebNode.swift']
-    if not revision: names.append('Horos/Sources/NonInteractiveKeychainRead.swift')
+    if not revision: names += ['Horos/Sources/NonInteractiveKeychainRead.swift', 'Horos/Sources/DICOMwebClient+LogText.swift']
     if revision:
         listed = subprocess.run(['git', 'ls-tree', '--name-only', revision, 'Horos/Sources/DICOM-Swift/'], cwd=root,
                                 capture_output=True, text=True).stdout.split()

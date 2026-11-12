@@ -55,7 +55,7 @@ IsiXDCMTKSCPDatabaseHandle::IsiXDCMTKSCPDatabaseHandle(id<IsiXDCMTKSCPDatabase> 
 IsiXDCMTKSCPDatabaseHandle::~IsiXDCMTKSCPDatabaseHandle()
 {
     @try { [state_->database close]; }
-    @catch (NSException *exception) { NSLog(@"DICOM listener: closing the database failed: %@", exception); }
+    @catch (NSException *exception) { NSLog(@"DICOM listener: closing the database failed: %@", IsiXDCMTKLoggedException(exception)); }
     delete state_;
 }
 
@@ -84,7 +84,7 @@ static OFCondition IsiXDCMTKSCPCall(const char *step, DcmQueryRetrieveDatabaseSt
     // NSException too.
     try {
         @try { return body(); }
-        @catch (NSException *exception) { NSLog(@"DICOM listener: the database's %s raised %@", step, exception); }
+        @catch (NSException *exception) { NSLog(@"DICOM listener: the database's %s raised %@", step, IsiXDCMTKLoggedException(exception)); }
     }
     catch (const std::exception& error) { NSLog(@"DICOM listener: the database's %s threw: %s", step, error.what()); }
     catch (...) { NSLog(@"DICOM listener: the database's %s threw a C++ exception", step); }

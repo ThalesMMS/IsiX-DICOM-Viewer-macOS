@@ -108,8 +108,8 @@
           "sha256": "54546f8fe590128d3a415c31036aebbdc65c74ca41a3724ab0924e06ebc7c163"
         },
         "Horos/Sources/CSMailMailClient.swift": {
-          "size": 33751,
-          "sha256": "b611cac9e9dde9bdb85a2546bf6b9829795ceda1e71ce038bd37a7517ab29b10"
+          "size": 33360,
+          "sha256": "492ea64c5771568ea76ce5e142398db131be6f5ee9ecc679d9203afcc65bd4c6"
         },
         "Horos/Sources/FlyAssistant.h": {
           "size": 2375,

@@ -215,7 +215,8 @@ with tempfile.TemporaryDirectory(prefix='horos-session-reuse-') as tmp:
     (p / 'work').mkdir()
     (p / 'check.swift').write_text(source)
     sources = [str(root / n) for n in ('Horos/Sources/DICOMwebCredentials.swift', 'Horos/Sources/DICOMwebMultipart.swift',
-                                         'Horos/Sources/DICOMwebClient.swift', 'Horos/Sources/DICOMwebNode.swift',
+                                         'Horos/Sources/DICOMwebClient.swift', 'Horos/Sources/DICOMwebClient+LogText.swift',
+                                         'Horos/Sources/DICOMwebNode.swift',
                                          'Horos/Sources/NonInteractiveKeychainRead.swift')]
     flags = swift_flags(p)
     subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-suppress-warnings', *sources, str(p / 'check.swift'),

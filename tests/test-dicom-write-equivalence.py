@@ -42,7 +42,6 @@ the local venvs), or the history.
     python3 tests/test-dicom-write-equivalence.py [--reference REV] [--keep DIR]
 """
 import argparse
-import os
 import re
 import shutil
 import subprocess
@@ -54,6 +53,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import history_reference  # noqa: E402
 import horos_reader  # noqa: E402
 from dcmtk_build import BUILD, ROOT, dcmtk_flags  # noqa: E402
+from python_with import interpreter_or_skip  # noqa: E402
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--reference', help='revision whose HorosDICOMWriter.mm is the reference')
@@ -82,22 +82,7 @@ if reason:
     raise SystemExit(2)
 
 
-def find_python():
-    candidates = [os.environ.get('HOROS_PYTHON'), str(ROOT / 'local-validation/venv/bin/python'),
-                  str(ROOT.parent.parent.parent / 'local-validation/net-venv/bin/python')
-                  if ROOT.parent.name == 'worktrees' else None,
-                  str(ROOT / 'local-validation/net-venv/bin/python'), sys.executable]
-    for candidate in filter(None, candidates):
-        if Path(candidate).exists() and subprocess.run([candidate, '-c', 'import pydicom, numpy'],
-                                                       capture_output=True).returncode == 0:
-            return candidate
-    return None
-
-
-python = find_python()
-if python is None:
-    print('skipped: the generators need a Python with pydicom and numpy (HOROS_PYTHON)')
-    raise SystemExit(2)
+python = interpreter_or_skip('import pydicom', 'import numpy', need='the generators need')
 
 # (transfer syntax, quality); quality is a DCM_CompressionQuality, 0 lossless.
 SYNTAXES = [('1.2.840.10008.1.2.1', 0), ('1.2.840.10008.1.2', 0), ('1.2.840.10008.1.2.2', 0),

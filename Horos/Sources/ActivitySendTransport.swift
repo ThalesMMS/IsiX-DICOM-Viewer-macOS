@@ -84,7 +84,7 @@ struct ActivitySendTransport: DICOMSendTransport {
     /// operation showed it.
     private static func report(_ failure: StoreSendFailure) {
         let message = String(format: "%@\r\r%@\r%@", NSLocalizedString("DICOM StoreSCU operation failed.", comment: ""),
-                             failure.name, failure.reason)
+                             failure.category.rawValue, failure.reason)
         onMainRunLoop {
             HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM Send Error", comment: ""), message: message,
                                         defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)

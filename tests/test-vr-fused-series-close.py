@@ -22,6 +22,11 @@ both orders, since NotificationCenter does not promise one:
   keeps showing the slider's value, as before the fusion; the window stays;
 - the close of the VR's own 2D viewer still closes the window.
 
+The controller's handler first asks PreviousSeriesHold whether the window
+keeps the series the announcement releases, in a revision that has it: the
+class is compiled as written beside the stand-ins, and a change of plane of
+the VR's own 2D viewer that names the window leaves it open, with its fusion.
+
 `<git revision>` as an optional argument reads the sources from that revision:
 that is the negative control.
 """
@@ -86,6 +91,12 @@ if controller_body is None or (view_body is None and view_swift is None):
     print('VRController.swift or the view has no -CloseViewerNotification:; this test needs a new look',
           file=sys.stderr)
     sys.exit(1)
+
+# What the controller's handler asks before anything else, in a revision that
+# has it: whether the window keeps the series the viewer releases. The class
+# is compiled as written, with the key its holds are kept under.
+HOLD_SOURCES = ('Horos/Sources/PreviousSeriesHold.swift', 'Horos/Sources/IdentityToken.swift')
+asks_hold = 'PreviousSeriesHold.' in controller_body
 
 # The controller's stand-in: the state its handler reads, by the names it uses.
 stub = r'''
@@ -187,6 +198,18 @@ int main( void)
                    [NSString stringWithFormat: @"%@: another viewer's close dimmed the Fusion item", context]);
             check( !controller.window.closed, [NSString stringWithFormat: @"%@: another viewer's close closed the VR window", context]);
 
+#if ASKS_HOLD
+            // A change of plane of the VR's own 2D viewer, which leaves the
+            // window the series it shows: it stays, as it was.
+            [nc postNotificationName: OsirixCloseViewerNotification object: viewer2D
+                             userInfo: @{ HorosPreviousSeriesHold.keptWindowsKey: @[controller] }];
+            check( !controller.window.closed && !controller.horosViewerClosing,
+                   [NSString stringWithFormat: @"%@: the change of plane that leaves the VR window its series closed it", context]);
+            check( controller.blendingControllerStorage == fused && VIEW_BC(view) == fused
+                   && [controller.blendingSlider isEnabled] && [controller.blendingPercentage isEnabled],
+                   [NSString stringWithFormat: @"%@: the change of plane of the 2D viewer dropped the fusion or dimmed its item", context]);
+#endif
+
             [nc postNotificationName: OsirixCloseViewerNotification object: fused userInfo: nil];
             check( VIEW_BC(view) == nil && VIEW_UNFUSED(view) == 1,
                    [NSString stringWithFormat: @"%@: VRView did not drop the fusion once (%d)", context, VIEW_UNFUSED(view)]);
@@ -236,15 +259,21 @@ SWIFT_VIEW = '''
 #define VIEW_UNFUSED(v) v.unfused
 '''
 probe = probe.replace('OBJC_VIEW', SWIFT_VIEW if view_swift else OBJC_VIEW.replace('VIEW_BODY', view_body))
+probe = probe.replace('ASKS_HOLD', '1' if asks_hold else '0')
 
 with tempfile.TemporaryDirectory() as tmp:
     source = Path(tmp) / 'probe.m'
     binary = Path(tmp) / 'probe'
     source.write_text(probe, encoding='latin1')
     (Path(tmp) / 'Stub.swift').write_text(stub)
+    # One object file for the stand-ins and what they call (whole module).
+    swift_sources = [Path(tmp) / 'Stub.swift']
+    for path in HOLD_SOURCES if asks_hold else ():
+        swift_sources.append(Path(tmp) / Path(path).name)
+        swift_sources[-1].write_text(read(path), encoding='latin1')
     build = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-module-name', 'Stub', '-parse-as-library',
-                            '-emit-objc-header-path', str(Path(tmp) / 'Stub-Swift.h'), '-c', str(Path(tmp) / 'Stub.swift'),
-                            '-o', str(Path(tmp) / 'stub.o')], capture_output=True, text=True)
+                            '-whole-module-optimization', '-emit-objc-header-path', str(Path(tmp) / 'Stub-Swift.h'),
+                            '-c', *map(str, swift_sources), '-o', str(Path(tmp) / 'stub.o')], capture_output=True, text=True)
     if not build.returncode:
         build = subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-fmodules', '-w', '-I', tmp,
                                 str(source), '-o', str(Path(tmp) / 'probe.o')], capture_output=True, text=True)

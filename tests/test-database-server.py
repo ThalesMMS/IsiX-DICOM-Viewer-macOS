@@ -37,6 +37,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+import isix_modules
 
 root = Path(__file__).resolve().parents[1]
 
@@ -292,7 +293,8 @@ def main():
         (work / "Check.swift").write_text(DRIVER)
         binary = work / "check"
         subprocess.run(["xcrun", "swiftc", "-O", "-parse-as-library", "-suppress-warnings",
-                        str(root / "Horos/Sources/HorosDatabaseServer.swift"), str(work / "Check.swift"), "-o", str(binary)],
+                        str(root / "Horos/Sources/HorosDatabaseServer.swift"), *isix_modules.log_text_sources(),
+                        str(work / "Check.swift"), "-o", str(binary)],
                        check=True)
 
         # Fragmented request, large answer.

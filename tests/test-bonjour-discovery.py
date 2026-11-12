@@ -22,6 +22,7 @@ service of its own and browses for it. What it checks, in order:
 from pathlib import Path
 import subprocess
 import tempfile
+import isix_modules
 
 root = Path(__file__).resolve().parents[1]
 source = root / 'Horos/Sources/BonjourDiscovery.swift'
@@ -186,7 +187,8 @@ if not failures:
         driver = Path(tmp) / 'main.swift'
         driver.write_text(DRIVER)
         binary = Path(tmp) / 'driver'
-        build = subprocess.run(['xcrun', 'swiftc', str(source), str(driver), '-o', str(binary)], capture_output=True, text=True)
+        build = subprocess.run(['xcrun', 'swiftc', str(source), *isix_modules.log_text_sources(), str(driver), '-o', str(binary)],
+                               capture_output=True, text=True)
         if build.returncode != 0:
             failures.append('driver did not compile:\n' + build.stderr[-3000:])
         else:

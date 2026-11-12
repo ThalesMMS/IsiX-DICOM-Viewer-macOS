@@ -115,6 +115,18 @@ public:
       if (ae) ourAETitle = ae; else ourAETitle.clear();
     }
 
+    /** set whether the datasets of the move are printed to the standard
+     *  output: the identifier it was asked with, which holds the values of
+     *  the keys a peer sent (a patient's name or ID, an accession number), the
+     *  identifiers it answers and the status details. Off unless set; the
+     *  progress lines follow the level of DCMTK's log, not this.
+     *  @param dumps whether the listener was asked for the datasets
+     */
+    void setDumpsDatasets(OFBool dumps)
+    {
+      dumpsDatasets = dumps;
+    }
+
 private:
     IsiXDCMTKMoveContext(const IsiXDCMTKMoveContext&) = delete;
     IsiXDCMTKMoveContext& operator=(const IsiXDCMTKMoveContext&) = delete;
@@ -195,6 +207,9 @@ private:
 
     /// the transfer syntaxes offered to the destination, from the lookup
     OFList<OFString> transferSyntaxes;
+
+    /// whether the datasets of the move are printed to the standard output
+    OFBool dumpsDatasets = OFFalse;
 };
 
 #endif

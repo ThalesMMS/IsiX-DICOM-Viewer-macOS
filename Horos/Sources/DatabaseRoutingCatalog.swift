@@ -62,7 +62,7 @@ final class DatabaseRoutingCatalog: RoutingCatalog {
     /// What a query throws for the NSException its Objective-C raised, which
     /// the former @catch logged.
     private static func routingFailure(_ exception: NSException) -> RoutingSelectionError {
-        DicomDatabaseObjC.log(exception, stack: true, "-[DicomDatabase(Routing) __applyRoutingRules:toImages:]")
+        LogText.log(exception, stack: true, in: "-[DicomDatabase(Routing) __applyRoutingRules:toImages:]")
         return RoutingSelectionError(exception.reason ?? exception.name.rawValue)
     }
 

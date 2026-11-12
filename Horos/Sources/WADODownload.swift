@@ -260,7 +260,11 @@ public final class WADODownload: NSObject {
             // NSRunCriticalAlertPanel(msg[0], @"%@", msg[2], nil, nil, msg[1])
             HorosAlertPanel.runCritical(title: msg[0] as? String, message: msg[1] as? String ?? "", defaultButton: msg[2] as? String, alternateButton: nil, otherButton: nil)
         } else {
-            NSLog("*** listener error (not displayed - hideListenerError): %@ %@ %@", "\(msg[0])", "\(msg[1])", "\(msg[2])")
+            // Told as every other notice is, by its title and the length of
+            // its text: not being shown is no reason to write it whole.
+            let title = msg.first.map { "\($0)" } ?? ""
+            let text = msg.count > 1 ? "\(msg[1])" : ""
+            NSLog("*** listener error (not displayed - hideListenerError): %@", LogText.notice(title: title, text: text))
         }
     }
 
@@ -365,9 +369,9 @@ public final class WADODownload: NSObject {
         WADODownloadDictionary?.removeValue(forKey: task)
 
         // NSError descriptions/userInfo can include credentials in a failing URL.
-        let reason = WADORequestRules.failureReason(domain: failure.domain, code: failure.code)
-        if url != nil { recordNetworkIssue(reason) }
-        NSLog("***** WADO Retrieve error: %@", reason)
+        let logReason = WADORequestRules.failureReason(domain: failure.domain, code: failure.code)
+        if url != nil { recordNetworkIssue(logReason) }
+        NSLog("***** WADO Retrieve error: %@", logReason)
 
         // No status: the request never got one. That is worth asking again,
         // unless the server's certificate was not trusted: the system's trust
@@ -377,7 +381,7 @@ public final class WADODownload: NSObject {
             if let reason = Self.untrustedServerReason(error, host: url.host) {
                 manifest?.recordUntrustedServer(forURL: url, reason: reason)
             } else {
-                manifest?.recordFailure(forURL: url, statusCode: 0, reason: error.localizedDescription)
+                manifest?.recordFailure(forURL: url, statusCode: 0, reason: error.localizedDescription, logReason: logReason)
             }
         }
 
@@ -454,7 +458,8 @@ public final class WADODownload: NSObject {
                     recordNetworkIssue("Invalid DICOM response")
                     ingest.discard(draft)
                     if let downloaded {
-                        manifest?.recordFailure(forURL: downloaded, statusCode: 0, reason: String(format: "what arrived is not a DICOM object (%d bytes)", Int32(truncatingIfNeeded: d.length)))
+                        let refused = String(format: "what arrived is not a DICOM object (%d bytes)", Int32(truncatingIfNeeded: d.length))
+                        manifest?.recordFailure(forURL: downloaded, statusCode: 0, reason: refused, logReason: refused)
                     }
 
                     d.length = 0
@@ -498,7 +503,7 @@ public final class WADODownload: NSObject {
 
             if let entry, !carriesObject {
                 recordNetworkIssue("Empty or short response")
-                manifest?.recordFailure(forURL: entry.url, statusCode: 0, reason: "Empty or short response")
+                manifest?.recordFailure(forURL: entry.url, statusCode: 0, reason: "Empty or short response", logReason: "Empty or short response")
             }
             d?.length = 0 // Free the memory immediately
             WADODownloadDictionary?.removeValue(forKey: task)
@@ -667,7 +672,7 @@ public final class WADODownload: NSObject {
                 }
             } catch {
                 if let exception = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                    _N2LogExceptionImpl(exception, false, "-[WADODownload WADODownloadPass:]")
+                    LogText.log(exception, stack: false, in: "-[WADODownload WADODownloadPass:]")
                 }
                 recordNetworkIssue("Internal retrieval error")
                 result = false
@@ -745,7 +750,9 @@ public final class WADODownload: NSObject {
         finishNetworkLog(completed: completed, urls: unique)
 
         if manifest.isComplete == false || manifest.duplicateObjectUIDs.count != 0 {
-            NSLog("------ WADO retrieve incomplete: %@", manifest.detail(limit: 20))
+            // The detail for the log: a failed request's reason is otherwise
+            // the description the system has of its error.
+            NSLog("------ WADO retrieve incomplete: %@", manifest.logDetail(limit: 20))
         }
 
         if manifest.isComplete == false && showErrorMessage && !Thread.current.isCancelled {

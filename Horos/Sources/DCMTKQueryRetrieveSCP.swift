@@ -121,6 +121,9 @@ final class DCMTKQueryRetrieveSCP: NSObject, @unchecked Sendable {
         settings.timeout = Int32(truncatingIfNeeded: timeout)
         settings.connectionTimeout = Int32(truncatingIfNeeded: ListenerLimits.connectionTimeout(configured: configuredConnection, timeout: timeout))
         settings.maxAssociations = Int32(ListenerLimits.configuredMaximumAssociations)
+        // Off unless the user default asks: the identifier a peer sends a
+        // C-FIND or a C-MOVE with holds a patient's name, ID or birth date.
+        settings.dumpsDatasets = preferences[NetworkPreferences.dumpsDICOMDatasets]
         settings.secureConnection = secure
         settings.seedFile = DICOMTLS.seedFilePath().map { String(cString: $0) }
         guard let listener = IsiXDCMTKListener(settings: settings, host: ListenerHost(aeTitle: settings.aeTitle)) else {

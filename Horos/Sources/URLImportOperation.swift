@@ -201,7 +201,7 @@ public final class URLImportOperation: NSObject {
 
         let ordered = entries.keys.sorted().compactMap { entries[$0] }
         let summary = report.summary
-        NSLog("---- url import: %@", summary.replacingOccurrences(of: "\n", with: "; "))
+        NSLog("---- url import: %@", report.logSummary)
         return URLImportResult(entries: ordered, report: summary,
                                succeeded: report.everythingArrived && !urls.isEmpty && !cancelled, cancelled: cancelled)
     }

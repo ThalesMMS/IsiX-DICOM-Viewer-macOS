@@ -231,6 +231,8 @@ struct ListenerContext
     DcmQueryRetrieveOptions options;
     DcmAssociationConfiguration profiles;
     OFBool secureConnection = OFFalse;
+    // Whether the datasets of what the listener serves are printed.
+    OFBool dumpsDatasets = OFFalse;
     OFString aeTitle;
     id<IsiXDCMTKListenerHost> host;
     AssociationProcesses processes;
@@ -602,6 +604,7 @@ private:
                         return [host moveDestinationForAETitle:aeTitle];
                     });
                 move.setOurAETitle(calledAE);
+                move.setDumpsDatasets(listener_.dumpsDatasets);
                 MoveCallbackContext callback = {&move, database_.get()};
                 return DIMSE_moveProvider(association_, presentation, &request, moveCallback, &callback,
                                           options.blockMode_, options.dimse_timeout_);
@@ -643,14 +646,14 @@ private:
             catch (const std::exception& error) { NSLog(@"DICOM association failed: %s", error.what()); }
             catch (...) { NSLog(@"DICOM association failed with a C++ exception"); }
         }
-        @catch (NSException* exception) { NSLog(@"DICOM association failed: %@", exception); }
+        @catch (NSException* exception) { NSLog(@"DICOM association failed: %@", IsiXDCMTKLoggedException(exception)); }
         @finally {
             // DcmThreadSCP owns the association after run, including refusal and errors.
             try { delete worker; }
             catch (...) { NSLog(@"DICOM association: its end threw a C++ exception"); }
             worker = NULL;
             @try { [listener->host associationDidEnd]; }
-            @catch (NSException* exception) { NSLog(@"DICOM import scheduling failed: %@", exception); }
+            @catch (NSException* exception) { NSLog(@"DICOM import scheduling failed: %@", IsiXDCMTKLoggedException(exception)); }
             listener->processes.removeThread([NSThread currentThread]);
             --listener->processes.active;
         }
@@ -725,6 +728,11 @@ static void IsiXDCMTKReceiveAssociation(ListenerContext& listener, T_ASC_Network
         _listener->host = host;
         _listener->secureConnection = settings.secureConnection ? OFTrue : OFFalse;
         _listener->aeTitle = settings.aeTitle.UTF8String ?: "";
+        // Before the port opens: DCMTK starts its log at INFO, where its find
+        // context prints the identifier of every C-FIND a peer sends, and the
+        // listener does not wait for something else to lower it.
+        _listener->dumpsDatasets = settings.dumpsDatasets ? OFTrue : OFFalse;
+        IsiXDCMTKConfigureLog(settings.dumpsDatasets);
         DcmQueryRetrieveOptions& options = _listener->options;
         // One process, a thread per association, always: a process forked per
         // association could not run a Core Data context with a queue
@@ -965,7 +973,7 @@ static NSError *IsiXDCMTKTLSOutOfOrder(const char *operation)
             try { IsiXDCMTKReceiveAssociation(*listener, network, descriptor, address.c_str()); }
             catch (...) { NSLog(@"***** C++ exception in %s", __PRETTY_FUNCTION__); }
         }
-        @catch (NSException* exception) { NSLog(@"***** exception in %s: %@", __PRETTY_FUNCTION__, exception); }
+        @catch (NSException* exception) { NSLog(@"***** exception in %s: %@", __PRETTY_FUNCTION__, IsiXDCMTKLoggedException(exception)); }
         --listener->processes.receiving;
     }];
 }
@@ -1036,7 +1044,7 @@ static void IsiXDCMTKReceiveAssociation(ListenerContext& listener, T_ASC_Network
             try { if (!stop()) [self acceptConnection]; }
             catch (...) { NSLog(@"***** C++ exception in %s", __PRETTY_FUNCTION__); }
         }
-        @catch (NSException *exception) { NSLog(@"***** exception in %s: %@", __PRETTY_FUNCTION__, exception); }
+        @catch (NSException *exception) { NSLog(@"***** exception in %s: %@", __PRETTY_FUNCTION__, IsiXDCMTKLoggedException(exception)); }
     }
 }
 

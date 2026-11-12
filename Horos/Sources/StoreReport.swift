@@ -159,20 +159,47 @@ public final class StoreReport: NSObject {
     /// happened. Bounded, because a large send fails largely.
     @objc(detailWithLimit:)
     public func detail(limit: Int) -> String {
-        let failed = entries.filter { !$0.outcome.succeeded }
+        detail(limit: limit) { _, path in (path as NSString).lastPathComponent }
+    }
+
+    /// `detail(limit:)` as the log may write it: each file told by its place
+    /// among the files of the send and the shape of its name, not by the name.
+    ///
+    /// The system log is readable by every process of the user and travels in
+    /// sysdiagnose reports. A file the database copied is named by a number,
+    /// but one it indexed where it lies, or one a plugin handed over, keeps the
+    /// name its owner gave it, and people name files after patients. The rest
+    /// of a line is technical: a DCMTK condition, a DIMSE status, a SOP class
+    /// and a transfer syntax.
+    @objc(logDetailWithLimit:)
+    public func logDetail(limit: Int) -> String {
+        detail(limit: limit) { position, path in "file \(position) \(Self.logName(ofFileAtPath: path))" }
+    }
+
+    /// The name of a file as the log may write it: how long it is.
+    @objc(logNameOfFileAtPath:)
+    public static func logName(ofFileAtPath path: String) -> String {
+        let length = (path as NSString).lastPathComponent.count
+        return "<name of \(length) character\(length == 1 ? "" : "s")>"
+    }
+
+    /// The summary and a line per file that did not arrive, each file told by
+    /// `naming` from its place among the files attempted, from 1, and its path.
+    private func detail(limit: Int, naming: (Int, String) -> String) -> String {
+        let failed = entries.enumerated().filter { !$0.element.outcome.succeeded }
         if failed.isEmpty {
             return summary
         }
         let shown = failed.prefix(max(limit, 0))
-        var lines = shown.map { entry in "  " + sentence(for: entry.path, entry.outcome) }
+        var lines = shown.map { entry in "  " + sentence(naming: naming(entry.offset + 1, entry.element.path), entry.element.outcome) }
         if failed.count > shown.count {
             lines.append("  … and \(failed.count - shown.count) more")
         }
         return ([summary] + lines).joined(separator: "\n")
     }
 
-    func sentence(for path: String, _ outcome: Outcome) -> String {
-        let name = (path as NSString).lastPathComponent
+    /// What happened to a file, told as `name`, in a sentence.
+    private func sentence(naming name: String, _ outcome: Outcome) -> String {
         switch outcome {
         case .sent(let statusText):
             return "\(name): sent, \(statusText)."

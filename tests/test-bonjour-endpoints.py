@@ -134,7 +134,7 @@ with tempfile.TemporaryDirectory(prefix='horos-bonjour-') as folder:
                     str(root / 'Horos/Sources/DICOMNodeService.swift'),
                     # Its Bonjour discovery, which the service starts.
                     str(root / 'Horos/Sources/DICOMBonjourDiscovery.swift'),
-                    str(root / 'Horos/Sources/BonjourDiscovery.swift'), str(graph),
+                    str(root / 'Horos/Sources/BonjourDiscovery.swift'), *isix_modules.log_text_sources(), str(graph),
                     '-o', str(p / 'libNodeService.dylib')], check=True)
     subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fmodules', '-fsanitize=address,undefined',
                     '-fno-sanitize-recover=all', '-framework', 'Foundation', '-framework', 'AppKit',

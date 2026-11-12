@@ -355,11 +355,16 @@ class DCMTKQueryNode: NSObject, @unchecked Sendable {
     /// A network failure is said in the notices panel. A modal alert held the
     /// main run loop in its modal mode until it was dismissed, and with it
     /// everything the import hands to the main thread.
+    ///
+    /// The log is told the title and how long the text is. The text is what
+    /// the person reads: it can end with what a node said of a request, name
+    /// the studies that did not arrive whole, or give the path of a manifest.
+    /// Whoever posts a notice logs what failed in its own terms.
     @objc(errorMessage:)
     class func errorMessage(_ message: [Any]) {
         let title = message.first.map { "\($0)" } ?? ""
         let text = message.count > 1 ? "\(message[1])" : ""
-        NSLog("*** listener error: %@ %@", title, text)
+        NSLog("*** listener error: %@", LogText.notice(title: title, text: text))
         if !PreferencesSource.process.preferences[NetworkPreferences.hidesListenerErrors] {
             NetworkNotices.post(title: title, message: text)
         }

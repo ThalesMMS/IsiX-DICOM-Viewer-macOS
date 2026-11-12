@@ -282,6 +282,11 @@
                                                 <action selector="exportDICOMFile:" target="-1" id="11559"/>
                                             </connections>
                                         </menuItem>
+                                        <menuItem title="सिंथेटिक DWI के रूप में निर्यात करें…" id="Sdw-ex-Itm">
+                                            <connections>
+                                                <action selector="exportSyntheticDWI:" target="-1" id="Sdw-ex-Act"/>
+                                            </connections>
+                                        </menuItem>
                                         <menuItem title="ईमेल पर निर्यात करें..." id="11549">
                                             <connections>
                                                 <action selector="sendMail:" target="-1" id="11552"/>

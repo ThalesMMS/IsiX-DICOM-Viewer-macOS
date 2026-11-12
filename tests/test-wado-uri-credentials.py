@@ -228,6 +228,7 @@ with tempfile.TemporaryDirectory(prefix='wado-uri-credentials-') as directory:
     executable = work / 'test'
     run(['xcrun', 'swiftc', '-suppress-warnings', '-swift-version', '5', '-parse-as-library', '-module-name', 'Horos',
          '-import-objc-header', str(work / 'harness.h'), *isix_modules.module_flags('IsiXDICOMNetwork', work / 'modules'),
+         *isix_modules.log_text_sources(),
          *[str(ROOT / 'Horos/Sources' / name) for name in ('WADODownload.swift', 'ActivityProgressCount.swift', 'IdentityToken.swift', 'WADOCredentials.swift', 'DICOMwebCredentials.swift',
                                                          'NonInteractiveKeychainRead.swift', 'RetrieveManifest.swift', 'LogManager.swift', 'HorosObjCException+Guards.swift',
                                                          'NodeRequestLimiter.swift', 'RetrievePlan.swift')],

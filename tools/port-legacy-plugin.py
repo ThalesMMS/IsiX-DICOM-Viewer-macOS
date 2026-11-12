@@ -1287,7 +1287,7 @@ class Plugin:
                 self.note('build', f'framework {stem} is not linked',
                           'QuickTime and QTKit are out of the port; remove their uses', file=name)
                 return
-            if sdk and not (sdk / 'System/Library/Frameworks' / name).is_dir():
+            if sdk and not in_macos_sdk(sdk, name):
                 self.note('build', f'framework {stem} is not in the macOS SDK',
                           'QuickTime, QTKit and the like have no equivalent; a framework of the plugin\'s own is '
                           'a library it must bring', file=name)
@@ -1372,17 +1372,50 @@ class Plugin:
 
 
 _SDK = []
+SDK_FRAMEWORKS = 'System/Library/Frameworks'
 
 
 def macos_sdk():
+    """The macOS SDK's folder, asked of xcrun once, or None where there is no
+    xcrun to ask: nothing is then said about the frameworks a plugin links.
+    An xcrun that fails, or that names a folder which is not an SDK, raises
+    RuntimeError and is asked again next time: the conversion's result depends
+    on the SDK, so one that cannot be found is not taken for a machine without
+    developer tools."""
     if not _SDK:
         import subprocess
         try:
-            _SDK.append(Path(subprocess.run(['xcrun', '--show-sdk-path'], capture_output=True, text=True,
-                                            check=True).stdout.strip()))
-        except Exception:
+            answer = subprocess.run(['xcrun', '--show-sdk-path'], capture_output=True, text=True)
+        except OSError:
             _SDK.append(None)
+            return None
+        named = answer.stdout.strip()
+        if answer.returncode != 0 or not named:
+            raise RuntimeError(f'xcrun --show-sdk-path failed ({answer.returncode}): {answer.stderr.strip()[-500:]}')
+        require_macos_sdk(Path(named))
+        _SDK.append(Path(named))
     return _SDK[0]
+
+
+def require_macos_sdk(sdk):
+    """RuntimeError unless the SDK at `sdk` is there with its frameworks. It is
+    not while Xcode or the command line tools are being installed or updated:
+    the update replaces the folder under whatever is reading it."""
+    if not (sdk / SDK_FRAMEWORKS / 'Foundation.framework').is_dir():
+        raise RuntimeError(f'the macOS SDK at {sdk} is not there, or not whole (no Foundation.framework): '
+                           'were Xcode or the command line tools being installed or updated?')
+
+
+def in_macos_sdk(sdk, framework):
+    """Whether the SDK at `sdk` has `framework` (Name.framework). No is a fact
+    about the plugin, written in its report and deciding what it links, so
+    only an SDK that is there says it: the SDK is seen whole after each look,
+    and one that is not raises RuntimeError (see require_macos_sdk)."""
+    for _ in range(2):
+        if (sdk / SDK_FRAMEWORKS / framework).is_dir():
+            return True
+        require_macos_sdk(sdk)
+    return False
 
 
 # ---------------------------------------------------------------- the project

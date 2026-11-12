@@ -12,6 +12,12 @@ given as the objects of its build:
 
     python3 tests/test-shared-database-server-equivalence.py --baseline-objects-root <checkout or copied objects>
 
+With no build of a previous revision at hand, the other build of this checkout
+can be the baseline: --baseline-objects-root . --baseline-configuration Release
+compares the Release build's server with the Debug one. That says the server
+answers alike optimized and not, and as it did when the older of the two builds
+was made; it is not a comparison with a chosen revision.
+
 Both servers, open and protected by a password, receive the same corpus - every
 command, valid and malformed, whole, cut at chosen boundaries and byte by byte -
 and must give, request by request, the same answer, the same closing of the
@@ -42,6 +48,8 @@ import shared_database_probe  # noqa: E402
 parser = argparse.ArgumentParser()
 parser.add_argument("--baseline-objects-root", type=Path, default=os.environ.get("HOROS_SDB_BASELINE_OBJECTS"))
 parser.add_argument("--configuration", default="Debug")
+parser.add_argument("--baseline-configuration",
+                    help="the configuration of the baseline's build, when it is not --configuration")
 arguments = parser.parse_args()
 if not arguments.baseline_objects_root:
     print("needs --baseline-objects-root (the objects of a build of the previous revision)", file=sys.stderr)
@@ -50,11 +58,13 @@ if not arguments.baseline_objects_root:
 work = Path(tempfile.mkdtemp(prefix="horos-sdb-equivalence-"))
 atexit.register(shutil.rmtree, work, ignore_errors=True)
 probes = {}
-for label, root in (("baseline", arguments.baseline_objects_root.resolve()), ("candidate", ROOT)):
+for label, root, configuration in (
+        ("baseline", arguments.baseline_objects_root.resolve(), arguments.baseline_configuration or arguments.configuration),
+        ("candidate", ROOT, arguments.configuration)):
     try:
-        objects = shared_database_probe.app_objects(arguments.configuration, root, swift_publisher=True)
+        objects = shared_database_probe.app_objects(configuration, root, swift_publisher=True)
     except shared_database_probe.MissingObject as missing:
-        print(f"{label}: needs a built {missing.name}.o ({arguments.configuration}) under {root}", file=sys.stderr)
+        print(f"{label}: needs a built {missing.name}.o ({configuration}) under {root}", file=sys.stderr)
         raise SystemExit(2)
     probes[label] = shared_database_probe.link(objects, True, work / label, work / f"probe-{label}")
     print(f"{label}: {objects[0]}")

@@ -17,7 +17,11 @@ translation and fixed since:
 The convolution part of ViewerColourTables.swift, with the members it reads,
 is compiled with xcrun swiftc into a class over stand-ins of the viewer, its
 slices and its controls, with the IsiXImaging and IsiXPreferences modules. The
-hang showed only on a Mac with more than one core, as ProcessInfo reports them.
+question asked before a saved filter is deleted is formatted by that part from
+its literal, with viewerFormatArgument, which is compiled as written from
+ViewerController+ImagePipelineSupport.swift; the sheet that shows it is a
+stand-in. The hang showed only on a Mac with more than one core, as ProcessInfo
+reports them.
 """
 from pathlib import Path
 import private_tmpdir  # noqa: F401  (swiftc leaves folders in TMPDIR)
@@ -33,16 +37,18 @@ from isix_modules import module_flags  # noqa: E402
 root = Path(__file__).resolve().parents[1]
 PATH = 'Horos/Sources/ViewerColourTables.swift'
 source = (root / PATH).read_text(encoding='utf-8')
+SUPPORT_PATH = 'Horos/Sources/ViewerController+ImagePipelineSupport.swift'
+support_source = (root / SUPPORT_PATH).read_text(encoding='utf-8')
 if os.cpu_count() is None or os.cpu_count() < 2:
     print('skipped: the hang needs a Mac with more than one core')
     sys.exit(2)
 
 
-def block(pattern):
+def block(pattern, text=source, path=PATH):
     """The declaration `pattern` starts, through its closing brace at the same indentation."""
-    found = re.search(r'\n( *)' + pattern + r'.*?\n\1}\n', source, re.S)
+    found = re.search(r'\n( *)' + pattern + r'.*?\n\1}\n', text, re.S)
     if not found:
-        sys.exit('FAIL: %s has no %s' % (PATH, pattern))
+        sys.exit('FAIL: %s has no %s' % (path, pattern))
     return found.group(0)
 
 
@@ -53,6 +59,8 @@ except ValueError:
     sys.exit('FAIL: %s has no convolution section' % PATH)
 members = block(r'private var convolutionFilters:') + block(r'private func stored<')
 snapshot = block(r'private struct ConvolvedSlices')
+# The `%@` argument of the question asked before a saved filter is deleted.
+format_argument = block(r'func viewerFormatArgument\(', support_source, SUPPORT_PATH)
 
 harness = r'''
 import Foundation
@@ -68,6 +76,7 @@ extension Notification.Name {
 }
 func NSLocalizedString(_ key: String, comment: String) -> String { key }
 func viewerIsEqualToString(_ a: String?, _ b: String?) -> Bool { a != nil && a == b }
+FORMAT_ARGUMENT
 nonisolated(unsafe) var alerts = 0
 enum HorosAlertPanel {
     @discardableResult static func run(title: String, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int { alerts += 1; return 1 }
@@ -250,7 +259,7 @@ SECTION
 }
 MainActor.assumeIsolated { run() }
 '''
-harness = harness.replace('SNAPSHOT', snapshot).replace('MEMBERS', members).replace('SECTION', section)
+harness = harness.replace('FORMAT_ARGUMENT', format_argument).replace('SNAPSHOT', snapshot).replace('MEMBERS', members).replace('SECTION', section)
 
 with tempfile.TemporaryDirectory() as work:
     program = Path(work) / 'main.swift'

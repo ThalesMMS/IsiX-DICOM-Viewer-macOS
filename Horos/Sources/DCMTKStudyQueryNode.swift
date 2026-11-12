@@ -175,7 +175,8 @@ final class DCMTKStudyQueryNode: DCMTKQueryNode, @unchecked Sendable {
         }
         guard let level = response.rawValue(forTag: DICOMTag.queryRetrieveLevel.rawValue) else {
             NSLog("**** queryLevel == nil")
-            response.printToStandardOutput()
+            // The response holds what the peer answered of a patient.
+            if PreferencesSource.process.preferences[NetworkPreferences.dumpsDICOMDatasets] { response.printToStandardOutput() }
             return
         }
         childrenLock.lock(); defer { childrenLock.unlock() }

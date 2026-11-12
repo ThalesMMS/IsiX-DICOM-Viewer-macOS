@@ -6,21 +6,10 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from python_with import interpreter_or_skip  # noqa: E402
+
 root = Path(__file__).resolve().parents[1]
-
-
-def python_with_pydicom():
-    for candidate in (
-        root / 'local-validation/gsps-venv/bin/python',
-        root / 'local-validation/email-venv/bin/python',
-        Path(sys.executable),
-    ):
-        if candidate.is_file() and subprocess.run(
-            [str(candidate), '-c', 'import pydicom, numpy'],
-            capture_output=True,
-        ).returncode == 0:
-            return str(candidate)
-    sys.exit(2)
 
 
 def flatten(value):
@@ -154,7 +143,8 @@ def dataset_to_json(ds):
 
 
 def main():
-    python = python_with_pydicom()
+    python = interpreter_or_skip('import pydicom', 'import numpy',
+                                 need='tools/generate-gsps-fixture.py needs')
     with tempfile.TemporaryDirectory(prefix='horos-gsps-fix-') as raw:
         dest = Path(raw) / 'fixture'
         dest.mkdir()

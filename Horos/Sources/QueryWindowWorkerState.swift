@@ -25,9 +25,7 @@ import IsiXDICOMNetwork
 final class QueryWindowWorkerState: @unchecked Sendable {
     private let lock = NSLock()
     private var manager: QueryArrayController?
-    private var realtimeAnswers: [AnyObject]?
-    private var firstNode = false
-    private var lastRealtimeUpdate: TimeInterval = 0
+    private var liveAnswers = LiveQueryAnswers<AnyObject>()
     private var performingCFind = false
     private var queryThreads: [Thread] = []
     private var window = QueryWindowState()
@@ -106,46 +104,49 @@ final class QueryWindowWorkerState: @unchecked Sendable {
 
     // MARK: The answers shown while a C-FIND runs
 
-    /// Starts showing answers as they come, or not (`showing` false: a query
-    /// off the main thread shows them only at its end).
-    func resetRealtimeAnswers(showing: Bool) {
-        locked { realtimeAnswers = showing ? [] : nil }
+    /// A query starts: its answers are shown as they come, or not (`showing`
+    /// false: a query off the main thread shows them only at its end). The
+    /// lists of the queries before it are not shown any more.
+    func beginRealtimeAnswers(showing: Bool) {
+        locked { liveAnswers.begin(showing: showing) }
+    }
+
+    /// The query is over and its complete list is shown: a list made while
+    /// it ran, still on its way to the window, is not shown after it.
+    func endRealtimeAnswers() {
+        locked { liveAnswers.end() }
     }
 
     /// Whether the next answers are the first node's: they replace the list
     /// instead of joining it.
     var isFirstNode: Bool {
-        get { locked { firstNode } }
-        set { locked { firstNode = newValue } }
+        get { locked { liveAnswers.isFirstNode } }
+        set { locked { liveAnswers.isFirstNode = newValue } }
     }
 
     /// Forgets when the answers were last shown, so the next ones show now.
     func resetRealtimeUpdate() {
-        locked { lastRealtimeUpdate = 0 }
+        locked { liveAnswers.forgetLastUpdate() }
     }
 
     /// Whether answers may be shown now: a list is shown and the last answers
     /// were shown more than a second ago.
     func realtimeAnswersAreDue(now: TimeInterval) -> Bool {
-        locked { realtimeAnswers != nil && now - lastRealtimeUpdate > 1 }
+        locked { liveAnswers.isDue(now: now) }
     }
 
     /// Joins `answers`, those of the C-FIND of a node under way, to the list
-    /// shown, at most once a second: the list to show, nil when it is not time
-    /// or no list is shown. The first node's answers replace the list; a
-    /// later node's join it unless there are 4,000 or more.
+    /// shown, at most once a second: the list to show and its turn, nil when
+    /// it is not time or no list is shown.
     func realtimeAnswers(adding answers: [AnyObject], now: TimeInterval,
-                         merge: ([AnyObject], inout [AnyObject]) -> Void) -> [AnyObject]? {
-        locked {
-            guard var list = realtimeAnswers, now - lastRealtimeUpdate > 1 else { return nil }
-            if firstNode {
-                list = answers
-            } else if answers.count < 4000 {
-                merge(answers, &list)
-            }
-            realtimeAnswers = list
-            lastRealtimeUpdate = now
-            return list
-        }
+                         merge: ([AnyObject], inout [AnyObject]) -> Void)
+        -> (answers: [AnyObject], turn: LiveQueryAnswers<AnyObject>.Turn)? {
+        locked { liveAnswers.add(answers, now: now, merge: merge) }
+    }
+
+    /// Whether the list handed out with `turn` may be shown now; main thread,
+    /// right before it is shown.
+    func takeRealtimeTurn(_ turn: LiveQueryAnswers<AnyObject>.Turn) -> Bool {
+        locked { liveAnswers.takeTurn(turn) }
     }
 }

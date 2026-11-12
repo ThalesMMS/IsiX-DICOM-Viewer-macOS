@@ -76,9 +76,13 @@ extension SCPDatabaseSession {
             }
             findRecords = result.records
         } catch LocalMetadataQueryError.raised(let description) {
-            // A condition the database could not evaluate: no match.
+            // A condition the database could not evaluate: no match. What it
+            // raised quotes the condition, which is made of the values the
+            // peer asked for - a patient's name, an identifier, a date; the
+            // log is told the level, the keys and how long that text is.
+            let asked = elements.map { $0.name }.joined(separator: ", ")
             NSLog("prepareFindForDataSet exception")
-            NSLog("%@", description)
+            NSLog("%@ level, keys %@: the database raised %@", level ?? "(null)", asked, LogText.shape(of: description))
         } catch {
             return .failed
         }
@@ -136,7 +140,8 @@ extension SCPDatabaseSession {
         case .omitted(_, let failure):
             if let failure {
                 NSLog("%@", failure)
-                response.printToStandardOutput()
+                // The response holds what the database says of a patient.
+                if processGraph.preferences[NetworkPreferences.dumpsDICOMDatasets] { response.printToStandardOutput() }
             }
         case .put(let tag, let text):
             let bytes: [UInt8]?

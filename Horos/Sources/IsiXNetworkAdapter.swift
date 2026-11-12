@@ -179,7 +179,8 @@ extension IsiXPluginHost: IsiXXMLRPCBackend {
                     thrown = IsiXPluginException(error as NSError)
                 }
                 if let thrown {
-                    NSLog("IsiX plugin %@ XML-RPC method %@ failed: %@", runtime.info.identifier, methodName, String(describing: thrown))
+                    // What the plugin raised or threw is its own text, over values of the request.
+                    NSLog("IsiX plugin %@ XML-RPC method %@ failed: %@", runtime.info.identifier, methodName, LogText.error(thrown))
                     return .fault(thrown is IsiXPluginException ? "The plugin raised \(thrown)." : IsiXUserMessage(for: thrown))
                 }
                 if let answer { return .answer(answer) }

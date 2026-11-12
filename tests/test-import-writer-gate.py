@@ -16,7 +16,11 @@ This compiles the real N2ManagedDatabase and N2ManagedObjectContext
 (tests/n2_database_harness.py), and pastes -addFilesDescribedInDictionaries: and
 indexDescribedFiles as they are in the checkout and in the previous revision,
 read from git, into a stand-in over a disposable SQLite store: indexing one file
-is a double that does what findStudy does with the study list. Two private
+is a double that does what findStudy does with the study list. The checkout
+reads the studies its files name rather than every study, and finds them by UID
+in a type of its own: that read and that type are pasted as written too
+(tests/indexer_paste.py), so the second import must find by that query the
+study the first one saved. Two private
 contexts run on two threads with Core Data's multithreading assertions on, and
 hooks at the fetch, before the save and in the save make them overlap where the
 code lets them, and time out where it does not.
@@ -205,13 +209,13 @@ class ImportDatabase: N2ManagedDatabase {
 
     /// What findStudy and indexImages do with the study list.
     func indexFile(_ curDict: NSMutableDictionary?, cursor: DicomDatabaseImportCursor, added: DicomDatabaseImportBatch,
-                   studiesArray: NSMutableArray, studiesArrayStudyInstanceUID: NSMutableArray, modifiedStudiesArray: NSMutableArray,
+                   studiesArray: NSMutableArray, studiesArrayStudyInstanceUID: any ImportStudyUIDList, modifiedStudiesArray: NSMutableArray,
                    defaultDate: Date, today: Date, dataDirPath: String?, reportsDirPath: String?, errorsDirPath: String?,
                    settings: DicomDatabaseImportSettings, rereadExistingItems: Bool, generatedByOsiriX: Bool, importedFiles: Bool,
                    preparedReportPath: inout String?) {
         let context = self.managedObjectContext!
         let uid = curDict!.object(forKey: "studyID") as! String
-        let index = studiesArrayStudyInstanceUID.index(of: uid)
+        let index = studiesArrayStudyInstanceUID.place(of: uid)
         let study: DicomStudy
         if index != NSNotFound {
             study = studiesArray.object(at: index) as! DicomStudy
@@ -219,7 +223,7 @@ class ImportDatabase: N2ManagedDatabase {
             study = NSEntityDescription.insertNewObject(forEntityName: "Study", into: context) as! DicomStudy
             study.studyInstanceUID = uid
             studiesArray.add(study)
-            studiesArrayStudyInstanceUID.add(uid)
+            studiesArrayStudyInstanceUID.remember(uid)
         }
         if !modifiedStudiesArray.contains(study) { modifiedStudiesArray.add(study) }
         let series = NSEntityDescription.insertNewObject(forEntityName: "Series", into: context)
@@ -455,8 +459,12 @@ check(0 <= queue < gate < index, 'the import does not enter its context, then th
 check(index < publish and add.rfind('}', index, publish) >= 0 and add.find('if let raised', index) < publish,
       'publishing moved into the gate')
 check(current.count('indexDescribedFiles(') == 2, 'something else calls the indexing outside the gate')
-check('database.objects(forEntity: database.studyEntity())' in index_body and 'try context?.save()' in index_body,
-      'the study list and the save left the gated method')
+check('let studiesArray = studies(describedIn: dicomFilesArray)' in index_body
+      and 'database.objects(forEntity: database.studyEntity())' in index_body and 'try context?.save()' in index_body,
+      'the study list, the studies read for the reports and the save left the gated method')
+check(current.count('studies(describedIn:') == 1,'something else reads the studies of a batch outside the gate')
+check(indexer_paste.has_uid_type(current) and 'context.fetch(request)' in method(current, indexer_paste.STUDIES),
+      'the studies of a batch are not read from the store by their UIDs: the double no longer runs the read of the import')
 
 for failure in failures:
     print('FAIL: %s' % failure)

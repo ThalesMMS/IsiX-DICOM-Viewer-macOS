@@ -68,7 +68,7 @@ public final class DICOMwebClient: NSObject {
     @objc public static let retryAfterKey = "HorosDICOMwebRetryAfter"
     static let objectsHandedOverKey = "HorosDICOMwebObjectsHandedOver"
 '''
-          + cut(client_source, '    @objc(errorKindForError:)', '    /// What went wrong, for the network log')
+          + cut(client_source, '    @objc(errorKindForError:)', '    /// Whether a QIDO-RS error says the node does not implement')
           + '''    // What the retrieve's port asks of the client; never called here.
     public var retrieveFallbackTransferSyntax: String? { nil }
     public func accepts(retrievedTransferSyntax syntax: String) -> Bool { false }

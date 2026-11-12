@@ -69,7 +69,7 @@ extension QueryController {
             }
         } catch {
             if let exception = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                _N2LogExceptionImpl(exception, false, "-[QueryController query:]")
+                LogText.log(exception, stack: false, in: "-[QueryController query:]")
             }
         }
     }
@@ -129,7 +129,7 @@ extension QueryController {
         let workers = self.workers
         let tempResultArray = NSMutableArray()
 
-        workers.resetRealtimeAnswers(showing: onMain)
+        workers.beginRealtimeAnswers(showing: onMain)
 
         objc_sync_enter(self)
         workers.cancelQueryThreads()
@@ -245,7 +245,9 @@ extension QueryController {
             }
         }
 
-        workers.resetRealtimeAnswers(showing: false)
+        // After the complete list: a list made while the C-FIND ran may still
+        // be on its way through the main queue, and must not replace it.
+        workers.endRealtimeAnswers()
 
         return tempResultArray.map { $0 }
     }
@@ -303,7 +305,8 @@ extension QueryController {
         QueryResultMerge.merge(answers, into: &results, indexingAdditions: false, uid: queryUID, images: queryImageCount)
     }
 
-    /// Shows `results` in the window, from any thread.
+    /// Shows `results`, the complete list of a query, in the window, from any
+    /// thread.
     nonisolated func showResults(_ results: [AnyObject]) {
         let controller = self
         let handed = QueryAnswers(items: results)
@@ -368,7 +371,21 @@ extension QueryController {
 
         let curResult = ((root as? DCMTKQueryNode)?.children() ?? []).map { $0 as AnyObject }
         if let shown = workers.realtimeAnswers(adding: curResult, now: now, merge: QueryController.mergeAnswers) {
-            showResults(shown)
+            showPartialResults(shown.answers, turn: shown.turn)
+        }
+    }
+
+    /// Shows `results`, what a C-FIND under way has answered so far, from any
+    /// thread, unless the window has moved on: the C-FIND reports on its own
+    /// thread and the list crosses the main queue, while the thread that
+    /// asked shows the complete list itself as soon as the C-FIND ends. A
+    /// partial list that arrives after that, or after a later one, is dropped.
+    nonisolated func showPartialResults(_ results: [AnyObject], turn: LiveQueryAnswers<AnyObject>.Turn) {
+        let controller = self
+        let handed = QueryAnswers(items: results)
+        onMainActor {
+            guard controller.workers.takeRealtimeTurn(turn) else { return }
+            controller.refreshList(handed.items)
         }
     }
 
@@ -689,7 +706,7 @@ extension QueryController {
                 fields.append(CIADICOMField(group: Int32(tag >> 16), element: Int32(tag & 0xffff), name: keyword))
             }
         } catch {
-            NSLog("The DICOM dictionary could not be read: %@", (error as NSError).localizedDescription)
+            NSLog("The DICOM dictionary could not be read: %@", LogText.error(error))
         }
         return fields
     }

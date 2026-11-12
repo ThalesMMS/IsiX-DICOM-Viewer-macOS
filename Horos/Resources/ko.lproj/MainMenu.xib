@@ -282,6 +282,11 @@
                                                 <action selector="exportDICOMFile:" target="-1" id="11559"/>
                                             </connections>
                                         </menuItem>
+                                        <menuItem title="합성 DWI로 내보내기…" id="Sdw-ex-Itm">
+                                            <connections>
+                                                <action selector="exportSyntheticDWI:" target="-1" id="Sdw-ex-Act"/>
+                                            </connections>
+                                        </menuItem>
                                         <menuItem title="이메일로 내보내기…" id="11549">
                                             <connections>
                                                 <action selector="sendMail:" target="-1" id="11552"/>

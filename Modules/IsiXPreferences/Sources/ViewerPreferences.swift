@@ -197,6 +197,9 @@ public enum ViewerPreferences {
     public static let squareWindowForPrinting = PreferenceKey<Bool>("SquareWindowForPrinting", registered: "1")
     public static let stackThickness = PreferenceKey<Int>("stackThickness", registered: "20")
     public static let strechWindows = PreferenceKey<Bool>("StrechWindows", registered: "1")
+    /// The b-value, in s/mm², the last synthetic diffusion-weighted image was
+    /// asked at: File > Export > Export as Synthetic DWI offers it again.
+    public static let syntheticDWIBValue = PreferenceKey<Double>("SyntheticDWIBValue", registered: "1600")
     public static let suvConversion = PreferenceKey<Int>("SUVCONVERSION", registered: "0")
     public static let tileWindowsOrderByStudyDate = PreferenceKey<Bool>("tileWindowsOrderByStudyDate", registered: "1")
     /// Two keys no pane writes, which a user sets by hand: the order by study date starts from the earliest
@@ -359,7 +362,7 @@ public enum ViewerPreferences {
         scrollThroughSeriesForMG, scrollThroughSeriesForOT, scrollThroughSeriesForRF, selectWindowScrollWheel,
         seriesListVisible, showPreviousExamLabel, showScrollPositionPreview,
         softwareInterpolation, softwareInterpolationMaximum, splineForROI, squareWindowForPrinting, stackThickness,
-        strechWindows, suvConversion, tileWindowsOrderByStudyDate, reversesTileWindowsOrderByStudyDate,
+        strechWindows, suvConversion, syntheticDWIBValue, tileWindowsOrderByStudyDate, reversesTileWindowsOrderByStudyDate,
         usesDatabaseScreenLast, toolPaletteSelectionStyle, transitionEffect,
         transitionType, twoClickLengthMeasurement, alwaysUsesToolbarPanel, useFloatingThumbnailsList, useFrameofReferenceUID, useShutter,
         useVOILUT, viewerWindowSize, zoomWithHorizonScroll,

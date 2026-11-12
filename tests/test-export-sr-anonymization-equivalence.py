@@ -43,7 +43,6 @@ venvs), or the history.
 """
 import argparse
 import json
-import os
 import plistlib
 import re
 import shutil
@@ -58,6 +57,7 @@ import private_tmpdir  # noqa: F401,E402
 import history_reference  # noqa: E402
 import horos_reader  # noqa: E402
 from dcmtk_build import BUILD, ROOT  # noqa: E402
+from python_with import interpreter_or_skip  # noqa: E402
 
 sys.path.insert(0, str(ROOT / 'tools'))
 import native_app  # noqa: E402
@@ -111,22 +111,7 @@ if DEBUG_ONLY_SYMBOL not in exported:
     raise SystemExit(2)
 
 
-def find_python():
-    candidates = [os.environ.get('HOROS_PYTHON'), str(ROOT / 'local-validation/venv/bin/python'),
-                  str(ROOT.parent.parent.parent / 'local-validation/net-venv/bin/python')
-                  if ROOT.parent.name == 'worktrees' else None,
-                  str(ROOT / 'local-validation/net-venv/bin/python'), sys.executable]
-    for candidate in filter(None, candidates):
-        if Path(candidate).exists() and subprocess.run([candidate, '-c', 'import pydicom, numpy'],
-                                                       capture_output=True).returncode == 0:
-            return candidate
-    return None
-
-
-python = find_python()
-if python is None:
-    print('skipped: the files need a Python with pydicom and numpy (HOROS_PYTHON)')
-    raise SystemExit(2)
+python = interpreter_or_skip('import pydicom', 'import numpy', need='the files need')
 
 # --------------------------------------------------------------- the files
 GENERATOR = r'''

@@ -26,11 +26,10 @@ document. The file is then
 - and, when Binaries/dciodvfy is unpacked, validated by it without an error.
 
 The menu item, the command object's action and its validation are checked in
-the sources. Exits 2 when pydicom (local-validation/work/dicom-venv, or
-HOROS_PYTHON) or the Debug build's DCMTK is missing. Synthetic data only,
+the sources. Exits 2 when pydicom (HOROS_PYTHON or the local venvs) or the
+Debug build's DCMTK is missing. Synthetic data only,
 written in a temporary folder.
 """
-import os
 import subprocess
 import sys
 import tempfile
@@ -39,6 +38,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dcmtk_build import ROOT, dcmtk_flags  # noqa: E402
+from python_with import interpreter_or_skip  # noqa: E402
 
 failures = []
 
@@ -48,22 +48,7 @@ def fail(message):
     print('FAIL:', message)
 
 
-def find_python():
-    candidates = [os.environ.get('HOROS_PYTHON'), str(ROOT / 'local-validation/work/dicom-venv/bin/python')]
-    if ROOT.parent.name == 'worktrees':
-        candidates.append(str(ROOT.parent.parent.parent / 'local-validation/work/dicom-venv/bin/python'))
-    candidates.append(sys.executable)
-    for candidate in filter(None, candidates):
-        if Path(candidate).exists() and subprocess.run([candidate, '-c', 'import pydicom'],
-                                                       capture_output=True).returncode == 0:
-            return candidate
-    return None
-
-
-python = find_python()
-if python is None:
-    print('skipped: needs a Python with pydicom (local-validation/work/dicom-venv or HOROS_PYTHON)')
-    raise SystemExit(2)
+python = interpreter_or_skip('import pydicom', need='the reading of the document needs', packages="'pydicom>=3,<4'")
 flags = dcmtk_flags('dcmnet', 'dcmsr', 'dcmimage', 'dcmimgle')
 
 # ------------------------------------------------------------- the wiring

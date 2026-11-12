@@ -4,11 +4,12 @@
 A RemoteDicomDatabase indexes in a local copy of the server's index, replaced at
 each update, so a file that is not sent is gone at the next one and was never
 anyone else's. The real -addFilesAtPaths: chain of DicomFileIndexer.swift
-(the variants down to the indexer's call) and the real members of
-RemoteDicomDatabase.swift (the override, the background sender, the upload and
-the incoming folder's pass) are compiled here against a double of the indexer on
-a Core Data store in memory and a double of the connection, and it is checked
-that:
+(the variants down to the indexer's call, with the read of a batch's headers
+side by side, ParsedDICOMFiles, as DicomFile+DICOMReading.swift writes it) and
+the real members of RemoteDicomDatabase.swift (the override, the background
+sender, the upload and the incoming folder's pass) are compiled here against a
+double of the indexer on a Core Data store in memory and a double of the
+connection, and it is checked that:
 
 - -addFiles of a generated object sends SENDG, with the file's bytes, from the
   temporary folder, and the image takes the name the server answered;
@@ -17,6 +18,8 @@ that:
 - an addition that asks for no array sends all the same and answers none;
 - an independent database, which has no address, sends through the main one;
 - the frames of a multi-frame object send their one file once;
+- the plain DICOM files of one addition, whose headers are read side by side,
+  each come to their read with their own header, in order, and are sent once;
 - a new index between the addition and the sending does not lose the file;
 - an addition that added nothing sends nothing;
 - a remote database asks for a pass when its incoming folder holds something, an
@@ -239,9 +242,20 @@ final class ImportRefusals {
 enum ActivityProgressCount { static func set(done: Int, total: Int, on thread: Thread) {} }
 enum ImportShortfall { static func progressDone(index: Int, total: Int) -> Int { index } }
 
+/// The double of the read of one file's header, which is what the read of a
+/// batch's headers side by side makes of each plain DICOM file.
 final class DicomFile {
+    let path: String?
+    init!(_ f: String!, dicomOnly DICOMOnly: Bool) { path = f }
     class func nSreplaceBadCharacter(_ name: String) -> String! { name.replacingOccurrences(of: "/", with: "_") }
 }
+
+/// No plugin reads a format of its own here.
+enum PluginManager {
+    static func fileFormatPlugins() -> NSMutableDictionary! { nil }
+}
+
+@PARSED_FILES@
 
 final class DicomImage: NSManagedObject {
     @NSManaged var path: String?
@@ -274,6 +288,9 @@ enum Stage {
     nonisolated(unsafe) static var cachedPath: (DicomImage) -> String? = { _ in nil }
     /// What the double of the indexer was told, one line per call.
     nonisolated(unsafe) static var indexed: [(generated: Bool, imported: Bool, returnArray: Bool)] = []
+    /// The files that came to their read with a header already read, and the
+    /// file that header was read from.
+    nonisolated(unsafe) static var headers: [(path: String, header: String?)] = []
     /// The alerts that would have been shown.
     nonisolated(unsafe) static var warnings = 0
 
@@ -346,10 +363,12 @@ class DicomDatabase: NSObject {
     func checkForCorrectContextThreadIfDeclared() {}
     func checkForCorrectContextThread() {}
 
-    /// The read of one file: the double of what it finds in a real one.
-    func readFile(_ path: String?, dicomOnly: Bool, dataDirPath: String?, errorsDirPath: String?, deleteFileListener: Bool,
+    /// The read of one file: the double of what it finds in a real one, whether
+    /// or not its header came already read.
+    func readFile(_ path: String?, parsed: DicomFile?, dicomOnly: Bool, dataDirPath: String?, errorsDirPath: String?, deleteFileListener: Bool,
                   refusals: ImportRefusals, into dicomFilesArray: NSMutableArray) {
         guard let path else { return }
+        if let parsed { Stage.headers.append((path, parsed.path)) }
         dicomFilesArray.add(["filePath": path, "frames": (path as NSString).lastPathComponent.hasPrefix("frames") ? 3 : 1] as NSDictionary)
     }
 
@@ -395,9 +414,9 @@ struct DicomFileIndexer {
     let database: DicomDatabase
     let preferences = UserDefaults.standard
     init(database: DicomDatabase, processGraph: ProcessGraph) { self.database = database }
-    func readFile(_ path: String?, dicomOnly: Bool, dataDirPath: String?, errorsDirPath: String?, deleteFileListener: Bool,
+    func readFile(_ path: String?, parsed: DicomFile?, dicomOnly: Bool, dataDirPath: String?, errorsDirPath: String?, deleteFileListener: Bool,
                   refusals: ImportRefusals, into dicomFilesArray: NSMutableArray) {
-        database.readFile(path, dicomOnly: dicomOnly, dataDirPath: dataDirPath, errorsDirPath: errorsDirPath,
+        database.readFile(path, parsed: parsed, dicomOnly: dicomOnly, dataDirPath: dataDirPath, errorsDirPath: errorsDirPath,
                           deleteFileListener: deleteFileListener, refusals: refusals, into: dicomFilesArray)
     }
 
@@ -513,6 +532,7 @@ func reset() {
     Stage.warnings = 0
     RemoteDicomDatabase.sentLock.unlock()
     Stage.indexed = []
+    Stage.headers = []
     DatabaseIngest.passes = []
 }
 
@@ -658,6 +678,20 @@ var keptCached: String?
 one.managedObjectContext.performAndWait { keptCached = one.localPath(for: one.objects(withIDs: keptIDs)!.first as? DicomImage) }
 check(keptCached != nil && files.fileExists(atPath: keptCached!), "a frame that remembered the path before the move removed the file the first moved")
 
+// --- plain DICOM files, whose headers are read side by side ---------------------------
+reset()
+let plain = (1...5).map { number -> String in
+    let path = work + "/plain-\(number).dcm"
+    try! (Data(count: 128) + Data("DICM plain-\(number)".utf8)).write(to: URL(fileURLWithPath: path))
+    return path
+}
+_ = add(one, plain)
+sent = waitForSends(1)
+check(Stage.headers.map(\.path) == plain && Stage.headers.allSatisfy { $0.header == $0.path },
+      "the files of a batch did not each come with their own header, in order: \(Stage.headers.map { ($0.header ?? "none") as NSString }.map(\.lastPathComponent))")
+check(sent.count == 1 && Set(sent[0].files) == Set(plain.map { try! Data(contentsOf: URL(fileURLWithPath: $0)) }) && sent[0].files.count == plain.count,
+      "the files of a batch whose headers were read side by side went as \(sent.map { $0.files.map(\.count) })")
+
 // --- a new index meanwhile -----------------------------------------------------------
 reset()
 let second = newDatabase()
@@ -721,6 +755,7 @@ try! Data(count: 33 * 1024 * 1024).write(to: URL(fileURLWithPath: big))
 let small = write("small.dcm", in: work)
 RemoteDicomDatabase.outcomes = [true, false]
 _ = add(fourth, [big, small])
+check(Stage.headers.isEmpty, "files that are not plainly DICOM came to their read with a header")
 waitForAttempts(2)
 sent = sentNow()
 check(sent.count == 1 && sent[0].files.count == 1 && sent[0].files[0].count == 33 * 1024 * 1024,
@@ -777,6 +812,7 @@ print("ok")
 def main():
     remote = (root / 'Horos/Sources/RemoteDicomDatabase.swift').read_text(encoding='utf-8')
     importer = (root / 'Horos/Sources/DicomFileIndexer.swift').read_text(encoding='utf-8')
+    reading = (root / 'Horos/Sources/DicomFile+DICOMReading.swift').read_text(encoding='utf-8')
 
     overrides = indicator.swift_code(remote).count('override func addFilesDescribed(')
     if overrides != 1:
@@ -784,7 +820,10 @@ def main():
         return 1
 
     # The indexer's read of the files is a member of DicomFileIndexer; the
-    # selectors of the database forward to it.
+    # selectors of the database forward to it. It reads the headers of a batch
+    # through ParsedDICOMFiles, compiled as written over the doubles of the
+    # read of one header and of the plugins' formats.
+    parsed_files = member(reading, 'struct ParsedDICOMFiles {')
     indexer_members = [member(importer, 'func addFiles(atPaths paths: NSArray?, postNotifications: Bool, dicomOnly: Bool, '
                                         'rereadExistingItems: Bool, generatedByOsiriX: Bool,\n'),
                        member(importer, 'static func process(_ database: DicomDatabase) -> DicomFileIndexer {')]
@@ -830,6 +869,7 @@ def main():
         (work / 'Support.h').write_text(SUPPORT_H)
         (work / 'Support.m').write_text(SUPPORT_M)
         (work / 'stage.swift').write_text(STAGE.replace('@IMPORT_MEMBERS@', '\n\n'.join(import_members))
+                                          .replace('@PARSED_FILES@', parsed_files)
                                           .replace('@INDEXER_MEMBERS@', '\n\n'.join(indexer_members))
                                           .replace('@REMOTE_MEMBERS@', '\n\n'.join(remote_members))
                                           .replace('@WAITING_PROPERTY@', waiting_property.group(0))
@@ -840,7 +880,8 @@ def main():
                        check=True, timeout=120)
         subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', '-swift-version', '5', '-import-objc-header', str(work / 'Support.h'),
                         *isix_modules.module_flags('IsiXPreferences', work / 'internal'),
-                        str(work / 'stage.swift'), str(work / 'main.swift'), str(work / 'Support.o'), '-o', str(work / 'check')],
+                        str(work / 'stage.swift'), *isix_modules.log_text_sources(), str(work / 'main.swift'),
+                        str(work / 'Support.o'), '-o', str(work / 'check')],
                        check=True, timeout=200)
         data = work / 'data'
         data.mkdir()

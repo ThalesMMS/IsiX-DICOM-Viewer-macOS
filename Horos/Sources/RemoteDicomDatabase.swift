@@ -545,7 +545,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
                 }
             }
             if let failure {
-                _N2LogExceptionImpl(SharedDatabaseClientFailure.exception(for: failure), true, "+[RemoteDicomDatabase _uploadFilesAtPathsGeneratedByOsiriX:]")
+                LogText.log(SharedDatabaseClientFailure.exception(for: failure), stack: true, in: "+[RemoteDicomDatabase _uploadFilesAtPathsGeneratedByOsiriX:]")
             }
             remoteDB.recordUpload(of: paths, arrived: arrived, generatedByOsiriX: byOsiriX)
         }
@@ -673,14 +673,14 @@ public final class RemoteDicomDatabase: DicomDatabase {
                 return try horosSendDatabaseRequest(request, self.address, self.port, handler)
             } catch {
                 lastFailure = error
-                _N2LogExceptionImpl(SharedDatabaseClientFailure.exception(for: error), true, "-[RemoteDicomDatabase synchronousRequest:urgent:dataHandlerTarget:selector:context:]")
+                LogText.log(SharedDatabaseClientFailure.exception(for: error), stack: true, in: "-[RemoteDicomDatabase synchronousRequest:urgent:dataHandlerTarget:selector:context:]")
             }
         }
         if let lastFailure {
             let guidance = SharedDatabaseCommand.actionRequired(for: request as Data)
             if let guidance, !guidance.isEmpty {
                 let exception = SharedDatabaseClientFailure.exception(for: lastFailure)
-                NSLog("---- shared database: %@ %@", exception.reason ?? exception.name.rawValue, guidance)
+                NSLog("---- shared database: %@ %@", LogText.exception(exception), guidance)
             }
         }
         return nil
@@ -1062,7 +1062,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
             do {
                 try self.updateIndex()
             } catch {
-                _N2LogExceptionImpl(SharedDatabaseClientFailure.exception(for: error), true, "-[RemoteDicomDatabase updateThread:]")
+                LogText.log(SharedDatabaseClientFailure.exception(for: error), stack: true, in: "-[RemoteDicomDatabase updateThread:]")
             }
         }
     }
@@ -1187,7 +1187,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
                 }
             } catch {
                 _waitingKeyImages.append(mark)
-                _N2LogExceptionImpl(SharedDatabaseClientFailure.exception(for: error), false, "-[RemoteDicomDatabase markWaitingKeyImages]")
+                LogText.log(SharedDatabaseClientFailure.exception(for: error), stack: false, in: "-[RemoteDicomDatabase markWaitingKeyImages]")
             }
         }
     }

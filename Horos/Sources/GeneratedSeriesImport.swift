@@ -99,10 +99,11 @@ struct GeneratedSeriesImport: Sendable {
 
     /// Indexes the files, sends the images to the DICOM node and marks them as
     /// key images, when the export preferences ask for each. An export that
-    /// never marked its images says so with `marksKeyImages`.
-    @MainActor
-    func add(_ paths: [Any], marksKeyImages: Bool = true) {
-        guard !paths.isEmpty, let browser = processGraph.currentBrowser else { return }
+    /// never marked its images says so with `marksKeyImages`. Answers the
+    /// images indexed, for an export that goes on to show them.
+    @MainActor @discardableResult
+    func add(_ paths: [Any], marksKeyImages: Bool = true) -> [Any]? {
+        guard !paths.isEmpty, let browser = processGraph.currentBrowser else { return nil }
         let images = images(indexing: paths)
         if processGraph.preferences[DatabasePreferences.afterExportSendsToDICOMNode] {
             browser.selectServer(images)
@@ -110,6 +111,7 @@ struct GeneratedSeriesImport: Sendable {
         if marksKeyImages, processGraph.preferences[DatabasePreferences.afterExportMarksKeyImages] {
             markAsKeyImages(images, in: processGraph.browserDatabase)
         }
+        return images
     }
 
     /// Marks images `database` has just indexed as key images. In a shared

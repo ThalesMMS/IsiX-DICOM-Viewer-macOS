@@ -184,6 +184,12 @@ import IsiXStorage
 
         LegacySupportImportPrompt.offerPluginsIfNeeded()
 
+        // DCMTK starts its own log, written to the standard error, at a level
+        // where it prints the identifier of each C-FIND a peer sends the
+        // listener. Set here, before anything of DCMTK runs - the plugins, the
+        // listeners, a query or a send - and not when the first send does it.
+        IsiXDCMTKLog.configure(dumpsDatasets: PreferencesSource.process.preferences[NetworkPreferences.dumpsDICOMDatasets])
+
         // Plugins may read DICOM through DCMObject as they load.
         AppController.registerDCMTKCodecs()
         Once.pluginManager = PluginManager()
@@ -426,6 +432,7 @@ import IsiXStorage
         ViewerController.installSeriesListPlacementMenuItems()
         ViewerController.installRegisteredGIFMenuItems()
         ViewerController.installGSPSMenuItems()
+        SyntheticDWICommand.install(in: processGraph.applicationMenus.exportMenu())
         BrowserController.installAutomaticCleanupPreviewMenu()
         BrowserController.installSurgicalProcedureImportMenu()
 

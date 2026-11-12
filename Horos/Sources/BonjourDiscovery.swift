@@ -376,7 +376,7 @@ public final class HorosBonjourBrowser: NSObject {
                 case .waiting(let error):
                     // An interface that went away can come back on this browser.
                     // Keep what was found; the Sources liveness policy decides.
-                    NSLog("Horos Bonjour waiting for %@: %@", type, String(describing: error))
+                    NSLog("Horos Bonjour waiting for %@: %@", type, LogText.error(error))
                 case .failed(let error):
                     self.fail(error)
                 default:
@@ -543,7 +543,7 @@ public final class BonjourAdvertisement: NSObject {
         let data: Data
         do { data = try Self.encodeTXTRecord(values) }
         catch {
-            NSLog("Horos Bonjour invalid TXT record for %@ %@:%ld: %@", name, type, port, error as NSError)
+            NSLog("Horos Bonjour invalid TXT record for %@ %@:%ld: %@", name, type, port, LogText.error(error))
             return
         }
         let changed = txtData != data
@@ -608,7 +608,7 @@ public final class BonjourAdvertisement: NSObject {
     private func failed(_ error: DNSServiceErrorType) {
         registration?.close(); registration = nil
         isPublished = false
-        NSLog("Warning: Horos Bonjour service did not publish: %@ %@:%ld DNS-SD error=%d", name, type, port, error)
+        NSLog("Warning: Horos Bonjour service did not publish: %@ %@:%ld DNS-SD error=%d", name, type, port, Int32(error))
         // Reconnect to the same API after a daemon failure; never a helper process,
         // and never a retry loop for a configuration or permission error.
         guard active, retry == nil, Self.isTransient(error) else { return }

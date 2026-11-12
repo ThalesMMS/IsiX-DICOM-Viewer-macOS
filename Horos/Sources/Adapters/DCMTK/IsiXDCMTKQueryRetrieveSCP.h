@@ -131,6 +131,14 @@ typedef NS_ENUM(NSInteger, IsiXDCMTKListenerCommand) {
 /// The time a peer has to connect (DCMTK's process-wide connection timeout).
 @property int connectionTimeout;
 @property int maxAssociations;
+/// Prints the datasets of what the listener serves: the identifier a peer
+/// asks a C-FIND or a C-MOVE with, to the standard error and output, and the
+/// identifiers and status details a C-MOVE answers. They carry the values of
+/// the keys asked: a patient's name, ID or birth date, an accession number.
+/// NO unless set; for a diagnosis that asks for it (the user default
+/// DICOMDatasetDump). It also sets the level of DCMTK's log (IsiXDCMTKLog),
+/// which is where DCMTK's own classes print the identifier of a C-FIND.
+@property BOOL dumpsDatasets;
 
 @property BOOL secureConnection;
 @property (nullable, copy) NSString *seedFile;
@@ -144,8 +152,8 @@ typedef NS_ENUM(NSInteger, IsiXDCMTKListenerCommand) {
 /// Whether DCMTK's data dictionary is loaded.
 @property (class, readonly) BOOL dataDictionaryLoaded;
 
-/// Sets DCMTK's process-wide connection timeout and VR generation; nil when
-/// DCMTK throws.
+/// Sets DCMTK's process-wide connection timeout, VR generation and, from the
+/// settings' dump switch, the level of its log; nil when DCMTK throws.
 - (nullable instancetype)initWithSettings:(IsiXDCMTKListenerSettings *)settings
                                      host:(id<IsiXDCMTKListenerHost>)host NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;

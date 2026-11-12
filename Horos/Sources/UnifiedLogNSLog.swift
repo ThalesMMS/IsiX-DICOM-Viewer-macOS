@@ -37,3 +37,8 @@ func NSLog(_ format: String, _ args: CVarArg...) {
 func unifiedLogv(_ format: StaticString, _ arguments: [CVarArg]) {
     IsiXLogging.unifiedLogv(format, arguments)
 }
+
+/// IsiXLogging's `LogText`, what a log line is told of an error, an exception,
+/// a URL or a text that is not the application's own, without each file that
+/// logs one importing it.
+typealias LogText = IsiXLogging.LogText

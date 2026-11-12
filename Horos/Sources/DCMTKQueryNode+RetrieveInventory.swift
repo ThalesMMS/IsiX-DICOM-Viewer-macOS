@@ -135,7 +135,7 @@ extension DCMTKQueryNode {
             return try inventory.refreshImported(from: Self.localSeries)
         } catch {
             NSLog("---- retrieve inventory: the local instances of %@ could not be read: %@", inventoryStudyUID ?? "(null)",
-                  error.localizedDescription)
+                  LogText.error(error))
             inventory.invalidateImportRefresh()
             return false
         }
@@ -152,7 +152,7 @@ extension DCMTKQueryNode {
             let failure = error as NSError
             if dontCatchExceptions, failure.domain == HorosObjCExceptionErrorDomain,
                let exception = failure.userInfo[HorosObjCExceptionKey] as? NSException { exception.raise() }
-            NSLog("---- the local instances of %@ could not be read: %@", studyInstanceUID, failure.localizedDescription)
+            NSLog("---- the local instances of %@ could not be read: %@", studyInstanceUID, LogText.error(failure))
             return []
         }
     }

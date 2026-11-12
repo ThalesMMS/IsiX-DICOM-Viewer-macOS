@@ -94,7 +94,7 @@ public struct RoutingRule: Sendable, Hashable {
     }
 
     /// The name as a log line prints it: "(null)" when missing.
-    var loggedName: String {
+    public var loggedName: String {
         entry[Key.name]?.text ?? "(null)"
     }
 

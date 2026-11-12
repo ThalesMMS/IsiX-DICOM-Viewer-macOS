@@ -50,6 +50,7 @@ sys.path.insert(0, str(root / 'tools'))
 sys.path.insert(0, str(root / 'tests'))
 import object_probe  # noqa: E402
 import isix_modules  # noqa: E402
+import link_placeholders  # noqa: E402
 import roi_harness  # noqa: E402
 
 SOURCE = 'Horos/Sources/ROI.m'
@@ -411,13 +412,12 @@ def build(tmp):
              '-Xlinker', '-undefined', '-Xlinker', 'dynamic_lookup', '-lc++',
              '-framework', 'Cocoa', '-framework', 'Accelerate', '-framework', 'AVFoundation', '-framework', 'CoreMedia',
              '-framework', 'QuartzCore', '-o', str(tmp / 'harness')])
-        probe = subprocess.run([str(tmp / 'harness'), '--probe-link'], capture_output=True, text=True, timeout=60)
-        missing = re.search(r"symbol not found in flat namespace '([^']+)'", probe.stderr)
-        if not missing:
+        # Any other end of the link run but 0 or dyld's next symbol is a
+        # harness that is not built (link_placeholders).
+        missing = link_placeholders.probe(tmp / 'harness', placeholders, 'the link probe of the ROI harness')
+        if missing is None:
             return tmp / 'harness'
-        if missing.group(1) in placeholders:
-            raise RuntimeError('cannot satisfy %s' % missing.group(1))
-        placeholders.add(missing.group(1))
+        placeholders.add(missing)
     raise RuntimeError('too many unresolved symbols in the ROI')
 
 
@@ -482,7 +482,10 @@ with tempfile.TemporaryDirectory(prefix='horos-roi-archive-content-') as tmp:
     try:
         harness = build(tmp)
     except (subprocess.CalledProcessError, RuntimeError) as e:
-        detail = e.stderr.decode(errors='replace')[-3000:] if isinstance(e, subprocess.CalledProcessError) else str(e)
+        # A command that did not have its output captured wrote its messages itself, above.
+        detail = str(e) if not isinstance(e, subprocess.CalledProcessError) else \
+            e.stderr.decode(errors='replace')[-3000:] if e.stderr else \
+            'exit status %s of %s; its own messages are above' % (e.returncode, ' '.join(map(str, e.cmd))[:300])
         print('FAIL: the harness did not build:', detail)
         sys.exit(1)
     cases = run([str(harness), '--list'], text=True).stdout.split()

@@ -123,7 +123,7 @@ import Testing
             NetworkPreferences.hidesListenerErrors, NetworkPreferences.externalStoreSCP,
             NetworkPreferences.tlsListenerCertificateVerification, NetworkPreferences.tlsListenerCipherSuites,
             NetworkPreferences.moveWithoutJPEG, NetworkPreferences.dicomwebTransferCeiling, NetworkPreferences.syncsOsiriXDB,
-            NetworkPreferences.federatedSearchIncludesDefaultDatabase, NetworkPreferences.keepsDuplicateStudyInstanceUIDs,
+            NetworkPreferences.dumpsDICOMDatasets, NetworkPreferences.federatedSearchIncludesDefaultDatabase, NetworkPreferences.keepsDuplicateStudyInstanceUIDs,
             NetworkPreferences.queryPresets, NetworkPreferences.queryPresetsIncludeDICOMNodes, NetworkPreferences.savedQuerySettings,
             NetworkPreferences.autoRetrieving, NetworkPreferences.restartsAutoQueryAndRetrieve, NetworkPreferences.querySources,
             NetworkPreferences.autoQuerySources, NetworkPreferences.queryLastDateFilter, NetworkPreferences.queryPatientModeIndex,
@@ -140,6 +140,10 @@ import Testing
         }
         let empty = MemoryPreferences()
         #expect(empty[NetworkPreferences.dicomwebTransferCeiling] == 0)
+        // The dump of the datasets exchanged with a peer is asked for, never on by itself.
+        #expect(NetworkPreferences.dumpsDICOMDatasets.name == "DICOMDatasetDump")
+        #expect(empty[NetworkPreferences.dumpsDICOMDatasets] == false)
+        #expect(MemoryPreferences(["DICOMDatasetDump": true])[NetworkPreferences.dumpsDICOMDatasets])
         #expect(empty[NetworkPreferences.queryPresets] == nil)
         #expect(empty[NetworkPreferences.lastSendServer] == 0)
     }

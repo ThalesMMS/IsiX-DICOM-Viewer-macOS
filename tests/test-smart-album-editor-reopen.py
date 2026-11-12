@@ -15,11 +15,22 @@
    a "value" observer only -awakeFromNib adds. The Swift class already
    guards it; the check stays so it does not come back.
 5. O21Year, a "within" tag, was 12 where the others are negative. It is -12.
+6. The row on a study state takes its codes from the list of states the user
+   edits. It stores the state's number and shows its name, so a row on any
+   state of the list reopens on that state: the three after "validated", a
+   state the user renamed, a state the user added. A number the list does
+   not have, or no longer has, stays the user-defined item's value.
 
 The editor's sources are compiled as they are, with a double for N2Debug and
 for the tag dictionaries (the DCMTK adapter's HorosDICOMDictionaries, which the
 IsiXDICOMFile module asks for by name; DCMAttributeTag and DCMTagDictionary for
-a revision that still used the DCM framework), and put in an offscreen window. Each predicate
+a revision that still used the DCM framework), and put in an offscreen window.
+The list of states is the application's too: StudyStates.swift and the window
+that edits it, as they are, over the IsiXDatabase module's list and
+PreferencesSource.swift, with the stand-in of the process graph for the
+preferences, doubles for what applying a state reaches (the browser, its
+database, a study), and the harness's defaults kept in its own process, so the
+list the test edits is never the user's. Each predicate
 goes through the album's path: its predicateFormat parsed again, matched with
 reallyMatchForPredicate: as SmartWindowController does, set as the editor's
 value, and read back. `<git revision>` as an optional argument reads the
@@ -31,7 +42,9 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import harness_defaults  # noqa: E402
 from isix_modules import build_module, dependencies  # noqa: E402
+import process_graph_stand_in  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -62,6 +75,11 @@ if revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
 # The module's NSLog and unifiedLogv, which the view's DLog calls.
 if b'unifiedLogv' in read('Horos/Sources/O2DicomPredicateEditorView.swift'):
     SWIFT.append('UnifiedLogNSLog')
+# The study states, which the code strings of the state row read from the
+# application's one list, where the revision has it.
+uses_states = b'StudyStates.' in read('Horos/Sources/O2DicomPredicateEditorCodeStrings.swift')
+if uses_states:
+    SWIFT += ['StudyStates', 'StudyStatesEditor', 'PreferencesSource']
 # The value representations (DCM_AE...): the IsiXDICOMDataset module's, or
 # DCMAttribute.h's, the dataset model of the DCMTK adapter or of the DCM
 # framework with its tag headers, in a revision that still had it.
@@ -210,6 +228,129 @@ if uses_module:
 }
 @end''')
 
+# What StudyStates.swift names of the application beyond the list and the
+# process graph's preferences (tests/process_graph_stand_in.py). None of it is
+# reached by a row of the editor: the rows only read the list.
+state_doubles = r'''
+import AppKit
+import CoreData
+
+final class UserNotificationDelivery: Sendable {
+    func post(title: String?, description: String?, name: String?) {}
+}
+
+extension ProcessGraph {
+    var userNotifications: UserNotificationDelivery { UserNotificationDelivery() }
+    @MainActor var currentBrowser: BrowserController? { nil }
+}
+
+struct BrowserDatabaseSource: Sendable {
+    let processGraph: ProcessGraph
+    static let process = BrowserDatabaseSource(processGraph: ProcessGraph.process)
+}
+
+final class DicomDatabase: NSObject {
+    var isReadOnly: Bool { false }
+    var managedObjectContext: NSManagedObjectContext? { nil }
+    var dataBaseDirPath: String! { nil }
+}
+
+final class DicomStudy: NSManagedObject {
+    var name: String! { nil }
+    var date: Date! { nil }
+    var studyInstanceUID: String! { nil }
+    var reportURL: String! { nil }
+    func archiveValidatedReportAsDICOMPDF() {}
+    func writeReportPDF(atPath path: String?) throws {}
+}
+
+enum StudyDocumentError {
+    static func exception(of error: Error) -> NSException {
+        NSException(name: .genericException, reason: (error as NSError).localizedDescription, userInfo: nil)
+    }
+}
+
+final class BrowserController: NSWindowController {
+    var database: DicomDatabase? { nil }
+    var horos_databaseOutline: NSOutlineView? { nil }
+    func databaseSelection() -> [Any]! { nil }
+    func setDatabaseValue(_ object: Any!, item: Any!, forKey key: String!) {}
+    func databaseOpenStudy(_ item: NSManagedObject!) {}
+}
+'''
+
+# 6. The rows on a study state, where the revision has the list.
+states_main = r'''
+/// The pop-up of a row's codes: the one whose last item is the user-defined one.
+func codePopUp(_ row: O2DicomPredicateEditorView) -> NSPopUpButton? {
+    row.subviews.compactMap { $0 as? NSPopUpButton }.first { $0.itemArray.last?.title == "user-defined" }
+}
+
+/// The row on state `number`, written by the editor: it stores the number and
+/// reopens on the state, shown by `name`.
+func stateRow(_ number: Int, named name: String, _ what: String) {
+    let format = written("stateText") { $0.codeStringTag = number + 1 }
+    if format != "stateText CONTAINS \(number)" {
+        fail("\(what): the row on state \(number) writes `\(format)`")
+        return
+    }
+    guard let row = reopen(format, what).first else { return }
+    if row.codeStringTag != number + 1 { fail("\(what): `\(format)` reopens on item \(row.codeStringTag), not \(number + 1)") }
+    if valueField(row) != nil { fail("\(what): `\(format)` reopens with a user-defined value field") }
+    let shown = codePopUp(row)?.selectedItem?.title
+    if shown != name { fail("\(what): `\(format)` reopens showing \(shown ?? "no state"), not \(name)") }
+}
+
+/// A number the list does not have: the user-defined item, with the number.
+func numberOutsideTheStates(_ number: Int, _ what: String) {
+    let format = "stateText CONTAINS \(number)"
+    guard let row = reopen(format, what).first else { return }
+    let count = StudyStates.names.count
+    if row.codeStringTag != count + 1 { fail("\(what): `\(format)` reopens on item \(row.codeStringTag), not user-defined (\(count + 1))") }
+    if valueField(row)?.stringValue != "\(number)" { fail("\(what): `\(format)` reopens with the value field showing \(valueField(row)?.stringValue ?? "nothing")") }
+}
+
+// The list of a new installation: the five states every version has had and
+// the three after them. No catalog is bundled here, so a name is its key.
+let standardNames = StudyStates.names
+if StudyStates.list != .standard || standardNames != StudyStateList.builtInNames || standardNames.count != 8
+    || Array(standardNames[5...]) != ["printed", "distributed", "archived"] {
+    fail("the list of a new installation is \(standardNames)")
+}
+if stateCount != standardNames.count { fail("the state row offers \(stateCount) states of \(standardNames.count)") }
+for (number, name) in standardNames.enumerated() {
+    stateRow(number, named: name, "a state of the list")
+}
+numberOutsideTheStates(9, "a state the list does not have yet")
+
+// The user renames two states and adds two, naming the second: the numbers
+// the albums store are the same, the rows show the names as they are now.
+var edited = StudyStates.list
+edited.set(name: "second reading", at: 2)
+edited.set(name: "sent to the clinic", at: 6)
+edited.append()
+edited.append()
+edited.set(name: "second opinion", at: 9)
+StudyStates.save(edited)
+if StudyStates.names.count != 10 { fail("the edited list has \(StudyStates.names.count) states") }
+stateRow(2, named: "second reading", "a renamed state")
+stateRow(6, named: "sent to the clinic", "a renamed state after \"validated\"")
+stateRow(7, named: "archived", "a state beside the renamed ones")
+stateRow(8, named: "State 8", "a state the user added")
+stateRow(9, named: "second opinion", "a state the user added and named")
+numberOutsideTheStates(10, "the number after the edited list")
+
+// The user removes the last state: the album on it keeps its number.
+edited.removeLast()
+StudyStates.save(edited)
+numberOutsideTheStates(9, "a state the user removed")
+stateRow(8, named: "State 8", "the last state left")
+
+StudyStates.save(.standard)
+if StudyStates.list != .standard { fail("the list is not put back as it was") }
+stateRow(6, named: "distributed", "a state whose name was put back")
+'''
+
 main = r'''
 import AppKit
 
@@ -295,7 +436,10 @@ func written(_ keyPath: String, _ set: (O2DicomPredicateEditorView) -> Void) -> 
 let modalityCount = O2DicomPredicateEditorCodeStrings.codeStrings(for: O2DicomPredicateEditorView(frame: .zero).tag(withKeyPath: "modality")).count
 let userDefined = written("modality") { $0.codeStringTag = modalityCount + 1; $0.stringValue = "XYZ" }
 if userDefined != "modality CONTAINS \"XYZ\"" { fail("the user-defined modality row writes `\(userDefined)`") }
-for (format, shown) in [(userDefined, "XYZ"), ("modality CONTAINS 5", "5"), ("stateText CONTAINS 7", "7")] {
+// The states are numbered from 0, so their count is the first number the list
+// does not have: 7 was one while the states were five.
+let stateCount = O2DicomPredicateEditorCodeStrings.codeStrings(for: O2DicomPredicateEditorView(frame: .zero).tag(withKeyPath: "stateText")).count
+for (format, shown) in [(userDefined, "XYZ"), ("modality CONTAINS 5", "5"), ("stateText CONTAINS \(stateCount)", "\(stateCount)")] {
     let tag = format.hasPrefix("modality") ? "modality" : "stateText"
     let count = O2DicomPredicateEditorCodeStrings.codeStrings(for: O2DicomPredicateEditorView(frame: .zero).tag(withKeyPath: tag)).count
     guard let row = reopen(format, "a code outside the list").first else { continue }
@@ -377,6 +521,11 @@ with tempfile.TemporaryDirectory(prefix='horos-smart-album-reopen-') as tmp:
     # The row's tag, in Swift: attributeTag, formerly dcmAttributeTag.
     swift_tag = ('attributeTag' if b'public dynamic var attributeTag' in read('Horos/Sources/O2DicomPredicateEditorView.swift')
                  else 'dcmAttributeTag')
+    if uses_states:
+        # The list the harness edits stays in its own process.
+        main = (harness_defaults.SWIFT + 'import IsiXDatabase\n' + main).replace('print("done")\n', states_main + 'print("done")\n')
+        (p / 'StateDoubles.swift').write_text(process_graph_stand_in.SOURCE + state_doubles)
+        sources.append(str(p / 'StateDoubles.swift'))
     (p / 'main.swift').write_text(main.replace('row.dcmAttributeTag', 'row.' + swift_tag))
 
     modules = []
@@ -385,6 +534,10 @@ with tempfile.TemporaryDirectory(prefix='horos-smart-album-reopen-') as tmp:
         build_module('IsiXDICOMFile', p / 'modules', ['-I', str(p / 'modules')])
         if uses_dataset_module:
             build_module('IsiXDICOMDataset', p / 'modules', ['-I', str(p / 'modules')])
+        modules = ['-I', str(p / 'modules')]
+    if uses_states:
+        # The list of states, and the preference it is kept in.
+        build_module('IsiXDatabase', p / 'modules')
         modules = ['-I', str(p / 'modules')]
     # The app's NSLog writes through IsiXLogging, where the revision has it.
     uses_logging = 'UnifiedLogNSLog' in SWIFT and b'import IsiXLogging' in read('Horos/Sources/UnifiedLogNSLog.swift')
@@ -409,6 +562,8 @@ with tempfile.TemporaryDirectory(prefix='horos-smart-album-reopen-') as tmp:
                                    *(f'-l{each}' for each in dependencies('IsiXDICOMFile')[::-1])] if uses_module else []),
                                 *(['-lIsiXDICOMDataset'] if uses_dataset_module else []),
                                 *(['-L', str(p / 'modules'), '-lIsiXLogging'] if uses_logging else []),
+                                *(['-L', str(p / 'modules'), '-lIsiXDatabase',
+                                   *(f'-l{each}' for each in dependencies('IsiXDatabase')[::-1])] if uses_states else []),
                                 '-o', str(p / 'test')],
                                capture_output=True, text=True)
         if build.returncode:
@@ -429,4 +584,5 @@ for failure in failures:
 if failures:
     sys.exit(1)
 print('PASS: codes outside the list, "is <date>" and "within the last year" rows reopen as written; '
-      'each multiplicity formatter takes its own mono formatter; a code-made editor is released cleanly')
+      + ('rows on a study state reopen on the state, renamed, added or removed; ' if uses_states else '')
+      + 'each multiplicity formatter takes its own mono formatter; a code-made editor is released cleanly')

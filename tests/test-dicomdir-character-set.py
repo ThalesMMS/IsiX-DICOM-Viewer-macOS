@@ -26,7 +26,6 @@ under the name it had there, the negative control. Exit 2 without a Python with 
 (HOROS_PYTHON or the local venvs).
 """
 import json
-import os
 import re
 import subprocess
 import sys
@@ -37,6 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import isix_modules  # noqa: E402
 import process_graph_stand_in  # noqa: E402  - the scan reads the preferences through the process graph
 from dcmtk_build import ROOT, dcmtk_flags  # noqa: E402
+from python_with import interpreter_or_skip  # noqa: E402
 
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 SCAN = 'Horos/Sources/DicomdirReader.swift'
@@ -46,22 +46,7 @@ ADAPTERS = ROOT / 'Horos/Sources/Adapters/DCMTK'
 flags = dcmtk_flags('dcmnet', 'dcmjpeg', 'ijg8', 'ijg12', 'ijg16', 'dcmimage', 'dcmimgle')
 
 
-def find_python():
-    candidates = [os.environ.get('HOROS_PYTHON'), str(ROOT / 'local-validation/venv/bin/python'),
-                  str(ROOT.parent.parent.parent / 'local-validation/net-venv/bin/python')
-                  if ROOT.parent.name == 'worktrees' else None,
-                  str(ROOT / 'local-validation/net-venv/bin/python'), sys.executable]
-    for candidate in filter(None, candidates):
-        if Path(candidate).exists() and subprocess.run([candidate, '-c', 'import pydicom'],
-                                                       capture_output=True).returncode == 0:
-            return candidate
-    return None
-
-
-python = find_python()
-if python is None:
-    print('skipped: the medium needs a Python with pydicom (HOROS_PYTHON)')
-    raise SystemExit(2)
+python = interpreter_or_skip('import pydicom', need='the medium needs', packages="'pydicom>=3,<4'")
 
 GENERATOR = r'''
 import json, sys

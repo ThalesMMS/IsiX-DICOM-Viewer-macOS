@@ -69,8 +69,11 @@ else:
             # Top-level statements are only allowed in a file called main.swift.
             (Path(directory) / 'main.swift').write_text(DRIVER)
             binary = Path(directory) / 'urlimport'
+            # LogText: what the report tells the log of each URL that brought nothing.
             built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-o', str(binary),
-                                    str(report), str(Path(directory) / 'main.swift')],
+                                    str(report), str(root / 'Modules/IsiXLogging/Sources/LogText.swift'),
+                                    str(root / 'Modules/IsiXLogging/Sources/UnifiedLog.swift'),
+                                    str(Path(directory) / 'main.swift')],
                                    capture_output=True, text=True)
             if built.returncode != 0:
                 failures.append('the report does not compile:\n%s' % built.stderr[-1500:])

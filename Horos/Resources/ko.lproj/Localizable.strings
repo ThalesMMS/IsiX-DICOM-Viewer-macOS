@@ -4947,3 +4947,17 @@
 "A state keeps its number: a new state goes at the end, and only the last one can be removed. In the database list, Option and a digit give the selected studies the state of that number." = "상태는 번호를 유지합니다. 새 상태는 맨 끝에 추가되며 마지막 상태만 제거할 수 있습니다. 데이터베이스 목록에서 Option과 숫자를 누르면 선택한 검사에 해당 번호의 상태가 지정됩니다.";
 "No." = "번호";
 "When Applied" = "적용 시";
+"Export as Synthetic DWI…" = "합성 DWI로 내보내기…";
+"Synthetic DWI" = "합성 DWI";
+"Computes the diffusion-weighted image at a b-value that was not acquired, from the b-values of this series, and adds it to the study as a new series." = "이 시리즈의 b값으로부터 촬영되지 않은 b값의 확산 강조 영상을 계산하여 새 시리즈로 검사에 추가합니다.";
+"b-values of the 4D frames (s/mm²):" = "4D 프레임의 b값 (s/mm²):";
+"b-values of the series (s/mm²):" = "시리즈의 b값 (s/mm²):";
+"Synthetic b-value (s/mm²):" = "합성 b값 (s/mm²):";
+"Enter one b-value for each of the %ld 4D frames, separated by commas, for example: 0, 50, 800." = "%ld개의 4D 프레임 각각에 대한 b값을 쉼표로 구분하여 입력하십시오. 예: 0, 50, 800";
+"Enter at least two different b-values." = "서로 다른 b값을 두 개 이상 입력하십시오.";
+"Enter the b-value to compute, a number of 0 or more, for example 1600." = "계산할 b값을 0 이상의 숫자로 입력하십시오. 예: 1600";
+"Enter a name for the new series." = "새 시리즈의 이름을 입력하십시오.";
+"Synthetic DWI needs a 2D viewer showing a diffusion series: either opened in 4D, with one b-value per frame, or a single series that holds two or more b-values at each position." = "합성 DWI에는 확산 시리즈를 표시하는 2D 뷰어가 필요합니다. 프레임마다 b값이 하나씩 있는 4D로 연 시리즈이거나, 각 위치에 두 개 이상의 b값이 있는 단일 시리즈여야 합니다.";
+"Synthetic DWI needs images that all have pixels and the same width and height." = "합성 DWI에는 모든 이미지에 픽셀이 있고 너비와 높이가 같아야 합니다.";
+"Synthetic DWI needs the original files of the series." = "합성 DWI에는 시리즈의 원본 파일이 필요합니다.";
+"The synthetic DWI could not be written." = "합성 DWI를 기록할 수 없습니다.";

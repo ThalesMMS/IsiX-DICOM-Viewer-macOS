@@ -122,14 +122,30 @@ public final class HorosPlatformPolicy: NSObject {
     /// moment the deployment target rises past the release that adopted them.
     public static let swiftRuntimeInOSSince = Version(major: 10, minor: 14, patch: 4)
 
-    /// Whether a build for `productMinimum` still needs the Swift runtime inside
-    /// the bundle.
+    /// The toolchain's back-deployment libraries: each one carries a part of the
+    /// standard library added after 10.14.4, for the systems older than the
+    /// release that has it in the macOS itself.
     ///
-    /// At macOS 15 it never does, so any `libswift*.dylib` found in a built
-    /// bundle is an orphan left by an earlier build: an incremental products
-    /// directory keeps what the current build no longer produces. Such an
-    /// orphan turned up after this policy was adopted — it was also unsigned,
-    /// which is enough on its own to fail notarisation.
+    /// `Span` and its family are in macOS since 26.0. Code built for an older
+    /// minimum that uses them — the SwiftNIO and swift-collections packages
+    /// do — loads `@rpath/libswiftCompatibilitySpan.dylib`, a strong load
+    /// command that the macOS satisfies from `/usr/lib/swift` from 26 on and
+    /// that only the copy in `Contents/Frameworks` satisfies before it. Without
+    /// that copy the application does not launch on macOS 15.
+    public static let swiftBackDeploymentLibraryInOSSince: [String: Version] = [
+        "libswiftCompatibilitySpan.dylib": Version(major: 26, minor: 0),
+    ]
+
+    /// Whether a build for `productMinimum` still needs the Swift runtime
+    /// itself (`libswiftCore.dylib` and the libraries beside it) inside the
+    /// bundle.
+    ///
+    /// At macOS 15 it never does, so one of those found in a built bundle is an
+    /// orphan left by an earlier build: an incremental products directory
+    /// keeps what the current build no longer produces. Such an orphan turned
+    /// up after this policy was adopted — it was also unsigned, which is
+    /// enough on its own to fail notarisation. The back-deployment libraries
+    /// are judged one by one, by `bundleMayEmbedSwiftRuntime(named:productMinimum:)`.
     public static func bundleMayEmbedSwiftRuntime(productMinimum: Version) -> Bool {
         productMinimum < swiftRuntimeInOSSince
     }
@@ -138,6 +154,22 @@ public final class HorosPlatformPolicy: NSObject {
     public static func bundleMayEmbedSwiftRuntime(productMinimum: String) -> Bool {
         guard let version = parseVersion(productMinimum) else { return false }
         return bundleMayEmbedSwiftRuntime(productMinimum: version)
+    }
+
+    /// Whether a build for `productMinimum` may carry the Swift library `name`
+    /// in its bundle: a back-deployment library while the minimum is below the
+    /// macOS that has it, the runtime itself while the minimum is below
+    /// 10.14.4, and nothing that is not a Swift library at all. A library the
+    /// minimum allows is still an orphan when nothing in the bundle loads it;
+    /// that is for whoever reads the bundle to see.
+    public static func bundleMayEmbedSwiftRuntime(named name: String, productMinimum: Version) -> Bool {
+        guard embeddedFileIsSwiftRuntime(name) else { return false }
+        return productMinimum < (swiftBackDeploymentLibraryInOSSince[name] ?? swiftRuntimeInOSSince)
+    }
+
+    public static func bundleMayEmbedSwiftRuntime(named name: String, productMinimum: String) -> Bool {
+        guard let version = parseVersion(productMinimum) else { return false }
+        return bundleMayEmbedSwiftRuntime(named: name, productMinimum: version)
     }
 
     /// The name of a Mach-O inside the bundle is enough to tell: the Swift

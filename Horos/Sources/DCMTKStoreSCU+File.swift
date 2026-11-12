@@ -57,20 +57,24 @@ struct StoreFileSender {
         // A message ID for each file, sent or not, as before.
         let messageID = association.nextMessageID()
         guard let copyPath = temporaryFiles.nextPath() else {
-            throw StoreSendFailure(name: NSExceptionName.genericException.rawValue,
-                                   reason: "DICOM send temporary path is too long.", recorded: false)
+            throw StoreSendFailure(category: .generic, reason: "DICOM send temporary path is too long.", recorded: false)
         }
 
+        // What this writes to the log and to the standard error tells the file
+        // by the shape of its name: a file sent from where its owner keeps it
+        // has the name and the folders the owner gave it, which may be the
+        // patient's. The report keeps the path, for what the user is shown.
+        let loggedName = StoreReport.logName(ofFileAtPath: path)
         let file: IsiXDCMTKStoreFile
         do {
             file = try IsiXDCMTKStoreFile(path: path)
         } catch {
-            storeSCUDiagnostic("Bad DICOM file: \(path): \(error.conditionText)")
+            storeSCUDiagnostic("Bad DICOM file: \(loggedName): \(error.conditionText)")
             report.recordUnreadable(path: path, reason: error.conditionText)
             return error
         }
         guard var sopClass = file.sopClassUID, file.sopInstanceUID != nil else {
-            storeSCUDiagnostic("No SOP Class & Instance UIDs in file: \(path)")
+            storeSCUDiagnostic("No SOP Class & Instance UIDs in file: \(loggedName)")
             // DIMSE_BADDATA printed as "DIMSE Inappropriate data for message",
             // which a user saw and could do nothing with.
             report.recordWithoutIdentity(path: path)
@@ -94,7 +98,7 @@ struct StoreFileSender {
         case .none:
             break
         case .decompress:
-            NSLog("SEND - decompress: %@", (path as NSString).lastPathComponent)
+            NSLog("SEND - decompress: %@", loggedName)
             converted = file.writeCopy(toPath: copyPath, transferSyntax: TransferSyntaxUID.explicitLittleEndian, quality: 0)
         case .compress(let warns):
             if warns {
@@ -108,7 +112,7 @@ struct StoreFileSender {
         var sent = file
         if converted {
             guard let copy = try? IsiXDCMTKStoreFile(path: copyPath), let copiedClass = copy.sopClassUID, copy.sopInstanceUID != nil else {
-                storeSCUDiagnostic("No SOP Class & Instance UIDs in file: \(copyPath)")
+                storeSCUDiagnostic("No SOP Class & Instance UIDs in the converted copy of file: \(loggedName)")
                 report.recordWithoutIdentity(path: path)
                 return IsiXDCMTKError.error(for: .illegalParameter)
             }

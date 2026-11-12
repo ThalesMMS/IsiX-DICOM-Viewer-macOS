@@ -72,6 +72,7 @@ final class StoreAssociation {
         parameters.dimseTimeout = timeout
         parameters.connectionTimeout = Int(Int32(truncatingIfNeeded: preferences[NetworkPreferences.dicomConnectionTimeout]))
         parameters.reportsFailures = true
+        parameters.dumpsDatasets = preferences[NetworkPreferences.dumpsDICOMDatasets]
         parameters.consoleApplication = "storescu"
 
         switch StoragePresentationPlan.contexts(preferredTransferSyntax: network.transferSyntax, required: classes,
@@ -105,12 +106,12 @@ final class StoreAssociation {
             let description = refused.conditionDescription
             let condition = refused.conditionKind == .associationRejected
                 ? "Association Rejected \(description)" : "Association Request Failed \(description)"
-            throw StoreSendFailure(name: StoreSendFailure.store,
+            throw StoreSendFailure(category: .store,
                                    reason: NetworkDiagnosis.explainFailure(toHost: store.hostname ?? "", port: Int(store.port), condition: condition))
         }
         if made.acceptedPresentationContextCount == 0 {
             storeSCUDiagnostic("No Acceptable Presentation Contexts")
-            throw StoreSendFailure(name: StoreSendFailure.store, reason: "No acceptable presentation contexts")
+            throw StoreSendFailure(category: .store, reason: "No acceptable presentation contexts")
         }
         return made
     }
@@ -148,18 +149,18 @@ final class StoreAssociation {
     private static func setUpFailure(_ error: any Error) -> StoreSendFailure {
         let info = (error as NSError).userInfo
         if (info[IsiXDCMTKPeerAddressKey] as? NSNumber)?.boolValue == true {
-            return StoreSendFailure(name: StoreSendFailure.network, reason: error.conditionText)
+            return StoreSendFailure(category: .network, reason: error.conditionText)
         }
         let secure = (info[IsiXDCMTKSecureTransportKey] as? NSNumber)?.boolValue == true
-        let name = secure ? StoreSendFailure.secureStore : StoreSendFailure.store
+        let category: StoreSendFailure.Category = secure ? .secureStore : .store
         guard let operation = info[IsiXDCMTKOperationKey] as? String else {
-            return StoreSendFailure(name: name, reason: error.localizedDescription)
+            return StoreSendFailure(category: category, reason: error.localizedDescription)
         }
         let description = error.conditionDescription
         switch operation {
-        case "ASC_setTransportLayer": return StoreSendFailure(name: name, reason: "ASC_setTransportLayer - \(description)")
-        case "addPresentationContext": return StoreSendFailure(name: name, reason: "addStoragePresentationContexts \(description)")
-        default: return StoreSendFailure(name: name, reason: "\(operation) \(description)")
+        case "ASC_setTransportLayer": return StoreSendFailure(category: category, reason: "ASC_setTransportLayer - \(description)")
+        case "addPresentationContext": return StoreSendFailure(category: category, reason: "addStoragePresentationContexts \(description)")
+        default: return StoreSendFailure(category: category, reason: "\(operation) \(description)")
         }
     }
 
@@ -172,14 +173,14 @@ final class StoreAssociation {
             if let failed = association.releaseAssociation() {
                 storeSCUDiagnostic("Association Release Failed:")
                 FileHandle.standardError.write(Data("\(failed.conditionDescription)\n".utf8))
-                throw StoreSendFailure(name: StoreSendFailure.store, reason: "Association Release Failed \(failed.conditionDescription)")
+                throw StoreSendFailure(category: .store, reason: "Association Release Failed \(failed.conditionDescription)")
             }
             return
         }
         switch condition.conditionKind {
         case .peerRequestedRelease:
             storeSCUDiagnostic("Protocol Error: peer requested release (Aborting)")
-            let failure = StoreSendFailure(name: StoreSendFailure.store,
+            let failure = StoreSendFailure(category: .store,
                                            reason: "Protocol Error: peer requested release (Aborting) \(condition.conditionDescription)")
             abort(association)
             throw failure
@@ -188,7 +189,7 @@ final class StoreAssociation {
         default:
             storeSCUDiagnostic("SCU Failed:")
             FileHandle.standardError.write(Data("\(condition.conditionDescription)\n".utf8))
-            let failure = StoreSendFailure(name: StoreSendFailure.store, reason: "SCU Failed \(condition.conditionDescription)")
+            let failure = StoreSendFailure(category: .store, reason: "SCU Failed \(condition.conditionDescription)")
             abort(association)
             throw failure
         }
@@ -208,7 +209,7 @@ final class StoreAssociation {
         func destroy() {
             if let failed = association?.invalidate() {
                 let operation = (failed as NSError).userInfo[IsiXDCMTKOperationKey] as? String ?? "ASC_destroyAssociation"
-                failure = StoreSendFailure(name: StoreSendFailure.store, reason: "\(operation) \(failed.conditionDescription)")
+                failure = StoreSendFailure(category: .store, reason: "\(operation) \(failed.conditionDescription)")
             }
             association = nil
         }

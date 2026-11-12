@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import isix_modules
 
 root = Path(__file__).resolve().parents[1]
 source = (root / 'Horos/Sources/QueryController+Results.swift').read_text(encoding='utf-8')
@@ -167,7 +168,8 @@ if not failures:
         (path / 'Harness.swift').write_text(harness)
         (path / 'main.swift').write_text(DRIVER)
         built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-swift-version', '6',
-                                str(path / 'Harness.swift'), str(path / 'main.swift'), '-o', str(path / 'test')],
+                                str(path / 'Harness.swift'), *isix_modules.log_text_sources(), str(path / 'main.swift'),
+                                '-o', str(path / 'test')],
                                capture_output=True, text=True, timeout=300)
         if built.returncode:
             failures.append('the Swift refresh methods do not compile in the harness:\n' + built.stderr[-4000:])

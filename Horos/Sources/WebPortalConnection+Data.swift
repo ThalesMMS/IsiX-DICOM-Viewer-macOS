@@ -645,7 +645,7 @@ extension WebPortalConnection {
                               filesToSend: todo?.value(forKey: "Files") as? [Any],
                               transferSyntax: objcIntValue(todo?.object(forKey: "TransferSyntax")),
                               compression: 1.0,
-                              extraParameters: objcDictionaryWithObject(NSDictionary.self, self.portal?.dicomDatabase, forKey: "DicomDatabase") as? [AnyHashable: Any]).run(nil)
+                              extraParameters: objcDictionaryWithObject(NSDictionary.self, self.portal?.dicomDatabase, forKey: "DicomDatabase") as? [AnyHashable: Any]).sendLoggingFailure { NSLog("Error: [WebServiceConnection sendImagesToDicomNodeThread:] %@", $0) }
             }, catch: { e in
                 NSLog("Error: [WebServiceConnection sendImagesToDicomNodeThread:] %@", e)
             })

@@ -13,7 +13,7 @@ assert not textured, 'textured window masks remain: '+', '.join(n.name for n in 
 bordered=[n for n in nibs if b'<contentBorderThickness' in n.read_bytes()]
 assert not bordered, 'explicit content borders remain: '+', '.join(str(n) for n in bordered)
 if not (root/'Horos/Resources/en.lproj/Viewer.xib').exists():
-    sys.exit(2)
+    print('skipped: needs Horos/Resources/en.lproj/Viewer.xib to compile'); sys.exit(2)
 try:
     subprocess.run(['xcrun','--find','ibtool'],check=True,capture_output=True)
 except (subprocess.CalledProcessError,FileNotFoundError):

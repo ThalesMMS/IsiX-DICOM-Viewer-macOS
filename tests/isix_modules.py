@@ -67,6 +67,15 @@ def build_module(name, folder, extra=()):
     return library
 
 
+def log_text_sources():
+    """The sources of `LogText`, what a log line is told of an error, an
+    exception, a URL or a text that is not the application's own. The app's
+    sources name it through Horos/Sources/UnifiedLogNSLog.swift, which takes it
+    from IsiXLogging: a test that compiles app sources without that file
+    compiles these two with them."""
+    return [str(ROOT / 'Modules/IsiXLogging/Sources' / name) for name in ('LogText.swift', 'UnifiedLog.swift')]
+
+
 def module_flags(name, folder, extra=()):
     """swiftc flags that import and link `name`, and the modules it depends on."""
     build_module(name, folder, extra)
@@ -125,10 +134,16 @@ def module_names():
 
 
 def objc_class_names(name):
-    """The Objective-C names of the classes module `name` exposes."""
+    """The Objective-C names of the classes module `name` exposes: the IsiX
+    names, and the name a class declaration is given whatever it is (the
+    dataset classes keep the names DCM.framework gave them: DCMObject,
+    DCMAttributeTag). An @objc name on a method, a property or an enumeration
+    case is not a class."""
     names = set()
     for path in module_sources(name):
-        names.update(re.findall(r'@objc\((IsiX\w+)\)', path.read_text(encoding='utf-8')))
+        text = path.read_text(encoding='utf-8')
+        names.update(re.findall(r'@objc\((IsiX\w+)\)', text))
+        names.update(re.findall(r'^@objc\((\w+)\)\s*\n(?:(?:public|open|final)\s+)*class\s', text, re.M))
     return names
 
 

@@ -54,8 +54,16 @@ NS_ASSUME_NONNULL_BEGIN
 @property NSInteger connectionTimeout;
 /// 0: DCMTK's default.
 @property unsigned long maxReceivePDULength;
-/// Dumps the requests, responses and negotiation to the standard output.
+/// Prints the progress of the association, its negotiation and the command
+/// of each response to the standard output: nothing of a dataset.
 @property BOOL verbose;
+/// Also prints the datasets exchanged to the standard output: the request
+/// identifier, the response identifiers and the status details. They carry
+/// the values of the keys asked (a patient's name, ID, birth date, an
+/// accession number) and what the peer answered, and the standard output of
+/// an application started from a terminal or by a script is on screen or in
+/// a transcript. NO unless set; for a diagnosis that asks for it.
+@property BOOL dumpsDatasets;
 /// Prints the conditions the association fails on, and a rejection's
 /// reasons, to the standard error even when not verbose, as a send does.
 @property BOOL reportsFailures;

@@ -247,7 +247,7 @@ final class DICOMListenerController {
             running.withLock { if tls { $0.tls = listener } else { $0.plain = listener } }
             listener.run()
         }) {
-            _N2LogExceptionImpl(exception, true, tls ? "DICOMListenerController.serve (TLS)" : "DICOMListenerController.serve")
+            LogText.log(exception, stack: true, in: tls ? "DICOMListenerController.serve (TLS)" : "DICOMListenerController.serve")
             ListenerStatus.setNotListening(reason: ListenerStatus.internalErrorReason(exception.reason), tls: tls)
         }
 

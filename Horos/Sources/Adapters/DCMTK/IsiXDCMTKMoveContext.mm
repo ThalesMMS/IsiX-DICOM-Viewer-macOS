@@ -257,7 +257,7 @@ void IsiXDCMTKMoveContext::handleCallback(
     
     if (responseCount == 1) {
         /* start the database search */
-	if (DCM_dcmnetLogger.isEnabledFor(OFLogger::INFO_LOG_LEVEL)) {
+	if (dumpsDatasets) {
 	    printf("Move SCP Request Identifiers:\n");
 	    requestIdentifiers->print(COUT);
         }
@@ -339,6 +339,8 @@ void IsiXDCMTKMoveContext::handleCallback(
     }
     if (DCM_dcmnetLogger.isEnabledFor(OFLogger::INFO_LOG_LEVEL)) {
         DIMSE_printCMoveRSP(stdout, response);
+    }
+    if (dumpsDatasets) {
         if (DICOM_PENDING_STATUS(dbStatus.status()) && (*responseIdentifiers != NULL)) {
             printf("Move SCP Response Identifiers:\n");
             (*responseIdentifiers)->print(COUT);
@@ -441,7 +443,7 @@ OFCondition IsiXDCMTKMoveContext::performMoveSubOp(DIC_UI sopClass, DIC_UI sopIn
 	HorosDumpDIMSECondition(cond);
     }
     if (stDetail != NULL) {
-        if (DCM_dcmnetLogger.isEnabledFor(OFLogger::INFO_LOG_LEVEL)) {
+        if (dumpsDatasets) {
 	    printf("  Status Detail:\n");
 	    stDetail->print(COUT);
 	}

@@ -68,6 +68,20 @@ public final class URLImportReport: NSObject {
         return refused.isEmpty && failed.isEmpty
     }
 
+    /// The outcome as the log may write it: how many of each, and where each
+    /// one that brought nothing was asked for, by its origin and path. The
+    /// summary is for the person who reads it: it quotes a reason, which can
+    /// be the description the system has of an error, and a URL that could
+    /// not be read is in it whole, query string and all.
+    @objc public var logSummary: String {
+        var parts = ["\(indexed.count) added to the database", "\(expanded.count) handed to the import folder",
+                     "\(failed.count) not downloaded", "\(refused.count) not something this database can take"]
+        let lost = (failed + refused).map { $0.0 }
+        parts += lost.prefix(5).map { LogText.url(string: $0) }
+        if lost.count > 5 { parts.append("and \(lost.count - 5) more") }
+        return parts.joined(separator: "; ")
+    }
+
     /// One sentence for the alert, naming what went wrong rather than only that
     /// something did, in the language of the interface.
     ///

@@ -169,7 +169,7 @@ class ImportDatabase: N2ManagedDatabase {
 
     /// What findStudy and indexImages do with the study list.
     func indexFile(_ curDict: NSMutableDictionary?, cursor: DicomDatabaseImportCursor, added: DicomDatabaseImportBatch,
-                   studiesArray: NSMutableArray, studiesArrayStudyInstanceUID: NSMutableArray, modifiedStudiesArray: NSMutableArray,
+                   studiesArray: NSMutableArray, studiesArrayStudyInstanceUID: any ImportStudyUIDList, modifiedStudiesArray: NSMutableArray,
                    defaultDate: Date, today: Date, dataDirPath: String?, reportsDirPath: String?, errorsDirPath: String?,
                    settings: DicomDatabaseImportSettings, rereadExistingItems: Bool, generatedByOsiriX: Bool, importedFiles: Bool,
                    preparedReportPath: inout String?) {
@@ -178,7 +178,7 @@ class ImportDatabase: N2ManagedDatabase {
             return
         }
         let uid = curDict!.object(forKey: "studyID") as! String
-        let index = studiesArrayStudyInstanceUID.index(of: uid)
+        let index = studiesArrayStudyInstanceUID.place(of: uid)
         let study: DicomStudy
         if index != NSNotFound {
             study = studiesArray.object(at: index) as! DicomStudy
@@ -186,7 +186,7 @@ class ImportDatabase: N2ManagedDatabase {
             study = NSEntityDescription.insertNewObject(forEntityName: "Study", into: context) as! DicomStudy
             study.studyInstanceUID = uid
             studiesArray.add(study)
-            studiesArrayStudyInstanceUID.add(uid)
+            studiesArrayStudyInstanceUID.remember(uid)
         }
         if !modifiedStudiesArray.contains(study) { modifiedStudiesArray.add(study) }
         let series = NSEntityDescription.insertNewObject(forEntityName: "Series", into: context)

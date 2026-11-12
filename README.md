@@ -3,7 +3,7 @@
 [![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.4.0/IsiX-DICOM-Viewer-5.4.0-Apple-Silicon-Macs.zip)
 [![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v5.4.0/IsiX-DICOM-Viewer-5.4.0-Intel-Macs.zip)
 
-**6.0.0-beta5 prerelease:** [Apple Silicon](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0-beta5/IsiX-DICOM-Viewer-6.0.0-beta5-Apple-Silicon-Macs.zip) · [Intel](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0-beta5/IsiX-DICOM-Viewer-6.0.0-beta5-Intel-Macs.zip) · [IsiXPluginKit SDK](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0-beta5/IsiXPluginKit-SDK-6.0.0-beta5.zip).
+**6.0.0-beta6 prerelease:** [Apple Silicon](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0-beta6/IsiX-DICOM-Viewer-6.0.0-beta6-Apple-Silicon-Macs.zip) · [Intel](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0-beta6/IsiX-DICOM-Viewer-6.0.0-beta6-Intel-Macs.zip) · [IsiXPluginKit SDK](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.0-beta6/IsiXPluginKit-SDK-6.0.0-beta6.zip).
 This beta supports IsiXPluginKit v1 and compatible Horos and OsiriX plugins built for the running architecture.
 The download buttons above point to the stable v5.4.0 release.
 

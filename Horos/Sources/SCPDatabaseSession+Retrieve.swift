@@ -98,10 +98,13 @@ extension SCPDatabaseSession {
     private func prepareRetrieve(_ identifier: IsiXDCMTKDataset, elements: [SCPIdentifierElement]) {
         let level = Self.level(of: identifier)
         let predicates = fetchPredicates(identifier, elements: elements, level: level)
-        func failed(_ description: String) {
+        // The condition is made of the values the peer asked for, a patient's
+        // identifier among them: the log is told the level and the keys.
+        let asked = elements.map { $0.name }.joined(separator: ", ")
+        func failed(_ what: String) {
             NSLog("prepareMoveForDataSet exception")
-            NSLog("%@", description)
-            NSLog("%@", predicates.predicate?.description ?? "(null)")
+            NSLog("%@", what)
+            NSLog("%@ level, keys %@", level ?? "(null)", asked)
         }
         guard let queryLevel = level.flatMap(SCPQueryLevel.init(rawValue:)) else {
             failed("no entity for the level \(level ?? "(null)")")
@@ -117,7 +120,8 @@ extension SCPDatabaseSession {
                 return true
             }.records
         } catch LocalMetadataQueryError.raised(let description) {
-            failed(description)
+            // What the database raised quotes the condition.
+            failed("the database raised " + LogText.shape(of: description))
             return
         } catch {
             // No database, or a read that failed: nothing to send.

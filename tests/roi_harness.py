@@ -35,6 +35,7 @@ sys.path.insert(0, str(ROOT / 'tools'))
 import object_probe  # noqa: E402
 sys.path.insert(0, str(ROOT / 'tests'))
 import isix_modules  # noqa: E402
+import link_placeholders  # noqa: E402
 import horos_reader  # noqa: E402
 import process_graph_stand_in  # noqa: E402
 
@@ -855,24 +856,23 @@ def build(revision, folder, probe_source, *, config=None, pix_flags=(), extra_sw
 
     placeholders = set()
     for _ in range(300):
-        assembly = ''.join('.globl %s\n%s: .quad 0\n' % (s, s) for s in sorted(placeholders))
-        (folder / 'placeholders.s').write_text('.data\n' + assembly)
+        (folder / 'placeholders.s').write_text(link_placeholders.assembly(placeholders))
         run(['xcrun', 'clang', '-c', str(folder / 'placeholders.s'), '-o', str(folder / 'placeholders.o')])
         run(['xcrun', 'swiftc', '-parse-as-library', '-swift-version', '5', '-module-name', 'Probe', '-suppress-warnings',
              *optimization, *map(str, extra_swift), *map(str, objects + swift_objects + stand_ins), str(folder / 'stubs.o'), str(folder / 'placeholders.o'),
              *link, '-Xlinker', '-undefined', '-Xlinker', 'dynamic_lookup', '-lc++',
              '-framework', 'Cocoa', '-framework', 'Accelerate', '-framework', 'AVFoundation', '-framework', 'CoreMedia',
              '-framework', 'QuartzCore', '-o', str(folder / 'harness')])
-        probe = subprocess.run([str(folder / 'harness'), '--probe-link'], capture_output=True, text=True, timeout=60)
-        missing = re.search(r"symbol not found in flat namespace '([^']+)'", probe.stderr)
-        if not missing:
+        # The probe's main() answers 0 at once to --probe-link: any other end
+        # but dyld naming the next symbol, a death while the image loads among
+        # them, is a harness that is not built (link_placeholders).
+        missing = link_placeholders.probe(folder / 'harness', placeholders, f'the link probe of the harness of {revision}')
+        if missing is None:
             if log is not None:
                 log.append(f'{revision}: {len(objects)} compiled, {len(swift_objects)} app Swift objects, '
                            f'{len(placeholders)} placeholders')
             return folder / 'harness'
-        if missing.group(1) in placeholders:
-            raise RuntimeError('cannot satisfy %s' % missing.group(1))
-        placeholders.add(missing.group(1))
+        placeholders.add(missing)
     raise RuntimeError('too many unresolved symbols for %s' % revision)
 
 

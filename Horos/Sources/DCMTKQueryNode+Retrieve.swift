@@ -164,6 +164,10 @@ extension DCMTKQueryNode {
             if incomplete && showErrorMessageValue && !deferFailureNotice && !reportedDICOMwebFailure && !Thread.current.isCancelled {
                 Self.postNotice(NSLocalizedString("Retrieve Incomplete", comment: ""), "\(shortListing)\(inventory.summary)\nManifest: \(inventory.path)")
             }
+            if incomplete && !Thread.current.isCancelled {
+                // The counts; the notice also says where the manifest is.
+                NSLog("---- retrieve incomplete: %@%@", dicomwebShort ? "the node counts more instances than it lists; " : "", inventory.summary)
+            }
         }
         lastRetrieveIncomplete = !Thread.current.isCancelled && (incomplete || reportedDICOMwebFailure)
         if let dicomwebLog {
@@ -379,6 +383,7 @@ extension DCMTKQueryNode {
                                           calledAET: server["AETitle"] as? String, hostname: server["Address"] as? String,
                                           port: int32(server["Port"]), transferSyntax: 0, compression: 0, extraParameters: server)
         let description = placeholder.seriesDescription
+        let seriesUID = placeholder.seriesInstanceUID
         ActivityThread.startListed(name: NSLocalizedString("Retrieving images...", comment: ""),
                                    configure: { $0.status = description }) {
             autoreleasepool {
@@ -389,7 +394,8 @@ extension DCMTKQueryNode {
                 if series.lastRetrieveIncomplete && !Thread.current.isCancelled {
                     Thread.current.status = String(format: NSLocalizedString("%@: not retrieved. Click its thumbnail to try again.",
                         comment: "Activity, after a click on a DICOMweb placeholder that brought nothing"), description)
-                    NSLog("---- excluded series %@ clicked: not retrieved", description)
+                    // The series by its UID: its description is what the person reads.
+                    NSLog("---- excluded series %@ clicked: not retrieved", seriesUID)
                     var waited = 0
                     while waited < 100 && !Thread.current.isCancelled {
                         Thread.sleep(forTimeInterval: 0.1)
@@ -412,7 +418,11 @@ extension DCMTKQueryNode {
         let text = String(format: everything
             ? NSLocalizedString("Every series of this study is left out by this node's rules: %@. Nothing was retrieved. Retrieve a series by itself, or hold Option while retrieving, to include it.", comment: "")
             : NSLocalizedString("Series left out by this node's rules: %@. Retrieve a series by itself, or hold Option while retrieving, to include it.", comment: ""), list)
-        NSLog("---- retrieve: %@", text)
+        // The status names each series by its description. The log is told
+        // them by UID, each with the rule that left it out, which is the
+        // node's setting.
+        let logged = excluded.keys.sorted().map { "\($0) (rule \"\(excluded[$0]?.last ?? "")\")" }.joined(separator: ", ")
+        NSLog("---- retrieve: %@ left out by this node's rules: %@", everything ? "every series of the study, nothing retrieved," : "series", logged)
         Thread.current.status = text
     }
 
@@ -421,7 +431,7 @@ extension DCMTKQueryNode {
     /// activity status and the log say why the rule did not apply.
     func noteExplicitRetrieveOfSeriesExcluded(byRule rule: String) {
         let text = String(format: NSLocalizedString("This series is left out of study retrieves by this node's rule \"%@\". It is retrieved because it was asked for by itself.", comment: ""), rule)
-        NSLog("---- retrieve: %@", text)
+        NSLog("---- retrieve: this series is left out of study retrieves by this node's rule \"%@\"; retrieved because it was asked for by itself", rule)
         Thread.current.status = text
     }
 
@@ -429,6 +439,7 @@ extension DCMTKQueryNode {
     func reportDICOMwebError(_ error: NSError) -> Bool {
         reportedDICOMwebError = error
         Thread.current.status = error.localizedDescription
+        NSLog("---- DICOMweb retrieve failed: %@", DICOMwebClient.logReason(for: error) ?? "(null)")
         if showErrorMessageValue && !deferFailureNotice {
             Self.postNotice(NSLocalizedString("DICOMweb Retrieve Failed", comment: ""), error.localizedDescription)
         }

@@ -136,7 +136,8 @@ public final class BonjourBrowser: NSObject {
                 alert.runModal()
             }
         } else {
-            NSLog("*** Bonjour Browser Error (not displayed - hideListenerError): %@", s)
+            // The text is whatever the caller was told, which the log is not.
+            NSLog("*** Bonjour Browser Error (not displayed - hideListenerError): %@", LogText.notice(title: "Network Error", text: s))
         }
     }
 

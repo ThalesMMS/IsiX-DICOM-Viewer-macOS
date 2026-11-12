@@ -222,7 +222,9 @@ final class QueryController: NSObject {
     let outlineView = OutlineStandIn()
     var checkAndViewTry: Int32 = 0
 
+    // What a check that fails is logged with: `describe` before, `log` now.
     static func describe(_ error: Error) -> String { "\(error)" }
+    static func log(_ error: Error, _ function: String) {}
     @objc func refresh(_ sender: Any?) {}
 
     /// The window's retrieve: it starts the transfer elsewhere and leaves the

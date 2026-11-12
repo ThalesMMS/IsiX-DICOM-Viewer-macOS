@@ -185,7 +185,8 @@ def build_and_run(folder, service, model, name):
                             *isix_modules.module_flags('IsiXDICOMNetwork', folder / 'modules'),
                             *(str(folder / file) for file in ('DICOMNodeService.swift', 'DICOMwebNode.swift', 'Credentials.swift',
                                                                'ProcessGraphStandIn.swift', 'main.swift')),
-                            *map(str, discovery), '-o', str(executable)], capture_output=True, text=True)
+                            *map(str, discovery), *isix_modules.log_text_sources(), '-o', str(executable)],
+                           capture_output=True, text=True)
     if built.returncode:
         print(f'FAIL: the {name} sources do not compile\n{built.stderr[-3000:]}')
         sys.exit(1)

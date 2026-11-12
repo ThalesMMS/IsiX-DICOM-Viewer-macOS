@@ -52,7 +52,7 @@ struct DatabaseRoutingDelivery: RoutingDelivery {
                 let images = (reader.objects(withIDs: order.files.map(\.id)) ?? []).compactMap { $0 as? DicomImage }
                 files = DatabaseRoutingCatalog(database: reader).snapshots(of: images)
             }) {
-                DicomDatabaseObjC.log(exception, stack: true, "-[DicomDatabase(Routing) routing]")
+                LogText.log(exception, stack: true, in: "-[DicomDatabase(Routing) routing]")
             }
         }
         return files
@@ -95,8 +95,9 @@ struct DatabaseRoutingDelivery: RoutingDelivery {
         let address = node[DICOMNode.Key.address]?.text ?? "(null)"
         let port = node[DICOMNode.Key.port]?.text ?? "(null)"
         // Logged whether or not it is shown, so how many alerts a run would
-        // raise can be counted without a screen.
-        NSLog("**** Autorouting error reported for %@@%@:%@ - %@", aet, address, port, failure.reason)
+        // raise can be counted without a screen. The log takes the reason that
+        // tells the files by their place in the send; the alert names them.
+        NSLog("**** Autorouting error reported for %@@%@:%@ - %@", aet, address, port, failure.logReason)
         guard showsErrors else { return }
         showAlert(String(format: "%@\r\r%@\r%@\r\rServer:%@-%@:%@",
                          NSLocalizedString("Autorouting DICOM StoreSCU operation failed.\rI will try again in 30 secs.", comment: ""),
@@ -166,7 +167,7 @@ struct RoutingStoreTransport: DICOMSendTransport {
             let failure = storeSCU.sendReportingFailure()
             if thread.isCancelled { return .cancelled }
             guard let failure else { return .sent }
-            failures.record(RoutingSendFailure(name: failure.name, reason: failure.reason))
+            failures.record(RoutingSendFailure(name: failure.category.rawValue, reason: failure.reason, logReason: failure.logReason))
             thread.status = NSLocalizedString("Sending failed. Will re-try later...", comment: "")
             return .failed
         }

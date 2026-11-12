@@ -8,9 +8,10 @@
 //  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
-// The errors of the DCMTK adapters. This header, like every header of
-// Adapters/DCMTK, declares only Objective-C and C types: Swift reads it through
-// the bridging header, and nothing of DCMTK reaches the files that import it.
+// The errors of the DCMTK adapters, and the level of DCMTK's own log. This
+// header, like every header of Adapters/DCMTK, declares only Objective-C and C
+// types: Swift reads it through the bridging header, and nothing of DCMTK
+// reaches the files that import it.
 
 #import <Foundation/Foundation.h>
 
@@ -67,6 +68,20 @@ typedef NS_ENUM(NSInteger, IsiXDCMTKConditionKind) {
 + (IsiXDCMTKConditionKind)kindOfError:(nullable NSError *)error;
 /// "mmmm:cccc text", as the logs and notices have always given a condition.
 + (NSString *)conditionDescriptionOfError:(NSError *)error;
+@end
+
+/// DCMTK's own log, which is the process's and is written to the standard
+/// error: on screen or in a transcript when the application is started from a
+/// terminal or by a script.
+@interface IsiXDCMTKLog : NSObject
+- (instancetype)init NS_UNAVAILABLE;
+/// Sets its level: DCMTK's warnings and errors and, only when `dumpsDatasets`
+/// (the user default DICOMDatasetDump) asks for them, what DCMTK writes at
+/// INFO, which has the identifier of each C-FIND a peer sends the listener.
+/// DCMTK starts at INFO, so the application sets the level as it starts,
+/// before anything of DCMTK's network runs; each listener, as it is made, and
+/// each send, as it starts, set it again from the same switch.
++ (void)configureDumpingDatasets:(BOOL)dumpsDatasets NS_SWIFT_NAME(configure(dumpsDatasets:));
 @end
 
 NS_ASSUME_NONNULL_END

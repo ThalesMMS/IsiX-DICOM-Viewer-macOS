@@ -9,6 +9,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXLogging
 
 /// A study, series or image of the database as a C-FIND response reads it:
 /// the values it was read with, by the key paths and keys `keyPaths(level:keys:)`
@@ -295,24 +296,26 @@ public struct SCPResponseCharacterSet {
     /// above when it cannot carry them; nil when no character set can, or for
     /// no text. `encodingFor` maps a DICOM character set to a string encoding;
     /// `fileCharacterSets` gives those of the record's file; `log` reports a
-    /// change and a failure, `file` naming the record's file.
+    /// change and a failure. The text is a value of the database - a
+    /// patient's name is the one that most often needs another character set
+    /// - and `file` a path: the log is told how long the text is.
     public mutating func encode(_ text: String?, encodingFor: (String) -> UInt,
                                 fileCharacterSets: () -> [String]?, file: () -> String?,
                                 log: (String) -> Void) -> [UInt8]? {
         guard let text else { return nil }
         if let bytes = Self.bytes(text, encoding) { return bytes }
-        log("--- cannot encode \(text) -> switch to UTF-8 (ISO_IR 192) encoding")
+        log("--- cannot encode \(LogText.shape(of: text)) in \(name ?? "the default character set") -> switch to UTF-8 (ISO_IR 192) encoding")
         name = "ISO_IR 192"
         encoding = encodingFor("ISO_IR 192")
         if let bytes = Self.bytes(text, encoding) { return bytes }
-        log("--- cannot encode \(text) -> switch to dcm file encoding")
+        log("--- cannot encode \(LogText.shape(of: text)) -> switch to dcm file encoding")
         for set in fileCharacterSets() ?? [] where Self.bytes(text, encodingFor(set)) != nil {
             name = set
             encoding = encodingFor(set)
             if let bytes = Self.bytes(text, encoding) { return bytes }
             break
         }
-        log("***** encodeString FAILED for: \(file() ?? "(null)")")
+        log("***** encodeString FAILED for \(LogText.shape(of: text)), in UTF-8 and in the character sets of its file")
         return nil
     }
 

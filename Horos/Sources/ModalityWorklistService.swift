@@ -68,7 +68,7 @@ enum ModalityWorklistService {
                                        node: name)
                 })
             } catch {
-                NSLog("Modality Worklist: %@ failed: %@", name, IsiXUserMessage(for: error))
+                NSLog("Modality Worklist: %@ failed: %@", name, LogText.error(error))
                 failures.append(.init(node: name, reason: IsiXUserMessage(for: error)))
             }
         }

@@ -880,8 +880,6 @@ extension QueryController {
                 if let node, type(of: node) == DCMTKSeriesQueryNode.self {
                     let predicate = NSPredicate(format: "(seriesDICOMUID == %@)", argumentArray: [node.value(forKey: "uid") as Any])
 
-                    NSLog("%@", predicate.description)
-
                     let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Series")
                     request.predicate = predicate
 
@@ -924,7 +922,7 @@ extension QueryController {
                 }
             }
         } catch {
-            NSLog("**** checkAndView exception: %@", QueryController.describe(error))
+            QueryController.log(error, "-[QueryController checkAndView:]")
         }
     }
 

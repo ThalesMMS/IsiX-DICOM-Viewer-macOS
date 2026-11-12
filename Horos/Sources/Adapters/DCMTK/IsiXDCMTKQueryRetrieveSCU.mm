@@ -334,6 +334,7 @@ static void IsiXDCMTKIncoming(void *data)
 @interface IsiXDCMTKAssociation ()
 - (T_ASC_Association *)handle;
 - (int)dimseTimeout;
+- (BOOL)dumpsDatasets;
 @end
 
 @implementation IsiXDCMTKAssociation
@@ -343,6 +344,7 @@ static void IsiXDCMTKIncoming(void *data)
     T_ASC_Association *_association;
     DcmTLSTransportLayer *_layer;
     BOOL _verbose;
+    BOOL _dumpsDatasets;
     BOOL _reportsFailures;
     NSString *_application;
     BOOL _get;
@@ -353,6 +355,7 @@ static void IsiXDCMTKIncoming(void *data)
 {
     if (!(self = [super init])) return nil;
     _verbose = parameters.verbose;
+    _dumpsDatasets = parameters.dumpsDatasets;
     _reportsFailures = parameters.reportsFailures;
     _application = [parameters.consoleApplication copy] ?: @OFFIS_CONSOLE_APPLICATION;
     _dimseTimeout = parameters.dimseTimeout;
@@ -778,8 +781,10 @@ static void IsiXDCMTKIncoming(void *data)
         OFStandard::strlcpy(request.AffectedSOPClassUID, model.c_str(), sizeof(request.AffectedSOPClassUID));
         request.DataSetType = DIMSE_DATASET_PRESENT;
         request.Priority = DIMSE_PRIORITY_LOW;
-        if (_verbose) {
-            printf("Find SCU RQ: MsgID %d\n", messageID);
+        if (_verbose) printf("Find SCU RQ: MsgID %d\n", messageID);
+        // The identifier holds the values of the keys asked: a patient's name,
+        // ID and birth date, an accession number.
+        if (_dumpsDatasets) {
             printf("REQUEST:\n");
             dataset->print(COUT);
             printf("--------\n");
@@ -809,7 +814,7 @@ static void IsiXDCMTKIncoming(void *data)
             NSLog(@"Dimse Status: %@", result.statusText);
         }
         if (statusDetail) {
-            if (_verbose) {
+            if (_dumpsDatasets) {
                 printf("  Status Detail:\n");
                 statusDetail->print(COUT);
             }
@@ -838,8 +843,8 @@ static void IsiXDCMTKIncoming(void *data)
         DcmDataset *identifiers = NULL, *statusDetail = NULL;
         OFCondition condition = EC_Normal;
         try {
-            if (_verbose) {
-                printf("Move SCU RQ: MsgID %d\n", messageID);
+            if (_verbose) printf("Move SCU RQ: MsgID %d\n", messageID);
+            if (_dumpsDatasets) {
                 printf("Request:\n");
                 dataset->print(COUT);
             }
@@ -856,12 +861,10 @@ static void IsiXDCMTKIncoming(void *data)
             result.conditionGood = condition.good() ? YES : NO;
             IsiXDCMTKFillRetrieveResult(result, answer, identifiers);
             if (condition == EC_Normal) {
-                if (_verbose) {
-                    DIMSE_printCMoveRSP(stdout, &answer);
-                    if (identifiers) {
-                        printf("Response Identifiers:\n");
-                        identifiers->print(COUT);
-                    }
+                if (_verbose) DIMSE_printCMoveRSP(stdout, &answer);
+                if (_dumpsDatasets && identifiers) {
+                    printf("Response Identifiers:\n");
+                    identifiers->print(COUT);
                 }
             } else if (_verbose) {
                 errmsg("Move Failed:");
@@ -873,8 +876,11 @@ static void IsiXDCMTKIncoming(void *data)
             throw;
         }
         if (statusDetail) {
-            printf("  Status Detail:\n");
-            statusDetail->print(COUT);
+            // What the peer wrote of its refusal, in its own words.
+            if (_dumpsDatasets) {
+                printf("  Status Detail:\n");
+                statusDetail->print(COUT);
+            }
             delete statusDetail;
         }
         delete identifiers;
@@ -903,8 +909,8 @@ static void IsiXDCMTKIncoming(void *data)
         DcmDataset *identifiers = NULL, *statusDetail = NULL;
         OFCondition condition = EC_Normal;
         try {
-            if (_verbose) {
-                printf("Get SCU RQ: MsgID %d\n", messageID);
+            if (_verbose) printf("Get SCU RQ: MsgID %d\n", messageID);
+            if (_dumpsDatasets) {
                 printf("Request:\n");
                 dataset->print(COUT);
             }
@@ -921,12 +927,10 @@ static void IsiXDCMTKIncoming(void *data)
             result.conditionGood = condition.good() ? YES : NO;
             IsiXDCMTKFillRetrieveResult(result, answer, identifiers);
             if (condition == EC_Normal) {
-                if (_verbose) {
-                    DIMSE_printCGetRSP(stdout, &answer);
-                    if (identifiers) {
-                        printf("Response Identifiers:\n");
-                        identifiers->print(COUT);
-                    }
+                if (_verbose) DIMSE_printCGetRSP(stdout, &answer);
+                if (_dumpsDatasets && identifiers) {
+                    printf("Response Identifiers:\n");
+                    identifiers->print(COUT);
                 }
             } else if (_verbose) {
                 errmsg("Get Failed:");
@@ -953,6 +957,11 @@ static void IsiXDCMTKIncoming(void *data)
 - (int)dimseTimeout
 {
     return _dimseTimeout;
+}
+
+- (BOOL)dumpsDatasets
+{
+    return _dumpsDatasets;
 }
 
 + (NSArray<NSString *> *)availableCipherSuites
@@ -993,4 +1002,9 @@ T_ASC_Association *IsiXDCMTKAssociationHandle(IsiXDCMTKAssociation *association)
 int IsiXDCMTKAssociationDIMSETimeout(IsiXDCMTKAssociation *association)
 {
     return [association dimseTimeout];
+}
+
+BOOL IsiXDCMTKAssociationDumpsDatasets(IsiXDCMTKAssociation *association)
+{
+    return [association dumpsDatasets];
 }

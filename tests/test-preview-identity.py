@@ -4,8 +4,9 @@
 Object level: `HorosPreviewIdentity` refuses to reuse pixels loaded elsewhere
 unless the file, the frame, the series and the size all match; refuses to
 preview an instance that carries no frame (SR, SEG, presentation state,
-encapsulated PDF); and refuses a whole-series preview that would mix series,
-sizes or repeat a frame.
+encapsulated CDA); and refuses a whole-series preview that would mix series,
+sizes or repeat a frame. An encapsulated PDF is previewed: its pages are its
+frames, whatever its modality says, DOC included.
 
 Source level: the browser matches a loaded frame by path *and* frame number —
 it used to take any frame of the file when frame 0 was requested — and every
@@ -54,7 +55,13 @@ expect(PreviewIdentity.refusalForPreviewing(frame("/a/seg.dcm", 0, modality: "SE
 expect(PreviewIdentity.refusalForPreviewing(frame("/a/sr.dcm", 0, sop: "1.2.840.10008.5.1.4.1.1.88.11"))?.contains("SOP class") == true, "SR by SOP class")
 expect(PreviewIdentity.refusalForPreviewing(frame("/a/seg.dcm", 0, sop: "1.2.840.10008.5.1.4.1.1.66.4"))?.contains("SOP class") == true, "SEG by SOP class")
 expect(PreviewIdentity.refusalForPreviewing(frame("/a/ps.dcm", 0, sop: "1.2.840.10008.5.1.4.1.1.11.1"))?.contains("SOP class") == true, "presentation state")
-expect(PreviewIdentity.refusalForPreviewing(frame("/a/pdf.dcm", 0, sop: "1.2.840.10008.5.1.4.1.1.104.1"))?.contains("SOP class") == true, "encapsulated PDF")
+let pdf = "1.2.840.10008.5.1.4.1.1.104.1"
+expect(PreviewIdentity.isPreviewable(frame("/a/pdf.dcm", 0, sop: pdf, modality: "DOC", rows: 842, columns: 595, count: 2)), "a page of an encapsulated PDF")
+expect(PreviewIdentity.isPreviewable(frame("/a/pdf.dcm", 1, sop: pdf, modality: "OT", rows: 842, columns: 595, count: 2)), "its second page, modality OT")
+expect(PreviewIdentity.refusalForPreviewing(frame("/a/pdf.dcm", 2, sop: pdf, modality: "DOC", count: 2))?.contains("outside") == true, "a page past the end")
+expect(PreviewIdentity.refusalForPreviewing(frame("/a/pdf.dcm", 0, sop: pdf, modality: "DOC", rows: 0, columns: 0))?.contains("no dimensions") == true, "a PDF that could not be rendered")
+expect(PreviewIdentity.refusalForPreviewing(frame("/a/cda.dcm", 0, sop: "1.2.840.10008.5.1.4.1.1.104.2", modality: "DOC"))?.contains("no displayable frame") == true, "encapsulated CDA")
+expect(PreviewIdentity.refusalForPreviewing(frame("/a/doc.dcm", 0, modality: "DOC"))?.contains("no displayable frame") == true, "DOC of another class")
 expect(PreviewIdentity.refusalForPreviewing(frame("/a/ct.dcm", 0, rows: 0))?.contains("no dimensions") == true, "a frame without dimensions")
 expect(PreviewIdentity.refusalForPreviewing(frame("/a/multi.dcm", 16, count: 16))?.contains("outside") == true, "a frame past the end")
 
@@ -73,7 +80,7 @@ expect(PreviewIdentity.refusalForSeriesPreview(withSEG)?.contains("no displayabl
 let multiframe = (0..<16).map { frame("/a/multi.dcm", $0, count: 16) }
 expect(PreviewIdentity.refusalForSeriesPreview(multiframe) == nil, "every frame of one multiframe file is one series")
 
-print("PASS: preview reuse needs file, frame, series and size; SR/SEG/PS/PDF carry no frame; a series preview may not mix series, sizes or repeat a frame")
+print("PASS: preview reuse needs file, frame, series and size; SR/SEG/PS/CDA carry no frame, a PDF page is one; a series preview may not mix series, sizes or repeat a frame")
 '''
 with tempfile.TemporaryDirectory(prefix='horos-preview-identity-') as folder:
     tmp = Path(folder)

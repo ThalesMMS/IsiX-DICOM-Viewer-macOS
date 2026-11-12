@@ -127,7 +127,6 @@ public struct ViewerToolbarCatalog: Sendable {
         reconstruction,
         orientation,
         thickSlab,
-        flexibleSpace,
         movieExport,
         syncSeries,
         propagateSettings,

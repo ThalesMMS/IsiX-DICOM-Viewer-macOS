@@ -344,7 +344,7 @@ with tempfile.TemporaryDirectory(prefix='horos-dicomweb-recovery-') as folder:
     flags = swift_flags(work)
     (work / 'check.swift').write_text(DRIVER)
     sources = [str(ROOT / 'Horos/Sources' / name) for name in
-               ('DICOMwebClient.swift', 'DICOMwebNode.swift', 'DICOMwebCredentials.swift', 'DICOMwebMultipart.swift',
+               ('DICOMwebClient.swift', 'DICOMwebClient+LogText.swift', 'DICOMwebNode.swift', 'DICOMwebCredentials.swift', 'DICOMwebMultipart.swift',
                 'NonInteractiveKeychainRead.swift', 'DICOMwebRetrieveRecovery.swift', 'DICOMwebClient+Retrieving.swift')]
     executable = work / 'check'
     build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-suppress-warnings', '-module-cache-path', str(work / 'cache'),

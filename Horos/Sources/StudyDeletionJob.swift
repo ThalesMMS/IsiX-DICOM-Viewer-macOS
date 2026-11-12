@@ -551,13 +551,14 @@ private func kept(_ objects: [Any], by predicate: NSPredicate) -> [Any] {
     func timerTurn() {
         // The errors of the Q&R DICOM functions, written by dcmqrsrv.mm. The
         // former code made an alert of the message and never ran it, so the
-        // message is only logged when the listener's errors are hidden.
+        // message is only logged when the listener's errors are hidden: that
+        // there was one and how long it is, since nothing says what it holds.
         let errorFile = (FileManager.default.tmpDirPath() as NSString).appendingPathComponent("error_message")
         var encoding = String.Encoding.utf8
         if let message = try? String(contentsOfFile: errorFile, usedEncoding: &encoding) {
             try? FileManager.default.removeItem(atPath: errorFile)
             if preferences[NetworkPreferences.hidesListenerErrors] {
-                NSLog("*** DICOM Network Error (not displayed - hideListenerError): %@", message)
+                NSLog("*** DICOM Network Error (not displayed - hideListenerError): %@", LogText.shape(of: message))
             }
         }
 

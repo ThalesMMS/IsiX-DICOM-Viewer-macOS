@@ -31,9 +31,11 @@ import Testing
     @Test func defaultItemsInTheirOrder() {
         #expect(Catalog.defaultIdentifiers == [
             "DatabaseWindow.icns", "WindowsTiling", "SeriesPopup", "Annotations", "Patient", "Tools", "WLWW",
-            "Reconstruction", "Orientation", "Fusion", "NSToolbarFlexibleSpaceItem", "QTExport.pdf", "Sync.pdf",
+            "Reconstruction", "Orientation", "Fusion", "QTExport.pdf", "Sync.pdf",
             "PropagateSettings", "Play.pdf", "Speed", "MIP.tif", "XML.icns",
         ])
+        // No space among them: the items run on from the first to the last.
+        #expect(!Catalog.defaultIdentifiers.contains(Catalog.flexibleSpace))
     }
 
     @Test func allowedItemsInTheirOrder() {

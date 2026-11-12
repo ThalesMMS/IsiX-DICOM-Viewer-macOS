@@ -162,6 +162,7 @@ with tempfile.TemporaryDirectory(prefix='wado-network-log-') as directory:
     executable = work / 'test'
     run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library', '-module-name', 'Horos',
          '-import-objc-header', str(work / 'harness.h'), *isix_modules.module_flags('IsiXDICOMNetwork', work / 'modules'),
+         *isix_modules.log_text_sources(),
          *[str(ROOT / 'Horos/Sources' / name) for name in ('WADODownload.swift', 'ActivityProgressCount.swift', 'IdentityToken.swift', 'WADOCredentials.swift', 'DICOMwebCredentials.swift', 'NonInteractiveKeychainRead.swift', 'RetrieveManifest.swift', 'LogManager.swift', 'HorosObjCException+Guards.swift', 'NodeRequestLimiter.swift', 'RetrievePlan.swift')],
          str(work / 'ingest.swift'), str(work / 'driver.swift'), str(work / 'HorosObjCException.o'), str(work / 'doubles.o'),
          '-framework', 'Cocoa', '-framework', 'CoreData', '-o', str(executable)])

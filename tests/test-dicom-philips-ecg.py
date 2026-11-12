@@ -17,7 +17,12 @@ import subprocess
 import sys
 import tempfile
 
+from python_with import install_hint, prefer
 from sources import source_text
+
+# The fixture is written and read with pydicom and numpy. Without them the
+# Swift part below still runs, before the test says the fixture part is skipped.
+prefer('import numpy', 'import pydicom')
 
 root = Path(__file__).resolve().parents[1]
 source = root / 'Horos/Sources/PhilipsCTECG.swift'
@@ -178,21 +183,8 @@ with tempfile.TemporaryDirectory(prefix='horos-philips-ecg-') as directory:
         import numpy
         import pydicom
     except ImportError:
-        chosen = None
-        for name in ('philips-venv', 'email-venv'):
-            venv_root = root / 'local-validation' / name
-            venv = venv_root / 'bin/python'
-            if not venv.is_file():
-                continue
-            probe = subprocess.run([str(venv), '-c', 'import numpy, pydicom'],
-                                   capture_output=True)
-            if probe.returncode == 0:
-                chosen = (venv_root, venv)
-                break
-        if chosen and Path(sys.prefix).resolve() != chosen[0].resolve():
-            raise SystemExit(subprocess.run([str(chosen[1]), __file__], cwd=str(root)).returncode)
-        print('skipped: needs pydicom and numpy to write and read the fixture: PYDICOM',
-              file=sys.stderr)
+        print('skipped: the fixture is written and read with pydicom and numpy; name a Python that has them in '
+              'HOROS_PYTHON, or for example ' + install_hint(), file=sys.stderr)
         raise SystemExit(2)
 
     dest = work / 'fixture'

@@ -195,7 +195,7 @@ open class N2XMLRPCConnection: NSObject {
         // as an unreadable request.
         guard let content else {
             let reason = "*** -[NSXMLDocument initWithData:options:error:]: nil argument"
-            NSLog("Warning: [N2XMLRPCConnection handleRequest:] %@", reason)
+            NSLog("Warning: [N2XMLRPCConnection handleRequest:] the request has no body")
             writeDocument(XMLRPCRequestContract.fault(forUnparsableRequest: reason).document, version: version)
             return
         }
@@ -205,7 +205,8 @@ open class N2XMLRPCConnection: NSObject {
             document = try XMLDocument(data: content, options: [])
         } catch {
             if !content.isEmpty {
-                NSLog("--- incomplete/corrupted XML document: %@", error.localizedDescription)
+                // The parser's description quotes the place of the document it stopped at.
+                NSLog("--- incomplete/corrupted XML document: %@", LogText.error(error))
             }
             // A Content-Length that has been satisfied means the body is all
             // there, so it is malformed rather than incomplete. Saying so beats
@@ -226,8 +227,10 @@ open class N2XMLRPCConnection: NSObject {
                 throw XMLRPCCodingError(name: raised.name.rawValue, reason: raised.reason ?? "(null)")
             }
         } catch {
+            // What could not be decoded, or what a subclass raised over it, is
+            // answered to the caller; it quotes the request, so the log is told its length.
             let reason = Self.reason(of: error)
-            NSLog("Warning: [N2XMLRPCConnection handleRequest:] %@", reason)
+            NSLog("Warning: [N2XMLRPCConnection handleRequest:] %@", LogText.shape(of: reason))
             writeDocument(XMLRPCRequestContract.fault(forUnparsableRequest: reason).document, version: version)
         }
     }
@@ -257,7 +260,8 @@ open class N2XMLRPCConnection: NSObject {
                     let result = self.methodCall(methodName, params: params, error: &error)
 
                     if let error {
-                        NSLog("Warning: [N2XMLRPCConnection handleRequest:] %@", error.localizedDescription)
+                        // Its description is the fault document the caller is answered.
+                        NSLog("Warning: [N2XMLRPCConnection handleRequest:] %@", LogText.error(error))
                         self.writeDocument(XMLRPCRequestContract.responseDocument(for: error), version: version)
                         return
                     }
@@ -277,7 +281,9 @@ open class N2XMLRPCConnection: NSObject {
                 failure = raised.reason ?? "(null)"
             }
             if let failure {
-                NSLog("Warning: [N2XMLRPCConnection handleRequest:] %@", failure)
+                // What the method raised, over the values of the request: the
+                // caller is answered it, the log is told the method and its length.
+                NSLog("Warning: [N2XMLRPCConnection handleRequest:] %@ failed: %@", methodName ?? "(null)", LogText.shape(of: failure))
                 writeDocument(XMLRPCRequestContract.fault(forFailedMethodName: methodName, reason: failure).document, version: version)
             }
         }

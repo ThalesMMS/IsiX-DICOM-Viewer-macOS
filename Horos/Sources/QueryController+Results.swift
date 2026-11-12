@@ -650,7 +650,7 @@ extension QueryController {
                     guard let database = graph.browserDatabase else { return }
                     read = try HorosLocalQueryReader.snapshot(ofStudyInstanceUIDs: uids, in: database)
                 } catch {
-                    NSLog("******** the local side of the query results could not be read: %@", (error as NSError).localizedDescription)
+                    NSLog("******** the local side of the query results could not be read: %@", LogText.error(error))
                 }
                 // Made on this queue and never changed: only read on the main thread.
                 let snapshot = UncheckedSendableBox(read)
@@ -764,7 +764,7 @@ extension QueryController {
                 localStudyIDs = index.objectIDs
                 localStudyInstanceUIDs = index.studyInstanceUIDs
             } catch {
-                NSLog("******** computeStudyArrayInstanceUID: the local studies could not be read: %@", (error as NSError).localizedDescription)
+                NSLog("******** computeStudyArrayInstanceUID: the local studies could not be read: %@", LogText.error(error))
             }
             LocalStudyIndex.computing.unlock()
 
@@ -843,7 +843,7 @@ extension QueryController {
         guard let study = localStudy(item, context: context)?.last as AnyObject? else { return nil }
 
         guard let item = item as AnyObject?, type(of: item) == DCMTKSeriesQueryNode.self else {
-            NSLog("Warning! Not a series class ! %@", String(describing: (item as AnyObject?).map { type(of: $0) }))
+            NSLog("Warning! Not a series class ! %@", (item as AnyObject?).map { String(describing: type(of: $0)) } ?? "nil")
             return nil
         }
 
@@ -895,7 +895,7 @@ extension QueryController {
             return try localSeries.fileCount(ofStudy: LocalRecordIdentifier(uri: studyID.uriRepresentation()), seriesInstanceUID: series)
         } catch {
             NSLog("******** the local files of %@ could not be counted: %@", QueryController.text(node?.value(forKey: "studyInstanceUID")),
-                  (error as NSError).localizedDescription)
+                  LogText.error(error))
             return 0
         }
     }

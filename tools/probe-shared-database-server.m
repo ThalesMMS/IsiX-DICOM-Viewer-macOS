@@ -204,6 +204,12 @@ NSString * const OsirixBonjourSharingPasswordDefaultsKey = @"bonjourPassword";
     for (NSString *identifier in identifiers) [objects addObject:[[[ProbeObject alloc] initWithIdentifier:identifier] autorelease]];
     return objects;
 }
+// What the server orders once it has indexed a peer's generated objects: the
+// earlier annotations SRs of their studies go from this database. The stand-in
+// of AnnotationsSRPruning (tools/shared_database_probe.py) hands the order here.
+- (void)removeAnnotationsSRsEarlierThan:(NSArray *)added {
+    emit(@{@"event": @"removeEarlierAnnotationsSRs", @"database": _folder, @"added": orNull(added)});
+}
 @end
 
 @interface BrowserController : NSObject @end

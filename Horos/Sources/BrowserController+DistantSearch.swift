@@ -125,7 +125,7 @@ extension BrowserController {
             searchType == self.horos_searchType && BrowserObjC.literallyEqual(searchString, self.horos_searchString)
         }
         guard stillAsked() else { return }
-        NSLog("Search For %@: %@", BrowserController.string(forSearchType: searchType) ?? "", searchString ?? "(null)")
+        NSLog("Search For %@: %@", BrowserController.string(forSearchType: searchType) ?? "", LogText.shape(of: searchString)) // typed: a name, an identifier
 
         let length = (searchString as NSString?)?.length ?? 0
         let fieldLength = (horos_searchString as NSString?)?.length ?? 0
@@ -209,7 +209,7 @@ extension BrowserController {
     private func askNodes(forSmartAlbum albumName: String) {
         let stillAsked: @MainActor @Sendable () -> Bool = { BrowserObjC.literallyEqual(albumName, self.selectedAlbumName) }
         guard stillAsked() else { return }
-        NSLog("Search album: %@", albumName)
+        NSLog("Search album: %@", LogText.shape(of: albumName)) // named by its owner, after a patient as readily as anything
 
         horos_lastRefreshSmartAlbumDistantStudies = Date.timeIntervalSinceReferenceDate
 

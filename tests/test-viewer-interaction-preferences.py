@@ -28,6 +28,7 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import default_preferences  # noqa: E402
+import harness_defaults  # noqa: E402  - the harness's preferences stay in its own process
 import pane_titles  # noqa: E402
 
 PANE = ROOT / 'Preference Panes/OSIViewerPreferencePane/OSIViewerPreferencePanePref.swift'
@@ -129,12 +130,11 @@ exit(failures == 0 ? 0 : 1)
 ''' % factor_property
 with tempfile.TemporaryDirectory(prefix='viewer-interaction-preferences-') as directory:
     folder = Path(directory)
-    (folder / 'main.swift').write_text(driver)
+    (folder / 'main.swift').write_text(harness_defaults.SWIFT + driver)
     executable = folder / 'precise-mouse-factor-test'
     subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', '-module-cache-path', str(folder / 'modules'),
                     str(folder / 'main.swift'), '-o', str(executable)], check=True)
     ran = subprocess.run([str(executable)], capture_output=True, text=True)
-    subprocess.run(['defaults', 'delete', 'precise-mouse-factor-test'], capture_output=True)
     if ran.returncode:
         failures.append('the movement pop-up property: ' + ran.stdout.strip())
 

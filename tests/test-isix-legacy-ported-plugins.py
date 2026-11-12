@@ -40,6 +40,12 @@ function of the plugins ported last: grid draws its grid on every image,
 SpineCounter renames the selected spine, and BullsEye and Coronary save their
 diagram as an RGB image of the viewer's study. The plugins ported before have
 tests of their own, built from horosplugins.
+
+The run reads the macOS SDK and the toolchain for minutes. An update of Xcode
+or of the command line tools meanwhile replaces them: for a moment a header
+is not found and a build fails, and the converter refuses to say what a
+plugin links from an SDK that is not there. The test still fails then, and
+its last line says the developer tools changed while it ran, and how.
 """
 from pathlib import Path
 import argparse
@@ -52,6 +58,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from isix_modules import build_module, dependencies  # noqa: E402
@@ -100,6 +107,48 @@ def differences(staged, fresh, added=ADDED):
     return found
 
 
+def developer_tools():
+    """The developer tools as a run finds them: the developer folder, the macOS
+    SDK and the compiler xcrun names, with each folder's identity on disk."""
+    found = {}
+    for name, command in (('developer folder', ['xcode-select', '-p']), ('macOS SDK', ['xcrun', '--show-sdk-path']),
+                          ('compiler', ['xcrun', 'clang', '--version'])):
+        answer = subprocess.run(command, capture_output=True, text=True)
+        found[name] = answer.stdout.strip().splitlines()[0] if answer.returncode == 0 and answer.stdout.strip() \
+            else f'no answer ({answer.returncode})'
+        if name != 'compiler':
+            try:
+                status = os.stat(found[name])
+                modified = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(status.st_mtime))
+                found[name + ' on disk'] = f'folder {status.st_ino}, modified {modified}'
+            except OSError as error:
+                found[name + ' on disk'] = f'not there ({error.strerror})'
+    return found
+
+
+def tools_changed(before):
+    """What of `before`, from developer_tools(), is no longer so: a line for the
+    report, or nothing. An update of Xcode or of the command line tools
+    replaces the SDK and the toolchain under a run that has started; a header
+    or a framework is then missing for a moment, a build fails on it, and
+    neither says anything about the plugins."""
+    now = developer_tools()
+    changed = [f'{name}: {before[name]} -> {now[name]}' for name in before if before[name] != now[name]]
+    if not changed:
+        return ''
+    return ('the developer tools changed while this ran (' + '; '.join(changed) + '): Xcode or the command line tools '
+            'were installed or updated, and their files are missing for a moment under whatever reads them. What is '
+            'reported here may come from that and not from the plugins: run the test again')
+
+
+def uncaught(kind, error, trace):
+    """An error nothing caught (a compilation of the kit or of a host that failed), and whether the tools changed."""
+    sys.__excepthook__(kind, error, trace)
+    changed = tools_changed(tools_at_start)
+    if changed:
+        sys.stderr.write(changed + '\n')
+
+
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument('collection', type=Path, nargs='?')
 parser.add_argument('ported', type=Path, nargs='?')
@@ -124,6 +173,8 @@ matrix = load_tool('matrix', 'legacy-plugin-compatibility-matrix.py')
 converter = builder.converter
 libraries = {'arm64': arguments.plugin_itk, 'x86_64': arguments.plugin_itk_x86_64}
 not_built = []
+tools_at_start = developer_tools()
+sys.excepthook = uncaught
 
 with tempfile.TemporaryDirectory(prefix='isix-legacy-ported-') as temporary:
     work = Path(temporary)
@@ -166,7 +217,11 @@ with tempfile.TemporaryDirectory(prefix='isix-legacy-ported-') as temporary:
         if source.get('itk'):
             input_folder = work / 'itk5' / module / original.name
             builder.adapt_to_itk5(original, input_folder)
-        report = converter.convert(input_folder, fresh_root, source.get('name'), shared_kit=shared_kit)
+        try:
+            report = converter.convert(input_folder, fresh_root, source.get('name'), shared_kit=shared_kit)
+        except RuntimeError as error:
+            failures.append(tag + f'is not converted: {error}')
+            continue
         fresh = Path(report['project'])
         check(fresh.name == module, tag + f'the converter names it {fresh.name}')
         if hand_fixes.is_file():
@@ -251,7 +306,7 @@ with tempfile.TemporaryDirectory(prefix='isix-legacy-ported-') as temporary:
               and colour[0]['width'] == colour[0]['height'] > 100 and colour[0]['colours'] > 10, f'{module} DICOM: {colour}')
 
 if failures:
-    print('\n'.join(failures))
+    print('\n'.join(failures + [line for line in [tools_changed(tools_at_start)] if line]))
     sys.exit(1)
 print(f'legacy ported plugins: {len(projects)} projects match the converter and their hand fixes and build for arm64 and '
       f'x86_64' + (f', on {len(shared_kits)} shared copy of the kit' if shared_kits else '') + (f' (not built without the plugin\'s ITK: {", ".join(not_built)})' if not_built else '')

@@ -76,7 +76,7 @@ extension QueryController {
                 }
             }
         } catch {
-            NSLog("%@", describe(error))
+            QueryController.log(error, "+[QueryController queryStudyInstanceUID:server:showErrors:]")
         }
 
         return array as? [Any]
@@ -125,7 +125,7 @@ extension QueryController {
                 }
             }
         } catch {
-            NSLog("%@", describe(error))
+            QueryController.log(error, "+[QueryController queryAndRetrieveAccessionNumber:server:showErrors:]")
             status = -2
         }
 
@@ -324,7 +324,7 @@ extension QueryController {
                 }
             }
         } catch {
-            NSLog("%@", describe(error))
+            QueryController.log(error, "+[QueryController queryStudiesForFilters:servers:showErrors:]")
         }
 
         return studies
@@ -555,7 +555,7 @@ extension QueryController {
         do {
             try theTask.run()
         } catch {
-            NSLog("%@", (error as NSError).description)
+            NSLog("%@", LogText.error(error))
             return true
         }
 

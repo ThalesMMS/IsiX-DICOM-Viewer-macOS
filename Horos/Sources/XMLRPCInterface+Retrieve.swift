@@ -66,7 +66,8 @@ extension XMLRPCInterface {
                     return
                 }
                 guard let url = NSURL(string: address) else {
-                    N2LogStackTraceMessage("URL is not valid: \(address)")
+                    // An address that is not a URL is whatever the caller sent in its place.
+                    N2LogStackTraceMessage("URL is not valid: \(LogText.url(string: address))")
                     return
                 }
                 if (url.pathExtension as NSString?)?.isEqual(to: "xml") ?? false {

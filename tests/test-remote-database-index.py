@@ -17,6 +17,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import isix_modules
 root=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(root/'tests'))
 from sources import is_swift,source_text  # noqa: E402
@@ -290,7 +291,7 @@ with tempfile.TemporaryDirectory(prefix='horos-remote-index-') as temporary:
         steps=[['xcrun','clang','-fno-objc-arc','-fobjc-exceptions','-Wno-objc-method-access','-iquote',str(folder),'-c',str(driver),'-o',str(folder/'main.o')],
                ['xcrun','clang','-fno-objc-arc','-fobjc-exceptions','-iquote',str(folder),'-c',str(folder/'HorosObjCException.m'),'-o',str(folder/'exception.o')],
                ['xcrun','swiftc','-parse-as-library','-suppress-warnings','-module-name','Probe','-import-objc-header',str(folder/'harness.h'),
-                str(folder/'remote.swift'),str(folder/'HorosObjCException+Guards.swift'),str(folder/'main.o'),str(folder/'exception.o'),'-framework','Foundation','-o',str(binary)]]
+                str(folder/'remote.swift'),*isix_modules.log_text_sources(),str(folder/'HorosObjCException+Guards.swift'),str(folder/'main.o'),str(folder/'exception.o'),'-framework','Foundation','-o',str(binary)]]
     else:
         driver.write_text(code.replace('ACTUAL_METHODS',methods))
         steps=[['xcrun','clang','-fno-objc-arc','-Wno-objc-method-access','-framework','Foundation',str(driver),'-o',str(binary)]]

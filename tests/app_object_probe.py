@@ -21,6 +21,12 @@ before it starts. So:
   itself (a revision before the move). Once the class itself is Swift,
   `DCMPix.o` is DCMPix.swift's object and every part of the class is linked.
 
+A class left to a placeholder all the same - one no project folder declares -
+is harmless until the runtime reads it. A probe that does not load, for that or
+anything else a placeholder does not mend, is refused before it is run for its
+result, with the placeholders it was linked with (see link_placeholders): its
+death would otherwise be the test's result.
+
 `HOROS_PROBE_OBJECT`, when set, is linked instead of the built object: a test
 can then be run against a deliberately changed object, to see it fail.
 """
@@ -34,6 +40,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 sys.path.insert(0, str(ROOT / 'tests'))
 import isix_modules  # noqa: E402
+import link_placeholders  # noqa: E402
 import object_probe  # noqa: E402
 
 FRAMEWORKS = ('Foundation', 'AppKit', 'AVFoundation', 'CoreData', 'CoreMedia', 'CoreVideo', 'Accelerate')
@@ -177,8 +184,10 @@ def link_and_run(work, sources, objects, run_arguments=(), *, compiler=('xcrun',
 
     Returns the completed run, or what `runner(probe)` returns - one completed
     run or a list of them - when the probe has to run more than once. Raises
-    RuntimeError when a symbol cannot be satisfied; subprocess.TimeoutExpired
-    when the probe does not finish.
+    RuntimeError when a symbol cannot be satisfied, or when the probe does not
+    load (link_placeholders.ProbeNotBuilt, which names the signal that killed
+    it and its placeholders); subprocess.TimeoutExpired when the probe does not
+    finish.
     """
     work = Path(work)
     objects = [Path(o) for o in objects]
@@ -193,12 +202,12 @@ def link_and_run(work, sources, objects, run_arguments=(), *, compiler=('xcrun',
     # DCMModel.h, which the application's headers import for the dataset
     # model, imports the Objective-C headers of the internal modules.
     isix_modules.build_module('IsiXDICOMDataset', work / 'modules')
-    (work / 'stubs.mm').write_text(stubs(objects, linked_classes, probe_classes, always_stub))
+    # With the stubs, what answers the probe's link run once it has loaded.
+    (work / 'stubs.mm').write_text(stubs(objects, linked_classes, probe_classes, always_stub) + link_placeholders.LINK_RUN_SOURCE)
     placeholders = set()
     probe = work / 'probe'
     for _ in range(attempts):
-        assembly = ''.join('.globl %s\n%s: .quad 0\n' % (s, s) for s in sorted(placeholders))
-        (work / 'placeholders.s').write_text('.data\n' + assembly)
+        (work / 'placeholders.s').write_text(link_placeholders.assembly(placeholders))
         command = [*compiler, '-Wno-deprecated-declarations', '-I' + str(headers), '-I' + str(work / 'modules'), *flags,
                    *map(str, sources), str(work / 'stubs.mm'), str(work / 'placeholders.s'), *map(str, objects),
                    *linked_flags, '-Wl,-undefined,dynamic_lookup', '-o', str(probe)]
@@ -207,16 +216,20 @@ def link_and_run(work, sources, objects, run_arguments=(), *, compiler=('xcrun',
         built = subprocess.run(command, capture_output=True, text=True)
         if built.returncode:
             raise RuntimeError('the probe does not link:\n' + built.stderr[-3000:])
-        if runner:
-            result = runner(probe)
-        else:
-            result = subprocess.run([str(probe), *map(str, run_arguments)], capture_output=True, text=True,
-                                    timeout=timeout)
-        missing = [m.group(1) for run in (result if isinstance(result, list) else [result])
-                   for m in [re.search(r"symbol not found in flat namespace '([^']+)'", run.stderr)] if m]
-        if not missing:
-            return result
-        if missing[0] in placeholders:
-            raise RuntimeError('cannot satisfy %s' % missing[0])
-        placeholders.add(missing[0])
+        # The probe's own run is the test's: how it ends is for the caller to
+        # judge, a signal included. Whether it loads is not, and is asked
+        # first, by its link run, which ends before main().
+        missing = link_placeholders.probe(probe, placeholders,
+                                          'the link probe of ' + objects[0].name if objects else 'the link probe')
+        if missing is None:
+            if runner:
+                result = runner(probe)
+            else:
+                result = subprocess.run([str(probe), *map(str, run_arguments)], capture_output=True, text=True,
+                                        timeout=timeout)
+            missing = next((symbol for run in (result if isinstance(result, list) else [result])
+                            for symbol in [link_placeholders.missing_symbol(run, placeholders)] if symbol), None)
+            if missing is None:
+                return result
+        placeholders.add(missing)
     raise RuntimeError('too many unresolved symbols in %s' % ', '.join(map(str, objects)))

@@ -43,9 +43,9 @@ method=method.replace(bash,'URL(fileURLWithPath: CommandLine.arguments[3])')
 sender=r'''
 import AppKit
 import IsiXDICOMNetwork
+import IsiXLogging  // LogText, which the method writes an exception to the log with
 let HorosObjCExceptionKey = "HorosObjCException"
 enum HorosObjCException { static func perform(_ block: () -> Void) throws { block() } }
-func _N2LogExceptionImpl(_ e: NSException, _ b: Bool, _ s: String) {}
 CONSTANTS
 OUTCOME
 class AYDicomPrintWindowController: NSObject {

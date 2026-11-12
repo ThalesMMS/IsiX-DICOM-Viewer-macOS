@@ -422,7 +422,7 @@ with tempfile.TemporaryDirectory(prefix='horos-dicomweb-nodes-') as folder:
             for marker in (b'secret-marker', b'Authorization', b'Basic ', b'Bearer ', b'password'):
                 check(marker not in written, f'no {marker!r} in the preferences')
         run_swift(temporary, 'service', [sources / 'DICOMNodeService.swift', sources / 'DICOMBonjourDiscovery.swift',
-                                         sources / 'BonjourDiscovery.swift', graph], SERVICE_DRIVER,
+                                         sources / 'BonjourDiscovery.swift', *isix_modules.log_text_sources(), graph], SERVICE_DRIVER,
                   [str(temporary / 'synced-nodes.plist')])
 
 # Source level.

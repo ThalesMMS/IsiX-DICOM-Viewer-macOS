@@ -133,7 +133,7 @@ with tempfile.TemporaryDirectory(prefix='horos-servers-argument-') as folder:
     network = isix_modules.module_flags('IsiXDICOMNetwork', folder / 'modules')
     built = subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(folder / 'module-cache'), *network,
                             str(folder / 'DICOMNodeService.swift'), str(folder / 'DICOMwebNode.swift'),
-                            str(folder / 'Credentials.swift'), str(graph), *map(str, discovery),
+                            str(folder / 'Credentials.swift'), str(graph), *map(str, discovery), *isix_modules.log_text_sources(),
                             str(folder / 'main.swift'),
                             '-o', str(executable)],
                            capture_output=True, text=True)
@@ -159,7 +159,7 @@ with tempfile.TemporaryDirectory(prefix='horos-servers-argument-') as folder:
             (folder / 'DICOMNodeService.swift').write_text(old)
             subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(folder / 'module-cache'), *network,
                             str(folder / 'DICOMNodeService.swift'), str(folder / 'DICOMwebNode.swift'),
-                            str(folder / 'Credentials.swift'), str(graph), *map(str, discovery),
+                            str(folder / 'Credentials.swift'), str(graph), *map(str, discovery), *isix_modules.log_text_sources(),
                             str(folder / 'main.swift'),
                             '-o', str(executable)],
                            check=True, capture_output=True)

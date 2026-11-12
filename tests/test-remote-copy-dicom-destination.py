@@ -48,25 +48,11 @@ def read(path):
     return data.decode('utf-8')
 
 
-def network_python():
-    common = subprocess.run(['git', '-C', str(root), 'rev-parse', '--path-format=absolute', '--git-common-dir'],
-                            capture_output=True, text=True).stdout.strip()
-    checkouts = [root] + ([Path(common).parent] if common else [])
-    candidates = [Path(sys.executable)]
-    for checkout in checkouts:
-        for venv in ('fixture-venv', 'dcmtk-venv', 'venv'):
-            candidates.append(checkout / 'local-validation' / venv / 'bin' / 'python')
-    for candidate in candidates:
-        if candidate.is_file() and subprocess.run([str(candidate), '-c', 'import pydicom, pynetdicom'],
-                                                  capture_output=True).returncode == 0:
-            return str(candidate)
-    return None
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from python_with import interpreter_or_skip  # noqa: E402
 
-
-python = network_python()
-if python is None:
-    print('skipped: needs local-validation/fixture-venv with pydicom and pynetdicom', file=sys.stderr)
-    sys.exit(2)
+python = interpreter_or_skip('import pydicom', 'import pynetdicom', need='the destination needs',
+                             packages="'pydicom>=3,<4' pynetdicom")
 
 nodes = read('Horos/Sources/RemoteDataNodeIdentifier.swift')
 base = read('Horos/Sources/DataNodeIdentifier.m')

@@ -36,6 +36,10 @@ MODEL = ['DCMObject.m', 'DCMAttribute.m', 'DCMSequenceAttribute.m', 'DCMTransfer
          'DCMPixelDataAttribute.mm']
 MODEL_HEADERS = ['DCMObject.h', 'DCMAttribute.h', 'DCMSequenceAttribute.h', 'DCMTransferSyntax.h',
                  'DCMEncapsulatedPDF.h', 'DCMPixelDataAttribute.h', 'DCMHostServices.h', 'DCMUIDs.h', 'DCMModel.h']
+# What that model called the IsiXDICOMFile classes, which have the former
+# framework's names again: its sources are compiled naming them as they are now.
+MODEL_VALUE_TYPES = {b'IsiXDICOMAttributeTag': b'DCMAttributeTag', b'IsiXDICOMCalendarDate': b'DCMCalendarDate',
+                     b'IsiXDICOMCharacterSet': b'DCMCharacterSet', b'IsiXDICOMSOPClass': b'DCMAbstractSyntaxUID'}
 
 SETUP = r'''
 #undef verify
@@ -185,7 +189,8 @@ def model_objects(work, revision=None):
         shown = subprocess.run(['git', '-C', str(ROOT), 'show', '%s:Horos/Sources/Adapters/DCMTK/%s' % (revision, name)],
                                capture_output=True)
         if shown.returncode == 0:
-            (sources / name).write_bytes(shown.stdout)
+            (sources / name).write_bytes(re.sub(rb'\b(%s)\b' % b'|'.join(MODEL_VALUE_TYPES),
+                                                lambda found: MODEL_VALUE_TYPES[found.group(1)], shown.stdout))
     objects = []
     for name in MODEL:
         language = 'objective-c++' if name.endswith('.mm') else 'objective-c'

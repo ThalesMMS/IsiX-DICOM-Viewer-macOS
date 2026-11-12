@@ -44,9 +44,14 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
 parser.add_argument('--products', type=Path, default=root / 'build/Build/Products/Debug')
-parser.add_argument('--generated', type=Path,
-                    default=root / 'build/Intermediates.noindex/Horos.build/Debug/Horos.build/DerivedSources/Horos-Swift.h')
+parser.add_argument('--generated', type=Path)
 args = parser.parse_args()
+if args.generated is None:
+    # script/build_and_run.sh leaves the intermediates under build/Build, or
+    # beside it with a link from there; a build by hand may have only the latter.
+    header = 'Intermediates.noindex/Horos.build/Debug/Horos.build/DerivedSources/Horos-Swift.h'
+    args.generated = next((base / header for base in (root / 'build/Build', root / 'build') if (base / header).is_file()),
+                          root / 'build/Build' / header)
 
 app = args.products / 'IsiX DICOM Viewer.app'
 generated = args.generated

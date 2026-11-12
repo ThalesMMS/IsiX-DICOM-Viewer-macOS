@@ -92,11 +92,13 @@ NS_ASSUME_NONNULL_BEGIN
                           messageID:(uint16_t)messageID
     NS_SWIFT_NAME(store(_:presentationContext:messageID:));
 
-/// Sets DCMTK's process-wide settings for a send: its log level, the zlib
-/// level of a deflated syntax, and the VRs it may write (UN, UT). Each send
-/// sets them, as storescu does.
-+ (void)configureForSendingVerbose:(BOOL)verbose deflateLevel:(NSInteger)level deflated:(BOOL)deflated
-    NS_SWIFT_NAME(configureForSending(verbose:deflateLevel:deflated:));
+/// Sets DCMTK's process-wide settings for a send: the level of its log, the
+/// zlib level of a deflated syntax, and the VRs it may write (UN, UT). Each
+/// send sets them, as storescu does. The level is the one the application
+/// starts DCMTK with (IsiXDCMTKLog): warnings and errors, and what DCMTK
+/// writes at INFO only when `dumpsDatasets` asks for the datasets.
++ (void)configureForSendingDumpingDatasets:(BOOL)dumpsDatasets deflateLevel:(NSInteger)level deflated:(BOOL)deflated
+    NS_SWIFT_NAME(configureForSending(dumpsDatasets:deflateLevel:deflated:));
 
 @end
 

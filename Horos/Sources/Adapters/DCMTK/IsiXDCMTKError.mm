@@ -11,6 +11,7 @@
 #import "IsiXDCMTKInternal.hpp"
 
 #include <dcmtk/dcmnet/dimse.h>
+#include <dcmtk/oflog/oflog.h>
 
 NSErrorDomain const IsiXDCMTKErrorDomain = @"IsiXDCMTKErrorDomain";
 NSString * const IsiXDCMTKConditionModuleKey = @"IsiXDCMTKConditionModule";
@@ -73,6 +74,18 @@ NSError *IsiXDCMTKErrorFromException(const char *what, const char *operation)
     }];
 }
 
+NSString *IsiXDCMTKLoggedException(NSException *exception)
+{
+    if (!exception) return @"(null)";
+    if (!exception.reason) return exception.name;
+    return [NSString stringWithFormat:@"%@ <a reason of %lu characters>", exception.name, (unsigned long)exception.reason.length];
+}
+
+void IsiXDCMTKConfigureLog(BOOL dumpsDatasets)
+{
+    OFLog::configure(dumpsDatasets ? OFLogger::INFO_LOG_LEVEL : OFLogger::WARN_LOG_LEVEL);
+}
+
 const char *IsiXDCMTKFileSystemPath(NSString *path)
 {
     if (path.length == 0) return NULL;
@@ -118,6 +131,18 @@ const char *IsiXDCMTKFileSystemPath(NSString *path)
     NSString *text = error.userInfo[IsiXDCMTKConditionTextKey] ?: error.localizedDescription;
     if (!module || !code) return text;
     return [NSString stringWithFormat:@"%04x:%04x %@", module.unsignedShortValue, code.unsignedShortValue, text];
+}
+
+@end
+
+@implementation IsiXDCMTKLog
+
++ (void)configureDumpingDatasets:(BOOL)dumpsDatasets
+{
+    IsiXDCMTKGuard(NULL, "OFLog::configure", [&]() -> NSError * {
+        IsiXDCMTKConfigureLog(dumpsDatasets);
+        return nil;
+    });
 }
 
 @end

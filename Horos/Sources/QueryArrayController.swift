@@ -215,7 +215,7 @@ public final class QueryArrayController: NSObject {
                 showQueryAlert("Query Error", informative: "Query Failed")
             }
             if let e = (failure as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                _N2LogExceptionImpl(e, true, "-[QueryArrayController performQuery:]")
+                LogText.log(e, stack: true, in: "-[QueryArrayController performQuery:]")
             }
         }
 

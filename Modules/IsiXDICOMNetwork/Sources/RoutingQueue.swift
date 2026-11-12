@@ -33,12 +33,18 @@ public struct RoutingOrder: Sendable, Hashable {
 
 /// Why the files of a send did not all arrive.
 public struct RoutingSendFailure: Sendable, Hashable {
+    /// What failed, as the alert titles it.
     public var name: String
+    /// What the alert says of it; it may name the files that did not arrive.
     public var reason: String
+    /// What the log writes of it: `reason` without the names of the files,
+    /// which may be those of patients. `reason` itself when not given.
+    public var logReason: String
 
-    public init(name: String, reason: String) {
+    public init(name: String, reason: String, logReason: String? = nil) {
         self.name = name
         self.reason = reason
+        self.logReason = logReason ?? reason
     }
 }
 
@@ -223,7 +229,10 @@ public actor RoutingQueue {
     /// `-compare:` of the texts, those without one first, keeping their order
     /// otherwise), consecutive files of the same Patient ID in one batch; a
     /// file without a Patient ID makes a batch of its own. A file that is not
-    /// on disk is left out and counted; the first ten are logged.
+    /// on disk is left out and counted; the first ten are logged, each by the
+    /// Study Instance UID of its study. The log names no file, study
+    /// description or patient: a file indexed where it lies has the name and
+    /// the folders its owner gave it.
     static func batches(of files: [RoutedFile], fileExists: (String) -> Bool) -> (batches: [[RoutedFile]], missing: Int) {
         let sorted = files.enumerated().sorted { left, right in
             switch comparePatientIDs(left.element.study.patientID, right.element.study.patientID) {
@@ -241,7 +250,8 @@ public actor RoutingQueue {
             guard let path = file.path, fileExists(path) else {
                 missing += 1
                 if missing <= 10 {
-                    NSLog(" Autorouting: not sending %@ - the file is not there", file.path ?? "(null)")
+                    NSLog(" Autorouting: not sending an image of study %@ - the file is not there",
+                          file.study.studyInstanceUID ?? "(null)")
                 }
                 continue
             }
@@ -272,7 +282,10 @@ public actor RoutingQueue {
     private func send(_ batch: [RoutedFile], to node: DICOMNode, for order: RoutingOrder,
                       through delivery: some RoutingDelivery) async -> RoutingSendResult {
         guard let first = batch.first else { return .sent }
-        NSLog(" Autorouting: %@ - %@", first.study.studyName ?? "(null)", Self.count(batch.count, "object", "objects"))
+        // The study by its UID: its description and its patient's name stay
+        // out of the log, which every process of the user can read.
+        let study = first.study.studyInstanceUID ?? "(null)"
+        NSLog(" Autorouting: study %@ - %@", study, Self.count(batch.count, "object", "objects"))
 
         let request = DICOMSendRequest(destination: node,
                                        batches: [DICOMSendRequest.Batch(patientName: first.study.patientName,
@@ -289,7 +302,7 @@ public actor RoutingQueue {
         case .cancelled:
             break
         case .failed(let failure):
-            NSLog("Autorouting FAILED : %@ - %@", failure.reason, batch.compactMap(\.path).joined(separator: ", "))
+            NSLog("Autorouting FAILED : %@ - %@ of study %@", failure.logReason, Self.count(batch.count, "file", "files"), study)
             // A destination that is down fails every batch; the first failure
             // is shown, the repeats are in the log above.
             if gate.shouldReport(problem: failure.reason, forDestination: destination) {
@@ -298,7 +311,7 @@ public actor RoutingQueue {
             try? await Task.sleep(for: retryPause)
 
             if order.failureRetry > 0 {
-                NSLog("Autorouting for %@ : failure count: %d", first.study.patientName ?? "(null)", order.failureRetry)
+                NSLog("Autorouting for study %@ : failure count: %d", study, order.failureRetry)
                 orders.append(RoutingOrder(files: batch, destinationName: node[DICOMNode.Key.description]?.stringValue,
                                            rule: order.rule, failureRetry: order.rule == nil ? 0 : order.failureRetry &- 1,
                                            database: order.database))

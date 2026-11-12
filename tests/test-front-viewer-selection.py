@@ -13,11 +13,18 @@ if SWIFT:
  # The selection is Swift: the process's ViewerRegistry (ViewerRegistry.swift)
  # chooses, and the class methods of ViewerController+ViewerRegistry.swift ask
  # it; the same checks run on both, over stand-ins of the same names.
+ # Each method is taken by its own declaration, up to the brace that closes
+ # its body, so the members declared next to it stay out of the stand-ins.
+ def member(text,declaration):
+  a=text.index(declaration);i=text.index('{',a);depth=0
+  while True:
+   depth+={'{':1,'}':-1}.get(text[i],0);i+=1
+   if depth==0: return text[a:i]+'\n'
  r=read('Horos/Sources/ViewerController+ViewerRegistry.swift').decode()
- a=r.index('    @objc(frontMostDisplayed2DViewerForScreen:)');b=r.index('    /// Each displayed series',a)
  g=read('Horos/Sources/ViewerRegistry.swift').decode()
- c=g.index('    /// The front visible viewer of `screen`');e=g.index('\n    }\n',g.index('    @MainActor func frontMostDisplayedViewer(on screen: NSScreen?)',c))+len('\n    }\n')
- methods=r[a:b]+'}\nfinal class ViewerRegistry {\n'+g[c:e].replace('@MainActor func','func')+'}\nextension ViewerController {\n    nonisolated(unsafe) static let viewerRegistry = ViewerRegistry()\n'
+ selection=''.join(member(r,'    @objc('+selector+')\n') for selector in ('frontMostDisplayed2DViewerForScreen:','frontMostDisplayed2DViewer','isFrontMost2DViewer:'))
+ chosen=member(g,'    @MainActor func frontMostDisplayedViewer(on screen: NSScreen?)')
+ methods=selection+'}\nfinal class ViewerRegistry {\n'+chosen.replace('@MainActor func','func')+'}\nextension ViewerController {\n    nonisolated(unsafe) static let viewerRegistry = ViewerRegistry()\n'
 else:
  a=s.index('+ (ViewerController*) frontMostDisplayed2DViewerForScreen:');b=s.index('+ (NSMutableArray*) get2DViewers',a)
  methods=s[a:b].replace('static ViewerController *cachedFrontMostDisplayed2DViewer = nil;','')

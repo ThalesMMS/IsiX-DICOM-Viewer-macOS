@@ -88,7 +88,7 @@ extension DCMTKQueryNode {
         do {
             authorization = try WADOCredentials.authorization(forServer: parameters as NSDictionary)
         } catch {
-            NSLog("------ WADO retrieve: the node's credentials could not be read: %@", error.localizedDescription)
+            NSLog("------ WADO retrieve: the node's credentials could not be read: %@", LogText.error(error))
             if showErrorMessageValue && !Thread.current.isCancelled {
                 Self.postNotice(NSLocalizedString("WADO Retrieve Failed", comment: ""), error.localizedDescription)
             }
@@ -204,7 +204,8 @@ extension DCMTKQueryNode {
                             } else if let address = url(study: uid(), series: image.seriesInstanceUID(), object: objectUID) {
                                 urlToDownload.append(address)
                             } else {
-                                NSLog("****** no url : %@", baseURL + "&studyUID=\(uid() ?? "(null)")&seriesUID=\(image.seriesInstanceUID() ?? "(null)")&objectUID=\(objectUID)&contentType=application/dicom\(syntax)")
+                                // The UIDs, not the address: its path is the node's setting, as someone typed it.
+                                NSLog("****** no url for instance %@ of series %@ of study %@", objectUID, image.seriesInstanceUID() ?? "(null)", uid() ?? "(null)")
                             }
                         }
                     })
@@ -249,7 +250,7 @@ extension DCMTKQueryNode {
                     if let address = url(study: study?.uid(), series: uid(), object: objectUID) {
                         urlToDownload.append(address)
                     } else {
-                        NSLog("****** no url : %@", baseURL + "&studyUID=\(study?.uid() ?? "(null)")&seriesUID=\(uid() ?? "(null)")&objectUID=\(objectUID)&contentType=application/dicom\(syntax)")
+                        NSLog("****** no url for instance %@ of series %@ of study %@", objectUID, uid() ?? "(null)", study?.uid() ?? "(null)")
                     }
                 }
             })

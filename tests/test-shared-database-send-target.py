@@ -10,7 +10,10 @@ by the probe's recorders) with two local databases, the browser showing the one
 that is not the default, and checks that every file of SENDD and SENDG is
 written into the folder of the database whose index receives it, and that this
 is the database the peer reads (DBSIZ answers the size of its index). With no
-other database shown, the same holds.
+other database shown, the same holds. Once a peer's generated objects (SENDG)
+are indexed, the server takes the earlier annotations SRs of their studies out:
+it is checked that it orders that in the same database, for the objects that
+database indexed, and never for the files a peer forwards (SENDD).
 
     python3 tests/test-shared-database-send-target.py
     python3 tests/test-shared-database-send-target.py --baseline-objects-root <objects of a build of the previous revision>
@@ -148,15 +151,19 @@ def run(label, shows_other):
             request = command.encode() + b"\0" + i32(len(files)) + b"".join(i32(len(f)) + f for f in files)
             response, events = server.exchange(request)
             added = [e for e in events if e["event"] == "addFiles"]
+            pruned = [e for e in events if e["event"] == "removeEarlierAnnotationsSRs"]
             outcome["uploads"].append({"command": command, "files": files, "generated": generated,
-                                       "response": response, "added": added})
+                                       "response": response, "added": added, "pruned": pruned})
     finally:
         server.stop()
     return outcome
 
 
-def divergences(outcome):
-    """What makes the files and their index part, or the peer not read them."""
+def divergences(outcome, removes_earlier):
+    """What makes the files and their index part, or the peer not read them.
+
+    `removes_earlier`: the server is one that takes the earlier annotations SRs
+    out after a SENDG, which the revision of the baseline did not do yet."""
     found = []
     default = outcome["default"]
     if outcome["dbsiz"] != (default / "Database.sql").stat().st_size:
@@ -180,6 +187,18 @@ def divergences(outcome):
                 found.append(f"{command}: {Path(path).name} written into {where}, indexed in {index.name}")
         if index.resolve() != default.resolve():
             found.append(f"{command}: indexed in {index.name}, not in the database the peer reads ({default.name})")
+        if not removes_earlier:
+            continue
+        pruned = upload["pruned"]
+        if len(pruned) != (1 if upload["generated"] else 0):
+            found.append(f"{command}: {len(pruned)} orders to remove earlier annotations SRs")
+        for order in pruned:
+            if Path(order["database"]).resolve() != index.resolve():
+                found.append(f"{command}: earlier annotations SRs removed in {Path(order['database']).name}, "
+                             f"indexed in {index.name}")
+            if len(order["added"] or []) != len(upload["files"]):
+                found.append(f"{command}: earlier annotations SRs removed for {len(order['added'] or [])} objects, "
+                             f"{len(upload['files'])} indexed")
     return found
 
 
@@ -187,7 +206,7 @@ failures = []
 for label, _ in sides:
     for shows_other in (True, False):
         outcome = run(label, shows_other)
-        found = divergences(outcome)
+        found = divergences(outcome, removes_earlier=label == "candidate")
         case = f"{label}, browser showing {'another local database' if shows_other else 'the default database'}"
         print(f"{case}: " + ("; ".join(found) if found else "files and index in the default database"))
         if label == "candidate" and found:
@@ -203,5 +222,6 @@ for failure in failures:
 if failures:
     sys.exit(1)
 print("PASS: SENDD and SENDG write every file into the folder of the database that indexes it, the default "
-      "database the peer reads, whichever local database the browser shows"
+      "database the peer reads, whichever local database the browser shows, and SENDG alone has the earlier "
+      "annotations SRs of what it indexed removed, in that database"
       + (" (and the previous revision showed the divergence)" if arguments.baseline_objects_root else ""))

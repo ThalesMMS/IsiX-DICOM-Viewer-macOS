@@ -202,7 +202,7 @@ public final class HorosDatabaseServer: NSObject, @unchecked Sendable {
                     try peer.start()
                     handler(peer)
                 } catch {
-                    NSLog("Shared database: connection from %@ failed: %@", peer.address, String(describing: error))
+                    NSLog("Shared database: connection from %@ failed: %@", peer.address, LogText.error(error))
                 }
             }
         }

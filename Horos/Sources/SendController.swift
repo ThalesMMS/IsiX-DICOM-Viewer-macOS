@@ -432,7 +432,7 @@ public final class SendController: NSWindowController {
                 items = DICOMSendSelection.items(of: images, markingAppSeries: !sendsAppSeries)
             }
         } catch {
-            NSLog("***** sendToNode exception: %@", describe((error as NSError).userInfo[HorosObjCExceptionKey]))
+            NSLog("***** sendToNode exception: %@", LogText.error(error))
         }
         let batches = DICOMSendSelection.batches(of: items, sendsAppSeries: sendsAppSeries)
         guard !batches.isEmpty else { return nil }

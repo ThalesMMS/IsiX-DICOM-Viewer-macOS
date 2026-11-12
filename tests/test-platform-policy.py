@@ -74,12 +74,53 @@ import Foundation
         precondition(!HorosPlatformPolicy.embeddedFileIsSwiftRuntime("Horos"))
         precondition(!HorosPlatformPolicy.embeddedFileIsSwiftRuntime("libgdcmMSFF.dylib"))
 
+        // Span is in macOS only since 26.0: a product that starts at 15.0 and
+        // uses it loads the toolchain's back-deployment library from its own
+        // bundle, and does not launch on macOS 15 without it. From 26.0 on the
+        // macOS has it and the copy is an orphan again. The runtime itself and
+        // a library that is not Swift's are judged as before.
+        let span = "libswiftCompatibilitySpan.dylib"
+        precondition(HorosPlatformPolicy.embeddedFileIsSwiftRuntime(span))
+        precondition(HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(named: span, productMinimum: v150))
+        precondition(HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(named: span, productMinimum: "15.0"))
+        precondition(HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(
+            named: span, productMinimum: HorosPlatformPolicy.productMinimum))
+        precondition(HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(named: span, productMinimum: v155))
+        precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(named: span, productMinimum: "26.0"))
+        precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(named: span, productMinimum: v265))
+        precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(named: span, productMinimum: v27))
+        precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(named: span, productMinimum: "not a version"))
+        for runtime in ["libswiftCore.dylib", "libswift_Concurrency.dylib", "libswiftCompatibilityUnknown.dylib"] {
+            precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(named: runtime, productMinimum: v150))
+            precondition(HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(named: runtime, productMinimum: "10.13"))
+        }
+        precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(named: "libgdcmMSFF.dylib", productMinimum: "10.13"))
+        precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(named: span + ".bak", productMinimum: v150))
+
+        // The audit of the built bundles reads a second thing in that answer:
+        // while the bundle may carry a back-deployment library, the macOS of
+        // the minimum does not have it, so code that loads it finds it in the
+        // bundle or does not start. That holds only if the answer changes at
+        // the macOS that has the library and nowhere else, for every library
+        // the policy lists.
+        precondition(HorosPlatformPolicy.swiftBackDeploymentLibraryInOSSince[span]
+                     == HorosPlatformPolicy.parseVersion("26.0")!)
+        for (library, since) in HorosPlatformPolicy.swiftBackDeploymentLibraryInOSSince {
+            precondition(HorosPlatformPolicy.embeddedFileIsSwiftRuntime(library))
+            precondition(HorosPlatformPolicy.swiftRuntimeInOSSince < since)
+            let before = HorosPlatformPolicy.Version(major: since.major - 1, minor: 99, patch: 99)
+            precondition(HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(named: library, productMinimum: before))
+            precondition(HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(named: library, productMinimum: before.display))
+            precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(named: library, productMinimum: since))
+            precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(named: library, productMinimum: since.display))
+        }
+
         precondition(HorosPlatformPolicy.trackedSigningTeamIsAllowed(""))
         precondition(HorosPlatformPolicy.trackedSigningTeamIsAllowed("$(HOROS_DEVELOPMENT_TEAM)"))
         precondition(!HorosPlatformPolicy.trackedSigningTeamIsAllowed("TPT6TVH8UY"))
         precondition(HorosPlatformPolicy.donorSigningTeamThatMustNotBeCopied == "TPT6TVH8UY")
 
-        print("PASS: product minimum 15.0 is encodable by this SDK, an older SDK cannot encode it, a 15.0 package never reaches an older Mac, and the bundle needs no Swift runtime of its own")
+        print("PASS: product minimum 15.0 is encodable by this SDK, an older SDK cannot encode it, a 15.0 package never reaches an older Mac, and the bundle needs no Swift runtime of its own beyond the back-deployment library for Span")
     }
 }
 '''

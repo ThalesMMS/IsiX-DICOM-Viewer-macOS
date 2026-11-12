@@ -230,10 +230,15 @@ public final class XMLRPCInterface: NSObject, N2XMLRPCConnectionDelegate {
         return 0
     }
 
-    /// N2LogException(e) (`stack` false) or N2LogExceptionWithStackTrace(e) in
-    /// the method `function`.
+    /// An exception raised while a request was carried out, in the method
+    /// `function`, with its stack when `stack` asks. A request is a predicate
+    /// or the values of one - a patient's name or identifier, an accession
+    /// number, an address - and what is raised over it quotes it: a predicate
+    /// that cannot be parsed or evaluated is in the reason whole. The log is
+    /// told the exception's name and how long its reason is; the caller is
+    /// answered an error.
     static func log(_ exception: NSException, stack: Bool, _ function: String) {
-        _N2LogExceptionImpl(exception, stack, function)
+        LogText.log(exception, stack: stack, in: function)
     }
 
     // MARK: Called in process

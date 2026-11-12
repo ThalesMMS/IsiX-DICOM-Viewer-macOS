@@ -826,7 +826,7 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
                     }
                     return
                 } catch {
-                    NSLog("Warning: %@", QueryController.describe(error))
+                    QueryController.log(error, "-[QueryController bind:]")
                 }
             }
         }
@@ -868,20 +868,16 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
         return false
     }
 
-    /// The exception or error, as the former @catch logged it.
-    nonisolated static func describe(_ error: Error) -> String {
-        if let exception = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-            return exception.description
-        }
-        return (error as NSError).description
-    }
-
-    /// N2LogExceptionWithStackTrace(e) in the former method `function`.
+    /// What was raised or thrown in the method `function`, as the log may
+    /// write it: an exception by its name, the length of its reason and its
+    /// stack, an error by its domain and code. The Query window works on what
+    /// was typed and what the nodes answered, and a reason raised over either
+    /// quotes it.
     nonisolated static func log(_ error: Error, _ function: String) {
         if let exception = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-            _N2LogExceptionImpl(exception, true, function)
+            LogText.log(exception, stack: true, in: function)
         } else {
-            NSLog("%@: %@", function, (error as NSError).description)
+            NSLog("%@: %@", function, LogText.error(error))
         }
     }
 

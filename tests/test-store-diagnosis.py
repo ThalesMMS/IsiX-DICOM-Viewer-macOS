@@ -168,9 +168,9 @@ else:
 code = '\n'.join(re.sub(r'//.*$', '', line) for line in scu.splitlines())
 if re.search(r'reason:\s*"Unsuccessful Store Encountered', code):
     failures.append('the failure still tells the user to open Console.app')
-if not re.search(r'recorded = StoreSendFailure\(name: StoreSendFailure\.store, reason: report\.detail\(limit: 5\)\)', code):
+if not re.search(r'recorded = StoreSendFailure\(category: \.store, reason: report\.detail\(limit: 5\)[,)]', code):
     failures.append('the exception the user sees does not carry the per-file detail')
-if 'NSException(name: NSExceptionName(failure.name), reason: failure.reason' not in code:
+if 'NSException(name: NSExceptionName(failure.category.rawValue), reason: failure.reason' not in code:
     failures.append('the send no longer raises its failure to the caller')
 
 for failure in failures:

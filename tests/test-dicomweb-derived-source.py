@@ -175,7 +175,7 @@ try:
     with tempfile.TemporaryDirectory(prefix='horos-dicomweb-derived-') as folder:
         temporary = Path(folder)
         sources = [str(root / 'Horos/Sources' / name) for name in
-                   ('DICOMwebClient.swift', 'DICOMwebNode.swift', 'DICOMwebCredentials.swift', 'DICOMwebMultipart.swift',
+                   ('DICOMwebClient.swift', 'DICOMwebClient+LogText.swift', 'DICOMwebNode.swift', 'DICOMwebCredentials.swift', 'DICOMwebMultipart.swift',
                     'NonInteractiveKeychainRead.swift')]
         (temporary / 'check.swift').write_text(DRIVER)
         executable = temporary / 'check'

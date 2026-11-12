@@ -216,7 +216,8 @@ def splits(data, positions):
 
 def mutations(events):
     return [e for e in events if e["event"] in ("setValue", "relationAdd", "relationRemove", "addFiles",
-                                                "sendDICOMFiles", "archiveAnnotations")]
+                                                "sendDICOMFiles", "archiveAnnotations",
+                                                "removeEarlierAnnotationsSRs")]
 
 
 open_server = Server()

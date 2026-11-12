@@ -923,7 +923,7 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
                 }
             } catch {
                 if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                    _N2LogExceptionImpl(e, true, "-[AYDicomPrintWindowController _sendPrintjobDCMTK:]")
+                    LogText.log(e, stack: true, in: "-[AYDicomPrintWindowController _sendPrintjobDCMTK:]")
                     if failure == nil {
                         failure = .launch
                         status = "could not start: \(e.reason ?? e.name.rawValue)"
@@ -1020,7 +1020,7 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
                     }
                 } catch {
                     if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                        _N2LogExceptionImpl(e, false, "-[AYDicomPrintWindowController _verifyConnections:]")
+                        LogText.log(e, stack: false, in: "-[AYDicomPrintWindowController _verifyConnections:]")
                     }
                 }
                 self.performSelector(onMainThread: #selector(self.setVerifyButton(_:)), with: NSNumber(value: true), waitUntilDone: true)
