@@ -104,6 +104,39 @@ public enum KeptIndexCleanup {
     }
 }
 
+/// The records of an index that name one data file.
+///
+/// The frames of a multiframe file are records of one SOP Instance UID, and a
+/// file that is not DICOM may hold several series, whose records have the
+/// identifiers the import gave them. Any other record that names the file is
+/// of an image whose own file is gone: it was given the number of that file
+/// when the count of the data files was read from the folder alone, and shows
+/// the image of the file, which may be of another study, as its own.
+public enum SharedDataFile {
+    /// Whether records with these identifiers, which name one file, have to
+    /// be compared with what the file holds. Records of one identifier, the
+    /// frames of a file, are told without reading it.
+    public static func needsReading<Identifier: Hashable>(recordIdentifiers: [Identifier?]) -> Bool {
+        return Set(recordIdentifiers.compactMap { $0 }).count > 1
+    }
+
+    /// The places, in `recordIdentifiers`, of the records that name the file
+    /// and are not of it: those whose identifier is none of `fileIdentifiers`,
+    /// the identifiers the import reads in the file.
+    ///
+    /// The file says so only when it is read and is of one of the records at
+    /// least. A file that does not read, or that none of the records is of,
+    /// such as one written anew in its place, tells nothing of them, and none
+    /// is taken for a stranger; nor is a record without an identifier.
+    public static func strangers<Identifier: Hashable>(recordIdentifiers: [Identifier?], fileIdentifiers: Set<Identifier>?) -> [Int] {
+        guard let fileIdentifiers, !fileIdentifiers.isEmpty,
+              recordIdentifiers.contains(where: { $0.map(fileIdentifiers.contains) ?? false }) else { return [] }
+        return recordIdentifiers.indices.filter { index in
+            recordIdentifiers[index].map { !fileIdentifiers.contains($0) } ?? false
+        }
+    }
+}
+
 /// What a rebuild that stopped has left, which is what it tells the person.
 public enum RebuildStop: Equatable, Sendable {
     /// The index was copied, or set aside, in this folder.

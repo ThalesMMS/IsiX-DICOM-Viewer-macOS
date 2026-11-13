@@ -97,7 +97,7 @@ code = r'''
 import Foundation
 
 // The loop logs what it catches: counted here.
-var guards = 0, openGuards = 0, logged = 0
+var guards = 0, openGuards = 0, logged = 0, wrongPhase = 0
 func NSLog(_ format: String, _ args: CVarArg...) {
     logged += 1
     FileHandle.standardError.write((String(format: format, arguments: args) + "\n").data(using: .utf8)!)
@@ -110,7 +110,12 @@ enum Registry {
     static var plugins: NSMutableDictionary? = nil
 }
 @objc(PluginManager) final class PluginManager: NSObject {
-    @objc(startProtectForCrashWithFilter:) class func startProtectForCrash(withFilter filter: Any!) { guards += 1; openGuards += 1 }
+    // The launch sends -setMenus to every plugin: its guard says the plugin is still loading.
+    enum Phase { case loading, running }
+    class func startProtectForCrash(withFilter filter: Any!, phase: Phase) {
+        guards += 1; openGuards += 1
+        if phase != .loading { wrongPhase += 1 }
+    }
     @objc class func endProtectForCrash() { openGuards -= 1 }
     @objc class func runLoop() {
 BODY
@@ -125,6 +130,7 @@ var failed = 0
 if menu.calls != 1 { print("FAIL: the plugin that implements -setMenus was called \(menu.calls) times"); failed += 1 }
 if logged != 1 { print("FAIL: \(logged) exceptions logged, only the failing plugin's expected"); failed += 1 }
 if guards != 4 || openGuards != 0 { print("FAIL: \(guards) crash guards opened, \(openGuards) left open"); failed += 1 }
+if wrongPhase != 0 { print("FAIL: \(wrongPhase) guards of -setMenus say the plugin was running a command"); failed += 1 }
 if failed > 0 { exit(1) }
 print("ok")
 '''.replace('BODY', body)

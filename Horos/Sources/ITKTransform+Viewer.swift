@@ -131,18 +131,16 @@ extension ITKTransform {
         if NSApp.currentEvent?.modifierFlags.contains(.option) == true {
             new2DViewer = ViewerController.newWindow(newPixList, newFileList, volumeData)
         } else {
-            // Close original viewer
-            let preferences = processGraph.preferences
-            let prefTileWindows = preferences[ViewerPreferences.autoTiling]
-
-            preferences.set(false, for: ViewerPreferences.autoTiling)
-
+            // Close original viewer. The new one takes its frame: the windows are
+            // not tiled meanwhile, for this process only (TemporaryPreferenceWork).
             let f = originalViewer.window?.frame ?? .zero
-            originalViewer.window?.close()
+            var replacement: ViewerController?
+            TemporaryPreferenceWork.during(ViewerPreferences.autoTiling, at: false) {
+                originalViewer.window?.close()
 
-            new2DViewer = ViewerController.newWindow(newPixList, newFileList, volumeData, frame: f)
-
-            preferences.set(prefTileWindows, for: ViewerPreferences.autoTiling)
+                replacement = ViewerController.newWindow(newPixList, newFileList, volumeData, frame: f)
+            }
+            new2DViewer = replacement
         }
         // +newWindow::: hands over the +1 of the viewer's alloc, which the
         // viewer releases itself when its window closes: keep it, as the

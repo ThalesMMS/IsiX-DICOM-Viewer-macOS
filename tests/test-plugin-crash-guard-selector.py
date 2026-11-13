@@ -69,7 +69,13 @@ def swift_block(text, at):
 # PluginManager is Swift: the shipped method is compiled with the
 # helpers it calls, the Objective-C messaging of PluginManager.swift.
 plugins = source('PluginManager.swift', str(source_path('PluginManager').relative_to(root)))
+# The selector plugins and the app's own callers send guards a running command;
+# the matching itself takes the phase, which the launch's -setMenus pass gives as loading.
 method = swift_block(plugins, plugins.index('@objc(startProtectForCrashWithFilter:)'))
+if 'phase: .running' not in method:
+    print('FAIL: +startProtectForCrashWithFilter: no longer notes the plugin as running a command', file=sys.stderr)
+    raise SystemExit(1)
+method += '\n' + swift_block(plugins, plugins.index('    class func startProtectForCrash(withFilter filter: Any!, phase: PluginCrashMarker.Phase)'))
 helpers = swift_block(plugins, plugins.index('fileprivate enum ObjC {'))
 registry = swift_block(plugins, plugins.index('fileprivate enum Registry {'))
 
@@ -80,9 +86,11 @@ REGISTRY
 
 HELPERS
 
+// IsiXPluginLoading's, as far as the method names it.
+enum PluginCrashMarker { enum Phase { case loading, running } }
+
 @objc(PluginManager) final class PluginManager: NSObject {
-    @objc(startProtectForCrashWithPath:)
-    class func startProtectForCrash(withPath path: String!) {}
+    class func writeCrashMarker(forPluginAt path: String!, phase: PluginCrashMarker.Phase) {}
 
 METHOD
 }

@@ -260,16 +260,37 @@ extension DCMPix {
         ImagePlaneCoordinates.usefulRect(width: pwidth, height: pheight, scale: scale, pixelRatio: horos_pixelRatio, rotation: r)
     }
 
+    /// The image a fusion is merged from: -mergeWithDCMPix:offset: draws
+    /// nothing of what lies 1024 below the series' minimum, so that is what
+    /// the corners and the outside of the shutter get here, whatever the
+    /// polarity the image is shown in.
     @objc(renderWithRotation:scale:xFlipped:yFlipped:)
     public dynamic func render(withRotation r: Float, scale: Float, xFlipped xF: Bool, yFlipped yF: Bool) -> DCMPix! {
-        render(withRotation: r, scale: scale, xFlipped: xF, yFlipped: yF, backgroundOffset: -1024)
+        rendered(rotation: r, scale: scale, xFlipped: xF, yFlipped: yF, backgroundOffset: -1024, inverted: false)
     }
 
     /// A new image of this one flipped, scaled and turned by `r` degrees, with
     /// its pixel size, orientation and origin; the corners a turn uncovers get
-    /// the series' minimum plus `bgO`. Nil for a colour image.
+    /// the series' minimum plus `bgO`, and what its shutter hides (outside its
+    /// rectangle, its circle and its polygon, as on the screen) 1024 below
+    /// that minimum: what shows black. For an image shown inverted, whose
+    /// values stay as stored, both are at the other end: the series' maximum
+    /// less `bgO`, and 1024 above it. Nil for a colour image.
     @objc(renderWithRotation:scale:xFlipped:yFlipped:backgroundOffset:)
     public dynamic func render(withRotation r: Float, scale: Float, xFlipped xF: Bool, yFlipped yF: Bool, backgroundOffset bgO: Float) -> DCMPix! {
+        rendered(rotation: r, scale: scale, xFlipped: xF, yFlipped: yF, backgroundOffset: bgO, inverted: displayInverted)
+    }
+
+    /// The greatest value of the series, and no less than this image's own:
+    /// an image that is in no series knows no maximum of one.
+    private var greatestValue: Float {
+        max(maxValueOfSeries, fullwl + fullww / 2)
+    }
+
+    /// The rendering of both: `inverted` says at which end of the series'
+    /// values black lies.
+    private func rendered(rotation r: Float, scale: Float, xFlipped xF: Bool, yFlipped yF: Bool, backgroundOffset bgO: Float,
+                          inverted: Bool) -> DCMPix? {
         if isRGB { return nil }
         let dstRect = usefulRect(withRotation: r, scale: scale, xFlipped: xF, yFlipped: yF)
         var rot = r * ImagePlaneCoordinates.degreesToRadians
@@ -280,11 +301,20 @@ extension DCMPix {
 
         var source = UnsafeMutableRawPointer(computefImage())
         var owned = source != nil && source != UnsafeMutableRawPointer(fImage)
+        let uncovered = ImageRendering.blackBackground(inverted: inverted, minimum: minValueOfSeries,
+                                                       maximum: greatestValue, offset: bgO)
         if shutterEnabled && shutterRect.size.width > 0 && shutterRect.size.height > 0 {
-            shutterRect = ImageRendering.shutterRect(shutterRect, width: pwidth, height: pheight)
+            let hidden = ImageRendering.blackBackground(inverted: inverted, minimum: minValueOfSeries,
+                                                        maximum: greatestValue, offset: -1024)
+            // Stored as it is: the property's setter is the user's new rectangle, which discards the polygon.
+            horos_shutterRect = ImageRendering.shutterRect(horos_shutterRect, width: pwidth, height: pheight)
+            // The circle and the polygon hide what they hide on the screen.
+            let shape = ShutterMask.shapeMask(width: pwidth, height: pheight, circleCentre: horos_shutterCircular,
+                                              circleRadius: horos_shutterCircular_radius,
+                                              polygon: shutterPolygonal.map { UnsafePointer($0) }, polygonCount: horos_shutterPolygonalSize)
             if let image = source,
                let masked = ImageRendering.shuttered(image.assumingMemoryBound(to: Float.self), width: pwidth, height: pheight,
-                                                     rect: shutterRect, fill: minValueOfSeries - 1024) {
+                                                     rect: shutterRect, fill: hidden.value + hidden.offset, shape: shape) {
                 if owned { free(image) }
                 source = UnsafeMutableRawPointer(masked)
                 owned = true
@@ -296,7 +326,7 @@ extension DCMPix {
                                                      scaledWidth: ImagePlaneCoordinates.cUnsignedLong(Double(Float(pwidth) * scale)),
                                                      scaledHeight: ImagePlaneCoordinates.cUnsignedLong(height),
                                                      rotation: r, outputWidth: newW, outputHeight: newH,
-                                                     background: minValueOfSeries, backgroundOffset: bgO) else { return nil }
+                                                     background: uncovered.value, backgroundOffset: uncovered.offset) else { return nil }
         if xF { rot = Float(Double(rot) * -1.0) }
         if yF { rot = Float(Double(rot) * -1.0) }
 
@@ -367,7 +397,10 @@ extension DCMPix {
         dst.data = malloc(Int(dst.height) * dst.rowBytes)
         guard dst.data != nil else { return nil }
         var source = src
-        drawImage(&source, inImage: &dst, offset: cov, background: minValueOfSeries - 1024)
+        // Where the view shows nothing of the image: black, as outside the shutter.
+        let beside = ImageRendering.blackBackground(inverted: displayInverted, minimum: minValueOfSeries,
+                                                    maximum: greatestValue, offset: -1024)
+        drawImage(&source, inImage: &dst, offset: cov, background: beside.value + beside.offset)
 
         guard let rPix = newPix.copy() as? DCMPix else { free(dst.data); return nil }
         rPix.freefImage(whenDone: false)

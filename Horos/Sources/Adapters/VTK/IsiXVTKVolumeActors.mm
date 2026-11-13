@@ -439,6 +439,26 @@ static void IsiXVTKEmptyPolyData(vtkPolyData *data)
     IsiXVTKVolumeRun("removeOvalText", {}, [&] { o->aRenderer->RemoveActor( o->Oval2DText); });
 }
 
+- (BOOL)setMeasurementTextsHidden:(BOOL)hidden
+{
+    IsiXVTKVolumeViewObjects *o = _o;
+    BOOL changed = NO;
+    if (!o->aRenderer || !o->Line2DText) return NO;
+    IsiXVTKVolumeRun("hideMeasurementTexts", {}, [&] {
+        // By their opacity: the projection of each measure turns the
+        // visibility of its actors on and off by itself. A line that is stored
+        // copies the text property of the line it is made of, opacity included.
+        double opacity = hidden ? 0. : 1.;
+        changed = o->Line2DText->GetTextProperty()->GetOpacity() != opacity;
+        if(o->Oval2DText) o->Oval2DText->GetTextProperty()->SetOpacity(opacity);
+        o->Line2DText->GetTextProperty()->SetOpacity(opacity);
+        if(o->Angle2DText) o->Angle2DText->GetTextProperty()->SetOpacity(opacity);
+        for(IsiXVTKStoredLine *entry : o->storedLines)
+            entry->text->GetTextProperty()->SetOpacity(opacity);
+    });
+    return changed;
+}
+
 #pragma mark The line
 
 - (long)activeLinePointCount

@@ -1587,6 +1587,21 @@ def git(*arguments):
     return subprocess.run(['git', '-C', str(ROOT), *arguments], capture_output=True)
 
 
+# The value a piece of work gives a preference for the process, in revisions
+# whose blocks give one (the tiling menu, the study opened again with its saved
+# layout): the application's TemporaryPreferenceWork over IsiXPreferences'
+# holds, without its guard of exceptions, which nothing raises here.
+TEMPORARY_PREFERENCE_STAND_IN = r"""
+import Foundation
+import IsiXPreferences
+
+@MainActor enum TemporaryPreferenceWork {
+    static func during<Value: PreferenceValue>(_ key: PreferenceKey<Value>, at value: Value, silently: Bool = false, _ work: () -> Void) {
+        TemporaryPreferenceHolds.standard.during(key, at: value, work)
+    }
+}
+"""
+
 def read(revision, path):
     """`path` at `revision`, or in the tree for None; None when it is not there."""
     if revision is None:
@@ -1717,6 +1732,9 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-windows-') as tmp:
         sender = re.search(r'\nenum ViewerSender \{.*?\n}\n', support, re.S).group(0)
         (swift / 'Helpers.swift').write_text('import AppKit\n' + sender)
         sources.append(str(swift / 'Helpers.swift'))
+        if any(b'TemporaryPreferenceWork.' in (read(args.current, 'Horos/Sources/' + name) or b'') for name in SWIFT_FILES):
+            (swift / 'TemporaryPreferenceWork.swift').write_text(TEMPORARY_PREFERENCE_STAND_IN)
+            sources.append(str(swift / 'TemporaryPreferenceWork.swift'))
         libraries = []
         for module in MODULES:
             directory = folder / module

@@ -1334,10 +1334,18 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
     @objc(exportDICOMFileInt:)
     private dynamic func exportDICOMFileInt(_ screenCapture: Bool) -> NSDictionary? {
+        // The capture draws the graphics alone, without colour bars, in the
+        // views of this window only, and stores nothing in the preferences.
+        var f: String? = nil
+        CaptureAnnotations.during((controller?.planeViews ?? []) + [self.keyView()]) { f = self.writeDICOMFile(screenCapture) }
+        return f.map { NSDictionary(object: $0, forKey: "file" as NSString) }
+    }
+
+    /// Captures the key view, or all the views of the window, and writes the
+    /// image with `exportDCM`: the path of the file, nil when none was written.
+    private func writeDICOMFile(_ screenCapture: Bool) -> String? {
         let curPix = self.keyView()?.curDCM
 
-        let annotCopy = Int32(truncatingIfNeeded: self.preferenceStore[ViewerPreferences.annotations]),
-            clutBarsCopy = Int32(truncatingIfNeeded: self.preferenceStore[ViewerPreferences.clutBars])
         var width = 0, height = 0, spp = 0, bpp = 0
         var cwl: Float = 0, cww: Float = 0
         var o = [Float](repeating: 0, count: 9)
@@ -1345,11 +1353,6 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         var offset: Int32 = 0
         var isSigned: ObjCBool = false
         var f: String? = nil
-
-        self.preferenceStore.set(Int(annotGraphics), for: ViewerPreferences.annotations)
-        self.preferenceStore.set(Int(barHide), for: ViewerPreferences.clutBars)
-        DCMView.setDefaults()
-
         var data: UnsafeMutablePointer<UInt8>? = nil
 
         if self.preferenceStore[ReconstructionPreferences.exportIncludesAllViews] {
@@ -1458,15 +1461,8 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
             free(data)
         }
-        self.preferenceStore.set(Int(annotCopy), for: ViewerPreferences.annotations)
-        self.preferenceStore.set(Int(clutBarsCopy), for: ViewerPreferences.clutBars)
-        DCMView.setDefaults()
 
-        if let f = f {
-            return NSDictionary(object: f, forKey: "file" as NSString)
-        } else {
-            return nil
-        }
+        return f
     }
 
     @IBAction @objc(endExportDICOMFileSettings:)

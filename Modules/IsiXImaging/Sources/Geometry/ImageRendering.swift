@@ -124,9 +124,23 @@ public enum ImageRendering {
         return r
     }
 
+    /// What shows black beside an image, where a rendering has nothing of it
+    /// to show (outside its shutter, in the corners a turn uncovers): the
+    /// least value of its series and `offset`, zero or negative, further
+    /// down. An image shown inverted keeps its values as stored and shows the
+    /// greatest black: for it, the greatest value of the series and as far
+    /// up. Only the end that counts is asked for.
+    public static func blackBackground(inverted: Bool, minimum: @autoclosure () -> Float, maximum: @autoclosure () -> Float,
+                                       offset: Float) -> (value: Float, offset: Float) {
+        inverted ? (maximum(), -offset) : (minimum(), offset)
+    }
+
     /// A copy of `image` that keeps only `rect` (a rectangle from
-    /// `shutterRect`) and fills the rest with `fill`; nil when it cannot be allocated.
-    public static func shuttered(_ image: UnsafePointer<Float>, width: Int, height: Int, rect: CGRect, fill: Float) -> UnsafeMutablePointer<Float>? {
+    /// `shutterRect`) and fills the rest with `fill`; nil when it cannot be
+    /// allocated. With `shape` (ShutterMask.shapeMask, one byte a pixel), what
+    /// the shutter's circle and polygon hide inside the rectangle is filled too.
+    public static func shuttered(_ image: UnsafePointer<Float>, width: Int, height: Int, rect: CGRect, fill: Float,
+                                 shape: [UInt8]? = nil) -> UnsafeMutablePointer<Float>? {
         guard let copy = malloc(width * height * MemoryLayout<Float>.size)?.assumingMemoryBound(to: Float.self) else { return nil }
         var i = width * height
         var d = copy
@@ -145,6 +159,11 @@ public enum ImageRendering {
             memcpy(d, s, rowBytes)
             d += width
             s += width
+        }
+        if let shape, shape.count == width * height {
+            for index in 0..<shape.count where shape[index] == 0 {
+                copy[index] = fill
+            }
         }
         return copy
     }

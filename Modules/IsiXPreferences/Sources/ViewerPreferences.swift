@@ -56,6 +56,10 @@ public enum ViewerPreferences {
     public static let calciumScoreCTType = PreferenceKey<Int>("CalciumScoreCTType", registered: 0)
     public static let checkForMultipleVolumesInSeries = PreferenceKey<Bool>("CheckForMultipleVolumesInSeries", registered: "0")
     public static let clutBars = PreferenceKey<Int>("CLUTBARS", registered: "0")
+    /// On, the views hide the labels of the measures while Command-Shift is
+    /// held. Off, as registered, the keys change nothing of what is drawn: a
+    /// screenshot taken with Command-Shift-4 has the measures in it.
+    public static let commandShiftHidesLabels = PreferenceKey<Bool>("CommandShiftHidesROILabels", registered: false)
     public static let convertPETtoSUVautomatically = PreferenceKey<Bool>("ConvertPETtoSUVautomatically", registered: "0")
     public static let copySettings = PreferenceKey<Bool>("COPYSETTINGS", registered: "1")
     public static let customImageAnnotations = PreferenceKey<[String: PropertyListValue]?>("CUSTOM_IMAGE_ANNOTATIONS", registered: PreferenceDefault { _ in
@@ -337,7 +341,7 @@ public enum ViewerPreferences {
     static let catalog: [any CataloguedPreference] = [
         thirtyTwoBitImagesAreIntegers, allowSmartCropping, alwaysScaleToFit, annotations, autoHidesMatrix,
         automaticFusion, automaticWorkspaceLoad, automaticWorkspaceSave, autoPlayAnimation, autoTiling,
-        calciumScoreCTType, checkForMultipleVolumesInSeries, clutBars, convertPETtoSUVautomatically, copySettings,
+        calciumScoreCTType, checkForMultipleVolumesInSeries, clutBars, commandShiftHidesLabels, convertPETtoSUVautomatically, copySettings,
         customImageAnnotations, default2DViewerSeriesName, defaultFrameRate, defaultLeftTool, defaultMiddleTool,
         defaultModeForNonVolumicSeries, defaultMovieRate, defaultPETFusion, defaultPETWindowLevel, defaultRightTool,
         displayCalciumScore, displayCobbAngle, displayCrossReferenceLines, displayDICOMOverlays, emptyNameForNewROIs,

@@ -168,9 +168,16 @@ private func openDatabase(holding objectID: NSManagedObjectID, shown: DicomDatab
     return nil
 }
 
+/// The message of an image's row that answers the SOP Instance UID it keeps.
+/// Sent as a message, and only to a row that answers it: the probes link this
+/// class without the database's model classes.
+@objc private protocol DCMPixInstanceRow {
+    @objc(sopInstanceUID) optional func sopInstanceUID() -> String?
+}
+
 extension DCMPix {
     /// What -initWithPath:...imageObj: reads of the image's row: the study's
-    /// URI, the file type, the frames, the modality, the ages, the custom
+    /// URI, the file type, the frames, the SOP Instance UID, the modality, the ages, the custom
     /// annotations' database fields and the size the database recorded. On the
     /// row's context queue: directly when that is the main queue and this is the
     /// main thread, and otherwise through a private-queue read of the same row.
@@ -206,6 +213,9 @@ extension DCMPix {
             .uriRepresentation().absoluteString) as NSString?
         horos_fileTypeHasPrefixDICOM = (iO.value(forKey: "fileType") as? NSString)?.hasPrefix("DICOM") ?? false
         horos_numberOfFrames = rowInt(iO.value(forKey: "numberOfFrames"))
+        // What the file is to state when it is loaded.
+        let row = unsafeBitCast(iO, to: DCMPixInstanceRow.self)
+        horos_recordedSOPInstanceUID = (row.sopInstanceUID?() ?? nil) as NSString?
         guard let modality = iO.value(forKeyPath: "series.modality") as? NSString else {
             // [NSString stringWithString: nil] raised, and the reading stopped there.
             NSException(name: .invalidArgumentException, reason: "*** -[NSPlaceholderString initWithString:]: nil argument",

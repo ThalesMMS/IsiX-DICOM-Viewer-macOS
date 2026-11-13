@@ -202,4 +202,86 @@ import Testing
         #expect(Export.pixelDataLength(colour).count == 27)
         #expect(Export.pixelDataLength(image) == (2048, true))
     }
+
+    /// A picture of the screen is already in the polarity it showed: the
+    /// source's Presentation LUT goes, shape or table. Stored values keep it.
+    @Test func dropsThePresentationLUTOfTheSourceFromAPictureOfTheScreen() {
+        func edits(samplesPerPixel: Int, bitsPerSample: Int, modalityAsSource: Bool) -> [Export.Edit] {
+            let image = Export.Image(width: 8, height: 8, samplesPerPixel: samplesPerPixel, bitsPerSample: bitsPerSample,
+                                     isSigned: false, offset: 0, slope: 1, windowWidth: 400, windowLevel: 40, spacingX: 0,
+                                     spacingY: 0, sliceThickness: 0, orientation: [0, 0, 0, 0, 0, 0], position: nil,
+                                     slicePosition: nil)
+            return Export.imageEdits(image, instanceNumber: 1, modalityAsSource: modalityAsSource, sourceModality: "DX")
+        }
+        let shape = Export.Edit.remove(0x2050_0020), table = Export.Edit.remove(0x2050_0010)
+        #expect(Export.sourcePresentationLUT.sorted() == [0x2050_0010, 0x2050_0020])
+        for modalityAsSource in [false, true] {
+            for samplesPerPixel in [1, 3] {
+                let screen = edits(samplesPerPixel: samplesPerPixel, bitsPerSample: 8, modalityAsSource: modalityAsSource)
+                #expect(screen.contains(shape) && screen.contains(table))
+                #expect(!screen.contains(where: { if case .put(let tag, _) = $0 { return tag >> 16 == 0x2050 }; return false }))
+            }
+            for bitsPerSample in [16, 32] {
+                let stored = edits(samplesPerPixel: 1, bitsPerSample: bitsPerSample, modalityAsSource: modalityAsSource)
+                #expect(!stored.contains(shape) && !stored.contains(table))
+            }
+        }
+    }
+
+    /// Stored values written over a MONOCHROME1 source are MONOCHROME1 still;
+    /// a picture of the screen, and anything over another source, is not.
+    @Test func keepsThePhotometricInterpretationOfStoredValues() {
+        func image(samplesPerPixel: Int = 1, bitsPerSample: Int) -> Export.Image {
+            Export.Image(width: 8, height: 6, samplesPerPixel: samplesPerPixel, bitsPerSample: bitsPerSample, isSigned: false,
+                         offset: 0, slope: 1, windowWidth: -1, windowLevel: -1, spacingX: 0, spacingY: 0, sliceThickness: 0,
+                         orientation: [0, 0, 0, 0, 0, 0], position: nil, slicePosition: nil)
+        }
+        let inverted = Export.Source(modality: "DX", photometricInterpretation: "MONOCHROME1 ", rows: 6, columns: 8)
+        #expect(Export.photometricInterpretation(image(bitsPerSample: 16), source: inverted) == "MONOCHROME1")
+        #expect(Export.photometricInterpretation(image(bitsPerSample: 32), source: inverted) == "MONOCHROME1")
+        #expect(Export.photometricInterpretation(image(bitsPerSample: 8), source: inverted) == "MONOCHROME2")
+        #expect(Export.photometricInterpretation(image(samplesPerPixel: 3, bitsPerSample: 8), source: inverted) == "RGB")
+        for other in ["MONOCHROME2", "PALETTE COLOR", "RGB", nil] {
+            let source = Export.Source(modality: "CT", photometricInterpretation: other, rows: 6, columns: 8)
+            #expect(Export.photometricInterpretation(image(bitsPerSample: 16), source: source) == "MONOCHROME2")
+        }
+        let edits = Export.imageEdits(image(bitsPerSample: 16), instanceNumber: 1, modalityAsSource: true, source: inverted)
+        #expect(edits.contains(.put(0x0028_0004, "MONOCHROME1")) && !edits.contains(.put(0x0028_0004, "MONOCHROME2")))
+        // A caller that knows only the modality of its source writes MONOCHROME2, as before.
+        let former = Export.imageEdits(image(bitsPerSample: 16), instanceNumber: 1, modalityAsSource: true, sourceModality: "DX")
+        #expect(former.contains(.put(0x0028_0004, "MONOCHROME2")))
+    }
+
+    /// The shutter and the overlay planes of the source stay only with an
+    /// image that has the source's rows and columns.
+    @Test func dropsTheShutterAndTheOverlaysOfAnotherMatrix() {
+        func image(width: Int, height: Int, samplesPerPixel: Int = 1, bitsPerSample: Int) -> Export.Image {
+            Export.Image(width: width, height: height, samplesPerPixel: samplesPerPixel, bitsPerSample: bitsPerSample,
+                         isSigned: false, offset: 0, slope: 1, windowWidth: -1, windowLevel: -1, spacingX: 0, spacingY: 0,
+                         sliceThickness: 0, orientation: [0, 0, 0, 0, 0, 0], position: nil, slicePosition: nil)
+        }
+        let source = Export.Source(modality: "DX", photometricInterpretation: "MONOCHROME1", rows: 512, columns: 400)
+        let overlays = Array(stride(from: UInt16(0x6000), through: 0x601e, by: 2))
+        let shutter = Export.displayShutter.map { Export.Edit.remove($0) }
+        #expect(Export.displayShutter.contains(0x0018_1600) && Export.displayShutter.allSatisfy { $0 >> 16 == 0x0018 })
+        // The source's own matrix, in stored values or in colour.
+        for same in [image(width: 400, height: 512, bitsPerSample: 16), image(width: 400, height: 512, samplesPerPixel: 3, bitsPerSample: 8)] {
+            #expect(Export.hasMatrix(of: source, same))
+            #expect(Export.groupsRemoved(same, source: source) == [0x0028, 0x5200])
+            let edits = Export.imageEdits(same, instanceNumber: 1, modalityAsSource: true, source: source)
+            #expect(shutter.allSatisfy { !edits.contains($0) })
+        }
+        // A picture of the screen, a cropped image, rows and columns exchanged, a source without a matrix.
+        let others: [(Export.Image, Export.Source)] = [
+            (image(width: 1920, height: 841, bitsPerSample: 8), source), (image(width: 841, height: 841, samplesPerPixel: 3, bitsPerSample: 8), source),
+            (image(width: 400, height: 392, bitsPerSample: 16), source), (image(width: 512, height: 400, bitsPerSample: 16), source),
+            (image(width: 400, height: 512, bitsPerSample: 16), Export.Source(modality: "DX")),
+        ]
+        for (other, from) in others {
+            #expect(!Export.hasMatrix(of: from, other))
+            #expect(Export.groupsRemoved(other, source: from) == [0x0028, 0x5200] + overlays)
+            let edits = Export.imageEdits(other, instanceNumber: 1, modalityAsSource: true, source: from)
+            #expect(shutter.allSatisfy { edits.contains($0) })
+        }
+    }
 }

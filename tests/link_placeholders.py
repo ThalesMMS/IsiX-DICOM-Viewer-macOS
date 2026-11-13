@@ -4,8 +4,18 @@ A probe linked out of the app's objects with `-undefined dynamic_lookup` names
 symbols that nothing it links defines. dyld refuses to start it while one of
 them is a datum, naming one per run; roi_harness.build(),
 app_object_probe.link_and_run() and the tests with a loop of their own give
-each symbol named a placeholder, eight zeroed bytes, link again and run again,
+each symbol named a placeholder, eight zeroed bytes, link again and ask again,
 until the probe starts. That is enough for what the probe never reaches.
+
+The symbol is found without running the probe. A run that dyld refuses is an
+abort, and every abort leaves a crash report in ~/Library/Logs/
+DiagnosticReports under the probe's name: one for each placeholder of each
+build, among the reports of the user's own applications. unbound_symbol()
+reads from the executable the pointers dyld fills as the image loads with a
+symbol of the flat namespace, and asks a process that has loaded the
+libraries the probe loads whether each symbol is there. The probe is run only
+once none is missing, and that run still judges: what dyld would name
+against what was read here is the next placeholder all the same.
 
 It is not enough for an Objective-C class the runtime reads when the image
 loads: a linked object that extends the class with a category, or subclasses
@@ -27,11 +37,39 @@ LINK_RUN_SOURCE, which answers it once the image has loaded, before main(). An
 argument, not the environment: a run for the probe's result cannot be given it
 by mistake and pass for having ended well.
 """
+import json
+from pathlib import Path
 import re
 import signal
 import subprocess
+import sys
 
 MISSING = re.compile(r"symbol not found in flat namespace '([^']+)'")
+# A pointer dyld fills as the image loads with a symbol of the flat namespace,
+# as `dyld_info -fixups` lists it: segment, section, address, "bind", target.
+# A "lazy-bind" is a function looked up when it is first called, which dyld
+# does not ask for to start the probe.
+LOAD_BIND = re.compile(r'^\s*\S+\s+\S+\s+0x[0-9A-Fa-f]+\s+bind\s+<flat-namespace>/(\S+)(.*)$', re.M)
+# Asked of a process of its own: the libraries the probe loads, with all they
+# load in turn, and whether the flat namespace they make holds each symbol.
+# It answers the first that is not there, or the library it could not load.
+RESOLVER = r'''
+import ctypes, json, sys
+asked = json.load(sys.stdin)
+for library in asked['libraries']:
+    try:
+        ctypes.CDLL(library, mode=ctypes.RTLD_GLOBAL)
+    except OSError:
+        print(json.dumps({'unloaded': library}))
+        sys.exit(0)
+dlsym = ctypes.CDLL(None).dlsym
+dlsym.restype = ctypes.c_void_p
+dlsym.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+RTLD_DEFAULT = ctypes.c_void_p(-2)
+# The linker's name of a C symbol has an underscore dlsym() adds by itself.
+print(json.dumps({'missing': next((symbol for symbol in asked['symbols']
+                                   if not dlsym(RTLD_DEFAULT, symbol[1:].encode())), None)}))
+'''
 CLASS_SYMBOLS = ('_OBJC_CLASS_$_', '_OBJC_METACLASS_$_')
 LINK_RUN = '--probe-link'
 # The runtime has attached the categories of the image by the time its
@@ -122,9 +160,71 @@ def verdict(run, placeholders, what='the link probe'):
     return missing
 
 
+def load_binds(executable):
+    """The symbols of the flat namespace dyld has to find to start
+    `executable`, in the order of its fixups, each once: the weak imports,
+    which may be absent, are not among them. None when dyld_info cannot say."""
+    try:
+        listed = subprocess.run(['xcrun', 'dyld_info', '-fixups', str(executable)], capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if listed.returncode != 0 or '-fixups:' not in listed.stdout:
+        return None
+    return list(dict.fromkeys(symbol for symbol, rest in LOAD_BIND.findall(listed.stdout) if 'weak-import' not in rest))
+
+
+def loaded_libraries(executable):
+    """The libraries `executable` names to load, as paths. None when they
+    cannot be listed, or when one is found through a run path."""
+    try:
+        listed = subprocess.run(['xcrun', 'otool', '-L', str(executable)], capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if listed.returncode != 0:
+        return None
+    libraries = []
+    for line in listed.stdout.splitlines()[1:]:
+        library = line.strip().split(' (compatibility version')[0]
+        for prefix in ('@executable_path/', '@loader_path/'):
+            if library.startswith(prefix):
+                library = str(Path(executable).resolve().parent / library[len(prefix):])
+        if library.startswith('@') or not library:
+            return None
+        libraries.append(library)
+    return libraries
+
+
+def unbound_symbol(executable):
+    """The first symbol dyld would not find as it loads `executable`, told
+    without running it; None when it would find them all. None too when that
+    cannot be told here - no dyld_info, a library that is not found or does
+    not load, a name dlsym() cannot be asked: the run of the probe says it
+    then, as it always did."""
+    symbols = load_binds(executable)
+    if not symbols:
+        return None
+    libraries = loaded_libraries(executable)
+    if libraries is None or not all(symbol.startswith('_') for symbol in symbols):
+        return None
+    try:
+        asked = subprocess.run([sys.executable, '-c', RESOLVER], input=json.dumps({'libraries': libraries, 'symbols': symbols}),
+                               capture_output=True, text=True, timeout=60)
+        answer = json.loads(asked.stdout) if asked.returncode == 0 else {}
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return None
+    return answer.get('missing')
+
+
 def probe(executable, placeholders, what='the link probe', *, timeout=60):
-    """Runs the link run of the probe `executable`: its verdict(). A run that
-    does not end in `timeout` seconds is not built either."""
+    """Whether the probe `executable` is linked: the symbol it lacks, read
+    from it without a run when that can be told (unbound_symbol), else the
+    verdict() of its link run. A run that does not end in `timeout` seconds is
+    not built either."""
+    missing = unbound_symbol(executable)
+    if missing is not None:
+        if missing in placeholders:
+            raise ProbeNotBuilt('cannot satisfy %s' % missing)
+        return missing
     try:
         run = subprocess.run([str(executable), LINK_RUN], capture_output=True, text=True, errors='replace', timeout=timeout)
     except subprocess.TimeoutExpired as expired:

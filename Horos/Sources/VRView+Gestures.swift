@@ -106,6 +106,7 @@ extension VRView {
     }
 
     public override func flagsChanged(with event: NSEvent) {
+        MeasurementLabelSuppression.modifiersChanged(event.modifierFlags)
         setCursorFor(getTool(event))
         if horos_cursorSet { horos_cursor?.set() }
         super.flagsChanged(with: event)

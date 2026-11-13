@@ -301,12 +301,10 @@ final class ApplicationMenus: NSObject, NSMenuItemValidation {
         saved.study.windowsState = windowsState
 
         // The browser opens the study with its state only while the automatic
-        // workspace load is on: on for this opening, then back as it was.
-        let preferences = processGraph.preferences
-        let automatic = preferences[ViewerPreferences.automaticWorkspaceLoad]
-        if !automatic { preferences.set(true, for: ViewerPreferences.automaticWorkspaceLoad) }
-        processGraph.currentBrowser?.databaseOpenStudy(saved.study)
-        if !automatic { preferences.set(false, for: ViewerPreferences.automaticWorkspaceLoad) }
+        // workspace load is on: on for this opening and this process, nothing stored.
+        TemporaryPreferenceWork.during(ViewerPreferences.automaticWorkspaceLoad, at: true) {
+            processGraph.currentBrowser?.databaseOpenStudy(saved.study)
+        }
     }
 
     // MARK: - Recent Studies

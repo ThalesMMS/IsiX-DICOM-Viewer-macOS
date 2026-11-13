@@ -41,8 +41,10 @@ import Cocoa
 
 // What the 2D viewer's window accepts when something is dropped on it: the
 // image of another viewer (a fusion, with the sheet that asks its type, which
-// is ViewerFusion's), a plug-in's drag, a series of the database, or files
-// (ROI files, ROIs of a series, pictures laid on the image as a layer ROI).
+// is ViewerFusion's), a plug-in's drag, a series of the database, or files:
+// image files and PDFs dragged from another application, which become new
+// series of the study (ViewerFileDropTarget), ROI files, ROIs of a series, and,
+// with Option held, pictures laid on the image as a layer ROI.
 // The viewer a drag of an image started from is the process's
 // ViewerSyncState's.
 
@@ -145,6 +147,9 @@ public extension ViewerController {
                 window?.makeKeyAndOrderFront(self)
                 loadSelectedSeries(items.last, rightClick: false)
             }
+        } else if let taken = ViewerFileDropTarget.perform(sender, on: self) {
+            sessionGraph.processGraph.viewerSync.draggedViewer = nil
+            return taken
         } else {
             let desiredType = paste.availableType(from: [NSPasteboard.PasteboardType("NSFilenamesPboardType")])
             var carriedData: Data? = nil
@@ -239,12 +244,8 @@ public extension ViewerController {
             NSLog("catched")
         }
 
-        // The generic operation, when the source offers it.
-        if sender.draggingSourceOperationMask.contains(.generic) {
-            return .generic
-        } else {
-            return []
-        }
+        // Files that become a series are ViewerFileDropTarget's; else the generic operation, when the source offers it.
+        return ViewerFileDropTarget.operation(for: sender, on: self) ?? (sender.draggingSourceOperationMask.contains(.generic) ? .generic : [])
     }
 
     @objc(draggingExited:)
@@ -254,11 +255,7 @@ public extension ViewerController {
 
     @objc(draggingUpdated:)
     func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        if sender.draggingSourceOperationMask.contains(.generic) {
-            return .generic
-        } else {
-            return []
-        }
+        return ViewerFileDropTarget.operation(for: sender, on: self) ?? (sender.draggingSourceOperationMask.contains(.generic) ? .generic : [])
     }
 
     @objc(draggingEnded:)

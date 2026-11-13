@@ -91,14 +91,16 @@ extension BrowserController {
         studyList.addDefaultAlbums()
     }
 
+    /// The search and the time interval kept, whatever the Database settings
+    /// say of an album selected, while -selectNoAlbums: selects "Database":
+    /// the change of selection asks this, and the setting is not written.
+    nonisolated static let searchKeptForDatabase = ForcedPreference(DatabasePreferences.clearsSearchWhenSelectingAlbum, to: false)
+
     @objc(selectNoAlbums:)
     func selectNoAlbums(_ sender: Any!) {
-        // Selecting "Database" keeps the search and the time interval.
-        let preferences = PreferencesSource.process.preferences
-        let clears = preferences[DatabasePreferences.clearsSearchWhenSelectingAlbum]
-        preferences.set(false, for: DatabasePreferences.clearsSearchWhenSelectingAlbum)
-        horos_albumTable?.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
-        preferences.set(clears, for: DatabasePreferences.clearsSearchWhenSelectingAlbum)
+        BrowserController.searchKeptForDatabase.whileWorking {
+            horos_albumTable?.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+        }
     }
 
     @objc(selectAlbumWithName:)

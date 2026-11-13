@@ -210,7 +210,7 @@ public extension BrowserController {
     func tableViewSelectionDidChange(_ aNotification: Notification) {
         if let e = HorosObjCException.caught({
             if (aNotification.object as AnyObject?) === self.horos_albumTable {
-                self.studyList.albumSelectionChanged(clearsSearch: PreferencesSource.process.preferences[DatabasePreferences.clearsSearchWhenSelectingAlbum])
+                self.studyList.albumSelectionChanged(clearsSearch: BrowserController.searchKeptForDatabase.value(in: PreferencesSource.process.preferences))
             }
 
             if (aNotification.object as AnyObject?) === self.horos_comparativeTable {

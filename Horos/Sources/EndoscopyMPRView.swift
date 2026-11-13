@@ -644,59 +644,53 @@ public final class EndoscopyMPRView: OrthogonalMPRView {
         if (sender as? NSObject)?.isEqual(self.window?.windowController) ?? false {
             let curPix = self.curDCM
 
-            let annotCopy = self.preferenceStore[ViewerPreferences.annotations],
-                clutBarsCopy = self.preferenceStore[ViewerPreferences.clutBars]
             var width = 0, height = 0, spp = 0, bpp = 0
             var cwl: Float = 0, cww: Float = 0
             var o = [Float](repeating: 0, count: 9)
 
-            self.preferenceStore.set(Int(annotGraphics), for: ViewerPreferences.annotations)
-            self.preferenceStore.set(Int(barHide), for: ViewerPreferences.clutBars)
-            DCMView.setDefaults()
-
             let producedFiles = NSMutableArray()
 
-            let data = self.superGetRawPixels(&width, &height, &spp, &bpp, true, false, false)
+            // The capture draws the graphics alone, without colour bars, in
+            // this view only, and stores nothing in the preferences.
+            CaptureAnnotations.during([self]) {
+                let data = self.superGetRawPixels(&width, &height, &spp, &bpp, true, false, false)
 
-            if let data = data {
-                let exportDCM = DICOMExport()
+                if let data = data {
+                    let exportDCM = DICOMExport()
 
-                exportDCM.setSourceFile((self.controller()?.originalDCMFilesList()?.object(at: Int(self.curImage)) as AnyObject?)?.value(forKey: "completePath") as? String)
-                exportDCM.setSeriesDescription("Endoscopy")
+                    exportDCM.setSourceFile((self.controller()?.originalDCMFilesList()?.object(at: Int(self.curImage)) as AnyObject?)?.value(forKey: "completePath") as? String)
+                    exportDCM.setSeriesDescription("Endoscopy")
 
-                self.getWLWW(&cwl, &cww)
-                exportDCM.setDefaultWWWL(cLong(Double(cww)), cLong(Double(cwl)))
+                    self.getWLWW(&cwl, &cww)
+                    exportDCM.setDefaultWWWL(cLong(Double(cww)), cLong(Double(cwl)))
 
-                exportDCM.setPixelSpacing(Float((curPix?.pixelSpacingX ?? 0) / Double(self.scaleValue)), Float((curPix?.pixelSpacingX ?? 0) / Double(self.scaleValue)))
+                    exportDCM.setPixelSpacing(Float((curPix?.pixelSpacingX ?? 0) / Double(self.scaleValue)), Float((curPix?.pixelSpacingX ?? 0) / Double(self.scaleValue)))
 
-                exportDCM.setSliceThickness(curPix?.sliceThickness ?? 0)
-                exportDCM.setSlicePosition(Float(curPix?.sliceLocation ?? 0))
+                    exportDCM.setSliceThickness(curPix?.sliceThickness ?? 0)
+                    exportDCM.setSlicePosition(Float(curPix?.sliceLocation ?? 0))
 
-                self.orientationCorrected(toView: &o)	// <- Because we do screen capture !!!!! We need to apply the rotation of the image
+                    self.orientationCorrected(toView: &o)	// <- Because we do screen capture !!!!! We need to apply the rotation of the image
 
-                exportDCM.setOrientation(&o)
+                    exportDCM.setOrientation(&o)
 
-                let tempPt = self.convert(fromUpLeftView2GL: NSMakePoint(0, 0))				// <- Because we do screen capture !!!!!
-                curPix?.convertX(Float(tempPt.x), pixY: Float(tempPt.y), toDICOMCoords: &o, pixelCenter: true)
-                exportDCM.setPosition(&o)
+                    let tempPt = self.convert(fromUpLeftView2GL: NSMakePoint(0, 0))				// <- Because we do screen capture !!!!!
+                    curPix?.convertX(Float(tempPt.x), pixY: Float(tempPt.y), toDICOMCoords: &o, pixelCenter: true)
+                    exportDCM.setPosition(&o)
 
-                _ = exportDCM.setPixelData(data, samplesPerPixel: Int32(truncatingIfNeeded: spp), bitsPerSample: Int32(truncatingIfNeeded: bpp), width: width, height: height)
+                    _ = exportDCM.setPixelData(data, samplesPerPixel: Int32(truncatingIfNeeded: spp), bitsPerSample: Int32(truncatingIfNeeded: bpp), width: width, height: height)
 
-                let f = exportDCM.writeDCMFile(nil)
-                if f == nil {
-                    HorosAlertPanel.runCritical(title: NSLocalizedString("Error", comment: ""), message: NSLocalizedString("Error during the creation of the DICOM File!", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                    let f = exportDCM.writeDCMFile(nil)
+                    if f == nil {
+                        HorosAlertPanel.runCritical(title: NSLocalizedString("Error", comment: ""), message: NSLocalizedString("Error during the creation of the DICOM File!", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                    }
+
+                    if let f = f {
+                        producedFiles.add(NSDictionary(object: f, forKey: "file" as NSString))
+                    }
+
+                    free(data)
                 }
-
-                if let f = f {
-                    producedFiles.add(NSDictionary(object: f, forKey: "file" as NSString))
-                }
-
-                free(data)
             }
-
-            self.preferenceStore.set(annotCopy, for: ViewerPreferences.annotations)
-            self.preferenceStore.set(clutBarsCopy, for: ViewerPreferences.clutBars)
-            DCMView.setDefaults()
 
             if producedFiles.count > 0 {
                 GeneratedSeriesImport.process.add(producedFiles.value(forKey: "file") as? [Any] ?? [])

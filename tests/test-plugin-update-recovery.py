@@ -103,6 +103,23 @@ assert(disableOnly.contains("HorosCloud.horosplugin"), disableOnly)
 assert(disableOnly.lowercased().contains("disabl"), disableOnly)
 assert(!disableOnly.lowercased().contains("delete"), disableOnly)
 
+// A plugin that had loaded and was running a command when the run ended: the
+// sentence does not say it stopped the application while loading, says when it
+// can stay, and still says what disabling does.
+let running = PluginUpdateRecovery.explanation(pluginNamed: "Thing.horosplugin", wasRunning: true, canRestore: false, canDisable: true)
+assert(running.contains("Thing.horosplugin"), running)
+assert(running.contains("was running"), running)
+assert(!running.contains("while loading"), running)
+assert(running.contains("can stay"), running)
+assert(running.lowercased().contains("disabl"), running)
+assert(!running.lowercased().contains("delete") && !running.lowercased().contains("database"), running)
+let runningNowhere = PluginUpdateRecovery.explanation(pluginNamed: "Thing.horosplugin", wasRunning: true, canRestore: false, canDisable: false)
+assert(!runningNowhere.lowercased().contains("disabl"), runningNowhere)
+assert(PluginUpdateRecovery.explanation(pluginNamed: "Thing.horosplugin", wasRunning: false, canRestore: false, canDisable: true) == disableOnly.replacingOccurrences(of: "HorosCloud", with: "Thing"))
+assert(PluginUpdateRecovery.alertTitle(wasRunning: false) == "IsiX DICOM Viewer crashed")
+assert(PluginUpdateRecovery.alertTitle(wasRunning: true) != PluginUpdateRecovery.alertTitle(wasRunning: false))
+assert(!PluginUpdateRecovery.alertTitle(wasRunning: true).lowercased().contains("crash"))
+
 print("PASS: previous path, plugin-less mode, no database rebuild, Cloud deploy policy, and a sentence that names the plugin")
 '''
 

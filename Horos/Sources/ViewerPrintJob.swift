@@ -504,7 +504,11 @@ struct ViewerPrintSettings: Sendable, Equatable {
 
         let increment = ViewerPrintPlan.fontIncrement(columns: settings.columns)
 
-        preferences.set(false, for: ViewerPreferences.allowSmartCropping)
+        // What the capture changes of the preferences, where the views read
+        // them and for this process only: nothing of it is stored.
+        let smartCropping = TemporaryPreference(ViewerPreferences.allowSmartCropping)
+        let font = TemporaryPreference(ViewerPreferences.fontSize)
+        smartCropping.set(false)
 
         var origin = viewer.window?.screen?.visibleFrame.origin ?? NSZeroPoint
         origin.y += viewer.window?.screen?.visibleFrame.size.height ?? 0
@@ -549,13 +553,15 @@ struct ViewerPrintSettings: Sendable, Equatable {
 
                 let pageFontSize = ViewerPrintPlan.pageFontSize(base: fontSize, increment: increment, scale: scale)
                 if pageFontSize != Double(preferences[ViewerPreferences.fontSize]) {
-                    setFontSize(Float(pageFontSize))
+                    font.set(Float(pageFontSize))
+                    fontChanged()
                 }
 
                 var image = viewer.horos_imageView?.nsimage((viewer.horos_printFormat?.selectedCell()?.tag ?? 0) != 0)
 
                 if windowSizeChanged {
-                    setFontSize(fontSize)
+                    font.set(fontSize)
+                    fontChanged()
                     viewer.window?.setFrame(NSMakeRect(origin.x, origin.y, frame.size.width, frame.size.height), display: true)
                 }
 
@@ -579,10 +585,14 @@ struct ViewerPrintSettings: Sendable, Equatable {
 
         viewer.horos_imageView?.whiteBackground = whiteBackground
 
-        preferences.set(true, for: ViewerPreferences.allowSmartCropping)
+        smartCropping.restore()
 
-        if fontSize != preferences[ViewerPreferences.fontSize] {
-            setFontSize(fontSize)
+        // The user's font again; the views are told when the last page left
+        // them with its own.
+        let enlarged = fontSize != preferences[ViewerPreferences.fontSize]
+        font.restore()
+        if enlarged {
+            fontChanged()
         }
 
         viewer.setMagnetic(magnetic)
@@ -679,19 +689,18 @@ struct ViewerPrintSettings: Sendable, Equatable {
         alert.runModal()
     }
 
-    /// Runs `body` with AlwaysScaleToFit off, then puts back the value it had,
-    /// as an integer, as it was read.
+    /// Runs `body` with AlwaysScaleToFit off for this process only: the
+    /// window's resizing reads it there, and nothing of it is stored.
     private func withoutScaleToFit(_ body: () -> Void) {
-        let key = ViewerPreferences.alwaysScaleToFit.name
-        let alwaysScaleToFit = Int.reading(preferences.object(forKey: key))
-        preferences.set(0, forKey: key)
+        let alwaysScaleToFit = TemporaryPreference(ViewerPreferences.alwaysScaleToFit)
+        alwaysScaleToFit.set(false)
         body()
-        preferences.set(alwaysScaleToFit, forKey: key)
+        alwaysScaleToFit.restore()
     }
 
-    /// Changes the annotations' font, and tells the image views.
-    private func setFontSize(_ size: Float) {
-        preferences.set(size, for: ViewerPreferences.fontSize)
+    /// Tells the image views that the annotations' font changed: they read
+    /// its size from the preferences and make their fonts again.
+    private func fontChanged() {
         NotificationCenter.default.post(name: .OsirixGLFontChange, object: viewer)
     }
 

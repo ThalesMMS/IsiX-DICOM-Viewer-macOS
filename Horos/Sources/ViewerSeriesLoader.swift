@@ -142,7 +142,10 @@ final class ViewerSeriesLoader {
         if toOpenArray.isEmpty { return nil }
         var toOpenArray = toOpenArray
         let preferences = PreferencesSource.process.preferences
-        let savedAUTOHIDEMATRIX = preferences[ViewerPreferences.autoHidesMatrix]
+        // The list of series is not hidden while the images load: off for this
+        // process (TemporaryPreferenceHolds), from the first question answered
+        // to the end, which every way out of the loading below reaches.
+        var listStays: TemporaryPreferenceHolds.Hold?
 
         var multiFrame = false, preFlippedData = false
         var movieController: ViewerController?
@@ -183,7 +186,7 @@ final class ViewerSeriesLoader {
                 }
             }
 
-            preferences.set(false, for: ViewerPreferences.autoHidesMatrix)
+            listStays = TemporaryPreferenceHolds.standard.hold(ViewerPreferences.autoHidesMatrix, at: false)
 
             if !BrowserController.horos_dontShowOpenSubSeries {
                 if (NSApplication.shared.currentEvent?.modifierFlags.contains(.option) ?? false)
@@ -349,7 +352,7 @@ final class ViewerSeriesLoader {
                                     message: String(format: NSLocalizedString("Opening Error : %@\r\r%@", comment: ""), exception, exception.printStackTrace() ?? ""),
                                     defaultButton: nil, alternateButton: nil, otherButton: nil)
         }
-        preferences.set(savedAUTOHIDEMATRIX, for: ViewerPreferences.autoHidesMatrix)
+        TemporaryPreferenceHolds.standard.release(listStays)
         wait?.invalidate()
         Thread.current.exitOperation()
         if stop { return nil }
@@ -479,54 +482,51 @@ final class ViewerSeriesLoader {
 
         // Opening the images of viewerPix in the adequate viewer.
         DCMView.setDontListenToSyncMessage(true)
-        let preferences = PreferencesSource.process.preferences
-        let copyCOPYSETTINGS = preferences[ViewerPreferences.copySettings]
-        preferences.set(false, for: ViewerPreferences.copySettings)
-
-        if viewerPix.count > 0 {
-            if !movieViewer {
-                if multiFrame {
-                    let filesAr = NSMutableArray(capacity: viewerPix.count)
-                    if correspondingObjects.count > 0 {
-                        for _ in 0..<viewerPix.count { filesAr.add(correspondingObjects[0]) }
-                    }
-                    if let viewer {
-                        // reuse of existing viewer
-                        changeViewerImageData(viewer, viewerPix, filesAr, volumeData, false)
-                        viewer.startLoadImageThread()
+        // The images open without their settings going to the other viewers:
+        // "COPYSETTINGS" is off for this process meanwhile (TemporaryPreferenceWork).
+        // Switched on while opening (by a fusion, which chooses it), it stays on:
+        // a choice ends what the work held of the key.
+        TemporaryPreferenceWork.during(ViewerPreferences.copySettings, at: false) {
+            if viewerPix.count > 0 {
+                if !movieViewer {
+                    if multiFrame {
+                        let filesAr = NSMutableArray(capacity: viewerPix.count)
+                        if correspondingObjects.count > 0 {
+                            for _ in 0..<viewerPix.count { filesAr.add(correspondingObjects[0]) }
+                        }
+                        if let viewer {
+                            // reuse of existing viewer
+                            changeViewerImageData(viewer, viewerPix, filesAr, volumeData, false)
+                            viewer.startLoadImageThread()
+                        } else {
+                            // creation of new viewer
+                            createdViewer = allocateViewer(viewerPix, filesAr, volumeData)
+                            createdViewer?.showWindowTransition()
+                            createdViewer?.startLoadImageThread()
+                        }
                     } else {
-                        // creation of new viewer
-                        createdViewer = allocateViewer(viewerPix, filesAr, volumeData)
-                        createdViewer?.showWindowTransition()
-                        createdViewer?.startLoadImageThread()
+                        if let viewer {
+                            // reuse of existing viewer
+                            changeViewerImageData(viewer, viewerPix, NSMutableArray(array: correspondingObjects), volumeData, false)
+                            viewer.startLoadImageThread()
+                            if flipped { viewer.flipDataSeries(browser) }
+                        } else {
+                            // creation of new viewer
+                            createdViewer = allocateViewer(viewerPix, NSMutableArray(array: correspondingObjects), volumeData)
+                            createdViewer?.showWindowTransition()
+                            createdViewer?.startLoadImageThread()
+                            if flipped { createdViewer?.flipDataSeries(browser) }
+                        }
                     }
+                } else if let movieController {
+                    addViewerMovieSeries(movieController, viewerPix, NSMutableArray(array: correspondingObjects), volumeData)
+                } else if let viewer {
+                    changeViewerImageData(viewer, viewerPix, NSMutableArray(array: correspondingObjects), volumeData, false)
+                    movieController = viewer
                 } else {
-                    if let viewer {
-                        // reuse of existing viewer
-                        changeViewerImageData(viewer, viewerPix, NSMutableArray(array: correspondingObjects), volumeData, false)
-                        viewer.startLoadImageThread()
-                        if flipped { viewer.flipDataSeries(browser) }
-                    } else {
-                        // creation of new viewer
-                        createdViewer = allocateViewer(viewerPix, NSMutableArray(array: correspondingObjects), volumeData)
-                        createdViewer?.showWindowTransition()
-                        createdViewer?.startLoadImageThread()
-                        if flipped { createdViewer?.flipDataSeries(browser) }
-                    }
+                    movieController = allocateViewer(viewerPix, NSMutableArray(array: correspondingObjects), volumeData)
                 }
-            } else if let movieController {
-                addViewerMovieSeries(movieController, viewerPix, NSMutableArray(array: correspondingObjects), volumeData)
-            } else if let viewer {
-                changeViewerImageData(viewer, viewerPix, NSMutableArray(array: correspondingObjects), volumeData, false)
-                movieController = viewer
-            } else {
-                movieController = allocateViewer(viewerPix, NSMutableArray(array: correspondingObjects), volumeData)
             }
-        }
-
-        // "COPYSETTINGS" switched on while opening (fusion, for instance) stays on.
-        if !preferences[ViewerPreferences.copySettings] {
-            preferences.set(copyCOPYSETTINGS, for: ViewerPreferences.copySettings)
         }
         DCMView.setDontListenToSyncMessage(false)
         return multiFrame

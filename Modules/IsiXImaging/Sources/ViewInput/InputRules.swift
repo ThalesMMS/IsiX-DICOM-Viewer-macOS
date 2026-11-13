@@ -167,9 +167,11 @@ public enum ViewInput {
 
     // MARK: - Modifiers
 
-    /// Command-Shift hides the labels while it is held.
-    public static func suppressesLabels(_ modifiers: Modifiers) -> Bool {
-        modifiers.rawValue & (commandBit | shiftBit) == commandBit | shiftBit
+    /// Command-Shift hides the labels while it is held, where the Viewers
+    /// settings ask for it (`enabled`): the keys are also those of the
+    /// system's screenshots, which would otherwise lose the measures.
+    public static func suppressesLabels(_ modifiers: Modifiers, enabled: Bool) -> Bool {
+        enabled && modifiers.rawValue & (commandBit | shiftBit) == commandBit | shiftBit
     }
 
     /// Control alone shows the description in large.

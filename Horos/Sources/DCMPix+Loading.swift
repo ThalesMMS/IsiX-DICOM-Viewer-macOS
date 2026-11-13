@@ -162,6 +162,7 @@ extension DCMPix {
         var success = false
         horos_VOILUTApplied = false
         horos_needToCompute8bitRepresentation = true
+        horos_fileIsOfAnotherImage = false
 
         if DCMPixSettings.protectedMode { return }
         if srcFile == nil { return }
@@ -187,7 +188,13 @@ extension DCMPix {
             }
         }
 
-        if !success {
+        if horos_fileIsOfAnotherImage {
+            // The file of another image is not tried as another format either.
+            // The annotations are the row's, with none of the file's, as those
+            // of a file no format reads: the view draws the sentence of an
+            // empty frame with them.
+            loadCustomImageAnnotationsPapyLink(-1, dcmLink: nil)
+        } else if !success {
             loadNonDICOMImage()
         }
 
@@ -306,6 +313,19 @@ extension DCMPix {
 
             guard let dcmObject else {
                 NSLog("******** loadDICOMWithDCMTK - no DCMObject at srcFile address, nothing to do")
+                return false
+            }
+
+            // A row that came to name the file of another image is not shown
+            // that image under its own names: the file is to state the SOP
+            // Instance UID the row keeps. Nothing of the file is read into
+            // this object, nor written to the row.
+            if let recorded = horos_recordedSOPInstanceUID,
+               !RecordedInstance.accepts(fileUID: dcmObject.attributeValue(withName: "SOPInstanceUID") as? String,
+                                         forRecordUID: recorded as String, numberOfFrames: Int(horos_numberOfFrames)) {
+                NSLog("------ loadDICOMWithDCMTK: %@ not loaded: it states another SOP Instance UID than the record that names it",
+                      ((srcFile ?? "") as NSString).lastPathComponent as NSString)
+                horos_fileIsOfAnotherImage = true
                 return false
             }
 

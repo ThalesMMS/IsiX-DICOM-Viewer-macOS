@@ -506,6 +506,9 @@
 "Camera Tool" = "Strumento fotocamera";
 "Can't find path" = "Non riesco a trovare il percorso";
 "Can't write to temporary directory." = "Non riesco a scrivere in una directory temporanea.";
+"This printer has no AE Title. Set it in the DICOM Print preferences." = "Questa stampante non ha un AE Title. Impostalo nelle preferenze di stampa DICOM.";
+"This printer has no address. Set it in the DICOM Print preferences." = "Questa stampante non ha un indirizzo. Impostalo nelle preferenze di stampa DICOM.";
+"This printer has no port. Set it in the DICOM Print preferences." = "Questa stampante non ha una porta. Impostala nelle preferenze di stampa DICOM.";
 "Cancel" = "Annulla";
 "Cancel %@" = "Annulla %@";
 "Cancel Modifications" = "Annulla modifiche";
@@ -1292,6 +1295,7 @@
 "Import incomplete" = "Importazione incompleta";
 "Import Paused" = "Importazione in pausa";
 "IMPORT PAUSED: free space or reconnect storage; incoming files are preserved. / " = "IMPORTAZIONE IN PAUSA: libera spazio o ricollega l'archivio; i file in arrivo sono conservati. / ";
+"OPENING %@: waiting for studies from the PACS; cancel the retrieve in Activity to open without them. / " = "APERTURA DI %@: in attesa di studi dal PACS; annulla il recupero in Attività per aprire senza di essi. / ";
 "Import Raw Data" = "Importazione dei dati grezzi";
 "Import Raw Data..." = "Importa dati grezzi...";
 "Import ROI(s)..." = "Importa ROI...";
@@ -2872,7 +2876,13 @@
 "Microsoft Word is not installed or could not be located (error -1728). Install Word with creation and editing enabled to insert images into a .doc or .docx report. The original report and the source images have been preserved." = "Microsoft Word non è installato o non è stato trovato (errore -1728). Installa Word con creazione e modifica abilitate per inserire immagini in un referto .doc o .docx. Il referto originale e le immagini di origine sono stati conservati.";
 
 /* No comment provided by engineer. */
+"The report is open in Microsoft Word. Close it there, then insert the images again. The original report and the source images have been preserved." = "Il referto è aperto in Microsoft Word. Chiudilo lì, poi inserisci di nuovo le immagini. Il referto originale e le immagini di origine sono stati conservati.";
+
+/* No comment provided by engineer. */
 "Pages could not insert the image into that container (error -10024). The original report and the source images have been preserved." = "Pages non ha potuto inserire l'immagine in quel contenitore (errore -10024). Il referto originale e le immagini di origine sono stati conservati.";
+
+/* No comment provided by engineer. */
+"Pages could not find the report, or a place in it for the image (error -1728). The original report and the source images have been preserved." = "Pages non ha trovato il referto, o un punto al suo interno per l'immagine (errore -1728). Il referto originale e le immagini di origine sono stati conservati.";
 
 /* No comment provided by engineer. */
 "Pages or Word could not be found (error -43). The original report and the source images have been preserved." = "Pages o Word non è stato trovato (errore -43). Il referto originale e le immagini di origine sono stati conservati.";
@@ -3613,3 +3623,21 @@
 "Synthetic DWI needs images that all have pixels and the same width and height." = "DWI sintetica richiede immagini che abbiano tutte pixel e la stessa larghezza e altezza.";
 "Synthetic DWI needs the original files of the series." = "DWI sintetica richiede i file originali della serie.";
 "The synthetic DWI could not be written." = "Impossibile scrivere la DWI sintetica.";
+"The plugin %@ was running when IsiX DICOM Viewer stopped without being asked to quit." = "Il plugin %@ era in esecuzione quando IsiX DICOM Viewer si è arrestato senza che ne fosse richiesta la chiusura.";
+"If the application was forced to quit, or the Mac was shut down or lost power, the plugin is probably not the cause and can stay." = "Se l'applicazione è stata chiusa forzatamente, o il Mac è stato spento o è rimasto senza alimentazione, il plugin probabilmente non è la causa e può restare.";
+"IsiX DICOM Viewer did not quit normally" = "IsiX DICOM Viewer non si è chiuso normalmente";
+"IsiX DICOM Viewer is running in Protected Mode because the previous run stopped while loading a plugin: no plugin is loaded and no images are displayed.\n\nOff for this session: plugins, the DICOM listener (with and without TLS), auto-routing, automatic cleaning, the Web Portal, the XML-RPC server, Bonjour sharing, automatic update checks and window restoration. Your saved preferences are not changed.\n\nTo leave Protected Mode, quit IsiX DICOM Viewer and open it again." = "IsiX DICOM Viewer è in esecuzione in modo protetto perché l'esecuzione precedente si è interrotta durante il caricamento di un plugin: non viene caricato alcun plugin e non vengono visualizzate immagini.\n\nDisattivati per questa sessione: plugin, il listener DICOM (con e senza TLS), l'instradamento automatico, la pulizia automatica, il portale web, il server XML-RPC, la condivisione Bonjour, la ricerca automatica degli aggiornamenti e il ripristino delle finestre. Le preferenze salvate non vengono modificate.\n\nPer uscire dal modo protetto, chiudi IsiX DICOM Viewer e riaprilo.";
+"Import Plugins from Horos or OsiriX…" = "Importa plugin da Horos o OsiriX…";
+"No new or newer plugins were found in the Horos or OsiriX plugins folders." = "Nessun plugin nuovo o più recente trovato nelle cartelle dei plugin di Horos o OsiriX.";
+"Importing copies the plugins listed as new or newer to your IsiX plugins folders. The Horos and OsiriX folders are not changed." = "L'importazione copia i plugin indicati come nuovi o più recenti nelle tue cartelle dei plugin di IsiX. Le cartelle di Horos e OsiriX non vengono modificate.";
+"New or newer:" = "Nuovi o più recenti:";
+"Left out:" = "Esclusi:";
+"no version" = "nessuna versione";
+"%1$@ replaces %2$@" = "%1$@ sostituisce %2$@";
+"%@: it is a symbolic link, not a plugin." = "%@: è un collegamento simbolico, non un plugin.";
+"%@: it is an alias, not a plugin." = "%@: è un alias, non un plugin.";
+"%1$@: %2$@ has the same name and is used instead." = "%1$@: %2$@ ha lo stesso nome e viene usato al suo posto.";
+"%1$@: IsiX already has %2$@, which is newer." = "%1$@: IsiX ha già %2$@, che è più recente.";
+"%1$@: IsiX already has %2$@, and their versions cannot be compared." = "%1$@: IsiX ha già %2$@, e le versioni non possono essere confrontate.";
+"%1$@ (%2$@) has the same name and was selected for loading instead of this plugin (%3$@). Remove the duplicate through Plugin Manager and restart IsiX DICOM Viewer." = "%1$@ (%2$@) ha lo stesso nome ed è stato selezionato per il caricamento al posto di questo plugin (%3$@). Rimuovi il duplicato dal Gestore plugin e riavvia IsiX DICOM Viewer.";
+"Hide ROI labels while Command-Shift is held" = "Nascondi le etichette ROI mentre si tiene premuto Comando-Maiuscole";

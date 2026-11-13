@@ -364,7 +364,66 @@ func read(_ dataset: FakeDataset, context: ImageAttributeReadingContext = ImageA
         context.useShutter = true
         let shutter = try read(object, context: context).attributes.shutter
         #expect(shutter.enabled && shutter.rect == CGRect(x: 10, y: 5, width: 100, height: 50))
-        #expect(shutter.polygon == [CGPoint(x: 1, y: 2), CGPoint(x: 3, y: 4)])
+        #expect(shutter.polygon == [CGPoint(x: 2, y: 1), CGPoint(x: 4, y: 3)], "row 1, column 2; row 3, column 4")
+    }
+
+    /// What a shutter read from an object keeps of a picture of `width` by
+    /// `height`, as the screen masks it: true for a pixel that stays.
+    private func kept(_ shutter: DisplayShutter, width: Int, height: Int) -> [Bool] {
+        var picture = [UInt8](repeating: 1, count: width * height)
+        picture.withUnsafeMutableBufferPointer { pixels in
+            func mask(_ polygon: UnsafePointer<CGPoint>?) {
+                ShutterMask.maskGrey(pixels.baseAddress!, width: width, height: height,
+                                     rect: ShutterMask.heldRect(shutter.rect, width: width, height: height), black: 0,
+                                     circleCentre: shutter.circularCenter, circleRadius: shutter.circularRadius,
+                                     polygon: polygon, polygonCount: shutter.polygon?.count ?? 0)
+            }
+            if let polygon = shutter.polygon {
+                polygon.withUnsafeBufferPointer { mask($0.baseAddress) }
+            } else {
+                mask(nil)
+            }
+        }
+        return picture.map { $0 == 1 }
+    }
+
+    /// The centre of a circular shutter and the vertices of a polygonal one
+    /// are stated row first, then column; the screen masks by x, the column,
+    /// and y, the row. Read the other way round, a shape off the diagonal of
+    /// an image that is not square hid another region, or none at all when
+    /// its centre fell outside the picture.
+    @Test func theCircleAndThePolygonOfAShutterAreStatedRowThenColumn() throws {
+        var context = ImageAttributeReadingContext()
+        context.useShutter = true
+        let width = 50, height = 30
+
+        // A circle of radius 8 around row 10, column 38.
+        let circular = FakeDataset(["ShutterShape": ["CIRCULAR"], "Rows": "30", "Columns": "50",
+                                    "CenterofCircularShutter": ["10", "38"], "RadiusofCircularShutter": "8"])
+        let circle = try read(circular, context: context).attributes.shutter
+        #expect(circle.enabled && circle.circularCenter == CGPoint(x: 38, y: 10) && circle.circularRadius == 8)
+        #expect(circle.rect == CGRect(x: 0, y: 0, width: 50, height: 30), "no rectangle stated: the whole image")
+        let inCircle = kept(circle, width: width, height: height)
+        #expect(inCircle[10 * width + 38], "the centre stays")
+        #expect(inCircle[10 * width + 44] && inCircle[15 * width + 38], "and what is within the radius of it")
+        #expect(!inCircle[10 * width + 10] && !inCircle[25 * width + 38] && !inCircle[2 * width + 46], "the rest is hidden")
+        #expect(inCircle.filter { $0 }.count < 260, "about the disc, not the whole picture: \(inCircle.filter { $0 }.count) pixels stay")
+
+        // A triangle that points right: (row 4, column 6), (row 26, column 6), (row 15, column 30).
+        let polygonal = FakeDataset(["ShutterShape": ["POLYGONAL"], "Rows": "30", "Columns": "50",
+                                     "VerticesofthePolygonalShutter": ["4", "6", "26", "6", "15", "30"]])
+        let polygon = try read(polygonal, context: context).attributes.shutter
+        #expect(polygon.polygon == [CGPoint(x: 6, y: 4), CGPoint(x: 6, y: 26), CGPoint(x: 30, y: 15)])
+        let inPolygon = kept(polygon, width: width, height: height)
+        #expect(inPolygon[15 * width + 12] && inPolygon[24 * width + 7], "inside the triangle, near its base")
+        #expect(!inPolygon[8 * width + 20], "row 8, column 20 is above its upper side")
+        #expect(!inPolygon[15 * width + 40] && !inPolygon[15 * width + 3], "beyond its point and before its base")
+
+        // The rectangle is stated by its edges, and stays as it was read.
+        let rectangular = FakeDataset(["ShutterShape": ["RECTANGULAR"], "Rows": "30", "Columns": "50",
+                                       "ShutterLeftVerticalEdge": "5", "ShutterRightVerticalEdge": "45",
+                                       "ShutterUpperHorizontalEdge": "3", "ShutterLowerHorizontalEdge": "27"])
+        #expect(try read(rectangular, context: context).attributes.shutter.rect == CGRect(x: 5, y: 3, width: 40, height: 24))
     }
 
     @Test func ultrasoundRegionsGiveTheSpacing() throws {

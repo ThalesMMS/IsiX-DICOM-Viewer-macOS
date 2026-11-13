@@ -46,6 +46,12 @@ import IsiXPreferences
 /// the zoom fitted or not and the settings propagation (COPYSETTINGS, off
 /// while a viewer without a fusion is full screen).
 ///
+/// The propagation is off for this process, by a hold the viewer keeps from
+/// entering to leaving (TemporaryPreferenceHolds): nothing is stored, so an
+/// application that ends while a viewer is full screen leaves the person's
+/// choice as it was, and a viewer that closes or goes while full screen gives
+/// its hold back. What the person chooses meanwhile shows at once and stays.
+///
 /// Made for one call, holding the viewer strongly; what the full screen
 /// keeps between entering and leaving is the viewer's window layout state.
 @MainActor struct FullScreenSession {
@@ -113,7 +119,7 @@ import IsiXPreferences
             viewer.horos_imageView?.perform(#selector(DCMView.scaleToFit as (DCMView) -> () -> Void), with: nil, afterDelay: 0.01)
         }
 
-        preferences.set(viewer.horos_previousPropagate != 0, for: ViewerPreferences.copySettings)
+        TemporaryPreferenceHolds.standard.release(ViewerPreferences.copySettings, keptBy: viewer)
 
         viewer.horos_previewMatrix?.sizeToCells()
 
@@ -124,7 +130,7 @@ import IsiXPreferences
         viewer.horos_previousPropagate = preferences[ViewerPreferences.copySettings] ? 1 : 0
 
         if viewer.horos_blending == nil {
-            preferences.set(false, for: ViewerPreferences.copySettings)
+            TemporaryPreferenceHolds.standard.hold(ViewerPreferences.copySettings, at: false, keptBy: viewer)
         }
 
         let imageView = viewer.horos_imageView

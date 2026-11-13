@@ -399,7 +399,9 @@ private func objcClassOf(_ object: Any?) -> AnyClass? {
         // Is there a report? If yes, open it; if no, create a new one.
         if let file = localReportFile {
             if FileManager.default.fileExists(atPath: file) {
-                NSWorkspace.shared.open(URL(fileURLWithPath: file))
+                // A Pages report in the Pages that fills, converts and takes
+                // images; any other in the application the user opens it with.
+                NSWorkspace.shared.openReport(atPath: file)
                 Thread.sleep(forTimeInterval: 1)
             } else {
                 NSLog("***** reportURL contains a path, but file doesnt exist.")

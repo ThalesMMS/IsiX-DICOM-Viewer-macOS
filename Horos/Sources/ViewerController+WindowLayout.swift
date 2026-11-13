@@ -149,7 +149,8 @@ public extension ViewerController {
     /// The tiling menu's item `tag` (rows × 10 + columns, the columns on each
     /// viewer screen): closes the viewers beyond the tiling, opens the next
     /// series of the study (or this one again) into the places left, and
-    /// tiles a moment later, AUTOTILING off meanwhile.
+    /// tiles a moment later, AUTOTILING off meanwhile, for this process only
+    /// (TemporaryPreferenceWork).
     func fillTiling(tag: Int) {
         let arranger = processGraph.appController?.windowArranger
         let (rows, columns) = ViewerWindowFrame.tiling(tag: tag, screens: arranger?.viewerScreens().count ?? 0)
@@ -158,28 +159,24 @@ public extension ViewerController {
         let registry = processGraph.viewerRegistry
         let displayedViewersCount = registry.displayedViewers.count
 
-        let preferences = processGraph.preferences
-        let autoTiling = preferences[ViewerPreferences.autoTiling]
-        preferences.set(false, for: ViewerPreferences.autoTiling)
-
-        if displayedViewersCount > places {
-            while registry.displayedViewers.count > places {
-                let displayed = registry.displayedViewers
-                if displayed.last !== viewer {
-                    displayed.last?.window?.close()
-                } else if displayed.first !== viewer {
-                    displayed.first?.window?.close()
+        TemporaryPreferenceWork.during(ViewerPreferences.autoTiling, at: false) {
+            if displayedViewersCount > places {
+                while registry.displayedViewers.count > places {
+                    let displayed = registry.displayedViewers
+                    if displayed.last !== viewer {
+                        displayed.last?.window?.close()
+                    } else if displayed.first !== viewer {
+                        displayed.first?.window?.close()
+                    }
                 }
             }
+
+            if displayedViewersCount < places {
+                open(places - displayedViewersCount)
+            }
+
+            arranger?.scheduleTiling(ViewerTilingLayout.Request(rows: rows, columns: columns), after: 0.1)
         }
-
-        if displayedViewersCount < places {
-            open(places - displayedViewersCount)
-        }
-
-        arranger?.scheduleTiling(ViewerTilingLayout.Request(rows: rows, columns: columns), after: 0.1)
-
-        preferences.set(autoTiling, for: ViewerPreferences.autoTiling)
     }
 
     /// Opens `count` viewers of the next series of the study that no viewer

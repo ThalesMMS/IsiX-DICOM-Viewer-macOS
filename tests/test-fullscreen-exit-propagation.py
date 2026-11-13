@@ -37,7 +37,9 @@ if SWIFT:
     key = at('startingWindow?.makeKeyAndOrderFront(viewer)')
     fit = at('viewer.horos_imageView?.scaleToFit()')
     delayed = at('viewer.horos_imageView?.perform(#selector(DCMView.scaleToFit as (DCMView) -> () -> Void), with: nil, afterDelay: 0.01)')
-    restore = at('preferences.set(viewer.horos_previousPropagate != 0, for: ViewerPreferences.copySettings)')
+    # The propagation is off for the process while the viewer is full screen, by a hold the viewer keeps: the
+    # exit gives it back, where it used to write the value read on entering.
+    restore = at('TemporaryPreferenceHolds.standard.release(ViewerPreferences.copySettings, keptBy: viewer)')
 else:
     frame = at('[StartingWindow setFrame: previousFrameRect display: YES];')
     key = at('[StartingWindow makeKeyAndOrderFront: self];')

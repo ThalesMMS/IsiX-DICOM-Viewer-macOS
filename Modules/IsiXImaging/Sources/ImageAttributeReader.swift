@@ -199,21 +199,23 @@ public struct ImageAttributeReader {
                 attributes.shutter.rect = rect
             } else if try ParsedValue.isEqual(shutter, toString: "CIRCULAR") {
                 attributes.shutter.enabled = true
+                // Stated as row, then column: y, then x.
                 let center = item.attributeArray(withName: "CenterofCircularShutter")
                 if center?.count == 2 {
-                    attributes.shutter.circularCenter.x = CGFloat(try ParsedValue.int(center?[0]))
-                    attributes.shutter.circularCenter.y = CGFloat(try ParsedValue.int(center?[1]))
+                    attributes.shutter.circularCenter.y = CGFloat(try ParsedValue.int(center?[0]))
+                    attributes.shutter.circularCenter.x = CGFloat(try ParsedValue.int(center?[1]))
                 }
                 attributes.shutter.circularRadius = ParsedValue.cLong(Values.float(number("RadiusofCircularShutter")))
             } else if try ParsedValue.isEqual(shutter, toString: "POLYGONAL") {
                 attributes.shutter.enabled = true
                 let vertices = item.attributeArray(withName: "VerticesofthePolygonalShutter")
                 attributes.shutter.polygon = []
+                // Each vertex is stated as its row, then its column.
                 var i = 0
                 while i < (vertices?.count ?? 0) {
-                    let x = try ParsedValue.int(vertices?[i])
-                    let y = try ParsedValue.int(try ParsedValue.element(i + 1, of: vertices.map { $0 as NSArray }))
-                    attributes.shutter.polygon?.append(CGPoint(x: CGFloat(x), y: CGFloat(y)))
+                    let row = try ParsedValue.int(vertices?[i])
+                    let column = try ParsedValue.int(try ParsedValue.element(i + 1, of: vertices.map { $0 as NSArray }))
+                    attributes.shutter.polygon?.append(CGPoint(x: CGFloat(column), y: CGFloat(row)))
                     i += 2
                 }
             } else {

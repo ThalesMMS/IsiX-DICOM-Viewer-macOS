@@ -38,7 +38,10 @@ def capture_server(columns,rows,reject="",port=0,output=None):
         data=event.attribute_list
         response=Dataset();response.AffectedSOPInstanceUID=generate_uid()
         if event.request.AffectedSOPClassUID==BasicFilmBox:
-            captured['film_boxes'].append({key:str(data.get(key,'')) for key in ['ImageDisplayFormat','FilmSizeID','FilmOrientation','MagnificationType']})
+            film={key:str(data.get(key,'')) for key in ['ImageDisplayFormat','FilmSizeID','FilmOrientation','MagnificationType']}
+            # Recorded only when the film box carries it: a printer may refuse a value it does not know.
+            if 'ConfigurationInformation' in data: film['ConfigurationInformation']=str(data.ConfigurationInformation)
+            captured['film_boxes'].append(film)
             if output: (output/'received.json').write_text(json.dumps(captured,indent=2))
             if reject=='film': return 0x0106,None
             refs=[]

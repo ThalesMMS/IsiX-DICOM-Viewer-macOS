@@ -85,7 +85,9 @@ enum PagesHeaderFooterFill {
 
     // MARK: the single-file document, a ZIP archive
 
-    private struct Entry {
+    /// A file or a folder of a ZIP archive. A Word document is one too, and
+    /// its figures are written with the same reading and writing.
+    struct Entry {
         let name: String
         let directory: Bool
         var data: [UInt8]
@@ -111,7 +113,7 @@ enum PagesHeaderFooterFill {
         guard rename(output, path) == 0 else { throw Failure.archive("the filled-in report could not replace the copy") }
     }
 
-    private static func readArchive(_ path: String) throws -> [Entry] {
+    static func readArchive(_ path: String) throws -> [Entry] {
         guard let reader = archive_read_new() else { throw Failure.archive("no reader") }
         defer { archive_read_free(reader) }
         guard archive_read_support_format_zip(reader) == ARCHIVE_OK,
@@ -146,7 +148,7 @@ enum PagesHeaderFooterFill {
         return entries
     }
 
-    private static func writeArchive(_ entries: [Entry], to path: String) throws {
+    static func writeArchive(_ entries: [Entry], to path: String) throws {
         guard let writer = archive_write_new() else { throw Failure.archive("no writer") }
         defer { archive_write_free(writer) }
         guard archive_write_set_format_zip(writer) == ARCHIVE_OK,

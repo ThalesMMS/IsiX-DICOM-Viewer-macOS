@@ -141,6 +141,13 @@ final class AlbumCountsAccess: Sendable {
     private var shownLayout: AlbumLayoutKey?
     private var shownLayoutDatabase: ObjectIdentifier?
 
+    /// What the status line under the list says of the list, as its last
+    /// refresh found it.
+    private var listDescription = ""
+    /// The colour the nib gave the status line, which it has again once the
+    /// notice of an opening is gone.
+    private var listDescriptionColor: NSColor?
+
     init(browser: BrowserController, processGraph: ProcessGraph, preferences: any PreferenceStore) {
         self.browser = browser
         self.processGraph = processGraph
@@ -777,10 +784,26 @@ final class AlbumCountsAccess: Sendable {
         if let summary = database?.lastImportRefusalSummary, !summary.isEmpty {
             description = NSLocalizedString("LAST IMPORT: ", comment: "") + summary + " / " + description
         }
-        browser.horos_databaseDescription?.toolTip = description
-        browser.horos_databaseDescription?.stringValue = description
+        listDescription = description
+        showDescription()
 
         return exception
+    }
+
+    /// Writes the status line under the list: the notice of a study that is
+    /// opening and waits for a node, then what the last refresh said of the
+    /// list. The opening calls this when its notice comes or goes, so that it
+    /// shows at once and does not wait for a refresh, nor is lost to one.
+    /// The line is dim; with a notice it takes the colour of the labels, so
+    /// that the answer to a double click is not missed.
+    func showDescription() {
+        let notice = browser.viewerOpener.openingNotice
+        let description = (notice ?? "") + listDescription
+        guard let line = browser.horos_databaseDescription else { return }
+        line.toolTip = description
+        line.stringValue = description
+        if listDescriptionColor == nil { listDescriptionColor = line.textColor }
+        line.textColor = notice == nil ? listDescriptionColor : .labelColor
     }
 
     /// The studies of the album, or of the whole database, the list's

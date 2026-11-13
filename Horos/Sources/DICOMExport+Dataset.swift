@@ -169,15 +169,24 @@ enum SecondaryCaptureDataset {
     // MARK: - The image
 
     /// The image written over the file's dataset: the source's pixel module
-    /// and multiframe groups gone, the series, the image's attributes, its
-    /// pixels and a new identity.
+    /// and multiframe groups gone, and its overlay planes when the image has
+    /// another matrix, then the series, the image's attributes, its pixels
+    /// and a new identity.
     static func writeImage(into file: IsiXDCMTKFile, image: SecondaryCaptureExport.Image,
                            pixels: UnsafeMutablePointer<UInt8>, seriesUID: String?, seriesDescription: String?,
                            seriesNumber: Int32, instanceNumber: Int32, modalityAsSource: Bool) {
         file.loadAllDataIntoMemory()
         let dataset = file.dataset, meta = file.metaInfo
-        dataset.removeAllElements(ofGroup: 0x0028)
-        dataset.removeAllElements(ofGroup: 0x5200) // Multiframe is not exported.
+        // What the rules ask of the source, read before its groups go.
+        var source = SecondaryCaptureExport.Source()
+        if let modality = dataset.string(forTag: 0x0008_0060) { source.modality = String(cString: modality) }
+        if let photometric = dataset.string(forTag: 0x0028_0004) { source.photometricInterpretation = String(cString: photometric) }
+        var rows: UInt16 = 0, columns: UInt16 = 0
+        if dataset.getUInt16(&rows, forTag: 0x0028_0010, index: 0) { source.rows = Int(rows) }
+        if dataset.getUInt16(&columns, forTag: 0x0028_0011, index: 0) { source.columns = Int(columns) }
+        for group in SecondaryCaptureExport.groupsRemoved(image, source: source) {
+            dataset.removeAllElements(ofGroup: group)
+        }
 
         // The description is written in the first character set the dataset declares.
         var encoding = String.Encoding.isoLatin1.rawValue
@@ -193,11 +202,8 @@ enum SecondaryCaptureDataset {
         }
         if seriesNumber != -1 { _ = try? dataset.putString(String(format: "%d", seriesNumber), forTag: 0x0020_0011) }
 
-        var sourceModality: String?
-        if let modality = dataset.string(forTag: 0x0008_0060) { sourceModality = String(cString: modality) }
         for edit in SecondaryCaptureExport.imageEdits(image, instanceNumber: instanceNumber,
-                                                      modalityAsSource: modalityAsSource,
-                                                      sourceModality: sourceModality) {
+                                                      modalityAsSource: modalityAsSource, source: source) {
             switch edit {
             case .put(let tag, let value): _ = try? dataset.putString(value, forTag: tag)
             case .putMeta(let tag, let value): _ = try? meta.putString(value, forTag: tag)

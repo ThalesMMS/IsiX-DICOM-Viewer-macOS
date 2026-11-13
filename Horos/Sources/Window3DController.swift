@@ -126,6 +126,8 @@ import IsiXPreferences
             Window3DWindowAccessors.setWindow(newValue, of: self)
             MainActor.assumeIsolated {
                 FullScreenWindowSupport.declineNativeFullScreen(newValue)
+                // Files dropped on any of these windows: ViewerFileDropTarget.
+                ViewerFileDropTarget.register(newValue)
             }
         }
     }

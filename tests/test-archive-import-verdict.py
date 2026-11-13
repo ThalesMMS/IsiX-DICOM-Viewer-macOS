@@ -16,12 +16,20 @@ beside it and died in dyld before running. That is checked here too, because
 without it the whole path is untestable. The archives are now expanded by the
 application itself, around the Decompress XPC service (IsiXDatabase's
 DecompressConversion), as the helper expanded them.
+
+An archive unzip only warned about is taken when every file it lists came out,
+so the ledger has to count the files as unzip sees them. unzip turns the \\ of
+a name into / when the entry says it was made on a FAT system and the name holds
+no /, which makes a directory of `ST_1\\`; anywhere else a name ending in \\ is
+a file. The count is compared here with what the unzip of this system writes.
 """
 from pathlib import Path
+import os
 import re
 import subprocess
 import sys
 import tempfile
+import zipfile
 from sources import class_text
 
 root = Path(__file__).resolve().parents[1]
@@ -67,7 +75,59 @@ emit("nested", ledger.verdictForArchive("/in/nested.zip", keptDirectoryName: "NO
 
 // Reporting consumes the tally: the expansion is gone and nothing can be added.
 emit("consumed", ledger.hasArchive("/in/mixed.zip") ? "yes" : "no")
+
+// How many files each archive given lists, for the comparison with what unzip
+// writes.
+for archive in CommandLine.arguments.dropFirst() {
+    let listed = ArchiveImportLedger.fileEntryCount(ofArchive: archive)
+    emit("listed " + (archive.split(separator: "/").last ?? ""), listed.map { String($0) } ?? "nil")
+}
 '''
+
+# The systems an entry can say it was made on, as the ZIP format numbers them.
+FAT, UNIX, NTFS = 0, 3, 11
+FOLDER, FILE = 0x10, 0x20
+UNIX_FOLDER, UNIX_FILE = (0o40755 << 16) | FOLDER, 0o100644 << 16
+# Synthetic archives, each entry as (name, system, attributes), and the number of
+# files unzip writes from each. Every entry that is not a folder holds bytes,
+# so that only the name tells unzip what it is.
+LISTED = {
+    # The folder an image is in, with \ and no entry of its own.
+    'backslash.zip': (2, [('ST_1\\IM1', FAT, FILE), ('ST_1\\IM2', FAT, FILE)]),
+    # The same with entries for the folders, one of them with spaces.
+    'backslash-folders.zip': (3, [('ST_1\\', FAT, FOLDER), ('ST_1\\IM1', FAT, FILE), ('ST_1\\ SE 1\\', FAT, FOLDER),
+                                  ('ST_1\\ SE 1\\IM2', FAT, FILE), ('ST_1\\ SE 1\\IM 3', FAT, FILE)]),
+    # A name that holds a / keeps its \: `C/D\` is a file of the folder C.
+    'both-separators.zip': (3, [('A/', FAT, FOLDER), ('A/x', FAT, FILE), ('B\\', FAT, FOLDER), ('B\\y', FAT, FILE),
+                                ('C/D\\', FAT, FILE)]),
+    # Made on other systems, a \ is a character of the name like another.
+    'unix-names.zip': (3, [('dir/', UNIX, UNIX_FOLDER), ('dir/file\\', UNIX, UNIX_FILE), ('odd\\', UNIX, UNIX_FILE),
+                           ('plain', UNIX, UNIX_FILE)]),
+    'ntfs-names.zip': (2, [('ST_1\\', NTFS, FILE), ('ST_1\\IM1', NTFS, FILE)]),
+    'folders.zip': (2, [('ST_1/', UNIX, UNIX_FOLDER), ('ST_1/IM1', UNIX, UNIX_FILE), ('ST_1/IM2', FAT, FILE)]),
+}
+
+
+def listed_archives(directory):
+    """Writes the archives of LISTED into `directory`; for each, its path and the
+    number of files /usr/bin/unzip writes from it."""
+    written = {}
+    for name, (_, entries) in LISTED.items():
+        archive = Path(directory) / name
+        with zipfile.ZipFile(archive, 'w') as zipped:
+            for entry, system, attributes in entries:
+                info = zipfile.ZipInfo(entry)
+                info.create_system, info.external_attr = system, attributes
+                zipped.writestr(info, b'' if attributes & FOLDER else b'synthetic bytes')
+        expansion = Path(directory) / (name + '.expanded')
+        expansion.mkdir()
+        unzip = subprocess.run(['/usr/bin/unzip', '-qq', '-o', '-d', str(expansion), str(archive)],
+                               stdin=subprocess.DEVNULL, capture_output=True)
+        if unzip.returncode not in (0, 1):
+            failures.append('unzip ended with %d on %s' % (unzip.returncode, name))
+        written[name] = (archive, sum(len(files) for _, _, files in os.walk(expansion)))
+    return written
+
 
 # --- what the archive's closing line says -------------------------------------
 results = {}
@@ -88,12 +148,27 @@ else:
             if built.returncode != 0:
                 failures.append('the archive ledger does not compile:\n%s' % built.stderr[-1500:])
             else:
-                run = subprocess.run([str(binary)], capture_output=True, text=True)
+                archives = listed_archives(directory)
+                run = subprocess.run([str(binary)] + [str(archive) for archive, _ in archives.values()],
+                                     capture_output=True, text=True)
                 if run.returncode != 0:
                     failures.append('the driver failed: %s' % run.stderr[-800:])
                 for line in run.stdout.splitlines():
                     key, _, value = line.partition('\t')
                     results[key] = value
+                # --- an archive lists as many files as unzip writes from it -----------
+                for name, (_, extracted) in archives.items():
+                    expected = LISTED[name][0]
+                    if extracted != expected:
+                        failures.append('unzip wrote %d files from %s, and this test says %d: the rule '
+                                        'the ledger counts by is no longer the one of this unzip'
+                                        % (extracted, name, expected))
+                    got = results.get('listed ' + name)
+                    if got != str(expected):
+                        failures.append('%s lists %s files to the ledger, and unzip writes %d: the archive '
+                                        'would be %s' % (name, got, expected,
+                                                         'refused whole' if (got or '').isdigit() and int(got) > expected
+                                                         else 'taken with a file missing'))
 
 if results:
     expected = {

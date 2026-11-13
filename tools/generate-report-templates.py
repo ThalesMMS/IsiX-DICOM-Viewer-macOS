@@ -13,7 +13,9 @@ The Pages template, Horos/Resources/ReportTemplate.pages, cannot be written
 without Pages: its format is Pages' own. A Word document is written with the
 layout and the «field» placeholders, Pages opens it and saves it as a Pages
 document in its current format. Pages is driven by AppleScript, so the first
-run asks for permission to control it. The text of a Pages header is not
+run asks for permission to control it. The Pages driven is the one the app
+would use: `com.apple.Pages` when it is installed, and otherwise the Pages of
+the earlier identifier, `com.apple.iWork.Pages`. The text of a Pages header is not
 reachable by the report's AppleScript, so the fields in the top margin are in a
 text box that Pages places on the section layout, where it repeats on every
 page and the report can fill it in.
@@ -221,12 +223,30 @@ def pages_source(path):
     write_docx(path, body, 'Helvetica Neue', header)
 
 
+# The identifiers Pages has on the Mac, in the order the app asks for them.
+PAGES_IDENTIFIERS = ('com.apple.Pages', 'com.apple.iWork.Pages')
+
+
+def pages_identifier():
+    """The bundle identifier of the Pages installed, asked of the workspace as
+    the app asks it; the document is opened in that Pages and the script is
+    addressed to it."""
+    for identifier in PAGES_IDENTIFIERS:
+        asked = subprocess.run(
+            ['osascript', '-l', 'JavaScript', '-e',
+             "ObjC.import('AppKit'); !$.NSWorkspace.sharedWorkspace.URLForApplicationWithBundleIdentifier('%s').isNil()" % identifier],
+            capture_output=True, text=True, timeout=60)
+        if asked.stdout.strip() == 'true':
+            return identifier
+    raise SystemExit('Pages is not installed: the Pages template cannot be written')
+
+
 PAGES_SCRIPT = '''
 on run argv
   set nm to item 1 of argv
   set outputPath to item 2 of argv
   with timeout of 300 seconds
-  tell application id "com.apple.Pages"
+  tell application id "__PAGES_BUNDLE_ID__"
     set d to missing value
     repeat with attempt from 1 to 120
       repeat with candidate in documents
@@ -253,11 +273,12 @@ def pages_template(path):
         name = 'IsiX Report Template Source'
         source = Path(folder) / f'{name}.docx'
         pages_source(source)
+        pages = pages_identifier()
         # Through LaunchServices, which is what grants a sandboxed Pages the file.
-        subprocess.run(['open', '-g', '-b', 'com.apple.Pages', str(source)], check=True, timeout=60)
+        subprocess.run(['open', '-g', '-b', pages, str(source)], check=True, timeout=60)
         output = Path(folder) / 'ReportTemplate.pages'
-        subprocess.run(['osascript', '-', name, str(output)], input=PAGES_SCRIPT, text=True,
-                       check=True, timeout=330)
+        subprocess.run(['osascript', '-', name, str(output)], input=PAGES_SCRIPT.replace('__PAGES_BUNDLE_ID__', pages),
+                       text=True, check=True, timeout=330)
         for _ in range(60):
             if output.exists():
                 break

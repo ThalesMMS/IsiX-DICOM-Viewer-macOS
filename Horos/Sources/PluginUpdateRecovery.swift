@@ -59,6 +59,42 @@ public final class PluginUpdateRecovery: NSObject {
         return parts.joined(separator: " ")
     }
 
+    /// What to tell somebody whose last run left a note naming a plugin.
+    /// `wasRunning` says the plugin had loaded and one of its commands was
+    /// running: the run ended without being asked to quit, which the plugin
+    /// may have had nothing to do with, so the text does not say it stopped
+    /// the application and says when it can stay.
+    @objc public static func explanation(pluginNamed name: String,
+                                         wasRunning: Bool,
+                                         canRestore: Bool,
+                                         canDisable: Bool) -> String {
+        guard wasRunning else { return explanation(pluginNamed: name, canRestore: canRestore, canDisable: canDisable) }
+        var parts = [String(format: NSLocalizedString(
+                        "The plugin %@ was running when IsiX DICOM Viewer stopped without being asked to quit.", comment: ""), name),
+                     NSLocalizedString(
+                        "If the application was forced to quit, or the Mac was shut down or lost power, the plugin is "
+                        + "probably not the cause and can stay.", comment: "")]
+        if canDisable {
+            parts.append(NSLocalizedString(
+                "Disabling it moves it out of the plugins folder; nothing else is touched, and "
+                + "Plugin Manager can switch it back on.", comment: ""))
+        }
+        if canRestore {
+            parts.append(NSLocalizedString(
+                "Restoring puts the previous working copy back; nothing else is touched.",
+                comment: ""))
+        }
+        return parts.joined(separator: " ")
+    }
+
+    /// The title of that alert: only a plugin that stopped while loading is
+    /// said to have crashed the application.
+    @objc public static func alertTitle(wasRunning: Bool) -> String {
+        wasRunning
+            ? NSLocalizedString("IsiX DICOM Viewer did not quit normally", comment: "")
+            : NSLocalizedString("IsiX DICOM Viewer crashed", comment: "")
+    }
+
     @objc public static func adoptLeftoverStaging(inDirectory directory: String) -> String? {
         let manager = FileManager.default
         guard let entries = try? manager.contentsOfDirectory(atPath: directory) else { return nil }

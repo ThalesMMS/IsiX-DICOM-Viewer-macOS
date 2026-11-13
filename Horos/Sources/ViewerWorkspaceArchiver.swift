@@ -67,14 +67,12 @@ import IsiXPreferences
     }
 
     /// Opens the study of `viewer` again, with its saved layout even when the
-    /// layouts are not loaded automatically.
+    /// layouts are not loaded automatically: the automatic load is on for this
+    /// process while the browser opens it (TemporaryPreferenceWork).
     func reopenStudy(of viewer: ViewerController) {
-        let automatic = preferences[ViewerPreferences.automaticWorkspaceLoad]
-        if !automatic { preferences.set(true, for: ViewerPreferences.automaticWorkspaceLoad) }
-
-        processGraph.currentBrowser?.databaseOpenStudy(viewer.horos_imageView?.seriesObj()?.study)
-
-        if !automatic { preferences.set(automatic, for: ViewerPreferences.automaticWorkspaceLoad) }
+        TemporaryPreferenceWork.during(ViewerPreferences.automaticWorkspaceLoad, at: true) {
+            processGraph.currentBrowser?.databaseOpenStudy(viewer.horos_imageView?.seriesObj()?.study)
+        }
     }
 
     /// Asks `viewer` for the name of the layout (its sheet, given today's

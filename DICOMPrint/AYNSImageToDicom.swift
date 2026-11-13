@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 
 /// C's conversion of a double to long, without Swift's trap: the value is
 /// truncated toward zero, and out of range or NaN saturates as arm64 does.
@@ -303,7 +304,9 @@ public final class AYNSImageToDicom: NSObject {
         let rf = currentViewer?.window?.frame ?? .zero
         let m = currentViewer?.magnetic() ?? false
         let v = currentViewer?.checkFrameSize() ?? false
-        let cropToRestore = UserDefaults.standard.bool(forKey: "allowSmartCropping")
+        // What the capture changes of the preferences, for its drawing only.
+        let smartCropping = TemporaryPreference(ViewerPreferences.allowSmartCropping)
+        let fontSizePreference = TemporaryPreference(ViewerPreferences.fontSize)
         let constrainToRestore = OSIWindow.dontConstrainWindow()
         let magneticToRestore = OSIWindowController.dontEnterMagneticFunctions()
         let screenToRestore = OSIWindowController.dontWindowDidChangeScreen()
@@ -322,7 +325,7 @@ public final class AYNSImageToDicom: NSObject {
                 var inc = Float(1 + (Double(columns &- 1) * 0.35))
                 if inc > 2.0 { inc = 2.0 }
 
-                UserDefaults.standard.set(false, forKey: "allowSmartCropping")
+                smartCropping.set(false)
 
                 var o = currentViewer?.window?.screen?.visibleFrame.origin ?? .zero
                 o.y += currentViewer?.window?.screen?.visibleFrame.size.height ?? 0
@@ -375,7 +378,7 @@ public final class AYNSImageToDicom: NSObject {
 
                         let fontSize = Double(fontSizeCopy * inc * scaleFactor) * 1.2
                         if fontSize != Double(UserDefaults.standard.float(forKey: "FONTSIZE")) {
-                            UserDefaults.standard.set(Float(fontSize), forKey: "FONTSIZE")
+                            fontSizePreference.set(Float(fontSize))
                             NotificationCenter.default.post(name: .OsirixGLFontChange, object: currentViewer)
                         }
 
@@ -412,10 +415,11 @@ public final class AYNSImageToDicom: NSObject {
 
         /////// ****************
 
-        UserDefaults.standard.set(cropToRestore, forKey: "allowSmartCropping")
+        smartCropping.restore()
 
-        if fontSizeCopy != UserDefaults.standard.float(forKey: "FONTSIZE") {
-            UserDefaults.standard.set(fontSizeCopy, forKey: "FONTSIZE")
+        let fontSizeChanged = fontSizeCopy != UserDefaults.standard.float(forKey: "FONTSIZE")
+        fontSizePreference.restore()
+        if fontSizeChanged {
             NotificationCenter.default.post(name: .OsirixGLFontChange, object: currentViewer)
         }
 

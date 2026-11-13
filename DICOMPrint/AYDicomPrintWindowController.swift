@@ -39,6 +39,7 @@
 
 import AppKit
 import IsiXDICOMNetwork
+import IsiXPreferences
 
 // Template for DCMTK presentation state command-line applications (sample .cfg files in DCMTK source under dcmpstat/etc)
 //
@@ -119,10 +120,57 @@ private func ayTag<T>(_ table: [T], _ dict: AnyObject?, _ key: String) -> T {
 }
 
 /// An argument of `%@`: nil is printed "(null)", as by -stringWithFormat:.
+/// For what is logged or shown; the print script takes its words from values
+/// that are there (`ayText`).
 private func ayArg(_ value: Any?) -> CVarArg {
     if let value = value as AnyObject? as? NSObject { return value }
     if let value = value { return String(describing: value) as NSString }
     return "(null)" as NSString
+}
+
+/// A text setting of the printer, or nil when it has none: the key missing, a
+/// null, or nothing but spaces. The printer is then asked nothing about it,
+/// rather than given a word that stands for the absence.
+private func ayText(_ value: Any?) -> String? {
+    let text = (value as? String) ?? (value as? NSNumber)?.stringValue
+    guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+    return text
+}
+
+/// `value` as one word of the print script, whatever it holds. Between single
+/// quotes bash takes every character as itself: nothing is expanded, run or
+/// split. A single quote in the value ends them, stands escaped, and opens
+/// them again. Every value and path the script names goes through here.
+private func ayShellWord(_ value: String) -> String {
+    return "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+}
+
+/// A setting as print.cfg takes it, or nil when there is none. DCMTK reads a
+/// value to the end of its line, and the line after it as the next setting: a
+/// line break, or another control character, in the value becomes a space.
+private func ayConfigValue(_ value: Any?) -> String? {
+    guard let text = (value as? String) ?? (value as? NSNumber)?.stringValue else { return nil }
+    let unbroken = text.unicodeScalars.map { scalar -> Character in
+        CharacterSet.controlCharacters.contains(scalar) || CharacterSet.newlines.contains(scalar) ? " " : Character(scalar)
+    }
+    let line = String(unbroken).trimmingCharacters(in: .whitespaces)
+    return line.isEmpty ? nil : line
+}
+
+/// What the user is told when the printer's settings lack what a job needs to
+/// reach it, the first of them; nil when they have its AE title, address and
+/// port. Such a printer is refused before anything is prepared.
+private func ayIncompletePrinter(_ printer: AnyObject?) -> String? {
+    if ayConfigValue(printer?.value(forKey: "aeTitle")) == nil {
+        return NSLocalizedString("This printer has no AE Title. Set it in the DICOM Print preferences.", comment: "")
+    }
+    if ayConfigValue(printer?.value(forKey: "host")) == nil {
+        return NSLocalizedString("This printer has no address. Set it in the DICOM Print preferences.", comment: "")
+    }
+    if ayConfigValue(printer?.value(forKey: "port")) == nil {
+        return NSLocalizedString("This printer has no port. Set it in the DICOM Print preferences.", comment: "")
+    }
+    return nil
 }
 // MARK: End of tables
 
@@ -360,8 +408,9 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
         scaleFitToRestore = m_CurrentViewer?.imageView()?.isScaledFit() ?? false
 
         if UserDefaults.standard.bool(forKey: "SquareWindowForPrinting") {
-            let AlwaysScaleToFit = Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "AlwaysScaleToFit"))
-            UserDefaults.standard.set(0, forKey: "AlwaysScaleToFit")
+            // Off while the window is resized, without writing it to the preferences.
+            let alwaysScaleToFit = TemporaryPreference(ViewerPreferences.alwaysScaleToFit)
+            alwaysScaleToFit.set(false)
 
             windowFrameToRestore = m_CurrentViewer?.window?.frame ?? .zero
             var newFrame = AppController.usefullRect(for: m_CurrentViewer?.window?.screen)
@@ -372,7 +421,7 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
             AppController.resizeWindow(withAnimation: m_CurrentViewer?.window, newSize: newFrame)
             if scaleFitToRestore { m_CurrentViewer?.imageView()?.scaleToFit() }
 
-            UserDefaults.standard.set(Int(AlwaysScaleToFit), forKey: "AlwaysScaleToFit")
+            alwaysScaleToFit.restore()
         }
 
         for case let v as ViewerController in ViewerController.getDisplayed2DViewers() ?? NSMutableArray() {
@@ -460,14 +509,15 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
 
 
         if UserDefaults.standard.bool(forKey: "SquareWindowForPrinting") && NSIsEmptyRect(windowFrameToRestore) == false {
-            let AlwaysScaleToFit = Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "AlwaysScaleToFit"))
-            UserDefaults.standard.set(0, forKey: "AlwaysScaleToFit")
+            // Off while the window is resized, without writing it to the preferences.
+            let alwaysScaleToFit = TemporaryPreference(ViewerPreferences.alwaysScaleToFit)
+            alwaysScaleToFit.set(false)
 
             AppController.resizeWindow(withAnimation: m_CurrentViewer?.window, newSize: windowFrameToRestore)
 
             if scaleFitToRestore { m_CurrentViewer?.imageView()?.scaleToFit() }
 
-            UserDefaults.standard.set(Int(AlwaysScaleToFit), forKey: "AlwaysScaleToFit")
+            alwaysScaleToFit.restore()
         }
 
         for case let v as ViewerController in ViewerController.get2DViewers() ?? NSMutableArray() {
@@ -651,6 +701,10 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
             NSLog("_createPrintjobDCMTK invalid format")
             self._setProgressMessage(NSLocalizedString("The Format you selected is not valid.", comment: ""))
             self.performSelector(onMainThread: #selector(errorMessage(_:)), with: [NSLocalizedString("Print failed", comment: ""), NSLocalizedString("The Format you selected is not valid.", comment: ""), NSLocalizedString("OK", comment: "")] as NSArray, waitUntilDone: false)
+        } else if let incomplete = ayIncompletePrinter(dict) {
+            NSLog("_createPrintjobDCMTK incomplete printer settings")
+            self._setProgressMessage(incomplete)
+            self.performSelector(onMainThread: #selector(errorMessage(_:)), with: [NSLocalizedString("Print failed", comment: ""), incomplete, NSLocalizedString("OK", comment: "")] as NSArray, waitUntilDone: false)
         } else {
             // Create directory for print log, if it doesn't already exist.
             //
@@ -700,10 +754,10 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
                 }
 
                 let printConfig = NSMutableString(string: DCMTK_PRINTER_CONFIG_TEMPLATE)
-                ayReplace(printConfig, "{{PRINTER_AETITLE}}", dict?.value(forKey: "aeTitle"))
-                ayReplace(printConfig, "{{HOST}}", dict?.value(forKey: "host"))
-                ayReplace(printConfig, "{{PORT}}", dict?.value(forKey: "port"))
-                ayReplace(printConfig, "{{HOROS_AETITLE}}", aeTitle)
+                ayReplace(printConfig, "{{PRINTER_AETITLE}}", ayConfigValue(dict?.value(forKey: "aeTitle")) ?? "")
+                ayReplace(printConfig, "{{HOST}}", ayConfigValue(dict?.value(forKey: "host")) ?? "")
+                ayReplace(printConfig, "{{PORT}}", ayConfigValue(dict?.value(forKey: "port")) ?? "")
+                ayReplace(printConfig, "{{HOROS_AETITLE}}", ayConfigValue(aeTitle) ?? "HOROS_DICOM_PRINT")
                 ayReplace(printConfig, "{{COLUMNS}}", String(format: "%d", columns))
                 ayReplace(printConfig, "{{ROWS}}", String(format: "%d", rows))
                 ayReplace(printConfig, "{{FILM_DESTINATION}}", ayTag(filmDestinationTag, dict, "filmDestinationTag").uppercased())
@@ -717,20 +771,29 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
                 // Create script for this print job.
                 //
                 let printScript = NSMutableString()
+                // Where dcmpsprt, HorosStoredPrint and dicom.dic are.
+                let toolsPath = Bundle.main.resourcePath ?? ""
                 // Stop before sending an incomplete job and preserve command failures.
                 // The EXIT trap still runs after a failing command: it writes the
                 // step that was running and the status to the print log, and on
                 // the output the app reads to tell the user which step failed.
+                //
+                // Whatever the script names (the job, the folders, the files, the
+                // printer's settings) is written as a quoted word, ayShellWord, so
+                // that bash passes it on as it is. The step goes to the output
+                // before anything is written to the print log, and a log that
+                // cannot be written stops neither the trap nor the job: the app
+                // still learns the step, and the film is still printed.
                 printScript.append("set -e\n")
                 printScript.append("step=setup\n")
-                printScript.appendFormat("job_id=\"%@\"\n", printJobID)
-                printScript.appendFormat("log_file=\"%@/print.log\"\n", logPath)
-                printScript.append("trap 'status=$?; echo \"$(date): End print job $job_id [step=$step status=$status]\" >> \"$log_file\"; echo \"IsiXPrintJob: step=$step status=$status\"; exit $status' EXIT\n")
-                printScript.appendFormat("export DCMDICTPATH=\"%@/dicom.dic\"\n", ayArg(Bundle.main.resourcePath))
-                printScript.appendFormat("cd \"%@\"\n", printJobDir)
-                printScript.appendFormat("mkdir \"%@/log\"\n", printJobDir) // backup dir for log
-                printScript.appendFormat("mkdir \"%@/database\" 2>&1 >> \"%@/print.log\"\n", printJobDir, logPath)
-                printScript.appendFormat("echo \"`date`: Starting print job %@\" >> \"%@/print.log\"\n", printJobID, logPath)
+                printScript.appendFormat("job_id=%@\n", ayShellWord(printJobID as String))
+                printScript.appendFormat("log_file=%@\n", ayShellWord((logPath as NSString).appendingPathComponent("print.log")))
+                printScript.append("trap 'status=$?; echo \"IsiXPrintJob: step=$step status=$status\"; echo \"$(date): End print job $job_id [step=$step status=$status]\" >> \"$log_file\" || true; exit $status' EXIT\n")
+                printScript.appendFormat("export DCMDICTPATH=%@\n", ayShellWord((toolsPath as NSString).appendingPathComponent("dicom.dic")))
+                printScript.appendFormat("cd %@\n", ayShellWord(printJobDir))
+                printScript.appendFormat("mkdir %@\n", ayShellWord((printJobDir as NSString).appendingPathComponent("log"))) // backup dir for log
+                printScript.appendFormat("mkdir %@\n", ayShellWord((printJobDir as NSString).appendingPathComponent("database")))
+                printScript.append("echo \"$(date): Starting print job $job_id\" >> \"$log_file\" || true\n")
 
                 let ipp = ayTag(imageDisplayFormatNumbers, dict, "imageDisplayFormatTag")
 
@@ -807,17 +870,22 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
                         // Format command to create the presentation state for the page ("filmbox").
                         // DCMTK command-line seems to only handle setting up one page printing, so creating one for each "filmbox".
                         //
-                        printScript.appendFormat("\"%@/dcmpsprt\" -c \"%@\" -lc \"%@\" --printer PRINTSCP --layout %d %d --filmsize %@ --magnification %@ --configinfo \"%@\" --border %@ --empty-image %@ ",
-                                                 ayArg(Bundle.main.resourcePath),
-                                                 printConfigPath,
-                                                 loggerConfigPath,
+                        printScript.appendFormat("%@ -c %@ -lc %@ --printer PRINTSCP --layout %d %d --filmsize %@ --magnification %@ ",
+                                                 ayShellWord((toolsPath as NSString).appendingPathComponent("dcmpsprt")),
+                                                 ayShellWord(printConfigPath),
+                                                 ayShellWord(loggerConfigPath),
                                                  columns,
                                                  rows,
-                                                 filmSize.uppercased,
-                                                 ayTag(magnificationTypeTag, dict, "magnificationTypeTag"),
-                                                 ayArg(dict?.value(forKey: "configurationInformation")),
-                                                 ayTag(borderDensityTag, dict, "borderDensityTag"),
-                                                 ayTag(emptyImageDensityTag, dict, "emptyImageDensityTag"))
+                                                 ayShellWord(filmSize.uppercased),
+                                                 ayShellWord(ayTag(magnificationTypeTag, dict, "magnificationTypeTag")))
+                        // Configuration Information goes into the film box only when the
+                        // printer has one: a printer may refuse a value it does not know.
+                        if let configurationInformation = ayText(dict?.value(forKey: "configurationInformation")) {
+                            printScript.appendFormat("--configinfo %@ ", ayShellWord(configurationInformation))
+                        }
+                        printScript.appendFormat("--border %@ --empty-image %@ ",
+                                                 ayShellWord(ayTag(borderDensityTag, dict, "borderDensityTag")),
+                                                 ayShellWord(ayTag(emptyImageDensityTag, dict, "emptyImageDensityTag")))
                         if ayIntValue(dict, "trimTag") == 0 {
                             printScript.append("--no-trim ")
                         } else {
@@ -835,8 +903,8 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
                         let upper = min(UInt(bitPattern: Int(i &* ipp &+ ipp)), UInt(images.count))
                         var j = i &* ipp
                         while UInt(bitPattern: Int(j)) < upper {
-                            if ((images.object(at: Int(j)) as AnyObject) as? NSString)?.length ?? 0 > 0 {
-                                printScript.appendFormat(" \"%@\"\\\n", ayArg(images.object(at: Int(j))))
+                            if let image = images.object(at: Int(j)) as? String, !image.isEmpty {
+                                printScript.appendFormat(" %@\\\n", ayShellWord(image))
                             }
                             j += 1
                         }
@@ -847,19 +915,25 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
                     // Format command to send the presentation states to the printer.
                     //
                     printScript.append("step=send\n")
-                    printScript.appendFormat("\"%@/HorosStoredPrint\" -c \"%@\" -lc \"%@\" --printer PRINTSCP --copies %d --priority %@ --destination %@ --medium-type \"%@\" \"%@/database/\"SP_*\n",
-                                             ayArg(Bundle.main.resourcePath),
-                                             printConfigPath,
-                                             loggerConfigPath,
+                    // The Stored Prints dcmpsprt left: the folder quoted, the pattern not.
+                    printScript.appendFormat("%@ -c %@ -lc %@ --printer PRINTSCP --copies %d --priority %@ --destination %@ --medium-type %@ %@SP_*\n",
+                                             ayShellWord((toolsPath as NSString).appendingPathComponent("HorosStoredPrint")),
+                                             ayShellWord(printConfigPath),
+                                             ayShellWord(loggerConfigPath),
                                              copies,
-                                             ayTag(priorityTag, dict, "priorityTag"),
-                                             ayTag(filmDestinationTag, dict, "filmDestinationTag").uppercased(),
-                                             ayTag(mediumTag, dict, "mediumTag").uppercased(),
-                                             printJobDir)
+                                             ayShellWord(ayTag(priorityTag, dict, "priorityTag")),
+                                             ayShellWord(ayTag(filmDestinationTag, dict, "filmDestinationTag").uppercased()),
+                                             ayShellWord(ayTag(mediumTag, dict, "mediumTag").uppercased()),
+                                             ayShellWord(printJobDir + "/database/"))
 
-                    if (try? loggerConfig.write(toFile: loggerConfigPath, atomically: true, encoding: String.Encoding.windowsCP1250.rawValue)) == nil ||
-                        (try? printConfig.write(toFile: printConfigPath, atomically: true, encoding: String.Encoding.windowsCP1250.rawValue)) == nil ||
-                        (try? printScript.write(toFile: printScriptPath, atomically: true, encoding: String.Encoding.windowsCP1250.rawValue)) == nil {
+                    // UTF-8, the encoding of the names in the file system: bash and
+                    // the DCMTK tools read the paths in these files as bytes. No text
+                    // in them needs another code page for the printer: the film
+                    // session and the film box take the words of the tables above,
+                    // and DCMTK passes Configuration Information on byte for byte.
+                    if (try? loggerConfig.write(toFile: loggerConfigPath, atomically: true, encoding: String.Encoding.utf8.rawValue)) == nil ||
+                        (try? printConfig.write(toFile: printConfigPath, atomically: true, encoding: String.Encoding.utf8.rawValue)) == nil ||
+                        (try? printScript.write(toFile: printScriptPath, atomically: true, encoding: String.Encoding.utf8.rawValue)) == nil {
                         NSLog("_createPrintjobDCMTK unable to create files in temp dir")
                         self._setProgressMessage(NSLocalizedString("Can't write to temporary directory.", comment: ""))
                         self.performSelector(onMainThread: #selector(errorMessage(_:)), with: [NSLocalizedString("Print failed", comment: ""), NSLocalizedString("Can't write to temporary directory.", comment: ""), NSLocalizedString("OK", comment: "")] as NSArray, waitUntilDone: false)
@@ -894,7 +968,7 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
                     let task = Process()
                     theTask = task
 
-                    let printScriptPath = String(format: "%@/print.sh", ayArg(printJobDir))
+                    let printScriptPath = ((printJobDir ?? "") as NSString).appendingPathComponent("print.sh")
                     task.arguments = [printScriptPath]
                     task.executableURL = URL(fileURLWithPath: "/bin/bash")
                     // One pipe for both streams keeps the lines in the order they

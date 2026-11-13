@@ -156,9 +156,10 @@ struct IncomingAdmission {
         return conversion.isConverting
     }
 
-    /// The compression the listener asks for now.
+    /// The compression the listener asks for now: none while a retrieval
+    /// that needs its images at once is running.
     var listenerCompressionSettings: Int32 {
-        Int32(truncatingIfNeeded: preferences[NetworkPreferences.listenerCompressionSettings])
+        Int32(truncatingIfNeeded: ListenerCompressionSuspension.shared.value(in: preferences))
     }
 
     // Every import of the folder passes the gate quitting closes: the process's

@@ -73,7 +73,7 @@ import AppKit
 HELPERS
 
 var deletions = 0, moves = 0, alerts = 0
-var duplicateInstallations = false, inactiveInstallation = false
+var duplicateInstallations = false, inactiveInstallation = false, insideApplication = false
 var installRoot: NSString = ""
 var lastDestination: String? = nil
 var lastMessage = ""
@@ -90,6 +90,9 @@ REFUSAL
     @objc class func pluginsList() -> [Any]! {
         if duplicateInstallations {
             return [["name": "QAVersion1", "availability": "User", "active": true], ["name": "QAVersion1", "availability": "App", "active": true]]
+        }
+        if insideApplication {
+            return [["name": "QAVersion1", "availability": "App", "active": true]]
         }
         return inactiveInstallation ? [["name": "QAVersion1", "availability": "User", "active": false]] : []
     }
@@ -141,6 +144,15 @@ PluginManager.installPlugin(fromPath: root.appendingPathComponent("QAVersion1.is
 check(deletions == 0 && moves == 1, "A compatible version 1 candidate must reach the installation")
 check(lastDestination == (PluginManager.userActivePluginsDirectoryPath() as NSString).appendingPathComponent("QAVersion1.isixplugin"),
       "A new plugin goes to the user's active folder: \(lastDestination ?? "nil")")
+// A plugin an earlier version installed inside the application is updated into
+// the user's folder: nothing is written into the application, whose signature
+// seals what it holds and which an update replaces whole.
+insideApplication = true
+PluginManager.installPlugin(fromPath: root.appendingPathComponent("QAVersion1.isixplugin"))
+check(moves == 2 && lastDestination == (PluginManager.userActivePluginsDirectoryPath() as NSString).appendingPathComponent("QAVersion1.isixplugin"),
+      "The update of a plugin inside the application goes to the user's folder: \(lastDestination ?? "nil")")
+insideApplication = false
+moves = 1
 inactiveInstallation = true
 let former = (PluginManager.userInactivePluginsDirectoryPath() as NSString).appendingPathComponent("QAVersion1.horosplugin")
 try? FileManager.default.createDirectory(atPath: former, withIntermediateDirectories: true, attributes: nil)

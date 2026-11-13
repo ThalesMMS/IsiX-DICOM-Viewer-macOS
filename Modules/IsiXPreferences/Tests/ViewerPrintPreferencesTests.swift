@@ -48,23 +48,18 @@ import Testing
         #expect(store[VolumeRenderingPreferences.previousPrintSettings] == settings)
     }
 
-    @Test func theSwitchesThePrintTurnsOffComeBackAsTheyWere() {
-        let store = MemoryPreferences(registered: [ViewerPreferences.alwaysScaleToFit.name: "0",
-                                                   ViewerPreferences.fontSize.name: "14.0",
-                                                   ViewerPreferences.allowSmartCropping.name: "1"])
-        // AlwaysScaleToFit is put back as the integer it was read as.
-        store.set(2, forKey: ViewerPreferences.alwaysScaleToFit.name)
-        let saved = Int.reading(store.object(forKey: ViewerPreferences.alwaysScaleToFit.name))
-        store.set(0, forKey: ViewerPreferences.alwaysScaleToFit.name)
-        #expect(!store[ViewerPreferences.alwaysScaleToFit])
-        store.set(saved, forKey: ViewerPreferences.alwaysScaleToFit.name)
-        #expect((store.object(forKey: ViewerPreferences.alwaysScaleToFit.name) as? NSNumber)?.intValue == 2)
+    /// The three keys the print gives a value of its own while it works
+    /// (TemporaryPreferenceTests), read as the views read them.
+    @Test func theSwitchesThePrintTurnsOffAreCataloguedUnderTheKeysTheViewsRead() {
+        let names = [ViewerPreferences.alwaysScaleToFit.name, ViewerPreferences.fontSize.name, ViewerPreferences.allowSmartCropping.name]
+        #expect(names == ["AlwaysScaleToFit", "FONTSIZE", "allowSmartCropping"])
+        for name in names {
+            #expect(ViewerPreferences.catalog.contains { $0.name == name })
+        }
 
+        let store = MemoryPreferences(["AlwaysScaleToFit": "1", "FONTSIZE": "14.0", "allowSmartCropping": 0])
+        #expect(store[ViewerPreferences.alwaysScaleToFit])
         #expect(store[ViewerPreferences.fontSize] == 14)
-        store.set(Float(20.16), for: ViewerPreferences.fontSize)
-        #expect(store[ViewerPreferences.fontSize] == Float(20.16))
-        #expect(store[ViewerPreferences.allowSmartCropping])
-        store.set(false, for: ViewerPreferences.allowSmartCropping)
         #expect(!store[ViewerPreferences.allowSmartCropping])
     }
 }

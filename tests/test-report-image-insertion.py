@@ -14,12 +14,15 @@ failures = []
 
 swift = (root / 'Horos/Sources/ReportImagePlacement.swift').read_text()
 for needle, reason in (
-    ('end of body text', 'Pages must insert inline so a reopen cannot slide a box'),
+    ('tell d to make new page', 'the figures of a Pages report go on pages of their own, where they move no text'),
+    ('make new image with properties {file:figure', 'a picture is made on a page, from a file object'),
+    ('ReportImagePlacement.figures(', 'the place of each figure is computed, not left to Pages'),
     ('inline picture', 'Word must insert an inline picture, not a floating shape'),
     ('defaultBox', 'the figure size has to be one predictable box'),
     ('writeCopy', 'the source image has to be copied, not rewritten'),
     ('replaceItemAt', 'the original report is published only after a successful copy'),
-    ('com.apple.Pages', 'modern Pages is asked for by identifier'),
+    ('tell application id \\"\\(application)\\"', 'Pages is asked for by the identifier the script is given'),
+    ('PagesApplication.target()', 'the Pages addressed is the one the report is opened in'),
     ('Microsoft Word', 'Word is a first-class report target, not a Pages leftover'),
     ('repeat with attempt from 1 to 60', 'the editor script must wait for the private copy'),
     ('on error errorMessage number errorNumber', 'a refused insert must capture the AppleScript number'),

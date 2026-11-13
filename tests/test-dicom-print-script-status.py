@@ -63,7 +63,7 @@ program=r'''
 import Foundation
 CONSTANTS
 let arguments=CommandLine.arguments
-let resources=arguments[1]
+let resources:String?=arguments[1]
 let printJobDir=arguments[2]
 let logPath=arguments[3]
 let printJobID=NSMutableString(string:"synthetic QA")

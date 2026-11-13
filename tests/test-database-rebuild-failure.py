@@ -43,7 +43,13 @@ from the source, so kept-cleanup-dates compares dateAdded before and after a reb
 with a new image and a study sent again beside it. kept-cleanup-reports runs the real
 DatabaseReportConsistency on a stand-in whose reportURL answers nil for a report
 inside the database, as the real one does with no browser database, and whose archive
-drops the link it cannot read.
+drops the link it cannot read. kept-cleanup-shared is an index in which records of
+other images name the files of others, as an import that was given the number of a
+file that was gone left them: each such record gets a number of its own before it
+leaves, so that the file it named stays; the frames of a multiframe file and the
+series of a file that is not DICOM stay, and so do the records of a file that does
+not read, that raises, or that none of them is of. The study that had only that
+record leaves or stays as any study left without images.
 
 The rebuild of the SQL file changed on purpose after that revision, so the files
 it leaves are not compared with it (sql.base, sql.recovery): the former index
@@ -375,10 +381,37 @@ nonisolated(unsafe) var harnessToday = "the day it came"
     func completePath() -> String? { return value(forKey: "path") as? String }
     var series: DicomSeries? { return value(forKey: "series") as? DicomSeries }
     func inDatabaseFolder() -> NSNumber? { return NSNumber(value: completePath()?.contains(".noindex/") == true) }
+    /// Of the index whose images are numbered files, harnessModel(numbered:).
+    var pathNumber: NSNumber? { return value(forKey: "pathNumber") as? NSNumber }
+    var compressedSopInstanceUID: Data? { return value(forKey: "compressedSopInstanceUID") as? Data }
+    static func sopInstanceUIDEncode(_ uid: String!) -> Data! { return Data(uid.utf8) }
+    /// As the real one: a numbered name is the file of that number, in the folder the image is in.
+    func setPath(_ name: String!) {
+        setValue(NSNumber(value: Int64((name as NSString).deletingPathExtension) ?? 0), forKey: "pathNumber")
+        setValue(((completePath()! as NSString).deletingLastPathComponent as NSString).appendingPathComponent(name), forKey: "path")
+    }
     /// As the real one: the cascade of a study reaches this too.
     override func validateForDelete() throws {
         try super.validateForDelete()
         if inDatabaseFolder()?.boolValue == true, let path = completePath() { removedAfterTheSave.append(path) }
+    }
+}
+/// A data file as the import reads it. One that starts with `uids:` holds a series
+/// for each identifier after it, one that says `raises` makes the reader raise, as
+/// the readers behind the import's guard may, and any other does not read.
+final class DicomFile {
+    private let identifiers: [String]
+    init!(_ path: String!) {
+        let text = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+        if text == "raises" { NSException(name: .genericException, reason: "the reader raised", userInfo: nil).raise() }
+        guard text.hasPrefix("uids:") else { return nil }
+        identifiers = String(text.dropFirst(5)).components(separatedBy: ",")
+    }
+    func noOfSeries() -> Int { return identifiers.count }
+    func dicomElements() -> NSMutableDictionary! {
+        let elements = NSMutableDictionary()
+        for (series, identifier) in identifiers.enumerated() { elements[series == 0 ? "SOPUID" : "SOPUID\(series)"] = identifier }
+        return elements
     }
 }
 /// A series named -SR is a structured report the person can open, and one named
@@ -453,7 +486,7 @@ nonisolated(unsafe) var harnessToday = "the day it came"
 
 /// `albums`: with the entity of albums. The other scenarios have no such tables:
 /// the repair ones make them by hand, in the store, to damage them.
-func harnessModel(albums: Bool = false) -> NSManagedObjectModel {
+func harnessModel(albums: Bool = false, numbered: Bool = false) -> NSManagedObjectModel {
     func attribute(_ name: String) -> NSAttributeDescription {
         let attribute = NSAttributeDescription()
         attribute.name = name
@@ -487,6 +520,13 @@ func harnessModel(albums: Bool = false) -> NSManagedObjectModel {
     study.properties = [attribute("name"), attribute("reportURL"), attribute("lockedStudy"), attribute("numberOfImages"), attribute("modality"), attribute("dateAdded"), studySeries]
     series.properties = [attribute("name"), attribute("id"), attribute("numberOfImages"), attribute("modality"), attribute("dateAdded"), attribute("thumbnail"), seriesStudy, seriesImages]
     image.properties = [attribute("path"), imageSeries]
+    if numbered {
+        // As the index names the files of the data folder, and the images in them.
+        let number = attribute("pathNumber"), identifier = attribute("compressedSopInstanceUID")
+        number.attributeType = .integer64AttributeType
+        identifier.attributeType = .binaryDataAttributeType
+        image.properties += [number, identifier]
+    }
     var entities = [study, series, image]
     if albums {
         let album = entity("Album", "NSManagedObject")
@@ -506,6 +546,7 @@ func harnessModel(albums: Bool = false) -> NSManagedObjectModel {
 
 let sharedModel = harnessModel()
 let modelWithAlbums = harnessModel(albums: true)
+let numberedModel = harnessModel(numbered: true)
 
 func albumsFileEntries(ofIndexAtPath path: String, models: [NSManagedObjectModel]) -> NSArray? {
     harnessAlbumsReadFrom = path
@@ -552,6 +593,12 @@ class DicomDatabase: NSObject {
     func reportsDirPath() -> String! { return (baseDirPath as NSString).appendingPathComponent("REPORTS") }
     func modelVersionFilePath() -> String! { return (baseDirPath as NSString).appendingPathComponent("DB_VERSION") }
     func rebuildAllowed() -> Bool { return true }
+    /// As the real one: a number no file has, never given twice.
+    var lastDataFileNumber = 9000
+    func uniquePathForNewDataFile(withExtension fileExtension: String!) -> String! {
+        lastDataFileNumber += 1
+        return ((dataDirPath() as NSString).appendingPathComponent("1000") as NSString).appendingPathComponent("\(lastDataFileNumber).\(fileExtension!)")
+    }
     func privateQueueIndependentDatabase() -> Any! { return self }
 
     func context(atPath path: String!) -> NSManagedObjectContext! {
@@ -1035,6 +1082,96 @@ do {
     links("kept-cleanup-reports.links")
     database.rebuild(false)
     links("kept-cleanup-reports-again.links")
+}
+
+// Records that name the file of another image. OLD lost the files of two images,
+// and an import was given their numbers: its records name the file of NEW and the
+// multiframe file of MFB. ALONE, WITHREPORT and LOCKEDONE have nothing but such a
+// record. The frames of MF name one file, and so do the two series of TWO, a file
+// that is not DICOM. The file NOREAD and NOREADB name does not read, the one of
+// RAISES and RAISESB raises, and the one of REWRITTEN and REWRITTENB is of neither.
+do {
+    let database = makeDatabase("kept-cleanup-shared", model: numberedModel)
+    let data = database.dataDirPath() as NSString
+    let reports = database.reportsDirPath() as NSString
+    let contents = [10: "uids:OLD.1", 11: "uids:NEW.1", 12: "uids:MF.1", 13: "uids:scan,scan1", 14: "not an image", 15: "uids:WRITTEN.ANEW", 16: "raises",
+                    17: "uids:HOLDER.1", 18: "uids:HOLDERB.1", 19: "uids:HOLDERC.1", 20: "uids:MFB.1"]
+    func file(_ number: Int) -> String { return data.appendingPathComponent("1000/\(number).dcm") }
+    for (number, text) in contents { write(file(number), text) }
+    write(reports.appendingPathComponent("notes-of-with-report.pages"))
+    let context = database.managedObjectContext!
+    context.performAndWait {
+        func one(_ entity: String, _ name: String, _ owner: (String, NSManagedObject)?) -> NSManagedObject {
+            let request = NSFetchRequest<NSManagedObject>(entityName: entity)
+            request.predicate = NSPredicate(format: "name == %@", name)
+            if let found = try! context.fetch(request).first { return found }
+            let object = NSEntityDescription.insertNewObject(forEntityName: entity, into: context)
+            object.setValue(name, forKey: "name")
+            if let owner { object.setValue(owner.1, forKey: owner.0) }
+            return object
+        }
+        // <series> is <study>-<n>; each record is an image, or a frame, of the file of its number.
+        for (series, identifier, number) in [("OLD-1", "OLD.1", 10), ("OLD-1", "OLD.2", 11), ("NEW-1", "NEW.1", 11), ("OLD-2", "OLD.3", 20),
+                                             ("MF-1", "MF.1", 12), ("MF-1", "MF.1", 12), ("MF-1", "MF.1", 12), ("TWO-1", "scan", 13), ("TWO-2", "scan1", 13),
+                                             ("NOREAD-1", "NOREAD.1", 14), ("NOREADB-1", "NOREADB.1", 14), ("REWRITTEN-1", "REWRITTEN.1", 15),
+                                             ("REWRITTENB-1", "REWRITTENB.1", 15), ("RAISES-1", "RAISES.1", 16), ("RAISESB-1", "RAISESB.1", 16),
+                                             ("HOLDER-1", "HOLDER.1", 17), ("ALONE-1", "ALONE.1", 17), ("HOLDERB-1", "HOLDERB.1", 18),
+                                             ("WITHREPORT-1", "WITHREPORT.1", 18), ("HOLDERC-1", "HOLDERC.1", 19), ("LOCKEDONE-1", "LOCKEDONE.1", 19),
+                                             ("MFB-1", "MFB.1", 20), ("MFB-1", "MFB.1", 20)] {
+            let study = one("Study", series.components(separatedBy: "-")[0], nil)
+            let image = NSEntityDescription.insertNewObject(forEntityName: "Image", into: context)
+            image.setValue(file(number), forKey: "path")
+            image.setValue(NSNumber(value: number), forKey: "pathNumber")
+            image.setValue(Data(identifier.utf8), forKey: "compressedSopInstanceUID")
+            image.setValue(one("Series", series, ("study", study)), forKey: "series")
+        }
+        one("Study", "WITHREPORT", nil).setValue("REPORTS/notes-of-with-report.pages", forKey: "reportURL")
+        one("Study", "LOCKEDONE", nil).setValue("1", forKey: "lockedStudy")
+        for name in ["OLD-1", "NEW-1", "MF-1", "MFB-1"] { one("Series", name, nil).setValue("of an image", forKey: "thumbnail") }
+        for case let study as DicomStudy in try! context.fetch(NSFetchRequest<NSManagedObject>(entityName: "Study")) { _ = study.noFiles() }
+        try! context.save()
+    }
+    /// The images of the numbered files, as the index on the disk has them: each study with those of each file.
+    func images(_ label: String) {
+        let coordinator = NSPersistentStoreCoordinator(managedObjectModel: numberedModel)
+        _ = try! coordinator.addPersistentStore(ofType: NSSQLiteStoreType, configurationName: nil, at: URL(fileURLWithPath: database.sqlFilePath),
+                                                options: [NSSQLitePragmasOption: ["journal_mode": "delete"], NSReadOnlyPersistentStoreOption: true])
+        let reader = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+        reader.persistentStoreCoordinator = coordinator
+        reader.performAndWait {
+            let request = NSFetchRequest<NSManagedObject>(entityName: "Image")
+            request.predicate = NSPredicate(format: "pathNumber != nil")
+            var held: [String: Int] = [:]
+            for image in try! reader.fetch(request) {
+                let series = image.value(forKey: "series") as! NSManagedObject
+                held["\((series.value(forKey: "study") as! NSManagedObject).value(forKey: "name") as! String)@\(image.value(forKey: "pathNumber") as! NSNumber)", default: 0] += 1
+            }
+            emit(label, held.keys.sorted().map { held[$0] == 1 ? $0 : "\($0)x\(held[$0]!)" }.joined(separator: ","))
+            func names(_ entity: String, having key: String? = nil) -> String {
+                return (try! reader.fetch(NSFetchRequest<NSManagedObject>(entityName: entity))).filter { object in key.map { object.value(forKey: $0) != nil } ?? true }
+                    .map { $0.value(forKey: "name") as! String }.sorted().joined(separator: ",")
+            }
+            emit(label + ".studies", names("Study"))
+            emit(label + ".thumbnails", names("Series", having: "thumbnail"))
+        }
+    }
+    func files() -> String {
+        let changed = contents.keys.sorted().filter { (try? String(contentsOfFile: file($0), encoding: .utf8)) != contents[$0] }
+        let others = ((try? fileManager.contentsOfDirectory(atPath: data.appendingPathComponent("1000"))) ?? []).filter { Int(($0 as NSString).deletingPathExtension) ?? 0 > 9000 }
+        return changed.isEmpty && others.isEmpty ? "all here" : "gone or changed: \(changed), new: \(others.sorted())"
+    }
+    images("kept-cleanup-shared.before")
+    forgotten = []
+    database.rebuild(false)
+    images("kept-cleanup-shared.images")
+    emit("kept-cleanup-shared.forgotten", forgotten.sorted().joined(separator: ","))
+    emit("kept-cleanup-shared.files", files())
+    // The second time finds nothing to take out.
+    forgotten = []
+    database.rebuild(false)
+    images("kept-cleanup-shared-again.images")
+    emit("kept-cleanup-shared-again.forgotten", forgotten.sorted().joined(separator: ","))
+    emit("kept-cleanup-shared-again.files", files())
 }
 
 // The recovery copy cannot be made: nothing was touched.
@@ -1850,6 +1987,8 @@ if not revision:
                               'kept-cleanup.files': 'gone: DOCONLY-SR-1.dcm,UNREADABLE-1-1.dcm'}.items():
                 if ','.join(sorted(then.get(key, '').split(','))) != ','.join(sorted(want.split(','))):
                     failures.append('the former rebuild left, %s: %r, expected %r' % (key, then.get(key), want))
+        SHARED_LEFT = ('HOLDER@17,HOLDERB@18,HOLDERC@19,MF@12x3,MFB@20x2,NEW@11,NOREAD@14,NOREADB@14,OLD@10,'
+                       'RAISES@16,RAISESB@16,REWRITTEN@15,REWRITTENB@15,TWO@13x2')
         expected = {
             # The three studies of the files and the one of the ROIs; the hidden
             # ones and the file that is not DICOM stay out, the stray one is moved.
@@ -1903,6 +2042,21 @@ if not revision:
             'kept-cleanup-reports.links': 'ATTACHED=REPORTS/ATTACHED.pages,OTHER=REPORTS/notes-of-other.pages,OUT=<out>/OUT.pages,OUTALONE=<out>/alone.pages',
             'kept-cleanup-reports-again.links': 'ATTACHED=REPORTS/ATTACHED.pages,OTHER=REPORTS/notes-of-other.pages,OUT=<out>/OUT.pages,OUTALONE=<out>/alone.pages',
             'kept-cleanup-no-save.forgotten': '', 'kept-cleanup-no-save.lock': 'free',
+            # The records that named the file of another image left as images whose
+            # files are gone, and every file is as it was: OLD keeps the image it has
+            # a file of, ALONE left with its only record, and a report and a lock
+            # kept WITHREPORT and LOCKEDONE with no image. The frames of MF and of
+            # MFB and the two series of TWO stay. The files that do not read, raise
+            # or are of none of their records tell nothing, and their records stay.
+            'kept-cleanup-shared.before': 'ALONE@17,HOLDER@17,HOLDERB@18,HOLDERC@19,LOCKEDONE@19,MF@12x3,MFB@20x2,NEW@11,NOREAD@14,NOREADB@14,OLD@10,OLD@11,OLD@20,'
+                                          'RAISES@16,RAISESB@16,REWRITTEN@15,REWRITTENB@15,TWO@13x2,WITHREPORT@18',
+            'kept-cleanup-shared.images': SHARED_LEFT, 'kept-cleanup-shared-again.images': SHARED_LEFT,
+            'kept-cleanup-shared.images.studies': 'A,B,C,HOLDER,HOLDERB,HOLDERC,LOCKEDONE,MF,MFB,NEW,NOREAD,NOREADB,OLD,R,RAISES,RAISESB,REWRITTEN,REWRITTENB,TWO,WITHREPORT',
+            'kept-cleanup-shared.forgotten': 'ALONE,GONE', 'kept-cleanup-shared-again.forgotten': '',
+            'kept-cleanup-shared.files': 'all here', 'kept-cleanup-shared-again.files': 'all here',
+            # OLD-1 lost an image, and makes its thumbnail again; the series that
+            # kept theirs lost none.
+            'kept-cleanup-shared.images.thumbnails': 'MF-1,MFB-1,NEW-1',
             'kept-cleanup-no-data.studies': 'A,B,GONE,R', 'kept-cleanup-no-data.forgotten': '',
             'kept-cleanup-no-data.thumbnails': 'A-1,B-1,GONE-1',
             'no-copy.index': 'as it was', 'no-copy.context': 'the same', 'no-copy.lock': 'free', 'no-copy.recovery': 'none',

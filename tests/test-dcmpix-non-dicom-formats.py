@@ -25,11 +25,20 @@ tests/fixtures/dcmpix-non-dicom-formats-records.json (HOROS_RECORD_GOLDEN=1 on a
 of that class writes them).
 
 The Swift class is run twice, with every screen answering a backing scale of
-2, that of the records, then of 1: AppKit rasterizes an image without a
-context at the scale of the screen, and a file, or an NSImage drawn before,
-must give the same image, pixel for pixel, on any display. The NSImage the
-probe draws itself with -lockFocus is left out: AppKit draws it at the
-scale of the screen, so the picture given differs, not its conversion.
+2, that of the records, then a scale of 1 and Display P3 as its colour space:
+AppKit rasterizes an image without a context at the scale of the screen, and a
+file, or an NSImage drawn before, must give the same image, pixel for pixel, on
+any display.
+
+The NSImage the probe hands over itself is drawn into a bitmap of its own, 14
+by 10 pixels in sRGB, and not with -lockFocus: AppKit draws a locked image at
+the scale of the main screen and in its colour space, and the half-transparent
+rectangle of the picture is mixed in the space it is drawn into. On a screen
+whose profile is not sRGB the mixed pixels differed (pixels 6ea82d45e3b3fb33,
+which is also what a locked image gives here once the screen answers Display
+P3) from the records, made on an sRGB screen - the picture differed, not its
+conversion. In an sRGB bitmap the picture is that of the records on any screen,
+and is checked against the colours written as well.
 
 Where the Objective-C read a file wrongly, the case is not compared with the
 reference but checked against the values written (CORRECTED): a 16-bit TIFF
@@ -636,13 +645,33 @@ static void ybr( void)
 
 static void fromImage( void)
 {
-    NSImage *image = [[[NSImage alloc] initWithSize: NSMakeSize( 7, 5)] autorelease];
-    [image lockFocus];
+    // 7 by 5 points at 2 pixels a point, in sRGB whatever the screen: the
+    // second colour is laid half-transparent over the first, and the two are
+    // mixed in the colour space of what is drawn into.
+    NSBitmapImageRep *bitmap = [[[NSBitmapImageRep alloc] initWithBitmapDataPlanes: NULL pixelsWide: 14 pixelsHigh: 10
+        bitsPerSample: 8 samplesPerPixel: 4 hasAlpha: YES isPlanar: NO colorSpaceName: NSCalibratedRGBColorSpace
+        bytesPerRow: 0 bitsPerPixel: 0] autorelease];
+    bitmap = [bitmap bitmapImageRepByRetaggingWithColorSpace: [NSColorSpace sRGBColorSpace]];
+    [bitmap setSize: NSMakeSize( 7, 5)];
+    [NSGraphicsContext saveGraphicsState];
+    [NSGraphicsContext setCurrentContext: [NSGraphicsContext graphicsContextWithBitmapImageRep: bitmap]];
     [[NSColor colorWithCalibratedRed: 0.2 green: 0.6 blue: 0.9 alpha: 1] set];
     NSRectFill( NSMakeRect( 0, 0, 7, 5));
     [[NSColor colorWithCalibratedRed: 1 green: 0.1 blue: 0.3 alpha: 0.5] set];
     NSRectFillUsingOperation( NSMakeRect( 2, 1, 3, 2), NSCompositingOperationSourceOver);
-    [image unlockFocus];
+    [[NSGraphicsContext currentContext] flushGraphics];
+    [NSGraphicsContext restoreGraphicsState];
+    NSImage *image = [[[NSImage alloc] initWithSize: NSMakeSize( 7, 5)] autorelease];
+    [image addRepresentation: bitmap];
+    // What a locked image would have been drawn into here: the control that
+    // says which screen this run saw.
+    NSImage *locked = [[[NSImage alloc] initWithSize: NSMakeSize( 1, 1)] autorelease];
+    [locked lockFocus];
+    NSRectFill( NSMakeRect( 0, 0, 1, 1));
+    [locked unlockFocus];
+    CGImageRef snapshot = [locked CGImageForProposedRect: NULL context: nil hints: nil];
+    NSString *space = snapshot ? [(NSString*) CGColorSpaceCopyName( CGImageGetColorSpace( snapshot)) autorelease] : nil;
+    emit( @{ @"name": @"screen", @"lockFocus": @[@(snapshot ? CGImageGetWidth( snapshot) : 0), space ?: @"unnamed"]});
     for( NSImage *candidate in @[image, [[[NSImage alloc] initWithSize: NSMakeSize( 0, 0)] autorelease]])
     {
         DCMPix *pix = [[DCMPix alloc] initWithPath: nil :0 :1 :nil :0 :0 isBonjour: NO imageObj: nil];
@@ -708,9 +737,21 @@ def compile_pix(source_text, folder):
     return obj
 
 
-def run_probe(obj, folder, cases_file, swift_class=False, backing_scale=2):
+# Makes every screen answer Display P3 as its colour space, which is what a
+# locked image is then drawn in, as on a display with a profile of its own.
+DISPLAY_P3_SCREEN = r'''
+static NSColorSpace *ProbeScreenColourSpace( id self, SEL _cmd) { return [NSColorSpace displayP3ColorSpace]; }
+__attribute__((constructor)) static void ProbePinScreenColourSpace( void)
+{
+    method_setImplementation( class_getInstanceMethod( [NSScreen class], @selector( colorSpace)), (IMP) ProbeScreenColourSpace);
+}
+'''
+
+
+def run_probe(obj, folder, cases_file, swift_class=False, backing_scale=2, display_p3=False):
     """The records of every case, with every screen answering `backing_scale`:
-    2, that of the records, unless asked otherwise."""
+    2, that of the records, unless asked otherwise. With `display_p3`, every
+    screen also answers that colour space instead of its own."""
     probe, stand_ins = PROBE, ('HorosFileRevision', 'HorosMissingPixelsReason')
     if swift_class:
         # The Swift class asks the app's Swift for the file revision and the
@@ -719,7 +760,8 @@ def run_probe(obj, folder, cases_file, swift_class=False, backing_scale=2):
         stand_ins = ()
     pinned = roi_harness.RECORDED_BACKING_SCALE
     assert 'return 2.0;' in pinned
-    (folder / 'probe.mm').write_text(probe + pinned.replace('return 2.0;', 'return %r;' % float(backing_scale)))
+    (folder / 'probe.mm').write_text(probe + pinned.replace('return 2.0;', 'return %r;' % float(backing_scale))
+                                     + (DISPLAY_P3_SCREEN if display_p3 else ''))
     frameworks = LIBTIFF.parent
     run = app_object_probe.link_and_run(
         folder, [folder / 'probe.mm'], [obj, *C_LIBRARIES, LIBTIFF], [cases_file],
@@ -786,12 +828,17 @@ def f32(value):
     return struct.unpack('<f', struct.pack('<f', value))[0]
 
 
-def pixels(values):
-    """The probe's hash of an image of float `values`."""
+def hashed(data):
+    """The probe's hash of the bytes of an image."""
     h = 1469598103934665603
-    for byte in struct.pack('<%df' % len(values), *values):
+    for byte in data:
         h = ((h ^ byte) * 1099511628211) & 0xFFFFFFFFFFFFFFFF
     return '%016x' % h
+
+
+def pixels(values):
+    """The probe's hash of an image of float `values`."""
+    return hashed(struct.pack('<%df' % len(values), *values))
 
 
 def signed16(values):
@@ -892,6 +939,18 @@ def check_expectations(records, cases_folder):
            'an unknown file is %r' % records['unknown-extension']['size'])
     expect(records['unknown-in-volume']['size'] == [7, 3], 'an unknown file in a volume is %r' % records['unknown-in-volume']['size'])
     expect(records['zip']['rgb'] and records['zip']['size'][0] > 0, 'the zip icon is %r' % records['zip'])
+    # The NSImage handed over as it is: 7 x 5 points drawn at 2 pixels a point
+    # in sRGB, every pixel opaque. The first colour, calibrated (0.2, 0.6, 0.9),
+    # is (61, 171, 235) in sRGB; the second, calibrated (1, 0.1, 0.3), is
+    # (255, 55, 94), laid half over the first on the 3 x 2 points at (2, 1):
+    # rows 4 to 7 from the top, columns 4 to 9, each sample midway to within
+    # the rounding of the mixing. The whole picture, not only its first pixels.
+    first, second, mixed = (61, 171, 235), (255, 55, 94), (0x9e, 0x70, 0xa4)
+    expect(all(abs(m - (a + b) / 2) <= 1.5 for m, a, b in zip(mixed, first, second)), 'the mixed colour is not midway')
+    picture = b''.join(bytes((255, *(mixed if 4 <= y < 8 and 4 <= x < 10 else first))) for y in range(10) for x in range(14))
+    direct = records['nsimage-direct']
+    expect(direct['rgb'] and direct['size'] == [14, 10] and direct['head'] == ['ebab3dff'] * 6 and direct['pixels'] == hashed(picture),
+           'the NSImage handed over is %r %r %s, not the picture drawn (%s)' % (direct['size'], direct['head'], direct['pixels'], hashed(picture)))
     if 'movie-frame1' in records:
         expect(records['movie-frame1']['rgb'] and records['movie-frame1']['size'] == [32, 24], 'the movie frame is %r' % records['movie-frame1'])
     expect(records['ybr-7-0']['rgb'] != 'null' and records['ybr-8-1']['rgb'] == 'null', 'YBR planar rules: %r' % (records['ybr-8-1'],))
@@ -931,23 +990,26 @@ with tempfile.TemporaryDirectory(prefix='horos-non-dicom-') as directory:
         if swift_class:
             (work / 'current').mkdir()
             records = run_probe(OBJECTS / 'DCMPix.o', work / 'current', cases_file, swift_class=True)
-            # The same files on a display of scale 1: an image, and a PDF page
-            # above all, must not change size nor pixels with the screen.
+            # The same files on a display of scale 1 and of another colour
+            # profile: an image, and a PDF page above all, must not change
+            # size nor pixels with the screen.
             (work / 'current-1x').mkdir()
-            at_1x = run_probe(OBJECTS / 'DCMPix.o', work / 'current-1x', cases_file, swift_class=True, backing_scale=1)
+            at_1x = run_probe(OBJECTS / 'DCMPix.o', work / 'current-1x', cases_file, swift_class=True, backing_scale=1,
+                              display_p3=True)
+            # The control: what a locked image is drawn into did follow the
+            # screen in each run, or the second run has shown nothing.
+            screen, other = records.pop('screen', {}).get('lockFocus'), at_1x.pop('screen', {}).get('lockFocus')
+            if not screen or screen[0] != 2 or other != [1, 'kCGColorSpaceDisplayP3']:
+                failures.append('the screens the two runs saw are %s and %s, not one of scale 2 and one of scale 1 in Display P3' % (screen, other))
             for name in sorted(set(records) | set(at_1x)):
-                # The probe draws that NSImage itself, with -lockFocus, which
-                # AppKit draws at the scale of the screen: a picture of 7 x 5
-                # pixels at scale 1, not the one of the records.
-                if name == 'nsimage-direct':
-                    continue
                 if records.get(name) != at_1x.get(name):
                     new, old = at_1x.get(name) or {}, records.get(name) or {}
                     keys = sorted(k for k in set(new) | set(old) if new.get(k) != old.get(k))
-                    failures.append('%s changes with the screen in %s: %s at scale 1 against %s at scale 2' % (
+                    failures.append('%s changes with the screen in %s: %s at scale 1 in Display P3 against %s at scale 2' % (
                         name, keys, str({k: new.get(k) for k in keys})[:300], str({k: old.get(k) for k in keys})[:300]))
         else:
             records = run_probe(compile_pix(current, work / 'current'), work / 'current', cases_file)
+            records.pop('screen', None)
     except RuntimeError as error:
         print('FAIL: %s' % error)
         sys.exit(1)
@@ -989,6 +1051,7 @@ with tempfile.TemporaryDirectory(prefix='horos-non-dicom-') as directory:
         try:
             source = show(reference, PIX)
             previous = run_probe(compile_pix(source, work / 'reference'), work / 'reference', cases_file)
+            previous.pop('screen', None)
         except RuntimeError as error:
             print('FAIL: the reference probe: %s' % error)
             sys.exit(1)
@@ -1015,4 +1078,4 @@ if roi_harness.recording_golden():
     roi_harness.golden(GOLDEN, CONFIGURATION, records)
 print('PASS: %d non-DICOM cases (TIFF, FluoView, LSM, Bio-Rad, NIfTI, Analyze, NSImage formats, zip, plugin, movie, YBR)%s%s'
       % (len(records), ', identical to %s' % (reference if swift_class else reference[:12]) if reference else '',
-         ', the same on screens of scale 2 and 1' if swift_class else ''))
+         ', the same on a screen of scale 2 and on one of scale 1 in Display P3' if swift_class else ''))

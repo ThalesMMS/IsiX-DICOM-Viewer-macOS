@@ -1029,6 +1029,12 @@ IVAR_IMPLEMENTATIONS
 
 DRIVER = r'''#import "Harness.h"
 
+// Whether the end of a series load converts a PET series to SUV now. The
+// reference stored the preference off for two seconds after the SUV sheet and
+// read it there; the Swift withholds the conversion in a state of the process,
+// which the end of the load asks, and leaves the preference alone.
+extern BOOL HarnessAutomaticSUVConversion(void);
+
 extern NSString *harnessTemporary;
 
 static uint64_t Checksum(const void *bytes, size_t length) {
@@ -1682,11 +1688,16 @@ static void SUV(void) {
             }
             if (c == 5) { [v->suvConversion selectCellWithTag: 2]; [[v->suvConversion selectedCell] setTag: 7]; }
             [v endDisplaySUV: Tag(c == 0 ? 0 : 1)];
-            Record([NSString stringWithFormat: @"ConvertPETtoSUVautomatically %d SUVCONVERSION %ld", [defaults boolForKey: @"ConvertPETtoSUVautomatically"], (long)[defaults integerForKey: @"SUVCONVERSION"]]);
+            Record([NSString stringWithFormat: @"ConvertPETtoSUVautomatically %d SUVCONVERSION %ld", HarnessAutomaticSUVConversion(), (long)[defaults integerForKey: @"SUVCONVERSION"]]);
             Pixels(v);
+            // Each sheet has its two seconds to itself. The reference kept the value to put back in the
+            // preference itself: a sheet ended within two seconds of another read the value the other had
+            // stored for the meantime, and put that one back for good.
+            if (c > 0) {
+                [[NSRunLoop currentRunLoop] runUntilDate: [NSDate dateWithTimeIntervalSinceNow: 2.3]];
+                Record([NSString stringWithFormat: @"after 2 s ConvertPETtoSUVautomatically %d", HarnessAutomaticSUVConversion()]);
+            }
         }
-        [[NSRunLoop currentRunLoop] runUntilDate: [NSDate dateWithTimeIntervalSinceNow: 2.3]];
-        Record([NSString stringWithFormat: @"after 2 s ConvertPETtoSUVautomatically %d", [defaults boolForKey: @"ConvertPETtoSUVautomatically"]]);
     });
     RUN("cancel and ok", {
         ViewerController *v = Viewer(1, 1);
@@ -1941,7 +1952,8 @@ def objc_blocks(text):
         b = method_end(text, text.index(last, a))
         parts.append(text[a:b])
     # #ifndef OSIRIX_LIGHT … #endif inside the groups stay balanced.
-    return REFERENCE_PRELUDE + '\n'.join(prelude) + '\n@implementation ViewerController (ROITools)\n' + '\n'.join(parts) + '\n@end\n'
+    return (REFERENCE_PRELUDE + '\n'.join(prelude) + '\n@implementation ViewerController (ROITools)\n' + '\n'.join(parts) + '\n@end\n'
+            + 'BOOL HarnessAutomaticSUVConversion(void) { return [[NSUserDefaults standardUserDefaults] boolForKey: @"ConvertPETtoSUVautomatically"]; }\n')
 
 
 def objc_shim(text):
@@ -1967,6 +1979,32 @@ extension ROI {
     }
 }
 '''
+
+# What the end of a series load is answered on the Swift side, as the C function the driver calls: the expression
+# of ViewerSeriesLoad.swift, once it asks the state the SUV sheet holds. The sheet then leaves the preference, which
+# the driver stored on, as it is: a sheet that wrote it stops the program.
+def automatic_suv_conversion(window_level, series_load):
+    asked = re.search(r'if modality == "PT" && (ViewerWindowLevel\.automaticConversionWithheld\.value\(in: preferences\)) \{', series_load or '')
+    if 'automaticConversionWithheld' not in window_level or not asked:
+        return ('''import Foundation
+
+@_cdecl("HarnessAutomaticSUVConversion")
+func harnessAutomaticSUVConversion() -> ObjCBool { ObjCBool(UserDefaults.standard.bool(forKey: "ConvertPETtoSUVautomatically")) }
+''')
+    return ('''import Foundation
+import IsiXPreferences
+
+@_cdecl("HarnessAutomaticSUVConversion")
+func harnessAutomaticSUVConversion() -> ObjCBool {
+    let preferences = UserDefaults.standard
+    if !preferences.bool(forKey: "ConvertPETtoSUVautomatically") {
+        FileHandle.standardError.write(Data("FAIL: the SUV sheet wrote ConvertPETtoSUVautomatically\\n".utf8))
+        exit(1)
+    }
+    return ObjCBool(%s)
+}
+''' % asked.group(1))
+
 
 # The calibration number of the Swift side, as the C function the driver calls.
 CALIBRATION = '''import Foundation
@@ -2085,6 +2123,15 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-roi-tools-') as tmp:
         if window_level is not None:
             (swift / 'WindowLevelSUV.swift').write_text(window_level_suv(window_level.decode('utf-8'), support))
             sources.append(str(swift / 'WindowLevelSUV.swift'))
+        # The guard the SUV sheet reverts a series in, once it has one.
+        guards = read(args.current, 'Horos/Sources/PreferenceWorkGuards.swift')
+        if guards is not None and window_level is not None and b'.whileWorking {' in window_level:
+            (swift / 'PreferenceWorkGuards.swift').write_bytes(guards)
+            sources.append(str(swift / 'PreferenceWorkGuards.swift'))
+        series_load = read(args.current, 'Horos/Sources/ViewerSeriesLoad.swift')
+        (swift / 'SUVConversion.swift').write_text(automatic_suv_conversion((window_level or b'').decode('utf-8'),
+                                                                            series_load.decode('utf-8') if series_load else None))
+        sources.append(str(swift / 'SUVConversion.swift'))
         libraries = []
         for module in MODULES:
             directory = folder / module

@@ -57,6 +57,36 @@ struct ShutterMaskTests {
         }
         #expect(untouched == [1, 1, 1, 1])
     }
+
+    /// The pixels the circle and the polygon keep, for an image rendered from
+    /// the stored values: the ones the 8-bit picture does not blacken.
+    @Test func theShapesKeepWhatTheScreenKeeps() throws {
+        let width = 24, height = 20
+        let triangle = [CGPoint(x: 12, y: 2), CGPoint(x: 21, y: 17), CGPoint(x: 3, y: 17)]
+        let cases: [(centre: CGPoint, radius: Int, polygon: [CGPoint]?)] = [
+            (CGPoint(x: 12, y: 10), 7, nil), (.zero, 0, triangle), (CGPoint(x: 12, y: 10), 7, triangle),
+        ]
+        for shutter in cases {
+            // What the screen draws: a picture with no black of its own, under the whole image as rectangle.
+            var picture = [UInt8](repeating: 200, count: width * height)
+            let mask: [UInt8]? = picture.withUnsafeMutableBufferPointer { screen in
+                func masks(_ polygon: UnsafePointer<CGPoint>?) -> [UInt8]? {
+                    ShutterMask.maskGrey(screen.baseAddress!, width: width, height: height, rect: CGRect(x: 0, y: 0, width: width, height: height),
+                                         black: 0, circleCentre: shutter.centre, circleRadius: shutter.radius,
+                                         polygon: polygon, polygonCount: shutter.polygon?.count ?? 0)
+                    return ShutterMask.shapeMask(width: width, height: height, circleCentre: shutter.centre, circleRadius: shutter.radius,
+                                                 polygon: polygon, polygonCount: shutter.polygon?.count ?? 0)
+                }
+                guard let polygon = shutter.polygon else { return masks(nil) }
+                return polygon.withUnsafeBufferPointer { masks($0.baseAddress) }
+            }
+            let kept = try #require(mask)
+            #expect(kept == picture.map { $0 == 0 ? 0 : 1 }, "radius \(shutter.radius), polygon \(shutter.polygon?.count ?? 0)")
+            #expect(kept.contains(0) && kept.contains(1), "a part is hidden, a part is kept")
+        }
+        // With neither a circle nor a polygon there is nothing to add to the rectangle.
+        #expect(ShutterMask.shapeMask(width: width, height: height, circleCentre: .zero, circleRadius: 0, polygon: nil, polygonCount: 0) == nil)
+    }
 }
 
 struct ThumbnailIconTests {

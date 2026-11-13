@@ -101,6 +101,23 @@ public enum ShutterMask {
         memcpy(picture, temp, count)
     }
 
+    /// What the circle and the polygon of a shutter keep of a `width` ×
+    /// `height` picture: 1 for a pixel that stays, 0 for one they hide; nil
+    /// when the shutter has neither. They are the pixels `maskGrey` blackens
+    /// for them, found by it: an image rendered from the stored values hides
+    /// what the screen hides. The rectangle is not looked at here.
+    public static func shapeMask(width: Int, height: Int, circleCentre: CGPoint, circleRadius: Int,
+                                 polygon: UnsafePointer<CGPoint>?, polygonCount: Int) -> [UInt8]? {
+        guard circleRadius != 0 || polygon != nil, width > 0, height > 0 else { return nil }
+        var mask = [UInt8](repeating: 1, count: width * height)
+        mask.withUnsafeMutableBufferPointer { kept in
+            guard let picture = kept.baseAddress else { return }
+            maskGrey(picture, width: width, height: height, rect: CGRect(x: 0, y: 0, width: width, height: height), black: 0,
+                     circleCentre: circleCentre, circleRadius: circleRadius, polygon: polygon, polygonCount: polygonCount)
+        }
+        return mask
+    }
+
     /// A colour picture (four bytes a pixel) shuttered: zero outside `rect` (held).
     public static func maskColour(_ picture: UnsafeMutableRawPointer, width: Int, height: Int, rect: CGRect) {
         let count = height &* width &* 4

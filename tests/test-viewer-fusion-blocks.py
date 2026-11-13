@@ -132,6 +132,11 @@ final class Preferences {
     subscript(key: PreferenceKey<String?>) -> String? { return nil }
     func set(_ value: Bool, for key: PreferenceKey<Bool>) {}
 }
+// The fusion chooses the propagation of settings: the choice is stored, and ends what the work under way holds of the key.
+final class TemporaryPreferenceHolds {
+    static let standard = TemporaryPreferenceHolds()
+    func choose(_ value: Bool, for key: PreferenceKey<Bool>) {}
+}
 final class DCMView { static func angleBetweenVector(_ a: UnsafeMutablePointer<Float>, andVector b: UnsafeMutablePointer<Float>) -> Float { return 0 } }
 final class Geometry { func orientation(_ out: UnsafeMutablePointer<Float>) { for i in 0..<9 { out[i] = 0 }; out[8] = 1 } }
 final class ImageView {

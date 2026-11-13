@@ -61,11 +61,12 @@ public final class ArchiveImportLedger: NSObject, Sendable {
     /// `archive` into `destination`.
     ///
     /// 0 is a clean run. 1 is a run that only warned and extracted everything
-    /// anyway: an entry stored under an absolute path, or bytes before the
-    /// archive, as some modality and PACS exporters write. A wrong password for
-    /// some entries of a mixed archive also ends with 1, silently, after the
-    /// other entries were extracted. So 1 counts only when every file the
-    /// archive lists is there. Everything else is a failure.
+    /// anyway: an entry stored under an absolute path, bytes before the
+    /// archive, or `\` between folders, as some modality and PACS exporters
+    /// write. A wrong password for some entries of a mixed archive also ends
+    /// with 1, silently, after the other entries were extracted. So 1 counts
+    /// only when every file the archive lists is there. Everything else is a
+    /// failure.
     @objc(unzipExpandedWholeArchive:status:into:)
     public class func unzipExpandedWholeArchive(_ archive: String, status: Int32, into destination: String) -> Bool {
         if status == 0 { return true }
@@ -80,7 +81,9 @@ public final class ArchiveImportLedger: NSObject, Sendable {
     static func fileEntryCount(ofArchive archive: String) -> Int? {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/zipinfo")
-        task.arguments = ["-1", archive]
+        // One line an entry, with the system it says it was made on (-s), and
+        // neither the header nor the totals (--h-t).
+        task.arguments = ["-s", "--h-t", archive]
         let output = Pipe()
         task.standardOutput = output
         task.standardError = FileHandle.nullDevice
@@ -93,8 +96,30 @@ public final class ArchiveImportLedger: NSObject, Sendable {
         guard task.terminationStatus == 0 || task.terminationStatus == 1 else { return nil }
         return String(decoding: data, as: UTF8.self)
             .split(separator: "\n")
-            .filter { !$0.hasSuffix("/") }
+            .filter { !listsDirectory($0) }
             .count
+    }
+
+    /// Whether `line`, of `zipinfo -s`, lists an entry `unzip` makes a
+    /// directory of and not a file.
+    ///
+    /// `unzip` goes by the name alone, whatever the entry's attributes and
+    /// size: a name ending in `/` is a directory. A Windows tool may write `\`
+    /// between folders, and `zipinfo` lists the name as stored, `ST_1\` for a
+    /// folder. `unzip` turns every `\` of a name into `/` (warning, and ending
+    /// with 1) only when the entry says it was made on a FAT system and its
+    /// name holds no `/`; that is the one case where a name ending in `\`
+    /// becomes a directory. Anywhere else `\` is a character of the name like
+    /// another and the entry is extracted as a file, so it stays a file to
+    /// look for: counting it out would let an archive pass with a file
+    /// missing. A line that does not read as an entry counts as a file too.
+    private static func listsDirectory(_ line: Substring) -> Bool {
+        if line.hasSuffix("/") { return true }
+        guard line.hasSuffix("\\") else { return false }
+        // Permissions, version, system, size, flags, method, date, time, and
+        // the name, which may hold spaces of its own.
+        let fields = line.split(separator: " ", maxSplits: 8)
+        return fields.count == 9 && fields[2] == "fat" && !fields[8].contains("/")
     }
 
     /// The number of items below `directory` that are not directories.

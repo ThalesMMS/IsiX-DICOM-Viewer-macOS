@@ -68,13 +68,24 @@ if 'PluginCrashed' in manager:
                     'Horos and OsiriX on the machine shares one file')
 if manager.count('class func crashMarkerPath()') != 1:
     failures.append('there is no single place that says where the crash note lives')
-for what, near in (('startProtectForCrash(withPath', 'writes'),
+for what, near in (('writeCrashMarker(forPluginAt', 'writes'),
                    ('endProtectForCrash(', 'removes')):
     at = manager.find('class func %s' % what)
     body = swift_block(manager, at) if at >= 0 else ''
     if 'crashMarkerPath' not in body:
         failures.append('%s does not use crashMarkerPath, so the note %s a file nobody reads'
                         % (what, near))
+# Both guards write through that one method: a bundle being opened is loading,
+# and the filter of a loaded plugin is running a command.
+for anchor, phase in (('@objc(startProtectForCrashWithPath:)', '.loading'),
+                      ('@objc(startProtectForCrashWithFilter:)', '.running')):
+    at = manager.find(anchor)
+    body = swift_block(manager, at) if at >= 0 else ''
+    if 'phase: ' + phase not in body:
+        failures.append('%s does not note the plugin as %s' % (anchor, phase))
+matcher = manager.find('class func startProtectForCrash(withFilter filter: Any!, phase:')
+if 'PluginManager.writeCrashMarker(forPluginAt: bundle.bundlePath, phase: phase)' not in (swift_block(manager, matcher) if matcher >= 0 else ''):
+    failures.append('the guard of a filter no longer writes the note of the bundle it belongs to')
 
 # --- the recovery disables, and does not delete -------------------------------
 # The recovery: from reading the note to the end of the block that handles it.
@@ -89,6 +100,13 @@ else:
         failures.append('the recovery does not move the plugin anywhere')
     if re.search(r'removeItem\(atPath:\s*\(?pluginCrashPath', recovery):
         failures.append('the recovery still deletes the plugin, which cannot be undone')
+    # What is offered, and whether the session opens without plugins, is the
+    # note's own rule (PluginCrashMarker, in IsiXPluginLoading): a plugin that
+    # was running a command is not switched off by the default button.
+    if 'marker.recovery(canRestore:' not in recovery or 'recovery.opensWithoutPlugins' not in recovery:
+        failures.append('the recovery does not follow the rule of the note for what it offers')
+    if 'DCMPix.setRunOsiriXInProtectedMode(true)' in recovery or 'ProtectedMode.activateAfterPluginFailure()' not in recovery:
+        failures.append('the plugin-less session after a note does not go through ProtectedMode, which words its alert')
     # The note itself is cleared either way, or the alert returns every start.
     if 'removeItem(atPath: pluginCrash)' not in recovery:
         failures.append('the recovery leaves the note behind, so it would ask again every start')
@@ -101,6 +119,19 @@ else:
 # Public and @objc: the generated Horos-Swift.h, which PluginManager.h imports, declares it.
 if not re.search(r'@objc public class func crashMarkerPath\(\) -> String!', manager):
     failures.append('crashMarkerPath is not declared, so nothing outside can ask where the note is')
+
+# --- an application that is asked to quit takes its note with it ---------------
+# With the modal dialog of a plugin open its code is on the stack and the note
+# is on disk; quitting, or the installation of an update, ends the process from
+# there. The note went nowhere, and the next launch blamed the plugin.
+lifecycle = source_text('ApplicationLifecycle')
+for signature, what in (('    func finishTermination(_ sender: Any?) {', 'the Quit command and the update'),
+                        ('    func willTerminate() {', 'every orderly end')):
+    at = lifecycle.find(signature)
+    body = swift_block(lifecycle, at) if at >= 0 else ''
+    statements = [line.strip() for line in body.splitlines()[1:] if line.strip() and not line.strip().startswith('//')]
+    if not statements or statements[0] != 'PluginManager.endProtectForCrash()':
+        failures.append('%s: the note of a plugin on the stack is not removed first (%s)' % (signature.strip(), what))
 
 for failure in failures:
     print('FAIL: %s' % failure)

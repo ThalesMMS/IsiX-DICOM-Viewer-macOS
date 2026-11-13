@@ -329,6 +329,18 @@ CORRECTED = {
         'overlays': lambda old, new: old[0][4:6] == [0, 0] and new[0][4:6] == [6, 2]
                                      and old[0][:4] + old[0][6:] == new[0][:4] + new[0][6:] and old[1:] == new[1:],
     },
+    # The centre of a circular shutter and the vertices of a polygonal one are
+    # stated row first, then column; the first value of each pair was read as
+    # x, the column. A polygon with an odd number of values still raises, after
+    # the vertices before it.
+    'shutters': {
+        'shutter': lambda old, new: old[2] == '{256, 250}' and new[2] == '{250, 256}' and old[:2] + old[3:] == new[:2] + new[3:],
+        'polygon': lambda old, new: old == ['{1, 2}', '{30, 4}', '{50, 60}'] and new == ['{2, 1}', '{4, 30}', '{60, 50}'],
+    },
+    'shutter-odd-polygon': {
+        'shutter': lambda old, new: old[2] == '{256, 250}' and new[2] == '{250, 256}' and old[:2] + old[3:] == new[:2] + new[3:],
+        'polygon': lambda old, new: old == ['{1, 2}'] and new == ['{2, 1}'],
+    },
 }
 
 
@@ -447,7 +459,9 @@ def check_expectations(states, geometry):
 
     shutters = state(states, 'shutters')
     expect(shutters['raised'] is None and shutters['shutter'][0], 'the shutters %r' % shutters['shutter'])
-    expect(shutters['polygon'] == ['{1, 2}', '{30, 4}', '{50, 60}'], 'the polygon is %r' % shutters['polygon'])
+    # The vertices (1, 2), (30, 4) and (50, 60) are rows 1, 30 and 50 at columns 2, 4 and 60: x is the column.
+    expect(shutters['polygon'] == ['{2, 1}', '{4, 30}', '{60, 50}'], 'the polygon is %r' % shutters['polygon'])
+    expect(shutters['shutter'][2] == '{250, 256}', 'the circle, stated around row 256 and column 250, is at %r' % shutters['shutter'][2])
     expect(shutters['shutter'][3] == 200, 'the circle radius is %r' % shutters['shutter'][3])
     expect(not state(states, 'shutters-ignored')['shutter'][0], 'shutters were read when not asked for')
     expect(state(states, 'shutter-odd-polygon')['raised'] == 'NSRangeException', 'an odd polygon did not raise')

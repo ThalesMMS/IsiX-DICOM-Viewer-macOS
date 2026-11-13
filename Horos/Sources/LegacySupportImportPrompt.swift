@@ -14,7 +14,9 @@ import IsiXPreferences
 import IsiXStorage
 
 /// Imports, at launch, what earlier versions kept in `Application Support/Horos`,
-/// and says what could not be imported. Asks before copying plugins.
+/// and says what could not be imported. Asks before copying plugins, once; the
+/// plugin manager's Import Plugins from Horos or OsiriX command looks again at
+/// any time, for what was installed or updated in those folders since.
 ///
 /// Horos uses that folder too, and two applications writing the same accounts
 /// and pages is what the import ends, so it is not left to a question: the
@@ -31,7 +33,7 @@ enum LegacySupportImportPrompt {
         let migration = LegacyPluginImport(userDomain: StorageLocations.runningUserDomain,
                                            systemDomain: StorageLocations.runningSystemDomain)
         do {
-            let problems = try migration.offerIfNeeded(isPlugin: PluginAdmission.isPluginBundle) { names in
+            let problems = try migration.offerIfNeeded(rules: pluginRules) { names in
                 let description = NSLocalizedString("Copy the plugins found in the Horos or OsiriX folders to your IsiX plugin folders? IsiX can load active plugins after copying and keeps existing plugins with the same name.", comment: "")
                 var preview = names.prefix(8).joined(separator: "\n")
                 if names.count > 8 {
@@ -59,6 +61,148 @@ enum LegacySupportImportPrompt {
         }
         #endif
     }
+
+    // MARK: plugins, asked for again
+
+    /// The rules of plugin bundles the copy follows: the plugin loader's own.
+    #if !MACAPPSTORE
+    static var pluginRules: LegacyPluginImport.Rules {
+        LegacyPluginImport.Rules(
+            isPlugin: PluginAdmission.isPluginBundle,
+            version: PluginBundleVersion.declared(byBundleAt:),
+            compare: PluginBundleVersion.compare,
+            isPreferred: { first, second in
+                SameNamePlugins.isPreferred(.init(path: first.url.path, version: first.version, folderRank: first.rank),
+                                            to: .init(path: second.url.path, version: second.version, folderRank: second.rank))
+            })
+    }
+
+    /// What a survey found, as the lines the user reads: what would be copied,
+    /// and what is left out with its reason. A plugin left out for its name
+    /// shows both versions.
+    static func lines(of survey: LegacyPluginImport.Survey) -> (additions: [String], leftOut: [String]) {
+        func named(_ name: String, _ version: String?) -> String {
+            "\(name) (\(version ?? NSLocalizedString("no version", comment: "A plugin that declares no version")))"
+        }
+        let additions = survey.additions.map { addition -> String in
+            let source = named(addition.source.name, addition.source.version)
+            guard let installed = addition.replaces else { return source }
+            return String(format: NSLocalizedString("%1$@ replaces %2$@", comment: "A plugin and the installed plugin it takes the place of"),
+                          source, named(installed.name, installed.version))
+        }
+        let leftOut = survey.skipped.map { skipped -> String in
+            let source = named(skipped.name, skipped.version)
+            switch skipped.reason {
+            case .symbolicLink:
+                return String(format: NSLocalizedString("%@: it is a symbolic link, not a plugin.", comment: ""), skipped.name)
+            case .alias:
+                return String(format: NSLocalizedString("%@: it is an alias, not a plugin.", comment: ""), skipped.name)
+            case .sameName(let preferred):
+                return String(format: NSLocalizedString("%1$@: %2$@ has the same name and is used instead.", comment: "Two plugins of one name in the folders searched"),
+                              source, named(preferred.name, preferred.version))
+            case .installedKept(let installed):
+                let comparable = PluginBundleVersion.compare(skipped.version, installed.version) != nil
+                return String(format: comparable
+                                ? NSLocalizedString("%1$@: IsiX already has %2$@, which is newer.", comment: "")
+                                : NSLocalizedString("%1$@: IsiX already has %2$@, and their versions cannot be compared.", comment: ""),
+                              source, named(installed.name, installed.version))
+            case .copyFailed(let reason):
+                return String(format: NSLocalizedString("%@: %@", comment: ""), skipped.name, reason)
+            }
+        }
+        return (additions, leftOut)
+    }
+
+    /// The command of the plugin manager: looks again in the plugins folders of
+    /// Horos and OsiriX, shows what is new or newer and what is left out, and
+    /// copies on confirmation. `replace` puts a newer bundle in the place of
+    /// the installed one; `finished` says whether anything was copied.
+    ///
+    /// The alerts are sheets of the plugin manager's window, begun from its
+    /// button's action.
+    @MainActor static func importPluginsAgain(attachedTo window: NSWindow, replace: @escaping @Sendable (URL, URL) throws -> Void,
+                                              finished: @escaping @MainActor (Bool) -> Void) {
+        let migration = LegacyPluginImport(userDomain: StorageLocations.runningUserDomain,
+                                           systemDomain: StorageLocations.runningSystemDomain)
+        let rules = pluginRules
+        let survey = migration.survey(rules: rules)
+        let (additions, leftOut) = lines(of: survey)
+        let alert = NSAlert()
+        // The command's own name, without the ellipsis of a button that asks before acting.
+        alert.messageText = NSLocalizedString("Import Plugins from Horos or OsiriX…", comment: "").replacingOccurrences(of: "…", with: "")
+        guard !additions.isEmpty || !leftOut.isEmpty else {
+            alert.informativeText = NSLocalizedString("No new or newer plugins were found in the Horos or OsiriX plugins folders.", comment: "")
+            alert.addButton(withTitle: NSLocalizedString("OK", comment: ""))
+            alert.beginSheetModal(for: window) { _ in finished(false) }
+            return
+        }
+        var sections: [String] = []
+        if !additions.isEmpty {
+            sections.append(NSLocalizedString("New or newer:", comment: "Heading of the plugins an import would copy") + "\n" + additions.joined(separator: "\n"))
+        }
+        if !leftOut.isEmpty {
+            sections.append(NSLocalizedString("Left out:", comment: "Heading of the plugins an import does not copy") + "\n" + leftOut.joined(separator: "\n"))
+        }
+        alert.informativeText = additions.isEmpty
+            ? NSLocalizedString("No new or newer plugins were found in the Horos or OsiriX plugins folders.", comment: "")
+            : NSLocalizedString("Importing copies the plugins listed as new or newer to your IsiX plugins folders. The Horos and OsiriX folders are not changed.", comment: "")
+        alert.accessoryView = listView(sections.joined(separator: "\n\n"))
+        if additions.isEmpty {
+            alert.addButton(withTitle: NSLocalizedString("OK", comment: ""))
+        } else {
+            alert.addButton(withTitle: NSLocalizedString("Import", comment: ""))
+            alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
+        }
+        alert.beginSheetModal(for: window) { response in
+            guard !additions.isEmpty, response == .alertFirstButtonReturn else {
+                finished(false)
+                return
+            }
+            // The sheet stays up until this returns: it leaves first, and what
+            // follows (the report of what failed, the request to restart) begins
+            // on the next turn of the run loop, over the window and not over it.
+            alert.window.orderOut(nil)
+            let failures: [String]
+            do {
+                let failed = try migration.add(survey.additions, rules: rules, replace: replace)
+                failures = lines(of: LegacyPluginImport.Survey(skipped: failed)).leftOut
+            } catch {
+                failures = [error.localizedDescription]
+            }
+            let copied = failures.count < survey.additions.count
+            onMainRunLoop {
+                guard !failures.isEmpty else {
+                    finished(copied)
+                    return
+                }
+                let report = NSAlert()
+                report.messageText = NSLocalizedString("Some plugins were not copied", comment: "")
+                report.informativeText = failures.joined(separator: "\n")
+                report.addButton(withTitle: NSLocalizedString("OK", comment: ""))
+                report.beginSheetModal(for: window) { _ in
+                    report.window.orderOut(nil)
+                    onMainRunLoop { finished(copied) }
+                }
+            }
+        }
+    }
+
+    /// A list that scrolls: the folders of a long-time user hold dozens of plugins.
+    @MainActor private static func listView(_ text: String) -> NSView {
+        let scroll = NSTextView.scrollableTextView()
+        scroll.frame = NSRect(x: 0, y: 0, width: 460, height: 180)
+        scroll.borderType = .bezelBorder
+        scroll.hasHorizontalScroller = false
+        if let list = scroll.documentView as? NSTextView {
+            list.isEditable = false
+            list.isSelectable = true
+            list.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+            list.textContainerInset = NSSize(width: 4, height: 6)
+            list.string = text
+        }
+        return scroll
+    }
+    #endif
 
     private static func showPluginImportProblem(_ message: String) {
         HorosAlertPanel.runInformational(title: NSLocalizedString("Some plugins were not copied", comment: ""),

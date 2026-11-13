@@ -26,7 +26,9 @@ import IsiXDICOMFile
 ///
 /// Reached from File > Import > Import Images and PDFs into Selected Study…
 /// and the same item of the list's contextual menu (DatabaseStudyCommands),
-/// and from files dropped on a study row of the list (MyOutlineView).
+/// from files dropped on a study row of the list (MyOutlineView), and from
+/// files dropped on a window that shows a series of the study
+/// (ViewerFileDropTarget).
 @MainActor struct StudyFileImporter {
     let study: DicomStudy
     let database: DicomDatabase
@@ -45,12 +47,27 @@ import IsiXDICOMFile
     /// study of a series, of a local database that is not read-only, neither
     /// on a distant node nor locked.
     static func study(ofRow item: Any?, in browser: BrowserController) -> DicomStudy? {
-        guard let database = browser.database, database.isLocal(), !database.isReadOnly, !isDistantRow(item) else {
-            return nil
-        }
-        guard let study = (item as? DicomStudy) ?? (item as? DicomSeries)?.study,
-              !(study.lockedStudy?.boolValue ?? false) else { return nil }
+        guard let database = browser.database, !isDistantRow(item),
+              let study = (item as? DicomStudy) ?? (item as? DicomSeries)?.study,
+              refusal(of: study, in: database) == nil else { return nil }
         return study
+    }
+
+    /// Why `study`, of `database`, takes no files: ViewerFileDrop's refusals,
+    /// the same for a row of the list and for a window that shows the study.
+    static func refusal(of study: DicomStudy?, in database: DicomDatabase?) -> ViewerFileDrop.Refusal? {
+        ViewerFileDrop.refusal(hasStudy: study != nil && database != nil, databaseIsLocal: database?.isLocal() ?? false,
+                               databaseIsReadOnly: database?.isReadOnly ?? true, studyIsDistant: isDistantRow(study),
+                               studyIsLocked: study?.lockedStudy?.boolValue ?? false)
+    }
+
+    /// The study the files dropped on a window go into, with its database:
+    /// the one of the study, which the database window may not be showing.
+    /// Nil when the window shows no study, or one that takes no files.
+    static func destination(showing study: DicomStudy?) -> (study: DicomStudy, database: DicomDatabase)? {
+        guard let study, let database = DicomDatabase(for: study.managedObjectContext),
+              refusal(of: study, in: database) == nil else { return nil }
+        return (study, database)
     }
 
     /// The study of the single selected row of the list, when files can go into it.
@@ -79,6 +96,14 @@ import IsiXDICOMFile
             NSSound.beep()
             return nil
         }
+        return convert(paths, into: study, database: database)
+    }
+
+    /// Converts `paths` into `study` of `database` and says which files could
+    /// not be converted. The alert is a modal: from the main run loop, never
+    /// from a block of the main queue.
+    @discardableResult
+    static func convert(_ paths: [String], into study: DicomStudy, database: DicomDatabase) -> Outcome {
         let outcome = StudyFileImporter(study: study, database: database).convert(paths)
         if !outcome.failures.isEmpty {
             let names = outcome.failures.map { ($0.path as NSString).lastPathComponent }.joined(separator: "\n")

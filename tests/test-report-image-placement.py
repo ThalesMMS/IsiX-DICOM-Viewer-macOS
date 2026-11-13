@@ -90,6 +90,14 @@ precondition(pages.contains("on error errorMessage number errorNumber"), "a refu
 precondition(pages.contains("close d saving no"), "the private copy is closed")
 precondition(pages.contains(prepared[0].path))
 precondition(!pages.contains(source.path), "Pages is never handed the source image")
+// The script is addressed to the Pages it is told, by identifier and not by a
+// name two installed applications can share.
+let addressed = ReportImageInsertion.pagesScript(documentName: report.lastPathComponent, images: prepared,
+                                                 application: "com.apple.iWork.Pages")
+precondition(addressed.hasPrefix("tell application id \"com.apple.iWork.Pages\"\n"), "the script names another Pages")
+precondition(!addressed.contains("\"com.apple.Pages\""), "the script names two applications")
+precondition(pages.hasPrefix("tell application id \"\(PagesApplication.target()?.identifier ?? "com.apple.Pages")\"\n"),
+             "the script is not addressed to the Pages the report is opened in")
 
 let word = ReportImageInsertion.wordScript(documentName: report.lastPathComponent, images: prepared)
 precondition(word.contains("inline picture"), "Word inserts an inline picture, not a floating shape")
@@ -106,6 +114,60 @@ precondition(denied.contains("denied") && denied.contains("Automation"))
 let dropped = ReportImageInsertion.errorMessage(from: [NSAppleScript.errorNumber: -609])
 precondition(dropped.contains("609"))
 let noWord = ReportImageInsertion.errorMessage(from: [NSAppleScript.errorNumber: -1728])
+// Figures in a Pages report: on pages of their own after the text, in the
+// middle of the page, as many to a page as boxes fit between the margins.
+typealias Figure = ReportImagePlacement.Figure
+let a4 = CGSize(width: 595, height: 842), letter = CGSize(width: 612, height: 792)
+let three = [CGSize(width: 340, height: 255), CGSize(width: 340, height: 170), CGSize(width: 127.5, height: 255)]
+precondition(ReportImagePlacement.figures(sizes: three, page: a4) == [
+    Figure(page: 0, frame: CGRect(x: 128, y: 72, width: 340, height: 255)),
+    // A figure shorter than the box starts where a full one would: one box and a gap below the first.
+    Figure(page: 0, frame: CGRect(x: 128, y: 341, width: 340, height: 170)),
+    // The third does not fit under them: the next page, from the top, in the middle whatever its width.
+    Figure(page: 1, frame: CGRect(x: 234, y: 72, width: 128, height: 255)),
+], "figures on A4: \(ReportImagePlacement.figures(sizes: three, page: a4))")
+let onLetter = ReportImagePlacement.figures(sizes: three, page: letter)
+precondition(onLetter.map(\.page) == [0, 0, 1] && onLetter[0].frame.minX == 136 && onLetter[1].frame.minY == 341, "figures on Letter: \(onLetter)")
+// No figure reaches into the margin at the foot of its page, and none is cut by the page.
+for page in [a4, letter, CGSize(width: 842, height: 595), CGSize(width: 400, height: 300)] {
+    let placed = ReportImagePlacement.figures(sizes: Array(repeating: CGSize(width: 340, height: 255), count: 7), page: page)
+    precondition(placed.count == 7 && placed.map(\.page) == placed.map(\.page).sorted() && placed[0].page == 0)
+    precondition(Set(placed.map(\.frame.minX)).count == 1)
+    if page.height >= 255 + 144 {
+        precondition(placed.allSatisfy { $0.frame.maxY <= page.height - 72 }, "a figure reaches the margin of \(page): \(placed)")
+    }
+}
+precondition(ReportImagePlacement.figures(sizes: [], page: a4).isEmpty)
+// The page is as large as where Pages puts a picture it is given no place for says: in its middle.
+precondition(ReportImagePlacement.pageSize(holding: CGRect(x: 266, y: 397, width: 64, height: 48)) == CGSize(width: 596, height: 842))
+// The two scripts: the picture goes on a page - Pages refuses the text as its
+// place - and its file is a file object made outside the tell.
+let measure = ReportImageInsertion.pagesMeasureScript(document: "DOC-\"1", first: prepared[0], application: "com.apple.Pages")
+precondition(measure.hasPrefix("set figure1 to POSIX file \"\(prepared[0].path)\"\ntell application id \"com.apple.Pages\"\n"), measure)
+precondition(measure.contains("set d to document id \"DOC-\\\"1\"") && measure.contains("tell d to make new page")
+             && measure.contains("tell page -1 of d") && measure.contains("make new image with properties {file:figure1}"), measure)
+precondition(!measure.contains("body text") && !measure.contains("name of candidate"))
+let place = ReportImageInsertion.pagesPlaceScript(document: "DOC-1", images: [prepared[0], prepared[0], prepared[0]],
+                                                  figures: ReportImagePlacement.figures(sizes: three, page: a4), application: "com.apple.Pages")
+precondition(place.hasPrefix("set figure2 to POSIX file \"\(prepared[0].path)\"\nset figure3 to POSIX file"), place)
+precondition(place.contains("set position of placed to {128, 72}") && place.contains("set width of placed to 340") && place.contains("set height of placed to 255"))
+precondition(place.contains("make new image with properties {file:figure2, width:340, height:170, position:{128, 341}}"), place)
+precondition(place.contains("make new image with properties {file:figure3, width:128, height:255, position:{234, 72}}"), place)
+precondition(place.components(separatedBy: "tell d to make new page").count == 2, "one more page, for the third figure")
+precondition(place.contains("save d") && place.contains("close d saving no") && place.contains("on error errorMessage number errorNumber"))
+precondition(!place.contains("POSIX file \(source.path)") && !place.contains(source.path), "Pages is never handed the source image")
+
+// -1728 is Word not being there when a Word report is asked for, and Pages not
+// finding the document or its body text in a Pages report: one sentence each.
+let notInPages = ReportImageInsertion.errorMessage(code: -1728, in: .pages)
+precondition(notInPages.contains("Pages") && notInPages.contains("1728") && !notInPages.contains("Word"),
+             "-1728 in a Pages report is told as: \(notInPages)")
+precondition(ReportImageInsertion.errorMessage(code: -1728, in: .word) == noWord && noWord.contains("Word") && !noWord.contains("Pages"))
+precondition(ReportImageInsertion.errorMessage(code: -1728, in: nil) == noWord)
+// An error set from outside says nothing of the editor: the sentence it had.
+ReportImageInsertion.lastError = [NSAppleScript.errorNumber: -1728]
+precondition(ReportImageInsertion.lastErrorMessage() == noWord)
+ReportImageInsertion.lastError = nil
 precondition(noWord.contains("1728") && noWord.contains("Word"))
 let container = ReportImageInsertion.errorMessage(from: [NSAppleScript.errorNumber: -10024])
 precondition(container.contains("10024"))
@@ -162,7 +224,7 @@ let first = ReportImagePlacement.displaySize(pixelWidth: 800, pixelHeight: 600)
 let reopened = ReportImagePlacement.displaySize(pixelWidth: 800, pixelHeight: 600)
 precondition(first == reopened)
 precondition(first.width <= box.width && first.height <= box.height)
-print("PASS: predictable figure size, inline Pages/Word scripts, wait-for-document, captured AppleScript errors, failed insert preserves the report, source image never written")
+print("PASS: predictable figure size, Pages figures on pages of their own at computed places, inline Word script, wait-for-document, captured AppleScript errors, failed insert preserves the report, source image never written")
 '''
 
 with tempfile.TemporaryDirectory(prefix='horos-report-images-') as folder:
@@ -173,6 +235,10 @@ with tempfile.TemporaryDirectory(prefix='horos-report-images-') as folder:
             'xcrun', 'swiftc',
             '-O',
             str(root / 'Horos/Sources/ReportImagePlacement.swift'),
+            # Which Pages the script is addressed to, and how it is sent one.
+            str(root / 'Horos/Sources/PagesApplication.swift'),
+            str(root / 'Horos/Sources/PagesDocumentFill.swift'),
+            str(root / 'Horos/Sources/MainActorCallbacks.swift'),
             str(p / 'main.swift'),
             '-o', str(p / 'test'),
         ],

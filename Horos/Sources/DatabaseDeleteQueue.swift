@@ -37,6 +37,7 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
+import CoreData
 import Foundation
 import IsiXDatabase
 import Synchronization
@@ -48,6 +49,10 @@ import Synchronization
 /// DeleteQueueFile.plist in the database folder, so that a batch interrupted by
 /// quitting, or cancelled, is finished at the next launch. Which folders the
 /// deletion leaves empty is IsiXDatabase's DeleteQueueRules.
+///
+/// A queued file that a record of the index still names stays on the disk: it
+/// is that record's. The index is asked once for each batch, DeleteQueueRules
+/// says which files stay.
 ///
 /// Files are queued from any thread. The database folder is the caller's to
 /// say at each call: the browser's database changes.
@@ -140,9 +145,15 @@ final class DatabaseDeleteQueue: Sendable {
             var deleted = 0
             var failures: [DeleteQueueRules.Failure] = []
             var lastReport: TimeInterval = 0
+            let spared = IndexedDataFiles.stillNamed(among: paths, inDatabaseAt: folder)
+            if let spared, !spared.isEmpty {
+                NSLog("delete Queue: %d of %d files stay on the disk: records of the index still name them", Int32(spared.count), Int32(paths.count))
+            } else if spared == nil {
+                NSLog("delete Queue: the index could not be asked which of the %d files its records still name", Int32(paths.count))
+            }
             for file in paths {
                 // unlink(2), faster than the file manager.
-                if let failure = DeleteQueueRules.deleteFile(file) { failures.append(failure) }
+                if spared?.contains(file) != true, let failure = DeleteQueueRules.deleteFile(file) { failures.append(failure) }
                 if Date.timeIntervalSinceReferenceDate - lastReport > 1 {
                     lastReport = Date.timeIntervalSinceReferenceDate
                     thread.progress = CGFloat(Float(deleted) / Float(paths.count))
@@ -206,5 +217,60 @@ final class DatabaseDeleteQueue: Sendable {
     /// "1 file", "3 files", in the user's language.
     private static func fileCount(_ count: Int) -> String {
         BrowserObjC.singularPlural(count, NSLocalizedString("file", comment: ""), NSLocalizedString("files", comment: ""))
+    }
+}
+
+/// The files that the records of an index name.
+enum IndexedDataFiles {
+    /// Those of `files` that a record of the index of the database in
+    /// `folder` names; nil when the index cannot be asked now: no database is
+    /// open for the folder, or its index is closed, as during a rebuild.
+    ///
+    /// The names of the whole batch go in one request for those that are
+    /// numbers and one for the others, on a context of its own, so any thread
+    /// may ask: the column of the numbers has no index, and a request for
+    /// each file would read the whole table for each.
+    static func stillNamed(among files: [String], inDatabaseAt folder: String?) -> Set<String>? {
+        guard let folder, let database = DicomDatabase.existingDatabase(atPath: folder),
+              let coordinator = database.managedObjectContext?.persistentStoreCoordinator, !coordinator.persistentStores.isEmpty,
+              let entity = coordinator.managedObjectModel.entitiesByName["Image"], let name = entity.name,
+              entity.attributesByName["pathNumber"] != nil, entity.attributesByName["pathString"] != nil else { return nil }
+        let reader = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+        reader.persistentStoreCoordinator = coordinator
+        reader.undoManager = nil
+        let dataFolder = database.dataDirPath()
+
+        return reader.performAndWait { () -> Set<String>? in
+            var asked = true
+            /// The values of `key` that records have, among `values`.
+            func recorded<Value: Hashable>(_ key: String, among values: [Value]) -> [Value] {
+                var found: [Value] = []
+                for start in stride(from: 0, to: values.count, by: 50_000) {
+                    let request = NSFetchRequest<NSFetchRequestResult>(entityName: name)
+                    request.resultType = .dictionaryResultType
+                    request.returnsDistinctResults = true
+                    request.propertiesToFetch = [key]
+                    request.predicate = NSPredicate(format: "%K IN %@", key, Array(values[start..<min(start + 50_000, values.count)]))
+                    guard let rows = (try? reader.fetch(request)) as? [[String: Any]] else {
+                        asked = false
+                        return found
+                    }
+                    found += rows.compactMap { $0[key] as? Value }
+                }
+                return found
+            }
+            let spared = DeleteQueueRules.spared(files, dataFolder: dataFolder) { names in
+                var numbers: [Int64] = [], strings: [String] = []
+                for indexName in names {
+                    switch indexName {
+                    case .number(let number): numbers.append(number)
+                    case .name(let string), .path(let string): strings.append(string)
+                    }
+                }
+                return Set(recorded("pathNumber", among: numbers).map { .number($0) }
+                           + recorded("pathString", among: strings).map { $0.hasPrefix("/") ? .path($0) : .name($0) })
+            }
+            return asked ? spared : nil
+        }
     }
 }

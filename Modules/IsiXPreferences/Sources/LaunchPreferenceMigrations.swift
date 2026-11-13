@@ -90,9 +90,14 @@ public enum LaunchPreferenceMigrations {
         store.set(false, for: ApplicationPreferences.osiEnvironmentActivated)
         store.set(false, for: ApplicationPreferences.is12BitPluginAvailable)
         store.set(false, for: ViewerPreferences.roiTextNameOnly)
+        // The kept value is put back once and is gone: an abort of the
+        // incoming transfers no longer keeps one, and a copy left by an
+        // earlier version would otherwise undo, at every launch, what the user
+        // chose since.
         if !store.isGivenAsLaunchArgument(NetworkPreferences.hidesListenerErrors)
             && store.object(forKey: NetworkPreferences.savedHidesListenerErrors.name) != nil {
             store.set(store[NetworkPreferences.savedHidesListenerErrors], for: NetworkPreferences.hidesListenerErrors)
+            store.remove(NetworkPreferences.savedHidesListenerErrors)
         }
         store.set(defaultDatabasePath, for: DatabasePreferences.defaultDatabasePathDescription)
         store.set(true, for: ApplicationPreferences.is64Bit)

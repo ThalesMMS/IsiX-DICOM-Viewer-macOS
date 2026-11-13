@@ -932,6 +932,9 @@
 "Camera position on Path" = "Kameraposition auf dem Pfad";
 "Can't find path" = "Pfad nicht gefunden";
 "Can't write to temporary directory." = "Temporäres Verzeichnis kann nicht beschrieben werden.";
+"This printer has no AE Title. Set it in the DICOM Print preferences." = "Dieser Drucker hat keinen AE-Titel. Legen Sie ihn in den Einstellungen für den DICOM-Druck fest.";
+"This printer has no address. Set it in the DICOM Print preferences." = "Dieser Drucker hat keine Adresse. Legen Sie sie in den Einstellungen für den DICOM-Druck fest.";
+"This printer has no port. Set it in the DICOM Print preferences." = "Dieser Drucker hat keinen Port. Legen Sie ihn in den Einstellungen für den DICOM-Druck fest.";
 "Cancel" = "Abbrechen";
 "Cancel %@" = "%@ abbrechen";
 "Cancel Modifications" = "Änderungen verwerfen";
@@ -1918,6 +1921,7 @@
 "IAC" = "IAC";
 "ID" = "ID";
 "IMPORT PAUSED: free space or reconnect storage; incoming files are preserved. / " = "IMPORT PAUSIERT: Speicher freigeben oder Datenträger verbinden; eingehende Dateien werden erhalten. / ";
+"OPENING %@: waiting for studies from the PACS; cancel the retrieve in Activity to open without them. / " = "%@ WIRD GEÖFFNET: Warten auf Studien vom PACS; den Abruf in Aktivität abbrechen, um ohne sie zu öffnen. / ";
 "IMPORTANT" = "WICHTIG";
 "IVP" = "IVP";
 "Identification" = "Identifikation";
@@ -2323,6 +2327,7 @@
 "Microsoft Word" = "Microsoft Word";
 "Microsoft Word (.doc)" = "Microsoft Word (.doc)";
 "Microsoft Word is not installed or could not be located (error -1728). Install Word with creation and editing enabled to insert images into a .doc or .docx report. The original report and the source images have been preserved." = "Microsoft Word ist nicht installiert oder wurde nicht gefunden (Fehler -1728). Installieren Sie Word mit aktivierter Erstellung und Bearbeitung, um Bilder in einen .doc- oder .docx-Befund einzufügen. Der ursprüngliche Befund und die Quellbilder wurden erhalten.";
+"The report is open in Microsoft Word. Close it there, then insert the images again. The original report and the source images have been preserved." = "Der Befund ist in Microsoft Word geöffnet. Schließen Sie ihn dort und fügen Sie die Bilder erneut ein. Der ursprüngliche Befund und die Quellbilder wurden erhalten.";
 "Microsoft Word is required to open/generate '.doc' reports. You can change it to TextEdit in the Preferences." = "Microsoft Word wird zum Öffnen/Erstellen von .doc-Befunden benötigt. In den Einstellungen können Sie auf TextEdit umstellen.";
 "Midpoint" = "Mittelpunkt";
 "Migration Assistant" = "Migrationsassistent";
@@ -2656,6 +2661,7 @@
 "Pages (.pages)" = "Pages (.pages)";
 "Pages could not export the report as PDF. The original report has been left unchanged." = "Pages konnte den Befund nicht als PDF exportieren. Der ursprüngliche Befund wurde nicht verändert.";
 "Pages could not insert the image into that container (error -10024). The original report and the source images have been preserved." = "Pages konnte das Bild nicht in diesen Container einfügen (Fehler -10024). Der ursprüngliche Befund und die Quellbilder wurden erhalten.";
+"Pages could not find the report, or a place in it for the image (error -1728). The original report and the source images have been preserved." = "Pages konnte den Befund oder eine Stelle darin für das Bild nicht finden (Fehler -1728). Der ursprüngliche Befund und die Quellbilder wurden erhalten.";
 "Pages is not installed or could not be located. Install Pages before creating a Pages report. No report has been changed." = "Pages ist nicht installiert oder wurde nicht gefunden. Installieren Sie Pages vor dem Erstellen eines Pages-Befunds. Kein Befund wurde geändert.";
 "Pages or Word could not be found (error -43). The original report and the source images have been preserved." = "Pages oder Word wurde nicht gefunden (Fehler -43). Der ursprüngliche Befund und die Quellbilder wurden erhalten.";
 "Pages or Word dropped the Automation connection (error -609). Check that the editor is still running, allow IsiX DICOM Viewer to control it in System Settings > Privacy & Security > Automation, then retry. The original report and the source images have been preserved." = "Pages oder Word hat die Automation-Verbindung unterbrochen (Fehler -609). Prüfen Sie, ob der Editor läuft, erlauben Sie IsiX DICOM Viewer unter Systemeinstellungen > Datenschutz & Sicherheit > Automation die Steuerung und versuchen Sie es erneut. Der ursprüngliche Befund und die Quellbilder wurden erhalten.";
@@ -4966,3 +4972,21 @@
 "Synthetic DWI needs images that all have pixels and the same width and height." = "Synthetische DWI benötigt Bilder, die alle Pixel und dieselbe Breite und Höhe haben.";
 "Synthetic DWI needs the original files of the series." = "Synthetische DWI benötigt die Originaldateien der Serie.";
 "The synthetic DWI could not be written." = "Die synthetische DWI konnte nicht geschrieben werden.";
+"The plugin %@ was running when IsiX DICOM Viewer stopped without being asked to quit." = "Das Plugin %@ wurde ausgeführt, als IsiX DICOM Viewer endete, ohne dass das Beenden angefordert wurde.";
+"If the application was forced to quit, or the Mac was shut down or lost power, the plugin is probably not the cause and can stay." = "Wenn das Programm sofort beendet wurde oder der Mac ausgeschaltet wurde oder keinen Strom mehr hatte, ist das Plugin wahrscheinlich nicht die Ursache und kann bleiben.";
+"IsiX DICOM Viewer did not quit normally" = "IsiX DICOM Viewer wurde nicht normal beendet";
+"IsiX DICOM Viewer is running in Protected Mode because the previous run stopped while loading a plugin: no plugin is loaded and no images are displayed.\n\nOff for this session: plugins, the DICOM listener (with and without TLS), auto-routing, automatic cleaning, the Web Portal, the XML-RPC server, Bonjour sharing, automatic update checks and window restoration. Your saved preferences are not changed.\n\nTo leave Protected Mode, quit IsiX DICOM Viewer and open it again." = "IsiX DICOM Viewer läuft im geschützten Modus, weil der vorherige Lauf beim Laden eines Plugins beendet wurde: Es werden keine Plugins geladen und keine Bilder angezeigt.\n\nIn dieser Sitzung ausgeschaltet: Plugins, der DICOM-Empfang (mit und ohne TLS), automatisches Routing, automatische Bereinigung, das Webportal, der XML-RPC-Server, die Bonjour-Freigabe, die automatische Suche nach Updates und die Wiederherstellung von Fenstern. Ihre gespeicherten Einstellungen werden nicht geändert.\n\nUm den geschützten Modus zu verlassen, beenden Sie IsiX DICOM Viewer und öffnen Sie ihn erneut.";
+"Import Plugins from Horos or OsiriX…" = "Plugins aus Horos oder OsiriX importieren…";
+"No new or newer plugins were found in the Horos or OsiriX plugins folders." = "In den Plugin-Ordnern von Horos oder OsiriX wurden keine neuen oder neueren Plugins gefunden.";
+"Importing copies the plugins listed as new or newer to your IsiX plugins folders. The Horos and OsiriX folders are not changed." = "Beim Importieren werden die als neu oder neuer aufgeführten Plugins in Ihre IsiX-Plugin-Ordner kopiert. Die Ordner von Horos und OsiriX werden nicht verändert.";
+"New or newer:" = "Neu oder neuer:";
+"Left out:" = "Ausgelassen:";
+"no version" = "keine Version";
+"%1$@ replaces %2$@" = "%1$@ ersetzt %2$@";
+"%@: it is a symbolic link, not a plugin." = "%@: Dies ist ein symbolischer Link, kein Plugin.";
+"%@: it is an alias, not a plugin." = "%@: Dies ist ein Alias, kein Plugin.";
+"%1$@: %2$@ has the same name and is used instead." = "%1$@: %2$@ hat denselben Namen und wird stattdessen verwendet.";
+"%1$@: IsiX already has %2$@, which is newer." = "%1$@: IsiX hat bereits %2$@, das neuer ist.";
+"%1$@: IsiX already has %2$@, and their versions cannot be compared." = "%1$@: IsiX hat bereits %2$@, und die Versionen lassen sich nicht vergleichen.";
+"%1$@ (%2$@) has the same name and was selected for loading instead of this plugin (%3$@). Remove the duplicate through Plugin Manager and restart IsiX DICOM Viewer." = "%1$@ (%2$@) hat denselben Namen und wurde anstelle dieses Plugins (%3$@) zum Laden ausgewählt. Entfernen Sie das Duplikat über die Pluginverwaltung und starten Sie IsiX DICOM Viewer neu.";
+"Hide ROI labels while Command-Shift is held" = "ROI-Beschriftungen ausblenden, solange Befehl-Umschalt gedrückt ist";

@@ -239,12 +239,20 @@ public final class PluginManager: NSObject {
 
     @objc(startProtectForCrashWithFilter:)
     public class func startProtectForCrash(withFilter filter: Any!) {
+        // What the callers guard is a command or a hook of a plugin that has loaded.
+        PluginManager.startProtectForCrash(withFilter: filter, phase: .running)
+    }
+
+    /// Notes the plugin `filter` belongs to before its code is entered. A
+    /// command or a hook of a loaded plugin is `running`; what the launch sends
+    /// every plugin while it sets the menus up is still part of `loading` it.
+    class func startProtectForCrash(withFilter filter: Any!, phase: PluginCrashMarker.Phase) {
         let filterClassName = ObjC.classOf(filter).map { NSStringFromClass($0) }
         for case let bundle as Bundle in Registry.pluginsBundleDictionnary?.allValues ?? [] {
             let principalName = bundle.principalClass.map { NSStringFromClass($0) }
             if let filterClassName = filterClassName, let principalName = principalName,
                (filterClassName as NSString).isEqual(to: principalName) {
-                PluginManager.startProtectForCrash(withPath: bundle.bundlePath)
+                PluginManager.writeCrashMarker(forPluginAt: bundle.bundlePath, phase: phase)
                 return
             }
         }
@@ -257,8 +265,9 @@ public final class PluginManager: NSObject {
         NSLog("***** unknown plugin - startProtectForCrashWithFilter - %@", ObjC.arg(filterClassName))
     }
 
-    /// The file naming whatever plugin is being loaded right now, removed when it
-    /// finishes: one left behind says the last run stopped inside that plugin.
+    /// The file naming whatever plugin is being loaded or run right now, removed
+    /// when it finishes, and when the application is asked to quit: one left
+    /// behind says the last run ended inside that plugin without being asked to.
     @objc public class func crashMarkerPath() -> String! {
         // Beside the plugins themselves, not in /tmp: that one is writable by
         // everybody on the machine and shared by every Horos and OsiriX on it.
@@ -266,12 +275,20 @@ public final class PluginManager: NSObject {
         return PluginQuarantine.markerPath(inDirectory: directory, forBundle: Bundle.main.bundleIdentifier)
     }
 
+    /// The note of a bundle that is about to be opened or registered.
     @objc(startProtectForCrashWithPath:)
     public class func startProtectForCrash(withPath path: String!) {
+        PluginManager.writeCrashMarker(forPluginAt: path, phase: .loading)
+    }
+
+    /// Writes the note: the plugin's path and what it is doing (PluginCrashMarker).
+    private class func writeCrashMarker(forPluginAt path: String!, phase: PluginCrashMarker.Phase) {
         let marker = PluginManager.crashMarkerPath()! as NSString
         try? FileManager.default.createDirectory(atPath: marker.deletingLastPathComponent,
                                                  withIntermediateDirectories: true, attributes: nil)
-        try? (path as NSString?)?.write(toFile: marker as String, atomically: true, encoding: String.Encoding.utf8.rawValue)
+        guard let path else { return }
+        let note = PluginCrashMarker(pluginPath: path, phase: phase).contents
+        try? (note as NSString).write(toFile: marker as String, atomically: true, encoding: String.Encoding.utf8.rawValue)
     }
 
     @objc public class func endProtectForCrash() {
@@ -422,7 +439,8 @@ public final class PluginManager: NSObject {
         let pluginEnum = Registry.plugins?.objectEnumerator()
 
         while let pluginFilter = pluginEnum?.nextObject() {
-            PluginManager.startProtectForCrash(withFilter: pluginFilter)
+            // Sent to every plugin at each launch: one that stops here stops the launch.
+            PluginManager.startProtectForCrash(withFilter: pluginFilter, phase: .loading)
 
             do {
                 try HorosObjCException.perform {
@@ -697,15 +715,7 @@ public final class PluginManager: NSObject {
         guard PluginAdmission.isManaged(name), let loader = PluginAdmission.loader(for: name) else { return }
 
         if Registry.pluginsNames?.value(forKey: ((name as NSString).lastPathComponent as NSString).deletingPathExtension) != nil {
-            PluginManagerCAPIRecordLoad((path as NSString?)?.resolvingAlias(), NSLocalizedString("Blocked", comment: ""), NSLocalizedString("Another plugin with this name was selected for loading. Remove the duplicate through Plugin Manager and restart IsiX DICOM Viewer.", comment: ""))
-            NSLog("***** Multiple plugins: %@", (name as NSString).lastPathComponent as NSString)
-
-            var message = NSLocalizedString("Warning! Multiple instances of the same plugin have been found. Only one instance will be loaded. Check the Plugin Manager (Plugins menu) for multiple identical plugins.", comment: "")
-
-            message = (message as NSString).appendingFormat("\r\r%@", (name as NSString).lastPathComponent as NSString) as String
-
-            HorosAlertPanel.run(title: NSLocalizedString("Plugins", comment: ""), message: message, defaultButton: nil, alternateButton: nil, otherButton: nil)
-
+            PluginManager.reportDuplicate(atPath: path, reason: NSLocalizedString("Another plugin with this name was selected for loading. Remove the duplicate through Plugin Manager and restart IsiX DICOM Viewer.", comment: ""))
             return
         }
 
@@ -726,6 +736,58 @@ public final class PluginManager: NSObject {
             PluginUpdateRecovery.discardPrevious(forDestination: path)
         }
         #endif
+    }
+
+    /// Moves the plugins found inside the application to the user's plugins
+    /// folders (BundledPluginMigration says why, and what it never does), and
+    /// answers the paths of those still inside that the user's folder has as
+    /// they are, for the discovery to pass over. The folder inside is still
+    /// read after this: a plugin that could not be taken out goes on loading.
+    /// A session without plugins moves nothing.
+    private class func takePluginsOutOfApplication() -> Set<String> {
+        guard DCMPix.isRunOsiriXInProtectedModeActivated() == false, let bundled = PluginManager.appActivePluginsDirectoryPath() else { return [] }
+        let migration = BundledPluginMigration(bundled: URL(fileURLWithPath: bundled, isDirectory: true),
+                                               bundledDisabled: URL(fileURLWithPath: bundled + " Disabled", isDirectory: true),
+                                               userDomain: PluginManager.userPluginsDomain())
+        let entries = migration.run(isPlugin: PluginAdmission.isManaged)
+        for entry in entries {
+            let name = entry.source.lastPathComponent as NSString
+            switch entry.outcome {
+            case .moved(let destination):
+                NSLog("Plugin %@ moved out of the application to %@", name, destination.deletingLastPathComponent().path as NSString)
+            case .copied(let destination, let reason):
+                NSLog("Plugin %@ copied out of the application to %@; the copy inside could not be removed: %@", name,
+                      destination.deletingLastPathComponent().path as NSString, reason as NSString)
+            case .nameTaken(let existing, let sameBuild):
+                NSLog("Plugin %@ stays inside the application: %@ is %@", name, existing.path as NSString,
+                      (sameBuild ? "the same plugin" : "another plugin of that name") as NSString)
+            case .failed(let reason):
+                NSLog("Plugin %@ could not be moved out of the application: %@", name, reason as NSString)
+            }
+        }
+        return Set(BundledPluginMigration.duplicatesLeftInside(entries).compactMap { ($0.path as NSString).resolvingSymlinksAndAliases() })
+    }
+
+    /// Records a bundle that does not load because another one of its name
+    /// does, with the reason the plugins list shows, and says so once.
+    private class func reportDuplicate(atPath path: String, reason: String) {
+        let name = (path as NSString).lastPathComponent
+        PluginManagerCAPIRecordLoad((path as NSString?)?.resolvingAlias(), NSLocalizedString("Blocked", comment: ""), reason)
+        NSLog("***** Multiple plugins: %@", name as NSString)
+
+        var message = NSLocalizedString("Warning! Multiple instances of the same plugin have been found. Only one instance will be loaded. Check the Plugin Manager (Plugins menu) for multiple identical plugins.", comment: "")
+
+        message = (message as NSString).appendingFormat("\r\r%@", name as NSString) as String
+
+        HorosAlertPanel.run(title: NSLocalizedString("Plugins", comment: ""), message: message, defaultButton: nil, alternateButton: nil, otherButton: nil)
+    }
+
+    /// The rank of the folder a discovered bundle is in, for bundles of one
+    /// name and one version: nil is the command line's.
+    private class func folderRank(of folder: String?, userAndSystemFolders: [String]) -> Int {
+        guard let folder else { return 0 }
+        if let index = userAndSystemFolders.firstIndex(of: folder) { return 1 + index }
+        return 1 + userAndSystemFolders.count
     }
 
     @objc public class func discoverPlugins() {
@@ -759,51 +821,82 @@ public final class PluginManager: NSObject {
 
                 let pluginCrash: String = PluginManager.crashMarkerPath()
                 if FileManager.default.fileExists(atPath: pluginCrash) && !PreferencesSource.process.preferences[ApplicationPreferences.doNotDeleteCrashingPlugins] {
-                    let pluginCrashPath = try? NSString(contentsOfFile: pluginCrash, encoding: String.Encoding.utf8.rawValue)
-                    if PluginUpdateRecovery.shouldEnterPluginLessMode(markerExists: true) {
-                        DCMPix.setRunOsiriXInProtectedMode(true)
-                    }
+                    // An unreadable note reads as an empty path, which is nobody's plugin.
+                    let marker = PluginCrashMarker(contents: (try? String(contentsOfFile: pluginCrash, encoding: .utf8)) ?? "")
+                    let pluginCrashPath = marker.pluginPath
+                    let wasRunning = marker.phase == .running
                     // Recovery acts only on a plugin in this app's own folders: the
                     // marker names a path, and a plugin given with --LoadPlugin, or
                     // any other path, is not this app's to restore or move.
-                    let ownPlugin = PluginManager.isInOwnPluginsFolder((pluginCrashPath as String?) ?? "")
-                            && PluginAdmission.mayManage(bundleAt: URL(fileURLWithPath: (pluginCrashPath as String?) ?? ""))
-                    // A nil path reaches the Swift recovery methods as an empty string.
+                    let ownPlugin = PluginManager.isInOwnPluginsFolder(pluginCrashPath)
+                            && PluginAdmission.mayManage(bundleAt: URL(fileURLWithPath: pluginCrashPath))
                     if ownPlugin {
-                        _ = PluginUpdateRecovery.adoptLeftoverStaging(inDirectory: pluginCrashPath?.deletingLastPathComponent ?? "")
+                        _ = PluginUpdateRecovery.adoptLeftoverStaging(inDirectory: (pluginCrashPath as NSString).deletingLastPathComponent)
                     }
-                    let inactivePath = PluginQuarantine.inactivePath(forPluginAt: (pluginCrashPath as String?) ?? "",
+                    let inactivePath = PluginQuarantine.inactivePath(forPluginAt: pluginCrashPath,
                                                                      active: PluginManager.activeDirectories() as! [String],
                                                                      inactive: PluginManager.inactiveDirectories() as! [String])
-                    let canRestore = ownPlugin && FileManager.default.fileExists(atPath: PluginUpdateRecovery.previousPath(forDestination: (pluginCrashPath as String?) ?? ""))
-                    let explanation = PluginUpdateRecovery.explanation(pluginNamed: pluginCrashPath?.lastPathComponent ?? "",
+                    let canRestore = ownPlugin && FileManager.default.fileExists(atPath: PluginUpdateRecovery.previousPath(forDestination: pluginCrashPath))
+                    // A plugin that stopped while loading may stop every launch there, so
+                    // this one opens without plugins and proposes to take it out. One that
+                    // was running a command had loaded: it stays unless the user says so.
+                    let recovery = marker.recovery(canRestore: canRestore, canDisable: inactivePath != nil)
+                    if recovery.opensWithoutPlugins && PluginUpdateRecovery.shouldEnterPluginLessMode(markerExists: true) {
+                        ProtectedMode.activateAfterPluginFailure()
+                    }
+                    NSLog("Plugin note left by the previous run: %@ was %@", (pluginCrashPath as NSString).lastPathComponent as NSString,
+                          (wasRunning ? "running a command" : "loading") as NSString)
+                    let explanation = PluginUpdateRecovery.explanation(pluginNamed: (pluginCrashPath as NSString).lastPathComponent,
+                                                                       wasRunning: wasRunning,
                                                                        canRestore: canRestore,
                                                                        canDisable: inactivePath != nil)
-                    let defaultButton = canRestore ? NSLocalizedString("Restore Previous", comment: "") : (inactivePath != nil ? NSLocalizedString("Disable Plugin", comment: "") : NSLocalizedString("OK", comment: ""))
-                    let alternateButton: String? = canRestore ? (inactivePath != nil ? NSLocalizedString("Disable Plugin", comment: "") : NSLocalizedString("Continue", comment: "")) : (inactivePath != nil ? NSLocalizedString("Continue", comment: "") : nil)
-                    let otherButton: String? = canRestore && inactivePath != nil ? NSLocalizedString("Continue", comment: "") : nil
-                    let result = HorosAlertPanel.runInformational(title: NSLocalizedString("IsiX DICOM Viewer crashed", comment: ""), message: explanation,
-                                                                  defaultButton: defaultButton, alternateButton: alternateButton, otherButton: otherButton)
-                    if canRestore && result == HorosAlertPanel.defaultResponse {
-                        _ = PluginUpdateRecovery.restorePrevious(forDestination: (pluginCrashPath as String?) ?? "")
-                    } else if let inactivePath = inactivePath, (canRestore && result == HorosAlertPanel.alternateResponse) || (!canRestore && result == HorosAlertPanel.defaultResponse) {
-                        PluginManager.movePlugin(fromPath: pluginCrashPath as String?, toPath: inactivePath)
-                        if FileManager.default.fileExists(atPath: inactivePath) {
-                            NSLog("Plugin disabled after a crash: %@ -> %@", ObjC.arg(pluginCrashPath), inactivePath as NSString)
-                        } else {
-                            NSLog("**** Could not disable the plugin that was loading: %@", ObjC.arg(pluginCrashPath))
+                    let buttons = recovery.choices.map { choice -> String in
+                        switch choice {
+                        case .restorePrevious: return NSLocalizedString("Restore Previous", comment: "")
+                        case .disablePlugin: return NSLocalizedString("Disable Plugin", comment: "")
+                        case .keepPlugin: return recovery.choices.count == 1 ? NSLocalizedString("OK", comment: "") : NSLocalizedString("Continue", comment: "")
                         }
+                    }
+                    let result = HorosAlertPanel.runInformational(title: PluginUpdateRecovery.alertTitle(wasRunning: wasRunning), message: explanation,
+                                                                  defaultButton: buttons[0],
+                                                                  alternateButton: buttons.count > 1 ? buttons[1] : nil,
+                                                                  otherButton: buttons.count > 2 ? buttons[2] : nil)
+                    let answered = result == HorosAlertPanel.defaultResponse ? 0 : (result == HorosAlertPanel.otherResponse ? 2 : 1)
+                    switch recovery.choice(at: answered) {
+                    case .restorePrevious:
+                        _ = PluginUpdateRecovery.restorePrevious(forDestination: pluginCrashPath)
+                    case .disablePlugin:
+                        if let inactivePath {
+                            PluginManager.movePlugin(fromPath: pluginCrashPath, toPath: inactivePath)
+                            if FileManager.default.fileExists(atPath: inactivePath) {
+                                NSLog("Plugin disabled after a crash: %@ -> %@", pluginCrashPath as NSString, inactivePath as NSString)
+                            } else {
+                                NSLog("**** Could not disable the plugin the note names: %@", pluginCrashPath as NSString)
+                            }
+                        }
+                    case .keepPlugin:
+                        break
                     }
                     try? FileManager.default.removeItem(atPath: pluginCrash)
                 }
 
+                // A plugin installed inside the application goes to the user's folder
+                // before the folders are read, and loads from there.
+                let duplicatesInsideApplication = PluginManager.takePluginsOutOfApplication()
+
                 let pathsOfPluginsToLoad = NSMutableArray()
+                // Which folder each bundle came from, for the choice between bundles
+                // of one name and one version: a bundle named on the command line
+                // first, then the user's folder, the computer's, and the application's.
+                var folderRanks: [String: Int] = [:]
                 let dontLoadOtherWithTheseNames = NSMutableArray()
 
                 for path in paths {
                     var stop = false
                     do {
                         try HorosObjCException.perform {
+                            // NSNull, the command line, becomes "/" below.
+                            let folder = path as? String
                             var path: Any = path
                             var donotloadnames: [String]? = nil
                             if !(path is NSNull) {
@@ -844,7 +937,15 @@ public final class PluginManager: NSObject {
 
                             for name in e {
                                 if (donotloadnames as NSArray?)?.contains(((name as! NSString).deletingPathExtension)) != true {
-                                    ObjC.add(pathsOfPluginsToLoad, ((path as! NSString).appendingPathComponent(name as! String) as NSString).resolvingSymlinksAndAliases())
+                                    let resolved = ((path as! NSString).appendingPathComponent(name as! String) as NSString).resolvingSymlinksAndAliases()
+                                    if let resolved, duplicatesInsideApplication.contains(resolved) {
+                                        NSLog("Won't load %@ from inside the application: the user's plugins folder has this plugin", ObjC.arg(name))
+                                        continue
+                                    }
+                                    ObjC.add(pathsOfPluginsToLoad, resolved)
+                                    if let resolved, folderRanks[resolved] == nil {
+                                        folderRanks[resolved] = PluginManager.folderRank(of: folder, userAndSystemFolders: folders)
+                                    }
                                 }
                             }
                         }
@@ -862,6 +963,25 @@ public final class PluginManager: NSObject {
                 // its Info.plist, to load after others; the property lists are
                 // read as files, no bundle is opened here. A version 1 bundle that
                 // declares it is refused by its inspection.
+                // One plugin under two bundles, as the installers of plugins made for
+                // Horos and OsiriX leave it (Thing.horosplugin and a newer
+                // Thing.osirixplugin): the higher version loads, whatever the order the
+                // folder lists them in and whatever their extensions (SameNamePlugins).
+                // The others are set aside here, each with the reason and both versions.
+                let found = pathsOfPluginsToLoad.compactMap { $0 as? String }.filter { PluginAdmission.isManaged($0) }.map { path in
+                    SameNamePlugins.Candidate(path: path, version: PluginBundleVersion.declared(byBundleAt: URL(fileURLWithPath: path)),
+                                              folderRank: folderRanks[path] ?? Int.max)
+                }
+                for duplicate in SameNamePlugins.setAside(among: found) {
+                    pathsOfPluginsToLoad.remove(duplicate.bundle.path)
+                    PluginManager.reportDuplicate(atPath: duplicate.bundle.path, reason: String(format: NSLocalizedString(
+                        "%1$@ (%2$@) has the same name and was selected for loading instead of this plugin (%3$@). Remove the duplicate through Plugin Manager and restart IsiX DICOM Viewer.",
+                        comment: "The plugin loaded, its version, and the version of the one set aside"),
+                        (duplicate.preferred.path as NSString).lastPathComponent,
+                        duplicate.preferred.version ?? NSLocalizedString("no version", comment: "A plugin that declares no version"),
+                        duplicate.bundle.version ?? NSLocalizedString("no version", comment: "A plugin that declares no version")))
+                }
+
                 let pending = pathsOfPluginsToLoad.compactMap { $0 as? String }.map { path -> LegacyPluginDeclaration.Pending in
                     let declaration = LegacyPluginDeclaration(bundleAt: URL(fileURLWithPath: path))
                     let name = declaration?.bundleName ?? ((path as NSString).lastPathComponent as NSString).deletingPathExtension
@@ -1086,6 +1206,24 @@ public final class PluginManager: NSObject {
         }
     }
 
+    /// Asks for the restart that makes installed, replaced or removed plugins take effect.
+    class func askForRestartAfterPluginChanges() {
+        PluginManager.askForRestart(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart IsiX DICOM Viewer to apply the changes to the plugins.", comment: ""))
+    }
+
+    /// Puts the bundle at `source` in the place of the installed plugin at
+    /// `installed`, under the name it is installed with, as an update does:
+    /// the candidate is checked first, the swap is atomic, and the copy it
+    /// replaces is kept until the new one has loaded once.
+    class func replaceInstalledPlugin(at installed: URL, with source: URL) throws {
+        #if !MACAPPSTORE
+        var error: NSError?
+        guard PluginManagerCAPIInstallPlugin(source.path, installed.path, &error) else {
+            throw error ?? CocoaError(.fileWriteUnknown)
+        }
+        #endif
+    }
+
     @objc(activatePluginWithName:)
     public class func activatePlugin(withName pluginName: String!) {
         #if !MACAPPSTORE
@@ -1170,8 +1308,12 @@ public final class PluginManager: NSObject {
             newDirectory.setString(PluginManager.userActivePluginsDirectoryPath())
         } else if availabilities.count > 1 && (availability as AnyObject?)?.isEqual(to: availabilities[1]) == true {
             newDirectory.setString(PluginManager.systemActivePluginsDirectoryPath())
-        } else if availabilities.count > 2 && (availability as AnyObject?)?.isEqual(to: availabilities[2]) == true {
-            newDirectory.setString(PluginManager.appActivePluginsDirectoryPath())
+        } else {
+            // The application itself is no longer a place to put a plugin: it
+            // is lost when the application is replaced, and it breaks the seal
+            // of the signature. Nor is an availability nobody offers.
+            NSLog("Plugin %@ was not moved: %@ is not an availability a plugin can be given", ObjC.arg(pluginName), ObjC.arg(availability))
+            return
         }
         newDirectory.setString(newDirectory.deletingLastPathComponent) // remove /Plugins/
         newDirectory.setString(ObjC.appendingPathComponent(newDirectory, (directory as NSString?)?.lastPathComponent) ?? "") // add /Plugins/ or /Plugins (off)/
@@ -1276,13 +1418,9 @@ public final class PluginManager: NSObject {
             } else {
                 destinationDirectory = PluginManager.systemInactivePluginsDirectoryPath()
             }
-        } else if ObjC.isEqualToString(availability, PluginManager.availabilities()[2] as? String) {
-            if isActive {
-                destinationDirectory = PluginManager.appActivePluginsDirectoryPath()
-            } else {
-                destinationDirectory = PluginManager.appInactivePluginsDirectoryPath()
-            }
         } else {
+            // A new plugin, and the update of one still inside the application:
+            // nothing is installed into the application any more.
             if isActive {
                 destinationDirectory = PluginManager.userActivePluginsDirectoryPath()
             } else {
@@ -1483,10 +1621,19 @@ public final class PluginManager: NSObject {
         #endif
     }
 
+    /// The three places a plugin can be found in, by their names in the
+    /// plugins list: the last one, inside the application, is only where one
+    /// may still be, not where one can be put.
     @objc public class func availabilities() -> [Any]! {
         return [NSLocalizedString("Current user", comment: ""),
                 NSLocalizedString("All users", comment: ""),
                 NSLocalizedString("IsiX DICOM Viewer bundle", comment: "")]
+    }
+
+    /// The availabilities the plugin manager offers for a plugin: the current
+    /// user's folder and the one of all users.
+    public class func offeredAvailabilities() -> [Any] {
+        return Array(PluginManager.availabilities().prefix(2))
     }
 
     // MARK: -

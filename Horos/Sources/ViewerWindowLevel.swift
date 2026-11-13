@@ -562,8 +562,14 @@ fileprivate extension WindowLevelPresetCatalog {
         viewer.setWindowTitle(viewer)
     }
 
-    /// Puts back ConvertPETtoSUVautomatically, which the SUV sheet turns off
-    /// while a series is reverted.
+    /// No conversion to SUV at the end of a series load, whatever the PET
+    /// settings say, for the two seconds after the SUV sheet reverts a series:
+    /// the end of the load asks this, and the setting is not written.
+    nonisolated static let automaticConversionWithheld = ForcedPreference(ViewerPreferences.convertPETtoSUVautomatically, to: false)
+
+    /// Stores ConvertPETtoSUVautomatically: what the selector of the former
+    /// SDK does, restoreConvertPETtoSUVautomaticallyValue:, whose caller gives
+    /// it the value to keep. Nothing of the application calls it now.
     func restoreAutomaticConversion(_ value: Bool) {
         preferences.set(value, for: ViewerPreferences.convertPETtoSUVautomatically)
     }
@@ -576,23 +582,22 @@ fileprivate extension WindowLevelPresetCatalog {
         if tag == 1 {
             updateSUVValues()
 
-            let savedDefault = preferences[ViewerPreferences.convertPETtoSUVautomatically]
-            preferences.set(false, for: ViewerPreferences.convertPETtoSUVautomatically)
-
-            if viewer.horos_imageView?.curDCM?.suvConverted == true {
-                viewer.revertSeries(viewer)
-
-                forEachPETSlice { p in
-                    if let time = viewer.horos_editedAcquisitionTime { p.acquisitionTime = time }
-                    if let time = viewer.horos_editedRadiopharmaceuticalStartTime { p.radiopharmaceuticalStartTime = time }
-                }
-            }
-
             // Why this? Because the end of a series load converts to SUV on the main thread when the preference is on.
-            // The timer runs in the default run loop mode, as a delayed perform did.
-            let preferences = self.preferences
-            Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { _ in
-                preferences.set(savedDefault, for: ViewerPreferences.convertPETtoSUVautomatically)
+            let withheld = ViewerWindowLevel.automaticConversionWithheld
+            withheld.whileWorking {
+                if viewer.horos_imageView?.curDCM?.suvConverted == true {
+                    viewer.revertSeries(viewer)
+
+                    forEachPETSlice { p in
+                        if let time = viewer.horos_editedAcquisitionTime { p.acquisitionTime = time }
+                        if let time = viewer.horos_editedRadiopharmaceuticalStartTime { p.radiopharmaceuticalStartTime = time }
+                    }
+                }
+
+                // For two seconds more, begun only once the series is reverted: a revert that raises leaves
+                // nothing withheld. The timer runs in the default run loop mode, as a delayed perform did.
+                withheld.begin()
+                Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { _ in withheld.end() }
             }
 
             forEachPETSlice { p in p.displaySUVValue = false }

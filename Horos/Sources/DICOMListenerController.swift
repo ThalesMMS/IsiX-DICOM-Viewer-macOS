@@ -397,26 +397,16 @@ final class DICOMListenerController {
         }
     }
 
-    /// Runs `body` with hideListenerError on, the user's own value kept under
-    /// copyHideListenerError meanwhile, which a launch after a crash puts back.
+    /// Runs `body` with hideListenerError on for every reader of the key in
+    /// this process, on whatever thread, and nowhere else. The value once went
+    /// into the preferences, the user's own kept under copyHideListenerError
+    /// for the launch after a crash to put back; nothing is stored now, so an
+    /// application that ends in the middle leaves the user's value as it was.
     /// A hideListenerError given at launch is that launch's alone: nothing is
-    /// written then.
-    nonisolated static func whileListenerErrorsHidden(in preferences: UserDefaults, _ body: () -> Void) {
-        let persists = preferences.isGivenAsLaunchArgument(NetworkPreferences.hidesListenerErrors) == false
-        let hidden = preferences[NetworkPreferences.hidesListenerErrors]
-        if persists {
-            preferences.set(hidden, for: ListenerPreferences.savedHidesListenerErrors)
-            preferences.set(true, for: NetworkPreferences.hidesListenerErrors)
-            preferences.synchronize()
-        }
-
-        body()
-
-        if persists {
-            preferences.set(hidden, for: NetworkPreferences.hidesListenerErrors)
-            preferences.remove(ListenerPreferences.savedHidesListenerErrors)
-            preferences.synchronize()
-        }
+    /// changed then. On the main thread, as its caller is.
+    static func whileListenerErrorsHidden(in preferences: UserDefaults, _ body: () -> Void) {
+        guard preferences.isGivenAsLaunchArgument(NetworkPreferences.hidesListenerErrors) == false else { return body() }
+        TemporaryPreference(NetworkPreferences.hidesListenerErrors, in: preferences).whileWorking(with: true, body)
     }
 
     /// Says a listener's error in the notices panel, unless hideListenerError

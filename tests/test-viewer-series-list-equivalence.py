@@ -2559,7 +2559,28 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-series-list-') as tmp:
         if 'BrowserDatabaseSource(' in popup_text:
             rows += ('struct BrowserDatabaseSource {\n    let processGraph: ProcessGraph\n'
                      '    @MainActor func database(of object: NSManagedObject?) -> DicomDatabase? { processGraph.browserDatabase }\n}\n')
-        (swift / 'Helpers.swift').write_text('import AppKit\n' + sender + attempt + add + main_actor + truncate + identifiers + graphs + fusion + rows)
+        blocks = b''.join(read(args.current, 'Horos/Sources/' + name) or b'' for name in SWIFT_FILES)
+        # Files dropped from another application that become new series of
+        # the study are ViewerFileDropTarget's, with a test of their own: here
+        # every drop of files is the viewer's own to perform, as it is with
+        # Option held, which is what the Objective-C did with every one.
+        dropped = ''
+        if b'ViewerFileDropTarget.' in blocks:
+            dropped = ('@MainActor enum ViewerFileDropTarget {\n'
+                       '    static func operation(for drag: NSDraggingInfo, on controller: AnyObject) -> NSDragOperation? { nil }\n'
+                       '    static func perform(_ drag: NSDraggingInfo, on controller: AnyObject) -> Bool? { nil }\n}\n')
+        # The value a piece of work gives a preference for the process (the
+        # lists that do not follow one another and the list of series that
+        # stays while a chosen series opens): the application's
+        # TemporaryPreferenceWork over IsiXPreferences' holds, without its
+        # guard of exceptions, which nothing raises here.
+        temporary = ''
+        if b'TemporaryPreferenceWork.' in blocks:
+            temporary = ('@MainActor enum TemporaryPreferenceWork {\n'
+                         '    static func during<Value: PreferenceValue>(_ key: PreferenceKey<Value>, at value: Value, silently: Bool = false, _ work: () -> Void) {\n'
+                         '        TemporaryPreferenceHolds.standard.during(key, at: value, work)\n    }\n}\n')
+        (swift / 'Helpers.swift').write_text('import AppKit\n' + ('import IsiXPreferences\n' if temporary else '')
+                                             + sender + attempt + add + main_actor + truncate + identifiers + graphs + fusion + rows + dropped + temporary)
         sources.append(str(swift / 'Helpers.swift'))
         libraries = []
         for module in MODULES:

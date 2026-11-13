@@ -80,7 +80,11 @@ extension VRView {
     }
 
     private func renderMetalImage(in scene: IsiXVTKVolumeScene, fused: Bool) -> Bool {
-        if !fused { objc_setAssociatedObject(self, MPRVolumeMetalSlots.unwrittenFrame.key, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+        if !fused {
+            objc_setAssociatedObject(self, MPRVolumeMetalSlots.unwrittenFrame.key, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            // Until this render shows its own picture, the frame is VTK's image.
+            (horos_horosPresenter as? VRPresenter)?.showVolumeImage()
+        }
         // A fused series has its own mapper and volume, drawn after the image's:
         // each fills its own ray-cast image, and VTK composes the two, the fused
         // one over the image, premultiplied.

@@ -252,6 +252,14 @@ extension VRView {
 
     // MARK: - Texts
 
+    /// Hides or shows the values written beside the measures, as the keys
+    /// held ask (MeasurementLabelSuppression): the measures stay drawn.
+    func hideMeasurementTexts(_ hide: Bool) {
+        if horos_vtkIfAny?.setMeasurementTextsHidden(hide) == true {
+            needsDisplay = true
+        }
+    }
+
     /// The line's length, the oval's statistics and the hover field, after a
     /// change of a measurement or of the camera.
     func computeLength() {

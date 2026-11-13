@@ -159,21 +159,20 @@ extension ViewerController {
     /// The next (1) or previous (-1) series of the study in this viewer only,
     /// opened on its first image going forwards and its last going backwards.
     func openNextSeriesHere(_ direction: Int) {
-        let toAllViewers = preferences[ViewerPreferences.nextSeriesToAllViewers]
-        if toAllViewers { preferences.set(false, for: ViewerPreferences.nextSeriesToAllViewers) }
+        // The opening reads "nextSeriesToAllViewers" behind the browser's selector
+        // that plugins see: off for this process while it opens (TemporaryPreferenceWork).
+        TemporaryPreferenceWork.during(ViewerPreferences.nextSeriesToAllViewers, at: false) {
+            showEdgeImage(movingBy: direction)
 
-        showEdgeImage(movingBy: direction)
+            if let first = firstFile {
+                opening.openNextSeries(after: first, direction: direction, in: viewer, keyImagesOnly: viewer.horos_displayOnlyKeyImages)
+            }
 
-        if let first = firstFile {
-            opening.openNextSeries(after: first, direction: direction, in: viewer, keyImagesOnly: viewer.horos_displayOnlyKeyImages)
+            showEdgeImage(movingBy: direction)
+            viewer.adjustSlider()
+            viewer.horos_imageView?.sendSyncMessage(0)
+            viewer.horos_imageView?.needsDisplay = true
         }
-
-        showEdgeImage(movingBy: direction)
-        viewer.adjustSlider()
-        viewer.horos_imageView?.sendSyncMessage(0)
-        viewer.horos_imageView?.needsDisplay = true
-
-        if toAllViewers { preferences.set(toAllViewers, for: ViewerPreferences.nextSeriesToAllViewers) }
     }
 
     /// The series popup and buttons `sender`: tag 3 opens the series chosen

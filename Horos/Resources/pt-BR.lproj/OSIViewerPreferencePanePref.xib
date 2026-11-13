@@ -22,21 +22,21 @@
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <window title="&lt;&lt; não localizar &gt;&gt;" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" deferred="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="12" userLabel="PrefPane">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES"/>
-            <rect key="contentRect" x="0.0" y="0" width="788" height="554"/>
+            <rect key="contentRect" x="0.0" y="0" width="788" height="574"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
             <view key="contentView" horizontalCompressionResistancePriority="1000" misplaced="YES" id="6">
-                <rect key="frame" x="0.0" y="0.0" width="788" height="554"/>
+                <rect key="frame" x="0.0" y="0.0" width="788" height="574"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <box horizontalCompressionResistancePriority="1000" title="Mouse e interação" id="viewer-mouse-box">
-                        <rect key="frame" x="8" y="376" width="770" height="154"/>
+                        <rect key="frame" x="8" y="376" width="770" height="174"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="viewer-mouse-box-content">
-                            <rect key="frame" x="2" y="2" width="766" height="134"/>
+                            <rect key="frame" x="2" y="2" width="766" height="154"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button horizontalCompressionResistancePriority="1000" id="first-click-control">
-                                    <rect key="frame" x="10" y="110" width="720" height="18"/>
+                                    <rect key="frame" x="10" y="130" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="O primeiro clique num visualizador inativo apenas o ativa" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="first-click-control-cell">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -47,7 +47,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="two-click-length-control">
-                                    <rect key="frame" x="10" y="90" width="720" height="18"/>
+                                    <rect key="frame" x="10" y="110" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Medir o comprimento com dois cliques" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="two-click-length-control-cell">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -55,6 +55,17 @@
                                     </buttonCell>
                                     <connections>
                                         <binding destination="308" name="value" keyPath="values.TwoClickLengthMeasurement" id="two-click-length-control-binding"/>
+                                    </connections>
+                                </button>
+                                <button horizontalCompressionResistancePriority="1000" id="command-shift-labels-control">
+                                    <rect key="frame" x="10" y="90" width="720" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="Ocultar os rótulos das ROIs enquanto Command-Shift estiver pressionado" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="command-shift-labels-control-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.CommandShiftHidesROILabels" id="command-shift-labels-control-binding"/>
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="precise-mouse-control">

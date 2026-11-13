@@ -465,6 +465,10 @@ typedef BOOL (^IsiXVTKMetalImageRenderer)(IsiXVTKVolumeView *view, BOOL fused);
 - (void)swapActiveLineEndpoints;
 - (void)placeActiveLineText:(const char *)text x:(double)x y:(double)y;
 - (void)removeActiveLineText;
+/// Hides or shows the values written beside the measures (the oval, the line,
+/// the stored lines and the angle); what is drawn of each measure stays.
+/// Answers whether that changed anything.
+- (BOOL)setMeasurementTextsHidden:(BOOL)hidden;
 /// The line's world points and direction now, for showing it again in this
 /// parallel view only.
 - (void)captureLineProjection;

@@ -164,19 +164,13 @@ public final class O2HMigrationAssistant: NSWindowController {
 
             var isDirectory: ObjCBool = false
             if FileManager.default.fileExists(atPath: osirixPath, isDirectory: &isDirectory) && isDirectory.boolValue {
-                let defaults = PreferencesSource.process.preferences
-                let COPYDATABASE = defaults[DatabasePreferences.copyToDatabase]
-                let COPYDATABASEMODE = defaults[DatabasePreferences.copyToDatabaseMode] // an int before
-
-                defaults.set(true, for: DatabasePreferences.copyToDatabase)
-                defaults.set(Int(always), for: DatabasePreferences.copyToDatabaseMode) // AppController.h: always = 0
-                defaults.synchronize()
-
-                self.browserController?.subSelectFilesAndFolders(toAdd: [osirixPath])
-
-                defaults.set(COPYDATABASE, for: DatabasePreferences.copyToDatabase)
-                defaults.set(COPYDATABASEMODE, for: DatabasePreferences.copyToDatabaseMode)
-                defaults.synchronize()
+                // The files of the former application are always copied into
+                // the database, whatever the Database settings say: this
+                // import is told so, and the settings are not written.
+                self.browserController?.droppedFiles.add([osirixPath], overriding: [
+                    "COPYDATABASE": NSNumber(value: true),
+                    "COPYDATABASEMODE": NSNumber(value: Int(always)), // AppController.h: always = 0
+                ])
             }
 
             self.window?.close()

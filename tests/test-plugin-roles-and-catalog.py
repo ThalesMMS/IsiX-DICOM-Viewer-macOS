@@ -175,6 +175,7 @@ enum MenuShortcutCatalog { static func applyStoredAssignments(to menus: [NSMenu]
 
 @objc(PluginManager) final class PluginManager: NSObject {
     @objc(startProtectForCrashWithFilter:) class func startProtectForCrash(withFilter filter: Any!) {}
+    class func startProtectForCrash(withFilter filter: Any!, phase: PluginCrashMarker.Phase) {}
     @objc(startProtectForCrashWithPath:) class func startProtectForCrash(withPath path: String!) {}
     @objc class func endProtectForCrash() {}
     // The commands of plugins of the API version 1 are tested apart.
@@ -379,7 +380,10 @@ with tempfile.TemporaryDirectory(prefix='horos-plugin-roles-') as temporary:
 
 guards = re.findall(r'availabilities\.count (>=|>) (\d+) && [^\n]*?availabilities\[(\d+)\]', manager)
 unsafe = [g for g in guards if int(g[2]) >= (int(g[1]) if g[0] == '>=' else int(g[1]) + 1)]
-if len(guards) < 4 or unsafe:
+# Three: the deletion reads the second and the third name, and the change of
+# availability the second. It no longer reads the third: the application is not
+# a place to move a plugin to.
+if len(guards) < 3 or unsafe:
     print(f'FAIL: {len(guards)} availability guards found, {len(unsafe)} checking a count that does not cover the index read: '
           + ', '.join(f'count {op} {n} before [{i}]' for op, n, i in unsafe))
     failures += 1

@@ -863,9 +863,11 @@ def build(revision, folder, probe_source, *, config=None, pix_flags=(), extra_sw
              *link, '-Xlinker', '-undefined', '-Xlinker', 'dynamic_lookup', '-lc++',
              '-framework', 'Cocoa', '-framework', 'Accelerate', '-framework', 'AVFoundation', '-framework', 'CoreMedia',
              '-framework', 'QuartzCore', '-o', str(folder / 'harness')])
-        # The probe's main() answers 0 at once to --probe-link: any other end
-        # but dyld naming the next symbol, a death while the image loads among
-        # them, is a harness that is not built (link_placeholders).
+        # The symbol the harness lacks is read from it, without a run that
+        # dyld aborts and that leaves a crash report. Once it lacks none it is
+        # run with --probe-link, which its main() answers 0 at once: any other
+        # end but dyld naming a symbol after all, a death while the image
+        # loads among them, is a harness that is not built (link_placeholders).
         missing = link_placeholders.probe(folder / 'harness', placeholders, f'the link probe of the harness of {revision}')
         if missing is None:
             if log is not None:
@@ -881,7 +883,7 @@ def run_probe(main_source, *, config=None, args=(), timeout=300):
     `args`: the completed process. Without a build, the test is skipped.
 
     The probe's main() answers 0 at once to `--probe-link`, which build() runs
-    to find the symbols it lacks."""
+    to know that the harness loads, once it lacks no symbol."""
     try:
         objc_command(config)
         objects_dir(config)

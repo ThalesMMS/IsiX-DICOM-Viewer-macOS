@@ -19,6 +19,8 @@ the database and a disposable data folder that already holds files. Twelve
 threads, over the main database and two independent ones, each take numbers and
 write the files at once, as the callers do; no two may get one name, none may
 get the name of a file that was there, and the count goes on from the folder.
+The highest number the index uses, which the selector hands the allocator, is a
+stand-in here; tests/test-data-file-number-not-reused.py is about it.
 """
 from pathlib import Path
 import re
@@ -83,6 +85,16 @@ extension FileManager {
     }
 }
 
+/// The index of the stand-in database: the highest number its records use,
+/// below what the folder holds, and how many times it was asked.
+enum RecordedDataFileNumbers {
+    static let asked = Mutex(0)
+    static func highest(in database: DicomDatabase) -> UInt64 {
+        asked.withLock { $0 += 1 }
+        return 40
+    }
+}
+
 final class DicomDatabase: @unchecked Sendable {
     let folder: String
     let dataFileAllocator: DataFileAllocator
@@ -127,6 +139,7 @@ print("distinct\t\(Set(all).count)")
 print("preexisting\t\(all.filter { $0.hasSuffix("/200/150.dcm") || $0.hasSuffix("/200/151.dcm") }.count)")
 print("lowest\t\(all.map { Int((($0 as NSString).lastPathComponent as NSString).deletingPathExtension) ?? 0 }.min() ?? 0)")
 print("extensions\t\(Set(all.map { ($0 as NSString).pathExtension }).sorted().joined(separator: ","))")
+print("asked\t\(RecordedDataFileNumbers.asked.withLock { $0 })")
 print("count\t\(main.computeDataFileIndex())")
 '''
 
@@ -156,6 +169,8 @@ with tempfile.TemporaryDirectory(prefix='horos-data-file-allocation-') as direct
     check(results.get('lowest') == '152', 'the count did not go on from the files of the folder: lowest %s' % results.get('lowest'))
     check(results.get('extensions') == 'dcm', 'an extension of six characters was kept: %s' % results.get('extensions'))
     check(results.get('count') == '3151', 'the count of the main database is %s after 3000 files from 151' % results.get('count'))
+    # The index is asked when the folder is read, by each thread that found the count not read yet: never for each file.
+    check(1 <= int(results.get('asked', '0')) <= 12, 'the index was asked %s times for 3000 files' % results.get('asked'))
 
 for failure in failures:
     print('FAIL: %s' % failure)

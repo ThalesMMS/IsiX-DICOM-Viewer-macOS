@@ -932,6 +932,9 @@
 "Camera position on Path" = "경로에 카메라 위치";
 "Can't find path" = "경로를 찾을 수 없습니다";
 "Can't write to temporary directory." = "임시 디렉터리에 쓸 수 없습니다.";
+"This printer has no AE Title. Set it in the DICOM Print preferences." = "이 프린터에 AE Title이 없습니다. DICOM 인쇄 환경설정에서 지정하십시오.";
+"This printer has no address. Set it in the DICOM Print preferences." = "이 프린터에 주소가 없습니다. DICOM 인쇄 환경설정에서 지정하십시오.";
+"This printer has no port. Set it in the DICOM Print preferences." = "이 프린터에 포트가 없습니다. DICOM 인쇄 환경설정에서 지정하십시오.";
 "Cancel" = "취소";
 "Cancel %@" = "%@ 취소";
 "Cancel Modifications" = "수정 취소";
@@ -1914,6 +1917,7 @@
 "IAC" = "IAC";
 "ID" = "ID";
 "IMPORT PAUSED: free space or reconnect storage; incoming files are preserved. / " = "가져오기 일시 정지: 여유 공간을 확보하거나 저장 장치를 다시 연결하십시오. 수신 파일은 보존됩니다. / ";
+"OPENING %@: waiting for studies from the PACS; cancel the retrieve in Activity to open without them. / " = "%@ 여는 중: PACS의 검사를 기다리는 중입니다. 검사 없이 열려면 활동에서 가져오기를 취소하십시오. / ";
 "IMPORTANT" = "중요";
 "IVP" = "IVP";
 "Identification" = "식별";
@@ -2317,6 +2321,7 @@
 "Microsoft Word" = "Microsoft Word";
 "Microsoft Word (.doc)" = "Microsoft Word (.doc)";
 "Microsoft Word is not installed or could not be located (error -1728). Install Word with creation and editing enabled to insert images into a .doc or .docx report. The original report and the source images have been preserved." = "Microsoft Word가 설치되어 있지 않거나 찾을 수 없습니다 (오류 -1728). .doc 또는 .docx 보고서에 영상을 삽입하려면 생성 및 편집이 가능한 Word를 설치하십시오. 원본 보고서와 소스 영상은 보존되었습니다.";
+"The report is open in Microsoft Word. Close it there, then insert the images again. The original report and the source images have been preserved." = "보고서가 Microsoft Word에서 열려 있습니다. Word에서 닫은 다음 영상을 다시 삽입하십시오. 원본 보고서와 소스 영상은 보존되었습니다.";
 "Microsoft Word is required to open/generate '.doc' reports. You can change it to TextEdit in the Preferences." = "'.doc' 보고서를 열거나 생성하려면 Microsoft Word가 필요합니다. 환경설정에서 TextEdit으로 변경할 수 있습니다.";
 "Midpoint" = "중간점";
 "Migration Assistant" = "마이그레이션 도우미";
@@ -2650,6 +2655,7 @@
 "Pages (.pages)" = "Pages (.pages)";
 "Pages could not export the report as PDF. The original report has been left unchanged." = "Pages에서 보고서를 PDF로 내보내지 못했습니다. 원본 보고서는 변경되지 않았습니다.";
 "Pages could not insert the image into that container (error -10024). The original report and the source images have been preserved." = "Pages에서 해당 컨테이너에 영상을 삽입하지 못했습니다(오류 -10024). 원본 보고서와 원본 영상은 보존되었습니다.";
+"Pages could not find the report, or a place in it for the image (error -1728). The original report and the source images have been preserved." = "Pages에서 보고서 또는 영상을 삽입할 위치를 찾지 못했습니다(오류 -1728). 원본 보고서와 원본 영상은 보존되었습니다.";
 "Pages is not installed or could not be located. Install Pages before creating a Pages report. No report has been changed." = "Pages가 설치되어 있지 않거나 찾을 수 없습니다. Pages 보고서를 생성하기 전에 Pages를 설치하십시오. 보고서는 변경되지 않았습니다.";
 "Pages or Word could not be found (error -43). The original report and the source images have been preserved." = "Pages 또는 Word를 찾지 못했습니다(오류 -43). 원본 보고서와 원본 영상은 보존되었습니다.";
 "Pages or Word dropped the Automation connection (error -609). Check that the editor is still running, allow IsiX DICOM Viewer to control it in System Settings > Privacy & Security > Automation, then retry. The original report and the source images have been preserved." = "Pages 또는 Word와의 자동화 연결이 끊어졌습니다(오류 -609). 편집기가 실행 중인지 확인하고 시스템 설정 > 개인정보 보호 및 보안 > 자동화에서 IsiX DICOM Viewer의 제어를 허용한 후 다시 시도하십시오. 원본 보고서와 원본 영상은 보존되었습니다.";
@@ -4961,3 +4967,21 @@
 "Synthetic DWI needs images that all have pixels and the same width and height." = "합성 DWI에는 모든 이미지에 픽셀이 있고 너비와 높이가 같아야 합니다.";
 "Synthetic DWI needs the original files of the series." = "합성 DWI에는 시리즈의 원본 파일이 필요합니다.";
 "The synthetic DWI could not be written." = "합성 DWI를 기록할 수 없습니다.";
+"The plugin %@ was running when IsiX DICOM Viewer stopped without being asked to quit." = "IsiX DICOM Viewer가 종료 요청 없이 중지되었을 때 플러그인 %@이(가) 실행 중이었습니다.";
+"If the application was forced to quit, or the Mac was shut down or lost power, the plugin is probably not the cause and can stay." = "응용 프로그램이 강제 종료되었거나 Mac이 꺼졌거나 전원이 끊긴 경우, 플러그인이 원인이 아닐 가능성이 높으므로 그대로 두어도 됩니다.";
+"IsiX DICOM Viewer did not quit normally" = "IsiX DICOM Viewer가 정상적으로 종료되지 않았습니다";
+"IsiX DICOM Viewer is running in Protected Mode because the previous run stopped while loading a plugin: no plugin is loaded and no images are displayed.\n\nOff for this session: plugins, the DICOM listener (with and without TLS), auto-routing, automatic cleaning, the Web Portal, the XML-RPC server, Bonjour sharing, automatic update checks and window restoration. Your saved preferences are not changed.\n\nTo leave Protected Mode, quit IsiX DICOM Viewer and open it again." = "이전 실행이 플러그인을 로드하는 중에 중지되었기 때문에 IsiX DICOM Viewer가 보호 모드로 실행 중입니다. 플러그인이 로드되지 않으며 영상이 표시되지 않습니다.\n\n이번 세션에서 꺼진 항목: 플러그인, DICOM 수신(TLS 사용 및 미사용), 자동 라우팅, 자동 정리, 웹 포털, XML-RPC 서버, Bonjour 공유, 자동 업데이트 확인, 윈도우 복원. 저장된 환경설정은 변경되지 않습니다.\n\n보호 모드를 끝내려면 IsiX DICOM Viewer를 종료한 다음 다시 여십시오.";
+"Import Plugins from Horos or OsiriX…" = "Horos 또는 OsiriX에서 플러그인 가져오기…";
+"No new or newer plugins were found in the Horos or OsiriX plugins folders." = "Horos 또는 OsiriX 플러그인 폴더에서 새 플러그인이나 더 최신 버전의 플러그인을 찾지 못했습니다.";
+"Importing copies the plugins listed as new or newer to your IsiX plugins folders. The Horos and OsiriX folders are not changed." = "가져오면 새 항목 또는 더 최신 항목으로 표시된 플러그인이 IsiX 플러그인 폴더에 복사됩니다. Horos 및 OsiriX 폴더는 변경되지 않습니다.";
+"New or newer:" = "새 항목 또는 더 최신 항목:";
+"Left out:" = "제외됨:";
+"no version" = "버전 없음";
+"%1$@ replaces %2$@" = "%1$@이(가) %2$@을(를) 대체합니다";
+"%@: it is a symbolic link, not a plugin." = "%@: 심볼릭 링크이며 플러그인이 아닙니다.";
+"%@: it is an alias, not a plugin." = "%@: 가상본이며 플러그인이 아닙니다.";
+"%1$@: %2$@ has the same name and is used instead." = "%1$@: 이름이 같은 %2$@이(가) 대신 사용됩니다.";
+"%1$@: IsiX already has %2$@, which is newer." = "%1$@: IsiX에 더 최신인 %2$@이(가) 이미 있습니다.";
+"%1$@: IsiX already has %2$@, and their versions cannot be compared." = "%1$@: IsiX에 %2$@이(가) 이미 있으며 버전을 비교할 수 없습니다.";
+"%1$@ (%2$@) has the same name and was selected for loading instead of this plugin (%3$@). Remove the duplicate through Plugin Manager and restart IsiX DICOM Viewer." = "이름이 같은 %1$@ (%2$@)이(가) 이 플러그인 (%3$@) 대신 로드하도록 선택되었습니다. 플러그인 관리자에서 중복 항목을 제거하고 IsiX DICOM Viewer를 다시 시작하십시오.";
+"Hide ROI labels while Command-Shift is held" = "Command-Shift를 누르고 있는 동안 ROI 레이블 숨기기";

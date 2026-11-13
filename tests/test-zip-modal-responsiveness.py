@@ -6,8 +6,14 @@ extracted - an entry under an absolute path, bytes before the archive - and
 still refuses one whose encrypted entries a wrong password left behind, which
 ends with the same status. The password is typed on unzip's terminal, never
 given as -P.
+
+An archive a Windows tool wrote with \\ between folders is one of those: unzip
+puts the names right, warns and ends with 1. Its entries for the folders
+themselves are not files to look for, while a file that stayed behind still
+refuses the archive, and a file whose name really ends in \\ is still a file.
 """
 from pathlib import Path
+import struct
 import subprocess
 import sys
 import tempfile
@@ -104,10 +110,49 @@ int main(int argc, char **argv) { @autoreleasepool {
     check(status == 1);
     check([BrowserController unzipFile:@(argv[6]) withPassword:@"secret" destination:dest showGUI:NO terminationStatus:&status]);
     check(status == 0);
-    puts("PASS: ZIP wait processes main-run-loop events, releases its modal session, preserves bytes/archive, handles invalid ZIP, takes warned archives whole and refuses partial ones");
+    // The same warning about an absolute path, in an archive that also lists its folder.
+    check([BrowserController unzipFile:@(argv[7]) withPassword:nil destination:dest showGUI:NO terminationStatus:&status]);
+    check(status == 1);
+    check([NSFileManager.defaultManager fileExistsAtPath:[dest stringByAppendingPathComponent:@"ok/IMG2.dcm"]]);
+    // Backslashes between folders, without and with entries for the folders.
+    for (int i = 8; i <= 9; i++) {
+        check([BrowserController unzipFile:@(argv[i]) withPassword:nil destination:dest showGUI:NO terminationStatus:&status]);
+        check(status == 1);
+        check([NSFileManager.defaultManager fileExistsAtPath:[dest stringByAppendingPathComponent:@"ST_1/IM1.dcm"]]);
+        check([NSFileManager.defaultManager fileExistsAtPath:[dest stringByAppendingPathComponent:@"ST_1/IM2.dcm"]]);
+    }
+    // The same archive with one file left behind, then whole.
+    check(![BrowserController unzipFile:@(argv[10]) withPassword:@"wrong" destination:dest showGUI:NO terminationStatus:&status]);
+    check(status == 1);
+    check([BrowserController unzipFile:@(argv[10]) withPassword:@"secret" destination:dest showGUI:NO terminationStatus:&status]);
+    check(status == 1);
+    // A file whose name ends in a backslash is no folder: the one left behind is missed.
+    check(![BrowserController unzipFile:@(argv[11]) withPassword:@"wrong" destination:dest showGUI:NO terminationStatus:&status]);
+    check(status == 1);
+    check([BrowserController unzipFile:@(argv[11]) withPassword:@"secret" destination:dest showGUI:NO terminationStatus:&status]);
+    check(status == 0);
+    puts("PASS: ZIP wait processes main-run-loop events, releases its modal session, preserves bytes/archive, handles invalid ZIP, takes warned archives whole, those with backslashes between folders too, and refuses partial ones");
     return 0;
 }}
 '''
+
+
+def as_windows_archive(path):
+    """Rewrites an archive /usr/bin/zip made as a Windows tool writes one: every
+    entry says it comes from a FAT system, and its name has \\ between folders."""
+    data = bytearray(path.read_bytes())
+    end = data.rindex(b'PK\x05\x06')
+    count, _, at = struct.unpack_from('<HII', data, end + 10)
+    for _ in range(count):
+        name, extra, comment = struct.unpack_from('<HHH', data, at + 28)
+        local, = struct.unpack_from('<I', data, at + 42)
+        data[at + 5] = 0  # the system the entry was made on: FAT
+        data[at + 46:at + 46 + name] = data[at + 46:at + 46 + name].replace(b'/', b'\\')
+        data[local + 30:local + 30 + name] = data[local + 30:local + 30 + name].replace(b'/', b'\\')
+        at += 46 + name + extra + comment
+    path.write_bytes(data)
+
+
 with tempfile.TemporaryDirectory(prefix='horos-zip-modal-') as temporary:
     folder = Path(temporary)
     archive = folder / 'input.zip'
@@ -124,6 +169,28 @@ with tempfile.TemporaryDirectory(prefix='horos-zip-modal-') as temporary:
     (folder / 'image.dcm').write_bytes(b'encrypted synthetic DICOM')
     subprocess.run(['/usr/bin/zip', '-q', str(folder / 'mixed.zip'), 'plain.dcm'], cwd=folder, check=True)
     subprocess.run(['/usr/bin/zip', '-q', '-P', 'secret', str(folder / 'mixed.zip'), 'image.dcm'], cwd=folder, check=True)
+    # "stripped absolute path spec" again, with an entry for the folder itself.
+    with zipfile.ZipFile(folder / 'folders.zip', 'w') as zipped:
+        zipped.writestr('ok/', b'')
+        zipped.writestr('/abs/IMG1.dcm', b'first synthetic DICOM')
+        zipped.writestr('ok/IMG2.dcm', b'second synthetic DICOM')
+    # "appears to use backslashes as path separators": unzip ends with 1 on each
+    # of these. -D leaves the entry of the folder out; the last has one entry
+    # under a password, which a wrong one leaves behind.
+    (folder / 'ST_1').mkdir()
+    (folder / 'ST_1/IM1.dcm').write_bytes(b'first synthetic DICOM')
+    (folder / 'ST_1/IM2.dcm').write_bytes(b'second synthetic DICOM')
+    subprocess.run(['/usr/bin/zip', '-q', '-r', '-D', str(folder / 'backslash.zip'), 'ST_1'], cwd=folder, check=True)
+    subprocess.run(['/usr/bin/zip', '-q', '-r', str(folder / 'backslash-folders.zip'), 'ST_1'], cwd=folder, check=True)
+    subprocess.run(['/usr/bin/zip', '-q', str(folder / 'backslash-partial.zip'), 'ST_1/', 'ST_1/IM1.dcm'], cwd=folder, check=True)
+    subprocess.run(['/usr/bin/zip', '-q', '-P', 'secret', str(folder / 'backslash-partial.zip'), 'ST_1/IM2.dcm'], cwd=folder, check=True)
+    for name in ('backslash.zip', 'backslash-folders.zip', 'backslash-partial.zip'):
+        as_windows_archive(folder / name)
+    # Made here, where a backslash is a character of a name like another:
+    # unzip leaves such a name alone and writes a file under it.
+    (folder / 'odd\\').write_bytes(b'a synthetic file whose name ends in a backslash')
+    subprocess.run(['/usr/bin/zip', '-q', str(folder / 'named.zip'), 'odd\\'], cwd=folder, check=True)
+    subprocess.run(['/usr/bin/zip', '-q', '-P', 'secret', str(folder / 'named.zip'), 'image.dcm'], cwd=folder, check=True)
     (folder / 'main.m').write_text(driver)
     (folder / 'Bridge.h').write_text(bridge)
     (folder / 'Files.swift').write_text(extension)
@@ -149,7 +216,9 @@ with tempfile.TemporaryDirectory(prefix='horos-zip-modal-') as temporary:
         ['xcrun', 'swiftc', str(folder / 'main.o'), str(folder / 'swift.o'), str(folder / 'exception.o'),
          *isix_modules.module_flags('IsiXPreferences', folder / 'modules'), '-framework', 'AppKit', '-o', str(folder / 'check')],
         [str(folder / 'check'), str(archive), str(folder / 'output'), str(folder / 'invalid.zip'),
-         str(folder / 'absolute.zip'), str(folder / 'prefixed.zip'), str(folder / 'mixed.zip')],
+         str(folder / 'absolute.zip'), str(folder / 'prefixed.zip'), str(folder / 'mixed.zip'),
+         str(folder / 'folders.zip'), str(folder / 'backslash.zip'), str(folder / 'backslash-folders.zip'),
+         str(folder / 'backslash-partial.zip'), str(folder / 'named.zip')],
     ):
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode:

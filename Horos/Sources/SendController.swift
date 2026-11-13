@@ -83,6 +83,12 @@ public final class SendController: NSWindowController {
     private var _keyImageIndex: Int = 0
     private var _serverIndex: Int = 0
     private var _destinationServer: [AnyHashable: Any]?
+    /// Set by +sendFiles:toNode:usingSyntax:, whose sends take the series of
+    /// the application with them whatever the setting says.
+    private var _alwaysSendsAppSeries = false
+    /// The transfer syntax +sendFiles:toNode:usingSyntax: was asked for; nil
+    /// for a send of the sheet, which goes in the syntax the sheet shows.
+    private var _askedTransferSyntax: Int?
 
     // Outlets the xib sets: ivars of the former class. Send.xib also connects a
     // `sendSCU` outlet that the former class never had; AppKit logs it and goes
@@ -120,16 +126,16 @@ public final class SendController: NSWindowController {
     @objc(sendFiles:toNode:usingSyntax:)
     public class func sendFiles(_ files: [Any]!, toNode node: [AnyHashable: Any]!, usingSyntax syntax: Int32) {
         let sendController = SendController(files: files)
-        let preferences = sendController.processGraph.preferences
-        let s = preferences[NetworkPreferences.sendsROIs]
-
-        preferences.set(true, for: NetworkPreferences.sendsROIs)
-        preferences.set(Int(syntax), for: NetworkPreferences.sendTransferSyntax)
+        // A send asked this way takes the ROIs and the other series of the
+        // application with it, in the syntax asked, whatever the Send sheet
+        // shows: the send is told both, and the sheet's settings are not
+        // written. The syntax was once stored for the send to read, and left
+        // there as the one the sheet showed next.
+        sendController._alwaysSendsAppSeries = true
+        sendController._askedTransferSyntax = Int(syntax)
 
         _ = Unmanaged.passRetained(sendController) // given back once the send is queued
         sendController.sendToNode(node)
-
-        preferences.set(s, for: NetworkPreferences.sendsROIs)
     }
 
     @objc(sendFiles:)
@@ -423,7 +429,7 @@ public final class SendController: NSWindowController {
     /// the preferences; nil when nothing is left to send.
     private func sendRequest(to node: [AnyHashable: Any]?, objects: [Any]) -> DICOMSendRequest? {
         let preferences = processGraph.preferences
-        let sendsAppSeries = preferences[NetworkPreferences.sendsROIs]
+        let sendsAppSeries = _alwaysSendsAppSeries || preferences[NetworkPreferences.sendsROIs]
         let images = objects.compactMap { $0 as? DicomImage }
         var items: [DICOMSendSelection.Item] = []
         do {
@@ -461,7 +467,7 @@ public final class SendController: NSWindowController {
         let options = DICOMSendOptions(callingAETitle: UserDefaults.defaultAETitle(), associationsPerBatch: associations,
                                        mostConcurrentSends: preferences[NetworkPreferences.maximumSendGlobalControllerConcurrentThreads])
         return DICOMSendRequest(destination: destination, batches: batches,
-                                transferSyntax: preferences[NetworkPreferences.sendTransferSyntax], compression: 1,
+                                transferSyntax: _askedTransferSyntax ?? preferences[NetworkPreferences.sendTransferSyntax], compression: 1,
                                 route: route, options: options)
     }
 

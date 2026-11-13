@@ -64,7 +64,6 @@ import UniformTypeIdentifiers
 /// PluginManager class object, as [PluginManager ...] did.
 @objc private protocol PluginManagerMessages {
     @objc(pluginsList) func pluginsList() -> NSArray?
-    @objc(availabilities) func availabilities() -> NSArray?
     @objc(setMenus::::) func setMenus(_ filtersMenu: NSMenu?, _ roisMenu: NSMenu?, _ othersMenu: NSMenu?, _ dbMenu: NSMenu?)
     @objc(activatePluginWithName:) func activatePlugin(withName pluginName: String?)
     @objc(deactivatePluginWithName:) func deactivatePlugin(withName pluginName: String?)
@@ -191,9 +190,11 @@ public final class PluginManagerController: NSWindowController {
         return pluginsArray
     }
 
+    /// What the Availability column offers: the folders a plugin can be
+    /// moved to. The application itself is not one of them.
     @objc(availabilities)
     public func availabilities() -> NSArray! {
-        return pluginManager.availabilities()
+        return PluginManager.offeredAvailabilities() as NSArray
     }
 
     /// The row of the table's arranged objects: -objectAtIndex: raises for a
@@ -333,10 +334,37 @@ public final class PluginManagerController: NSWindowController {
         actions.spacing = 8
         actions.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(actions)
+        // At the other end of the row, under the list's left edge: installers of
+        // plugins made for Horos or OsiriX only know those applications' folders.
+        let importAgain = NSButton(title: NSLocalizedString("Import Plugins from Horos or OsiriX…", comment: ""), target: self, action: #selector(importLegacyPlugins(_:)))
+        importAgain.tag = Self.importButtonTag
+        importAgain.translatesAutoresizingMaskIntoConstraints = false
+        importAgain.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        importAgain.lineBreakMode = .byTruncatingTail
+        view.addSubview(importAgain)
         NSLayoutConstraint.activate([
             actions.trailingAnchor.constraint(equalTo: uninstallPluginButton.leadingAnchor, constant: -8),
             actions.centerYAnchor.constraint(equalTo: uninstallPluginButton.centerYAnchor),
+            importAgain.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Self.protectedModeNoticeInset),
+            importAgain.centerYAnchor.constraint(equalTo: uninstallPluginButton.centerYAnchor),
+            importAgain.trailingAnchor.constraint(lessThanOrEqualTo: actions.leadingAnchor, constant: -8),
         ])
+    }
+
+    static let importButtonTag = 16602
+
+    /// Looks again in the plugins folders of Horos and OsiriX for what was
+    /// installed or updated there since the copy offered at the first launch.
+    @objc(importLegacyPlugins:)
+    public func importLegacyPlugins(_ sender: Any?) {
+        guard let window else { return }
+        LegacySupportImportPrompt.importPluginsAgain(attachedTo: window,
+            replace: { source, installed in try PluginManager.replaceInstalledPlugin(at: installed, with: source) },
+            finished: { [weak self] changed in
+                guard changed else { return }
+                self?.refreshPluginList()
+                PluginManager.askForRestartAfterPluginChanges()
+            })
     }
 
     /// Why every plugin reads Blocked while protected mode is on, and how to

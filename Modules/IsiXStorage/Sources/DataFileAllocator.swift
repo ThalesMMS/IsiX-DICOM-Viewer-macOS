@@ -98,6 +98,14 @@ public enum DataFileNumbering {
 /// it below a number already given, whose file may not be written yet. The
 /// file system is read and written outside the lock, so a slow volume holds no
 /// other thread that only wants a number.
+///
+/// The folder alone does not say which numbers are taken: a record of the
+/// index names its file by its number, and still does when the file is gone
+/// from the folder (deleted by another program, a volume restored from a
+/// partial copy). A new file given that number would be read by that record,
+/// as an image of its study. So the count also goes on from `highestRecorded`,
+/// the highest number the index uses, asked each time the folder is read and
+/// never for a single file.
 public final class DataFileAllocator: Sendable {
     /// The number given last, 0 until the folder was read.
     private let given = Mutex<UInt64>(0)
@@ -128,11 +136,12 @@ public final class DataFileAllocator: Sendable {
 
     /// Reads the data folder and goes on from what it holds: removes the
     /// folders without a numbered file, which an interrupted import can leave,
-    /// and raises the number to the one after the files of the last folder.
-    /// Answers the number given last.
+    /// and raises the number to the one after the files of the last folder,
+    /// and to `highestRecorded`, the highest number a record of the index
+    /// uses, whose file may be gone. Answers the number given last.
     @discardableResult
     public func resume(fromDataFolder dataFolder: String, folderSize: UInt64,
-                       fileManager: FileManager = .default) -> UInt64 {
+                       fileManager: FileManager = .default, highestRecorded: () -> UInt64 = { 0 }) -> UInt64 {
         var numbered: [UInt64] = []
         for name in (try? fileManager.contentsOfDirectory(atPath: dataFolder)) ?? [] {
             let folder = (dataFolder as NSString).appendingPathComponent(name)
@@ -149,7 +158,7 @@ public final class DataFileAllocator: Sendable {
         let resuming = DataFileNumbering.resumingNumber(known: lastNumber, numberedFolders: numbered, folderSize: folderSize) { folder in
             (try? fileManager.contentsOfDirectory(atPath: (dataFolder as NSString).appendingPathComponent(String(folder)))) ?? []
         }
-        return raise(toAtLeast: resuming)
+        return raise(toAtLeast: max(resuming, highestRecorded()))
     }
 
     /// The path of a new file in `dataFolder`, which no other caller gets and
@@ -157,10 +166,13 @@ public final class DataFileAllocator: Sendable {
     /// folder ready, as the application makes its folders. A number whose file
     /// is already there, left by another program or by an earlier index, sends
     /// the count past what the folder holds once, then one number at a time.
+    /// `highestRecorded` is asked only when the folder is read: the first
+    /// time, and when a number's file is already there.
     public func uniquePath(inDataFolder dataFolder: String, extension fileExtension: String, folderSize: UInt64,
-                           fileManager: FileManager = .default, prepareFolder: (String) -> Void) -> String {
+                           fileManager: FileManager = .default, highestRecorded: () -> UInt64 = { 0 },
+                           prepareFolder: (String) -> Void) -> String {
         if lastNumber == 0 {
-            resume(fromDataFolder: dataFolder, folderSize: folderSize, fileManager: fileManager)
+            resume(fromDataFolder: dataFolder, folderSize: folderSize, fileManager: fileManager, highestRecorded: highestRecorded)
         }
         var index = next()
         var resumed = false
@@ -172,7 +184,7 @@ public final class DataFileAllocator: Sendable {
             }
             if !resumed {
                 resumed = true
-                resume(fromDataFolder: dataFolder, folderSize: folderSize, fileManager: fileManager)
+                resume(fromDataFolder: dataFolder, folderSize: folderSize, fileManager: fileManager, highestRecorded: highestRecorded)
             }
             index = next()
         }

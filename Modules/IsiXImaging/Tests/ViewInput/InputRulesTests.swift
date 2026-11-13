@@ -74,14 +74,26 @@ import Testing
     }
 
     @Test func modifiersTurnOnLabelsLargeDescriptionAndLens() {
-        #expect(ViewInput.suppressesLabels([.command, .shift, .option]))
-        #expect(!ViewInput.suppressesLabels(.command))
+        #expect(ViewInput.suppressesLabels([.command, .shift, .option], enabled: true))
+        #expect(!ViewInput.suppressesLabels(.command, enabled: true))
         #expect(ViewInput.showsDescriptionInLarge([.control, .capsLock]))
         #expect(!ViewInput.showsDescriptionInLarge([.control, .option]))
         #expect(ViewInput.isShiftAlone([.shift, .capsLock]))
         #expect(!ViewInput.isShiftAlone([.shift, .control]))
         #expect(ViewInput.syncsPatientPoint([.shift, .control, .option]))
         #expect(!ViewInput.syncsPatientPoint(.shift))
+    }
+
+    /// Command-Shift hides the labels only where the Viewers settings turn
+    /// it on: off, no combination of modifiers hides them.
+    @Test func commandShiftHidesTheLabelsOnlyWhenTheSettingsAskForIt() {
+        let held: [ViewInput.Modifiers] = [[], .shift, .command, [.command, .shift], [.command, .shift, .option],
+                                           [.command, .shift, .control, .capsLock], [.shift, .control], [.command, .option]]
+        for modifiers in held {
+            let both = modifiers.contains(.command) && modifiers.contains(.shift)
+            #expect(ViewInput.suppressesLabels(modifiers, enabled: true) == both)
+            #expect(!ViewInput.suppressesLabels(modifiers, enabled: false))
+        }
     }
 
     @Test func doubleClickRotatesByQuarters() {

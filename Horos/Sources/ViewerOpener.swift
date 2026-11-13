@@ -178,6 +178,43 @@ private struct ComparativeOpeningRules: Sendable {
     /// series being opened.
     private var subSeriesLists: [Any]?
     private var comparativeOpening: ComparativeOpening?
+    /// The study whose saved workspace waits for studies asked of a node.
+    private var workspaceOpening: (wait: StudyOpeningWait, study: NSManagedObjectID)?
+
+    /// What the status line of the database window says, in front of the
+    /// rest, while the opening of a study waits for studies of a node: which
+    /// study is opening, what it waits for and how to open it without them.
+    /// nil when no opening waits.
+    private(set) var openingNotice: String? {
+        didSet {
+            if openingNotice != oldValue { browser.studyList.showDescription() }
+        }
+    }
+
+    /// The notice of the opening that waits, with the row that was selected
+    /// when it was asked for. The study opens only if that row still is, so
+    /// the notice shows only while it is; it goes with the wait.
+    private var waitingNotice: (text: String, row: NSManagedObjectID?)? {
+        didSet { showWaitingNotice() }
+    }
+    private var waitingNoticeObserver: NSObjectProtocol?
+
+    private func showWaitingNotice() {
+        guard let waitingNotice else {
+            if let waitingNoticeObserver { NotificationCenter.default.removeObserver(waitingNoticeObserver) }
+            waitingNoticeObserver = nil
+            openingNotice = nil
+            return
+        }
+        if waitingNoticeObserver == nil, let outline = browser.horos_databaseOutline {
+            // The list tells its selection on the main thread, as it changes.
+            waitingNoticeObserver = NotificationCenter.default.addObserver(forName: NSOutlineView.selectionDidChangeNotification,
+                                                                           object: outline, queue: nil) { [weak self] _ in
+                MainActor.assumeIsolated { self?.showWaitingNotice() }
+            }
+        }
+        openingNotice = waitingNotice.row == selectedOpeningRowID ? waitingNotice.text : nil
+    }
 
     /// What the thumbnails show after the series of the selected study.
     var excludedSeries: [ExcludedSeries] = []
@@ -348,7 +385,15 @@ private struct ComparativeOpeningRules: Sendable {
                 } else {
                     // Open series: an array of the images of each series.
                     var toOpenArray: [[Any]] = []
-                    if cells.count == 1 && selectedLines.count > 1 {
+                    // The thumbnails are those of the row selected in the list:
+                    // they stand for the line to open only when it is of their
+                    // study. A study opened while another row is selected (from
+                    // a viewer, a menu or a plugin) opens by its own lines; the
+                    // thumbnails opened the selected study in its place.
+                    let matrixViewArray = self.browser.horos_matrixViewArray ?? []
+                    let thumbnailsStudy = (matrixViewArray.first as? DicomSeries)?.study ?? (matrixViewArray.first as? DicomImage)?.series?.study
+                    let ofThumbnails = Self.thumbnailsStand(forLineOf: (study as? NSManagedObject)?.objectID, thumbnailsOf: thumbnailsStudy?.objectID)
+                    if (cells.count == 1 && selectedLines.count > 1) || !ofThumbnails {
                         // Just one thumbnail is selected, but multiple lines are selected.
                         for line in selectedLines {
                             var curFile = line
@@ -367,7 +412,6 @@ private struct ComparativeOpeningRules: Sendable {
                         }
                     } else {
                         // A placeholder of a series left out names no row.
-                        let matrixViewArray = self.browser.horos_matrixViewArray ?? []
                         for curFile in ThumbnailCellTag.rows(tags: cells.map(\.tag), of: matrixViewArray) {
                             var loadList: [Any]?
                             if isRowType(curFile, "Image") {
@@ -408,6 +452,14 @@ private struct ComparativeOpeningRules: Sendable {
         }
     }
 
+    /// Whether the thumbnails stand for a line to open: they are those of the
+    /// study selected in the list, so they do unless the line is known to be
+    /// of another study.
+    nonisolated static func thumbnailsStand<Study: Equatable>(forLineOf lineStudy: Study?, thumbnailsOf thumbnailsStudy: Study?) -> Bool {
+        guard let lineStudy, let thumbnailsStudy else { return true }
+        return lineStudy == thumbnailsStudy
+    }
+
     // MARK: - Commands
 
     /// "Open Images": with Shift the selection merged in one viewer.
@@ -433,13 +485,19 @@ private struct ComparativeOpeningRules: Sendable {
             if let e = HorosObjCException.caught({
                 if sender == nil && (self.browser.horos_oMatrix?.selectedCells.count ?? 0) == 1 && isRowType(item, "Study") {
                     let array = self.browser.databaseSelection() ?? []
-                    let savedValue = self.preferences[ViewerPreferences.automaticWorkspaceLoad]
-                    if array.count > 1 && savedValue { self.preferences.set(false, for: ViewerPreferences.automaticWorkspaceLoad) }
-                    for obj in array {
-                        if let outline { OutlineSelectionRestore.select(obj, in: outline, extending: false) }
-                        self.openStudy(obj as? NSManagedObject)
+                    let openEach = {
+                        for obj in array {
+                            if let outline { OutlineSelectionRestore.select(obj, in: outline, extending: false) }
+                            self.openStudy(obj as? NSManagedObject)
+                        }
                     }
-                    if array.count > 1 && savedValue { self.preferences.set(true, for: ViewerPreferences.automaticWorkspaceLoad) }
+                    // Several studies open side by side, none with its saved layout:
+                    // the automatic load is off for this process while they open.
+                    if array.count > 1 {
+                        TemporaryPreferenceWork.during(ViewerPreferences.automaticWorkspaceLoad, at: false, openEach)
+                    } else {
+                        openEach()
+                    }
                 } else {
                     // A selected placeholder of a series left out names no
                     // row: nothing opens, as for a tag past the rows.
@@ -539,6 +597,13 @@ private struct ComparativeOpeningRules: Sendable {
     /// external application opens it; a study by the workspace saved with it,
     /// then by its hanging protocol; a study of a node is retrieved first.
     func openStudy(_ item: NSManagedObject?) {
+        // Asked again while its workspace waits for a node, the study is
+        // opening already: starting over would ask the node for it twice.
+        if let pending = workspaceOpening, pending.wait.isPending,
+           ((item as AnyObject?) as? DicomStudy)?.objectID == pending.study {
+            return
+        }
+        abandonWorkspaceOpening()
         cancelComparativeOpening()
         // #ifndef  OSIRIX_LIGHT
         if let node = (item as AnyObject?) as? DCMTKStudyQueryNode {
@@ -572,22 +637,31 @@ private struct ComparativeOpeningRules: Sendable {
             }
 
             if currentStudy?.windowsState != nil && preferences[ViewerPreferences.automaticWorkspaceLoad] {
+                // Studies of the workspace that a node has to send are waited
+                // for away from the main thread; the study opens after them.
+                if let currentStudy, let database, waitForWorkspaceStudies(of: currentStudy, in: database) { return }
                 restoreWorkspace(of: currentStudy)
             }
 
-            // The hanging protocol prevails over the workspace when a study opens.
-            WindowLayoutManager.shared()?.setCurrentHangingProtocolForModality(currentStudy?.modality, description: currentStudy?.studyName)
-
-            let currentHangingProtocol = WindowLayoutManager.shared()?.currentHangingProtocol
-
-            open(currentStudy, withProtocol: currentHangingProtocol as? [AnyHashable: Any])
+            openByHangingProtocol(currentStudy)
         }
+    }
+
+    /// The study by the hanging protocol of its modality and description,
+    /// which prevails over the workspace when a study opens.
+    private func openByHangingProtocol(_ currentStudy: DicomStudy?) {
+        WindowLayoutManager.shared()?.setCurrentHangingProtocolForModality(currentStudy?.modality, description: currentStudy?.studyName)
+
+        let currentHangingProtocol = WindowLayoutManager.shared()?.currentHangingProtocol
+
+        open(currentStudy, withProtocol: currentHangingProtocol as? [AnyHashable: Any])
     }
 
     /// The series of a study, opened by a hanging protocol: their order, the
     /// comparative studies, the number of windows, the synchronization, the
     /// propagation and the window of each viewer.
     func open(_ currentStudy: DicomStudy?, withProtocol currentHangingProtocol: [AnyHashable: Any]?) {
+        abandonWorkspaceOpening()
         cancelComparativeOpening()
         if let currentStudy, let currentHangingProtocol, let database,
            plistBool(currentHangingProtocol["Comparative"]),
@@ -598,16 +672,27 @@ private struct ComparativeOpeningRules: Sendable {
         }
     }
 
+    /// A protocol lays its windows out by tiling them, also for a person who
+    /// does not have new windows tiled: "AUTOTILING" is on for this process
+    /// while the study opens (TemporaryPreferenceWork). The Viewers pane, when
+    /// it is open, stores the full-screen size of a viewer's window
+    /// ("WINDOWSIZEVIEWER") as soon as it sees tiling on: the size stored
+    /// before is put back when the study has opened, and nothing is written
+    /// when the pane stored nothing.
     private func openPrepared(_ currentStudy: DicomStudy?, withProtocol currentHangingProtocol: [AnyHashable: Any]?,
                               comparatives studies: [DicomStudy]) {
-        var restoreNoAutotiling = false
-        var viewerWindowSize: Int32 = 0
-        if preferences[ViewerPreferences.autoTiling] != true {
-            restoreNoAutotiling = true
-            viewerWindowSize = Int32(truncatingIfNeeded: preferences[ViewerPreferences.viewerWindowSize])
-            preferences.set(true, for: ViewerPreferences.autoTiling)
+        guard preferences[ViewerPreferences.autoTiling] != true else {
+            return openTiled(currentStudy, withProtocol: currentHangingProtocol, comparatives: studies)
         }
+        StoredPreference(ViewerPreferences.viewerWindowSize).whileWorking {
+            TemporaryPreferenceWork.during(ViewerPreferences.autoTiling, at: true) {
+                openTiled(currentStudy, withProtocol: currentHangingProtocol, comparatives: studies)
+            }
+        }
+    }
 
+    private func openTiled(_ currentStudy: DicomStudy?, withProtocol currentHangingProtocol: [AnyHashable: Any]?,
+                           comparatives studies: [DicomStudy]) {
         let children = browser.childrenArray(currentStudy) ?? []
 
         if !hasDisplayedSeries(from: children) {
@@ -615,8 +700,12 @@ private struct ComparativeOpeningRules: Sendable {
                 DCMView.setSyncro(Int16(plistBool(sync) ? syncroLOC : syncroOFF))
             }
 
+            // Stored on purpose, and never put back: the protocol gives the
+            // propagation of settings as the Propagate button does, and it stays
+            // as the protocol left it. A choice, which ends what the work under
+            // way held of the key.
             if let propagate = currentHangingProtocol?["Propagate"] {
-                preferences.set(plistBool(propagate), for: ViewerPreferences.copySettings)
+                TemporaryPreferenceHolds.standard.choose(plistBool(propagate), for: ViewerPreferences.copySettings)
             }
 
             var seriesArray: [Any]
@@ -677,11 +766,6 @@ private struct ComparativeOpeningRules: Sendable {
             } else if p["WL"] != nil && p["WW"] != nil {
                 v.imageView()?.setWLWW(plistFloat(p["WL"]), plistFloat(p["WW"]))
             }
-        }
-
-        if restoreNoAutotiling {
-            preferences.set(false, for: ViewerPreferences.autoTiling)
-            preferences.set(Int(viewerWindowSize), for: ViewerPreferences.viewerWindowSize)
         }
     }
 
@@ -755,33 +839,61 @@ private struct ComparativeOpeningRules: Sendable {
         return (outline.item(atRow: outline.selectedRow) as? NSManagedObject)?.objectID
     }
 
-    private func cancelComparativeOpening() {
-        comparativeOpening?.deadline?.cancel()
-        comparativeOpening?.work?.cancel()
-        comparativeOpening = nil
+    /// The notice of a study that is opening and waits for studies of a node.
+    private func notice(ofOpening study: DicomStudy) -> String {
+        String(format: NSLocalizedString("OPENING %@: waiting for studies from the PACS; cancel the retrieve in Activity to open without them. / ", comment: ""),
+               study.name ?? "")
     }
 
+    /// Ends the wait for the comparatives, however it ends: its notice goes
+    /// with it.
+    private func cancelComparativeOpening() {
+        guard let opening = comparativeOpening else { return }
+        opening.deadline?.cancel()
+        opening.work?.cancel()
+        comparativeOpening = nil
+        waitingNotice = nil
+    }
+
+    /// The comparatives of the study, looked for and retrieved on a thread of
+    /// its own that Activity lists with its Cancel button; the study opens
+    /// with those that are in the database when the thread ends, when it is
+    /// cancelled there, or 30 seconds after a node was found to have some.
+    /// While the nodes are asked (PACS On-Demand), the status line of the
+    /// database window says so. Nothing opens if another opening took its
+    /// place, or if the selection or the database changed meanwhile.
     private func prepareComparativeOpening(_ study: DicomStudy, in database: DicomDatabase, options: [AnyHashable: Any]) {
         let opening = ComparativeOpening()
         comparativeOpening = opening
         let selected = selectedOpeningRowID
+        // Without the nodes the comparatives are local and found at once.
+        if preferences[NetworkPreferences.searchesComparativeStudiesOnDICOMNodes], !database.isReadOnly, database.isLocal() {
+            waitingNotice = (text: notice(ofOpening: study), row: selected)
+        }
         let studyID = study.objectID
         let destination = Handed(value: database)
         let rules = ComparativeOpeningRules(options)
         let browser = self.browser
         let graph = processGraph
 
+        // The wait ends in a task of the main actor, and opening a study may
+        // show a sheet or an alert: a modal run from that task would serve
+        // neither the main actor nor the main queue until it is answered. The
+        // opening goes on from the main run loop instead; an opening replaced
+        // before the run loop comes to it does not go on.
         let finish: @MainActor @Sendable () -> Void = { [weak self] in
-            guard let self, self.comparativeOpening === opening else { return }
-            self.cancelComparativeOpening()
-            guard self.database === database, self.selectedOpeningRowID == selected,
-                  let current = database.object(withID: studyID) as? DicomStudy, !current.isDeleted else { return }
-            let comparisons = opening.orderedIDs().compactMap { database.object(withID: $0) as? DicomStudy }
-            self.openPrepared(current, withProtocol: options, comparatives: comparisons)
+            onMainRunLoop {
+                guard let self, self.comparativeOpening === opening else { return }
+                self.cancelComparativeOpening()
+                guard self.database === database, self.selectedOpeningRowID == selected,
+                      let current = database.object(withID: studyID) as? DicomStudy, !current.isDeleted else { return }
+                let comparisons = opening.orderedIDs().compactMap { database.object(withID: $0) as? DicomStudy }
+                self.openPrepared(current, withProtocol: options, comparatives: comparisons)
+            }
         }
 
         opening.work = Task { [weak self] in
-            let completed = await ActivityThread.run(name: NSLocalizedString("Retrieving images...", comment: "")) {
+            _ = await ActivityThread.run(name: NSLocalizedString("Retrieving images...", comment: "")) {
                 let thread = Handed(value: Thread.current)
                 guard !thread.value.isCancelled else { return false }
                 guard let worker = destination.value.privateQueueIndependentDatabase() as? DicomDatabase else { return true }
@@ -839,7 +951,10 @@ private struct ComparativeOpeningRules: Sendable {
                 }
                 return !thread.value.isCancelled
             }
-            if completed && !Task.isCancelled {
+            // A thread cancelled in Activity ends the wait, not the opening:
+            // the study opens with the comparatives found so far. A cancelled
+            // task is an opening that another one replaced.
+            if !Task.isCancelled {
                 finish()
             } else if self?.comparativeOpening === opening {
                 self?.cancelComparativeOpening()
@@ -849,14 +964,19 @@ private struct ComparativeOpeningRules: Sendable {
 
     // MARK: - Workspaces
 
+    /// The viewers of the workspace saved with the study, each a dictionary
+    /// of its settings.
+    private func savedWorkspaceViewers(of study: DicomStudy?) -> [[String: Any]] {
+        let saved = study?.windowsState.flatMap { try? PropertyListSerialization.propertyList(from: $0, options: [], format: nil) } as? [Any] ?? []
+        return saved.map { $0 as? [String: Any] ?? [:] }
+    }
+
     /// The viewers of the workspace saved with the study, when it holds the
-    /// study: their series fetched (from a node when they are missing and the
-    /// comparative search asks the nodes), opened, placed at their saved
-    /// frames or tiled, with their window, zoom, pan, rotation and flips.
+    /// study: their series fetched, opened, placed at their saved frames or
+    /// tiled, with their window, zoom, pan, rotation and flips. The series
+    /// that are not in the database are left out.
     private func restoreWorkspace(of currentStudy: DicomStudy?) {
-        let saved = currentStudy?.windowsState.flatMap { try? PropertyListSerialization.propertyList(from: $0, options: [], format: nil) } as? [Any] ?? []
-        // Each viewer saved is a dictionary of its settings.
-        let viewers: [[String: Any]] = saved.map { $0 as? [String: Any] ?? [:] }
+        let viewers = savedWorkspaceViewers(of: currentStudy)
 
         // Check if this windowsState contains at least this study...
         guard viewers.contains(where: { sameString(currentStudy?.studyInstanceUID, $0["studyInstanceUID"]) }) else { return }
@@ -870,17 +990,6 @@ private struct ComparativeOpeningRules: Sendable {
         var syncSettings: Any? = nil
         var SYNCSERIES: Any? = nil
         var syncButtonBehaviorIsBetweenStudies: Any? = nil
-
-        if preferences[NetworkPreferences.searchesComparativeStudiesOnDICOMNodes] {
-            showWaitWindow()
-
-            // Check if all studies are available, available on PACS-On-Demand ?
-            for dict in viewers {
-                retrieveIfMissing(studyUID: dict["studyInstanceUID"])
-            }
-
-            closeWaitWindow()
-        }
 
         for dict in viewers {
             let studyUID = dict["studyInstanceUID"]
@@ -948,8 +1057,11 @@ private struct ComparativeOpeningRules: Sendable {
             DCMView.setSyncro(Int16(plistBool(syncSettings) ? syncroLOC : syncroOFF))
         }
 
+        // Stored on purpose, and never put back: the saved layout brings the
+        // propagation of settings it was saved with, as the Propagate button
+        // would set it. A choice, which ends what the work under way held.
         if let propagateSettings {
-            preferences.set(plistBool(propagateSettings), for: ViewerPreferences.copySettings)
+            TemporaryPreferenceHolds.standard.choose(plistBool(propagateSettings), for: ViewerPreferences.copySettings)
         }
 
         showWaitWindow()
@@ -1117,53 +1229,85 @@ private struct ComparativeOpeningRules: Sendable {
         (displayedViewers.last as? ViewerController)?.redrawToolbar()
     }
 
-    /// A study of the workspace missing from the database, asked of the
-    /// comparative nodes (PACS On-Demand) and retrieved: waited for until its
-    /// image count stops changing, 20 seconds at most.
-    private func retrieveIfMissing(studyUID: Any?) {
-        let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Study")
-        request.predicate = NSPredicate(format: "studyInstanceUID == %@", argumentArray: [studyUID ?? NSNull()])
+    private func abandonWorkspaceOpening() {
+        workspaceOpening?.wait.abandon()
+        workspaceOpening = nil
+    }
 
-        let context = database?.managedObjectContext
-        var studiesArray = try? context?.fetch(request)
+    /// How long the opening of a study waits for the studies of its workspace
+    /// that a node has to send.
+    nonisolated static let workspaceStudiesPatience: Duration = .seconds(30)
 
-        guard (studiesArray?.count ?? 0) == 0 else { return }
-        // #ifndef OSIRIX_LIGHT
-        let servers = processGraph.pacsOnDemand.nodes.comparativeServers()
+    /// Whether the opening of the study has to wait: its saved workspace
+    /// holds it, with studies that are not in the database, and the
+    /// comparative search asks the nodes (PACS On-Demand). Those studies are
+    /// then asked of the nodes and retrieved on a thread of their own, which
+    /// Activity lists with its Cancel button, and the study opens, by its
+    /// workspace then its hanging protocol, when they have arrived, when that
+    /// thread is cancelled or when the patience runs out, with what is in the
+    /// database by then. Meanwhile the status line of the database window
+    /// says that the study is opening. Nothing opens if the selection or the
+    /// database changed meanwhile.
+    private func waitForWorkspaceStudies(of study: DicomStudy, in database: DicomDatabase) -> Bool {
+        guard preferences[NetworkPreferences.searchesComparativeStudiesOnDICOMNodes] else { return false }
+        let viewers = savedWorkspaceViewers(of: study)
+        guard viewers.contains(where: { sameString(study.studyInstanceUID, $0["studyInstanceUID"]) }) else { return false }
 
-        let distantStudy = QueryController.queryStudies(forFilters: ["StudyInstanceUID" as AnyHashable: studyUID ?? NSNull()], servers: servers, showErrors: false)?.lastObject as? DCMTKStudyQueryNode
-
-        guard let distantStudy else { return }
-        // No time for decompression; the setting is shared with the comparative
-        // retrievals that may be running.
-        ListenerCompressionSuspension.shared.begin()
-
-        QueryController.retrieveStudies([distantStudy], showErrors: false, checkForPreviousAutoRetrieve: true)
-
-        var lastNumberOfImages = 0, currentNumberOfImages = 0
-        let dateStart = Date.timeIntervalSinceReferenceDate
-
-        repeat {
-            Thread.sleep(forTimeInterval: 0.1)
-
-            lastNumberOfImages = (studiesArray?.last as? DicomStudy)?.images()?.count ?? 0
-
-            _ = processGraph.databaseIngest.importQueueNow()
-
-            // And find the study locally
-            let r = NSFetchRequest<NSFetchRequestResult>(entityName: "Study")
-            r.predicate = NSPredicate(format: "studyInstanceUID == %@", argumentArray: [studyUID ?? NSNull()])
-
-            if let e = HorosObjCException.caught({
-                studiesArray = try? context?.fetch(r)
-            }) { BrowserObjC.log(e, stack: true, "-[BrowserController databaseOpenStudy:]") }
-
-            currentNumberOfImages = (studiesArray?.last as? DicomStudy)?.images()?.count ?? 0
+        var asked: [String] = []
+        for uid in viewers.compactMap({ $0["studyInstanceUID"] as? String }) where !asked.contains(uid) {
+            let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Study")
+            request.predicate = NSPredicate(format: "studyInstanceUID == %@", uid)
+            if ((try? database.managedObjectContext?.count(for: request)) ?? 0) == 0 { asked.append(uid) }
         }
-        while ((studiesArray?.count ?? 0) == 0 || lastNumberOfImages != currentNumberOfImages) && Date.timeIntervalSinceReferenceDate - dateStart < 20
+        let missing = asked
+        guard !missing.isEmpty else { return false }
 
-        ListenerCompressionSuspension.shared.end()
-        // #endif
+        let selected = selectedOpeningRowID
+        let studyID = study.objectID
+        let destination = Handed(value: database)
+        let retrieves = browser.comparativeState.retrieves
+        let graph = processGraph
+        let notice = notice(ofOpening: study)
+        let wait = StudyOpeningWait(activity: NSLocalizedString("Retrieving images...", comment: ""), limit: Self.workspaceStudiesPatience) {
+            ViewerOpener.retrieveWorkspaceStudies(missing, into: destination.value, retrieves: retrieves, graph: graph)
+        } waiting: { [weak self] waiting in
+            self?.waitingNotice = waiting ? (text: notice, row: selected) : nil
+        } then: { [weak self] in
+            guard let self else { return }
+            self.workspaceOpening = nil
+            guard self.database === database, self.selectedOpeningRowID == selected,
+                  let current = database.object(withID: studyID) as? DicomStudy, !current.isDeleted else { return }
+            self.restoreWorkspace(of: current)
+            self.openByHangingProtocol(current)
+        }
+        workspaceOpening = (wait, studyID)
+        return true
+    }
+
+    /// On the calling thread, never the main one: each of `studyUIDs` is
+    /// asked of the comparative nodes and, when one of them has it, retrieved
+    /// into `database` and imported. A node may answer more than it was
+    /// asked, so only the study asked for is retrieved. A study already on
+    /// its way, from the history or from an opening that stopped waiting, is
+    /// waited for instead of being asked for twice. A cancelled thread asks
+    /// for nothing more.
+    nonisolated static func retrieveWorkspaceStudies(_ studyUIDs: [String], into database: DicomDatabase,
+                                                     retrieves: DistantStudyRetrieves, graph: ProcessGraph) {
+        let servers = graph.pacsOnDemand.nodes.comparativeServers()
+        guard !servers.isEmpty else { return }
+        for uid in studyUIDs {
+            guard !Thread.current.isCancelled, graph.activeLocalDatabase === database else { return }
+            if retrieves.isRetrieving(studyInstanceUID: uid) {
+                while retrieves.isRetrieving(studyInstanceUID: uid) && !Thread.current.isCancelled {
+                    Thread.sleep(forTimeInterval: 0.2)
+                }
+                continue
+            }
+            let found = QueryController.queryStudies(forFilters: ["StudyInstanceUID": uid], servers: servers, showErrors: false) as? [Any] ?? []
+            let node = found.compactMap { $0 as? DCMTKStudyQueryNode }.last { sameString($0.studyInstanceUID(), uid) }
+            guard let node, !Thread.current.isCancelled else { continue }
+            retrieves.retrieveNow(node, in: database)
+        }
     }
 
     // MARK: - External viewer

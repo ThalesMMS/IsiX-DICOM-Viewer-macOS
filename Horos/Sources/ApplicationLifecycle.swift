@@ -569,6 +569,12 @@ import IsiXStorage
     /// window's visibility kept for the next launch, the import and the
     /// listeners stopped, the background threads given ten seconds.
     func finishTermination(_ sender: Any?) {
+        // Quitting was asked for and agreed to. A plugin whose dialog is still
+        // open, so that its code is on the stack, did not stop anything: its
+        // note goes now, before the waits below, and not only when the
+        // application terminates.
+        PluginManager.endProtectForCrash()
+
         preferences.set(QueryController.current()?.window?.isVisible ?? false, for: ApplicationPreferences.isQueryWindowVisible)
         for window in NSApp.windows {
             window.orderOut(sender)
@@ -620,6 +626,12 @@ import IsiXStorage
     /// temporary folders emptied: what is still in the incoming folder goes to
     /// the Trash, where it stays recoverable.
     func willTerminate() {
+        // Every orderly end comes through here, also one that did not come
+        // through the Quit command (the Dock, the system shutting down): the
+        // note naming a plugin on the stack is only left by an end that was not
+        // asked for.
+        PluginManager.endProtectForCrash()
+
         DICOMTLS.eraseKeys()
 
         controller.xmlrpcServer = nil

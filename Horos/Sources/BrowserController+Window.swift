@@ -423,19 +423,6 @@ extension BrowserController {
             }
 
             if let raised = HorosObjCException.caught({
-                let defaults = UserDefaults.standard
-                if !defaults.hasArgumentOverride(forKey: "hideListenerError") {
-                    let hideListenerError = defaults.bool(forKey: "hideListenerError")
-
-                    defaults.set(hideListenerError, forKey: "copyHideListenerError")
-                    defaults.set(true, forKey: "hideListenerError")
-                    defaults.synchronize()
-
-                    defaults.set(hideListenerError, forKey: "hideListenerError")
-                    defaults.removeObject(forKey: "copyHideListenerError")
-                    defaults.synchronize()
-                }
-
                 // No PACS On-Demand query is left running.
                 self.pacsOnDemand.cancelAll()
 

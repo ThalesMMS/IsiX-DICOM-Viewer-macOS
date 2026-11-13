@@ -12,6 +12,7 @@
 
 import CoreGraphics
 import Foundation
+import Synchronization
 
 /// A start that leaves out everything that can make the application close by
 /// itself while it opens, so that the user can reach the database and delete
@@ -71,6 +72,18 @@ public final class ProtectedMode: NSObject {
         NSLog("WARNING ---- Protected Mode Activated: no plugins, no images, no DICOM listener, auto-routing, automatic cleaning, Web Portal, XML-RPC server, Bonjour publishing, automatic update checks or window restoration")
     }
 
+    /// Turns the mode on for a launch that found the note of a plugin that
+    /// stopped while it was loading. Nobody held a key for it, so the alert
+    /// says why the mode is on and does not speak of the keys.
+    @objc public static func activateAfterPluginFailure() {
+        if !isActive { startedAfterPluginFailure.withLock { $0 = true } }
+        DCMPix.setRunOsiriXInProtectedMode(true)
+        NSLog("WARNING ---- Protected Mode Activated for this session: the previous run stopped while loading a plugin")
+    }
+
+    /// Set once, by the plugin discovery of the launch, and read by the alert.
+    private static let startedAfterPluginFailure = Mutex(false)
+
     @objc public static var isActive: Bool {
         DCMPix.isRunOsiriXInProtectedModeActivated()
     }
@@ -85,6 +98,9 @@ public final class ProtectedMode: NSObject {
 
     /// The sentence of the alert shown when the browser opens in this mode.
     @objc public static var alertMessage: String {
-        NSLocalizedString("IsiX DICOM Viewer is running in Protected Mode: no images are displayed, so you can delete a study that makes it close by itself.\n\nOff for this session: plugins, the DICOM listener (with and without TLS), auto-routing, automatic cleaning, the Web Portal, the XML-RPC server, Bonjour sharing, automatic update checks and window restoration. Your saved preferences are not changed.\n\nTo leave Protected Mode, quit IsiX DICOM Viewer and open it again without holding Shift and Option.", comment: "Protected Mode alert")
+        guard startedAfterPluginFailure.withLock({ $0 }) else {
+            return NSLocalizedString("IsiX DICOM Viewer is running in Protected Mode: no images are displayed, so you can delete a study that makes it close by itself.\n\nOff for this session: plugins, the DICOM listener (with and without TLS), auto-routing, automatic cleaning, the Web Portal, the XML-RPC server, Bonjour sharing, automatic update checks and window restoration. Your saved preferences are not changed.\n\nTo leave Protected Mode, quit IsiX DICOM Viewer and open it again without holding Shift and Option.", comment: "Protected Mode alert")
+        }
+        return NSLocalizedString("IsiX DICOM Viewer is running in Protected Mode because the previous run stopped while loading a plugin: no plugin is loaded and no images are displayed.\n\nOff for this session: plugins, the DICOM listener (with and without TLS), auto-routing, automatic cleaning, the Web Portal, the XML-RPC server, Bonjour sharing, automatic update checks and window restoration. Your saved preferences are not changed.\n\nTo leave Protected Mode, quit IsiX DICOM Viewer and open it again.", comment: "Protected Mode alert after a plugin stopped the previous launch")
     }
 }

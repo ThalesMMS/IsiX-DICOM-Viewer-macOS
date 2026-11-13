@@ -94,7 +94,8 @@ public struct AcquisitionParameters: Equatable, Sendable {
 }
 
 /// The display shutter: a rectangle, a circle or a polygon outside which the
-/// image is not shown.
+/// image is not shown. All in pixels of the image, x the column and y the
+/// row, whatever the order the object states them in.
 public struct DisplayShutter: Equatable, Sendable {
     public var enabled = false
     public var rect = CGRect.zero

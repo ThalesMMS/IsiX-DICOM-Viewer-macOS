@@ -75,10 +75,28 @@ if mode == "requested" {
     assert(!defaults.bool(forKey: "ApplePersistenceIgnoreState"))
 }
 
+let services = ["plugins", "DICOM listener", "TLS", "auto-routing", "automatic cleaning", "Web Portal",
+                "XML-RPC", "Bonjour", "update checks", "window restoration", "quit"]
 let message = ProtectedMode.alertMessage
-for word in ["plugins", "DICOM listener", "TLS", "auto-routing", "automatic cleaning", "Web Portal",
-             "XML-RPC", "Bonjour", "update checks", "window restoration", "Shift and Option", "quit"] {
+for word in services + ["Shift and Option"] {
     assert(message.contains(word), word)
+}
+
+// A launch that found the note of a plugin that stopped while loading turns the
+// mode on by itself. Nobody held a key: the alert says why, and not which keys
+// to let go of. A mode the keys asked for keeps its own sentence.
+let asked = ProtectedMode.isActive
+ProtectedMode.activateAfterPluginFailure()
+assert(ProtectedMode.isActive, "the note of a plugin must turn the mode on")
+let after = ProtectedMode.alertMessage
+if asked {
+    assert(after == message, "the keys asked for the mode first: its alert must not change")
+} else {
+    for word in services + ["stopped while loading a plugin"] {
+        assert(after.contains(word), word)
+    }
+    assert(!after.contains("Shift") && !after.contains("Option"), after)
+    assert(!defaults.bool(forKey: "ApplePersistenceIgnoreState") || mode == "requested")
 }
 print("PASS: \(mode) start")
 '''
@@ -201,17 +219,27 @@ if 'ProtectedMode.activate()' not in after:
     failures.append('Protected Mode chosen after a failed start does not go through ProtectedMode')
 
 # --- the alert in every catalog ----------------------------------------------
-key = json.loads('"' + re.search(r'NSLocalizedString\("((?:\\.|[^"\\])*)"', protected[protected.index('alertMessage'):]).group(1) + '"')
+# Two sentences: the mode asked for with the keys, and the one a plugin's note starts.
+keys = [json.loads('"' + found + '"') for found in
+        re.findall(r'NSLocalizedString\("((?:\\.|[^"\\])*)"', protected[protected.index('alertMessage'):])]
+if len(keys) != 2 or 'Shift and Option' not in keys[0] or 'Shift' in keys[1] or 'Option' in keys[1]:
+    failures.append('the protected mode alert is not the two sentences expected: with the keys, and after a plugin\'s note')
 for catalog in sorted((root / 'Horos/Resources').glob('*.lproj/Localizable.strings')):
     language = catalog.parent.name[:-len('.lproj')]
     entries = json.loads(subprocess.check_output(['plutil', '-convert', 'json', '-o', '-', str(catalog)]))
-    value = entries.get(key)
-    if not value:
-        failures.append('%s has no protected mode alert' % language)
-    elif language != 'en' and value == key:
-        failures.append('%s shows the protected mode alert in English' % language)
-    elif value.count('\n') != key.count('\n') or 'IsiX DICOM Viewer' not in value or 'XML-RPC' not in value:
-        failures.append('%s protected mode alert lost its layout or a name' % language)
+    for key in keys:
+        value = entries.get(key)
+        if not value:
+            failures.append('%s has no protected mode alert' % language)
+        elif language != 'en' and value == key:
+            failures.append('%s shows the protected mode alert in English' % language)
+        elif value.count('\n') != key.count('\n') or 'IsiX DICOM Viewer' not in value or 'XML-RPC' not in value:
+            failures.append('%s protected mode alert lost its layout or a name' % language)
+    # The list of what is off is one text in both.
+    if len({entries.get(key, '').split('\n\n')[1:2][0] if entries.get(key, '').count('\n\n') == 2 else key for key in keys}) != 1:
+        failures.append('%s lists different services in the two protected mode alerts' % language)
+    if any(word in entries.get(keys[-1], '') for word in ('Shift', 'Option', 'Opción', 'Opzione', 'Wahltaste', 'Maj')):
+        failures.append('%s still names the keys in the alert a plugin\'s note starts' % language)
     if any(k.startswith('IsiX DICOM Viewer is now running in Protected Mode') for k in entries):
         failures.append('%s still carries the old protected mode sentence' % language)
 

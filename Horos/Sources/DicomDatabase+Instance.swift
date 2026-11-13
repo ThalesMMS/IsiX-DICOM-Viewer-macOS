@@ -514,12 +514,12 @@ public extension DicomDatabase {
         return DicomDatabaseObjC.appending(self.baseDirPath, "Loading")
     }
 
-    /// Reads the data folder and goes on from what it holds; answers the
-    /// number of the data file given last. DataFileAllocator.
+    /// Reads the data folder and goes on from what it and the index hold;
+    /// answers the number of the data file given last. DataFileAllocator.
     @objc(computeDataFileIndex)
     dynamic func computeDataFileIndex() -> UInt {
         guard let dataDirPath = self.dataDirPath() else { return UInt(dataFileAllocator.lastNumber) }
-        return UInt(dataFileAllocator.resume(fromDataFolder: dataDirPath, folderSize: DicomDatabase.dataFolderSize))
+        return UInt(dataFileAllocator.resume(fromDataFolder: dataDirPath, folderSize: DicomDatabase.dataFolderSize, highestRecorded: { RecordedDataFileNumbers.highest(in: self) }))
     }
 
     /// A path in the data folder for a new file, which no other caller gets,
@@ -533,14 +533,47 @@ public extension DicomDatabase {
         guard let dataDirPath = self.dataDirPath() else { return nil }
         let files = FileManager.default
         files.confirmNoIndexDirectory(atPath: dataDirPath)
-        return dataFileAllocator.uniquePath(inDataFolder: dataDirPath, extension: fileExtension.value,
-                                            folderSize: DicomDatabase.dataFolderSize) { files.confirmDirectory(atPath: $0) }
+        return dataFileAllocator.uniquePath(inDataFolder: dataDirPath, extension: fileExtension.value, folderSize: DicomDatabase.dataFolderSize,
+                                            highestRecorded: { RecordedDataFileNumbers.highest(in: self) }) { files.confirmDirectory(atPath: $0) }
     }
 
     /// The number of files a folder of the data folder holds, from the
     /// preferences, as a value for the allocator.
     private static var dataFolderSize: UInt64 {
         UInt64(max(BrowserController.defaultFolderSizeForDB(), 1))
+    }
+}
+
+/// The numbers the records of an index give its data files.
+enum RecordedDataFileNumbers {
+    /// The highest number a record of the index of `database` gives a data
+    /// file, 0 when it gives none or the index is not open. A record names its
+    /// file by that number whether or not the file is still in the data
+    /// folder, so a new file must never be given it: the record would read
+    /// the new file as its own image.
+    ///
+    /// One request to the store, on a context of its own: any thread may ask,
+    /// whichever context it is working on, and waits only for the store. The
+    /// allocator asks when it reads the data folder, not for each file.
+    static func highest(in database: DicomDatabase) -> UInt64 {
+        guard let coordinator = database.managedObjectContext?.persistentStoreCoordinator, !coordinator.persistentStores.isEmpty,
+              coordinator.managedObjectModel.entitiesByName["Image"]?.attributesByName["pathNumber"] != nil else { return 0 }
+        let reader = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+        reader.persistentStoreCoordinator = coordinator
+        reader.undoManager = nil
+        var highest: UInt64 = 0
+        reader.performAndWait {
+            let highestNumber = NSExpressionDescription()
+            highestNumber.name = "highest"
+            highestNumber.expression = NSExpression(forFunction: "max:", arguments: [NSExpression(forKeyPath: "pathNumber")])
+            highestNumber.expressionResultType = .integer64AttributeType
+            let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Image")
+            request.resultType = .dictionaryResultType
+            request.propertiesToFetch = [highestNumber]
+            let found = ((try? reader.fetch(request)) as? [[String: Any]])?.first?["highest"] as? Int64
+            highest = UInt64(max(found ?? 0, 0))
+        }
+        return highest
     }
 }
 

@@ -315,10 +315,17 @@ extension ViewerOpener {
 
     /// Opens the next (`direction` 1) or previous (-1) patient of the study
     /// list with images, in place of the 2D viewers, whose workspace is saved.
+    ///
+    /// The viewers of the patient left are closed here, not by the load of the
+    /// first series of the next: "onlyDisplayImagesOfSamePatient" is off for
+    /// this process while the patient changes (TemporaryPreferenceWork).
     func loadNextPatient(_ curImage: NSManagedObject?, direction: Int, viewer: ViewerController?) {
-        let copyPatientsSettings = preferences[ViewerPreferences.onlyDisplayImagesOfSamePatient]
-        preferences.set(false, for: ViewerPreferences.onlyDisplayImagesOfSamePatient)
+        TemporaryPreferenceWork.during(ViewerPreferences.onlyDisplayImagesOfSamePatient, at: false) {
+            changePatient(curImage, direction: direction, viewer: viewer)
+        }
+    }
 
+    private func changePatient(_ curImage: NSManagedObject?, direction: Int, viewer: ViewerController?) {
         arranger.cancelScheduledTiling()
 
         let viewers = processGraph.viewerRegistry.viewers ?? []
@@ -370,8 +377,6 @@ extension ViewerOpener {
         }
 
         NotificationCenter.default.post(name: .OsirixDidLoadNewObject, object: study, userInfo: nil)
-
-        preferences.set(copyPatientsSettings, for: ViewerPreferences.onlyDisplayImagesOfSamePatient)
     }
 
     /// Shows in each viewer the next (`direction` 1) or previous (-1) series

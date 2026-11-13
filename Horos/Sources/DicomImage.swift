@@ -1135,10 +1135,16 @@ public final class DicomImage: NSManagedObject {
         }
 
         // Main thread only, as the guard says: the capture draws in a DCMView.
-        return assumeMainActor(self) { image in image.imageAsScreenCaptureOnMainActor(frame) }
+        return assumeMainActor(self) { image in image.screenCapture(frame, annotations: nil) }
     }
 
-    @MainActor private func imageAsScreenCaptureOnMainActor(_ frame: NSRect) -> NSImage? {
+    /// The image drawn as a viewer would show it in `frame`, with what a view
+    /// draws over it at the level `annotations` (annotNone to annotFull); nil
+    /// for the level of the user's preferences, as -imageAsScreenCapture:
+    /// draws. The web portal asks for the graphics alone: the text of the
+    /// annotations names the patient, and what the portal serves does not
+    /// depend on how this station is set to show its own viewers.
+    @MainActor func screenCapture(_ frame: NSRect, annotations: Int32?) -> NSImage? {
         var renderedImage: NSImage? = nil
 
         if let e = HorosObjCException.caught({
@@ -1155,6 +1161,7 @@ public final class DicomImage: NSManagedObject {
             let view: DCMView? = DCMView(frame: frame, imageRows: self.height()?.int32Value ?? 0, imageColumns: self.width()?.int32Value ?? 0)
             view?.setPixels(dicomImageMutableArray(pix), files: [self], rois: rois != nil ? NSMutableArray(object: rois!) : nil, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: true)
             if let view = view { win.contentView?.addSubview(view) }
+            if let annotations { view?.annotationType = annotations }
             view?.draw(frame)
 
             renderedImage = view?.nsimage()

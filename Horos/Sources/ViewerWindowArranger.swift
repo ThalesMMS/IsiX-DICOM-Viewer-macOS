@@ -480,15 +480,57 @@ final class ViewerWindowArranger: NSObject {
 
     /// Moves `controllers`' windows to the frames `ViewerTilingLayout` chooses,
     /// then makes the right one key and rebuilds the series lists.
+    ///
+    /// The windows that move do not copy their settings to one another:
+    /// "COPYSETTINGS" is off for this process while they are placed
+    /// (TemporaryPreferenceWork), the application not being told of it.
     private func tile(_ request: Request?, controllers: [NSWindowController], display2DViewerToolbar: Bool) {
-        let preferences = processGraph.preferences
-        let copiesSettings = preferences[ViewerPreferences.copySettings]
-
         isTilingScheduled = false
 
-        AppController.checkForPreferencesUpdate(false)
-        preferences.set(false, for: ViewerPreferences.copySettings)
-        AppController.checkForPreferencesUpdate(true)
+        var placed: ViewerTilingLayout.Arrangement?
+        TemporaryPreferenceWork.during(ViewerPreferences.copySettings, at: false, silently: true) {
+            placed = place(request, controllers: controllers, display2DViewerToolbar: display2DViewerToolbar)
+        }
+        guard let arrangement = placed else { return }
+        let preferences = processGraph.preferences
+
+        for i in 0..<NSScreen.screens.count {
+            AppControllerCAPIThumbnailsListPanel(i)?.setThumbnailsView(nil, viewer: nil)
+        }
+
+        let tiled = arrangement.order.map { controllers[$0] }
+        let hidden = arrangement.hidden.map { controllers[$0] }
+        let key: NSWindowController? = arrangement.keyViewer.map { controllers[$0] } ?? (ViewerController.frontMostDisplayed2DViewer(for: nil) as NSWindowController?)
+
+        guard !tiled.isEmpty, let key else { return }
+        DCMView.setDontListenToSyncMessage(true)
+
+        key.window?.makeKeyAndOrderFront(self)
+        ViewerMessages.send(key, "propagateSettings")
+
+        for case let viewer as ViewerController in tiled.reversed() where viewer !== key {
+            viewer.buildMatrixPreview(hidden.contains { $0 === viewer })
+        }
+
+        ToolbarPanelController.checkForValidToolbar()
+
+        if let keyViewer = key as? ViewerController {
+            keyViewer.imageView()?.becomeMainWindow()
+            keyViewer.buildMatrixPreview(true)
+
+            keyViewer.redrawToolbar()
+        }
+
+        if preferences[DatabasePreferences.syncPreviewList] {
+            ViewerMessages.send(key, "syncThumbnails")
+        }
+
+        DCMView.setDontListenToSyncMessage(false)
+    }
+
+    /// The frames `ViewerTilingLayout` chooses, with `controllers`' windows moved to them.
+    private func place(_ request: Request?, controllers: [NSWindowController], display2DViewerToolbar: Bool) -> ViewerTilingLayout.Arrangement {
+        let preferences = processGraph.preferences
 
         var screens = viewerScreens()
         if controllers.count < screens.count && preferences[Self.usesDatabaseScreenLast], let databaseScreen = databaseWindow()?.screen {
@@ -543,43 +585,7 @@ final class ViewerWindowArranger: NSObject {
             OSIWindowController.setDontEnterMagneticFunctions(false)
             OSIWindowController.setDontEnterWindowDidChangeScreen(false)
         }
-
-        AppController.checkForPreferencesUpdate(false)
-        preferences.set(copiesSettings, for: ViewerPreferences.copySettings)
-        AppController.checkForPreferencesUpdate(true)
-
-        for i in 0..<NSScreen.screens.count {
-            AppControllerCAPIThumbnailsListPanel(i)?.setThumbnailsView(nil, viewer: nil)
-        }
-
-        let tiled = arrangement.order.map { controllers[$0] }
-        let hidden = arrangement.hidden.map { controllers[$0] }
-        let key: NSWindowController? = arrangement.keyViewer.map { controllers[$0] } ?? (ViewerController.frontMostDisplayed2DViewer(for: nil) as NSWindowController?)
-
-        guard !tiled.isEmpty, let key else { return }
-        DCMView.setDontListenToSyncMessage(true)
-
-        key.window?.makeKeyAndOrderFront(self)
-        ViewerMessages.send(key, "propagateSettings")
-
-        for case let viewer as ViewerController in tiled.reversed() where viewer !== key {
-            viewer.buildMatrixPreview(hidden.contains { $0 === viewer })
-        }
-
-        ToolbarPanelController.checkForValidToolbar()
-
-        if let keyViewer = key as? ViewerController {
-            keyViewer.imageView()?.becomeMainWindow()
-            keyViewer.buildMatrixPreview(true)
-
-            keyViewer.redrawToolbar()
-        }
-
-        if preferences[DatabasePreferences.syncPreviewList] {
-            ViewerMessages.send(key, "syncThumbnails")
-        }
-
-        DCMView.setDontListenToSyncMessage(false)
+        return arrangement
     }
 
     /// A viewer as `ViewerTilingLayout` sees it; its study and the study's

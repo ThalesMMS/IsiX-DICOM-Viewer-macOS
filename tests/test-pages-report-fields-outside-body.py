@@ -7,7 +7,7 @@ letterhead box a template keeps on its section layout stayed as written, and
 so did one inside a group of objects, which is how a letterhead with a logo is
 often put together. The
 production PagesDocumentFill is compiled here and given what Pages answers - a
-descriptor shaped like the open script's result - and the edits it plans are
+descriptor shaped like the read script's result - and the edits it plans are
 checked, without Pages.
 
 Measured with Pages 15.4 while writing this, and kept below:
@@ -29,8 +29,8 @@ fill = (root / 'Horos/Sources/PagesDocumentFill.swift').read_text()
 failures = []
 code = '\n'.join(line for line in fill.split('\n') if not line.strip().startswith('//'))
 for needle, reason in (
-    ('my collectItems(d, "", {})', 'the open script does not read the items of the document'),
-    ('if (class of x) is group then', 'the open script does not go into groups'),
+    ('my collectItems(d, "", {})', 'the read script does not read the items of the document'),
+    ('if (class of x) is group then', 'the read script does not go into groups'),
     ('set x to iWork item ((contents of stepText) as integer) of x', 'the write script does not follow a location into groups'),
     ('value of every cell of x', 'the cells of a table are not read in one event'),
     ('set paragraph i of object text of x to newText', 'the text of a text box or shape is not written'),
@@ -56,7 +56,7 @@ func substitute(_ text: String) -> String {
     return result
 }
 
-// What the open script answers: the document id, the body text, and per item
+// What the read script answers: the document id, the body text, and per item
 // either its text or the texts of its cells.
 func list(_ items: [NSAppleEventDescriptor]) -> NSAppleEventDescriptor {
     let list = NSAppleEventDescriptor.list()
@@ -81,7 +81,7 @@ let answer = list([
     ]),
 ])
 guard let (identifier, read, items) = PagesDocumentFill.document(from: answer) else {
-    print("FAIL: the open script's answer was not read"); exit(1)
+    print("FAIL: the read script's answer was not read"); exit(1)
 }
 check(identifier == "DOC-1" && read == body, "id and body")
 check(items == [.text(location: "1", text: "\u{ab}name\u{bb} \u{b7} ID \u{ab}patientID\u{bb}\nInstitution"),

@@ -55,6 +55,7 @@ ADDED = {
     'ModalityWorklistRefreshMinutes': 'the Modality Worklist window, which that revision did not have',
     'FirstClickOnlyActivatesViewer': 'the choice of whether the click that activates a viewer also uses the tool, made since',
     'TwoClickLengthMeasurement': 'the choice of whether a click of the Length tool places an end of a measure, made since',
+    'CommandShiftHidesROILabels': 'the choice of whether Command-Shift held hides the labels of the measures, made since',
     'SyntheticDWIBValue': 'the b-value the last synthetic diffusion-weighted image was asked at, an export made since',
 }
 

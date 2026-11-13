@@ -100,8 +100,9 @@ private final class URLImportJob: @unchecked Sendable {
     /// Imports files and folders: each dropped path, and each file of a
     /// dropped folder, is imported, expanded, downloaded or read as a
     /// DICOMDIR (DroppedItemsPlan); the files go to the database, copied or
-    /// linked.
-    func add(_ paths: [String]) {
+    /// linked as the preferences say, or as `overrides` say for this import
+    /// alone (`COPYDATABASE`, `COPYDATABASEMODE`).
+    func add(_ paths: [String], overriding overrides: [AnyHashable: Any] = [:]) {
         var files: [String] = []
         let plan = DroppedItemsPlan.actions(forDroppedPaths: paths, isArchive: { ArchiveImportLedger.isArchiveName($0) })
         for action in plan {
@@ -112,7 +113,7 @@ private final class URLImportJob: @unchecked Sendable {
             }
         }
 
-        importFiles(files, options: MediaImportRequest.dropOptions(preferences: preferences))
+        importFiles(files, options: MediaImportRequest.dropOptions(preferences: preferences).merging(overrides) { _, override in override })
     }
 
     /// One action of a drop: the files to import are added to `files`.

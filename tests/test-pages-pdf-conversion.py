@@ -45,8 +45,10 @@ if 'tell application "Pages"' in source:
     failures.append('the converter still names Pages by localized name')
 if 'application id' not in source:
     failures.append('the converter does not talk to Pages by bundle identifier')
-if 'com.apple.iWork.Pages' not in source or '"com.apple.Pages"' not in source:
-    failures.append('the converter does not restrict itself to Apple Pages')
+# Which Pages, and that it is Apple's, is the lookup's answer: the report is
+# opened and filled in by that one, and may be open there when it is converted.
+if 'PagesApplication.target()' not in source or 'com.apple.' in source:
+    failures.append('the converter does not address the Pages the report is opened in')
 if 'Finder' in source:
     failures.append('Finder is still asked to delete the destination')
 if 'copyItem' not in source and 'copyItemAtPath' not in source:

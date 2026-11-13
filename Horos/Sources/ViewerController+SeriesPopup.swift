@@ -659,34 +659,32 @@ extension SeriesMenuPresenter {
 
         if (rightClick || modifiers.contains(.command)) && viewer.horos_FullScreenOn == false {
             if modifiers.contains(.shift) || browser.usesExternalViewer(for: series as? NSManagedObject) == false {
-                let c = preferences[DatabasePreferences.syncPreviewList]
+                // The series lists do not follow one another while the new viewer
+                // opens: off for this process only (TemporaryPreferenceWork).
+                TemporaryPreferenceWork.during(DatabasePreferences.syncPreviewList, at: false) {
+                    let newViewer = browser.load(series as? NSManagedObject, into: nil, keyImagesOnly: viewer.horos_displayOnlyKeyImages)
+                    newViewer?.setHighLighted(1.0)
 
-                preferences.set(false, for: DatabasePreferences.syncPreviewList)
+                    if preferences[ViewerPreferences.useFloatingThumbnailsList] == false {
+                        viewer.showCurrentThumbnail(viewer)
+                    }
 
-                let newViewer = browser.load(series as? NSManagedObject, into: nil, keyImagesOnly: viewer.horos_displayOnlyKeyImages)
-                newViewer?.setHighLighted(1.0)
+                    if preferences[ViewerPreferences.autoTiling] {
+                        NSApp.sendAction(#selector(AppController.tileWindows(_:)), to: nil, from: viewer)
+                    } else {
+                        processGraph.appController?.checkAllWindowsAreVisible(viewer, makeKey: true)
+                    }
 
-                if preferences[ViewerPreferences.useFloatingThumbnailsList] == false {
-                    viewer.showCurrentThumbnail(viewer)
+                    for i in 0..<NSScreen.screens.count {
+                        AppControllerCAPIThumbnailsListPanel(i)?.setThumbnailsView(nil, viewer: nil)
+                    }
+
+                    viewer.window?.makeKeyAndOrderFront(viewer)
+                    viewer.refreshToolbar()
+                    viewer.updateNavigator()
+
+                    newViewer?.showCurrentThumbnail(viewer)
                 }
-
-                if preferences[ViewerPreferences.autoTiling] {
-                    NSApp.sendAction(#selector(AppController.tileWindows(_:)), to: nil, from: viewer)
-                } else {
-                    processGraph.appController?.checkAllWindowsAreVisible(viewer, makeKey: true)
-                }
-
-                for i in 0..<NSScreen.screens.count {
-                    AppControllerCAPIThumbnailsListPanel(i)?.setThumbnailsView(nil, viewer: nil)
-                }
-
-                viewer.window?.makeKeyAndOrderFront(viewer)
-                viewer.refreshToolbar()
-                viewer.updateNavigator()
-
-                newViewer?.showCurrentThumbnail(viewer)
-
-                preferences.set(c, for: DatabasePreferences.syncPreviewList)
                 viewer.syncThumbnails()
             }
         } else {
@@ -711,18 +709,15 @@ extension SeriesMenuPresenter {
                 }
 
                 if found == false {
-                    let savedAutoHidesMatrix = preferences[ViewerPreferences.autoHidesMatrix]
+                    // The list stays while the series loads: not hidden, for this process only.
+                    TemporaryPreferenceWork.during(ViewerPreferences.autoHidesMatrix, at: false) {
+                        if modifiers.contains(.shift) || browser.usesExternalViewer(for: series as? NSManagedObject) == false {
+                            _ = browser.load(series as? NSManagedObject, into: viewer, keyImagesOnly: viewer.horos_displayOnlyKeyImages)
 
-                    preferences.set(false, for: ViewerPreferences.autoHidesMatrix)
-
-                    if modifiers.contains(.shift) || browser.usesExternalViewer(for: series as? NSManagedObject) == false {
-                        _ = browser.load(series as? NSManagedObject, into: viewer, keyImagesOnly: viewer.horos_displayOnlyKeyImages)
-
-                        viewer.showCurrentThumbnail(viewer)
-                        viewer.updateNavigator()
+                            viewer.showCurrentThumbnail(viewer)
+                            viewer.updateNavigator()
+                        }
                     }
-
-                    preferences.set(savedAutoHidesMatrix, for: ViewerPreferences.autoHidesMatrix)
                 }
             } else if series !== (viewer.horos_fileList(at: Int(viewer.horos_curMovieIndex))?.object(at: 0) as? DicomImage)?.series {
                 // Select it in 4D.

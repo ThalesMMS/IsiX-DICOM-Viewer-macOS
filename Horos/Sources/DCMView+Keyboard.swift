@@ -309,28 +309,17 @@ extension DCMView {
         self.flagsChanged(with: nil)
     }
 
-    /// The modifiers held: Command-Shift hides the labels, Control alone
-    /// shows the description in large, Shift shows the magnifier, and the
-    /// cursor becomes the tool's they choose. It is also sent without an
-    /// event, which counts as no modifier.
+    /// The modifiers held: Command-Shift hides the labels where the settings
+    /// ask for it, in every window, Control alone shows the description in
+    /// large, Shift shows the magnifier, and the cursor becomes the tool's they
+    /// choose. It is also sent without an event, which counts as no modifier.
     @objc(flagsChanged:)
     public override dynamic func flagsChanged(with event: NSEvent?) {
         self.deleteLens()
+        MeasurementLabelSuppression.modifiersChanged(event?.modifierFlags ?? [])
 
         if self.is2DViewer() == true {
             let modifiers = inputModifiers(event)
-            var update = false
-
-            if ViewInput.suppressesLabels(modifiers) {
-                if self.horos_suppress_labels == false { update = true }
-                self.horos_suppress_labels = true
-            } else {
-                if self.horos_suppress_labels == true { update = true }
-                self.horos_suppress_labels = false
-            }
-
-            if update == true { self.needsDisplay = true }
-
             let cLarge = self.horos_showDescriptionInLarge
             self.horos_showDescriptionInLarge = ViewInput.showsDescriptionInLarge(modifiers)
 

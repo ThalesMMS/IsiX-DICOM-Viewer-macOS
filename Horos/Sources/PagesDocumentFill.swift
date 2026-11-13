@@ -54,16 +54,60 @@ public final class PagesDocumentFill: NSObject {
     @objc(fillDocumentAtPath:substitute:)
     public static func fill(documentAt path: String,
                             substitute: (String) -> String) -> Bool {
-        guard let (identifier, body, items) = open(path) else {
+        // One Pages for the whole conversation: the one the copy is opened in
+        // is the one every script is addressed to.
+        guard let pages = PagesApplication.target() else {
             NSLog("---- Pages did not open the report at %@", path)
+            return false
+        }
+        return fill(documentAt: path, substitute: substitute, in: pages, open: { copy in
+            // No waiting on the completion handler: it is delivered on the main
+            // queue, and this runs on the main thread, so waiting for it here is a
+            // deadlock - measured, the report generation stopped dead at this line.
+            // The document is waited for by asking Pages what it has open, which
+            // is the thing actually being waited for.
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.activates = false
+            NSWorkspace.shared.open([URL(fileURLWithPath: copy)], withApplicationAt: pages.url,
+                                    configuration: configuration, completionHandler: nil)
+        }, send: { execute($0, $1) })
+    }
+
+    /// The fill, apart from Pages itself: `open` hands Pages the copy and
+    /// `send` a script with its arguments, answering nil when it failed.
+    ///
+    /// The document filled in is the one whose file is the copy, and no other:
+    /// the copy is called `report.pages`, and a document of the user's that is
+    /// open may be too. Taken by that name, the user's document was the one
+    /// read, rewritten and saved.
+    ///
+    /// A fill that cannot go on closes the copy it had Pages open. Left open,
+    /// it stayed in front of the user as an untouched template, under the
+    /// alert saying the report could not be created.
+    static func fill(documentAt path: String, substitute: (String) -> String, in pages: PagesApplication.Target,
+                     open: (String) -> Void, send: PagesApplication.Target.Send,
+                     attempts: Int = 60, pause: TimeInterval = 0.5) -> Bool {
+        open(path)
+        guard let identifier = pages.documentID(openedFrom: path, attempts: attempts, pause: pause, send: send) else {
+            // Pages has no document of that file, so there is none to close.
+            NSLog("---- Pages did not open the report at %@", path)
+            return false
+        }
+        guard let answer = send(pages.script(readScript), [identifier]),
+              let (_, body, items) = document(from: answer) else {
+            NSLog("---- Pages did not read the report at %@", path)
+            _ = send(pages.script(closeScript), [identifier])
             return false
         }
         let changes = edits(body: body, items: items, substitute: substitute)
         if changes.isEmpty {
             // Nothing to fill in, and the copy stands as the template does.
-            return run(Self.closeScript, [identifier]) != nil
+            return send(pages.script(closeScript), [identifier]) != nil
         }
-        return run(Self.writeScript, [identifier] + changes) != nil
+        if send(pages.script(writeScript), [identifier] + changes) != nil { return true }
+        // Half written, and not saved by this code: closed as it is.
+        _ = send(pages.script(closeScript), [identifier])
+        return false
     }
 
     /// What the write script is told to change, four arguments an edit: a kind,
@@ -122,30 +166,21 @@ public final class PagesDocumentFill: NSObject {
     /// Pages is sandboxed, and asking it over AppleScript to open a path of our
     /// choosing did nothing at all - measured: the event was answered, and no
     /// document appeared. The file is opened the way a person opens one, through
-    /// LaunchServices, which is what grants Pages the file; the script then only
-    /// has to find the document that appeared, by the name of the file, and
-    /// `open` does not answer with it.
+    /// LaunchServices, which is what grants Pages the file, and the document
+    /// that appeared is then found by that file: the scripts are given its id.
     ///
     /// The values of a table come back in one event for all its cells; what is
     /// not text there - a number, a date, an empty cell - cannot hold a
     /// placeholder and comes back empty.
-    private static let openScript = """
+    ///
+    /// The three scripts name Pages as `__PAGES_BUNDLE_ID__`, and
+    /// `PagesApplication.Target` says which Pages that is.
+    static let readScript = """
     on run argv
-      set nm to item 1 of argv
+      set docId to item 1 of argv
       with timeout of 600 seconds
-      tell application id "com.apple.Pages"
-        set d to missing value
-        repeat with attempt from 1 to 60
-          repeat with candidate in documents
-            if (name of candidate) is nm then
-              set d to contents of candidate
-              exit repeat
-            end if
-          end repeat
-          if d is not missing value then exit repeat
-          delay 0.5
-        end repeat
-        if d is missing value then error "Pages did not open " & nm
+      tell application id "__PAGES_BUNDLE_ID__"
+        set d to document id docId
         set bodyText to ""
         try
           set bodyText to (body text of d) as string
@@ -157,7 +192,7 @@ public final class PagesDocumentFill: NSObject {
     end run
 
     on collectItems(container, prefix, found)
-      tell application id "com.apple.Pages"
+      tell application id "__PAGES_BUNDLE_ID__"
         repeat with i from 1 to (count of iWork items of container)
           set x to iWork item i of container
           set here to prefix & (i as string)
@@ -190,11 +225,11 @@ public final class PagesDocumentFill: NSObject {
     /// into an automatic cell, and measured, a patient ID of 00123 became the
     /// number 123. No variable is called `kind`: that is a word of Pages'
     /// dictionary inside the tell block, and assigning to it is refused.
-    private static let writeScript = """
+    static let writeScript = """
     on run argv
       set docId to item 1 of argv
       with timeout of 600 seconds
-      tell application id "com.apple.Pages"
+      tell application id "__PAGES_BUNDLE_ID__"
         set d to document id docId
         repeat with k from 2 to (count of argv) by 4
           set editKind to item k of argv
@@ -225,7 +260,7 @@ public final class PagesDocumentFill: NSObject {
       set AppleScript's text item delimiters to "."
       set steps to text items of location
       set AppleScript's text item delimiters to savedDelimiters
-      tell application id "com.apple.Pages"
+      tell application id "__PAGES_BUNDLE_ID__"
         set x to d
         repeat with stepText in steps
           set x to iWork item ((contents of stepText) as integer) of x
@@ -235,10 +270,10 @@ public final class PagesDocumentFill: NSObject {
     end itemAt
     """
 
-    private static let closeScript = """
+    static let closeScript = """
     on run argv
       with timeout of 600 seconds
-      tell application id "com.apple.Pages"
+      tell application id "__PAGES_BUNDLE_ID__"
         close (document id (item 1 of argv)) saving no
       end tell
       end timeout
@@ -246,23 +281,7 @@ public final class PagesDocumentFill: NSObject {
     end run
     """
 
-    private static func open(_ path: String) -> (String, String, [Item])? {
-        let name = (path as NSString).lastPathComponent
-        guard let application = PagesApplication.url() else { return nil }
-        // No waiting on the completion handler: it is delivered on the main
-        // queue, and this runs on the main thread, so waiting for it here is a
-        // deadlock - measured, the report generation stopped dead at this line.
-        // The script below waits for the document to appear instead, which is
-        // the thing actually being waited for.
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = false
-        NSWorkspace.shared.open([URL(fileURLWithPath: path)], withApplicationAt: application,
-                                configuration: configuration, completionHandler: nil)
-        guard let answer = execute(openScript, [name]) else { return nil }
-        return document(from: answer)
-    }
-
-    /// The document id, its body text and its items out of what the open script
+    /// The document id, its body text and its items out of what the read script
     /// answers; nil when the answer is not that.
     static func document(from answer: NSAppleEventDescriptor) -> (String, String, [Item])? {
         guard answer.numberOfItems == 3,
@@ -296,7 +315,7 @@ public final class PagesDocumentFill: NSObject {
         return (identifier, body, items)
     }
 
-    /// One or more positive indices joined by dots, as the open script writes
+    /// One or more positive indices joined by dots, as the read script writes
     /// them; anything else would send the write script to the wrong item.
     static func isLocation(_ location: String) -> Bool {
         let steps = location.split(separator: ".", omittingEmptySubsequences: false)
@@ -308,9 +327,13 @@ public final class PagesDocumentFill: NSObject {
     /// `on run argv` is reached by sending the script an open-application event
     /// whose direct object is the argument list; that is how AppleScript passes
     /// argv, and it is the only way to hand a script a value from here.
-    private static func execute(_ source: String, _ arguments: [String]) -> NSAppleEventDescriptor? {
+    /// `failed` is told the AppleScript number and message of a failure, for
+    /// who has an error of its own to show.
+    static func execute(_ source: String, _ arguments: [String],
+                        failed: (Int, String) -> Void = { _, _ in }) -> NSAppleEventDescriptor? {
         guard let script = NSAppleScript(source: source) else {
-            NSLog("---- the script that fills in a Pages document would not compile")
+            NSLog("---- a script for Pages would not compile")
+            failed(1, "The script would not compile")
             return nil
         }
         let list = NSAppleEventDescriptor.list()
@@ -326,14 +349,10 @@ public final class PagesDocumentFill: NSObject {
         var error: NSDictionary?
         let result = script.executeAppleEvent(event, error: &error)
         if let error {
-            NSLog("---- the Pages document could not be filled in: %@", error)
+            NSLog("---- Pages did not do what a script asked: %@", error)
+            failed((error[NSAppleScript.errorNumber] as? Int) ?? 0, (error[NSAppleScript.errorMessage] as? String) ?? "")
             return nil
         }
         return result
-    }
-
-    private static func run(_ source: String, _ arguments: [String]) -> String? {
-        guard let result = execute(source, arguments) else { return nil }
-        return result.stringValue ?? "done"
     }
 }

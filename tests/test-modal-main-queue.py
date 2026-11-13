@@ -74,6 +74,8 @@ INDIRECT = {
     'Horos/Sources/PluginManagerController.swift': ('self.finishDownload(',),
     'Horos/Sources/RISRequestAlert.swift': ('present(text)',),
     'Horos/Sources/UpdateInstaller.swift': ('self?.downloaded(result)', 'self.verified(outcome)'),
+    # The study opened once the comparatives it waited for are there: opening can show a sheet or an alert.
+    'Horos/Sources/ViewerOpener.swift': ('self.openPrepared(current, withProtocol: options, comparatives: comparisons)',),
 }
 
 ON_MAIN = re.compile(r'\bDispatchQueue\s*\.\s*main\s*\.\s*(?:async|sync|asyncAfter)\b'

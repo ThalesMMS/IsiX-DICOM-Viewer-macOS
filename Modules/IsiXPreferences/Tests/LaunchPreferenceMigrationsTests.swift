@@ -64,16 +64,45 @@ import Testing
         #expect(preferences.object(forKey: "hideListenerError") as? Bool == true)
         #expect(preferences.object(forKey: "DefaultDatabasePath") as? String == "(Current User Documents folder)")
         #expect(preferences.object(forKey: "LP64bit") as? Bool == true)
+    }
 
-        // Given at the launch, hideListenerError is the launch's: the kept value stays kept.
-        let given = store(["copyHideListenerError": true, "hideListenerError": false], arguments: ["hideListenerError"])
+    /// hideListenerError as an earlier version kept it under
+    /// copyHideListenerError, while an abort of the incoming transfers hid the
+    /// listener's errors: the launch after a crash puts it back, once.
+    @Test func theKeptHidingOfListenerErrorsIsPutBackOnce() {
+        let hides = NetworkPreferences.hidesListenerErrors, copy = NetworkPreferences.savedHidesListenerErrors
+        func wrote(_ preferences: MemoryPreferences, since writes: Int = 0) -> Bool {
+            preferences.writes.dropFirst(writes).contains { $0 == hides.name || $0 == copy.name }
+        }
+        for (kept, stored) in [(true, false), (false, true), (true, true), (false, false)] {
+            let preferences = store([copy.name: kept, hides.name: stored])
+            LaunchPreferenceMigrations.applySessionValues(in: preferences, defaultDatabasePath: "")
+            #expect(preferences[hides] == kept)
+            #expect(preferences.object(forKey: copy.name) == nil, "the kept value is gone once it is put back")
+
+            // What the user chooses afterwards is theirs: the next launch leaves it.
+            preferences.set(!kept, for: hides)
+            let writes = preferences.writes.count
+            LaunchPreferenceMigrations.applySessionValues(in: preferences, defaultDatabasePath: "")
+            #expect(preferences[hides] == !kept && !wrote(preferences, since: writes))
+        }
+        // A kept value with nothing stored beside it is put back all the same.
+        let alone = store([copy.name: true])
+        LaunchPreferenceMigrations.applySessionValues(in: alone, defaultDatabasePath: "")
+        #expect(alone[hides] && alone.object(forKey: copy.name) == nil)
+
+        // Given at the launch, hideListenerError is the launch's: the kept value stays kept,
+        // for the first launch that is not given the key.
+        let given = store([copy.name: true, hides.name: false], arguments: [hides.name])
         LaunchPreferenceMigrations.applySessionValues(in: given, defaultDatabasePath: "")
-        #expect(given.object(forKey: "hideListenerError") as? Bool == false)
-        // Nothing kept: nothing put back.
-        let none = store(["hideListenerError": true])
-        LaunchPreferenceMigrations.applySessionValues(in: none, defaultDatabasePath: "")
-        #expect(none.object(forKey: "hideListenerError") as? Bool == true)
-        #expect(!none.writes.contains("hideListenerError"))
+        #expect(!given[hides] && given[copy] && !wrote(given))
+
+        // Nothing kept: nothing put back, and nothing written of either key.
+        for stored in [true, false, nil] {
+            let none = store(stored.map { [hides.name: $0] } ?? [:])
+            LaunchPreferenceMigrations.applySessionValues(in: none, defaultDatabasePath: "")
+            #expect(none.object(forKey: hides.name) as? Bool == stored && !wrote(none))
+        }
     }
 
     @Test func endoscopyPresetsOverTheFactorySettings() throws {

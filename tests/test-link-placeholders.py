@@ -30,6 +30,16 @@ to the functions those loops ask:
     Any other run of it, with that argument among others too, is its own.
 
 Every file of tests/ that links with placeholders asks those functions.
+
+The symbol a probe lacks is read from the executable, not learnt from a run
+dyld aborts: each such abort left a crash report in the user's
+~/Library/Logs/DiagnosticReports, one for every placeholder of every build of
+a harness. The probes above that lack data are run once, when nothing is
+missing any more, or never when they cannot be built. What is read is what
+dyld asks for to start the probe and no more: a symbol found only in a
+library the probe loads through another is there, a weak import may be
+absent, and a function that is never called is not looked up. A probe whose
+symbols cannot be read is asked by its run, as before.
 """
 from pathlib import Path
 import signal
@@ -78,6 +88,17 @@ NEVER_ENDS = r'''
 #include <unistd.h>
 int main(int argc, char **argv) { sleep(600); return 0; }
 '''
+# What dyld does not refuse: a symbol of a library loaded through another one
+# (zlib, which nothing here links and Foundation's libraries load), a weak
+# import that nothing defines, and a function nothing defines, never called.
+TOLERATED = r'''
+extern const char *zlibVersion(void);
+extern int ProbeWeakDatum __attribute__((weak_import));
+extern void ProbeNeverCalled(void);
+void *indirect = (void *)&zlibVersion;
+int *weak = &ProbeWeakDatum;
+int main(int argc, char **argv) { if (argc > 9) ProbeNeverCalled(); return 0; }
+'''
 # Probes run for their result: main() asks no argument.
 RESULT = r'''
 #include <stdio.h>
@@ -120,6 +141,19 @@ def loop(folder, name, source, extension='c'):
     raise AssertionError(f'{name}: the loop does not end')
 
 
+# Every process started, by its executable: a probe is run only when asked here.
+runs = []
+run_process = subprocess.run
+
+
+def recorded_run(command, *arguments, **options):
+    runs.append(Path(command[0]).name)
+    return run_process(command, *arguments, **options)
+
+
+subprocess.run = recorded_run
+
+
 def refused(folder, name, source, extension='c'):
     """What the loop says of a probe it refuses, or None when it built it."""
     try:
@@ -137,6 +171,28 @@ with tempfile.TemporaryDirectory(prefix='horos-link-placeholders-') as name:
     check(loop(folder, 'two-data', TWO_DATA) == {'_ProbeFirstDatum', '_ProbeSecondDatum'},
           'a probe that lacks two data is built with a placeholder for each')
 
+    # The data were told without a run that dyld aborts: one run, of the probe built.
+    check(runs.count('linked') == 1 and runs.count('two-data') == 1,
+          'a probe is run once, when it lacks nothing: %d and %d runs' % (runs.count('linked'), runs.count('two-data')))
+    probe = link(folder, 'two-data-read', TWO_DATA, set())
+    check(link_placeholders.load_binds(probe) == ['_ProbeFirstDatum', '_ProbeSecondDatum']
+          and link_placeholders.unbound_symbol(probe) == '_ProbeFirstDatum' and 'two-data-read' not in runs,
+          'the first datum a probe lacks is read from it, without running it: %r' % link_placeholders.load_binds(probe))
+    probe = link(folder, 'two-data-read', TWO_DATA, {'_ProbeFirstDatum'})
+    check(link_placeholders.unbound_symbol(probe) == '_ProbeSecondDatum', 'with its placeholder, the next one is read')
+    probe = link(folder, 'two-data-read', TWO_DATA, {'_ProbeFirstDatum', '_ProbeSecondDatum'})
+    check(link_placeholders.unbound_symbol(probe) is None and 'two-data-read' not in runs, 'and none once both have theirs')
+
+    # What dyld starts is not given a placeholder: one would hide zlib's own function.
+    probe = link(folder, 'tolerated', TOLERATED, set())
+    binds = link_placeholders.load_binds(probe)
+    check(binds == ['_zlibVersion'], 'only what dyld asks for as the image loads is read: %r' % binds)
+    if run_process([str(probe)], capture_output=True).returncode == 0:
+        check(link_placeholders.unbound_symbol(probe) is None, 'a symbol of a library loaded through another is not missing')
+        check(loop(folder, 'tolerated', TOLERATED) == set(), 'and the probe is built without a placeholder')
+    # A probe that cannot be read is asked by its run.
+    check(link_placeholders.unbound_symbol(folder / 'no-such-probe') is None, 'nothing is told of a file that cannot be read')
+
     # The category on a zeroed class: what the loop took as built.
     CLASS = '_OBJC_CLASS_$_ProbeAbsentClass'
     probe = link(folder, 'category-raw', CATEGORY, {CLASS, '_ProbeOtherDatum'}, 'm')
@@ -153,6 +209,8 @@ with tempfile.TemporaryDirectory(prefix='horos-link-placeholders-') as name:
     check('Standing in for Objective-C classes: ProbeAbsentClass. ' in said, 'the refusal names the class a placeholder stands in for: %r' % said)
     check('The others: _ProbeOtherDatum.' in said, 'the refusal lists the other placeholders apart: %r' % said)
     check('It wrote nothing to its standard error.' in said, 'the refusal says the probe wrote nothing: %r' % said)
+    check(runs.count('category') == 1, 'the class and the datum were read, and the one run is the one that is killed: %d runs'
+          % runs.count('category'))
 
     said = refused(folder, 'aborts', ABORTS) or ''
     check('was killed by SIGABRT (signal %d)' % signal.SIGABRT in said and 'It is linked with no placeholder.' in said
@@ -191,8 +249,8 @@ with tempfile.TemporaryDirectory(prefix='horos-link-placeholders-') as name:
         ran = subprocess.run([str(folder / 'result'), *arguments], capture_output=True, text=True)
         check((ran.returncode, ran.stdout) == expected,
               'only its link run ends before main(): %r answers %d %r' % (arguments, ran.returncode, ran.stdout))
-    check(loop(folder, 'two-data-result', TWO_DATA + answered) == {'_ProbeFirstDatum', '_ProbeSecondDatum'},
-          'the data it lacks are found before main() too')
+    check(loop(folder, 'two-data-result', TWO_DATA + answered) == {'_ProbeFirstDatum', '_ProbeSecondDatum'}
+          and runs.count('two-data-result') == 1, 'the data it lacks are found before main() too, with one run')
     said = refused(folder, 'category-result', CATEGORY + answered, 'm') or ''
     check('the link probe category-result was killed by SIGSEGV' in said
           and 'Standing in for Objective-C classes: ProbeAbsentClass. ' in said,

@@ -88,13 +88,13 @@ public final class PagesPDFConversion: NSObject {
         if destination.path == report.path || isInside(destination, parent: report) {
             throw failure(2, "The PDF cannot replace the Pages report. The original report has been left unchanged.")
         }
-        guard let application = PagesApplication.url() else {
+        // The Pages a report is opened in and filled by, and no other: the
+        // report this converts may be open there with changes to save first.
+        guard let pages = PagesApplication.target() else {
             throw failure(3, "Pages is not installed or could not be located. The original report has been left unchanged.")
         }
-        guard let identifier = Bundle(url: application)?.bundleIdentifier,
-              ["com.apple.iWork.Pages", "com.apple.Pages"].contains(identifier) else {
-            throw failure(3, "Pages is not installed or could not be located. The original report has been left unchanged.")
-        }
+        let application = pages.url
+        let identifier = pages.identifier
 
         if let document = openDocumentID(for: report, identifier: identifier),
            run(script(saveIfModifiedScriptSource, for: identifier), [document, identifier]) == nil {
@@ -126,7 +126,7 @@ public final class PagesPDFConversion: NSObject {
                                 configuration: configuration, completionHandler: nil)
 
         var exported: URL?
-        for candidate in exportDestinations(application: application, work: work) {
+        for candidate in exportDestinations(identifier: identifier, work: work) {
             if run(exportScript(for: identifier), [copy.lastPathComponent, candidate.path,
                                   usesModernExport() ? "1" : "0", identifier]) != nil,
                isUsablePDF(at: candidate.path) {
@@ -169,9 +169,7 @@ public final class PagesPDFConversion: NSObject {
     public static func closeValidatedReport(at reportPath: String) -> Bool {
         let report = URL(fileURLWithPath: reportPath).resolvingSymlinksInPath()
         guard report.pathExtension.lowercased() == "pages",
-              let application = PagesApplication.url(),
-              let identifier = Bundle(url: application)?.bundleIdentifier,
-              ["com.apple.iWork.Pages", "com.apple.Pages"].contains(identifier),
+              let identifier = PagesApplication.target()?.identifier,
               let document = openDocumentID(for: report, identifier: identifier) else { return true }
         guard run(script(closeIfUnchangedScriptSource, for: identifier), [document, identifier]) != nil else {
             NSLog("---- the validated Pages report was left open: it changed after the export, or Pages did not close it")
@@ -182,18 +180,10 @@ public final class PagesPDFConversion: NSObject {
 
     // MARK: talking to Pages
 
-    /// The file of an open document, as Pages gives it: a POSIX path or a file
-    /// URL. Anything else is not a file this code can compare.
+    /// The file of an open document, as Pages gives it: nil when it is not a
+    /// file this code can compare.
     static func documentFileURL(_ value: String) -> URL? {
-        let url: URL
-        if value.hasPrefix("/") {
-            url = URL(fileURLWithPath: value)
-        } else if let parsed = URL(string: value), parsed.isFileURL {
-            url = parsed
-        } else {
-            return nil
-        }
-        return url.standardizedFileURL.resolvingSymlinksInPath()
+        PagesApplication.Target.fileURL(value)
     }
 
     /// The id of the open document whose file is `report`, or nil when Pages is
@@ -201,51 +191,19 @@ public final class PagesPDFConversion: NSObject {
     /// document whose file cannot be read is skipped: at worst the report is
     /// not saved first, as before.
     private static func openDocumentID(for report: URL, identifier: String) -> String? {
-        guard let inventory = runDescriptor(script(inventoryScriptSource, for: identifier), [identifier]),
-              inventory.numberOfItems > 0 else { return nil }
-        let wanted = report.standardizedFileURL.resolvingSymlinksInPath().path
-        for index in 1...inventory.numberOfItems {
-            guard let item = inventory.atIndex(index),
-                  let document = item.atIndex(1)?.stringValue,
-                  let file = item.atIndex(2)?.stringValue.flatMap(documentFileURL) else { continue }
-            if file.path == wanted { return document }
-        }
-        return nil
+        guard let inventory = runDescriptor(script(inventoryScriptSource, for: identifier), [identifier]) else { return nil }
+        return PagesApplication.Target.documentID(forFile: report.path, in: inventory)
     }
 
     /// The scripts name Pages in `using terms from`, which they need to compile;
-    /// the identifier is one of the two the callers accept.
+    /// the identifier is the one `PagesApplication.target()` answered with.
     static func script(_ source: String, for identifier: String) -> String {
         return source.replacingOccurrences(of: "__PAGES_BUNDLE_ID__", with: identifier)
     }
 
-    /// `POSIX path of (file of d)` inside the tell is sent to Pages, which
-    /// answers -1700; taken from a variable it is coerced here.
-    static let inventoryScriptSource = """
-    on run argv
-      set bundleId to item 1 of argv
-      set inventory to {}
-      if application id "__PAGES_BUNDLE_ID__" is not running then return inventory
-      with timeout of 60 seconds
-      using terms from application id "__PAGES_BUNDLE_ID__"
-      tell application id bundleId
-        repeat with candidate in documents
-          set documentFile to file of candidate
-          if documentFile is not missing value then
-            try
-              set documentPath to POSIX path of documentFile
-            on error
-              set documentPath to documentFile as text
-            end try
-            set end of inventory to {(id of candidate) as text, documentPath}
-          end if
-        end repeat
-      end tell
-      end using terms from
-      end timeout
-      return inventory
-    end run
-    """
+    /// The documents Pages has open and their files: the question every
+    /// conversation with Pages starts with.
+    static let inventoryScriptSource = PagesApplication.Target.documentsScript
 
     /// Saving an unchanged document is not needed, and for one Pages has to
     /// convert it can ask where to save.
@@ -284,8 +242,8 @@ public final class PagesPDFConversion: NSObject {
 
     /// `export d … as PDF` only compiles inside a block that names Pages: a
     /// target held in a variable gives the compiler no terminology, and the
-    /// script failed to compile with -2741. The identifier is one of the two
-    /// that convertReport accepts, so it can be written into the source.
+    /// script failed to compile with -2741. The identifier is that of the
+    /// Pages found, which is safe to write into the source.
     static func exportScript(for identifier: String) -> String {
         return script(exportScriptSource, for: identifier)
     }
@@ -331,15 +289,13 @@ public final class PagesPDFConversion: NSObject {
         return number < 1 || number >= 5
     }
 
-    private static func exportDestinations(application: URL, work: URL) -> [URL] {
+    private static func exportDestinations(identifier: String, work: URL) -> [URL] {
         var destinations = [work.appendingPathComponent("export.pdf")]
-        if let identifier = Bundle(url: application)?.bundleIdentifier {
-            let container = FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Library/Containers/\(identifier)/Data/tmp", isDirectory: true)
-            if (try? FileManager.default.createDirectory(at: container, withIntermediateDirectories: true)) != nil
-                || FileManager.default.fileExists(atPath: container.path) {
-                destinations.append(container.appendingPathComponent("horos-pages-pdf-\(UUID().uuidString).pdf"))
-            }
+        let container = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Containers/\(identifier)/Data/tmp", isDirectory: true)
+        if (try? FileManager.default.createDirectory(at: container, withIntermediateDirectories: true)) != nil
+            || FileManager.default.fileExists(atPath: container.path) {
+            destinations.append(container.appendingPathComponent("horos-pages-pdf-\(UUID().uuidString).pdf"))
         }
         return destinations
     }

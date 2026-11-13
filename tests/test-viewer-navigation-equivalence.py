@@ -157,6 +157,22 @@ extension DCMPix {
 '''
 
 
+# The value a piece of work gives a preference for the process, in revisions
+# whose blocks give one (the next series, which stays in its viewer): the
+# application's TemporaryPreferenceWork over IsiXPreferences' holds, without
+# its guard of exceptions, which nothing raises here.
+TEMPORARY_PREFERENCE_STAND_IN = r"""
+import Foundation
+import IsiXPreferences
+
+@MainActor enum TemporaryPreferenceWork {
+    static func during<Value: PreferenceValue>(_ key: PreferenceKey<Value>, at value: Value, silently: Bool = false, _ work: () -> Void) {
+        TemporaryPreferenceHolds.standard.during(key, at: value, work)
+    }
+}
+"""
+
+
 # The synchronization the "Synchronization" block hands its work to, in
 # revisions that have ViewerSettingsPropagator.swift: compiled with the blocks,
 # over the stand-ins' displayed viewers, the harness's two flags (the series
@@ -1525,6 +1541,9 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-navigation-') as tmp:
         helper = re.search(r'func viewerIsEqualToString\(.*?\n}\n', level, re.S).group(0)
         (swift / 'Helpers.swift').write_text('import Foundation\n\n' + helper + ARRANGER_STAND_IN)
         sources.append(str(swift / 'Helpers.swift'))
+        if any(b'TemporaryPreferenceWork.' in (read(args.current, 'Horos/Sources/' + name) or b'') for name in SWIFT_FILES):
+            (swift / 'TemporaryPreferenceWork.swift').write_text(TEMPORARY_PREFERENCE_STAND_IN)
+            sources.append(str(swift / 'TemporaryPreferenceWork.swift'))
         module = folder / 'module'
         module.mkdir()
         # IsiXLogging, which IsiXImaging writes its log through, when the revision has it.

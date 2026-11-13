@@ -197,6 +197,9 @@ enum Workspace {
         events.append("opened " + url.lastPathComponent)
         return true
     }
+    /// An existing report, which the real one opens in Pages when it is a
+    /// Pages document and as the user opens it otherwise.
+    static func openReport(atPath path: String) -> Bool { open(URL(fileURLWithPath: path)) }
     static func urlForApplication(withBundleIdentifier identifier: String) -> URL? { nil }
 }
 

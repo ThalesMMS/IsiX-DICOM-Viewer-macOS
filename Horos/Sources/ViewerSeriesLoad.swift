@@ -274,7 +274,7 @@ public final class ViewerSeriesLoad: NSObject {
                 viewer.horos_imageView?.updatePresentationStateFromSeries()
             }
         }
-        if modality == "PT" && preferences[ViewerPreferences.convertPETtoSUVautomatically] {
+        if modality == "PT" && ViewerWindowLevel.automaticConversionWithheld.value(in: preferences) {
             viewer.convertPETtoSUV()
             viewer.horos_imageView?.setStartWLWW()
         }

@@ -622,23 +622,21 @@ final class DistantStudyRetrieves: Sendable {
                 state.withLock { $0.retrieving[ObjectIdentifier(study)] = .some(study.studyInstanceUID()) }
             }
 
-            // No time for decompression. The retrievals running at once share one save of the
-            // setting, so that none of them restores the 0 another set.
-            ListenerCompressionSuspension.shared.begin()
+            // No time for decompression: the files are imported as they arrive while the retrievals
+            // running at once last, and until this one ends, also by raising.
+            ListenerCompressionSuspension.shared.whileWorking {
+                QueryController.retrieveStudies(study.map { [$0] } ?? [], showErrors: false, checkForPreviousAutoRetrieve: false)
 
-            QueryController.retrieveStudies(study.map { [$0] } ?? [], showErrors: false, checkForPreviousAutoRetrieve: false)
+                // Imported on a private-queue context, on its queue.
+                let idb = (database ?? PreferencesSource.process.processGraph.activeLocalDatabase)?.privateQueueIndependentDatabase() as? DicomDatabase
 
-            // Imported on a private-queue context, on its queue.
-            let idb = (database ?? PreferencesSource.process.processGraph.activeLocalDatabase)?.privateQueueIndependentDatabase() as? DicomDatabase
-
-            idb?.performBlockAndWait { _ = DatabaseIngest.process.importQueueNow(in: idb) }
-
-            // Files the scan moved aside to be converted? Only those, not a selection's conversion.
-            if idb?.waitForCompressThread() == true {
                 idb?.performBlockAndWait { _ = DatabaseIngest.process.importQueueNow(in: idb) }
-            }
 
-            ListenerCompressionSuspension.shared.end()
+                // Files the scan moved aside to be converted? Only those, not a selection's conversion.
+                if idb?.waitForCompressThread() == true {
+                    idb?.performBlockAndWait { _ = DatabaseIngest.process.importQueueNow(in: idb) }
+                }
+            }
 
             if let study {
                 _ = state.withLock { $0.retrieving.removeValue(forKey: ObjectIdentifier(study)) }

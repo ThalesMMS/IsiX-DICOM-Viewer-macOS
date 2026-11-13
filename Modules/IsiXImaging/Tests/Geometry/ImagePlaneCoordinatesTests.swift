@@ -146,6 +146,40 @@ struct ImageRenderingTests {
         }
         defer { free(masked) }
         #expect(Array(UnsafeBufferPointer(start: masked, count: 12)) == [-1, -1, -1, -1, -1, 5, 6, -1, -1, -1, -1, -1])
+
+        // What a circle or a polygon hides inside the rectangle is filled as well; a mask of another size is not one.
+        let shape: [UInt8] = [1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1]
+        let shaped = image.withUnsafeMutableBufferPointer {
+            ImageRendering.shuttered($0.baseAddress!, width: 4, height: 3, rect: CGRect(x: 1, y: 1, width: 2, height: 1), fill: -1, shape: shape)
+        }
+        defer { free(shaped) }
+        #expect(Array(UnsafeBufferPointer(start: shaped, count: 12)) == [-1, -1, -1, -1, -1, -1, 6, -1, -1, -1, -1, -1])
+        let ignored = image.withUnsafeMutableBufferPointer {
+            ImageRendering.shuttered($0.baseAddress!, width: 4, height: 3, rect: CGRect(x: 1, y: 1, width: 2, height: 1), fill: -1, shape: [0, 0])
+        }
+        defer { free(ignored) }
+        #expect(Array(UnsafeBufferPointer(start: ignored, count: 12)) == [-1, -1, -1, -1, -1, 5, 6, -1, -1, -1, -1, -1])
+    }
+
+    @Test func whatShowsBlackIsAtTheEndTheImageShowsBlack() {
+        // Shown as stored: the least of the series, and the offset further down.
+        let stored = ImageRendering.blackBackground(inverted: false, minimum: 500, maximum: 3500, offset: -1024)
+        #expect(stored.value == 500 && stored.offset == -1024)
+        #expect(stored.value + stored.offset == Float(500) - 1024, "what the shutter always hid a stored image with")
+        // Shown inverted, the greatest value is the black one: the offset goes up.
+        let inverted = ImageRendering.blackBackground(inverted: true, minimum: 500, maximum: 3500, offset: -1024)
+        #expect(inverted.value == 3500 && inverted.offset == 1024)
+        #expect(ImageRendering.blackBackground(inverted: true, minimum: 500, maximum: 3500, offset: 0) == (3500, 0))
+        #expect(ImageRendering.blackBackground(inverted: false, minimum: -1000, maximum: 3000, offset: 0) == (-1000, 0))
+
+        // The other end is not asked for: reading it may cost a pass over the series.
+        var asked: [String] = []
+        func least() -> Float { asked.append("minimum"); return 1 }
+        func greatest() -> Float { asked.append("maximum"); return 9 }
+        _ = ImageRendering.blackBackground(inverted: false, minimum: least(), maximum: greatest(), offset: 0)
+        #expect(asked == ["minimum"])
+        _ = ImageRendering.blackBackground(inverted: true, minimum: least(), maximum: greatest(), offset: 0)
+        #expect(asked == ["minimum", "maximum"])
     }
 
     @Test func aRenderedImageHasTheSizeAsked() throws {

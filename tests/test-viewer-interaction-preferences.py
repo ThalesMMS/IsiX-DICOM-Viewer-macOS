@@ -3,7 +3,7 @@
 
 The controls live in the pane's nib, in titled groups, once in each of its ten
 copies: the first click on an inactive viewer, the Length by two clicks, the
-precise mouse with its
+labels Command-Shift hides, the precise mouse with its
 movement pop-up, the MPR plane angles, the exponential slab slider and the
 "Previous" mark. Each is bound to its preference, which
 is registered with the value the app starts with, and every text is in the
@@ -37,14 +37,14 @@ source = PANE.read_text()
 failures = []
 
 defaults = default_preferences.registered()
-for key, value in {'FirstClickOnlyActivatesViewer': True, 'TwoClickLengthMeasurement': True, 'RememberMPRPlaneAngles': False, 'PreciseMouseForMeasuringAndZoom': False,
+for key, value in {'FirstClickOnlyActivatesViewer': True, 'TwoClickLengthMeasurement': True, 'CommandShiftHidesROILabels': False, 'RememberMPRPlaneAngles': False, 'PreciseMouseForMeasuringAndZoom': False,
                    'PreciseMouseFactor': 0.5,
                    'LogarithmicThickSlabSlider': False}.items():
     if type(defaults.get(key)) is not type(value) or defaults[key] != value:
         failures.append(f'{key} is not registered as {value!r}')
 
 GROUPS = ['Mouse and interaction', 'Series and windows', 'Image display', 'MPR and thick slab']
-keys = ['First click on an inactive viewer only activates it', 'Measure Length with two clicks', 'Remember MPR plane angles', 'Precise mouse for measuring and zoom', 'Mouse movement:',
+keys = ['First click on an inactive viewer only activates it', 'Measure Length with two clicks', 'Hide ROI labels while Command-Shift is held', 'Remember MPR plane angles', 'Precise mouse for measuring and zoom', 'Mouse movement:',
         'Exponential thick slab slider', 'Show "Previous" on older studies', 'Series %@', 'Window %ld'] + GROUPS
 catalogs = {}
 for path in sorted((ROOT / 'Horos/Resources').glob('*.lproj/Localizable.strings')):
@@ -62,6 +62,7 @@ if len(catalogs) != 12:
 BINDINGS = {
     ('value', '308', 'values.FirstClickOnlyActivatesViewer'): 1,
     ('value', '308', 'values.TwoClickLengthMeasurement'): 1,
+    ('value', '308', 'values.CommandShiftHidesROILabels'): 1,
     ('value', '308', 'values.RememberMPRPlaneAngles'): 1,
     ('value', '308', 'values.PreciseMouseForMeasuringAndZoom'): 1,
     ('enabled', '308', 'values.PreciseMouseForMeasuringAndZoom'): 1,

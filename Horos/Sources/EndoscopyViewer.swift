@@ -1302,22 +1302,19 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         var widthSag = 0, heightSag = 0, sppSag = 0, bppSag = 0
         var width3D = 0, height3D = 0, spp3D = 0, bpp3D = 0
 
-        let annotations = self.preferenceStore[ViewerPreferences.annotations]
-
         self.window?.makeFirstResponder(unsafeBitCast(vrController?.view() as AnyObject?, to: NSView?.self))
-        self.preferenceStore.set(Int(annotGraphics), for: ViewerPreferences.annotations)
-        DCMView.setDefaults()
 
-        mprController?.originalView()?.display()
-        mprController?.xReslicedView()?.display()
-        mprController?.yReslicedView()?.display()
+        // The three planes draw the graphics alone for the capture, with the
+        // user's colour bars, and nothing is stored in the preferences.
+        CaptureAnnotations.during(mprController?.planeViews ?? [], hidesBars: false) {
+            mprController?.originalView()?.display()
+            mprController?.xReslicedView()?.display()
+            mprController?.yReslicedView()?.display()
 
-        axialDataPtr = endoscopyView(mprController?.originalView())?.superGetRawPixels(&widthAx, &heightAx, &sppAx, &bppAx, true, true, false)
-        coronalDataPtr = endoscopyView(mprController?.xReslicedView())?.superGetRawPixels(&widthCor, &heightCor, &sppCor, &bppCor, true, true, false)
-        sagittalDataPtr = endoscopyView(mprController?.yReslicedView())?.superGetRawPixels(&widthSag, &heightSag, &sppSag, &bppSag, true, true, false)
-
-        self.preferenceStore.set(annotations, for: ViewerPreferences.annotations)
-        DCMView.setDefaults()
+            axialDataPtr = endoscopyView(mprController?.originalView())?.superGetRawPixels(&widthAx, &heightAx, &sppAx, &bppAx, true, true, false)
+            coronalDataPtr = endoscopyView(mprController?.xReslicedView())?.superGetRawPixels(&widthCor, &heightCor, &sppCor, &bppCor, true, true, false)
+            sagittalDataPtr = endoscopyView(mprController?.yReslicedView())?.superGetRawPixels(&widthSag, &heightSag, &sppSag, &bppSag, true, true, false)
+        }
 
         mprController?.originalView()?.needsDisplay = true
         mprController?.xReslicedView()?.needsDisplay = true

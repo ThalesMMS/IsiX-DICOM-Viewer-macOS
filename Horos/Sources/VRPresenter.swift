@@ -300,7 +300,6 @@ public final class VRPresenter: NSObject {
         hasDepth = false
         depthValues = nil
         imageCount = 0
-        showsVolumePicture = false
         usedThisFrame.removeAll()
         background = MTLClearColorMake(red, green, blue, 1)
         return true
@@ -484,8 +483,15 @@ public final class VRPresenter: NSObject {
         return volumePicture
     }
 
-    /// The next `drawImage` of this frame shows that texture, whatever VTK's image holds.
+    /// The volume's `drawImage` shows that texture, whatever VTK's image holds,
+    /// in this frame and in those after it, until `showVolumeImage`: a frame
+    /// that casts no rays (under the scissors' outline, a measure or the
+    /// oval) draws the last picture again, and VTK's image does not hold it.
     public func showVolumePicture() { showsVolumePicture = true }
+
+    /// The volume's `drawImage` shows VTK's image again: a render is about to
+    /// write it, or to leave the frame to VTK's own ray caster.
+    public func showVolumeImage() { showsVolumePicture = false }
 
     /// Draws a ray-cast image over the frame as VTK's display helper did:
     /// `pixels` is RGBA in 16-bit words, premultiplied, rows from the bottom,

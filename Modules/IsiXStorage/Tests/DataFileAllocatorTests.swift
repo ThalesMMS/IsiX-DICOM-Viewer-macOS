@@ -129,4 +129,62 @@ import Testing
             #expect(!all.contains(data + "/100/50.dcm"))
         }
     }
+
+    @Test func aNumberTheIndexUsesIsNeverGivenThoughItsFileIsGone() throws {
+        try withDataFolder { data in
+            // The index has records for files 3 and 5; file 5 went from the
+            // folder from outside, and 4 and 6 were deleted with their records.
+            touch(data + "/100/3.dcm")
+            let allocator = DataFileAllocator()
+            let first = allocator.uniquePath(inDataFolder: data, extension: "dcm", folderSize: 100, highestRecorded: { 5 }, prepareFolder: makeFolder)
+            let second = allocator.uniquePath(inDataFolder: data, extension: "dcm", folderSize: 100, highestRecorded: { 5 }, prepareFolder: makeFolder)
+            #expect(first == data + "/100/6.dcm")
+            #expect(second == data + "/100/7.dcm")
+            #expect(!FileManager.default.fileExists(atPath: data + "/100/5.dcm"))
+        }
+    }
+
+    @Test func theIndexCountsWhenTheFolderHoldsNothing() throws {
+        try withDataFolder { data in
+            let allocator = DataFileAllocator()
+            #expect(allocator.resume(fromDataFolder: data, folderSize: 100, highestRecorded: { 250 }) == 250)
+            #expect(allocator.uniquePath(inDataFolder: data, extension: "dcm", folderSize: 100, highestRecorded: { 250 }, prepareFolder: makeFolder)
+                    == data + "/300/251.dcm")
+        }
+    }
+
+    @Test func theFolderCountsWhenItHoldsMoreThanTheIndex() throws {
+        try withDataFolder { data in
+            touch(data + "/200/151.dcm")
+            let allocator = DataFileAllocator()
+            #expect(allocator.uniquePath(inDataFolder: data, extension: "dcm", folderSize: 100, highestRecorded: { 40 }, prepareFolder: makeFolder)
+                    == data + "/200/152.dcm")
+        }
+    }
+
+    @Test func theIndexIsAskedWhenTheFolderIsReadAndNotForEachFile() throws {
+        try withDataFolder { data in
+            touch(data + "/100/3.dcm")
+            let allocator = DataFileAllocator()
+            let asked = Mutex(0)
+            let highest: () -> UInt64 = {
+                asked.withLock { $0 += 1 }
+                return 5
+            }
+            var paths: Set<String> = []
+            for _ in 0..<1000 {
+                let path = allocator.uniquePath(inDataFolder: data, extension: "dcm", folderSize: 100, highestRecorded: highest, prepareFolder: makeFolder)
+                FileManager.default.createFile(atPath: path, contents: Data())
+                paths.insert(path)
+            }
+            #expect(paths.count == 1000)
+            #expect(asked.withLock { $0 } == 1)
+            // A number whose file is already there has the folder, and the index, read again.
+            touch(data + "/1100/1006.dcm")
+            touch(data + "/1100/1007.dcm")
+            #expect(allocator.uniquePath(inDataFolder: data, extension: "dcm", folderSize: 100, highestRecorded: { asked.withLock { $0 += 1 }; return 1500 },
+                                         prepareFolder: makeFolder) == data + "/1600/1501.dcm")
+            #expect(asked.withLock { $0 } == 2)
+        }
+    }
 }

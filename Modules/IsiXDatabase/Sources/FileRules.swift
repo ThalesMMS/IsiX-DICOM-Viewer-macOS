@@ -185,6 +185,49 @@ public enum DeleteQueueRules {
         return code == ENOENT ? nil : Failure(path: path, code: code)
     }
 
+    /// How a record of the index names a file: by its number, for
+    /// `<data folder>/<folder>/<number>.dcm`; by its name, for a file of
+    /// another name in a folder of the data folder; by its path, outside.
+    public enum IndexName: Hashable, Sendable {
+        case number(Int64)
+        case name(String)
+        case path(String)
+    }
+
+    /// How a record of the index of the database whose data folder is
+    /// `dataFolder` would name the file at `path`.
+    public static func indexName(ofFileAt path: String, dataFolder: String?) -> IndexName {
+        let file = (path as NSString).standardizingPath as NSString
+        guard let dataFolder, !dataFolder.isEmpty,
+              ((file.deletingLastPathComponent as NSString).deletingLastPathComponent as NSString).isEqual(to: (dataFolder as NSString).standardizingPath) else {
+            return .path(path)
+        }
+        let name = file.lastPathComponent as NSString
+        if name.pathExtension == "dcm", let number = Int64(name.deletingPathExtension), number >= 0, name.isEqual(to: "\(number).dcm") {
+            return .number(number)
+        }
+        return .name(name as String)
+    }
+
+    /// Those of the queued `files` that stay on the disk: the files a record
+    /// of the index still names. `named` answers, of the names it is given,
+    /// those that records have.
+    ///
+    /// A file is queued once its record left the index. When another record
+    /// names it too, the file is that record's: the frames of a multiframe
+    /// file and the series of one that is not DICOM are records of one file,
+    /// and a record that was given the number of a file that was gone names
+    /// the file of another image. Deleted, the image of the record that
+    /// stays would be lost.
+    public static func spared(_ files: [String], dataFolder: String?, named: (Set<IndexName>) -> Set<IndexName>) -> Set<String> {
+        var filesByName: [IndexName: [String]] = [:]
+        for file in files {
+            filesByName[indexName(ofFileAt: file, dataFolder: dataFolder), default: []].append(file)
+        }
+        guard !filesByName.isEmpty else { return [] }
+        return Set(named(Set(filesByName.keys)).flatMap { filesByName[$0] ?? [] })
+    }
+
     /// The first `limit` failures, one per line: the path and why.
     public static func failureList(_ failures: [Failure], limit: Int = 5) -> String {
         var lines = failures.prefix(limit).map { "\($0.path): \($0.reason)" }

@@ -155,6 +155,10 @@ final class ViewStub: NSObject {
 }
 
 struct HarnessGraph { let preferences: any PreferenceStore }
+// What the end of a load asks before it converts a PET series to SUV: the state the SUV sheet holds, never held here.
+enum ViewerWindowLevel {
+    static let automaticConversionWithheld = ForcedPreference(ViewerPreferences.convertPETtoSUVautomatically, to: false)
+}
 final class HarnessImageViews { let openingScaleToFit = DeferredCalls() }
 
 // On the main actor, as the app's ViewerController is by its AppKit superclass.

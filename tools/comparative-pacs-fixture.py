@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Synthetic local/prior studies and a loopback PACS with deliberately broad C-FIND results.
 Requires pydicom 3.0.2 and pynetdicom 3.0.4. Uses only generated synthetic fixtures.
+
+A slow node: --find-delay waits before a C-FIND answers, and --delay before each
+image of a C-GET is sent, so that what waits for a query or a retrieve shows.
 """
 import argparse
 import json
 from pathlib import Path
+import time
 import uuid
 from pydicom.dataset import FileDataset, FileMetaDataset, Dataset
 from pydicom import dcmread
@@ -45,16 +49,24 @@ def generate(root):
             ds.save_as(ds.filename,enforce_file_format=True)
     print('Current study:',uid('current'))
 
-def serve(root,port):
+def serve(root,port,delay=0.0,find_delay=0.0):
     images=[dcmread(p) for p in sorted((root/'remote').glob('*.dcm'))]
     expected={uid(f'{name}-{image}') for name in ('remote-good','remote-other','remote-birth') for image in (1,2)}
     if len(images)!=6 or {str(d.SOPInstanceUID) for d in images}!=expected or any(str(d.PatientName)!='QA^Comparative' for d in images):
         raise ValueError('Serve only the generated synthetic fixture set')
     state={'find':[],'get':[],'sent':[]}
     def record(): (root/'pacs-results.json').write_text(json.dumps(state,indent=2)+'\n')
+    def pause(event,seconds):
+        """Waits `seconds`, a tenth at a time; False as soon as the request is cancelled."""
+        until=time.monotonic()+seconds
+        while time.monotonic()<until:
+            if event.is_cancelled:return False
+            time.sleep(0.1)
+        return not event.is_cancelled
     def find(event):
         query=event.identifier;level=str(query.QueryRetrieveLevel)
         state['find'].append({k:str(getattr(query,k,'')) for k in ('QueryRetrieveLevel','PatientID','PatientBirthDate','StudyInstanceUID')});record()
+        if not pause(event,find_delay):yield 0xFE00,None;return
         selected=images
         if level!='STUDY':
             selected=[d for d in images if d.StudyInstanceUID==query.StudyInstanceUID]
@@ -79,7 +91,9 @@ def serve(root,port):
             if value:selected=[d for d in selected if str(getattr(d,k)) in str(value).split('\\')]
         yield len(selected)
         for d in selected:
-            if event.is_cancelled:yield 0xFE00,None;return
+            if not pause(event,delay):
+                state['cancelled']=state.get('cancelled',0)+1;record()
+                yield 0xFE00,None;return
             state['sent'].append({'study':str(d.StudyInstanceUID),'patient':str(d.PatientID),'birth':str(d.PatientBirthDate),'sop':str(d.SOPInstanceUID)});record()
             yield 0xFF00,d
     ae=AE(ae_title='HOROSCOMPARE')
@@ -90,7 +104,10 @@ def serve(root,port):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('root',type=Path);p.add_argument('--generate',action='store_true');p.add_argument('--port',type=int,default=11124)
+    p.add_argument('--delay',type=float,default=0.0,help='seconds before each image of a C-GET is sent')
+    p.add_argument('--find-delay',type=float,default=0.0,help='seconds before a C-FIND answers')
     args=p.parse_args()
     if not 1024<=args.port<=65535:p.error('Use an unprivileged TCP port')
+    if args.delay<0 or args.find_delay<0:p.error('A delay is zero or more seconds')
     if args.generate:generate(args.root)
-    else:serve(args.root,args.port)
+    else:serve(args.root,args.port,args.delay,args.find_delay)

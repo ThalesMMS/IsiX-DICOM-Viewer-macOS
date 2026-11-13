@@ -241,6 +241,64 @@ public enum SecondaryCaptureExport {
         }
     }
 
+    /// What the export reads of the source it writes over, before the group
+    /// of its image pixel module goes.
+    public struct Source: Equatable, Sendable {
+        public var modality: String?
+        public var photometricInterpretation: String?
+        public var rows: Int?
+        public var columns: Int?
+
+        public init(modality: String? = nil, photometricInterpretation: String? = nil, rows: Int? = nil, columns: Int? = nil) {
+            self.modality = modality
+            self.photometricInterpretation = photometricInterpretation
+            self.rows = rows
+            self.columns = columns
+        }
+    }
+
+    /// The Photometric Interpretation of the pixels written. 8-bit grey is a
+    /// picture of the screen, MONOCHROME2. Wider grey pixels are the source's
+    /// values, which the viewer keeps as they are stored and inverts only to
+    /// show: over a MONOCHROME1 source they are MONOCHROME1 still. Written as
+    /// MONOCHROME2 they came back in reverse, here and in every reader that
+    /// does not look for a Presentation LUT Shape of INVERSE beside them.
+    public static func photometricInterpretation(_ image: Image, source: Source) -> String {
+        if image.samplesPerPixel == 3 { return "RGB" }
+        let inverted = source.photometricInterpretation?.trimmingCharacters(in: .whitespaces) == "MONOCHROME1"
+        return image.bitsPerSample != 8 && inverted ? "MONOCHROME1" : "MONOCHROME2"
+    }
+
+    /// Whether the image has the rows and columns of its source. The display
+    /// shutter and the overlay planes of the source are placed in those: over
+    /// another matrix (a picture of the screen, a cropped or resampled image)
+    /// a reader cuts the image where the shutter was and draws the overlays,
+    /// which the picture already shows, a second time somewhere else.
+    public static func hasMatrix(of source: Source, _ image: Image) -> Bool {
+        source.rows == image.height && source.columns == image.width
+    }
+
+    /// The Display Shutter module.
+    public static let displayShutter: [UInt32] = [
+        0x0018_1600, // Shutter Shape
+        0x0018_1602, 0x0018_1604, 0x0018_1606, 0x0018_1608, // the edges of a rectangular one
+        0x0018_1610, 0x0018_1612, // the centre and the radius of a circular one
+        0x0018_1620, // Vertices of the Polygonal Shutter
+        0x0018_1622, 0x0018_1623, 0x0018_1624, // its presentation value, overlay group and colour
+    ]
+
+    /// The groups of the source that go whole before the image is written:
+    /// the image pixel module, which is written anew; the functional groups
+    /// of a multiframe image, which is not exported; and the overlay planes
+    /// when the image does not have the source's matrix.
+    public static func groupsRemoved(_ image: Image, source: Source) -> [UInt16] {
+        var groups: [UInt16] = [0x0028, 0x5200]
+        if !hasMatrix(of: source, image) {
+            groups += stride(from: UInt16(0x6000), through: 0x601e, by: 2)
+        }
+        return groups
+    }
+
     /// Whether the image is written as a secondary capture (modality SC)
     /// rather than keeping the source's class and modality.
     public static func writesSecondaryCapture(modalityAsSource: Bool, samplesPerPixel: Int) -> Bool {
@@ -252,6 +310,15 @@ public enum SecondaryCaptureExport {
     /// `sourceModality`. The pixel data itself is not among them.
     public static func imageEdits(_ image: Image, instanceNumber: Int32, modalityAsSource: Bool,
                                   sourceModality: String?) -> [Edit] {
+        imageEdits(image, instanceNumber: instanceNumber, modalityAsSource: modalityAsSource,
+                   source: Source(modality: sourceModality))
+    }
+
+    /// The same, over a source read whole: its Photometric Interpretation and
+    /// its matrix count too.
+    public static func imageEdits(_ image: Image, instanceNumber: Int32, modalityAsSource: Bool,
+                                  source: Source) -> [Edit] {
+        let sourceModality = source.modality
         var edits: [Edit] = []
         let secondaryCapture = writesSecondaryCapture(modalityAsSource: modalityAsSource,
                                                       samplesPerPixel: image.samplesPerPixel)
@@ -269,7 +336,7 @@ public enum SecondaryCaptureExport {
             .put(0x0028_0010, String(format: "%d", Int32(truncatingIfNeeded: image.height))),
             .put(0x0028_0011, String(format: "%d", Int32(truncatingIfNeeded: image.width))),
             .put(0x0028_0002, String(format: "%d", Int32(truncatingIfNeeded: image.samplesPerPixel))),
-            .put(0x0028_0004, image.samplesPerPixel == 3 ? "RGB" : "MONOCHROME2"),
+            .put(0x0028_0004, photometricInterpretation(image, source: source)),
             .put(0x0028_0103, image.isSigned ? "1" : "0"),
             .put(0x0028_0102, String(format: "%d", layout.highBit)),
             .put(0x0028_0100, String(format: "%d", layout.bitsAllocated)),
@@ -302,6 +369,9 @@ public enum SecondaryCaptureExport {
             edits.append(.put(0x0028_0006, "0"))
         }
         edits += [.remove(0x7fe0_0010), .remove(0x0009_1110)] // GEIIS: a private, always JPEG, pixel data
+        if !hasMatrix(of: source, image) {
+            edits += displayShutter.map { .remove($0) }
+        }
         let modality = secondaryCapture ? "SC" : sourceModality
         let rescaleType = modality == "CT" ? "HU" : "US"
         let window = image.windowWidth != -1
@@ -315,6 +385,7 @@ public enum SecondaryCaptureExport {
                       .put(0x0028_1053, String(format: "%f", image.slope)), .put(0x0028_1054, rescaleType)] + window
         default:
             edits += [.remove(0x0028_1051), .remove(0x0028_1050)]
+            edits += sourcePresentationLUT.map { .remove($0) }
             if image.samplesPerPixel != 3 {
                 edits += [.put(0x0028_1052, "0"), .put(0x0028_1053, "1"), .put(0x0028_1054, "US")]
             } else {
@@ -323,6 +394,19 @@ public enum SecondaryCaptureExport {
         }
         return edits
     }
+
+    /// How the source asks for its own stored values to be presented. The
+    /// group of the image pixel module goes with every export, and the window,
+    /// the VOI LUT and the modality LUT with it; these two are in a group of
+    /// their own. 8-bit pixels are a picture of the screen, already in the
+    /// polarity it showed, so they do not apply to it: a reader that obeys an
+    /// INVERSE shape left there, as DCMTK does when it prepares a film, shows
+    /// the picture in reverse. Wider pixels are the source's values, and keep
+    /// what the source says of them.
+    public static let sourcePresentationLUT: [UInt32] = [
+        0x2050_0010, // Presentation LUT Sequence
+        0x2050_0020, // Presentation LUT Shape
+    ]
 
     /// The edits after the pixel data, before the new identity.
     public static let closingRemovals: [UInt32] = [

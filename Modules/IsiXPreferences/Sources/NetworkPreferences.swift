@@ -170,8 +170,8 @@ public enum NetworkPreferences {
     public static let dicomwebNodes = PreferenceKey<[PropertyListValue]?>("DICOMWEB_SERVERS")
     public static let syncsDICOMNodes = PreferenceKey<Bool>("syncDICOMNodes")
     public static let hidesListenerErrors = PreferenceKey<Bool>("hideListenerError")
-    /// hideListenerError as the user had it, kept while an abort of the incoming transfers hides the
-    /// listener's errors: a launch that finds it puts it back.
+    /// hideListenerError as the user had it, which an earlier version kept while an abort of the
+    /// incoming transfers hid the listener's errors: a launch that finds it puts it back, once.
     public static let savedHidesListenerErrors = PreferenceKey<Bool>("copyHideListenerError")
     /// The TLS listener: on or off, its AE title and its port, and the file of its Diffie-Hellman parameters.
     public static let tlsListener = PreferenceKey<Bool>("STORESCPTLS")

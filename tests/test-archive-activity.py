@@ -11,6 +11,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import warnings
 import zipfile
 
 root = Path(__file__).resolve().parents[1]
@@ -143,6 +144,8 @@ struct DatabaseIngest {
 }
 func check(_ ok: Bool, _ message: String) { if !ok { FileHandle.standardError.write(Data("FAIL: \(message)\n".utf8)); exit(1) } }
 nonisolated(unsafe) var prompts = 0, errors = 0, ticks = 0
+// What the last alert that only reports said.
+nonisolated(unsafe) var lastError = ""
 // Each prompt takes the next answer; nil leaves the sheet open; none left: "secret".
 nonisolated(unsafe) var answers: [String?] = []
 
@@ -171,7 +174,7 @@ nonisolated(unsafe) var answers: [String?] = []
     func runModal() -> NSApplication.ModalResponse { check(false, "an alert ran app-modally"); return .alertSecondButtonReturn }
     func beginSheetModal(for parent: Any, completionHandler: ((NSApplication.ModalResponse) -> Void)?) {
         check(Thread.isMainThread, "alert created off main")
-        guard let completionHandler else { errors += 1; return }
+        guard let completionHandler else { errors += 1; lastError = informativeText; return }
         prompts += 1
         completion = completionHandler
         window.sheetParent = parent as? FakeWindow
@@ -203,6 +206,7 @@ MainActor.assumeIsolated {
     _ = NSApplication.shared
     UserDefaults.standard.setVolatileDomain(["HideZIPSuppressionMessage": true, "deleteZIPfile": false], forName: UserDefaults.argumentDomain)
     let root = arguments[1], zip = arguments[2], encrypted = arguments[3], corrupt = arguments[4], warned = arguments[6]
+    let backslashes = arguments[7], overwritten = arguments[8]
     let files = FileManager.default
     let working = (root as NSString).appendingPathComponent("working")
     try? files.createDirectory(atPath: working, withIntermediateDirectories: true)
@@ -281,9 +285,29 @@ MainActor.assumeIsolated {
     pumpUntil { stagingFolders().contains { files.fileExists(atPath: ($0 as NSString).appendingPathComponent("image.dcm")) } }
     running.cancel(); finish(running)
     check(entries(originalIncoming).count == 6 && stagingFolders().isEmpty, "cancelling unzip published partial data or left staging")
-    for file in [zip, encrypted, corrupt, warned] { check(files.fileExists(atPath: file), "source archive deleted") }
+
+    // A Windows tool's archive, with \ between folders and an entry for the folder
+    // itself: unzip puts the names right, warns and ends with 1. Imported, no error.
+    let errorsBefore = errors
+    archives.expandIntoIncomingFolder(backslashes); finish(lastThread())
+    RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+    let backslashFolder = entries(originalIncoming).map { (originalIncoming as NSString).appendingPathComponent($0) }
+        .first { files.fileExists(atPath: ($0 as NSString).appendingPathComponent("ST_1/IM1.dcm")) }
+    check(errors == errorsBefore && entries(originalIncoming).count == 7 && backslashFolder != nil
+          && files.fileExists(atPath: (backslashFolder! as NSString).appendingPathComponent("ST_1/IM2.dcm")),
+          "an archive with backslashes between folders and an entry for its folder was refused")
+
+    // The same with one image listed twice: the second is written over the first,
+    // so a file the archive lists is not there. Refused, and the alert says why.
+    archives.expandIntoIncomingFolder(overwritten); finish(lastThread())
+    RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+    check(errors == errorsBefore + 1 && entries(originalIncoming).count == 7 && stagingFolders().isEmpty,
+          "an archive with backslashes between folders was published with a file missing")
+    check(lastError.hasSuffix("Not every file in the ZIP file could be extracted. (unzip: 1)"),
+          "the refusal does not say that files are missing: \(lastError)")
+    for file in [zip, encrypted, corrupt, warned, backslashes, overwritten] { check(files.fileExists(atPath: file), "source archive deleted") }
     timer.invalidate()
-    print("PASS: Activity returns immediately; main loop, pinned database, concurrent jobs, private complete files, corrupt ZIP, archive with warnings, password retry and both cancellation paths work")
+    print("PASS: Activity returns immediately; main loop, pinned database, concurrent jobs, private complete files, corrupt ZIP, archive with warnings, archive with backslashes between folders, password retry and both cancellation paths work")
 }
 '''.replace('ACTIVITY', activity).replace('EXTRACTION', extraction)
 
@@ -327,6 +351,19 @@ with tempfile.TemporaryDirectory(prefix='horos-archive-activity-') as temporary:
         zipped.writestr('/abs/IMG1.dcm',b'first synthetic DICOM')
         zipped.writestr('ok/IMG2.dcm',b'second synthetic DICOM')
     (folder/'warned.zip').write_bytes(b'preamble'+(folder/'absolute.zip').read_bytes())
+    # Entries a Windows tool wrote: made on a FAT system (0), with \ between
+    # folders and the folder as an entry of its own. unzip warns that the archive
+    # "appears to use backslashes as path separators" and ends with 1 on both; the
+    # second lists one image twice, so one file fewer comes out than it lists.
+    images = [('ST_1\\IM1.dcm', b'first synthetic DICOM'), ('ST_1\\IM2.dcm', b'second synthetic DICOM')]
+    for name, repeated in (('backslashes.zip', []), ('overwritten.zip', [('ST_1\\IM2.dcm', b'third synthetic DICOM')])):
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', UserWarning)  # zipfile tells of the name written twice
+            with zipfile.ZipFile(folder/name, 'w') as zipped:
+                for entry, content in [('ST_1\\', b'')] + images + repeated:
+                    info = zipfile.ZipInfo(entry)
+                    info.create_system, info.external_attr = 0, 0x20 if content else 0x10
+                    zipped.writestr(info, content)
     (folder/'Harness.h').write_text(header)
     (folder/'native.m').write_text(native)
     (folder/'main.swift').write_text(driver)
@@ -349,7 +386,7 @@ with tempfile.TemporaryDirectory(prefix='horos-archive-activity-') as temporary:
                      str(sources/'ActivityThread.swift'),str(folder/'main.swift'),
                      str(folder/'native.o'),str(folder/'exception.o'),'-framework','AppKit','-o',str(folder/'check')],
                     [str(folder/'check'),str(folder),str(folder/'input.zip'),str(folder/'encrypted.zip'),str(folder/'corrupt.zip'),crc_password,
-                     str(folder/'warned.zip')]):
+                     str(folder/'warned.zip'),str(folder/'backslashes.zip'),str(folder/'overwritten.zip')]):
         result=subprocess.run(command,capture_output=True,text=True,timeout=300)
         if result.returncode:
             print(result.stdout);print(result.stderr);raise SystemExit(result.returncode)

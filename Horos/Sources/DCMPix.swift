@@ -140,6 +140,11 @@ struct DCMPixPaletteState {
     final var horos_isBonjour = false
     final var horos_fileTypeHasPrefixDICOM = false
     final var horos_numberOfFrames: Int32 = 0
+    /// The SOP Instance UID the image's row keeps: what the file is to state
+    /// to be loaded as the image of the row (RecordedInstance).
+    final var horos_recordedSOPInstanceUID: NSString?
+    /// The last load found the file to be another image's than the row's.
+    final var horos_fileIsOfAnotherImage = false
     /// Not retained, as the class never retained it: the series' list holds its images.
     final unowned(unsafe) var horos_pixArray: NSArray?
     final var horos_imageObjectID: NSManagedObjectID!
@@ -407,6 +412,7 @@ struct DCMPixPaletteState {
         copy.horos_imageObjectID = horos_imageObjectID
         copy.horos_URIRepresentationAbsoluteString = horos_URIRepresentationAbsoluteString
         copy.horos_fileTypeHasPrefixDICOM = horos_fileTypeHasPrefixDICOM
+        copy.horos_recordedSOPInstanceUID = horos_recordedSOPInstanceUID
         copy.horos_yearOld = horos_yearOld
         copy.horos_yearOldAcquisition = horos_yearOldAcquisition
         copy.horos_imID = horos_imID

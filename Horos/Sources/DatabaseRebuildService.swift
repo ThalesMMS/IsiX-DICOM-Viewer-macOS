@@ -434,7 +434,10 @@ final class DatabaseRebuildService: DatabaseRebuilding, @unchecked Sendable {
     private func removeWhatIsGone(_ thread: Thread) -> [String] {
         thread.status = NSLocalizedString("Checking for missing files...", comment: "")
 
-        // remove non-available images
+        // remove non-available images. An image whose record names the file of
+        // another one has lost its own: it no longer names that file, and goes
+        // with the others.
+        StrangerImageRecords.leaveTheFilesOfOthers(in: database)
         let dataFolderIsThere = database.dataDirPath().map { FileManager.default.fileExists(atPath: $0) } ?? false
         for case let aFile as DicomImage in database.objects(forEntity: database.imageEntity()) ?? [] {
             let path = aFile.completePath()
@@ -787,5 +790,110 @@ extension DatabaseRebuildService {
         timer.invalidate()
 
         return response == .OK && rebuilds.isEmpty
+    }
+}
+
+/// The image records of an index that name the data file of another image.
+///
+/// A record names its file by a number. When the files with the highest
+/// numbers left the data folder from outside while their records stayed, an
+/// import after the next launch was given those numbers again, and the old
+/// records have named the new files since: their images show those of
+/// another study, nothing says that their own files are gone, and deleting
+/// them deletes the files of the other images. A new file no longer gets such
+/// a number; this is for the records an index already has.
+enum StrangerImageRecords {
+    /// Gives each record of `database` that names the file of another image
+    /// a number of its own, which no file has nor will have: the record then
+    /// says that its file is missing, and what removes it no longer removes
+    /// the file of the other image. Returns how many records there were. On
+    /// the queue of the context of the database.
+    @discardableResult
+    static func leaveTheFilesOfOthers(in database: DicomDatabase, identifiers: (String) -> Set<Data>? = identifiers(inFileAt:)) -> Int {
+        let strangers = find(in: database, identifiers: identifiers)
+        for image in strangers {
+            guard let own = database.uniquePathForNewDataFile(withExtension: "dcm") else { continue }
+            image.setPath((own as NSString).lastPathComponent)
+        }
+        return strangers.count
+    }
+
+    /// The records of `database` that name a data file another record is the
+    /// one of. On the queue of the context of the database.
+    ///
+    /// The numbers more than one record names are asked of the store in one
+    /// request, with no object read. Only their records are read, and only
+    /// the files that records of different SOP Instance UIDs name are opened:
+    /// the frames of a multiframe file are records of one. `identifiers`
+    /// reads a file as the import does, so its records are compared with
+    /// what the import would give them, also for a file that is not DICOM.
+    /// SharedDataFile says which records are not of the file.
+    static func find(in database: DicomDatabase, identifiers: (String) -> Set<Data>? = identifiers(inFileAt:)) -> [DicomImage] {
+        guard let context = database.managedObjectContext,
+              let entity = context.persistentStoreCoordinator?.managedObjectModel.entitiesByName["Image"], let name = entity.name,
+              entity.attributesByName["pathNumber"] != nil, entity.attributesByName["compressedSopInstanceUID"] != nil else { return [] }
+
+        let counted = NSExpressionDescription()
+        counted.name = "records"
+        counted.expression = NSExpression(forFunction: "count:", arguments: [NSExpression(forKeyPath: "pathNumber")])
+        counted.expressionResultType = .integer64AttributeType
+        let shared = NSFetchRequest<NSFetchRequestResult>(entityName: name)
+        shared.resultType = .dictionaryResultType
+        shared.predicate = NSPredicate(format: "pathNumber != nil")
+        shared.propertiesToFetch = ["pathNumber", counted]
+        shared.propertiesToGroupBy = ["pathNumber"]
+        // The count is named as the request names it: the store refuses the function itself here.
+        shared.havingPredicate = NSPredicate(format: "%@ > 1", NSExpression(forVariable: counted.name))
+        let numbers = (((try? context.fetch(shared)) as? [[String: Any]]) ?? []).compactMap { $0["pathNumber"] as? NSNumber }
+
+        var strangers: [DicomImage] = []
+        var filesRead = 0, filesThatToldNothing = 0
+        for start in stride(from: 0, to: numbers.count, by: 500) {
+            let request = NSFetchRequest<NSManagedObject>(entityName: name)
+            request.predicate = NSPredicate(format: "pathNumber IN %@", Array(numbers[start..<min(start + 500, numbers.count)]))
+            var sharing: [Int64: [DicomImage]] = [:]
+            for case let image as DicomImage in (try? context.fetch(request)) ?? [] {
+                sharing[image.pathNumber?.int64Value ?? 0, default: []].append(image)
+            }
+            for number in sharing.keys.sorted() {
+                let images = sharing[number] ?? []
+                let recorded = images.map { identifier(of: $0.compressedSopInstanceUID) }
+                guard SharedDataFile.needsReading(recordIdentifiers: recorded), let path = images.first?.completePath() else { continue }
+                filesRead += 1
+                let held = identifiers(path)
+                let notOfTheFile = SharedDataFile.strangers(recordIdentifiers: recorded, fileIdentifiers: held)
+                // Nothing to say of a file whose records are all of it, as the series of one that is not DICOM.
+                if notOfTheFile.isEmpty, !recorded.allSatisfy({ $0.map { held?.contains($0) ?? false } ?? true }) {
+                    filesThatToldNothing += 1
+                }
+                strangers += notOfTheFile.map { images[$0] }
+            }
+        }
+        if filesRead > 0 {
+            NSLog("--- rebuild: %ld data files are named by records of different images; %ld records are not of the file they name, and count as images whose files are gone; %ld files told nothing of their records, which stay as they are", filesRead, strangers.count, filesThatToldNothing)
+        }
+        return strangers
+    }
+
+    /// The SOP Instance UIDs the import gives the records of the file at
+    /// `path`, one for each series the file holds, as a record stores them;
+    /// nil for a file the import does not read.
+    static func identifiers(inFileAt path: String) -> Set<Data>? {
+        var file: DicomFile?
+        if HorosObjCException.caught({ file = DicomFile(path) }) != nil { return nil }
+        guard let file, let elements = file.dicomElements() else { return nil }
+        let found = (0..<max(1, file.noOfSeries())).compactMap { series -> Data? in
+            guard let uid = elements.object(forKey: series == 0 ? "SOPUID" : "SOPUID\(series)") as? String, !uid.isEmpty else { return nil }
+            return identifier(of: DicomImage.sopInstanceUIDEncode(uid))
+        }
+        return found.isEmpty ? nil : Set(found)
+    }
+
+    /// A stored SOP Instance UID without the zero byte some records end it
+    /// with, nil for none.
+    private static func identifier(of stored: Data?) -> Data? {
+        guard let stored, !stored.isEmpty else { return nil }
+        let trimmed = stored.last == 0 ? stored.dropLast() : stored
+        return trimmed.isEmpty ? nil : Data(trimmed)
     }
 }

@@ -1120,59 +1120,54 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         mprView2?.LOD = 40
         mprView3?.LOD = 40
 
-        let c = self.preferenceStore[ReconstructionPreferences.syncsZoomLevelMPR]
+        // The zooms of the planes go together while they are laid out anew.
+        MPRController.planesLayoutZoomSync.whileWorking {
+            // Default Init
+            self.clippingRangeMode = 1 // MIP
 
-        self.preferenceStore.set(true, for: ReconstructionPreferences.syncsZoomLevelMPR)
+            if (_originalPix?.sliceInterval ?? 0) > 1.0 {
+                self.setClippingRangeThicknessInMm(1.0)
+            } else {
+                self.setClippingRangeThicknessInMm(Float(_originalPix?.sliceInterval ?? 0))
+            }
 
-        // Default Init
-        self.clippingRangeMode = 1 // MIP
+            //self.clippingRangeThickness = 0.5;
 
-        if (_originalPix?.sliceInterval ?? 0) > 1.0 {
-            self.setClippingRangeThicknessInMm(1.0)
-        } else {
-            self.setClippingRangeThicknessInMm(Float(_originalPix?.sliceInterval ?? 0))
-        }
+            let min = cInt32(Double(self.getClippingRangeThicknessInMm()) * 100.0)
+            self.dcmIntervalMin = Float(Double(Float(min)) / 100.0)
+            self.dcmIntervalMin = Float(Double(self.dcmIntervalMin) - 0.001)
+            if Double(self.dcmIntervalMin) < 0.01 {
+                self.dcmIntervalMin = Float(0.01)
+            }
 
-        //self.clippingRangeThickness = 0.5;
+            self.dcmIntervalMax = 100
 
-        let min = cInt32(Double(self.getClippingRangeThicknessInMm()) * 100.0)
-        self.dcmIntervalMin = Float(Double(Float(min)) / 100.0)
-        self.dcmIntervalMin = Float(Double(self.dcmIntervalMin) - 0.001)
-        if Double(self.dcmIntervalMin) < 0.01 {
-            self.dcmIntervalMin = Float(0.01)
-        }
+            self.window?.makeFirstResponder(mprView1)
+            mprView1?.vrView?.resetImage(self)
 
-        self.dcmIntervalMax = 100
+            mprView1?.angleMPR = 0
+            mprView2?.angleMPR = 0
+            mprView3?.angleMPR = 0
 
-        self.window?.makeFirstResponder(mprView1)
-        mprView1?.vrView?.resetImage(self)
+            mprView1?.updateViewMPR(onLoading: isInitializing)
 
-        mprView1?.angleMPR = 0
-        mprView2?.angleMPR = 0
-        mprView3?.angleMPR = 0
+            mprView2?.camera?.viewUp = Point3D.point(withX: 0, y: -1, z: 0)
 
-        mprView1?.updateViewMPR(onLoading: isInitializing)
+            self.window?.makeFirstResponder(mprView3)
+            mprView3?.camera?.viewUp = Point3D.point(withX: 0, y: 0, z: 1)
+            mprView3?.camera?.rollAngle = 0
+            mprView3?.angleMPR = 0
+            if let camera = mprView3?.camera {
+                camera.parallelScale = Float(Double(camera.parallelScale) / 1.5)
+            }
+            mprView3?.restoreCamera()
+            mprView3?.updateViewMPR(onLoading: isInitializing)
 
-        mprView2?.camera?.viewUp = Point3D.point(withX: 0, y: -1, z: 0)
+            super.showWindow(sender)
+            _ = self.renderLifecycle?.markOpen()
 
-        self.window?.makeFirstResponder(mprView3)
-        mprView3?.camera?.viewUp = Point3D.point(withX: 0, y: 0, z: 1)
-        mprView3?.camera?.rollAngle = 0
-        mprView3?.angleMPR = 0
-        if let camera = mprView3?.camera {
-            camera.parallelScale = Float(Double(camera.parallelScale) / 1.5)
-        }
-        mprView3?.restoreCamera()
-        mprView3?.updateViewMPR(onLoading: isInitializing)
-
-        super.showWindow(sender)
-        _ = self.renderLifecycle?.markOpen()
-
-        self.setTool(toolsMatrix)
-        self.selectCurvedPathDrawingTool()
-
-        if c == false {
-            self.preferenceStore.set(c, for: ReconstructionPreferences.syncsZoomLevelMPR)
+            self.setTool(toolsMatrix)
+            self.selectCurvedPathDrawingTool()
         }
 
         mprView1?.dontUseAutoLOD = false
@@ -1458,7 +1453,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         var b = [Float](repeating: 0, count: 6)
 
         if sender != nil {
-            if self.preferenceStore[ReconstructionPreferences.syncsZoomLevelMPR] {
+            if MPRController.planesLayoutZoomSync.value(in: self.preferenceStore) {
                 let selectedView = self.selectedView()
 
                 if selectedView !== mprView1 { mprView1?.camera?.parallelScale = selectedView?.camera?.parallelScale ?? 0 }
@@ -3598,32 +3593,19 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     // MARK: - Path Loading And Saving
 
+    // Image files and PDFs from another application become new series of the
+    // study, as in every window opened from a 2D viewer (ViewerFileDropTarget);
+    // any other drop is answered here as before, for the file of a curved
+    // path: the generic operation, when the source offers it.
+
     @objc(draggingEntered:)
-    private dynamic func draggingEntered(_ sender: NSDraggingInfo!) -> NSDragOperation {
-        if NSDragOperation.generic.intersection(sender.draggingSourceOperationMask) == NSDragOperation.generic {
-            //this means that the sender is offering the type of operation we want
-            //return that we want the NSDragOperationGeneric operation that they
-            //are offering
-            return .generic
-        } else {
-            //since they aren't offering the type of operation we want, we have
-            //to tell them we aren't interested
-            return []
-        }
+    override dynamic func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        ViewerFileDropTarget.operation(for: sender, on: self) ?? (sender.draggingSourceOperationMask.contains(.generic) ? .generic : [])
     }
 
     @objc(draggingUpdated:)
-    private dynamic func draggingUpdated(_ sender: NSDraggingInfo!) -> NSDragOperation {
-        if NSDragOperation.generic.intersection(sender.draggingSourceOperationMask) == NSDragOperation.generic {
-            //this means that the sender is offering the type of operation we want
-            //return that we want the NSDragOperationGeneric operation that they
-            //are offering
-            return .generic
-        } else {
-            //since they aren't offering the type of operation we want, we have
-            //to tell them we aren't interested
-            return []
-        }
+    override dynamic func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        ViewerFileDropTarget.operation(for: sender, on: self) ?? (sender.draggingSourceOperationMask.contains(.generic) ? .generic : [])
     }
 
     @objc(prepareForDragOperation:)
@@ -3632,7 +3614,10 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     }
 
     @objc(performDragOperation:)
-    private dynamic func performDragOperation(_ sender: NSDraggingInfo!) -> Bool {
+    override dynamic func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        if let taken = ViewerFileDropTarget.perform(sender, on: self) {
+            return taken
+        }
         let paste = sender.draggingPasteboard
         let types = [filenamesPboardType]
         let desiredType = paste.availableType(from: types)

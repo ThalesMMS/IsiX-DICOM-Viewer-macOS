@@ -3071,19 +3071,18 @@ extension WebPortalConnection {
         }
 
         let preferences = PreferencesSource.process.preferences
-        let savedSmartCropping = preferences[ViewerPreferences.allowSmartCropping]
+        let smartCropping = TemporaryPreference(ViewerPreferences.allowSmartCropping) // Off for the capture, in this process only: never stored.
 
         do {
             try HorosObjCException.throwing(WebPortalPageError.raised) {
-                // Sent to the main thread by the request's thread.
-                MainActor.assumeIsolated { DCMView.setCLUTBARS(CLUTBARS, annotations: Int32(annotGraphics)) }
+                // Sent to the main thread by the request's thread. The image is drawn in a view of its own, with the
+                // graphics alone: the text of the annotations names the patient, and is not served whatever level this
+                // station shows. The views of the open viewers are not part of the capture and keep their annotations.
+                smartCropping.set(false)
+                let frame = NSMakeRect(0, 0, CGFloat(preferences[DatabasePreferences.dicomImageScreenCaptureWidth]), CGFloat(preferences[DatabasePreferences.dicomImageScreenCaptureHeight]))
+                let image = assumeMainActor(dicomImage) { image in image.screenCapture(frame, annotations: Int32(annotGraphics)) }
 
-                preferences.set(false, for: ViewerPreferences.allowSmartCropping)
-
-                let image = dicomImage.image(asScreenCapture: NSMakeRect(0, 0, CGFloat(preferences[DatabasePreferences.dicomImageScreenCaptureWidth]), CGFloat(preferences[DatabasePreferences.dicomImageScreenCaptureHeight])))
-
-                MainActor.assumeIsolated { DCMView.setDefaults() }
-                preferences.set(savedSmartCropping, for: ViewerPreferences.allowSmartCropping)
+                smartCropping.restore()
 
                 let representations = image?.representations
                 let bitmapData = representations.flatMap { NSBitmapImageRep.representationOfImageReps(in: $0, using: .jpeg, properties: [.compressionFactor: NSDecimalNumber(value: Float(0.8))]) }
@@ -3095,8 +3094,7 @@ extension WebPortalConnection {
         } catch {
             let e = WebPortalPageError.exception(for: error)
             _N2LogExceptionImpl(e, true, "-[WebPortalConnection(Data) saveImageAsScreenCapture:]")
-            MainActor.assumeIsolated { DCMView.setDefaults() }
-            preferences.set(savedSmartCropping, for: ViewerPreferences.allowSmartCropping)
+            smartCropping.restore()
         }
     }
 

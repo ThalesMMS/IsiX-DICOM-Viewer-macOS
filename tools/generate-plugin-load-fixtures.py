@@ -16,6 +16,24 @@ a former plugin's -filterImage: leaves <Class>.executed there instead of
 showing an alert, and QAHostLinked's -initPlugin, which the host's -init calls
 when +filter makes its filter, leaves QAHostLinked.initPlugin.
 
+QAModalDialog.horosplugin is a database plugin whose command keeps a modal
+dialog open: the moment the application can be asked to quit with the code of
+a plugin still on the stack. Left alone it only shows its dialog. To drive it
+without a hand on the mouse, HOROS_PLUGIN_MODAL_AUTORUN=<seconds> makes it
+choose its own menu item that long after the launch finishes, and
+HOROS_PLUGIN_MODAL_QUIT says what it does two seconds after the dialog opens:
+`key` posts Command-Q to the application's event queue, as the keyboard does;
+`delegate` sends -terminate: to the application's delegate from a block of the
+main run loop in the common modes, which is where the installation of an
+update asks the application to quit; `application` sends -terminate: to
+NSApplication. With HOROS_PLUGIN_MARKER_DIR set it also writes what it saw,
+the note naming the running plugin included, to QAModalDialog.trace there.
+
+QA.horosplugin (version 1.0) and QA.osirixplugin (version 2.0) are one database
+plugin under the two former extensions, as two installers of one author leave
+it; -filterImage: says which bundle and version ran, in QA.executed when
+HOROS_PLUGIN_MARKER_DIR is set.
+
 Never installs them.
 """
 from pathlib import Path
@@ -185,6 +203,155 @@ with tempfile.TemporaryDirectory() as scratch:
     'CFBundleVersion': '1.0', 'CFBundlePackageType': 'BNDL', 'NSPrincipalClass': 'QAMissingSymbol', 'pluginType': 'imageFilter',
     'MenuTitles': ['QAMissingSymbol']}))
 subprocess.run(['codesign', '--force', '--sign', '-', str(missing_symbol)], check=True, capture_output=True)
+
+# A former database plugin whose command stays in a modal dialog, and that can
+# ask the application to quit from inside it: see the module's description.
+modal = args.destination / 'QAModalDialog.horosplugin'
+(modal / 'Contents/MacOS').mkdir(parents=True)
+modal_source = args.destination / 'QAModalDialog.m'
+modal_source.write_text(r'''#import <AppKit/AppKit.h>
+static void QAModalDialogTrace(NSString *text) {
+    NSLog(@"PLUGINFIXTURE QAModalDialog %@", text);
+    const char *markers = getenv("HOROS_PLUGIN_MARKER_DIR");
+    if (!markers) return;
+    NSString *path = [@(markers) stringByAppendingPathComponent:@"QAModalDialog.trace"];
+    NSString *before = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:NULL] ?: @"";
+    [[before stringByAppendingFormat:@"%@\n", text] writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:NULL];
+}
+static NSMenuItem *QAModalDialogFind(NSMenu *menu, BOOL (^matches)(NSMenuItem *)) {
+    for (NSMenuItem *item in menu.itemArray) {
+        if (matches(item)) return item;
+        NSMenuItem *found = item.submenu ? QAModalDialogFind(item.submenu, matches) : nil;
+        if (found) return found;
+    }
+    return nil;
+}
+@interface QAModalDialog : NSObject
+@end
+@implementation QAModalDialog
++ (void)load {
+    const char *delay = getenv("HOROS_PLUGIN_MODAL_AUTORUN");
+    if (!delay) return;
+    NSTimeInterval seconds = atof(delay);
+    [NSNotificationCenter.defaultCenter addObserverForName:NSApplicationDidFinishLaunchingNotification object:nil queue:nil
+                                                usingBlock:^(NSNotification *note) {
+        [self performSelector:@selector(chooseOwnMenuItem) withObject:nil afterDelay:seconds];
+    }];
+}
+// The item the application made for this plugin in its Plugins menu, sent as a click sends it.
++ (void)chooseOwnMenuItem {
+    NSMenuItem *item = QAModalDialogFind(NSApp.mainMenu, ^BOOL(NSMenuItem *candidate) {
+        return [candidate.title isEqualToString:@"QAModalDialog"] && candidate.action != NULL;
+    });
+    QAModalDialogTrace([NSString stringWithFormat:@"own menu item %@, action %@, target %@", item ? @"found" : @"missing",
+                        item ? NSStringFromSelector(item.action) : @"-", item.target ? NSStringFromClass([item.target class]) : @"-"]);
+    if (item) [NSApp sendAction:item.action to:item.target from:item];
+}
++ (id)filter { return [[[self alloc] init] autorelease]; }
+- (long)prepareFilter:(id)viewer { return 0; }
+// The notes beside the plugins folder this bundle is in, as the application left them.
+- (NSString *)notes {
+    NSString *support = [[[NSBundle bundleForClass:[self class]].bundlePath stringByDeletingLastPathComponent] stringByDeletingLastPathComponent];
+    NSMutableArray *notes = [NSMutableArray array];
+    for (NSString *entry in [NSFileManager.defaultManager contentsOfDirectoryAtPath:support error:NULL])
+        if ([entry hasPrefix:@"Plugin_Loading"])
+            [notes addObject:[NSString stringWithFormat:@"%@ = %@", entry,
+                              [[NSString stringWithContentsOfFile:[support stringByAppendingPathComponent:entry] encoding:NSUTF8StringEncoding error:NULL]
+                               stringByReplacingOccurrencesOfString:@"\n" withString:@" | "]]];
+    return notes.count ? [notes componentsJoinedByString:@"; "] : @"none";
+}
+- (void)askToQuit:(NSString *)how {
+    QAModalDialogTrace([NSString stringWithFormat:@"asking to quit by %@; modal window %@", how, NSApp.modalWindow ? @"open" : @"absent"]);
+    if ([how isEqualToString:@"key"]) {
+        NSMenuItem *quit = QAModalDialogFind(NSApp.mainMenu, ^BOOL(NSMenuItem *candidate) {
+            return [candidate.keyEquivalent isEqualToString:@"q"] && candidate.keyEquivalentModifierMask == NSEventModifierFlagCommand;
+        });
+        [quit.menu update];
+        QAModalDialogTrace([NSString stringWithFormat:@"Quit item %@, enabled %d, action %@, target %@", quit ? quit.title : @"missing", quit.enabled,
+                            quit ? NSStringFromSelector(quit.action) : @"-", quit.target ? NSStringFromClass([quit.target class]) : @"-"]);
+        for (NSNumber *type in @[@(NSEventTypeKeyDown), @(NSEventTypeKeyUp)])
+            [NSApp postEvent:[NSEvent keyEventWithType:type.unsignedIntegerValue location:NSZeroPoint modifierFlags:NSEventModifierFlagCommand
+                                             timestamp:NSProcessInfo.processInfo.systemUptime windowNumber:NSApp.keyWindow.windowNumber context:nil
+                                            characters:@"q" charactersIgnoringModifiers:@"q" isARepeat:NO keyCode:12] atStart:NO];
+    } else if ([how isEqualToString:@"delegate"]) {
+        CFRunLoopPerformBlock(CFRunLoopGetMain(), kCFRunLoopCommonModes, ^{
+            QAModalDialogTrace(@"-terminate: to the application's delegate, from a block of the main run loop");
+            [(id)NSApp.delegate performSelector:@selector(terminate:) withObject:nil];
+        });
+        CFRunLoopWakeUp(CFRunLoopGetMain());
+    } else if ([how isEqualToString:@"application"]) {
+        [NSApp terminate:nil];
+    }
+    [NSTimer scheduledTimerWithTimeInterval:3 repeats:NO block:^(NSTimer *timer) {
+        QAModalDialogTrace([NSString stringWithFormat:@"still running 3 s after asking to quit by %@; notes: %@", how, [self notes]]);
+    }].tolerance = 0;
+}
+- (long)filterImage:(NSString *)menu {
+    QAModalDialogTrace([NSString stringWithFormat:@"command %@ started; notes: %@", menu, [self notes]]);
+    NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+    alert.messageText = @"Synthetic plugin dialog";
+    alert.informativeText = @"QAModalDialog keeps this dialog open until it is answered.";
+    [alert addButtonWithTitle:@"OK"];
+    const char *quit = getenv("HOROS_PLUGIN_MODAL_QUIT");
+    if (quit) {
+        NSString *how = @(quit);
+        NSTimer *timer = [NSTimer timerWithTimeInterval:2 repeats:NO block:^(NSTimer *fired) { [self askToQuit:how]; }];
+        [NSRunLoop.mainRunLoop addTimer:timer forMode:NSRunLoopCommonModes];
+    }
+    [alert runModal];
+    QAModalDialogTrace([NSString stringWithFormat:@"command %@ returned", menu]);
+    return 0;
+}
+@end
+''')
+with tempfile.TemporaryDirectory() as scratch:
+    subprocess.run(['xcrun', 'clang', '-bundle', '-framework', 'AppKit', '-arch', 'arm64', '-arch', 'x86_64',
+                    str(modal_source), '-o', str(modal / 'Contents/MacOS/QAModalDialog')],
+                   check=True, env=dict(os.environ, TMPDIR=scratch + '/'))
+(modal / 'Contents/Info.plist').write_bytes(plistlib.dumps({
+    'CFBundleExecutable': 'QAModalDialog', 'CFBundleIdentifier': 'org.horosproject.qa.QAModalDialog', 'CFBundleName': 'QAModalDialog',
+    'CFBundleVersion': '1.0', 'CFBundlePackageType': 'BNDL', 'NSPrincipalClass': 'QAModalDialog', 'pluginType': 'Database',
+    'MenuTitles': ['QAModalDialog']}))
+subprocess.run(['codesign', '--force', '--sign', '-', str(modal)], check=True, capture_output=True)
+
+# One plugin twice, as two installers of the same author leave it: the same
+# name, class and identifier under the two former extensions, at two versions.
+same_name_source = args.destination / 'QA.m'
+same_name_source.write_text(r'''#import <AppKit/AppKit.h>
+@interface QA : NSObject
+@end
+@implementation QA
++ (id)filter { return [[[self alloc] init] autorelease]; }
+- (long)prepareFilter:(id)viewer { return 0; }
+- (long)filterImage:(NSString *)menu {
+    NSBundle *bundle = [NSBundle bundleForClass:[self class]];
+    NSString *which = [NSString stringWithFormat:@"%@ %@", bundle.bundlePath.lastPathComponent, [bundle objectForInfoDictionaryKey:@"CFBundleVersion"]];
+    const char *markers = getenv("HOROS_PLUGIN_MARKER_DIR");
+    if (markers) {
+        [which writeToFile:[@(markers) stringByAppendingPathComponent:@"QA.executed"] atomically:YES encoding:NSUTF8StringEncoding error:NULL];
+        return 0;
+    }
+    NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+    alert.messageText = @"Synthetic plugin executed";
+    alert.informativeText = which;
+    [alert addButtonWithTitle:@"OK"];
+    [alert runModal];
+    return 0;
+}
+@end
+''')
+for extension, version in [('horosplugin', '1.0'), ('osirixplugin', '2.0')]:
+    bundle = args.destination / ('QA.' + extension)
+    (bundle / 'Contents/MacOS').mkdir(parents=True)
+    with tempfile.TemporaryDirectory() as scratch:
+        subprocess.run(['xcrun', 'clang', '-bundle', '-framework', 'AppKit', '-arch', 'arm64', '-arch', 'x86_64',
+                        str(same_name_source), '-o', str(bundle / 'Contents/MacOS/QA')],
+                       check=True, env=dict(os.environ, TMPDIR=scratch + '/'))
+    (bundle / 'Contents/Info.plist').write_bytes(plistlib.dumps({
+        'CFBundleExecutable': 'QA', 'CFBundleIdentifier': 'org.horosproject.qa.QA', 'CFBundleName': 'QA',
+        'CFBundleVersion': version, 'CFBundlePackageType': 'BNDL', 'NSPrincipalClass': 'QA', 'pluginType': 'Database',
+        'MenuTitles': ['QA']}))
+    subprocess.run(['codesign', '--force', '--sign', '-', str(bundle)], check=True, capture_output=True)
 
 # Version 1: a stand-in IsiXPluginKit.framework (only its install name
 # matters: a plugin links it, the host provides it; a test executable reaches

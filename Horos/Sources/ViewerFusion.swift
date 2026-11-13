@@ -264,7 +264,7 @@ fileprivate func blendingPercentageString(_ value: Float) -> String {
                 if objcIsEqualToString(viewer.studyInstanceUID(), viewer.horos_blending?.studyInstanceUID()) {
                     // By default, re-activate 'propagate settings'
 
-                    preferences.set(true, for: ViewerPreferences.copySettings)
+                    TemporaryPreferenceHolds.standard.choose(true, for: ViewerPreferences.copySettings)
                 }
 
                 var orientA = [Float](repeating: 0, count: 9), orientB = [Float](repeating: 0, count: 9)
@@ -858,7 +858,7 @@ fileprivate func blendingPercentageString(_ value: Float) -> String {
             }
         }
 
-        preferences.set(true, for: ViewerPreferences.copySettings)
+        TemporaryPreferenceHolds.standard.choose(true, for: ViewerPreferences.copySettings)
         imageView.setSyncro(Int16(syncroLOC))
         imageView.sendSyncMessage(0)
         viewer.settingsPropagator.propagateSettings()

@@ -104,6 +104,17 @@ require('(full name of d) is thePath' in script,
         'saved-document cleanup must distinguish unrelated documents with the same basename')
 require('existingNames contains candidateName' in script,
         'merge output must not be a document that was already open')
+# No document of the merge can be taken for another of its name: the template
+# and the output are named after the folder made for this one report, and the
+# merged document - which has no file before it is saved - is the active one
+# only if its name is neither the template's nor one that was open before.
+generator = source[start:source.index('@objc(pathForWordTemplate:)', start)]
+require('directory.lastPathComponent + "-template"' in generator and 'directory.lastPathComponent + "-merged"' in generator,
+        "the merge's private template or output no longer has a name of this report's own")
+require('mkdtemp' in (root / 'Horos/Sources/HorosReportFileReplacement.h').read_text(),
+        'the folder of a report in the making no longer has a name of its own')
+require('if candidateName is templateName or existingNames contains candidateName then error' in script,
+        'the merged document may be one that is not the merge\'s')
 require(script.index('open outFilePath add to recent files false') < script.index('open templatePath add to recent files false'),
         'Word must open the existing private output before Save As needs access to it')
 require('return true' in script[:script.index('on error errorMessage number errorNumber')],

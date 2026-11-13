@@ -102,6 +102,13 @@ public final class ImageNavigationSlider: HorosCellSlider {
 
     // MARK: - Drawing
 
+    /// The band is neutral: blue and orange say, in the list of series, which
+    /// study a series is of, and the band says nothing of the study. A dark
+    /// grey for the images not shown yet and a light one for those shown, the
+    /// same in a light and in a dark window.
+    static let unseenColor = NSColor(calibratedWhite: 0.22, alpha: 1)
+    static let seenColor = NSColor(calibratedWhite: 0.74, alpha: 1)
+
     public override func draw(_ dirtyRect: NSRect) {
         let alpha: CGFloat = isEnabled ? 1 : 0.45
         let bar = barRect
@@ -110,12 +117,12 @@ public final class ImageNavigationSlider: HorosCellSlider {
         NSGraphicsContext.saveGraphicsState()
         defer { NSGraphicsContext.restoreGraphicsState() }
 
-        NSColor.labelColor.withAlphaComponent(0.16 * alpha).setFill()
+        Self.unseenColor.withAlphaComponent(alpha).setFill()
         NSBezierPath(roundedRect: bar, xRadius: radius, yRadius: radius).fill()
 
         if imageCount > 1 {
             NSBezierPath(roundedRect: bar, xRadius: radius, yRadius: radius).addClip()
-            NSColor.controlAccentColor.withAlphaComponent(0.7 * alpha).setFill()
+            Self.seenColor.withAlphaComponent(alpha).setFill()
             for range in visited.rangeView {
                 let start = x(forIndex: range.lowerBound)
                 let end = x(forIndex: range.upperBound)

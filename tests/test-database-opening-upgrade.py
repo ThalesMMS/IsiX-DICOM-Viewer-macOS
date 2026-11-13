@@ -260,6 +260,18 @@ extension DicomImage {
     func completePath() -> String? { return nil }
     func inDatabaseFolder() -> NSNumber? { return nil }
     var series: DicomSeries? { return value(forKey: "series") as? DicomSeries }
+    // What the rebuild that keeps the index reads of the records that name one
+    // file. None does here; tests/test-database-rebuild-failure.py is about them.
+    var pathNumber: NSNumber? { return value(forKey: "pathNumber") as? NSNumber }
+    var compressedSopInstanceUID: Data? { return value(forKey: "compressedSopInstanceUID") as? Data }
+    static func sopInstanceUIDEncode(_ uid: String!) -> Data! { return Data(uid.utf8) }
+    func setPath(_ name: String!) {}
+}
+/// The import's reader of a file, which reads none here.
+final class DicomFile {
+    init!(_ path: String!) { return nil }
+    func noOfSeries() -> Int { return 1 }
+    func dicomElements() -> NSMutableDictionary! { return nil }
 }
 extension DicomSeries {
     var study: DicomStudy? { return value(forKey: "study") as? DicomStudy }
@@ -327,6 +339,8 @@ class DicomDatabase: N2ManagedDatabase {
     let databaseWriterGate = DatabaseWriterGate()
     var defaultAlbumsCreated = false
     var restoredAlbums = "none"
+    /// Asked for a record that names the file of another image, of which there is none here.
+    func uniquePathForNewDataFile(withExtension fileExtension: String!) -> String! { return nil }
 
     override var managedObjectModel: NSManagedObjectModel! { currentModel }
     /// Every store that opens comes through here. One that opens inside the main

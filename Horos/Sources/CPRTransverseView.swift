@@ -38,7 +38,6 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
-import IsiXPreferences
 
 // The OpenGL enumerants ROICanvasGL.h names, which Swift cannot import: that
 // header imports Horos-Swift.h.
@@ -105,9 +104,6 @@ private func dcmPixSetArrayPix(_ pix: AnyObject, _ array: NSArray, _ i: Int) {
 /// stored properties.
 @objc(CPRTransverseView)
 public final class CPRTransverseView: DCMView {
-    /// The preferences the view reads and writes: those of the process graph.
-    let preferenceStore: any PreferenceStore = PreferencesSource.process.preferences
-
     // MARK: - The former instance variables
 
     /// _delegate: assigned, not retained.
@@ -361,14 +357,19 @@ public final class CPRTransverseView: DCMView {
         self.cprController?.propagateOriginRotationAndZoom(toTransverseViews: self)
     }
 
+    /// The zoom drag of the image view, about the middle of the section
+    /// whatever the Viewers settings say of the point clicked: the sections
+    /// share one origin, which a zoom about a click would move in all of them.
+    /// The setting is not asked, where it once was turned off in the
+    /// preferences and put back at every event of the drag.
     public override func mouseDraggedZoom(_ event: NSEvent!) {
-        let copyMouseClickZoomCentered = self.preferenceStore[ViewerPreferences.mouseClickZoomCentered]
+        let current = self.currentPoint(inView: event)
 
-        self.preferenceStore.set(false, for: ViewerPreferences.mouseClickZoomCentered)
+        self.scaleValue = self.viewport.zoomDragScale(delta: PreciseMouse.appliedDelta(Double(current.y - self.horos_start.y)),
+                                                      imageWidth: self.curDCM?.pwidth ?? 0)
 
-        super.mouseDraggedZoom(event)
-
-        self.preferenceStore.set(copyMouseClickZoomCentered, for: ViewerPreferences.mouseClickZoomCentered)
+        let origin = self.viewport.zoomDragOrigin(click: nil, drawingSize: self.horos_drawingFrameRect.size, deg2rad: DCMView.horos_static_deg2rad)
+        self.setOriginX(origin.x, y: origin.y)
 
         self.cprController?.propagateOriginRotationAndZoom(toTransverseViews: self)
     }
