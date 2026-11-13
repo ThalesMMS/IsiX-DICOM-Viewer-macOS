@@ -4,11 +4,12 @@
 Volume, renaming and propagation group a series' ROIs by name. New ROIs get a
 numbered name ("Oval 1", "Oval 2") by default, so each is an object of its
 own; with ROIJoinOverlappingOnAdjacentImage on (the default), a contour that
-covers at least a tenth of a ROI on one of the two images before or after it
-takes that ROI's name once it is finished. The nearest image wins, then the
-larger overlap. Images whose plane is not parallel, "Unnamed" ROIs and
-contours still being drawn are left alone, and nothing joins with the
-option off.
+covers at least a tenth of a ROI on another image takes that ROI's name once
+it is finished. The nearest image wins, at any distance, then the larger
+overlap: contours drawn several images apart, for the missing ROIs to be
+generated between them, are one object too. Images whose plane is not
+parallel, "Unnamed" ROIs and contours still being drawn are left alone, and
+nothing joins with the option off.
 
 The production -[DCMView planePointsOfROI:onImage:] and
 -joinFinishedContourToAdjacentObject (DCMView+ROIEditing.swift, with
@@ -195,6 +196,29 @@ int main() { @autoreleasepool {
     draw(v, 7, between);
     check([between.name isEqualToString:@"Lesion B"]);
 
+    // Contours several images apart, as drawn for the missing ROIs to be
+    // generated between them, are one object; one that covers nothing is not.
+    DCMView *far = series(12);
+    [far->dcmRoiList[1] addObject:circle(@"Polygon 1", 100, 100, 20)];
+    ROI *fourOn = circle(@"Polygon 2", 104, 100, 18), *elsewhere = circle(@"Polygon 3", 300, 300, 20);
+    draw(far, 5, fourOn);
+    draw(far, 5, elsewhere);
+    check([fourOn.name isEqualToString:@"Polygon 1"] && [elsewhere.name isEqualToString:@"Polygon 3"]);
+    // The nearest image decides, whatever a ROI further away shares: the
+    // contour of image 11 covers all of Polygon 1 on image 1 and a part of
+    // Lesion C on image 8.
+    [far->dcmRoiList[8] addObject:circle(@"Lesion C", 125, 100, 20)];
+    ROI *last = circle(@"Polygon 4", 100, 100, 20);
+    draw(far, 11, last);
+    check([last.name isEqualToString:@"Lesion C"]);
+    // On the same image the larger overlap decides, and a contour drawn
+    // before every other one of its object joins the first after it.
+    [far->dcmRoiList[8] addObject:circle(@"Lesion D", 102, 100, 20)];
+    ROI *again = circle(@"Polygon 5", 100, 100, 20), *before = circle(@"Polygon 6", 300, 300, 20);
+    draw(far, 9, again);
+    draw(far, 0, before);
+    check([again.name isEqualToString:@"Lesion D"] && [before.name isEqualToString:@"Polygon 3"]);
+
     // Edges that only touch, Unnamed ROIs and non-volume ROIs stay apart.
     DCMView *w = series(4);
     [w->dcmRoiList[0] addObject:circle(@"Oval 1", 100, 100, 20)];
@@ -301,7 +325,7 @@ int main() { @autoreleasepool {
 
     check([HorosROIObjectJoin isUnnamed:nil] && [HorosROIObjectJoin isUnnamed:@""] && [HorosROIObjectJoin isUnnamed:@"Unnamed"] && ![HorosROIObjectJoin isUnnamed:@"Oval 1"]);
     check([HorosROIObjectJoin.preferenceKey isEqualToString:@"KEY"]);
-    NSLog(@"PASS: joins across one or two images, nearest first, in millimetres; touching, Unnamed, other planes, drawing and option off stay apart");
+    NSLog(@"PASS: joins across any number of images, nearest first, in millimetres; touching, Unnamed, other planes, drawing and option off stay apart");
 }}
 '''.replace('KEY', KEY)
 

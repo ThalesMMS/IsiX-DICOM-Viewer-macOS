@@ -41,6 +41,11 @@ ALLOWED = {
     # At startup, plugins installed for Horos or OsiriX can be copied from those
     # applications' plugin folders, and the question names the folders they come from.
     'Copy the plugins found in the Horos or OsiriX folders to your IsiX plugin folders?': 'the other application',
+    # The Plugins Manager looks at those folders again on request: the command, the answer
+    # when it finds nothing to copy and the note on what importing does name them too.
+    'Import Plugins from Horos or OsiriX…': 'the other application',
+    'No new or newer plugins were found in the Horos or OsiriX plugins folders.': 'the other application',
+    'Importing copies the plugins listed as new or newer to your IsiX plugins folders. The Horos and OsiriX folders are not changed.': 'the other application',
     # Plugins are made for Horos or for OsiriX, and the lists say which.
     'Horos Plugins': 'plugin origin', 'OsiriX Plugins': 'plugin origin',
     'Plugin validated in Horos': 'plugin origin', 'Plugin not validated in Horos': 'plugin origin',

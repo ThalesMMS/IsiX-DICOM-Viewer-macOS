@@ -134,7 +134,7 @@ class DCMView: NSView {
     private func captured(_ views: [DCMView], _ width: UnsafeMutablePointer<Int>, _ height: UnsafeMutablePointer<Int>,
                           _ spp: UnsafeMutablePointer<Int>, _ bpp: UnsafeMutablePointer<Int>) -> UnsafeMutablePointer<UInt8>? {
         seen.append(Seen(levels: views.map(\.annotationType), bars: CLUTBARS,
-                         readLevel: UserDefaults.standard.integer(forKey: "ANNOTATIONS"), readBars: UserDefaults.standard.integer(forKey: "CLUTBARS"),
+                         readLevel: UserDefaults.standard.integer(forKey: "ANNOTATIONS"), readBars: UserDefaults.standard[ViewerPreferences.clutBars],
                          storedAsBefore: stored().isEqual(before), others: others.map(\.annotationType)))
         switch outcome {
         case .nothing:

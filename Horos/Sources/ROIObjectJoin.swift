@@ -19,8 +19,10 @@ import IsiXPreferences
 /// Volume, renaming and propagation treat the ROIs of a series that share a
 /// name as one object. New ROIs get a numbered name ("Oval 1", "Oval 2"), so
 /// each is an object of its own; with this option on, a contour drawn over a
-/// ROI of a neighbouring image takes that ROI's name instead, and a lesion
-/// outlined slice by slice comes out as one object with its own volume.
+/// ROI of another image, the nearest that has one it covers, takes that ROI's
+/// name instead, and a lesion outlined slice by slice, or every few slices
+/// for the missing ROIs to be generated in between, comes out as one object
+/// with its own volume.
 @objc(HorosROIObjectJoin)
 public final class ROIObjectJoin: NSObject {
     @objc public static let preferenceKey = ViewerPreferences.roiJoinOverlappingOnAdjacentImage.name
@@ -29,8 +31,7 @@ public final class ROIObjectJoin: NSObject {
         PreferencesSource.process.preferences[ViewerPreferences.roiJoinOverlappingOnAdjacentImage]
     }
 
-    /// How many images before and after the new contour's image are searched,
-    /// so that outlining every other slice still joins.
+    /// The historical search radius exposed to Objective-C clients.
     @objc public static let reach = 2
 
     /// The share of the smaller contour's area the two must have in common.

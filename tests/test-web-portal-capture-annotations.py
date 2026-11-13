@@ -94,7 +94,7 @@ final class DicomImage {
     /// Draws in a view of its own, as the application's does, at the level asked.
     func screenCapture(_ frame: NSRect, annotations: Int32?) -> NSImage? {
         askedLevels.append(annotations)
-        seenCropping.append(controlled.bool(forKey: "allowSmartCropping"))
+        seenCropping.append(controlled[ViewerPreferences.allowSmartCropping])
         if raises { NSException(name: .rangeException, reason: "the capture raises", userInfo: nil).raise() }
         let image = NSImage(size: NSMakeSize(4, 4))
         image.addRepresentation(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 4, pixelsHigh: 4, bitsPerSample: 8, samplesPerPixel: 3,

@@ -633,7 +633,7 @@
                                         <binding destination="308" name="value" keyPath="values.EmptyNameForNewROIs" id="420"/>
                                     </connections>
                                 </button>
-                                <button toolTip="पहले या बाद की दो छवियों में से किसी पर बने ROI के ऊपर खींचा गया नया ROI उसका नाम ले लेता है, ताकि वॉल्यूम, नाम बदलने और प्रसार के लिए दोनों एक ही ऑब्जेक्ट हों।" horizontalCompressionResistancePriority="1000" id="roi-join-overlap-control">
+                                <button toolTip="किसी दूसरी छवि के ROI के ऊपर खींचा गया नया ROI सबसे नज़दीकी ऐसे ROI का नाम ले लेता है, ताकि वॉल्यूम, नाम बदलने और प्रसार के लिए दोनों एक ही ऑब्जेक्ट हों।" horizontalCompressionResistancePriority="1000" id="roi-join-overlap-control">
                                     <rect key="frame" x="10" y="62" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="आसन्न छवियों पर ओवरलैप होने वाले ROI जोड़ें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="roi-join-overlap-cell">

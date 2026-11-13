@@ -137,6 +137,16 @@ struct ROIEditingSessionTests {
         #expect(ROIEditingSession.joinedImages(around: 0, reach: 1, imageCount: 1, roiListCount: 1).isEmpty)
     }
 
+    @Test func joinedImagesOfAWholeSeriesAreEveryOtherImageNearestFirst() {
+        let images = ROIEditingSession.joinedImages(around: 4, imageCount: 7, roiListCount: 7)
+        #expect(images.map(\.image) == [3, 5, 2, 6, 1, 0] && images.map(\.distance) == [1, 1, 2, 2, 3, 4])
+        // The first image, lists shorter than the images, and a single image.
+        #expect(ROIEditingSession.joinedImages(around: 0, imageCount: 4, roiListCount: 4).map(\.image) == [1, 2, 3])
+        #expect(ROIEditingSession.joinedImages(around: 1, imageCount: 6, roiListCount: 3).map(\.image) == [0, 2])
+        #expect(ROIEditingSession.joinedImages(around: 0, imageCount: 1, roiListCount: 1).isEmpty)
+        #expect(ROIEditingSession.joinedImages(around: 0, imageCount: 0, roiListCount: 0).isEmpty)
+    }
+
     @Test func onlyParallelPlanesAreCompared() {
         let axial: [Double] = [1, 0, 0, 0, 1, 0, 0, 0, 1]
         let flipped: [Double] = [1, 0, 0, 0, -1, 0, 0, 0, -1]

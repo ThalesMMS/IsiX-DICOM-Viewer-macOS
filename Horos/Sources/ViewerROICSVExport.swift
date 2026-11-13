@@ -45,6 +45,8 @@ import IsiXROI
         let flipped = viewer.horos_imageView?.flippedData == true
 
         var entries: [Export.Entry] = []
+        // The row of each ROI written, to say which two Lengths a ratio divides.
+        var rows: [ObjectIdentifier: Int] = [:]
         for x in 0..<min(pixes.count, slices.count) {
             guard let pix = pixes[x] as? DCMPix else { continue }
             // The number the viewer shows: a flipped series counts from the other end.
@@ -56,8 +58,18 @@ import IsiXROI
                 if (roi.isAliased || roi is HorosVolumeLengthROI) && x != Int(roi.originalIndexForAlias) { continue }
                 guard let entry = entry(for: roi, pix: pix, series: description, uid: uid,
                                         image: image, instanceNumber: instanceNumber) else { continue }
+                rows[ObjectIdentifier(roi)] = entries.count
                 entries.append(entry)
             }
+        }
+        for label in ViewerLengthRatio.labels(of: viewer, movie: movie) {
+            guard let row = rows[ObjectIdentifier(label.roi)] else { continue }
+            let value = label.numerator.flatMap(ViewerLengthRatio.measured).flatMap { n in
+                label.denominator.flatMap(ViewerLengthRatio.measured).flatMap { ROILengthRatio.value(of: n, over: $0) }
+            }
+            entries[row].ratio = Export.Ratio(value: value,
+                                              numerator: label.numerator.flatMap { rows[ObjectIdentifier($0)] }.map { $0 + 1 },
+                                              denominator: label.denominator.flatMap { rows[ObjectIdentifier($0)] }.map { $0 + 1 })
         }
         return entries
     }

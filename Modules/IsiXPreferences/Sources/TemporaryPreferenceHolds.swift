@@ -30,9 +30,11 @@ import Synchronization
 /// viewers in full screen that leave it in the order they entered would
 /// leave the value of the first as the value of the process.
 ///
-/// The observers of a key are told when what it reads does change, by the
-/// call that changes it and on its thread: a hold at the value another hold
-/// already gives tells no one.
+/// What follows the preferences by UserDefaults.didChangeNotification is told
+/// when what a key reads does change, by the call that changes it and on its
+/// thread: a hold at the value another hold already gives tells no one. The
+/// key-value observers of the key and the bindings are told nothing: they
+/// show what is stored (TemporaryPreference).
 ///
 /// A choice made while holds last ends them. The work wanted its value for
 /// its own steps, not against the person: a menu item bound to the key that

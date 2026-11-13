@@ -212,9 +212,10 @@ MainActor.assumeIsolated {
             var ran = false
             TemporaryPreference(hides, in: controlled).whileWorking(with: true) {
                 ran = true
-                check(controlled[hides] && UserDefaults.standard.bool(forKey: hides.name), "\(had.rawValue): every reader of the process reads the work's value")
+                check(controlled[hides] && UserDefaults.standard[hides], "\(had.rawValue): every reader of the catalog's key in the process reads the work's value")
+                check(controlled.bool(forKey: hides.name) == users, "\(had.rawValue): UserDefaults asked by name answers the person's value, which is what a binding shows")
                 var elsewhere = false
-                let thread = Thread { elsewhere = UserDefaults.standard.bool(forKey: hides.name) }
+                let thread = Thread { elsewhere = UserDefaults.standard[hides] }
                 thread.start()
                 while !thread.isFinished { usleep(200) }
                 check(elsewhere, "\(had.rawValue): on another thread too")

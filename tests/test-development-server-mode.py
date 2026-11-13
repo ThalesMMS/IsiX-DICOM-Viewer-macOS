@@ -143,7 +143,15 @@ if browser_swift is None:
 else:
     functions = 'void writeBlock0(NSUserDefaults *defaults);\nvoid writeBlock1(NSUserDefaults *defaults);\nvoid writeBlock2(NSUserDefaults *defaults);'
     swift_blocks = ((0, browser_swift), (1, abort_block), (2, recovery))
-swift_functions = 'import Foundation\nimport IsiXPreferences\nimport IsiXDICOMNetwork\n' + hidden + '\n'.join(
+CATALOG_READER = r'''
+extension UserDefaults {
+    /// A switch as a reader of the catalog reads it, for the driver's
+    /// Objective-C: the value of work in course comes before what UserDefaults
+    /// holds, and -boolForKey: does not answer it.
+    @objc(harnessGivenBoolForKey:) func harnessGivenBool(forKey key: String) -> Bool { self[PreferenceKey<Bool>(key)] }
+}
+'''
+swift_functions = 'import Foundation\nimport IsiXPreferences\nimport IsiXDICOMNetwork\n' + CATALOG_READER + hidden + '\n'.join(
     f'@_cdecl("writeBlock{index}") public func writeBlock{index}(_ defaults: UserDefaults) {{\n'
     + block.replace('UserDefaults.standard', 'defaults') + '\n}'
     for index, block in swift_blocks)
@@ -158,6 +166,16 @@ HELPER
 @end
 FUNCTIONS
 
+// The switch as a reader of the catalog reads it: the value work in course
+// gives it comes before what UserDefaults holds, and -boolForKey: does not
+// answer it. The reader is the Swift compiled beside this file.
+#import <objc/message.h>
+static BOOL HarnessReads(NSUserDefaults *defaults, NSString *key) {
+    SEL given = NSSelectorFromString(@"harnessGivenBoolForKey:");
+    if ([defaults respondsToSelector:given]) return ((BOOL (*)(id, SEL, NSString *))objc_msgSend)(defaults, given, key);
+    return [defaults boolForKey:key];
+}
+
 // What the abort of the incoming transfers must find while it runs.
 static NSString *domainName;
 static NSDictionary *storedDuringAbort;
@@ -165,9 +183,9 @@ static int hiddenDuringAbort = -1, abortsSeen = 0, raisesDuringAbort = 0, readBy
 static const char *failure = NULL;
 void HarnessDuringAbort(NSUserDefaults *defaults) {
     abortsSeen++;
-    if (hiddenDuringAbort >= 0 && [defaults boolForKey:@"hideListenerError"] != (hiddenDuringAbort != 0))
+    if (hiddenDuringAbort >= 0 && HarnessReads(defaults, @"hideListenerError") != (hiddenDuringAbort != 0))
         failure = "the errors are not hidden as expected while the transfers are aborted";
-    if (readByEveryReader && hiddenDuringAbort >= 0 && [[NSUserDefaults standardUserDefaults] boolForKey:@"hideListenerError"] != (hiddenDuringAbort != 0))
+    if (readByEveryReader && hiddenDuringAbort >= 0 && HarnessReads([NSUserDefaults standardUserDefaults], @"hideListenerError") != (hiddenDuringAbort != 0))
         failure = "another reader of the process does not read the errors hidden while the transfers are aborted";
     if (storedDuringAbort && ![[defaults persistentDomainForName:domainName] isEqual:storedDuringAbort])
         failure = "the abort of the incoming transfers stored something";

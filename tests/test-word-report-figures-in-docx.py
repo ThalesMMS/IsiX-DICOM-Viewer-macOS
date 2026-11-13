@@ -21,8 +21,13 @@ of .docx - still reads the text of the result.
 The copy the figures are written into then takes the place of the report. A
 Word that has the report itself open would keep the document it read, so a Word
 that is running is asked which files it has open, and a report among them is
-refused untouched, as is everything when Word cannot be asked; a Word that is
-not running is sent nothing. That is run here with answers of the test's.
+refused untouched, as is everything when Word cannot be asked or answers
+something that is no list of files; a Word that is not running is sent nothing.
+That is run here with answers of the test's.
+
+A .doc is not a format to write into: its figures are written into a document
+of their own, which Word is handed with the report. That document is made here
+and read back the same way.
 
 No Word, no Automation and no screen are needed.
 """
@@ -173,14 +178,30 @@ case "report":
     // The application's own entry, for a .docx: no editor is asked.
     let done = ReportImageInsertion.insert(reportPath: arguments[2], sources: Array(arguments.dropFirst(3)))
     print(done ? "inserted" : "failed: \(ReportImageInsertion.lastErrorMessage())")
+case "new":
+    // new <docx that is not there> then width height path for each image
+    var images: [ReportPreparedImage] = []
+    var index = 3
+    while index + 2 < arguments.count + 0 {
+        images.append(ReportPreparedImage(path: arguments[index + 2], widthPoints: Double(arguments[index])!, heightPoints: Double(arguments[index + 1])!))
+        index += 3
+    }
+    do {
+        try WordDocumentFigures.write(images, toNewDocumentAt: arguments[2])
+        print("written")
+    } catch {
+        print("refused: \(error)")
+    }
 case "guard":
-    // guard <copy> <report> <image> <running|quit> then what Word answers: "deaf", or the files it has open.
+    // guard <copy> <report> <image> <running|quit> then what Word answers: "deaf", "nolist", or the files it has open.
     let image = ReportPreparedImage(path: arguments[4], widthPoints: 340, heightPoints: 255)
     var asked = 0
     let done = ReportImageInsertion.write([image], intoCopy: arguments[2], ofReportAt: arguments[3], wordIsRunning: arguments[5] == "running", send: { source, _ in
         asked += 1
         guard source == ReportImageInsertion.wordDocumentsScript else { print("FAIL: another script was sent"); exit(1) }
         if arguments.dropFirst(6).first == "deaf" { return nil }
+        // `missing value`: what the script answered while its list had the name of a word of Word's dictionary.
+        if arguments.dropFirst(6).first == "nolist" { return NSAppleEventDescriptor(typeCode: 0x6D736E67) }
         let list = NSAppleEventDescriptor.list()
         for (index, file) in arguments.dropFirst(6).enumerated() { list.insert(NSAppleEventDescriptor(string: file), at: index + 1) }
         return list
@@ -365,6 +386,23 @@ with tempfile.TemporaryDirectory(prefix='horos-word-figures-') as directory:
               'with the report open in Word as %s: %s, copy written %s' % (spelling, result, written))
     result, written = guarded(True, 'deaf')
     check(result.startswith('failed asked=1') and '-1712' in result and not written, 'with a Word that does not answer: %s' % result)
+    result, written = guarded(True, 'nolist')
+    check(result.startswith('failed asked=1') and '-1712' in result and not written,
+          'with a Word whose answer is no list of files: %s' % result)
+
+    # The document a .doc report takes its figures from: the figures, a paragraph each, and nothing else.
+    alone = work / 'Horos-inserted-figures.docx'
+    answer = run('new', alone, *[value for image, (width, height) in zip(images, sizes) for value in (width, height, image)])
+    if check(answer == 'written', 'the document of the figures: %s' % answer):
+        names, new = parts_of(alone)
+        found, last, count = figures(new['word/document.xml'])
+        check(count == 2 and [f[4] for f in found] == [0, 1] and [(f[1], f[2]) for f in found] == [(w * 12700, h * 12700) for w, h in sizes],
+              'the document of the figures holds %d paragraphs and the figures %s' % (count, found))
+        relationships = {r.get('Id'): r.get('Target') for r in ET.fromstring(new['word/_rels/document.xml.rels'])}
+        check([new.get('word/' + relationships.get(f[0], '?')) for f in found] == [image.read_bytes() for image in images],
+              'the figures of that document are not the images given')
+        read = subprocess.run(['/usr/bin/textutil', '-convert', 'txt', '-stdout', str(alone)], capture_output=True)
+        check(read.returncode == 0, 'textutil does not read the document of the figures: %s' % read.stderr.decode('utf-8', 'replace'))
 
     # The application's own entry asks a Word that is running what it has open. This test sends Word
     # nothing: with Word running, the entry is left out and the result says so.

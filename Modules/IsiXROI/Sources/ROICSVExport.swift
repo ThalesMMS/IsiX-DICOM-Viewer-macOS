@@ -32,7 +32,11 @@ import Foundation
 ///   `Name`; `Area` in `Unit`² for the closed shapes; `Length` in `Unit` for
 ///   a Length; `Unit` `cm`, or `px` for an image without pixel spacing;
 ///   `Mean`, `SD` (sample standard deviation, n - 1), `Min`, `Max` of the
-///   pixel values inside the ROI, in the image's own values (HU, SUV…).
+///   pixel values inside the ROI, in the image's own values (HU, SUV…);
+///   `Ratio`, `Numerator ROI`, `Denominator ROI` for the label of a ratio of
+///   two lengths: the ratio, with 4 decimals, and the numbers of the two
+///   Lengths in the `ROI` column. These three are the last columns, added
+///   after the others: a reader of the earlier file finds them where they were.
 /// - The points file starts with `pointHeader`:
 ///   `ROI`, `Image`, `Name` as in the ROI file; `Point` its number in the ROI,
 ///   from 1; `X (px)` and `Y (px)` on the image; `Patient X (mm)`,
@@ -76,6 +80,22 @@ public enum ROICSVExport {
         }
     }
 
+    /// The ratio a label shows, and the rows of the two Lengths it divides.
+    public struct Ratio: Sendable, Equatable {
+        /// nil when there is none to give: a denominator of zero, or two units.
+        public var value: Double?
+        /// The numbers of the two Lengths in the `ROI` column, from 1; nil
+        /// for a Length the file does not hold.
+        public var numerator: Int?
+        public var denominator: Int?
+
+        public init(value: Double?, numerator: Int?, denominator: Int?) {
+            self.value = value
+            self.numerator = numerator
+            self.denominator = denominator
+        }
+    }
+
     /// One ROI, with what the files say of it.
     public struct Entry: Sendable, Equatable {
         public var seriesDescription: String
@@ -91,6 +111,8 @@ public enum ROICSVExport {
         public var unit: Unit
         public var statistics: Statistics?
         public var points: [Point]
+        /// What the label of a ratio of two lengths divides; nil for any other ROI.
+        public var ratio: Ratio?
 
         public init(seriesDescription: String, seriesInstanceUID: String, image: Int, instanceNumber: Int?,
                     typeCode: Int, name: String, area: Double?, length: Double?, unit: Unit,
@@ -110,7 +132,8 @@ public enum ROICSVExport {
     }
 
     public static let roiHeader = ["ROI", "Series", "Series Instance UID", "Image", "Instance Number", "Type", "Name",
-                                   "Area", "Length", "Unit", "Mean", "SD", "Min", "Max"]
+                                   "Area", "Length", "Unit", "Mean", "SD", "Min", "Max",
+                                   "Ratio", "Numerator ROI", "Denominator ROI"]
 
     public static let pointHeader = ["ROI", "Image", "Name", "Point", "X (px)", "Y (px)",
                                      "Patient X (mm)", "Patient Y (mm)", "Patient Z (mm)"]
@@ -211,7 +234,9 @@ public enum ROICSVExport {
                          entry.instanceNumber.map { "\($0)" } ?? "", typeName(entry.typeCode), entry.name,
                          number(entry.area, decimals: 4), number(entry.length, decimals: 4), entry.unit.rawValue,
                          number(s?.mean, decimals: 3), number(s?.deviation, decimals: 3),
-                         number(s?.minimum, decimals: 3), number(s?.maximum, decimals: 3)])
+                         number(s?.minimum, decimals: 3), number(s?.maximum, decimals: 3),
+                         number(entry.ratio?.value, decimals: 4),
+                         entry.ratio?.numerator.map { "\($0)" } ?? "", entry.ratio?.denominator.map { "\($0)" } ?? ""])
         }
         return rows
     }

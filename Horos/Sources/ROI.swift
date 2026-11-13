@@ -188,6 +188,10 @@ public class ROI: NSObject, NSCoding {
     /// Not archived: valid during the life of the ROI only.
     @objc final var uniqueID: NSNumber?
     final var _groupID: TimeInterval = 0
+    /// What ties the label of a ratio to the two Lengths it divides: a Length
+    /// a ratio uses has an identifier, and the label names its two. Archived,
+    /// and kept by a copy, so that an undone ratio is a ratio again.
+    final var ratioLink = ROIRatioLink.none
 
     final var _displayTextualData = false
     final var _displayCMOrPixels = false
@@ -493,6 +497,7 @@ public class ROI: NSObject, NSCoding {
         _calciumThreshold = record.calciumThreshold
         _displayCalciumScoring = record.displayCalciumScoring
         _groupID = record.groupID
+        ratioLink = ROIRatioLink(archived: record.link as String?)
 
         if _type == .tLayerROI, let layer = record.layerImage {
             layerImageJPEG = layer
@@ -574,6 +579,7 @@ public class ROI: NSObject, NSCoding {
         record.calciumThreshold = _calciumThreshold
         record.displayCalciumScoring = _displayCalciumScoring
         record.groupID = _groupID
+        record.link = ratioLink == .none ? nil : ratioLink.archived as NSString
         if _type == .tLayerROI {
             if layerImageJPEG == nil { generateEncodedLayerImage() }
             record.layerImage = layerImageJPEG
@@ -677,6 +683,7 @@ public class ROI: NSObject, NSCoding {
         c._calciumThreshold = _calciumThreshold
         c._displayCalciumScoring = _displayCalciumScoring
         c._groupID = _groupID
+        c.ratioLink = ratioLink
         if c._type == .tLayerROI {
             c.layerImageJPEG = layerJPEG
             c._layerImage = layerImage

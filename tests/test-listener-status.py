@@ -104,7 +104,7 @@ bind = notices[notices.index('    func listenBindFailed('):]
 bind = bind[:bind.index('\n    }\n')]
 if 'listenBindFailed(service:' not in body('nonisolated public func reportListenBindFailure('):
     failures.append('AppController no longer reports a bind failure through the application notices')
-said, hidden = bind.find('ListenerStatus.setNotListening(reason: ListenerStatus.bindFailureReason('), bind.find('hideListenerErrorKey')
+said, hidden = bind.find('ListenerStatus.setNotListening(reason: ListenerStatus.bindFailureReason('), bind.find('NetworkPreferences.hidesListenerErrors')
 if said < 0 or hidden < 0 or said > hidden:
     failures.append('a bind failure must reach the status before the notice that may be hidden or already shown')
 if 'markListenersNotStarted(ListenerStatus.inactiveSessionReason)' not in body('    private func applySettings() {', text=lifecycle):

@@ -1001,12 +1001,47 @@ struct ViewerROIPixelFill: @unchecked Sendable {
             }
         } else if tag == 1 {
             _ = viewer.computeVolume(selected, points: nil, generateMissingROIs: true, generatedROIs: nil, computeData: nil, error: nil)
-            if (viewer.rois(withComment: "morphing generated")?.count ?? 0) == 0 {
-                viewerROIAlert("ROIs Volume Error", "The missing ROIs were not created : this feature does not work with ROIs that don't contain an area.")
-            }
         }
 
         splash?.close()
+
+        if tag == 1 {
+            reportMissingROIs(named: selected.name, in: viewer)
+        }
+    }
+
+    /// Says why Generate Missing ROIs generated nothing for the ROIs called
+    /// `name`: the ROIs of one object drawn under several names, nothing
+    /// missing, which is no error, or ROIs that outline no area.
+    private static func reportMissingROIs(named name: String?, in viewer: ViewerController) {
+        let movie = Int(viewer.horos_curMovieIndex)
+        let slices = ViewerROISlices(viewer, movie: movie)
+        var images: [Int] = []
+        var generated = 0
+        for image in 0..<viewerPixCount(viewer, movie) {
+            for roi in slices?.rois(at: image) ?? [] where sameText(roi.name, name) && roi.isValidForVolume() {
+                if sameText(roi.comments, "morphing generated") {
+                    generated += 1
+                } else {
+                    images.append(image)
+                }
+            }
+        }
+
+        switch ROIMissingGeneration.outcome(sourceImages: images, generatedCount: generated) {
+        case .generated:
+            break
+        case .singleImage:
+            HorosAlertPanel.runCritical(title: NSLocalizedString("ROIs Volume Error", comment: ""),
+                                        message: String(format: NSLocalizedString("Only one image has a ROI named “%@”, so there is nothing to generate in between. Generate Missing ROIs fills the images between ROIs of the same name: select the ROIs of the object in the ROI Manager and give them one name.", comment: "Generate Missing ROIs: the ROI name"), name ?? ""),
+                                        defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+        case .nothingMissing:
+            _ = HorosAlertPanel.runInformational(title: NSLocalizedString("Generate Missing ROIs", comment: ""),
+                                                 message: String(format: NSLocalizedString("Every image between the first and the last ROI named “%@” already has one. There is nothing to generate.", comment: "Generate Missing ROIs: the ROI name"), name ?? ""),
+                                                 defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+        case .notGenerated:
+            viewerROIAlert("ROIs Volume Error", "The missing ROIs were not created : this feature does not work with ROIs that don't contain an area.")
+        }
     }
 
     /// Closes the Rename sheet and, when it was accepted (`tag` 1), renames

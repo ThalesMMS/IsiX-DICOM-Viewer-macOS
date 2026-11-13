@@ -633,7 +633,7 @@
                                         <binding destination="308" name="value" keyPath="values.EmptyNameForNewROIs" id="420"/>
                                     </connections>
                                 </button>
-                                <button toolTip="Uma nova ROI desenhada sobre uma ROI de uma das duas imagens anteriores ou seguintes recebe o nome dela, e as duas passam a ser um só objeto para volume, renomeação e propagação." horizontalCompressionResistancePriority="1000" id="roi-join-overlap-control">
+                                <button toolTip="Uma nova ROI desenhada sobre uma ROI de outra imagem recebe o nome da mais próxima, e as duas passam a ser um só objeto para volume, renomeação e propagação." horizontalCompressionResistancePriority="1000" id="roi-join-overlap-control">
                                     <rect key="frame" x="10" y="62" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Unir ROIs sobrepostas em imagens adjacentes" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="roi-join-overlap-cell">

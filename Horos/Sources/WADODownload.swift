@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXPreferences
 import IsiXContracts
 import IsiXDICOMNetwork
 
@@ -256,7 +257,7 @@ public final class WADODownload: NSObject {
 
     @objc(errorMessage:)
     public class func errorMessage(_ msg: [Any]) {
-        if ProcessGraph.process.preferences.bool(forKey: WADORetrieveSettings.hideErrorsKey) == false {
+        if ProcessGraph.process.preferences[NetworkPreferences.hidesListenerErrors] == false {
             // NSRunCriticalAlertPanel(msg[0], @"%@", msg[2], nil, nil, msg[1])
             HorosAlertPanel.runCritical(title: msg[0] as? String, message: msg[1] as? String ?? "", defaultButton: msg[2] as? String, alternateButton: nil, otherButton: nil)
         } else {

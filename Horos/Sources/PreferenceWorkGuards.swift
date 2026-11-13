@@ -29,10 +29,9 @@ extension ForcedPreference {
 }
 
 extension TemporaryPreference {
-    /// Runs `work` while every reader of the key in this process reads
+    /// Runs `work` while every typed reader of the key in this process reads
     /// `value`, taken back also when it raises an exception. On the main
-    /// thread, as the argument domain is exchanged and the observers of the
-    /// key are told there.
+    /// thread, where the change of the preferences is announced.
     @MainActor
     func whileWorking(with value: Value, _ work: () -> Void) {
         set(value)

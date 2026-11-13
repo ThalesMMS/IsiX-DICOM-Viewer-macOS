@@ -111,6 +111,9 @@ public final class ROIManagerController: NSWindowController, NSOutlineViewDataSo
     private var expandedNames = Set<String>()
     private let coalescer = ROIManagerCoalescer()
     private var syncingSelection = false
+    /// The selected ROIs in the order they were selected, the first first:
+    /// the ratio of two Lengths divides the first by the second.
+    private var selectionSequence: [ObjectIdentifier] = []
     /// A ROI the viewer selected, to show once the list is rebuilt.
     private weak var revealROI: ROI?
     /// cm² of each ROI, until it changes.
@@ -605,6 +608,8 @@ public final class ROIManagerController: NSWindowController, NSOutlineViewDataSo
     }
 
     public func outlineViewSelectionDidChange(_ notification: Notification) {
+        let now = selectedRows().map { ObjectIdentifier($0.roi) }
+        selectionSequence = selectionSequence.filter(now.contains) + now.filter { !selectionSequence.contains($0) }
         updateInspector()
         guard !syncingSelection, let viewer, let view = viewer.imageView() else { return }
         let rows = selectedRows()
@@ -867,6 +872,27 @@ public final class ROIManagerController: NSWindowController, NSOutlineViewDataSo
         NotificationCenter.default.post(name: NSNotification.Name.OsirixROIChange, object: nil, userInfo: nil)
     }
 
+    /// The two selected rows when they are two Lengths that make a ratio,
+    /// the one selected first as the numerator; nil for any other selection.
+    private func ratioMembers() -> (numerator: ViewerRatioMember, denominator: ViewerRatioMember)? {
+        let rows = selectedRows().sorted {
+            (selectionSequence.firstIndex(of: ObjectIdentifier($0.roi)) ?? .max) < (selectionSequence.firstIndex(of: ObjectIdentifier($1.roi)) ?? .max)
+        }
+        guard rows.count == 2, let first = rows[0].roi as? ROI, let second = rows[1].roi as? ROI,
+              ViewerLengthRatio.isRatio(first, over: second) else { return nil }
+        return (ViewerRatioMember(roi: first, slice: rows[0].slice), ViewerRatioMember(roi: second, slice: rows[1].slice))
+    }
+
+    /// Ratio of Two Lengths, on two selected rows: the label goes on the
+    /// image shown when one of the two is on it, otherwise on the numerator's.
+    @objc func addRatioFromMenu(_ sender: Any?) {
+        guard let viewer, let members = ratioMembers(),
+              ViewerLengthRatio.add(numerator: members.numerator, denominator: members.denominator, in: viewer) != nil else {
+            NSSound.beep()
+            return
+        }
+    }
+
     public override func keyDown(with event: NSEvent) {
         guard let characters = event.characters, (characters as NSString).length > 0 else { return }
 
@@ -904,6 +930,7 @@ public final class ROIManagerController: NSWindowController, NSOutlineViewDataSo
             #selector(setLockedFromMenu(_:)), tag: locked ? 0 : 1)
         add(NSLocalizedString("Group", comment: "ROI Manager menu"), #selector(setGroupedFromMenu(_:)), tag: 1)
         add(NSLocalizedString("Ungroup", comment: "ROI Manager menu"), #selector(setGroupedFromMenu(_:)), tag: 0)
+        if ratioMembers() != nil { add(ViewerLengthRatio.title, #selector(addRatioFromMenu(_:))) }
         menu.addItem(.separator())
         add(NSLocalizedString("Go to Slice", comment: "ROI Manager menu"), #selector(goToSlice(_:)))
         add(NSLocalizedString("ROI Info…", comment: "ROI Manager menu"), #selector(showInfo(_:)), key: "i")

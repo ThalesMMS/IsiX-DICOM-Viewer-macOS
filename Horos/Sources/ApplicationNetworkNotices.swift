@@ -9,6 +9,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXPreferences
 
 /// What the listeners and the nodes of the network tell the person using the
 /// application: a port a listener could not open, a listener that failed once
@@ -24,9 +25,6 @@ struct ApplicationNetworkNotices: Sendable {
     /// point of the single entry of DICOM hands out.
     static let process = ApplicationNetworkNotices(processGraph: DatabaseIngest.process.processGraph)
 
-    /// The preference that keeps the DICOM listener's failures out of sight.
-    private static let hideListenerErrorKey = "hideListenerError"
-
     /// A listener could not open `port`: the log says so, the Listener
     /// preferences say it every time for a DICOM listener, and the person is
     /// told once per service and port, unless the DICOM notices are hidden.
@@ -41,7 +39,9 @@ struct ApplicationNetworkNotices: Sendable {
             ListenerStatus.setNotListening(reason: ListenerStatus.bindFailureReason(port: port, errno: code),
                                            tls: service != ListenBindFailure.dicomService)
         }
-        if dicom && processGraph.preferences.bool(forKey: Self.hideListenerErrorKey) {
+        // Read through the catalog: work that hides the notices for as long as
+        // it lasts gives the key a value UserDefaults itself does not hold.
+        if dicom && processGraph.preferences[NetworkPreferences.hidesListenerErrors] {
             return
         }
         if !ListenBindFailure.consumeUserNotice(service: service, port: port) {

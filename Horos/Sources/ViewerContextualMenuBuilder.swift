@@ -122,6 +122,9 @@ private let toolsMenuIconSize = NSMakeSize(28.0, 28.0)
                 add(NSLocalizedString("Generate Perpendicular, Parallel and Midpoint", comment: ""),
                     #selector(ViewerController.generateGeometryFromSelectedLine(_:)))
             }
+            if roi?.type == .tMesure {
+                menu.addItem(ViewerLengthRatio.menuItem())
+            }
             if roi?.type == .t2DPoint {
                 add(NSLocalizedString("Measure Between Slices (Projection vs 3D)", comment: ""),
                     #selector(ViewerController.measureBetweenSelectedSlices(_:)))
@@ -225,8 +228,8 @@ private let toolsMenuIconSize = NSMakeSize(28.0, 28.0)
         contextualMenu.item(at: contextualMenu.items.count - 1)?.submenu = submenu
         contextualMenu.addItem(NSMenuItem.separator())
 
-        // Clear Patient Crosshair and the two geometry commands only apply to a
-        // placed crosshair or a selected line: they are hidden otherwise, in
+        // Clear Patient Crosshair, the two geometry commands and the ratio only
+        // apply to a placed crosshair or to selected ROIs: they are hidden otherwise, in
         // -computeContextualMenu.
         item = NSMenuItem(title: NSLocalizedString("Show Patient Crosshair", comment: ""), action: #selector(ViewerController.togglePatientCrosshair(_:)), keyEquivalent: "")
         item.target = viewer
@@ -238,6 +241,7 @@ private let toolsMenuIconSize = NSMakeSize(28.0, 28.0)
                                action: #selector(ViewerController.generateGeometryFromSelectedLine(_:)), keyEquivalent: "")
         contextualMenu.addItem(withTitle: NSLocalizedString("Measure Between Slices (Projection vs 3D)", comment: ""),
                                action: #selector(ViewerController.measureBetweenSelectedSlices(_:)), keyEquivalent: "")
+        contextualMenu.addItem(ViewerLengthRatio.menuItem())
         contextualMenu.addItem(NSMenuItem.separator())
 
         /******************* WW/WL menu items **********************/

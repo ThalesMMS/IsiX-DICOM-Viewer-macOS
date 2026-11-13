@@ -428,6 +428,7 @@ import IsiXStorage
     /// server mode, the Query window left open at the last quit.
     func didFinishLaunching() {
         ViewerController.installROIInterchangeMenuItems()
+        ViewerLengthRatio.installMenuItem()
         ViewerController.installRegistrationMenuItems()
         ViewerController.installSeriesListPlacementMenuItems()
         ViewerController.installRegisteredGIFMenuItems()
@@ -441,6 +442,8 @@ import IsiXStorage
         ApplicationLifecycle.loadImportStatusImages()
         // ROIs shown on the series propagated with the one they are drawn on.
         ROISeriesPropagation.start()
+        // The labels of ratios of two lengths, written again when a length changes.
+        ROIRatioLabels.start()
         controller.receivingIndicator.start()
 
         processGraph.dicomListener.observeSessionSwitches()

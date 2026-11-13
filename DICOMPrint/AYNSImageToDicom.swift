@@ -298,7 +298,7 @@ public final class AYNSImageToDicom: NSObject {
 
         /////// ****************
 
-        let fontSizeCopy = UserDefaults.standard.float(forKey: "FONTSIZE")
+        let fontSizeCopy = UserDefaults.standard[ViewerPreferences.fontSize]
         var scaleFactor: Float = 1.0
 
         let rf = currentViewer?.window?.frame ?? .zero
@@ -377,7 +377,7 @@ public final class AYNSImageToDicom: NSObject {
                         } else { scaleFactor = 1.0 }
 
                         let fontSize = Double(fontSizeCopy * inc * scaleFactor) * 1.2
-                        if fontSize != Double(UserDefaults.standard.float(forKey: "FONTSIZE")) {
+                        if fontSize != Double(UserDefaults.standard[ViewerPreferences.fontSize]) {
                             fontSizePreference.set(Float(fontSize))
                             NotificationCenter.default.post(name: .OsirixGLFontChange, object: currentViewer)
                         }
@@ -417,7 +417,7 @@ public final class AYNSImageToDicom: NSObject {
 
         smartCropping.restore()
 
-        let fontSizeChanged = fontSizeCopy != UserDefaults.standard.float(forKey: "FONTSIZE")
+        let fontSizeChanged = fontSizeCopy != UserDefaults.standard[ViewerPreferences.fontSize]
         fontSizePreference.restore()
         if fontSizeChanged {
             NotificationCenter.default.post(name: .OsirixGLFontChange, object: currentViewer)

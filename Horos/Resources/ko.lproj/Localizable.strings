@@ -3718,6 +3718,8 @@
 "The last 3 previous studies" = "최근 이전 검사 3개";
 "The medium was not created" = "매체가 생성되지 않았습니다";
 "The missing ROIs were not created : this feature does not work with ROIs that don't contain an area." = "누락된 ROI가 생성되지 않았습니다. 이 기능은 영역이 포함되지 않은 ROI에는 작동하지 않습니다.";
+"Only one image has a ROI named “%@”, so there is nothing to generate in between. Generate Missing ROIs fills the images between ROIs of the same name: select the ROIs of the object in the ROI Manager and give them one name." = "“%@” 이름의 ROI가 한 이미지에만 있어 그 사이에 생성할 것이 없습니다. ‘누락된 ROI 생성’은 같은 이름의 ROI 사이에 있는 이미지를 채웁니다. ROI 관리자에서 개체의 ROI를 선택하고 하나의 이름을 지정하십시오.";
+"Every image between the first and the last ROI named “%@” already has one. There is nothing to generate." = "“%@” 이름의 첫 ROI와 마지막 ROI 사이의 모든 이미지에 이미 ROI가 있습니다. 생성할 것이 없습니다.";
 "The movie could not be saved. Check the destination and try again." = "동영상을 저장할 수 없습니다. 대상을 확인하고 다시 시도하십시오.";
 "The name differs from the one stored for this identifier." = "이름이 이 식별자에 저장된 이름과 다릅니다.";
 "The network connection is unavailable or was interrupted. Check your connection and try again." = "네트워크 연결은 사용할 수 없거나 중단되었습니다. 연결을 확인하고 다시 시도하십시오.";
@@ -4629,7 +4631,7 @@
 "Wait for a study not yet in the database:" = "아직 데이터베이스에 없는 검사 대기 시간:";
 "Show an alert when an XML-RPC or URL order fails" = "XML-RPC 또는 URL 명령이 실패하면 경고 표시";
 "Join overlapping ROIs on adjacent images" = "인접 이미지에서 겹치는 ROI 연결";
-"A new ROI drawn over a ROI on one of the two images before or after it takes that ROI's name, so both are one object for volume, renaming and propagation." = "앞뒤 두 장 이내 이미지의 ROI 위에 그린 새 ROI는 그 ROI의 이름을 받아, 부피·이름 변경·전파에서 하나의 개체가 됩니다.";
+"A new ROI drawn over a ROI on another image takes the name of the nearest such ROI, so both are one object for volume, renaming and propagation." = "다른 이미지의 ROI 위에 그린 새 ROI는 가장 가까운 그 ROI의 이름을 받아, 부피·이름 변경·전파에서 하나의 개체가 됩니다.";
 
 /* 2D Viewer > Sync & Propagate > Propagate Between Series */
 "Propagate Between Series" = "시리즈 간 전파";
@@ -4833,6 +4835,7 @@
 "Last slice:" = "마지막 단면:";
 "Keep one slice every:" = "단면 하나를 남길 간격:";
 "Create Points Between Two Points" = "두 점 사이에 점 만들기";
+"Ratio of Two Lengths" = "두 길이의 비율";
 "Export ROIs as CSV…" = "CSV로 ROI 내보내기…";
 "Export CSV…" = "CSV 내보내기…";
 "Also save the points of each ROI in a second file" = "각 ROI의 점도 두 번째 파일에 저장";

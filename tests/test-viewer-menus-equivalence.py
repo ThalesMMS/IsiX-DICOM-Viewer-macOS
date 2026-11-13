@@ -1426,6 +1426,41 @@ def untie(lines):
     return out
 
 
+# ROI > Ratio of Two Lengths, which the contextual menus offer and the
+# Objective-C never had: its item as ViewerLengthRatio makes it, sent to the
+# study commands object of the main menu, which this harness does not have.
+# tests/test-roi-length-ratio.py runs the command itself.
+RATIO_TITLE = 'Ratio of Two Lengths'
+RATIO_ITEM = '''
+@MainActor enum ViewerLengthRatio {
+    static func menuItem() -> NSMenuItem {
+        NSMenuItem(title: "%s", action: Selector(("ratioOfSelectedLengths:")), keyEquivalent: "")
+    }
+}
+''' % RATIO_TITLE
+
+RATIO_LINE = re.compile(r'^\s*%s action ratioOfSelectedLengths: ' % re.escape(RATIO_TITLE))
+ITEM_COUNT = re.compile(r'^(populated|prune|v\.view menu|view menu) (\d+) items')
+
+
+def without_ratio(lines):
+    """The Swift's `lines` without the item of the ratio, and with the menus
+    of a click on the image, which count their items, one item shorter."""
+    out, counts = [], 0
+    for line in lines:
+        if RATIO_LINE.match(line):
+            counts = 4      # the four counts that follow the items of a menu of the image
+            continue
+        if line.startswith('== ') or line.startswith('menu of '):
+            counts = 0
+        counted = ITEM_COUNT.match(line) if counts else None
+        if counted:
+            counts -= 1
+            line = '%s %d items%s' % (counted.group(1), int(counted.group(2)) - 1, line[counted.end():])
+        out.append(line)
+    return out
+
+
 REMOTE_SERIES_COMMENT = re.compile(r'^(remote \S+ series\.comment = ).*$')
 
 
@@ -1641,7 +1676,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-menus-') as tmp:
         # The shared database a file is a row of, once the menu asks RemoteDicomDatabase for it.
         remote = read(args.current, 'Horos/Sources/RemoteDicomDatabase.swift').decode('utf-8')
         row = re.search(r'\n    static func database\(of object: NSManagedObject\?\).*?\n    }\n', remote, re.S)
-        (swift / 'Helpers.swift').write_text('import AppKit\n' + sender
+        (swift / 'Helpers.swift').write_text('import AppKit\n' + sender + RATIO_ITEM
                                              + ('\nextension RemoteDicomDatabase {' + row.group(0) + '}\n' if row else ''))
         sources.append(str(swift / 'Helpers.swift'))
         window_level = read(args.current, WINDOW_LEVEL)
@@ -1687,7 +1722,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-menus-') as tmp:
         if args.dump:
             for label, text in results.items():
                 (args.dump / ('%s-%s.txt' % (scenario, label))).write_text(text)
-        expected, got = untie(corrected(results['reference'].splitlines())), untie(results['current'].splitlines())
+        expected, got = untie(corrected(results['reference'].splitlines())), untie(without_ratio(results['current'].splitlines()))
         if expected == got:
             print('%s: %d records identical (%s against the Objective-C of %s)' % (scenario, len(expected), current_label, reference))
         else:

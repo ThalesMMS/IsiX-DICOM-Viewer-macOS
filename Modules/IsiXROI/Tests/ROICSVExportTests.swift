@@ -34,10 +34,10 @@ import Testing
 
     @Test func roiFile() {
         let text = Export.csv(Export.roiRows(Self.entries))
-        let expected = "ROI,Series,Series Instance UID,Image,Instance Number,Type,Name,Area,Length,Unit,Mean,SD,Min,Max\r\n"
-            + "1,\"Abdomen, portal\",1.2.3.4,3,12,Oval,\"liver \"\"left\"\"\",12.3457,,cm,52.250,3.500,-10.000,120.000\r\n"
-            + "2,\"Abdomen, portal\",1.2.3.4,1,,Length,span,,42.0000,px,,,,\r\n"
-            + "3,\"Abdomen, portal\",1.2.3.4,2,5,Text,\"line one\nline two, more\",,,cm,,,,\r\n"
+        let expected = "ROI,Series,Series Instance UID,Image,Instance Number,Type,Name,Area,Length,Unit,Mean,SD,Min,Max,Ratio,Numerator ROI,Denominator ROI\r\n"
+            + "1,\"Abdomen, portal\",1.2.3.4,3,12,Oval,\"liver \"\"left\"\"\",12.3457,,cm,52.250,3.500,-10.000,120.000,,,\r\n"
+            + "2,\"Abdomen, portal\",1.2.3.4,1,,Length,span,,42.0000,px,,,,,,,\r\n"
+            + "3,\"Abdomen, portal\",1.2.3.4,2,5,Text,\"line one\nline two, more\",,,cm,,,,,,,\r\n"
         #expect(text == expected)
     }
 
@@ -52,7 +52,7 @@ import Testing
     }
 
     @Test func headersAreFixed() {
-        #expect(Export.csv([Export.roiHeader]) == "ROI,Series,Series Instance UID,Image,Instance Number,Type,Name,Area,Length,Unit,Mean,SD,Min,Max\r\n")
+        #expect(Export.csv([Export.roiHeader]) == "ROI,Series,Series Instance UID,Image,Instance Number,Type,Name,Area,Length,Unit,Mean,SD,Min,Max,Ratio,Numerator ROI,Denominator ROI\r\n")
         #expect(Export.roiRows([]) == [Export.roiHeader])
         #expect(Export.pointRows([]) == [Export.pointHeader])
     }

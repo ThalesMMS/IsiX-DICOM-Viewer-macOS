@@ -132,6 +132,28 @@ enum WordDocumentFigures {
         guard rename(output, path) == 0 else { throw Failure.unsupported("the document with its figures could not replace the copy") }
     }
 
+    /// Writes at `path` a document that is `images` and nothing else, a
+    /// paragraph each: what Word is handed to take the figures of a .doc
+    /// report from, which is not a format to write them into.
+    static func write(_ images: [ReportPreparedImage], toNewDocumentAt path: String) throws {
+        let declaration = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
+        let parts = [
+            ("[Content_Types].xml", declaration
+                + "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">"
+                + "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>"
+                + "<Default Extension=\"xml\" ContentType=\"application/xml\"/>"
+                + "<Override PartName=\"/word/document.xml\""
+                + " ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/></Types>"),
+            ("_rels/.rels", declaration
+                + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+                + "<Relationship Id=\"rId1\" Type=\"\(documentRelationship)\" Target=\"word/document.xml\"/></Relationships>"),
+            ("word/document.xml", declaration + "<w:document xmlns:w=\"\(mainNamespace)\"><w:body></w:body></w:document>"),
+        ]
+        try PagesHeaderFooterFill.writeArchive(parts.map { PagesHeaderFooterFill.Entry(name: $0.0, directory: false, data: Array($0.1.utf8)) },
+                                               to: path)
+        try insert(images, intoDocumentAt: path)
+    }
+
     // MARK: the document part
 
     /// The prefix the document gives the WordprocessingML namespace: `w`, in
@@ -257,7 +279,8 @@ extension ReportImageInsertion {
     /// Inserts the images of `sources` into the report at `reportPath`, each
     /// kind of report its own way: a Pages report by Pages, on pages of their
     /// own; a .docx by writing the figures into the file, with no Word; a .doc,
-    /// which is not a format to write into, by Word.
+    /// which is not a format to write into, by Word, from a document the
+    /// figures were written into.
     @objc(insertWithReportPath:sources:)
     public static func insert(reportPath: String, sources: [String]) -> Bool {
         insert(reportPath: reportPath, sources: sources, perform: { kind, copy, images in
@@ -272,6 +295,36 @@ extension ReportImageInsertion {
                 return insertIntoWord(images, copy: copy)
             }
         })
+    }
+
+    /// Hands Word the copy of a .doc report and has it take the images.
+    ///
+    /// Word is handed no image: the figures are written into a document beside
+    /// the copy, in the folder that is removed when the insertion ends, and
+    /// Word, which may read the two files it was handed and no other, moves
+    /// them from one document to the other.
+    static func insertIntoWord(_ images: [ReportPreparedImage], copy path: String) -> Bool {
+        lastError = nil
+        guard let word = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.microsoft.Word") else {
+            rememberError(code: -1728, message: "Microsoft Word is not installed")
+            return false
+        }
+        let figures = ((path as NSString).deletingLastPathComponent as NSString).appendingPathComponent("Horos-inserted-figures.docx")
+        do {
+            try WordDocumentFigures.write(images, toNewDocumentAt: figures)
+        } catch {
+            NSLog("---- the figures of the Word report could not be written: %@", String(describing: error))
+            rememberError(code: 0, message: "The figures of the Word report could not be written", in: .word)
+            return false
+        }
+        return insertIntoWord(figures: figures, count: images.count, copy: path, open: { file in
+            // Waiting on NSWorkspace's completion handler from the main thread
+            // is a deadlock; Word is asked what it has open instead.
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.activates = false
+            NSWorkspace.shared.open([URL(fileURLWithPath: file)], withApplicationAt: word,
+                                    configuration: configuration, completionHandler: nil)
+        }, send: { source, _ in execute(source, in: .word) })
     }
 
     /// Writes the figures into the copy of a .docx report, unless Word has the
@@ -289,14 +342,14 @@ extension ReportImageInsertion {
     static func write(_ images: [ReportPreparedImage], intoCopy copy: String, ofReportAt report: String,
                       wordIsRunning: Bool, send: PagesApplication.Target.Send) -> Bool {
         if wordIsRunning {
-            guard let open = send(wordDocumentsScript, []) else {
+            // An answer that is no list of files is no answer either.
+            guard let files = send(wordDocumentsScript, []).flatMap(wordFiles(in:)) else {
                 if lastError == nil {
                     rememberError(code: -1712, message: "Microsoft Word did not say which documents it has open", in: .word)
                 }
                 return false
             }
             let wanted = PagesApplication.Target.fileURL(report)?.path
-            let files = open.numberOfItems > 0 ? (1...open.numberOfItems).compactMap { open.atIndex($0)?.stringValue } : []
             if files.contains(where: { PagesApplication.Target.fileURL($0)?.path == wanted }) {
                 rememberError(code: reportOpenInEditor, message: "The report is open in Microsoft Word", in: .word)
                 return false

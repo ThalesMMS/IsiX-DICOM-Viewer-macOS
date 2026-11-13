@@ -81,7 +81,8 @@ extension TemporaryPreferenceTests {
 
                         let hold = holds.hold(preference, at: held.given)
                         #expect(defaults[preference] == held.given, "\(held.name) at \(held.given), chosen \(String(describing: chosen))")
-                        #expect(UserDefaults.standard.bool(forKey: preference.name) == held.given, "another instance reads it too")
+                        #expect(UserDefaults.standard[preference] == held.given, "another instance reads it too")
+                        #expect(defaults.bool(forKey: preference.name) == (chosen ?? held.registered), "UserDefaults asked by name answers what is stored")
                         #expect(stored() == before, "nothing is stored while it lasts")
 
                         holds.release(hold)
@@ -221,26 +222,34 @@ extension TemporaryPreferenceTests {
 
         // MARK: - Observers
 
-        @Test func theObserversAreToldWhenWhatTheKeyReadsChangesAndOnlyThen() throws {
+        @Test func theNotificationComesWhenWhatTheKeyReadsChangesAndOnlyThen() throws {
             try withHolds { defaults, holds, _, key in
                 let propagation = key(ViewerPreferences.copySettings.name, true)
                 defaults.set(true, forKey: propagation.name)
                 let observer = Observer()
                 defaults.addObserver(observer, forKeyPath: propagation.name, options: [], context: nil)
                 defer { defaults.removeObserver(observer, forKeyPath: propagation.name) }
+                let notices = Mutex(0)
+                let token = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: defaults, queue: nil) { _ in
+                    notices.withLock { $0 += 1 }
+                }
+                defer { NotificationCenter.default.removeObserver(token) }
+                let told = { notices.withLock { $0 } }
 
                 let outer = holds.hold(propagation, at: false)
-                #expect(observer.told == 1, "told by the call that takes the hold")
+                #expect(told() == 1, "told by the call that takes the hold")
                 let inner = holds.hold(propagation, at: false)
                 holds.release(inner)
-                #expect(observer.told == 1, "work inside work at the same value tells no one")
+                #expect(told() == 1, "work inside work at the same value tells no one")
                 holds.release(outer)
-                #expect(observer.told == 2, "told by the call that gives the last hold back")
+                #expect(told() == 2, "told by the call that gives the last hold back")
 
                 // A hold at the value the key already reads tells no one at all.
                 let same = holds.hold(propagation, at: true)
                 holds.release(same)
-                #expect(observer.told == 2)
+                #expect(told() == 2)
+
+                #expect(observer.told == 0, "the key-value observers of the key, a binding among them, are told nothing")
             }
         }
 

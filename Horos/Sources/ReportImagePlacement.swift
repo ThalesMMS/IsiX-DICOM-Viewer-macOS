@@ -337,8 +337,11 @@ public final class ReportImageInsertion: NSObject {
     }
 
     /// Kept for who calls it by this name: it takes the document by its name,
-    /// the first of that name Word has open. The application's own insertion
-    /// is `insertIntoWord`, which takes the document by its file.
+    /// the first of that name Word has open, and has Word read each image
+    /// from its file. Word is sandboxed: a file it was not given it asks the
+    /// user for, in a panel of its own, and answers nothing until the panel is
+    /// closed. The application's own insertion is `insertIntoWord`, which
+    /// takes the document by its file and hands Word no image file.
     @objc(wordScriptWithDocumentName:images:)
     public static func wordScript(documentName: String, images: [ReportPreparedImage]) -> String {
         var lines = [
@@ -348,7 +351,10 @@ public final class ReportImageInsertion: NSObject {
         lines.append(contentsOf: waitForNamedDocumentLines(documentName, missing: "Word did not open the report"))
         lines.append("    try")
         for image in images {
-            lines.append("      set pic to make inline picture at text object of d file name \(appleString(image.path))")
+            // `make inline picture at ... file name "..."`, as this was
+            // written before, is not a command of Word 16's dictionary: the
+            // script did not compile (-2741) and nothing was ever sent.
+            lines.append("      set pic to make new inline picture at end of text object of d with properties {file name:\(appleString(image.path)), save with document:true}")
             lines.append("      set width of pic to \(appleNumber(image.widthPoints))")
             lines.append("      set height of pic to \(appleNumber(image.heightPoints))")
         }
@@ -364,32 +370,58 @@ public final class ReportImageInsertion: NSObject {
     /// POSIX style. A document never saved answers with its name alone, which
     /// is no file. Word has no id for a document: its file is what tells one
     /// from another of the same name.
+    ///
+    /// The list is not called `found`: inside the tell that is a word of
+    /// Word's dictionary - a property of its searches - and not a variable.
+    /// The script compiled, set nothing, and answered `missing value` whatever
+    /// Word had open.
     static let wordDocumentsScript = [
         "tell application \"Microsoft Word\"",
         // A question with a short answer, asked on the main thread: a Word
         // that does not answer it in twenty seconds is not waited for.
         "  with timeout of 20 seconds",
-        "    set found to {}",
+        "    set openFiles to {}",
         "    repeat with candidate in (get every document)",
         "      try",
-        "        set end of found to (posix full name of candidate) as text",
+        "        set end of openFiles to (posix full name of candidate) as text",
         "      end try",
         "    end repeat",
-        "    return found",
+        "    return openFiles",
         "  end timeout",
         "end tell",
     ].joined(separator: "\n")
 
-    /// The images into the Word document whose file is `file` - written as
-    /// Word itself wrote it when asked, so that the two are the same string -
-    /// which is saved and closed; one that takes no image is closed as it was,
-    /// and the error is passed on with its number.
+    /// The files in what `wordDocumentsScript` answered; nil when the answer is
+    /// not a list, which is not Word having nothing open: it is an answer to
+    /// another question, and nothing is decided on it.
+    static func wordFiles(in answer: NSAppleEventDescriptor) -> [String]? {
+        guard answer.descriptorType == typeAEList else { return nil }
+        guard answer.numberOfItems > 0 else { return [] }
+        return (1...answer.numberOfItems).compactMap { answer.atIndex($0)?.stringValue }
+    }
+
+    /// The figures into the Word document whose file is `file`, from the one
+    /// whose file is `figures` - each written as Word itself wrote it when
+    /// asked, so that the two are the same string. The report is saved and
+    /// closed, and the document of the figures closed as it was; a report that
+    /// takes no figure is closed as it was too, and the error is passed on
+    /// with its number.
+    ///
+    /// Word reads no image file. It is sandboxed: asked to draw a picture from
+    /// a file it was not given, it stops on a "Grant File Access" panel and
+    /// answers nothing until someone closes it, and handed the image itself it
+    /// stops on a "File Conversion" one. The two documents it was handed it
+    /// may read, and the text of one - its figures, a paragraph each, at their
+    /// sizes - is put after the text of the other, with no clipboard: a new
+    /// last paragraph is made in the report, and the figures go into it
+    /// without the last paragraph mark of their document, so that the report
+    /// ends with the last figure.
     ///
     /// The two paths are compared in a handler of the script's own: inside the
     /// tell, `case` is a word of Word's dictionary and `considering case` does
-    /// not compile.
-    static func wordScript(documentAt file: String, images: [ReportPreparedImage]) -> String {
-        var lines = [
+    /// not compile. No variable has a name that is a word of that dictionary.
+    static func wordScript(documentAt file: String, figuresAt figures: String, count: Int) -> String {
+        [
             "on sameFile(one, other)",
             "  considering case",
             "    return one is other",
@@ -401,30 +433,71 @@ public final class ReportImageInsertion: NSObject {
             // has stopped on a panel of its own is not waited for any longer.
             "  with timeout of 60 seconds",
             "    set d to missing value",
+            "    set figureDocument to missing value",
             "    repeat with candidate in (get every document)",
             "      set candidateFile to \"\"",
             "      try",
             "        set candidateFile to (posix full name of candidate) as text",
             "      end try",
-            "      if my sameFile(candidateFile, \(appleString(file))) then",
-            "        set d to contents of candidate",
-            "        exit repeat",
-            "      end if",
+            "      if my sameFile(candidateFile, \(appleString(file))) then set d to contents of candidate",
+            "      if my sameFile(candidateFile, \(appleString(figures))) then set figureDocument to contents of candidate",
             "    end repeat",
-            "    if d is missing value then error \"Word no longer has the report open\"",
+            "    if d is missing value or figureDocument is missing value then",
+            "      try",
+            "        if figureDocument is not missing value then close figureDocument saving no",
+            "      end try",
+            "      try",
+            "        if d is not missing value then close d saving no",
+            "      end try",
+            "      error \"Word no longer has the report open\"",
+            "    end if",
             "    try",
-        ]
-        for image in images {
-            lines.append("      set pic to make inline picture at text object of d file name \(appleString(image.path))")
-            lines.append("      set width of pic to \(appleNumber(image.widthPoints))")
-            lines.append("      set height of pic to \(appleNumber(image.heightPoints))")
-        }
-        lines.append(contentsOf: closeNamedDocumentOnErrorLines())
-        lines.append(contentsOf: [
+            "      set picturesBefore to count of inline pictures of d",
+            "      set figureEnd to (end of content of text object of figureDocument) - 1",
+            "      insert paragraph at end of text object of d",
+            "      set reportEnd to (end of content of text object of d) - 1",
+            "      set formatted text of (create range d start reportEnd end reportEnd) to formatted text of (create range figureDocument start 0 end figureEnd)",
+            "      if (count of inline pictures of d) is not picturesBefore + \(count) then error \"Word did not take the figures\"",
+            "      close figureDocument saving no",
+            "      set figureDocument to missing value",
+            "      save d",
+            "      close d saving no",
+            "    on error errorMessage number errorNumber",
+            "      try",
+            "        if figureDocument is not missing value then close figureDocument saving no",
+            "      end try",
+            "      try",
+            "        close d saving no",
+            "      end try",
+            "      error errorMessage number errorNumber",
+            "    end try",
             "  end timeout",
             "end tell",
-        ])
-        return lines.joined(separator: "\n")
+        ].joined(separator: "\n")
+    }
+
+    /// Closes, as they are, the documents Word has open from `files`: what an
+    /// insertion that could not go on leaves of its own in Word.
+    static func wordCloseScript(files: [String]) -> String {
+        ([
+            "on sameFile(one, other)",
+            "  considering case",
+            "    return one is other",
+            "  end considering",
+            "end sameFile",
+            "",
+            "tell application \"Microsoft Word\"",
+            "  with timeout of 20 seconds",
+            "    repeat with candidate in (get every document)",
+            "      set candidateFile to \"\"",
+            "      try",
+            "        set candidateFile to (posix full name of candidate) as text",
+            "      end try",
+        ] + files.map { "      if my sameFile(candidateFile, \(appleString($0))) then close candidate saving no" } + [
+            "    end repeat",
+            "  end timeout",
+            "end tell",
+        ]).joined(separator: "\n")
     }
 
     /// The insertion with the editor stood in for: `runner` is given the script
@@ -470,70 +543,69 @@ public final class ReportImageInsertion: NSObject {
         }
     }
 
-    /// Hands Word the copy and has it take the images.
-    static func insertIntoWord(_ images: [ReportPreparedImage], copy path: String) -> Bool {
-        lastError = nil
-        guard let word = applicationURL(for: .word) else {
-            rememberError(code: -1728, message: "Microsoft Word is not installed")
-            return false
-        }
-        return insertIntoWord(images, copy: path, open: { copy in
-            // Waiting on NSWorkspace's completion handler from the main thread
-            // is a deadlock; Word is asked what it has open instead.
-            let configuration = NSWorkspace.OpenConfiguration()
-            configuration.activates = false
-            NSWorkspace.shared.open([URL(fileURLWithPath: copy)], withApplicationAt: word,
-                                    configuration: configuration, completionHandler: nil)
-        }, send: { source, _ in execute(source, in: .word) })
-    }
-
     /// The insertion into a Word report, apart from Word itself: `open` hands
-    /// Word the copy and `send` a script.
+    /// Word a file and `send` a script. `figures` is a document that holds
+    /// the figures and nothing else, which Word is handed with the copy.
     ///
-    /// The images go into the document whose file is the copy, and no other.
-    /// The copy is called `Horos-inserted-report.docx` in every insertion:
+    /// The figures go into the document whose file is the copy, and no other.
+    /// The copy is called `Horos-inserted-report.doc` in every insertion:
     /// taken by that name, the document could be the copy an insertion that
     /// had failed left open - the images went into that one, and the report
     /// was replaced by a copy without them.
-    static func insertIntoWord(_ images: [ReportPreparedImage], copy path: String,
+    static func insertIntoWord(figures: String, count: Int, copy path: String,
                                open: (String) -> Void, send: PagesApplication.Target.Send,
                                attempts: Int = 60, pause: TimeInterval = 0.5) -> Bool {
         open(path)
-        guard let document = wordDocument(openedFrom: path, attempts: attempts, pause: pause, send: send) else {
+        open(figures)
+        let opened = wordDocuments(openedFrom: [path, figures], attempts: attempts, pause: pause, send: send)
+        guard let opened, opened.count == 2, let document = opened[0], let source = opened[1] else {
             // The number a script's own `error "..."` has, which is what
             // not finding the copy used to end with.
             if lastError == nil {
                 rememberError(code: -2700, message: "Word did not open the report", in: .word)
             }
+            // A Word that answered, and has one of the two: it is not left
+            // there. One that did not answer is not asked again.
+            if let left = opened?.compactMap({ $0 }), !left.isEmpty {
+                let last = lastErrorLock.withLock { storedLast }
+                _ = send(wordCloseScript(files: left), [])
+                lastErrorLock.withLock { storedLast = last }
+            }
             return false
         }
-        return send(wordScript(documentAt: document, images: images), []) != nil
+        return send(wordScript(documentAt: document, figuresAt: source, count: count), []) != nil
     }
 
     /// The file of the document Word opened from `path`, as Word writes it,
-    /// waited for: Word was handed the file through LaunchServices, which does
-    /// not say when the document is there. The two paths are compared with
-    /// their symbolic links resolved - a temporary folder is `/var/folders` to
-    /// one and `/private/var/folders` to another - and what is answered is
-    /// Word's own writing of it, which is what the next script is given. nil
-    /// when the document did not appear, and at once when Word could not be
-    /// asked.
+    /// waited for. nil when the document did not appear, and at once when Word
+    /// could not be asked.
     static func wordDocument(openedFrom path: String, attempts: Int = 60, pause: TimeInterval = 0.5,
                              send: PagesApplication.Target.Send) -> String? {
-        let wanted = PagesApplication.Target.fileURL(path)?.path
+        wordDocuments(openedFrom: [path], attempts: attempts, pause: pause, send: send)?.first ?? nil
+    }
+
+    /// The files of the documents Word opened from `paths`, each as Word
+    /// writes it, waited for until all are there: Word was handed the files
+    /// through LaunchServices, which does not say when a document is there.
+    /// The paths are compared with their symbolic links resolved - a temporary
+    /// folder is `/var/folders` to one and `/private/var/folders` to another -
+    /// and what is answered is Word's own writing of each, which is what the
+    /// next script is given. A document that did not appear is nil in the
+    /// answer, and the answer itself is nil, at once, when Word could not be
+    /// asked or answered something that is no list of files.
+    static func wordDocuments(openedFrom paths: [String], attempts: Int = 60, pause: TimeInterval = 0.5,
+                              send: PagesApplication.Target.Send) -> [String?]? {
+        let wanted = paths.map { PagesApplication.Target.fileURL($0)?.path }
+        var found = [String?](repeating: nil, count: paths.count)
         for attempt in 1...max(attempts, 1) {
-            guard let open = send(wordDocumentsScript, []) else { return nil }
-            if open.numberOfItems > 0 {
-                for index in 1...open.numberOfItems {
-                    if let file = open.atIndex(index)?.stringValue, let known = PagesApplication.Target.fileURL(file)?.path,
-                       known == wanted {
-                        return file
-                    }
-                }
+            guard let answer = send(wordDocumentsScript, []), let open = wordFiles(in: answer) else { return nil }
+            for (index, path) in wanted.enumerated() {
+                found[index] = path.flatMap { path in open.first { PagesApplication.Target.fileURL($0)?.path == path } }
             }
+            if !found.contains(where: { $0 == nil }) { break }
             if attempt < attempts { Thread.sleep(forTimeInterval: pause) }
         }
-        return nil
+        return found
     }
 
     /// Hands Pages the copy and has it take the images.

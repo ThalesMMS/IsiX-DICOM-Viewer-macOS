@@ -691,10 +691,12 @@ extension DCMView {
         return points
     }
 
-    /// A contour finished over a ROI of a neighbouring image takes that ROI's
-    /// name: volume, renaming and propagation group a series' ROIs by name, so the
-    /// lesion outlined slice by slice is one object. Images whose plane is not
-    /// parallel to this one are not compared.
+    /// A contour finished over a ROI of another image takes that ROI's name:
+    /// volume, renaming and propagation group a series' ROIs by name, so the
+    /// lesion outlined slice by slice is one object. The images are compared
+    /// nearest first, at any distance: the missing ROIs are generated between
+    /// contours drawn several images apart, which must be one object too.
+    /// Images whose plane is not parallel to this one are not compared.
     @objc(joinFinishedContourToAdjacentObject)
     public dynamic func joinFinishedContourToAdjacentObject() {
         guard let roi = self.horos_contourAwaitingJoin, roi.roImode != Int(ROI_drawing) else { return }
@@ -711,31 +713,44 @@ extension DCMView {
         let pixList = self.horos_dcmPixList
         let roiList = self.horos_dcmRoiList
         let curImage = Int(self.horos_curImage)
-        var candidates: [[NSValue]] = [], names: [String] = [], distances: [Int] = []
-        for neighbour in ROIEditingSession.joinedImages(around: curImage, reach: ROIObjectJoin.reach,
-                                                        imageCount: pixList?.count ?? 0, roiListCount: roiList?.count ?? 0) {
-            var there = [Double](repeating: 0, count: 9)
-            (pixList?.object(at: neighbour.image) as? DCMPix)?.orientationDouble(&there)
-            if !ROIEditingSession.planesAreParallel(here, there) {
-                continue
-            }
+        // One distance at a time: the nearest images with a ROI the contour
+        // covers decide, and the ROIs further away are not measured.
+        let contour = (self.planePoints(of: roi, onImage: curImage) as? [NSValue]) ?? []
+        let neighbours = ROIEditingSession.joinedImages(around: curImage, imageCount: pixList?.count ?? 0, roiListCount: roiList?.count ?? 0)
+        var next = 0
+        while next < neighbours.count {
+            let distance = neighbours[next].distance
+            var candidates: [[NSValue]] = [], names: [String] = []
+            while next < neighbours.count, neighbours[next].distance == distance {
+                let image = neighbours[next].image
+                next += 1
 
-            for other in ViewROIEditing.rois(roiList?.object(at: neighbour.image)) {
-                if !other.isValidForVolume() || ROIObjectJoin.isUnnamed(other.name) {
+                var there = [Double](repeating: 0, count: 9)
+                (pixList?.object(at: image) as? DCMPix)?.orientationDouble(&there)
+                if !ROIEditingSession.planesAreParallel(here, there) {
                     continue
                 }
 
-                candidates.append((self.planePoints(of: other, onImage: neighbour.image) as? [NSValue]) ?? [])
-                names.append(other.name ?? "")
-                distances.append(neighbour.distance)
-            }
-        }
+                for other in ViewROIEditing.rois(roiList?.object(at: image)) {
+                    if !other.isValidForVolume() || ROIObjectJoin.isUnnamed(other.name) {
+                        continue
+                    }
 
-        let index = ROIObjectJoin.candidate(for: (self.planePoints(of: roi, onImage: curImage) as? [NSValue]) ?? [],
-                                            candidates: candidates, imageDistances: distances)
-        if let name = ROIEditingSession.joinedName(candidate: index, names: names, current: roi.name) {
-            roi.name = name
-            ROIEventEmitter.changed(roi)
+                    candidates.append((self.planePoints(of: other, onImage: image) as? [NSValue]) ?? [])
+                    names.append(other.name ?? "")
+                }
+            }
+
+            let index = ROIObjectJoin.candidate(for: contour, candidates: candidates,
+                                                imageDistances: [Int](repeating: distance, count: candidates.count))
+            if index < 0 {
+                continue
+            }
+            if let name = ROIEditingSession.joinedName(candidate: index, names: names, current: roi.name) {
+                roi.name = name
+                ROIEventEmitter.changed(roi)
+            }
+            return
         }
     }
 }

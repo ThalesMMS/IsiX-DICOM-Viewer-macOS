@@ -209,6 +209,14 @@ public struct ROIEditingSession: Sendable, Equatable {
         return images
     }
 
+    /// The images before and after `image` at every distance the series
+    /// has, nearest first: a contour finished on `image` is compared with
+    /// the ROIs of one distance at a time, and the nearest that has a ROI it
+    /// covers decides.
+    public static func joinedImages(around image: Int, imageCount: Int, roiListCount: Int) -> [JoinedImage] {
+        joinedImages(around: image, reach: max(min(imageCount, roiListCount) - 1, 0), imageCount: imageCount, roiListCount: roiListCount)
+    }
+
     /// Whether two images, by the first nine values of their orientations,
     /// lie in parallel planes, whose contours can be compared: their normals'
     /// dot product, fused as the Objective-C compiler fused it, is not under

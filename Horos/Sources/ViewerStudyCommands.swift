@@ -24,7 +24,9 @@ import IsiXImaging
 // StudyViewerClosing; StudyViewers finds them and closes them.
 // 2D Viewer > Invert Pixel Values and ROI > Normalize Series by ROI Mean…
 // (ViewerPixelValues), 2D Viewer > Reduce Series… (ViewerSeriesReduction) and
-// ROI > Create Points Between Two Points (ViewerPointsBetween) and 2D Viewer >
+// ROI > Create Points Between Two Points (ViewerPointsBetween), ROI > Ratio of
+// Two Lengths (ViewerLengthRatio), which the viewer's contextual menus offer
+// too, and 2D Viewer >
 // Key Images > Create Key Object Selection Document (ViewerKeyObjectDocument),
 // which act on the 2D viewer of the key window, or of the main window when a
 // panel is key.
@@ -148,6 +150,18 @@ final class ViewerStudyCommands: NSObject, NSMenuItemValidation {
         ViewerPointsBetween.add(in: viewer)
     }
 
+    /// ROI > Ratio of Two Lengths: a text ROI with the ratio of the two
+    /// selected Lengths, the one selected first over the other, which follows
+    /// them.
+    @IBAction @objc(ratioOfSelectedLengths:)
+    func ratioOfSelectedLengths(_ sender: Any?) {
+        guard let viewer = StudyViewers.active2DViewer() else {
+            NSSound.beep()
+            return
+        }
+        ViewerLengthRatio.add(in: viewer)
+    }
+
     /// 2D Viewer > Key Images > Create Key Object Selection Document: the key
     /// images of the viewer's study in a new series of it.
     @IBAction @objc(createKeyObjectSelectionDocument:)
@@ -192,6 +206,9 @@ final class ViewerStudyCommands: NSObject, NSMenuItemValidation {
             // have to choose, so it is not offered.
             guard let viewer = StudyViewers.databaseViewer() else { return false }
             return ViewerPointsBetween.points(of: viewer).count == 2
+        case #selector(ratioOfSelectedLengths(_:)):
+            // Two selected Lengths that make a ratio, as the command asks for them.
+            return StudyViewers.databaseViewer().map { ViewerLengthRatio.canAdd(in: $0) } ?? false
         case #selector(createKeyObjectSelectionDocument(_:)):
             // A study without a key image would make an empty document.
             return StudyViewers.databaseViewer().map { ViewerKeyObjectDocument(viewer: $0).isPossible } ?? false

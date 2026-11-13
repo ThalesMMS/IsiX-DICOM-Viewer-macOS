@@ -633,7 +633,7 @@
                                         <binding destination="308" name="value" keyPath="values.EmptyNameForNewROIs" id="420"/>
                                     </connections>
                                 </button>
-                                <button toolTip="Новая ROI, нарисованная поверх ROI на одном из двух предыдущих или следующих изображений, получает её имя, и обе считаются одним объектом для объёма, переименования и распространения." horizontalCompressionResistancePriority="1000" id="roi-join-overlap-control">
+                                <button toolTip="Новая ROI, нарисованная поверх ROI на другом изображении, получает имя ближайшей такой ROI, и обе считаются одним объектом для объёма, переименования и распространения." horizontalCompressionResistancePriority="1000" id="roi-join-overlap-control">
                                     <rect key="frame" x="10" y="62" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Объединять перекрывающиеся ROI соседних снимков" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="roi-join-overlap-cell">

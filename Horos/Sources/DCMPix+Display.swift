@@ -262,14 +262,23 @@ extension DCMPix {
     // MARK: - Pictures
 
     /// The 8-bit picture as an image, full size, through the current window.
+    ///
+    /// A picture that was never shown has not been read from its file: it has
+    /// no size yet, and no 8-bit bytes for `compute8bitRepresentation` to
+    /// fill. Making those bytes reads it. Asked for its size first, such a
+    /// picture answered nothing - an image of 0 by 0 is none - which is what
+    /// the image of a database's own picture always was.
     @objc(image)
     public dynamic func image() -> NSImage! {
+        if horos_baseAddr == nil { allocate8bitRepresentation() }
         compute8bitRepresentation()
         return bitmapImage()
     }
 
     private func bitmapImage() -> NSImage? {
         let width = horos_width, height = horos_height
+        // A file that could not be read leaves no size.
+        guard width > 0, height > 0 else { return nil }
         let colour = isRGB
         guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8,
                                          samplesPerPixel: colour ? 3 : 1, hasAlpha: false, isPlanar: false,

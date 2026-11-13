@@ -138,7 +138,7 @@ final class Converter: NSObject {
  var annotatedPreviewImages: NSMutableArray! = NSMutableArray()
  func _createDicomImage(with viewer: ViewerController!, toDestinationPath path: String!, asColorPrint color: Bool, withAnnotations annotations: Bool) -> String! {
   // What the drawing code reads while the image is captured.
-  seenCropping.append(UserDefaults.standard.bool(forKey: "allowSmartCropping")); seenFont.append(UserDefaults.standard.float(forKey: "FONTSIZE"))
+  seenCropping.append(UserDefaults.standard[ViewerPreferences.allowSmartCropping]); seenFont.append(UserDefaults.standard[ViewerPreferences.fontSize])
   if viewer.curImage == 1 {
    if failureMode == 1 { return nil }
    if failureMode == 2 { return "" }

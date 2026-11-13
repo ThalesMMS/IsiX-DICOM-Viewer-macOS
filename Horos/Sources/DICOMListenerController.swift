@@ -397,8 +397,8 @@ final class DICOMListenerController {
         }
     }
 
-    /// Runs `body` with hideListenerError on for every reader of the key in
-    /// this process, on whatever thread, and nowhere else. The value once went
+    /// Runs `body` with hideListenerError on for every reader of the catalog's
+    /// key in this process, on whatever thread, and nowhere else. The value once went
     /// into the preferences, the user's own kept under copyHideListenerError
     /// for the launch after a crash to put back; nothing is stored now, so an
     /// application that ends in the middle leaves the user's value as it was.

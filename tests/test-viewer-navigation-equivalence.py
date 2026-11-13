@@ -165,6 +165,13 @@ TEMPORARY_PREFERENCE_STAND_IN = r"""
 import Foundation
 import IsiXPreferences
 
+extension UserDefaults {
+    /// A switch as a reader of the catalog reads it, for the harness's
+    /// Objective-C: the value of work in course comes before what UserDefaults
+    /// holds, and -boolForKey: does not answer it.
+    @objc(harnessGivenBoolForKey:) func harnessGivenBool(forKey key: String) -> Bool { self[PreferenceKey<Bool>(key)] }
+}
+
 @MainActor enum TemporaryPreferenceWork {
     static func during<Value: PreferenceValue>(_ key: PreferenceKey<Value>, at value: Value, silently: Bool = false, _ work: () -> Void) {
         TemporaryPreferenceHolds.standard.during(key, at: value, work)
@@ -254,6 +261,19 @@ HEADER = r'''
 #import <Cocoa/Cocoa.h>
 #import <CoreData/CoreData.h>
 #import "HorosObjCException.h"
+
+#import <objc/message.h>
+// A switch as the code under test reads it. The Swift of the tree reads the
+// catalog's key, which answers the value work in course gives it before what
+// UserDefaults holds; the reader is the harness's own Swift, there when the
+// tree has such work. The Objective-C of the reference wrote the value into
+// the preferences themselves, where -boolForKey: finds it.
+static inline BOOL HarnessSwitch(NSString *key) {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    SEL given = NSSelectorFromString(@"harnessGivenBoolForKey:");
+    if ([defaults respondsToSelector: given]) return ((BOOL (*)(id, SEL, NSString *)) objc_msgSend)(defaults, given, key);
+    return [defaults boolForKey: key];
+}
 
 // The stand-ins of the viewer, its views, slices, files and the classes the
 // synchronization and navigation blocks talk to, spelled as the app's headers
@@ -767,7 +787,7 @@ NSInteger HorosRunCriticalAlertPanel(NSString *title, NSString *format, NSString
 }
 - (void) loadNextSeries:(NSManagedObject *) image :(long) direction :(ViewerController*) viewer :(BOOL) first keyImagesOnly:(BOOL) key {
     Record([NSString stringWithFormat: @"browser loadNextSeries %@ %ld %@ %d %d next-to-all %d", Name(image), direction, Name(viewer), first, key,
-            [[NSUserDefaults standardUserDefaults] boolForKey: @"nextSeriesToAllViewers"]]);
+            HarnessSwitch(@"nextSeriesToAllViewers")]);
 }
 - (ViewerController*) loadSeries :(NSManagedObject *) series :(ViewerController*) viewer :(BOOL) first keyImagesOnly:(BOOL) key {
     Record([NSString stringWithFormat: @"browser loadSeries %@ %@ %d %d", Name(series), Name(viewer), first, key]);
@@ -1296,7 +1316,7 @@ static void study(void) {
             s->imageView.flippedData = flip.boolValue;
             [s loadSeries: @1]; [s loadSeries: @-1];
             [s loadSeriesUp]; [s loadSeriesDown];
-            Record([NSString stringWithFormat: @"next to all after %d", [[NSUserDefaults standardUserDefaults] boolForKey: @"nextSeriesToAllViewers"]]);
+            Record([NSString stringWithFormat: @"next to all after %d", HarnessSwitch(@"nextSeriesToAllViewers")]);
         }
     }
     s->imageView.flippedData = NO;

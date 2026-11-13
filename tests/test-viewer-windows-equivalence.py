@@ -185,6 +185,19 @@ HEADER = r'''#pragma clang diagnostic ignored "-Wnullability-completeness"
 #import <CoreData/CoreData.h>
 #import "HorosObjCException.h"
 
+#import <objc/message.h>
+// A switch as the code under test reads it. The Swift of the tree reads the
+// catalog's key, which answers the value work in course gives it before what
+// UserDefaults holds; the reader is the harness's own Swift, there when the
+// tree has such work. The Objective-C of the reference wrote the value into
+// the preferences themselves, where -boolForKey: finds it.
+static inline BOOL HarnessSwitch(NSString *key) {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    SEL given = NSSelectorFromString(@"harnessGivenBoolForKey:");
+    if ([defaults respondsToSelector: given]) return ((BOOL (*)(id, SEL, NSString *)) objc_msgSend)(defaults, given, key);
+    return [defaults boolForKey: key];
+}
+
 // The stand-ins of the viewer, its windows, views, slices and files, and of
 // the classes the window blocks talk to (the application, AppController, the
 // browser, the panels, the window colours and policies), declared as the
@@ -952,7 +965,7 @@ static BrowserController *browser;
 @implementation BrowserController
 + (BrowserController*) currentBrowser { if (!browser) { browser = [BrowserController new]; Register(browser, @"browser"); } return browser; }
 - (void) databaseOpenStudy:(DicomStudy*) item {
-    Record([NSString stringWithFormat: @"databaseOpenStudy %@ automatic %d", Name(item), [[NSUserDefaults standardUserDefaults] boolForKey: @"automaticWorkspaceLoad"]]);
+    Record([NSString stringWithFormat: @"databaseOpenStudy %@ automatic %d", Name(item), HarnessSwitch(@"automaticWorkspaceLoad")]);
 }
 - (void) displayWaitWindowIfNecessary { Record(@"displayWaitWindowIfNecessary"); }
 - (void) closeWaitWindowIfNecessary { Record(@"closeWaitWindowIfNecessary"); }
@@ -1268,10 +1281,10 @@ static void State(void) {
     [v2 loadWindowsState: nil];
     Defaults(@{@"automaticWorkspaceLoad": @YES});
     [v2 loadWindowsState: nil];
-    Record([NSString stringWithFormat: @"automatic after %d", [[NSUserDefaults standardUserDefaults] boolForKey: @"automaticWorkspaceLoad"]]);
+    Record([NSString stringWithFormat: @"automatic after %d", HarnessSwitch(@"automaticWorkspaceLoad")]);
     Defaults(@{});
     [v1 loadWindowsState: nil];
-    Record([NSString stringWithFormat: @"automatic after %d", [[NSUserDefaults standardUserDefaults] boolForKey: @"automaticWorkspaceLoad"]]);
+    Record([NSString stringWithFormat: @"automatic after %d", HarnessSwitch(@"automaticWorkspaceLoad")]);
     [v1 saveWindowsStateAsDICOMSR: nil];
     Record([NSString stringWithFormat: @"name %@", v1.windowsStateName]);
     v1->saveWindowsStateWindow = [[HarnessWindow alloc] initWithContentRect: NSZeroRect styleMask: 0 backing: NSBackingStoreBuffered defer: YES];
@@ -1527,7 +1540,7 @@ static void FullScreen(void) {
         Record([NSString stringWithFormat: @"FullScreenON %d", [v1 FullScreenON]]);
         @autoreleasepool { [v1 fullScreenMenu: nil]; }
         Ivars(v1);
-        Record([NSString stringWithFormat: @"FullScreenON %d COPYSETTINGS %d", [v1 FullScreenON], [[NSUserDefaults standardUserDefaults] boolForKey: @"COPYSETTINGS"]]);
+        Record([NSString stringWithFormat: @"FullScreenON %d COPYSETTINGS %d", [v1 FullScreenON], HarnessSwitch(@"COPYSETTINGS")]);
         Retain(@"full screen window", v1->FullScreenWindow);
         [v1->imageView setIndex: 2];
         @autoreleasepool {
@@ -1536,7 +1549,7 @@ static void FullScreen(void) {
             else [(id)v1 applicationDidResignActive: nil];
         }
         Ivars(v1);
-        Record([NSString stringWithFormat: @"FullScreenON %d COPYSETTINGS %d", [v1 FullScreenON], [[NSUserDefaults standardUserDefaults] boolForKey: @"COPYSETTINGS"]]);
+        Record([NSString stringWithFormat: @"FullScreenON %d COPYSETTINGS %d", [v1 FullScreenON], HarnessSwitch(@"COPYSETTINGS")]);
         v1->imageView = v1->seriesView.harnessImageViews[1];
     }
     [v1 offFullScreen];
@@ -1594,6 +1607,13 @@ def git(*arguments):
 TEMPORARY_PREFERENCE_STAND_IN = r"""
 import Foundation
 import IsiXPreferences
+
+extension UserDefaults {
+    /// A switch as a reader of the catalog reads it, for the harness's
+    /// Objective-C: the value of work in course comes before what UserDefaults
+    /// holds, and -boolForKey: does not answer it.
+    @objc(harnessGivenBoolForKey:) func harnessGivenBool(forKey key: String) -> Bool { self[PreferenceKey<Bool>(key)] }
+}
 
 @MainActor enum TemporaryPreferenceWork {
     static func during<Value: PreferenceValue>(_ key: PreferenceKey<Value>, at value: Value, silently: Bool = false, _ work: () -> Void) {

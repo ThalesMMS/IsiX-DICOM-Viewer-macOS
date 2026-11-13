@@ -295,7 +295,7 @@ public enum NetworkPreferences {
     /// Whether `store` holds a value under `key`, of whatever type: the user's own, one given at launch or a
     /// registered one.
     public static func holdsValue<Value>(_ key: PreferenceKey<Value>, in store: any PreferenceStore) -> Bool {
-        store.object(forKey: key.name) != nil
+        store.object(for: key) != nil
     }
 
     /// A switch read as `whenAbsent` while nothing is stored under it, and as `bool(forKey:)` reads it once

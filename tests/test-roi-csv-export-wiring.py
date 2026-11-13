@@ -84,6 +84,7 @@ if project.count('ViewerROICSVExport.swift in Sources') != 2:
 # --- The values, through the real file ----------------------------------------
 DOUBLES = r'''
 import AppKit
+import IsiXROI
 
 public enum ToolMode: Int16 {
     case tMesure = 5, tROI = 6, tOval = 9, tOPolygon = 10, tCPolygon = 11, tAngle = 12, tText = 13
@@ -159,6 +160,13 @@ public class DCMPix: NSObject {
 
 public class DCMViewDouble: NSObject { public var flippedData = false }
 
+/// The series of this test has no ratio of two lengths: tests/test-roi-length-ratio.py has them.
+@MainActor enum ViewerLengthRatio {
+    struct Label { let roi: ROI; let numerator: ROI?; let denominator: ROI? }
+    static func labels(of viewer: ViewerController, movie: Int) -> [Label] { [] }
+    static func measured(_ roi: ROI) -> ROILengthRatio.Length? { nil }
+}
+
 public enum HorosAlertPanel {
     @discardableResult
     static func runCritical(title: String?, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int { 0 }
@@ -232,7 +240,7 @@ let pointsURL = try! ViewerROICSVExport.write(entries, to: url, points: true)
 check(pointsURL?.lastPathComponent == "Abdomen ROIs points.csv", "the points go to \(String(describing: pointsURL))")
 let csv = String(decoding: try! Data(contentsOf: url).dropFirst(3), as: UTF8.self)
 check(csv.hasPrefix(ROICSVExport.csv([ROICSVExport.roiHeader]))
-      && csv.contains("1,\"Abdomen, portal\",1.2.840.99,1,10,Oval,\"liver \"\"left\"\"\",12.5000,,cm,25.000,12.910,10.000,40.000\r\n"),
+      && csv.contains("1,\"Abdomen, portal\",1.2.840.99,1,10,Oval,\"liver \"\"left\"\"\",12.5000,,cm,25.000,12.910,10.000,40.000,,,\r\n"),
       "the ROI file:\n\(csv)")
 let points = String(decoding: try! Data(contentsOf: pointsURL!).dropFirst(3), as: UTF8.self)
 check(points.contains("6,3,3D,2,,,4.000,6.000,3.000\r\n"), "the points file:\n\(points)")

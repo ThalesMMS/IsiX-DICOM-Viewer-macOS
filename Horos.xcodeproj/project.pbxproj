@@ -541,6 +541,7 @@
 		BA709D069ED9469E83551E7F /* ViewerController+BrushROI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9091CB8EA2DE4881A009EE39 /* ViewerController+BrushROI.swift */; };
 		F7D11301C67F4ACBA7531C57 /* ViewerController+ROIGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2B37E98599B4D449F9575FB /* ViewerController+ROIGeometry.swift */; };
 		97B4910ABB33335C7C49D638 /* ViewerPointsBetween.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDCF1869D508ADEBA8544282 /* ViewerPointsBetween.swift */; };
+		77214FA479C8E267B9C7A2C1 /* ViewerLengthRatio.swift in Sources */ = {isa = PBXBuildFile; fileRef = F094E55C4ECC544598C1942E /* ViewerLengthRatio.swift */; };
 		1DB6D7207F324F7CB4AEF560 /* ViewerController+VolumeLength.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84EC4623D0CC4CF9AA81C3EF /* ViewerController+VolumeLength.swift */; };
 		A467014A199A48198B6C530B /* ViewerController+UndoQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B2F73F485D1415E9B4CCA4D /* ViewerController+UndoQueue.swift */; };
 		E1B9F8AD977A480EA97F5ACE /* DCMView+Drawing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AD895EFFFE54524A0ACB4CE /* DCMView+Drawing.swift */; };
@@ -2797,6 +2798,7 @@
 		9091CB8EA2DE4881A009EE39 /* ViewerController+BrushROI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+BrushROI.swift"; sourceTree = "<group>"; };
 		C2B37E98599B4D449F9575FB /* ViewerController+ROIGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+ROIGeometry.swift"; sourceTree = "<group>"; };
 		DDCF1869D508ADEBA8544282 /* ViewerPointsBetween.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerPointsBetween.swift; sourceTree = "<group>"; };
+		F094E55C4ECC544598C1942E /* ViewerLengthRatio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerLengthRatio.swift; sourceTree = "<group>"; };
 		84EC4623D0CC4CF9AA81C3EF /* ViewerController+VolumeLength.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+VolumeLength.swift"; sourceTree = "<group>"; };
 		5B2F73F485D1415E9B4CCA4D /* ViewerController+UndoQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+UndoQueue.swift"; sourceTree = "<group>"; };
 		9AD895EFFFE54524A0ACB4CE /* DCMView+Drawing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DCMView+Drawing.swift"; sourceTree = "<group>"; };
@@ -7271,6 +7273,7 @@
 				9091CB8EA2DE4881A009EE39 /* ViewerController+BrushROI.swift */,
 				C2B37E98599B4D449F9575FB /* ViewerController+ROIGeometry.swift */,
 				DDCF1869D508ADEBA8544282 /* ViewerPointsBetween.swift */,
+				F094E55C4ECC544598C1942E /* ViewerLengthRatio.swift */,
 				84EC4623D0CC4CF9AA81C3EF /* ViewerController+VolumeLength.swift */,
 				5B2F73F485D1415E9B4CCA4D /* ViewerController+UndoQueue.swift */,
 				9AD895EFFFE54524A0ACB4CE /* DCMView+Drawing.swift */,
@@ -10196,6 +10199,7 @@
 				BA709D069ED9469E83551E7F /* ViewerController+BrushROI.swift in Sources */,
 				F7D11301C67F4ACBA7531C57 /* ViewerController+ROIGeometry.swift in Sources */,
 				97B4910ABB33335C7C49D638 /* ViewerPointsBetween.swift in Sources */,
+				77214FA479C8E267B9C7A2C1 /* ViewerLengthRatio.swift in Sources */,
 				1DB6D7207F324F7CB4AEF560 /* ViewerController+VolumeLength.swift in Sources */,
 				A467014A199A48198B6C530B /* ViewerController+UndoQueue.swift in Sources */,
 				E1B9F8AD977A480EA97F5ACE /* DCMView+Drawing.swift in Sources */,

@@ -633,7 +633,7 @@
                                         <binding destination="308" name="value" keyPath="values.EmptyNameForNewROIs" id="420"/>
                                     </connections>
                                 </button>
-                                <button toolTip="前後2枚以内の画像のROIに重ねて描いた新しいROIはそのROIの名前を受け継ぎ、体積・名前の変更・伝播で1つのオブジェクトとして扱われます。" horizontalCompressionResistancePriority="1000" id="roi-join-overlap-control">
+                                <button toolTip="別の画像のROIに重ねて描いた新しいROIは、最も近いそのROIの名前を受け継ぎ、体積・名前の変更・伝播で1つのオブジェクトとして扱われます。" horizontalCompressionResistancePriority="1000" id="roi-join-overlap-control">
                                     <rect key="frame" x="10" y="62" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="隣接画像で重なるROIを結合" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="roi-join-overlap-cell">

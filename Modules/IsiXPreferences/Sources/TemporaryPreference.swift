@@ -10,62 +10,60 @@
 
 import Foundation
 
-/// A preference some work changes for as long as it lasts, where every reader
-/// of the key finds it: a print turns smart cropping off and enlarges the
+/// A preference some work changes for as long as it lasts, where the readers
+/// of the catalog find it: a print turns smart cropping off and enlarges the
 /// annotations' font while it captures its pages, and the views that draw them
-/// read both from the application's preferences.
+/// read both through the catalog's keys.
 ///
-/// The value goes into the argument domain of the process, which UserDefaults
-/// searches before the user's own values and never saves. Nothing is written
-/// to the preferences, whatever becomes of the work: a value the user chose
-/// stays as chosen, a value that was only the registered one is not stored as
-/// the user's when it is put back, and an application that ends in the middle
-/// leaves no trace of it. `restore()` leaves the argument domain as it was,
-/// with the value the launch gave for the key if it gave one.
+/// The value is kept by the process (TemporaryPreferenceValues), in no domain
+/// of UserDefaults. Nothing is written to the preferences, whatever becomes of
+/// the work: a value the user chose stays as chosen, a value that was only the
+/// registered one is not stored as the user's when it is taken back, and an
+/// application that ends in the middle leaves no trace of it. `restore()`
+/// leaves the key reading what it read before: what the launch gave, what is
+/// stored, or what is registered.
 ///
-/// The argument domain is one for the whole process, whatever the instance
-/// of UserDefaults. A change made this way posts
-/// UserDefaults.didChangeNotification. The key-value observers of the key, a
-/// binding of a preference pane among them, are not told by the change itself:
-/// UserDefaults tells them when a key, any key, is next read, on the thread
-/// that reads it. Left at that, an observer of the main thread would be told
-/// on whatever thread read a preference first. `set` and `restore` read the
-/// key before they return, so the observers are told by the call, on its
-/// thread, when the value read did change. Only a thread that reads a
-/// preference in the instant between the exchange and that read would still
-/// tell them first.
+/// Who reads it: every typed read of a UserDefaults (`store[key]`,
+/// `store.object(for:)`), whatever the instance and the thread. Who does not:
+/// a reader that asks UserDefaults by the key's name. A binding of a
+/// preference pane or of a menu item, and a key-value observer, keep showing
+/// what is stored and are told nothing, on any thread; that is the point, see
+/// TemporaryPreferenceValues. Code of the application that reads one of
+/// these keys reads it through the catalog.
 ///
-/// Call it on the main thread: that is where the observers expect to be
-/// told, and nothing keeps two threads from exchanging the argument domain
-/// at once, the later one undoing the earlier.
+/// A change of what the key reads posts UserDefaults.didChangeNotification,
+/// as a stored change does, on the thread that made it and before the call
+/// returns: what follows the preferences by that notification reads the
+/// value again. A value given that is the value already read posts nothing.
+///
+/// Call it on the main thread: that is where the notification is expected,
+/// and nothing keeps two threads from giving one key a value at once, the
+/// later one undoing the earlier.
 public struct TemporaryPreference<Value: PreferenceValue> {
-    private let key: String
+    private let key: PreferenceKey<Value>
     private let defaults: UserDefaults
-    /// What the launch gave for the key; nil when it gave nothing.
-    private let launchValue: Any?
 
     /// `key` in `defaults`, as it stands now: `restore()` comes back to this.
     public init(_ key: PreferenceKey<Value>, in defaults: UserDefaults = .standard) {
-        self.key = key.name
+        self.key = key
         self.defaults = defaults
-        launchValue = defaults.volatileDomain(forName: UserDefaults.argumentDomain)[key.name]
     }
 
-    /// Makes every reader of the key in this process read `value`.
+    /// Makes every typed reader of the key in this process read `value`.
     public func set(_ value: Value) {
         write(value.preferenceObject)
     }
 
     /// Takes the value back: the key reads as it did before the first `set`.
     public func restore() {
-        write(launchValue)
+        write(nil)
     }
 
     private func write(_ value: Any?) {
-        var arguments = defaults.volatileDomain(forName: UserDefaults.argumentDomain)
-        arguments[key] = value
-        defaults.setVolatileDomain(arguments, forName: UserDefaults.argumentDomain)
-        // The read that tells the key-value observers, here and now.
-        _ = defaults.object(forKey: key)
+        let before = key.read(from: defaults)
+        TemporaryPreferenceValues.process.give(value, to: key.name)
+        if key.read(from: defaults) != before {
+            NotificationCenter.default.post(name: UserDefaults.didChangeNotification, object: defaults)
+        }
     }
 }

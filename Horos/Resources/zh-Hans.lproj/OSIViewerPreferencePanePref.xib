@@ -633,7 +633,7 @@
                                         <binding destination="308" name="value" keyPath="values.EmptyNameForNewROIs" id="420"/>
                                     </connections>
                                 </button>
-                                <button toolTip="在前后两张图像内的 ROI 上绘制的新 ROI 会沿用其名称，两者在体积、重命名和传播中视为同一对象。" horizontalCompressionResistancePriority="1000" id="roi-join-overlap-control">
+                                <button toolTip="在其他图像的 ROI 上绘制的新 ROI 会沿用最近的那个 ROI 的名称，两者在体积、重命名和传播中视为同一对象。" horizontalCompressionResistancePriority="1000" id="roi-join-overlap-control">
                                     <rect key="frame" x="10" y="62" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="合并相邻图像上重叠的 ROI" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="roi-join-overlap-cell">

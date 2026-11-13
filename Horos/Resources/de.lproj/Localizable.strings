@@ -3727,6 +3727,8 @@
 "The last 3 previous studies" = "Die letzten 3 vorherigen Studien";
 "The medium was not created" = "Das Medium wurde nicht erstellt";
 "The missing ROIs were not created : this feature does not work with ROIs that don't contain an area." = "Die fehlenden ROIs wurden nicht erstellt: Diese Funktion unterstützt keine ROIs ohne Fläche.";
+"Only one image has a ROI named “%@”, so there is nothing to generate in between. Generate Missing ROIs fills the images between ROIs of the same name: select the ROIs of the object in the ROI Manager and give them one name." = "Nur ein Bild enthält eine ROI namens „%@“, daher gibt es dazwischen nichts zu erzeugen. „Fehlende ROIs erzeugen“ füllt die Bilder zwischen ROIs mit demselben Namen: Wählen Sie die ROIs des Objekts in der ROI-Verwaltung aus und geben Sie ihnen einen gemeinsamen Namen.";
+"Every image between the first and the last ROI named “%@” already has one. There is nothing to generate." = "Jedes Bild zwischen der ersten und der letzten ROI namens „%@“ enthält bereits eine. Es gibt nichts zu erzeugen.";
 "The movie could not be saved. Check the destination and try again." = "Der Film konnte nicht gespeichert werden. Prüfen Sie das Ziel und versuchen Sie es erneut.";
 "The name differs from the one stored for this identifier." = "Der Name weicht vom gespeicherten Namen dieser Kennung ab.";
 "The network connection is unavailable or was interrupted. Check your connection and try again." = "Die Netzwerkverbindung ist nicht verfügbar oder wurde unterbrochen. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.";
@@ -4634,7 +4636,7 @@
 "Wait for a study not yet in the database:" = "Auf eine Studie warten, die noch nicht in der Datenbank ist:";
 "Show an alert when an XML-RPC or URL order fails" = "Hinweis anzeigen, wenn ein XML-RPC- oder URL-Auftrag fehlschlägt";
 "Join overlapping ROIs on adjacent images" = "Überlappende ROIs benachbarter Bilder verbinden";
-"A new ROI drawn over a ROI on one of the two images before or after it takes that ROI's name, so both are one object for volume, renaming and propagation." = "Eine neue ROI, die über eine ROI auf einem der zwei vorherigen oder folgenden Bilder gezeichnet wird, übernimmt deren Namen; beide bilden ein Objekt für Volumen, Umbenennen und Übertragen.";
+"A new ROI drawn over a ROI on another image takes the name of the nearest such ROI, so both are one object for volume, renaming and propagation." = "Eine neue ROI, die über eine ROI auf einem anderen Bild gezeichnet wird, übernimmt den Namen der nächstgelegenen solchen ROI; beide bilden ein Objekt für Volumen, Umbenennen und Übertragen.";
 
 /* 2D Viewer > Sync & Propagate > Propagate Between Series */
 "Propagate Between Series" = "Zwischen Serien übertragen";
@@ -4838,6 +4840,7 @@
 "Last slice:" = "Letzte Schicht:";
 "Keep one slice every:" = "Eine Schicht behalten alle:";
 "Create Points Between Two Points" = "Punkte zwischen zwei Punkten erstellen";
+"Ratio of Two Lengths" = "Verhältnis zweier Längen";
 "Export ROIs as CSV…" = "ROIs als CSV exportieren…";
 "Export CSV…" = "CSV exportieren…";
 "Also save the points of each ROI in a second file" = "Die Punkte jeder ROI zusätzlich in einer zweiten Datei sichern";

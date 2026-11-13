@@ -633,7 +633,7 @@
                                         <binding destination="308" name="value" keyPath="values.EmptyNameForNewROIs" id="420"/>
                                     </connections>
                                 </button>
-                                <button toolTip="تأخذ منطقة الاهتمام الجديدة المرسومة فوق منطقة اهتمام في إحدى الصورتين السابقتين أو اللاحقتين اسمَها، فتصبحان كائنًا واحدًا للحجم وإعادة التسمية والنشر." horizontalCompressionResistancePriority="1000" id="roi-join-overlap-control">
+                                <button toolTip="تأخذ منطقة الاهتمام الجديدة المرسومة فوق منطقة اهتمام في صورة أخرى اسمَ أقرب منطقة منها، فتصبحان كائنًا واحدًا للحجم وإعادة التسمية والنشر." horizontalCompressionResistancePriority="1000" id="roi-join-overlap-control">
                                     <rect key="frame" x="10" y="62" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="ضم مناطق الاهتمام ROI المتداخلة في الصور المتجاورة" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="roi-join-overlap-cell">

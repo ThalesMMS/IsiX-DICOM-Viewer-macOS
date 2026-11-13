@@ -9,16 +9,20 @@ opening kept the size: it read the key before and wrote the value read
 afterwards, always. A size that was only the registered one was then stored as
 the person's, and a size given at the launch was written over the person's.
 
+The value of the work is no longer in a domain of UserDefaults: the pane, an
+observer of the stored key that reads it by name, is not told of it and does
+not see tiling on, so it stores nothing while the study opens.
+
 openPrepared is compiled as it stands, with the real IsiXPreferences
 (TemporaryPreferenceHolds, StoredPreference), TemporaryPreferenceWork.swift,
 PreferenceWorkGuards.swift and HorosObjCException, over preferences of the
 test's own. The size starts stored at 2, stored at 0, only registered, given at
 the launch over a stored one and given at the launch alone; the pane is closed
-or open (it stores 0 when it reads tiling on); the opening returns or raises:
+or open (it stores 0 when it reads tiling on, by name); the opening returns or
+raises:
 
-  * while the study opens, tiling reads on and the size reads what it did
-    before this change: what the pane stored, or the launch's value, or the
-    person's;
+  * while the study opens, tiling reads on through the catalog's key and the
+    size reads what it did before the opening, the pane open or not;
   * afterwards tiling reads as before, and the stored preferences and the
     launch's are as they were, also when the opening raised;
   * with tiling already on, the study opens with nothing held and nothing
@@ -126,13 +130,13 @@ MainActor.assumeIsolated {
                     opener.tiled = {
                         // The Viewers pane, told of tiling: full-screen windows.
                         if paneOpen && controlled.bool(forKey: tiling) { controlled.set(0, forKey: size) }
-                        during = (controlled.bool(forKey: tiling), controlled.integer(forKey: size))
+                        during = (controlled[ViewerPreferences.autoTiling], controlled.integer(forKey: size))
                         if raises { NSException(name: .genericException, reason: "the opening", userInfo: nil).raise() }
                     }
                     let raised = HorosObjCException.caught { opener.openPrepared(DicomStudy(), withProtocol: [:], comparatives: []) }
 
-                    // The pane's 0 is what is stored during; a launch's value comes before whatever is stored.
-                    let sizeDuring = had.given != nil ? had.read : (paneOpen ? 0 : had.read)
+                    // The pane reads what is stored, where tiling is off: it stores no 0.
+                    let sizeDuring = had.read
                     check(during?.tiling == true && during?.size == sizeDuring, "\(what): while the study opens, tiling and the size read \(String(describing: during)), not (true, \(sizeDuring))")
                     check((raised?.reason == "the opening") == raises, "\(what): the exception of the opening \(raises ? "did not reach" : "reached") the caller")
                     check(!controlled.bool(forKey: tiling) && !holds.isHeld(ViewerPreferences.autoTiling), "\(what): afterwards tiling still reads on")

@@ -386,8 +386,6 @@ def write_zip(folder, names, archive, timestamp=None):
 
 def build_with_xcode(configuration, archs, scratch):
     command = ['xcodebuild', '-project', str(ROOT / 'Horos.xcodeproj'), '-target', NAME,
-               '-clonedSourcePackagesDirPath', str(ROOT / 'build/SourcePackages'),
-               '-disableAutomaticPackageResolution', '-onlyUsePackageVersionsFromResolvedFile',
                '-configuration', configuration, f'ARCHS={" ".join(archs)}', 'ONLY_ACTIVE_ARCH=NO',
                f'SYMROOT={scratch}/Products', f'OBJROOT={scratch}/Intermediates', 'CODE_SIGNING_ALLOWED=NO']
     log = Path(scratch) / 'xcodebuild.log'

@@ -115,6 +115,13 @@ public final class ROIArchiveRecord: NSObject {
     /// writer passes its own empty literal, the one its other empty strings
     /// are: the archive then stays byte for byte what it was.
     public var emptyString: NSString = ""
+    /// What ties the label of a ratio to its two Lengths (ROIRatioLink), nil
+    /// for a ROI that has no tie. It is written where OsiriX 6 keeps a study
+    /// UID, in place of the empty string: the readers of this fork's archives
+    /// that do not know it read that value and ignore it, so they still read
+    /// the ROI, and an archive without a tie stays what it was. It is read
+    /// only from this fork's archives, where that value is never a study UID.
+    public var link: NSString?
 
     /// The tool as the ROI keeps it: the stored `float` truncated to a short.
     public var tool: Int16 { Int16(truncatingIfNeeded: Int(type)) }
@@ -234,7 +241,7 @@ public final class ROIArchiveCoder: NSObject {
         }
 
         // OsiriX 6.0 or later: read and ignored.
-        if version >= 12 { _ = reader.string() }                                       // studyInstanceUID
+        let placeholder = version >= 12 ? reader.string() : nil                       // studyInstanceUID
         if version >= 13 && record.tool == ovalAngleTool { _ = reader.number(); _ = reader.number() }
         if version >= 14 { _ = reader.number() }                                       // rotation
         if version >= 15 { _ = reader.number() }                                       // z location
@@ -243,6 +250,8 @@ public final class ROIArchiveCoder: NSObject {
         if version >= 16 {
             record.textNameOnly = reader.number()?.boolValue ?? false
             record.hidden = reader.number()?.boolValue ?? false
+            // Where version 12 has a study UID, this fork writes a ROI's tie to a ratio.
+            if let placeholder, placeholder.length > 0 { record.link = placeholder }
         }
 
         guard reader.valid else {
@@ -353,7 +362,12 @@ public final class ROIArchiveCoder: NSObject {
 
         // Versions 12 to 15 are OsiriX 6's, which the reader reads and ignores:
         // placeholders, so that what follows is read at its place.
-        coder.encode(record.emptyString)
+        // The first of them holds a ROI's tie to a ratio, when it has one.
+        if let link = record.link, link.length > 0 {
+            coder.encode(link)
+        } else {
+            coder.encode(record.emptyString)
+        }
         if record.tool == ovalAngleTool {
             coder.encode(NSNumber(value: 0.0))
             coder.encode(NSNumber(value: 0.0))

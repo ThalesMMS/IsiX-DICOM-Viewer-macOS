@@ -45,9 +45,23 @@ extension PreferenceStore where Self == UserDefaults {
 
 extension PreferenceStore {
     /// The value of `key`, converted as the UserDefaults accessor of its type
-    /// converts what is stored: absent is false, 0 or nil.
+    /// converts what is stored: absent is false, 0 or nil. While some work
+    /// gives the key a value of its own (TemporaryPreference), that value.
     public subscript<Value>(key: PreferenceKey<Value>) -> Value {
-        Value.reading(object(forKey: key.name))
+        Value.reading(object(for: key))
+    }
+
+    /// The property list the readers of `key` are given: the value of work in
+    /// course (TemporaryPreference) when the store is a UserDefaults, else
+    /// what the store holds under the key's name; nil when neither.
+    ///
+    /// `object(forKey:)` of UserDefaults itself answers what is stored,
+    /// whatever work is in course: that is what a binding of a nib and a
+    /// key-value observer read.
+    public func object<Value>(for key: PreferenceKey<Value>) -> Any? {
+        // The table first: it answers nil at once while no work gives a key a value.
+        if let given = TemporaryPreferenceValues.process.value(given: key.name), self is UserDefaults { return given }
+        return object(forKey: key.name)
     }
 
     /// Stores `value` under `key`, in the form the preference panes and their

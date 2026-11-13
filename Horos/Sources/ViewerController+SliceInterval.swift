@@ -220,7 +220,7 @@ public extension ViewerController {
     }
 
     /// Reverses every movie frame: its volume buffer, the order of its slices,
-    /// files and ROIs (the lists the viewer's ROI storage keeps, by slice),
+    /// files, ROIs and ROIs as read (the lists the viewer's ROI storage keeps, by slice),
     /// and gives the slices `sliceInterval`.
     private func reverseSeries(sliceInterval interval: Double) {
         for x in 0..<horos_movieCount {
@@ -235,8 +235,8 @@ public extension ViewerController {
                 pix?.sliceInterval = interval
             }
 
-            // The three lists have a slice each: reversed over the slices' count.
-            for list in [pixList, horos_fileList(at: x), horos_roiList(at: x)] {
+            // The lists with a slice each, reversed together: a save compares a slice's ROIs with those read for it.
+            for list in [pixList, horos_fileList(at: x), horos_roiList(at: x), horos_copyRoiList(at: x)] {
                 guard let list else { continue }
                 for i in 0..<min(count, list.count) / 2 {
                     list.exchangeObject(at: i, withObjectAt: list.count - i - 1)

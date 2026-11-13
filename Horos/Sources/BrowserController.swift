@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXPreferences
 
 /// The database window: its lists, the thumbnails and the preview, and the
 /// database it shows.
@@ -314,7 +315,7 @@ public class BrowserController: NSWindowController, NSMatrixDelegate, NSMenuDele
         if defaults.integer(forKey: "LISTENERCHECKINTERVAL") < 1 {
             defaults.set(1, forKey: "LISTENERCHECKINTERVAL")
         }
-        if !defaults.bool(forKey: "hideListenerError") {
+        if !defaults[NetworkPreferences.hidesListenerErrors] {
             windowState.refreshTimer = Timer.scheduledTimer(timeInterval: 5 * 60, target: self, selector: #selector(refreshDatabase(_:)),
                                                             userInfo: self, repeats: true)
         }

@@ -82,8 +82,8 @@ final class ImageView {
     func setIndex(_ index: Int) {}
     func sendSyncMessage(_ message: Int) {}
     func nsimage(_ original: Bool) -> NSImage? {
-        seenCropping.append(UserDefaults.standard.bool(forKey: "allowSmartCropping"))
-        seenFont.append(UserDefaults.standard.float(forKey: "FONTSIZE"))
+        seenCropping.append(UserDefaults.standard[ViewerPreferences.allowSmartCropping])
+        seenFont.append(UserDefaults.standard[ViewerPreferences.fontSize])
         return NSImage(size: NSMakeSize(8, 8))
     }
 }
@@ -111,7 +111,7 @@ enum AppController {
     static func usefullRect(for screen: Screen?) -> NSRect { screen?.visibleFrame ?? NSZeroRect }
     static func resizeWindow(withAnimation window: Window?, newSize: NSRect) {
         // The window's resizing asks whether the image is to fill it.
-        seenScaleToFit.append(UserDefaults.standard.bool(forKey: "AlwaysScaleToFit"))
+        seenScaleToFit.append(UserDefaults.standard[ViewerPreferences.alwaysScaleToFit])
         window?.frame = newSize
     }
 }
@@ -186,7 +186,7 @@ method_exchangeImplementations(class_getClassMethod(UserDefaults.self, NSSelecto
 check(UserDefaults.standard === controlled, "the controlled defaults stand for the application's")
 
 let told = NotificationCenter.default.addObserver(forName: .OsirixGLFontChange, object: nil, queue: nil) { _ in
-    toldFont.append(UserDefaults.standard.float(forKey: "FONTSIZE"))
+    toldFont.append(UserDefaults.standard[ViewerPreferences.fontSize])
 }
 let keys = ["allowSmartCropping", "FONTSIZE", "AlwaysScaleToFit"]
 func stored() -> NSDictionary { (controlled.persistentDomain(forName: suite) ?? [:]) as NSDictionary }
